@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { layOutMonthList } from './helpers/month-geometry';
 import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
@@ -248,7 +249,7 @@ describe('a mounted card', () => {
     };
   };
 
-  it.each(['list', 'column', 'grid'] as const)(
+  it.each(['list', 'column', 'grid', 'month'] as const)(
     'does not render for 20 changes elsewhere in the house, in %s view',
     async (view) => {
       const { card, render } = await counted(view);
@@ -262,7 +263,7 @@ describe('a mounted card', () => {
     },
   );
 
-  it.each(['list', 'column', 'grid'] as const)(
+  it.each(['list', 'column', 'grid', 'month'] as const)(
     'renders for each of 20 changes of its own calendar, in %s view (control)',
     async (view) => {
       const { card, render } = await counted(view);
@@ -385,7 +386,7 @@ describe('a mounted card', () => {
  * (`Object.keys`, `in`, `for…in`) is recorded as `*`, because no list of entity ids could then
  * say which state changes matter.
  */
-async function recordReads(config: Record<string, unknown>, forecast = false) {
+async function recordReads(config: Record<string, unknown>, forecast = false, width?: number) {
   const keys = new Set<string>();
   const ids = new Set<string>();
   const states = new Proxy(houseStates(), {
@@ -410,6 +411,12 @@ async function recordReads(config: Record<string, unknown>, forecast = false) {
   });
 
   const card = await mount(config, hass);
+  if (width !== undefined) {
+    // The width a resize observer would report, for a month's compact form.
+    (card as unknown as { _syncMonthForm(width: number): boolean })._syncMonthForm(width);
+    card.requestUpdate();
+    await card.updateComplete;
+  }
   if (forecast) {
     card.weatherForecasts = {
       daily: {
@@ -453,6 +460,7 @@ describe('reconciliation: the rule watches everything the card reads', () => {
     ['list, every feature', { ...FEATURES, view: 'list' }, ['calendar.ben', 'person.anna']],
     ['column, every feature', { ...FEATURES, view: 'column' }, ['person.anna', 'weather.home']],
     ['grid, every feature', { ...FEATURES, view: 'grid' }, ['calendar.anna', 'weather.home']],
+    ['month, every feature', { ...FEATURES, view: 'month' }, ['calendar.anna', 'person.anna']],
     ['compact list', { ...FEATURES, view: 'list', compact_events_to_show: 2 }, ['person.anna']],
     [
       'grid without a now line',
@@ -543,6 +551,31 @@ describe('reconciliation: the rule watches everything the card reads', () => {
     expect([...ids].filter((id) => !watched.has(id))).toEqual([]);
     // Every top-level key read is an own key of hass, which the rule compares by identity.
     expect([...keys].filter((key) => !Object.keys(hass).includes(key))).toEqual([]);
+  });
+
+  it('compact month, every feature: its days and the selected day’s list', async () => {
+    // Laid out, so the list draws its rows, which nothing here would otherwise fit to its room.
+    const unlayOut = layOutMonthList({ room: 1000 });
+    try {
+      const { card, keys, ids, hass } = await recordReads(
+        { ...FEATURES, view: 'month' },
+        true,
+        375,
+      );
+      expect(card.shadowRoot!.querySelector('.month-compact')).not.toBeNull();
+      expect(card.shadowRoot!.querySelectorAll('.month-day-list td.event').length).toBeGreaterThan(
+        0,
+      );
+      const watched = watchedEntityIds((card as unknown as { config: Types.Config }).config, hass);
+
+      expect(keys.has('locale')).toBe(true);
+      expect(['calendar.anna', 'person.anna'].filter((id) => !ids.has(id))).toEqual([]);
+      expect(ids.has('*')).toBe(false);
+      expect([...ids].filter((id) => !watched.has(id))).toEqual([]);
+      expect([...keys].filter((key) => !Object.keys(hass).includes(key))).toEqual([]);
+    } finally {
+      unlayOut();
+    }
   });
 
   it('would notice a read the rule does not watch (self-test of the recorder)', async () => {

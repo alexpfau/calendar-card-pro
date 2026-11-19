@@ -200,6 +200,12 @@ export const TIMING = {
   SEARCH_RING: 2000,
 
   /**
+   * How long the wheel rests before what it scrolled short of a month's next week is let go, so a
+   * notch of a wheel that reports a little more than a step never adds up to a week of its own.
+   */
+  WEEK_SCROLL_WHEEL_RESET: 200,
+
+  /**
    * How long the reset button takes to fade out after its check, still showing the check. The
    * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
    */
@@ -287,12 +293,26 @@ export const UI = {
   /**
    * Card width, in CSS pixels, from which the view switcher names its views in words rather than
    * pictograms, with no command beside it in the action row. "List", "Columns" and "Grid" need a
-   * card of 242px; German needs 274px, Italian 300px and Lithuanian 330px. Measured in English,
-   * so the switcher shows its words wherever they fit there: a language whose words do not fit
-   * draws them once, finds the row overflowing and keeps the pictograms until the card is wider
+   * card of 242px, and the switcher showed them in words from 248px; German needs 274px, Italian
+   * 300px and Lithuanian 330px. Month adds its segment, its word and the segment's padding, 69px
+   * in English (`TOOLBAR_SWITCHER_WORD_WIDTH`, `TOOLBAR_SWITCHER_SEGMENT_PADDING`), so all four
+   * take 248px and that, and need 311px; German 343px, Italian 363px and Lithuanian 401px.
+   * Measured in Roboto at the segment's 14px medium, from the switcher's padding, its segments' and
+   * the row's inset and gaps, which `stylesheet.test.ts` reconciles. Measured in English, so the
+   * switcher shows its words wherever they fit there: a language whose words do not fit draws them
+   * once, finds the row overflowing and keeps the pictograms until the card is wider
    * (`_syncToolbarLabelFit`), all before anything is painted.
    */
-  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 248,
+  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 317,
+
+  /**
+   * Each view's word in English, in CSS pixels at the segment's font, rounded up, and the padding
+   * on either side of a segment drawn as words, the stylesheet's. A switcher offering fewer views
+   * shows its words from a narrower card by the segments it leaves out
+   * (`utils/toolbar-fold.ts` › `switcherLabelWidth`).
+   */
+  TOOLBAR_SWITCHER_WORD_WIDTH: { list: 23, column: 56, grid: 26, month: 41 },
+  TOOLBAR_SWITCHER_SEGMENT_PADDING: 14,
 
   /**
    * The width of each command in the action row, the folded filter, add, reset or refresh, all
@@ -314,13 +334,67 @@ export const UI = {
    * How far the action row's content stands in from the card's own edges, both sides together,
    * in each view: Home Assistant's 1px card border on either side, the card's inline padding, and
    * the row's own start padding, which stands for the title's margin. List pads the card 8px at
-   * its start and 16px at its end, and the row 8px more; column and grid pad the card 16px on
-   * both sides and drop the row's. The three come to the same width because each lines the
-   * toolbar up with the days, and are kept apart so a view that changes its padding changes one
-   * entry. A theme with another border width moves the row by the difference, which the card
+   * its start and 16px at its end, and the row 8px more; column, grid and month pad the card
+   * 16px on both sides and drop the row's. The four come to the same width because each lines
+   * the toolbar up with the days, and are kept apart so a view that changes its padding changes
+   * one entry. A theme with another border width moves the row by the difference, which the card
    * notices once it has drawn the row (`_syncStartFoldFit`).
    */
-  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34 },
+  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34, month: 34 },
+
+  /**
+   * The gutter a compact month keeps before its first day for the week numbers, in CSS pixels,
+   * the stylesheet's (`--calendar-card-month-week-gutter`), which `stylesheet.test.ts`
+   * reconciles. A wide month sets its numbers in the first day's corner and keeps none.
+   */
+  MONTH_WEEK_GUTTER: 22,
+
+  /**
+   * How much wider than `month → min_day_width` a compact month's days must grow, in CSS pixels,
+   * before it draws its wide form again (`MonthDay.monthCompactAt`). The card's width is the
+   * dashboard's, but a compact month is far shorter than a wide one, and the page's scroll bar
+   * coming or going with that height takes up to about 17px of the card's width, under 3px of a
+   * day's. Four keeps a card resting at the threshold from switching back and forth.
+   */
+  MONTH_COMPACT_HYSTERESIS: 4,
+
+  /** How many events a compact month day's capsule draws a segment for, at most. */
+  MONTH_COMPACT_MARKS: 4,
+
+  /**
+   * A month card's height where nothing sets one (`month → card_height: auto`), the whole card's
+   * border box, its title and toolbar included, in each form. The wide form's holds four lines
+   * under each date at the default text sizes on a card without a title or toolbar, as measured
+   * in Chromium (`MonthRender.monthCardStyle`).
+   */
+  MONTH_CARD_HEIGHT: { wide: '44rem', compact: '36rem' },
+
+  /**
+   * The rows a month asks a Sections dashboard for while none of its four height keys sets a
+   * height or a maximum (`Sections.cardGridOptions`): 632px at Home Assistant's default 56px row
+   * and 8px gap.
+   */
+  MONTH_SECTIONS_ROWS: 10,
+
+  /**
+   * How far the wheel or a trackpad scrolls, in CSS pixels, for a month to step one week while
+   * `week_scroll` applies (`_wheelWeeks`): one notch of a mouse wheel, which Chromium and Safari
+   * report as 100px, so a notch is a week and a trackpad steps a week every 100px of its glide.
+   */
+  WEEK_SCROLL_WHEEL_STEP: 100,
+
+  /**
+   * How many CSS pixels a wheel line is counted as, for a browser that reports the wheel in lines,
+   * as Firefox does three to a notch: a third of a step, so a notch steps one week there too.
+   */
+  WEEK_SCROLL_WHEEL_LINE: 100 / 3,
+
+  /**
+   * How far a finger travels up or down a month for it to step one week while `week_scroll`
+   * applies, where the card has not measured its rows: about a week's height at the default card
+   * height. Measured, a week is a row's own height, so the weeks keep pace with the finger.
+   */
+  WEEK_SCROLL_TOUCH_STEP: 112,
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

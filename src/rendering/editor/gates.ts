@@ -25,6 +25,7 @@ import { humanize, lookup } from './localize';
 import { LEGEND_OFF } from './normalize';
 import * as Routing from './routing';
 import { interpolate } from './strings';
+import { WEATHER_ENTITY } from './weather-fields';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -185,7 +186,7 @@ function asAction(value: unknown): Types.ActionConfig | undefined {
 const W = 'weather:weather.';
 
 const HAS_WEATHER = phrased(
-  filled(`${W}entity`, 'weather.home'),
+  filled(WEATHER_ENTITY, 'weather.home'),
   undefined,
   'gate.when.weather_entity',
 );
@@ -375,6 +376,12 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [on('card:toolbar.show')],
     kind: 'gate',
   },
+  // Which layouts the switcher offers, only while the toolbar draws one.
+  switcher_layouts: {
+    fields: ['card:toolbar.view_switcher_layouts'],
+    requires: [on('card:toolbar.show'), on('card:toolbar.view_switcher')],
+    kind: 'gate',
+  },
   forecast: {
     fields: [`${W}position`],
     requires: [HAS_WEATHER],
@@ -452,6 +459,11 @@ export const GATES: Readonly<Record<string, Gate>> = {
     fields: ['layout:card_max_height'],
     requires: [oneOf('layout:height_mode', 'maximum')],
     kind: 'mode-value',
+  },
+  week_scroll: {
+    fields: ['layout:month.week_scroll_min_width'],
+    requires: [on('layout:month.week_scroll')],
+    kind: 'gate',
   },
   accent: {
     fields: ['events:accent_color'],
@@ -557,6 +569,7 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     needsKey: 'gate.needs.calendar_filter',
     whenKey: 'gate.when.calendar_filter',
   },
+  // Read in the scope the calendar's page is open in: the layout's own forecast beside events.
   show_weather: {
     fields: ['calendar:show_weather'],
     requires: [HAS_WEATHER, BY_EVENT],

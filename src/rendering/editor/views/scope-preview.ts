@@ -1,5 +1,5 @@
 /**
- * The preview switch on Settings For: the card in Home Assistant's dialog drawn in the layout being
+ * The preview follows Settings For: the card in Home Assistant's dialog drawn in the layout being
  * edited, without writing `view`.
  *
  * Nothing is sent to Home Assistant, so nothing a Save could keep changes. The editor hands the
@@ -9,7 +9,8 @@
  * preview mode and configures it before putting it in place, and on a sections dashboard it builds
  * the element around the card anew as well. So this watches every shadow root from the card up to
  * the one it shares with the editor, Home Assistant's dialog, each with its whole subtree, and
- * configures whatever card it finds after a change there. Turned off, it hands the card the configuration as written, unless Home Assistant has
+ * configures whatever card it finds after a change there. Once the card is to show the layout it
+ * opens in again, it hands the card the configuration as written, unless Home Assistant has
  * already replaced it.
  *
  * The card itself is unchanged: on a dashboard nothing calls it this way, so it costs the card
@@ -21,7 +22,7 @@ import type * as Types from '../../../config/types';
 /** A card that takes a configuration. */
 type ConfigurableCard = HTMLElement & { setConfig?: (config: unknown) => void };
 
-/** What the preview should show while the switch is on. */
+/** What the preview should show other than the card as written. */
 export interface ScopePreviewWant {
   /** The layout to draw. */
   readonly view: Types.EffectiveView;
@@ -29,7 +30,7 @@ export interface ScopePreviewWant {
   readonly config: Readonly<Record<string, unknown>>;
 }
 
-/** Keeps the preview's card in the layout asked for while the switch is on. */
+/** Keeps the preview's card in the layout asked for. */
 export class ScopePreview {
   private _want?: ScopePreviewWant;
   /** The card last configured, and with what, so a render that changes nothing does nothing. */

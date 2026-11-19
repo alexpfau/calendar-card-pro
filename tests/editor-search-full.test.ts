@@ -306,6 +306,24 @@ describe('what a result says it is', () => {
     localStorage.removeItem(PREFS_KEY);
   });
 
+  it('a layout’s own weather by the path it is written at in that layout', async () => {
+    const editor = await mount({
+      ...LIST,
+      weather_entity: 'weather.home',
+      time_grid: { weather: { position: 'date' } },
+    });
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await searchFor(editor, 'time_grid.weather.position');
+    expect(row(editor, 'weather:weather.position')).toBeDefined();
+    await searchFor(editor, '');
+    await togglePref(editor, 'yaml');
+    await searchFor(editor, 'show the forecast');
+    expect(row(editor, 'weather:weather.position').meta).toContain(
+      'YAML: time_grid.weather.position',
+    );
+    localStorage.removeItem(PREFS_KEY);
+  });
+
   it('a setting waiting in an Add row: one action, the row itself, with nothing beside it', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'time font size');
@@ -334,7 +352,8 @@ describe('what a result says it is', () => {
 
     const grid = await mount({ ...LIST, view: 'grid' });
     await searchFor(grid, 'all-day badge');
-    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List and Columns');
+    // Month's day list draws the badge as List does.
+    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List, Columns, and Month');
   });
 
   it('a page, by its title', async () => {
@@ -579,6 +598,30 @@ describe('Edit Here', () => {
     expect(resultRows(editor)).toHaveLength(1);
   });
 
+  // One option, two controls: found, Calendar Filter is drawn as its page draws it, the chip and
+  // under it, while pressed, its form.
+  it('draws Calendar Filter as its chip and, while pressed, the line with its form', async () => {
+    const editor = await mount({ ...LIST, toolbar: { show: true, legend: 'chips' } });
+    await searchFor(editor, 'calendar filter');
+    await toggle(editor);
+    expect(controls(editor)).toEqual(['card:toolbar.legend']);
+    const form = (value: string) =>
+      $(
+        editor,
+        `.result--edit .qualifier input[type="radio"][value="${value}"]`,
+      ) as HTMLInputElement | null;
+    expect(form('chips')?.checked).toBe(true);
+    form('menu')!.checked = true;
+    form('menu')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)).toMatchObject({ toolbar: { show: true } });
+    expect(lastConfig(editor)!.toolbar).not.toHaveProperty('legend');
+    $(editor, '.result--edit button.chip[data-field="card:toolbar.legend"]')!.click();
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.toolbar).toEqual({ show: true, legend: false });
+    expect(form('menu')).toBeNull();
+  });
+
   it('writes from a control what its page writes', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'refresh interval');
@@ -714,9 +757,10 @@ describe('the review’s findings', () => {
       'calendar:split_multiday_events',
       'Only in List and Columns',
     ]);
+    // Month draws a long timed event as a bar, as Grid does.
     expect(one('list', 'list', 'banners')).toContainEqual([
       'calendar:multiday_banners',
-      'Only in Grid',
+      'Only in Grid and Month',
     ]);
   });
 

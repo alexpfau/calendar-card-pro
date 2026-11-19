@@ -1878,7 +1878,7 @@ Everything except `element.ts`, `styles.ts` and `views/` is free of Lit and of t
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
 `views/` holds the overview's and pages' templates and the DOM helpers behind focus, scrolling
-and Escape; what they decide (where Back goes, what Escape does, whether Settings For is compact,
+and Escape; what they decide (where Back goes, what Escape does, what each scope stores,
 a section row's summary) lives in DOM-free modules beside the schemas (`navigation.ts`,
 `announce.ts`, `summary.ts`, `workspace.ts`) and is tested there, so a template stays a template.
 
@@ -1921,8 +1921,8 @@ Five things are easy to get wrong:
 
 **Some fields are drawn as the editor's own controls rather than forms**, by their appearance in
 the page registry: the event parts and the toolbar's built-in controls as toggle chips
-(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Calendar Filter's segments and
-Start Date's chips as radio groups with no head row (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
+(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Start Date's chips as a radio
+group with no head row (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
 `data-field` with its field's id, so Undo and a search's jump find it as they find a form; a jump
 to a chip focuses that chip, not its group. A chip's name carries its state words, and the line
 under the chips holds one Reset for the parts stored in the scope, after Chosen Here.
@@ -1935,18 +1935,49 @@ composed control, with a form standing in that holds the field's own schema: `ch
 a chip where it is not already as asked (true or false only) or picks a radio, and `valueOf`,
 `labelOf` and `formOf` read it as they read a form.
 
+**A pressed toolbar control with a choice has a qualifier line under the chips**
+(`views/chips.ts` › `qualifier`), drawn alike for each and unlike the chips: native radios or
+checkboxes under a legend, in the chips' order, and none while the control is not pressed. Two
+exist, and they are one option each, never two:
+
+- **Calendar Filter** (`toolbar.legend`) is a toolbar chip whose value is a form, `menu` or
+  `chips`, or `false`. Pressed on, it writes the form last named in the editing session, by the
+  YAML the editor adopts or in its line, else `menu` (`chips.ts` › `pressValue`, `_legendForm`,
+  set in `_adopt`); its line, **Calendar Filter
+  shows**, writes the form. The chip carries `data-field` and its line carries none, so
+  `[data-field]` still finds one element. Drawn alone, as What This Card Changes' Edit and a
+  result's Edit Here mount it, it is the chip and, while pressed, its line
+  (`_renderLegendAlone`). The harness's `changeField` takes `off`, `menu` or `chips`, pressing
+  the chip and then picking in the line.
+- **View Switcher offers** is Layouts in Switcher (`toolbar.view_switcher_layouts`), placed with
+  the appearance `{ qualifies: 'card:toolbar.view_switcher' }`: no head row, no gate line while
+  its chip is off, its facts and Reset the Controls' own. It is a checkbox per layout
+  (`chips.ts` › `layoutChips`, `data-composed="layouts"` and `data-field` on the line, each box's
+  layout in `data-value`). A check writes the whole list through `_writeFieldValue`. Two boxes can
+  be kept checked, `aria-disabled` but focusable, a click on them changing nothing, with the
+  reason after the name and in it: the starting layout's, and the last other one's, so the editor
+  never writes a list offering one layout, and never turns the switcher off, which is the View
+  Switcher chip's alone. Starting Layout keeps to the same rule: a change that would leave the
+  stored list offering one layout writes the list too, in the same step, adding the layout it
+  leaves (`chips.ts` › `layoutsKeptOnStart`). A list written by hand can still offer the starting
+  layout alone; then a line under the checkboxes says no switcher is drawn, and the line's
+  `aria-describedby` names it (`switcherAlone`). `changeField` asks for the whole list and clicks
+  each box that differs, drawing between clicks.
+
 ### Pick From Preview reads the card's class names
 
 Pick From Preview (`pick.ts`, `views/pick.ts`) maps the card's own class names to the page and
-heading each part opens, so those class names are a contract with the editor. It lives in the
-editor alone: it finds the card in Home Assistant's dialog by the card's tag, with `preview` set,
-in the shadow root holding the editor's host or one shadow root below it (a sections dashboard
-previews the card inside a section), and only while a pick is on adds a style, an outline and
-capture-phase listeners to the card's shadow root. The card ships no byte of it. A dashboard's own
-cards also run with `preview` set while it is edited, so the search must never reach further.
+heading each part opens, and where a part is one setting, as the view switcher is Layouts in
+Switcher, to that setting (`PickTarget.field`), so those class names are a contract with the
+editor. It lives in the editor alone: it finds the card in Home Assistant's dialog by the card's
+tag, with `preview` set, in the shadow root holding the editor's host or one shadow root below it
+(a sections dashboard previews the card inside a section), and only while a pick is on adds a
+style, an outline and capture-phase listeners to the card's shadow root. The card ships no byte
+of it. A dashboard's own cards also run with `preview` set while it is edited, so the search must
+never reach further.
 
-`tests/editor-pick-map.test.ts` renders the card in all three layouts and fails on a selector that
-matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
+`tests/editor-pick-map.test.ts` renders the card in every layout, Month wide and compact, and fails
+on a selector that matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
 part takes in from inside it, which is pinned by value. So a markup change that renames or adds a
 part fails there: map the new class in `PICK_PARTS`, specific before the part that holds it, and
 read the pinned table's diff rather than copying it over.
@@ -2324,7 +2355,7 @@ nowhere near the backtick. Write property names bare in CSS comments.
   [`architecture-rendering.md`](./docs/architecture-rendering.md) (rendering and views),
   [`architecture-interaction.md`](./docs/architecture-interaction.md) (gestures, actions and
   event writes) and [`architecture-toolbar.md`](./docs/architecture-toolbar.md) (toolbar and
-  navigation). Read before making structural changes. The overview's _Three Views, One
+  navigation). Read before making structural changes. The overview's _Four Views, One
   Agenda_ and _Two Files, One Card_ sections are the current description of the view split
   and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,

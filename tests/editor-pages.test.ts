@@ -44,18 +44,6 @@ function $(editor: MountedEditor, selector: string): HTMLElement | null {
 }
 
 /**
- * Whether Settings For is drawn as its compact line.
- *
- * @param editor - Editor element
- * @returns True for the line, false for the four choices
- */
-function compact(editor: MountedEditor): boolean {
-  if ($(editor, '.scope-compact') !== null) return true;
-  if ($(editor, 'fieldset.scope') !== null) return false;
-  throw new Error('The editor draws no Settings For');
-}
-
-/**
  * Clicks a control the editor draws, then waits for what it opens.
  *
  * @param editor - Editor element
@@ -100,15 +88,16 @@ async function escape(
 }
 
 describe('the overview', () => {
-  it('draws its blocks in order, and no Settings For', async () => {
+  it('draws its blocks in order: Calendars, Whole Card, Layouts, More', async () => {
     const editor = await mountEditor(CARD);
-    // Nothing on the overview is edited for a scope: Settings For is the pages'.
-    expect($(editor, '.scope')).toBeNull();
     const blocks = [
       'section[data-heading="calendars"]',
-      'section[data-heading="starting_layout"] > h3',
-      'section[data-heading="starting_layout"] fieldset.displays',
+      '.row-group > h3',
       '.row-group [data-focus="nav:card_header"]',
+      '.row-group [data-focus="nav:shared"]',
+      'section[data-heading="starting_layout"] > h3',
+      'section[data-heading="starting_layout"] fieldset.layouts',
+      'section[data-heading="starting_layout"] [data-focus="layout:shared"]',
       '[data-quick-setup-open]',
     ].map((selector) => {
       const found = $(editor, selector);
@@ -173,12 +162,18 @@ describe('a search by a page’s title', () => {
       const editor = await mountEditor(CARD);
       await changeField(editor, 'workspace:editing_workspace', scope);
       await goOverview(editor);
-      const rows = [
-        ...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]'),
-      ].map((row) => ({
-        page: row.dataset.focus!.slice('nav:'.length),
-        title: row.querySelector('.nav-title')!.textContent!.trim(),
-      }));
+      // Whole Card's rows on the overview, then the topics a layout's page lists.
+      const read = () =>
+        [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]')]
+          .map((row) => ({
+            page: row.dataset.focus!.slice('nav:'.length),
+            title: row.querySelector('.nav-title')!.textContent!.trim(),
+          }))
+          .filter((row) => row.page !== 'shared');
+      const rows = read();
+      await click(editor, '[data-focus="layout:list"]');
+      rows.push(...read());
+      await goOverview(editor);
       expect(rows.length).toBeGreaterThan(5);
       const missed: string[] = [];
       for (const { page, title } of rows) {
@@ -199,90 +194,45 @@ describe('a search by a page’s title', () => {
   );
 });
 
-describe('Settings For', () => {
-  it('stays compact after a List card’s edit lands in list:', async () => {
-    const editor = await mountEditor({ ...CARD, view: 'list' });
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(true);
-
-    await changeField(editor, 'events:event_font_size', '20px');
-    const written = lastConfig(editor)!;
-    expect(written.list).toMatchObject({ event_font_size: '20px' });
-    await goPage(editor, 'day_header');
-    expect(compact(editor)).toBe(true);
-  });
-
-  it('is full when column: stores a value', async () => {
-    const editor = await mountEditor({ ...CARD, column: { event_font_size: '13px' } });
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(false);
-  });
-
-  it('is full while the toolbar shows its View Switcher', async () => {
-    const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(false);
-  });
-
-  it('is full after Change, for the rest of the session', async () => {
-    const editor = await mountEditor(CARD);
-    await goPage(editor, 'events');
-    expect(compact(editor)).toBe(true);
-    await click(editor, '[data-focus="scope-change"]');
-    expect(compact(editor)).toBe(false);
-
-    // Choosing the scope it already had, moving about and editing: it stays full.
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
-    await changeField(editor, 'card:title', 'Home');
-    await goPage(editor, 'day_header');
-    expect(compact(editor)).toBe(false);
-  });
-
-  it('is chosen on a page and kept on the overview and the next page', async () => {
-    const editor = await mountEditor({ ...CARD, view: 'list' });
-    await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'column');
-    await goOverview(editor);
-    expect($(editor, '.scope')).toBeNull();
-    await goPage(editor, 'day_header');
-    expect(
-      editor.shadowRoot!.querySelector<HTMLInputElement>('input[name="scope"]:checked')?.value,
-    ).toBe('column');
-  });
-});
-
-describe('the Grid page’s row', () => {
-  it('is listed while the card shows Grid, and opening it makes Grid the scope', async () => {
+describe('a layout’s own settings', () => {
+  it('are a page per layout, each listing the same topics', async () => {
     const editor = await mountEditor({ ...CARD, view: 'grid' });
-    await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    const listed = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.layout-page .nav-row')].map(
+        (row) => row.dataset.focus,
+      );
+    await click(editor, '[data-focus="layout:grid"]');
+    const grid = listed();
+    expect(grid).toEqual([
+      'nav:which_events',
+      'nav:day_header',
+      'nav:events',
+      'nav:size_spacing',
+      'nav:weather',
+    ]);
     await goOverview(editor);
-    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
-    await click(editor, '[data-focus="nav:grid"]');
-    expect($(editor, '.page[data-page="grid"]')).not.toBeNull();
-    expect((editor as unknown as { _workspace: string })._workspace).toBe('grid');
+    await click(editor, '[data-focus="layout:month"]');
+    expect(listed()).toEqual(grid);
   });
 
-  it('is summarized in Grid while another scope is chosen', async () => {
-    const summary = (editor: MountedEditor): string =>
-      ($(editor, '[data-focus="nav:grid"] .nav-summary')?.textContent ?? '').trim();
-    const editor = await mountEditor({ ...CARD, view: 'grid', time_grid: { start_time: '06:00' } });
-    const own = summary(editor);
-    expect(own).toBe('First Hour: 06:00 · Last Hour: 22:00 · Set: 1');
-
-    await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'list');
-    await goOverview(editor);
-    expect(summary(editor)).toBe(own);
-  });
-
-  it('is listed on a List card only once Grid is the scope', async () => {
-    const editor = await mountEditor({ ...CARD, view: 'list' });
-    expect($(editor, '[data-focus="nav:grid"]')).toBeNull();
-    await goPage(editor, 'events');
+  it('are drawn on their topic’s page in their layout’s scope, and only there', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'month',
+      time_grid: { start_time: '06:00' },
+    });
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).toBeNull();
     await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).not.toBeNull();
+    expect($(editor, '[data-field="layout:time_grid.start_time"]')).not.toBeNull();
+    // Grid's page summarizes the topic in Grid, the hours' stored value counted.
     await goOverview(editor);
-    expect($(editor, '[data-focus="nav:grid"]')).not.toBeNull();
+    await click(editor, '[data-focus="layout:grid"]');
+    expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toMatch(
+      /Set: 1$/,
+    );
   });
 });
 
@@ -332,58 +282,25 @@ describe('the Escape guard', () => {
     expect($(editor, 'h2.page-title')).toBeNull();
   });
 
-  it('closes an open Settings For first, then goes Back', async () => {
+  it('goes Back from a layout’s topic to the layout’s page, then to the overview', async () => {
     const editor = await mountEditor(CARD);
-    await openPageOf(editor, 'events:event_font_size');
-    await click(editor, '[data-focus="scope-change"]');
-    expect(compact(editor)).toBe(false);
-
+    await goPage(editor, 'events');
     expect(await escape(editor, $(editor, 'h2.page-title')!)).toEqual({
       prevented: true,
       reachedHost: false,
     });
-    expect(compact(editor)).toBe(true);
-    expect($(editor, 'h2.page-title')).not.toBeNull();
-
+    expect($(editor, '.page[data-layout]')).not.toBeNull();
     await escape(editor, $(editor, 'h2.page-title')!);
     expect($(editor, 'h2.page-title')).toBeNull();
-  });
-
-  // Settings For is drawn on a scope's pages only, so one left open is no disclosure elsewhere.
-  it.each([
-    [
-      'Back',
-      async (editor: MountedEditor) => {
-        await click(editor, '[data-focus="back-foot"]');
-      },
-    ],
-    [
-      'the scope it already has, then Back',
-      async (editor: MountedEditor) => {
-        await changeField(editor, 'workspace:editing_workspace', 'list');
-        await click(editor, '[data-focus="back-foot"]');
-      },
-    ],
-  ])('lets the key through on the overview after Change and %s', async (_, leave) => {
-    const editor = await mountEditor(CARD);
-    await goPage(editor, 'events');
-    await click(editor, '[data-focus="scope-change"]');
-    await leave(editor);
-    expect($(editor, 'h2.page-title')).toBeNull();
-
     expect(await escape(editor, $(editor, '[data-focus="nav:card_header"]')!)).toEqual({
       prevented: false,
       reachedHost: true,
     });
-    // Still full on the next page, as after Change for the rest of the session.
-    await goPage(editor, 'day_header');
-    expect(compact(editor)).toBe(false);
   });
 
-  it('clears the query, then goes Back, after Change and Search Settings', async () => {
+  it('clears the query, then goes Back, after Search Settings', async () => {
     const editor = await mountEditor(CARD);
     await goPage(editor, 'events');
-    await click(editor, '[data-focus="scope-change"]');
     await click(editor, '.page-head [data-focus="search-open"]');
     expect($(editor, 'h2.page-title')).toBeNull();
     await changeField(editor, 'filter:search', 'color');

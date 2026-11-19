@@ -272,6 +272,8 @@ const CONFIGS: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     },
   ],
   ['Grid', { view: 'grid', entities: ['calendar.anna', 'calendar.ben'] }],
+  // Month's own page fields and its scope, opened as the card shows it.
+  ['Month', { view: 'month', entities: ['calendar.anna', 'calendar.ben'] }],
 ];
 
 let disarm: () => void = () => {};

@@ -279,14 +279,39 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(237_000);
-    // The week-number pill taking today's tile's colors moved the ceiling last, from 232,000 to
-    // 237,000 (backlog item 325): the notes on why the pill and the week separators read the
+    expect(saved).toBeLessThan(251_000);
+    // The week-number pill taking today's tile's colors moved the ceiling last, from 248,000 to
+    // 251,000 (backlog item 325): the notes on why the pill and the week separators read the
     // tile's wash and ink from ha-card while the tile keeps its own, why the chroma is scaled as
     // Oklab's a and b (Chromium gives a low-chroma mix no hue, and scaling OKLCH's c then paints
     // it pink), and how a set pill background colors its number only while it is a light wash.
-    // The reading went from 230,708 to 232,989, taken with stripComments after the last comment
+    // The reading went from 247,077 to 249,358, taken with stripComments after the last comment
     // was written.
+    //
+    // Month's compact list fit moved the ceiling before that, from 245,000 to 248,000: the notes
+    // on why the list and its rows' box flex with a basis of 0, what the staged copy beside the
+    // list is for, why the rows' box cuts only at its foot and only as a guard, and why a list
+    // under a cap with no height takes its own height. The reading went from 244,527 to 245,566,
+    // taken with stripComments after the last comment was written.
+    //
+    // Month's weekend and today tints moved the ceiling before that, from 242,000 to 245,000: the
+    // notes on which cells the two tints shade in either form and why a neighboring month's day
+    // takes them, why the three rules mirror Grid's backdrops so an unset today paints what it
+    // painted before, and why a pressed day's wash is an image over the shade rather than a color.
+    // The reading went from 241,710 to 243,291, taken with stripComments after the last comment
+    // was written.
+    //
+    // Month's day list moved the ceiling before that, from 237,000 to 242,000: the notes on why a list
+    // that keeps room for its events takes its height from the room alone, what the hidden row it
+    // is measured from stands for, why a row is cut at its foot alone, and where the list's
+    // "+N more" starts. The reading went to 238,251, taken with stripComments after the last
+    // comment was written.
+    //
+    // The month view moved the ceiling before that, from 232,000 to 237,000: the notes on why its rows
+    // are one height whatever they hold, why nothing in a month sets a font size for the text
+    // inside it, what the probe the card measures the line capacity from stands for, and why a
+    // day's date is an item of the row rather than of its cell. The reading went from 228,224 to
+    // 232,900, taken with stripComments after the last comment was written.
     //
     // The struts for today's and past days' own date scales moved the ceiling before that, from 227,000
     // to 232,000: the note on why every column and grid header has to lay out as tall as the

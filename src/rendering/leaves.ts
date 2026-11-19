@@ -324,6 +324,71 @@ export function isTileIndicator(config: Types.Config): boolean {
 }
 
 /**
+ * The colors a date's weekday, day number and month are drawn in: the configured ones, a
+ * weekend's on a weekend, today's on today, and on today's tile a deeper shade of the tile's own
+ * color for the number, unless one is named for it.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @param isWeekendDay Whether the day is a weekend day
+ * @param isToday Whether the day is today
+ * @param todayTile Whether today's number sits on the tile
+ * @returns The three colors
+ */
+export function dateColors(
+  config: Types.Config,
+  isWeekendDay: boolean,
+  isToday: boolean,
+  todayTile: boolean,
+): { weekday: string; day: string; month: string } {
+  let weekdayColor = config.weekday_color;
+  let dayColor = config.day_color;
+  let monthColor = config.month_color;
+
+  if (isWeekendDay) {
+    weekdayColor = config.weekend_weekday_color || weekdayColor;
+    dayColor = config.weekend_day_color || dayColor;
+    monthColor = config.weekend_month_color || monthColor;
+  }
+
+  if (isToday) {
+    weekdayColor = config.today_weekday_color || weekdayColor;
+    // On the tile the digits take a deeper shade of the tile's own color (see
+    // `.day.today-tile` in the stylesheet), unless the user named a color for them: today's,
+    // or on a weekend the weekend one, which today's falls back to everywhere else too.
+    const namedDayColor = config.today_day_color || (isWeekendDay && config.weekend_day_color);
+    dayColor = namedDayColor || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
+    monthColor = config.today_month_color || monthColor;
+  }
+
+  return { weekday: weekdayColor, day: dayColor, month: monthColor };
+}
+
+/**
+ * Today's and past days' own weight and fade for a date, each undefined where it sets none.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @param isToday Whether the day is today
+ * @param isPast Whether the day is before today
+ * @returns The weight and the opacity
+ */
+export function dateEmphasis(
+  config: Types.Config,
+  isToday: boolean,
+  isPast: boolean,
+): { weight: string | undefined; opacity: string | undefined } {
+  return {
+    weight:
+      Config.toFontWeightCss(
+        isToday ? config.today_date_font_weight : isPast ? config.past_date_font_weight : 'default',
+      ) || undefined,
+    opacity:
+      isPast && config.past_date_opacity >= 0 && config.past_date_opacity < 100
+        ? String(config.past_date_opacity / 100)
+        : undefined,
+  };
+}
+
+/**
  * Render the contents of a date block: weekday, day number, optional month, and the already-rendered weather badge.
  *
  * @param date Date to display
@@ -350,36 +415,14 @@ export function renderDateContent(
   // `text_scale` scales its events, so a keyword size scales from the size it is drawn at.
   const scale = dateScale(config, isToday, isPast);
   const size = (value: string): string => (scale === 1 ? value : scaleDateSize(value, scale));
-  const weight =
-    Config.toFontWeightCss(
-      isToday ? config.today_date_font_weight : isPast ? config.past_date_font_weight : 'default',
-    ) || undefined;
-  const opacity =
-    isPast && config.past_date_opacity >= 0 && config.past_date_opacity < 100
-      ? String(config.past_date_opacity / 100)
-      : undefined;
-
-  let weekdayColor = config.weekday_color;
-  let dayColor = config.day_color;
-  let monthColor = config.month_color;
-
-  if (isWeekendDay) {
-    weekdayColor = config.weekend_weekday_color || weekdayColor;
-    dayColor = config.weekend_day_color || dayColor;
-    monthColor = config.weekend_month_color || monthColor;
-  }
+  const { weight, opacity } = dateEmphasis(config, isToday, isPast);
 
   const todayTile = isToday && isTileIndicator(config);
-
-  if (isToday) {
-    weekdayColor = config.today_weekday_color || weekdayColor;
-    // On the tile the digits take a deeper shade of the tile's own color (see
-    // `.day.today-tile` in the stylesheet), unless the user named a color for them: today's,
-    // or on a weekend the weekend one, which today's falls back to everywhere else too.
-    const namedDayColor = config.today_day_color || (isWeekendDay && config.weekend_day_color);
-    dayColor = namedDayColor || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
-    monthColor = config.today_month_color || monthColor;
-  }
+  const {
+    weekday: weekdayColor,
+    day: dayColor,
+    month: monthColor,
+  } = dateColors(config, isWeekendDay, isToday, todayTile);
 
   const translations = Localize.getTranslations(language);
 
@@ -1483,6 +1526,24 @@ function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
       </div>
     </div>
   `;
+}
+
+/**
+ * The row that holds two of a day's events apart while `event_gap` is set, in list view and in a
+ * month's day list.
+ *
+ * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
+ * the first row and below the last, which moves the day itself and every separator whose
+ * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
+ * fills the event column only, because the day's date cell spans it, and it is hidden from
+ * assistive technology because it holds nothing to read.
+ *
+ * @returns The gap row
+ */
+export function renderEventGapRow(): TemplateResult {
+  return html`<tr class="event-gap-row" aria-hidden="true">
+    <td class="event-gap-cell"></td>
+  </tr>`;
 }
 
 /**

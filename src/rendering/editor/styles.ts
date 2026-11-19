@@ -175,12 +175,17 @@ export default css`
     padding: 0 4px 0 0;
   }
 
-  .story-tile {
-    flex: 1;
+  /* The row Starting Layout's choices share: its mark, its picture and its lines in a line. */
+  .story-tile,
+  .display-choice {
     display: flex;
     align-items: center;
     gap: 12px;
     min-width: 0;
+  }
+
+  .story-tile {
+    flex: 1;
     min-height: 64px;
     padding: 10px 8px 10px 16px;
     border: none;
@@ -227,19 +232,22 @@ export default css`
     fill: var(--primary-color);
   }
 
-  .story-text {
+  .story-text,
+  .display-choice > .display-text {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
+    padding: 0;
   }
 
   .story-name {
     font-weight: 500;
   }
 
-  .story-detail {
+  .story-detail,
+  .display-choice .display-description {
     color: var(--secondary-text-color);
     font-size: 12px;
     line-height: 1.4;
@@ -541,11 +549,14 @@ export default css`
     fill: currentcolor;
   }
 
+  /* As tall as Change beside it, so the line keeps its height where a long name wraps Change
+     under it. */
   .scope-lead {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    min-height: 44px;
   }
 
   /* --- Overview and pages ---------------------------------------------------
@@ -638,6 +649,7 @@ export default css`
     padding-inline: 16px;
   }
 
+  .scope-block,
   .scope,
   .displays,
   .chips {
@@ -675,7 +687,7 @@ export default css`
   /* Start Date's choices are native radios drawn as the toggle chips are: the circle hidden, the
      chosen one tinted with a check, so the state never rests on color alone. The radio keeps the
      arrow keys and the group's name; it takes no pointer events. Settings For is a segmented row,
-     as Calendar Filter is, so it never reads as chips that change the card. */
+     so it never reads as chips that change the card. */
   .chip-choice {
     position: relative;
     box-sizing: border-box;
@@ -719,8 +731,7 @@ export default css`
   /* A fieldset's legend is no flex item, so the gap under it is its own. */
   .scope > legend,
   .chips > legend,
-  .displays > legend,
-  .segmented > legend {
+  .displays > legend {
     margin-bottom: 8px;
   }
 
@@ -742,17 +753,9 @@ export default css`
     fill: currentcolor;
   }
 
-  /* The switch keeps the button's own color, and wraps under the sentence on a narrow editor. */
-  .scope-preview {
-    flex-wrap: wrap;
-  }
-
   .scope-preview-text {
-    flex: 1 1 12em;
-  }
-
-  .scope-preview-switch {
-    color: var(--primary-color);
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   @supports (color: color-mix(in oklab, red, blue)) {
@@ -761,45 +764,44 @@ export default css`
     }
   }
 
-  /* Three across at every width, as Home Assistant's box select draws its options. */
+  /* Starting Layout: a row per layout, stacked, each in the shape of Quick Setup's example rows
+     (the row, text and line rules there are shared): the radio, the layout's picture, then its
+     name over its description, so every name and description stays whole in every language at
+     any width. Native radios, so the arrow keys move from row to row. Each row is a frame of its
+     own, the chosen one in the primary color and tinted. */
   .display-choices {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
   .display-choice {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: start;
-    gap: 4px 6px;
-    padding: 8px;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 8px 12px;
     border: 1px solid var(--divider-color);
     border-radius: 12px;
     cursor: pointer;
   }
 
   .display-choice input {
+    flex: none;
     width: 20px;
     height: 20px;
     margin: 0;
+  }
+
+  .display-image {
+    flex: none;
+    width: 48px;
+    height: 32px;
+    object-fit: contain;
   }
 
   .display-text {
     display: flex;
     flex-direction: column;
     padding-top: 2px;
-  }
-
-  /* The label beside the radio, and the description under both, across the card's width: three
-     across leaves each card about 118px at 372px, and the longest translations (German) would
-     otherwise run to five lines. */
-  .display-choice > .display-text {
-    display: contents;
-  }
-
-  .display-label {
-    align-self: center;
   }
 
   .display-label {
@@ -813,16 +815,92 @@ export default css`
   }
 
   .display-choice .display-description {
-    grid-column: 1 / -1;
-    min-width: 0;
     overflow-wrap: break-word;
   }
 
-  .display-image {
-    grid-column: 1 / -1;
-    width: 100%;
-    max-height: 72px;
-    object-fit: contain;
+  /* Layouts: Starting Layout's rows, each split in two. The radio sits in a zone of its own at the
+     start, behind a divider, and is the one thing that picks the layout the card opens in; the rest
+     of the row is a button that opens the layout's page. The row keeps its frame and the chosen
+     one its tint, so the choice reads as before. */
+  .display-choice.layout-choice {
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    cursor: default;
+  }
+
+  .display-choice.layout-choice:hover {
+    background: none;
+  }
+
+  .layout-pick {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    min-height: 48px;
+    border-inline-end: 1px solid var(--divider-color);
+    cursor: pointer;
+  }
+
+  .layout-open {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 8px 4px 8px 12px;
+    border: none;
+    border-radius: 0 11px 11px 0;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+  }
+
+  .layout-open:dir(rtl) {
+    border-radius: 11px 0 0 11px;
+  }
+
+  .layout-pick:hover,
+  .layout-open:hover {
+    background: var(--secondary-background-color);
+  }
+
+  .layout-open:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  .layout-open > .display-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .row-group > .frame-hint {
+    padding: 0 16px 4px;
+  }
+
+  .layout-block > .layout-defaults {
+    margin-inline: 0;
+  }
+
+  .layouts-help {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .layouts-help .text-button {
+    display: inline;
+    min-height: 0;
+    padding: 0;
+    font-size: inherit;
+    vertical-align: baseline;
   }
 
   .row-group {
@@ -835,6 +913,12 @@ export default css`
 
   .row-group > .heading {
     padding: 8px 16px 4px;
+  }
+
+  /* Settings For leads the overview's Settings, inset as Starting Layout's rows are, over the
+     section rows it chooses the scope of. */
+  .row-group > .scope-block {
+    margin: 4px 16px 8px;
   }
 
   .heading {
@@ -1884,7 +1968,9 @@ export default css`
      Toggle chips: native buttons, pressed with a check and the primary color, so the state never
      rests on color alone. An unpressable chip stays focusable and shows its reason inside it.
      Toggle chips and Start Date's radio chips share one size, 44px tall with 8px between them.
-     Calendar Filter is a segmented row of native radios. The toolbar's own buttons are the
+     A pressed toolbar control with a choice has a qualifier line under the chips, drawn unlike
+     them: native radios or checkboxes under a legend, set in by a rule at its start, so a line
+     never reads as more chips. The toolbar's own buttons are the
      calendar list's rows, each bordered as one card that opens in place. The group is not .chips,
      which Start Date's radio chips use as a column. */
   .chip-group {
@@ -1936,30 +2022,77 @@ export default css`
 
   .chip:focus-visible,
   .chip-group:focus-visible,
-  .segmented:focus-visible,
+  .qualifier:focus-visible,
   .segment:focus-within {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
 
   .chip-group:focus:not(:focus-visible),
-  .segmented:focus:not(:focus-visible) {
+  .qualifier:focus:not(:focus-visible) {
     outline: none;
+  }
+
+  .qualifiers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .qualifier {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0 12px;
+    border: none;
+    border-inline-start: 2px solid var(--divider-color);
+  }
+
+  .qualifier > legend {
+    padding: 0;
+  }
+
+  .qualifier-choices {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+  }
+
+  /* Each choice is a 44px target: the native control, its name, and a kept one's reason. */
+  .qualifier-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  .qualifier-choice input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--primary-color);
+    cursor: inherit;
+  }
+
+  .qualifier-choice.kept {
+    color: var(--secondary-text-color);
+    cursor: default;
+  }
+
+  .qualifier-choice.kept input {
+    filter: grayscale(1);
+    opacity: 0.7;
+  }
+
+  .qualifier-kept {
+    font-size: 12px;
   }
 
   .chip-source {
     color: var(--secondary-text-color);
-  }
-
-  .segmented {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
   }
 
   .segmented-row {
@@ -1976,10 +2109,16 @@ export default css`
     border-radius: 22px;
   }
 
-  /* Settings For and Calendar Filter alike: the row takes the editor's width and every segment an
+  /* Settings For: the row takes the editor's width and every segment an
      equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
-     page's language where the browser can, and broken only where it cannot (Lithuanian at 320px). */
+     page's language where the browser can, and broken only where it cannot. Settings For puts All
+     Layouts on a row of its own (.segment-all, below). */
+  /* Positioned, so the hidden radio's containing block is its own segment. Left unpositioned, it
+     was Home Assistant's dialog body, across the shadow boundary, and WebKit scrolled that body to
+     the radio whenever it took focus, preventScroll or not: the whole dialog jumped. A hidden
+     input's segment, chip or row must always be positioned. */
   .segment {
+    position: relative;
     flex: 1 1 0;
     display: flex;
     align-items: center;
@@ -2007,6 +2146,23 @@ export default css`
   .segment:has(input:checked) {
     background: var(--primary-color);
     color: var(--text-primary-color, #fff);
+  }
+
+  /* Settings For: All Layouts across the top, the four layouts sharing the row under it, in one
+     frame and one radio group, so the arrow keys still go All Layouts, List, Columns, Grid,
+     Month. One shared default over four layouts that can override it, and each layout keeps a
+     quarter of the width rather than a fifth, which holds a German or Finnish word at 272px. */
+  .scope .segments {
+    flex-wrap: wrap;
+  }
+
+  .scope .segment-all {
+    flex-basis: 100%;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .scope .segment-all + .segment {
+    border-inline-start: none;
   }
 
   /* A stored value that does nothing now: the warning's icon, the words in the text color. */

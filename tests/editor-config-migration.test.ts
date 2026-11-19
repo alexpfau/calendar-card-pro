@@ -297,21 +297,22 @@ describe('automatic adoption paths', () => {
     ).toBe('18px');
   });
 
-  it.each([{ list: { event_font_size: '20px' } }, { time_grid: { event_font_size: '12px' } }])(
-    'adopts an already-layered unversioned config without reinterpreting roots',
-    async (block) => {
-      const { editor, reports } = await mount({ event_font_size: '18px', ...block });
+  it.each([
+    { list: { event_font_size: '20px' } },
+    { time_grid: { event_font_size: '12px' } },
+    { month: { event_font_size: '12px' } },
+  ])('adopts an already-layered unversioned config without reinterpreting roots', async (block) => {
+    const { editor, reports } = await mount({ event_font_size: '18px', ...block });
 
-      expect(blocker(editor)).toBeNull();
-      await changeField(editor, 'card:title', 'Layered');
+    expect(blocker(editor)).toBeNull();
+    await changeField(editor, 'card:title', 'Layered');
 
-      expect(reports.slice(-1)[0]).toMatchObject({
-        config_version: Config.CURRENT_CONFIG_VERSION,
-        event_font_size: '18px',
-        ...block,
-      });
-    },
-  );
+    expect(reports.slice(-1)[0]).toMatchObject({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      event_font_size: '18px',
+      ...block,
+    });
+  });
 });
 
 describe('configuration version states', () => {

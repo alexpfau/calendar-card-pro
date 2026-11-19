@@ -89,12 +89,16 @@ describe('the gate lines’ clauses', () => {
       'today_when_empty content:show_empty_days': 'gate.when.empty_days_off',
       'duplicates content:filter_duplicates_mode': 'gate.when.duplicates',
       'toolbar card:toolbar.show': 'gate.when.on',
-      'forecast weather:weather.entity': 'gate.when.weather_entity',
-      'forecast_by_day weather:weather.entity': 'gate.when.weather_entity',
+      // Layouts in Switcher waits on the bar, then on its View Switcher chip.
+      'switcher_layouts card:toolbar.show': 'gate.when.on',
+      'switcher_layouts card:toolbar.view_switcher': 'gate.when.pressed',
+      'week_scroll layout:month.week_scroll': 'gate.when.on',
+      'forecast weather:weather_entity': 'gate.when.weather_entity',
+      'forecast_by_day weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.position': 'gate.when.forecast_by_day',
-      'forecast_by_event weather:weather.entity': 'gate.when.weather_entity',
+      'forecast_by_event weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_event weather:weather.position': 'gate.when.forecast_by_event',
-      'weather_lines weather:weather.entity': 'gate.when.weather_entity',
+      'weather_lines weather:weather_entity': 'gate.when.weather_entity',
       'weather_lines weather:weather.position': 'gate.when.forecast_by_event',
       'weather_lines weather:weather.event.show_conditions': 'gate.when.on',
       'event_details actions:event_tap_action': 'gate.when.event_details',
@@ -109,7 +113,7 @@ describe('the gate lines’ clauses', () => {
       'location_icon calendar:show_location': 'gate.when.location_shown',
       'show_in_legend card:toolbar.show': 'gate.when.calendar_filter',
       'show_in_legend card:toolbar.legend': 'gate.when.calendar_filter',
-      'show_weather weather:weather.entity': 'gate.when.weather_entity',
+      'show_weather weather:weather_entity': 'gate.when.weather_entity',
       'show_weather weather:weather.position': 'gate.when.forecast_by_event',
     });
   });
@@ -148,9 +152,10 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Four since the event parts became chips: Show Month, Show Toolbar, Show Conditions Beside
-    // Events and Month Name on Rule.
-    expect(switches.length).toBe(4);
+    // Six: three since the event parts became chips, Show Month, Show Toolbar and Show
+    // Conditions Beside Events, then Month's Week Scrolling, Show Toolbar again for Layouts in
+    // Switcher, and Month Name on Rule for the name's color and size on List's month separator.
+    expect(switches.length).toBe(6);
     expect(unclaused(ALL)).toEqual([]);
   });
 
@@ -180,8 +185,10 @@ describe('the gate lines’ clauses', () => {
 });
 
 describe('a gate explains itself by the condition it waits on', () => {
-  /** The card's form data, with the weather options given. */
-  const weather = (value: Record<string, unknown>): GateData => ({ card: { weather: value } });
+  /** The card's form data: the entity every layout draws from, and the layout's weather. */
+  const weather = ({ entity, ...value }: Record<string, unknown>): GateData => ({
+    card: { weather_entity: entity, weather: value },
+  });
 
   it('names Weather Lines three ways as different conditions are unmet', () => {
     const gate = GATES.weather_lines;

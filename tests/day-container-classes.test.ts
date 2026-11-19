@@ -9,8 +9,10 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
+import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
 /**
@@ -511,6 +513,51 @@ describe('theming.md card-mod selectors', () => {
       );
       collect(container);
     }
+    // Month, in both forms, on June's six weeks from June 1, with week numbers and a labeled
+    // calendar so every part of a day, a line and the gutter is drawn. Wide twice: with room for
+    // four lines, so lines show, and for one, so "+N more" does, the trips crossing a week as
+    // bars that continue; with week scrolling, whose class is on the month. Compact with a busy
+    // day chosen, whose list draws tappable rows, and with an empty one, whose list says so.
+    {
+      const config = ViewConfig.resolveEffectiveConfig(
+        buildConfig({
+          ...base,
+          view: 'month',
+          first_day_of_week: 'monday',
+          show_week_numbers: 'iso',
+          entities: [{ entity: 'calendar.personal', label: 'P' }],
+        } as Partial<Types.Config>),
+        'month',
+      );
+      const rowsStart = new Date(2026, 5, 1);
+      const events = [...EVENTS, ...WEEKEND_SPAN, ...GRID_EDGES];
+      const drawn = { ...config, start_date: '2026-06-01', days_to_show: ViewConfig.MONTH_DAYS };
+      const days = EventUtils.groupEventsByDay(events, drawn, false, 'en', 'month');
+      const dayLists = MonthDay.monthDayLists(events, config, rowsStart, 42, 'en');
+      for (const [capacity, options] of [
+        [4, { more: noop, weekScroll: { handleEvent: noop, passive: false } }],
+        [1, { more: noop }],
+        // None of a busy day's events fitted, so its list draws "+N more" alone.
+        [4, { compact: { selected: new Date(2026, 5, 17), dayLists, shown: 0 } }],
+        [4, { compact: { selected: new Date(2026, 5, 2), dayLists } }],
+      ] as const) {
+        const container = document.createElement('div');
+        litRender(
+          MonthRender.renderMonthGroupedEvents(
+            days,
+            rowsStart,
+            config,
+            'en',
+            capacity,
+            null,
+            true,
+            options,
+          ),
+          container,
+        );
+        collect(container);
+      }
+    }
     // The card around the days: its header with a toolbar holding both controls, and the
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
@@ -526,6 +573,7 @@ describe('theming.md card-mod selectors', () => {
       ['grid', 'Family', true, false, 'failed'],
       ['list', undefined, false, false, 'idle'],
       ['list', 'Family', true, true, 'turning'],
+      ['month', 'Family', true, false, 'idle'],
     ] as const) {
       const container = document.createElement('div');
       litRender(

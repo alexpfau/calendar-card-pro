@@ -1,0 +1,254 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a representative month > matches its snapshot 1`] = `
+"<div role="grid" class=" month-container " aria-label="November 2026" style="--calendar-card-month-weekend:color-mix(in srgb, var(--primary-text-color) 4%, transparent);--calendar-card-font-size-event:13px;--calendar-card-font-size-time:11px;--calendar-card-event-inline-room:1.625px;--calendar-card-grid-text-inline-room:max(1.625px, 1.375px, 1.5px, 1.5px);">
+<div class="month-weekdays" role="row">
+<div role="columnheader" class=" month-weekday " aria-label="Monday">
+          Mon
+        </div><div role="columnheader" class=" month-weekday " aria-label="Tuesday">
+          Tue
+        </div><div role="columnheader" class=" month-weekday " aria-label="Wednesday">
+          Wed
+        </div><div role="columnheader" class=" month-weekday " aria-label="Thursday">
+          Thu
+        </div><div role="columnheader" class=" month-weekday " aria-label="Friday">
+          Fri
+        </div><div role="columnheader" class=" month-weekday weekend " aria-label="Saturday">
+          Sat
+        </div><div role="columnheader" class=" month-weekday weekend " aria-label="Sunday">
+          Sun
+        </div>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day past-day other-month " style="grid-column:1;" tabindex="-1" aria-label="Monday, October 26, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">26</span>
+</div>
+<div role="gridcell" class=" month-day past-day other-month " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, October 27, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="day" style="color:var(--primary-text-color);">27</span>
+</div>
+<div role="gridcell" class=" month-day past-day other-month " style="grid-column:3;" tabindex="-1" aria-label="Wednesday, October 28, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day" style="color:var(--primary-text-color);">28</span>
+</div>
+<div role="gridcell" class=" month-day past-day other-month " style="grid-column:4;" tabindex="-1" aria-label="Thursday, October 29, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">29</span>
+</div>
+<div role="gridcell" class=" month-day past-day other-month " style="grid-column:5;" tabindex="-1" aria-label="Friday, October 30, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">30</span>
+</div>
+<div role="gridcell" class=" month-day past-day other-month weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, October 31, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">31</span>
+</div>
+<div role="gridcell" class=" month-day past-day weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, November 1, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="month-date-month" style="color:var(--primary-text-color);">Nov </span><span class="day" style="color:var(--primary-text-color);">1</span>
+</div>
+<div class="month-week-number" aria-hidden="true">44</div>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day past-day " style="grid-column:1;" tabindex="-1" aria-label="Monday, November 2, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">2</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, November 3, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="day" style="color:var(--primary-text-color);">3</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:3;" tabindex="-1" aria-label="Wednesday, November 4, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day" style="color:var(--primary-text-color);">4</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:4;" tabindex="-1" aria-label="Thursday, November 5, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">5</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:5;" tabindex="-1" aria-label="Friday, November 6, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">6</span>
+</div>
+<div role="gridcell" class=" month-day past-day weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, November 7, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">7</span>
+</div>
+<div role="gridcell" class=" month-day past-day weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, November 8, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="day" style="color:var(--primary-text-color);">8</span>
+</div>
+<div class="month-week-number" aria-hidden="true">45</div>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day past-day " style="grid-column:1;" tabindex="-1" aria-label="Monday, November 9, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">9</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, November 10, 2026, 5 events" aria-owns="month-item-2026-11-10-0 month-item-2026-11-10-1 month-item-2026-11-10-2 month-item-2026-11-10-more"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="day" style="color:var(--primary-text-color);">10</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:3;" tabindex="-1" aria-label="Wednesday, November 11, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day" style="color:var(--primary-text-color);">11</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:4;" tabindex="-1" aria-label="Thursday, November 12, 2026, 1 event" aria-owns="month-item-2026-11-12-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">12</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:5;" tabindex="-1" aria-label="Friday, November 13, 2026, 1 event" aria-owns="month-item-2026-11-13-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">13</span>
+</div>
+<div role="gridcell" class=" month-day past-day weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, November 14, 2026, 1 event" aria-owns="month-item-2026-11-14-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">14</span>
+</div>
+<div role="gridcell" class=" month-day past-day weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, November 15, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="day" style="color:var(--primary-text-color);">15</span>
+</div>
+<div class="month-week-number" aria-hidden="true">46</div>
+<div class=" event month-line past-event " style="grid-column:2;grid-row:2;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-10-0">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Standup</span>
+<span class="month-line-time">8:00</span>
+</div>
+<div class=" event month-line past-event " style="grid-column:2;grid-row:3;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-10-1">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Review</span>
+<span class="month-line-time">10:00</span>
+</div>
+<div class=" event month-line past-event " style="grid-column:2;grid-row:4;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-10-2">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Lunch</span>
+<span class="month-line-time">12:00</span>
+</div>
+<div class=" event month-line past-event " style="grid-column:4;grid-row:2;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-12-0">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Dentist</span>
+<span class="month-line-time">14:00</span>
+</div>
+<div class=" event month-line past-event " style="grid-column:5;grid-row:2;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-13-0">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Late show</span>
+<span class="month-line-time">22:30</span>
+</div>
+<div class=" event month-line past-event " style="grid-column:6;grid-row:2;--calendar-card-event-accent-bar-color:#3b82f6;" id="month-item-2026-11-14-0">
+<span class="event-accent-bar"></span>
+<span class="month-line-title">Late show</span>
+<span class="month-line-time">until 1:30</span>
+</div>
+<button class="month-more" type="button" tabindex="-1" id="month-item-2026-11-10-more" style="grid-column:2;grid-row:5;" aria-label="+2 more, Tuesday, November 10">
+    +2 more
+  </button>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day past-day " style="grid-column:1;" tabindex="-1" aria-label="Monday, November 16, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">16</span>
+</div>
+<div role="gridcell" class=" month-day past-day " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, November 17, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="day" style="color:var(--primary-text-color);">17</span>
+</div>
+<div role="gridcell" class=" month-day today " style="grid-column:3;" tabindex="0" aria-label="Wednesday, November 18, 2026, No events" aria-current="date"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">18</span>
+</div>
+<div role="gridcell" class=" month-day tomorrow " style="grid-column:4;" tabindex="-1" aria-label="Thursday, November 19, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">19</span>
+</div>
+<div role="gridcell" class=" month-day " style="grid-column:5;" tabindex="-1" aria-label="Friday, November 20, 2026, 1 event" aria-owns="month-item-2026-11-20-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">20</span>
+</div>
+<div role="gridcell" class=" month-day weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, November 21, 2026, 1 event"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">21</span>
+</div>
+<div role="gridcell" class=" month-day weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, November 22, 2026, 1 event"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="day" style="color:var(--primary-text-color);">22</span>
+</div>
+<div class="month-week-number" aria-hidden="true">47</div>
+<div class=" event grid-banner continues-after month-bar " style="grid-column:5 / span 3;grid-row:2;background-color:#3b82f6;--calendar-card-color-event:var(--calendar-card-accent-ink);--calendar-card-color-time:var(--calendar-card-accent-ink);--calendar-card-weather-event-color:var(--calendar-card-accent-ink);--calendar-card-accent-ink-source:#3b82f6;" id="month-item-2026-11-20-0">
+<span class="grid-banner-title">Trip</span>
+</div>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day " style="grid-column:1;" tabindex="-1" aria-label="Monday, November 23, 2026, 1 event" aria-owns="month-item-2026-11-23-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">23</span>
+</div>
+<div role="gridcell" class=" month-day " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, November 24, 2026, 1 event"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="day" style="color:var(--primary-text-color);">24</span>
+</div>
+<div role="gridcell" class=" month-day " style="grid-column:3;" tabindex="-1" aria-label="Wednesday, November 25, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day" style="color:var(--primary-text-color);">25</span>
+</div>
+<div role="gridcell" class=" month-day " style="grid-column:4;" tabindex="-1" aria-label="Thursday, November 26, 2026, 1 event" aria-owns="month-item-2026-11-26-0"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">26</span>
+</div>
+<div role="gridcell" class=" month-day " style="grid-column:5;" tabindex="-1" aria-label="Friday, November 27, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">27</span>
+</div>
+<div role="gridcell" class=" month-day weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, November 28, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">28</span>
+</div>
+<div role="gridcell" class=" month-day weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, November 29, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="day" style="color:var(--primary-text-color);">29</span>
+</div>
+<div class="month-week-number" aria-hidden="true">48</div>
+<div class=" event grid-banner continues-before month-bar " style="grid-column:1 / span 2;grid-row:2;background-color:#3b82f6;--calendar-card-color-event:var(--calendar-card-accent-ink);--calendar-card-color-time:var(--calendar-card-accent-ink);--calendar-card-weather-event-color:var(--calendar-card-accent-ink);--calendar-card-accent-ink-source:#3b82f6;" id="month-item-2026-11-23-0">
+<span class="grid-banner-title">Trip</span>
+</div>
+<div class=" event grid-banner month-bar " style="grid-column:4 / span 1;grid-row:2;background-color:#3b82f6;--calendar-card-color-event:var(--calendar-card-accent-ink);--calendar-card-color-time:var(--calendar-card-accent-ink);--calendar-card-weather-event-color:var(--calendar-card-accent-ink);--calendar-card-accent-ink-source:#3b82f6;" id="month-item-2026-11-26-0">
+<span class="grid-banner-title">Holiday</span>
+</div>
+</div>
+<div class="month-week" role="row" style="grid-template-rows:auto repeat(4, auto) minmax(0, 1fr);">
+<div role="gridcell" class=" month-day " style="grid-column:1;" tabindex="-1" aria-label="Monday, November 30, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:1;">
+<span class="day" style="color:var(--primary-text-color);">30</span>
+</div>
+<div role="gridcell" class=" month-day other-month " style="grid-column:2;" tabindex="-1" aria-label="Tuesday, December 1, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:2;">
+<span class="month-date-month" style="color:var(--primary-text-color);">Dec </span><span class="day" style="color:var(--primary-text-color);">1</span>
+</div>
+<div role="gridcell" class=" month-day other-month " style="grid-column:3;" tabindex="-1" aria-label="Wednesday, December 2, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:3;">
+<span class="day" style="color:var(--primary-text-color);">2</span>
+</div>
+<div role="gridcell" class=" month-day other-month " style="grid-column:4;" tabindex="-1" aria-label="Thursday, December 3, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:4;">
+<span class="day" style="color:var(--primary-text-color);">3</span>
+</div>
+<div role="gridcell" class=" month-day other-month " style="grid-column:5;" tabindex="-1" aria-label="Friday, December 4, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:5;">
+<span class="day" style="color:var(--primary-text-color);">4</span>
+</div>
+<div role="gridcell" class=" month-day other-month weekend " style="grid-column:6;" tabindex="-1" aria-label="Saturday, December 5, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:6;">
+<span class="day" style="color:var(--primary-text-color);">5</span>
+</div>
+<div role="gridcell" class=" month-day other-month weekend " style="grid-column:7;" tabindex="-1" aria-label="Sunday, December 6, 2026, No events"></div>
+<div class="month-date" aria-hidden="true" style="grid-column:7;">
+<span class="day" style="color:var(--primary-text-color);">6</span>
+</div>
+<div class="month-week-number" aria-hidden="true">49</div>
+</div>
+<div data-probe="date" aria-hidden="true" class="month-probe"></div>
+<div data-probe="title" aria-hidden="true" class="month-probe"></div>
+<div data-probe="time" aria-hidden="true" class="month-probe"></div>
+</div>"
+`;

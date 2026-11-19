@@ -42,7 +42,8 @@ src/
 │   ├── config.ts                 # DEFAULT_CONFIG and config helpers
 │   ├── constants.ts              # Application constants and defaults
 │   ├── types.ts                  # TypeScript interface definitions
-│   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
+│   ├── view.ts                   # View blocks, defaults, density, fallback, the load window
+│   └── views.ts                  # The views, in order, free of imports
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Runs the card's tap and hold actions
 │   ├── add-event.ts              # Add button: writable calendars, label, new-event times
@@ -101,7 +102,7 @@ src/
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # Reusable schema fragments
-│   │   ├── workspace.ts          # The Settings For scope: All Layouts, List, Columns or Grid
+│   │   ├── workspace.ts          # The editing scope: Layout Defaults (`shared`) or one of the four layouts
 │   │   ├── routing.ts            # Scope projections and scope-captured writes
 │   │   ├── write-frames.ts       # What each write belongs to, and the part of a change it writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
@@ -123,10 +124,12 @@ src/
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
 │   ├── popover-shell.ts          # The popover's shell: opening, placing, its look, closing
 │   ├── search-panel.ts           # The search panel: its field, its results, the keyboard
+│   ├── day-panel.ts              # The day panel a month's "+N more" opens: List's rows
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
-│   ├── leaves.ts                 # Leaf renderers shared across the three views
+│   ├── month.ts                  # The month view: six week rows, bars, lines and "+N more"
+│   ├── leaves.ts                 # Leaf renderers shared across the views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   ├── accent-text.ts            # The `accent` text sentinel's fields and properties; CSS-free
 │   └── styles.ts                 # CSS styles and dynamic styling
@@ -147,11 +150,13 @@ src/
     ├── grid-time-fit.ts          # Picks each grid time row's degradation step
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
+    ├── month-layout.ts           # A month row's lines, and what each day hides behind "+N"
+    ├── month-day.ts              # A month day's list, the compact form and the selected day
     ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
     ├── text-replace.ts           # Per-calendar `replace_pattern` / `replace_with`
-    ├── start-date.ts             # The `start_date` relative-date grammar
+    ├── start-date.ts             # The `start_date` grammar, and the window it opens
     ├── paging.ts                 # Paging through dates: page length, home, the range's name
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── entity-colors.ts          # Calendar colors from HA's entity registry, over WebSocket
@@ -172,38 +177,44 @@ src/
     └── weather-i18n.ts           # Condition text in the card's language
 ```
 
-## 🧭 Three Views, One Agenda
+## 🧭 Four Views, One Agenda
 
-The card renders the same agenda in one of three layouts, and this is the structural fact most
+The card renders the same agenda in one of four layouts, and this is the structural fact most
 worth holding on to before changing anything under `rendering/`:
 
 - **`view: list`** stacks days vertically, each day a row. It is the default.
 - **`view: column`** lays days side by side, one column each.
 - **`view: grid`** positions timed events against a shared hour axis, with all-day events in a
   band above it.
+- **`view: month`** draws six whole weeks, a row each: all-day and multi-day events as bars across
+  their days and timed events as lines, or on a narrow card a compact form with the selected
+  day's list.
 
 They share the card shell, the event pipeline and the presentation models. `leaves.ts` holds the
 shared renderers and `presentation.ts` everything about an event that does not depend on layout;
-`render.ts`, `column.ts` and `grid.ts` only arrange those pieces, and Grid adds the pure geometry in
-`utils/grid.ts`, which knows no pixels. A behavior meant for every view belongs in the shared path,
-never three times in the renderers (see [Rendering & Views](/architecture-rendering)).
+`render.ts`, `column.ts`, `grid.ts` and `month.ts` only arrange those pieces, Grid adds the pure
+geometry in `utils/grid.ts` and Month its occupancy in `utils/month-layout.ts`, which know no
+pixels. A behavior meant for every view belongs in the shared path, never once per renderer (see
+[Rendering & Views](/architecture-rendering)).
 
 The effective view can change with available width. A narrower Column or Grid card first draws
 fewer days, down to `min_days_to_show`, in a window kept as close to today as the configured range
 allows (`visibleDayWindowStart`). Below that floor `min_days_fallback` decides: `list` falls back to
 List, and `cramp` holds the floor with days narrower than `min_day_width`, Column narrowing its
 columns and Grid scrolling sideways with each day at least `2rem` wide. `config/view.ts` owns this
-resolution and its hysteresis, so resizing does not flip layouts back and forth.
+resolution and its hysteresis, so resizing does not flip layouts back and forth. Month never falls
+back: below `month → min_day_width` a day, it draws its compact form, with a hysteresis of its own
+(`utils/month-day.ts`).
 
-Switching layouts never fetches, because the load spans the longest `days_to_show` among the views
-the card can show (see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
-**Settings For** scope is separate again: choosing List there exposes its controls without changing
-the layout.
+Switching layouts never fetches, because the load spans every view the card can show: the longest
+`days_to_show` from the shared start, and Month's six weeks where it is reachable, which can start
+before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
+scope is separate again: opening List's page exposes its controls without changing the layout.
 
 ## 🧱 Configuration Layers & Editor Adoption
 
-The top level is the shared base. `list:`, `column:` and `time_grid:` hold presentation values for
-their own views; calendars, fetching, actions and the other card-wide options stay at the top level,
+The top level is the shared base. `list:`, `column:`, `time_grid:` and `month:` hold presentation
+values for their own views; calendars, fetching, actions and the other card-wide options stay at the top level,
 and nothing that decides _which_ events are fetched may differ between views. A shared view option
 resolves as explicit view override, then built-in divergent view default, then shared value; List
 has no divergent defaults. View-only options use their own block defaults, with a root fallback for
@@ -214,9 +225,13 @@ the legacy List-only options.
 renders through the second. A change to the rule changes both.
 :::
 
-- **Scopes.** Under **Settings For**, **All Layouts** writes roots; **List**, **Columns** and
-  **Grid** write their blocks (`workspace.ts`). `routing.ts` captures the destination with each
-  rendered form, so a delayed event cannot write into another scope.
+- **Scopes.** The scope is the place, not a setting: a layout's page and its topic pages carry
+  the layout in their route (`navigation.ts` › `Route`, `routeScope`), and `_workspace` derives
+  from the route. **Layout Defaults** (`shared`) writes roots; **List**, **Columns**, **Grid** and
+  **Month** write their blocks (`workspace.ts`). Whole Card's pages (`pages.ts` ›
+  `WHOLE_CARD_PAGES`) and Shared Across Layouts edit in the shared scope, and a place with no
+  layout, such as a calendar's page, edits in the layout the card opens in. `routing.ts` captures
+  the destination with each rendered form, so a delayed event cannot write into another scope.
 - **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
   the current version, and blocks visual-editor writes for a future version or any other value,
@@ -227,7 +242,8 @@ renders through the second. A change to the rule changes both.
   move the List-only roots into `list:`, keep a value the block already holds over the older
   root, and stamp the format (`migrateListConfig`). After an Undo of the upgrade, the next edit
   upgrades the same way, inside its own step. Legacy Column cards, unambiguous cards and
-  versionless cards already carrying `list:` or `time_grid:` adopt on their first real edit, and
+  versionless cards already carrying `list:`, `time_grid:` or `month:` adopt on their first real
+  edit, and
   opening the editor writes nothing for them.
 - **Authored values.** Authorship is captured from raw input before defaults are merged, so
   migration sees `false`, zero and default-equal values, and `_report` updates the editor's own
@@ -238,9 +254,9 @@ renders through the second. A change to the rule changes both.
   in the editor only, never when YAML loads.
 
 ::: warning Shared Is Not List
-All Layouts builds its fields as List (`baseViewForWorkspace`), but its conditional controls must
-read the shared value through `resolveWorkspaceOption`, never a `list:` override. Resolving them as
-List shows the wrong controls on the shared surface.
+Layout Defaults builds its fields as List (`baseViewForWorkspace`), but its conditional controls
+must read the shared value through `resolveWorkspaceOption`, never a `list:` override. Resolving
+them as List shows the wrong controls on the shared surface.
 :::
 
 ::: warning One Authorship Model
@@ -369,27 +385,32 @@ both happen. It reads the target at pointer-down and runs the innermost target's
 | ---------------------------------------------------- | ------------------ | ------------------- |
 | An event                                             | `event_tap_action` | `event_hold_action` |
 | An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
+| A compact month's day                                | selects the day    | `hold_action`       |
 | The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 - **Precedence.** A tap or a hold runs the innermost target's action, else the next target out's.
-  An event covers its slot: a press on an event falls through to the card, never to the slot.
+  An event covers its slot: a press on an event falls through to the card, never to the slot. A
+  compact month's day covers its day too: a tap selects it and runs nothing else, and
+  `day_tap_action` is its list's, under the weeks.
 - **Not targets.** Toolbar controls and the filter menu keep their presses (`stopCardGesture`), and
   a press that begins on a link in an event row arms nothing.
 - **Endings.** Every armed press ends in exactly one way at pointer-up (`_handlePointerUp`):
   **held** runs the hold, or in a grid draws or moves an event; **stayed** is a tap; **moved** is
-  neither, but swipes to page by touch or draws or moves in a grid by mouse; **canceled** does
-  nothing.
+  neither, but swipes to page by touch, steps a month's weeks while they scroll
+  (`month → week_scroll`), or draws or moves in a grid by mouse; **canceled** does nothing.
 - **Keys and editing.** Enter and Space activate the focused card, event or day. There is no key
   hold: an event with a hold and no tap of its own is still a button, and the keys run its hold
-  (`_activate`). While Home Assistant edits the card, nothing that writes to a calendar runs, and
-  no swipe.
+  (`_activate`). A month is one grid with one tab stop, which the arrows, Home, End and the page
+  keys move, paging where they leave its rows; Enter or Space opens a wide day's panel or selects a
+  compact day (`_handleMonthKeyDown`). While Home Assistant edits the card, nothing that writes to
+  a calendar runs, and no swipe.
 
 The full rules are in [Gesture Model in Detail](/architecture-interaction#gesture-model-in-detail).
 
 ## 🎯 Design Principles
 
 The rules a change is judged against in review, alongside the shared pipeline described under
-[Three Views, One Agenda](#three-views-one-agenda):
+[Four Views, One Agenda](#four-views-one-agenda):
 
 - **The source stays the source.** `_source` keeps the event as Home Assistant returned it; display
   text, repaired ends and split days live only on display copies, which no write reads.

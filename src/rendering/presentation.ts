@@ -55,6 +55,13 @@ interface EventPresentation {
   /** Whether the event carries `TextScale.TEXT_SCALED_CLASS`: its scale is not 1. */
   textScaled: boolean;
 
+  /**
+   * Whether the event's calendar shows times at all: its `show_time`, or the card's. Unlike
+   * `contentParts.shouldShowTime` it ignores the all-day time-row switches, which govern the
+   * row an agenda draws and not the length Grid and Month write after a bar's title.
+   */
+  showsTime: boolean;
+
   contentParts: EventContentParts;
 }
 
@@ -461,6 +468,7 @@ export function buildEventPresentation(
     accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
     textScaleProperties: TextScale.textScaleProperties(config, textScale),
     textScaled: textScale !== 1,
+    showsTime: showTime,
     contentParts,
   };
 }

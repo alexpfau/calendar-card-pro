@@ -492,6 +492,38 @@ describe('a draft, not a write', () => {
 describe('a draft is kept where its value would be stored', () => {
   beforeEach(stubSupports);
 
+  it('reads and drafts a layout’s weather color in that layout alone', async () => {
+    const editor = await mountEditor({
+      ...BASE,
+      weather_entity: 'weather.home',
+      list: { weather: { position: 'date', date: { color: '#111111' } } },
+      column: { weather: { position: 'date' } },
+    });
+    const id = 'weather:weather.date.color';
+    const typed = (at: HTMLElement) =>
+      (textField(at)?.data.weather as { date?: { color?: unknown } } | undefined)?.date?.color;
+    await changeField(editor, 'workspace:editing_workspace', 'list');
+    let at = await openColor(editor, id);
+    expect(at.querySelector('.color-yaml code')?.textContent).toBe('color: #111111');
+    const form = textField(at)!;
+    form.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { weather: { date: { color: 'hot pink' } } } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    expect(typed(control(editor, id))).toBe('hot pink');
+
+    // Columns stores no color of its own, and List's draft is not its.
+    await changeField(editor, 'workspace:editing_workspace', 'column');
+    at = await openColor(editor, id);
+    expect(at.querySelector('.color-yaml code')).toBeNull();
+    expect(typed(at)).not.toBe('hot pink');
+    expect(at.querySelector('.color-invalid')).toBeNull();
+  });
+
   it('neither shows nor commits a Grid draft while List is the scope, and keeps it for Grid', async () => {
     const editor = await mountEditor({
       ...BASE,
@@ -598,7 +630,9 @@ describe('a change that arrives late, or a word typed', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
     );
     await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('.page')).toBeNull();
+    // Back from a layout's topic is that layout's page.
+    expect(editor.shadowRoot!.querySelector('.page[data-page="events"]')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('.page[data-layout]')).not.toBeNull();
   });
 });
 

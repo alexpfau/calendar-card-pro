@@ -20,44 +20,47 @@ async function mount(config: Record<string, unknown>) {
 
 afterEach(() => document.body.replaceChildren());
 
-describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state', (view) => {
-  it.each([false, true])(
-    'follows the saved override ownership before another edit (echo=%s)',
-    async (echo) => {
-      const block = view === 'grid' ? 'time_grid' : view;
-      const { editor, reports } = await mount({
-        view,
-        [block]: { show_description: true },
-      });
-      await changeField(editor, 'events:show_description', false);
-      const saved = reports.slice(-1)[0]!;
-      if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
-      else expect(saved).not.toHaveProperty(block);
+describe.each(['list', 'column', 'grid', 'month'] as const)(
+  '%s serialized editor state',
+  (view) => {
+    it.each([false, true])(
+      'follows the saved override ownership before another edit (echo=%s)',
+      async (echo) => {
+        const block = view === 'grid' ? 'time_grid' : view;
+        const { editor, reports } = await mount({
+          view,
+          [block]: { show_description: true },
+        });
+        await changeField(editor, 'events:show_description', false);
+        const saved = reports.slice(-1)[0]!;
+        if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
+        else expect(saved).not.toHaveProperty(block);
 
-      if (echo) {
-        editor.setConfig(saved);
-        await editor.updateComplete;
-      }
-      await changeField(editor, 'workspace:editing_workspace', 'shared');
-      await changeField(editor, 'events:show_description', true);
-      await changeField(editor, 'workspace:editing_workspace', view);
+        if (echo) {
+          editor.setConfig(saved);
+          await editor.updateComplete;
+        }
+        await changeField(editor, 'workspace:editing_workspace', 'shared');
+        await changeField(editor, 'events:show_description', true);
+        await changeField(editor, 'workspace:editing_workspace', view);
 
-      const stored = reports.slice(-1)[0]!;
-      expect(stored).toHaveProperty('show_description', true);
-      if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
-      else expect(stored).not.toHaveProperty(block);
-      expect(valueOf(editor, 'events:show_description')).toBe(view !== 'list');
+        const stored = reports.slice(-1)[0]!;
+        expect(stored).toHaveProperty('show_description', true);
+        if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
+        else expect(stored).not.toHaveProperty(block);
+        expect(valueOf(editor, 'events:show_description')).toBe(view !== 'list');
 
-      const reopened = await mount(stored);
-      expect(valueOf(reopened.editor, 'events:show_description')).toBe(
-        valueOf(editor, 'events:show_description'),
-      );
-      // Over a second in a full local run; the limit is set for CI's slower runner under load
-      // rather than for a hang.
-    },
-    30_000,
-  );
-});
+        const reopened = await mount(stored);
+        expect(valueOf(reopened.editor, 'events:show_description')).toBe(
+          valueOf(editor, 'events:show_description'),
+        );
+        // Over a second in a full local run; the limit is set for CI's slower runner under load
+        // rather than for a hang.
+      },
+      30_000,
+    );
+  },
+);
 
 it.each([false, true])(
   'retains an explicit divergent Grid default (echo=%s)',

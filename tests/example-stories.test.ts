@@ -26,6 +26,8 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   LIST_OVERRIDE_KEYS,
+  MONTH_ONLY_KEYS,
+  MONTH_OVERRIDE_KEYS,
   TIME_GRID_ONLY_KEYS,
   reachableViews,
   viewBlockFor,
@@ -38,6 +40,7 @@ const VIEW_BLOCK_KEYS: Record<string, ReadonlySet<string>> = {
   list: new Set<string>(LIST_OVERRIDE_KEYS),
   column: new Set<string>([...COLUMN_OVERRIDE_KEYS, ...COLUMN_ONLY_KEYS]),
   time_grid: new Set<string>([...COLUMN_OVERRIDE_KEYS, ...TIME_GRID_ONLY_KEYS]),
+  month: new Set<string>([...MONTH_OVERRIDE_KEYS, ...MONTH_ONLY_KEYS]),
 };
 const TOOLBAR_KEYS = new Set(Object.keys(DEFAULT_CONFIG.toolbar ?? {}));
 const WEATHER_KEYS: Record<string, ReadonlySet<string>> = {
@@ -52,6 +55,7 @@ const ROOT_KEYS = new Set([
   'list',
   'column',
   'time_grid',
+  'month',
 ]);
 
 const keysOf = (value: unknown): string[] =>
@@ -67,18 +71,25 @@ function problems(card: Card): string[] {
   for (const key of keysOf(card.toolbar)) {
     if (!TOOLBAR_KEYS.has(key)) out.push(`unknown toolbar.${key}`);
   }
-  const weather = (card.weather ?? {}) as Record<string, unknown>;
-  for (const key of keysOf(weather)) {
-    if (!WEATHER_KEYS[''].has(key)) out.push(`unknown weather.${key}`);
-  }
-  for (const part of ['date', 'event'] as const) {
-    for (const key of keysOf(weather[part])) {
-      if (!WEATHER_KEYS[part].has(key)) out.push(`unknown weather.${part}.${key}`);
+  // The weather written before v6 at the top level, and each layout's own, which names no entity.
+  const weatherProblems = (path: string, weather: unknown, ownEntity: boolean) => {
+    for (const key of keysOf(weather)) {
+      if (!WEATHER_KEYS[''].has(key) || (key === 'entity' && !ownEntity)) {
+        out.push(`unknown ${path}.${key}`);
+      }
     }
-  }
+    for (const part of ['date', 'event'] as const) {
+      for (const key of keysOf((weather as Record<string, unknown> | undefined)?.[part])) {
+        if (!WEATHER_KEYS[part].has(key)) out.push(`unknown ${path}.${part}.${key}`);
+      }
+    }
+  };
+  weatherProblems('weather', card.weather, true);
   for (const [block, allowed] of Object.entries(VIEW_BLOCK_KEYS)) {
     for (const key of keysOf(card[block])) {
-      if (!allowed.has(key)) out.push(`${block}.${key} is not read there`);
+      if (key === 'weather')
+        weatherProblems(`${block}.weather`, (card[block] as Card).weather, false);
+      else if (!allowed.has(key)) out.push(`${block}.${key} is not read there`);
     }
   }
 
@@ -126,6 +137,8 @@ describe('the Example Stories cards', () => {
       toolbar: { show: true, labels: true },
       weather: { entity: 'weather.home', event: { show_temperature: true } },
       list: { start_time: '07:00' },
+      column: { weather: { entity: 'weather.home', date: { show_low: true } } },
+      month: { time_position: 'title' },
       show_location: false,
       entities: [{ entity: 'calendar.a', hue: 'red', max_events_to_show: 1 }],
     });
@@ -135,7 +148,10 @@ describe('the Example Stories cards', () => {
         'unknown tint',
         'unknown toolbar.labels',
         'unknown weather.event.show_temperature',
+        'unknown column.weather.entity',
+        'unknown column.weather.date.show_low',
         'list.start_time is not read there',
+        'month.time_position is not read there',
         'entities[0].hue is dropped',
         'deprecated entities[0].max_events_to_show',
         'no config_version: 5 beside show_location',

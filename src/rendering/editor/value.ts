@@ -137,7 +137,7 @@ export function changedKeys(
  */
 interface StrippedBlock {
   /** The block's configuration key. */
-  readonly blockKey: 'column' | 'time_grid';
+  readonly blockKey: 'column' | 'time_grid' | 'month';
   /** Options only this layout reads, with their defaults. */
   readonly defaults: Readonly<Record<string, unknown>>;
   /** Resolves one of those options as the card does before using it. */
@@ -167,9 +167,9 @@ interface StrippedBlock {
 }
 
 /**
- * Strips redundant entries from one layout's own block, `column:` or `time_grid:`.
+ * Strips redundant entries from one layout's own block, `column:`, `time_grid:` or `month:`.
  *
- * One rule for both. A line the YAML already holds, and the card reads as written, is kept as
+ * One rule for all three. A line the YAML already holds, and the card reads as written, is kept as
  * written, default or not, so a save rewrites only what it changed. Any other value equal to its
  * default, or to what the layout would inherit, is dropped; a value the card rejects resolves to
  * the default and goes with it. Anything else is stored as the card resolves it, which turns a
@@ -199,8 +199,17 @@ function stripBlockDefaults(
 
     const held = unchangedFromAuthored(authored, key, value);
     // Forms generate synthetic field names; one the YAML itself holds is a misplaced line the
-    // user wrote, kept for the misplaced-option notice like any other (backlog item 192).
-    if (isSyntheticKey(key) && !held) continue;
+    // user wrote, kept for the misplaced-option notice like any other (backlog item 192). A key
+    // the block owns is never one, though it may share a synthetic field's name: Month's own
+    // `card_height` and the card's Height.
+    const owned = key in layout.defaults || overrideKeys.has(key);
+    if (isSyntheticKey(key) && !owned && !held) continue;
+
+    if (key === 'weather' && Helpers.isConfigBlock(value)) {
+      const kept = stripLayoutWeather(value, authored);
+      if (kept !== undefined) result[key] = kept;
+      continue;
+    }
 
     const special = layout.special?.(config, key, value, held);
     if (special !== undefined) {
@@ -263,6 +272,16 @@ const TIME_GRID_BLOCK: StrippedBlock = {
   keepsDivergentOverrides: true,
 };
 
+const MONTH_BLOCK: StrippedBlock = {
+  blockKey: 'month',
+  defaults: ViewConfig.MONTH_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeMonthValue(key as keyof typeof ViewConfig.MONTH_DEFAULTS, value),
+  overrideKeys: ViewConfig.MONTH_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.MONTH_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: false,
+};
+
 /**
  * Strips redundant entries from a `column:` block.
  *
@@ -314,6 +333,21 @@ export function stripTimeGridDefaults(
 }
 
 /**
+ * Strips redundant entries from a `month:` block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param authored - The `month:` block as the YAML holds it; an entry it holds unchanged is
+ *   kept, as written, where the card reads it as written
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripMonthDefaults(
+  config: Readonly<Types.Config>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
+  return stripBlockDefaults(config, authored, MONTH_BLOCK);
+}
+
+/**
  * Strips a `list:` block to what the user actually authored.
  *
  * 🚨 Presence *is* authorship here, so unlike `stripColumnDefaults` this keeps a value
@@ -352,12 +386,54 @@ export function stripListDefaults(
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (ViewConfig.inheritsInView(key, value)) continue;
     if (isSyntheticKey(key) && !unchangedFromAuthored(authored, key, value)) continue;
+    if (key === 'weather' && Helpers.isConfigBlock(value)) {
+      const kept = stripLayoutWeather(value, authored);
+      if (kept !== undefined) result[key] = kept;
+      continue;
+    }
 
     result[key] = value;
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
 }
+
+/**
+ * A layout's own `weather:`, minimized against what a layout's weather starts from: every part's
+ * shipped details, and the position `none`. A line the YAML holds unchanged is kept.
+ *
+ * @param weather - The block's `weather:`
+ * @param authored - The block as the YAML holds it
+ * @returns What to store, or `undefined` for nothing
+ */
+function stripLayoutWeather(
+  weather: Readonly<Record<string, unknown>>,
+  authored: unknown,
+): Record<string, unknown> | undefined {
+  return stripPresentationDefaults(
+    weather,
+    ViewConfig.LAYOUT_WEATHER_BASE as Record<string, unknown>,
+    Helpers.isConfigBlock(authored) ? authored.weather : undefined,
+  );
+}
+
+/**
+ * How each layout's own block is minimized on write, by layout.
+ *
+ * A whole record rather than a partial one, so a layout registered without an entry fails to
+ * compile rather than leaving its block unminimized: `toStoredConfig` walks `VIEWS` through it.
+ */
+const BLOCK_STRIPPERS: Readonly<
+  Record<
+    Types.EffectiveView,
+    (config: Readonly<Types.Config>, authored?: unknown) => Record<string, unknown> | undefined
+  >
+> = {
+  list: stripListDefaults,
+  column: stripColumnDefaults,
+  grid: stripTimeGridDefaults,
+  month: stripMonthDefaults,
+};
 
 /**
  * Removes the config keys that v3.0.0 deleted from the runtime.
@@ -532,14 +608,13 @@ export function toStoredConfig(
   const atomic = ATOMIC_KEYS.map((key) => [key, draft[key]] as const);
   for (const [key] of atomic) delete draft[key];
 
-  const list = stripListDefaults(config, authored?.list);
-  delete draft.list;
-
-  const column = stripColumnDefaults(config, authored?.column);
-  delete draft.column;
-
-  const grid = stripTimeGridDefaults(config, authored?.time_grid);
-  delete draft.time_grid;
+  const blocks = ViewConfig.VIEWS.flatMap((view) => {
+    const blockKey = ViewConfig.viewBlockFor(view)?.blockKey;
+    if (blockKey === undefined) return [];
+    const block = BLOCK_STRIPPERS[view](config, authored?.[blockKey]);
+    delete draft[blockKey];
+    return [[blockKey, block] as const];
+  });
 
   const weather = stripWeatherDefaults(config, authored?.weather);
   delete draft.weather;
@@ -568,16 +643,8 @@ export function toStoredConfig(
     }
   }
 
-  if (list !== undefined) {
-    stored.list = list;
-  }
-
-  if (column !== undefined) {
-    stored.column = column;
-  }
-
-  if (grid !== undefined) {
-    stored.time_grid = grid;
+  for (const [blockKey, block] of blocks) {
+    if (block !== undefined) stored[blockKey] = block;
   }
 
   if (weather !== undefined) {
@@ -822,6 +889,30 @@ export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string
 }
 
 /**
+ * Builds the `month:` block as the form should show it.
+ *
+ * Same two layers as {@link columnFormBlock}, and the same reason the stored spread has to
+ * come last.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every unset option at its effective value
+ */
+export function monthFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return {
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.MONTH_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveMonthOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.MONTH_DEFAULTS,
+        ),
+      ]),
+    ),
+    ...(config.month ?? {}),
+  };
+}
+
+/**
  * Builds the `list:` block as the form should show it.
  *
  * List has no block-only keys or divergent defaults to fill in. The workspace projection
@@ -849,6 +940,7 @@ export const VIEW_FORM_BLOCKS: Readonly<
   list: listFormBlock,
   column: columnFormBlock,
   grid: timeGridFormBlock,
+  month: monthFormBlock,
 };
 
 /**
@@ -857,6 +949,7 @@ export const VIEW_FORM_BLOCKS: Readonly<
  * Most controls default on inside a shown toolbar, so binding the block raw would show them
  * unticked under a freshly switched-on toolbar while the card draws them. Read through
  * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
+ * `view_switcher_layouts` shows the layouts the switcher offers, the starting one among them.
  * {@link stripToolbarDefaults} takes the defaults back out on write. The legend's `false` shows
  * as `off`, since a dropdown's values are strings (`LEGEND_OFF`).
  *
@@ -879,6 +972,14 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
       if (key === 'buttons') {
         const written = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
         return [key, Array.isArray(written) ? written : []];
+      }
+      // The layouts the switcher offers, the starting one always among them, as its chips show.
+      if (key === 'view_switcher_layouts') {
+        const named = toolbar.switcherViews as ReadonlyArray<Types.EffectiveView>;
+        return [
+          key,
+          ViewConfig.VIEWS.filter((view) => view === config.view || named.includes(view)),
+        ];
       }
       const value = toolbar[resolvedName(key)];
       return [key, key === 'legend' && value === false ? LEGEND_OFF : value];
@@ -920,38 +1021,8 @@ export function stripToolbarDefaults(
 }
 
 /**
- * Builds the `weather:` block as the form should show it.
- *
- * The card reads every nested weather option as `!== false`, so an omitted one
- * renders as its default. Binding the block raw would therefore show the five
- * default-on toggles unchecked while the card draws them enabled. Merging the
- * defaults in mirrors {@link columnFormBlock}; {@link stripWeatherDefaults}
- * takes them back out on write, so the stored block stays minimal.
- *
- * @param config - Merged configuration, defaults already applied
- * @returns The block, with every unset option at its effective value
- */
-export function weatherFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
-  const defaults = Config.DEFAULT_CONFIG.weather ?? {};
-  const stored = (config.weather ?? {}) as Record<string, unknown>;
-  const block: Record<string, unknown> = { ...defaults, ...stored };
-
-  for (const group of WEATHER_GROUPS) {
-    const nested = stored[group];
-    block[group] = {
-      ...(defaults[group] ?? {}),
-      ...(Helpers.isConfigBlock(nested) ? nested : {}),
-    };
-  }
-
-  return block;
-}
-
-/**
- * Strips redundant entries from a `weather:` block.
- *
- * The counterpart to {@link weatherFormBlock}: the form binds every defaulted
- * option, so without this every edit would persist the whole block.
+ * Strips redundant entries from the top-level `weather:` block written before v6, which a card
+ * holds until its first write converts it (`weather-migration.ts`).
  *
  * @param config - Merged configuration, defaults already applied
  * @param authored - The `weather:` block as the YAML holds it; an option it holds unchanged
@@ -968,7 +1039,27 @@ export function stripWeatherDefaults(
     return undefined;
   }
 
-  const defaults = (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>;
+  return stripPresentationDefaults(
+    block,
+    (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>,
+    authored,
+  );
+}
+
+/**
+ * Strips the options of a weather block that equal what it starts from: the top-level block's
+ * defaults, or a layout's (`ViewConfig.LAYOUT_WEATHER_BASE`), whose position starts at none.
+ *
+ * @param block - The weather block
+ * @param defaults - What it starts from
+ * @param authored - The block as the YAML holds it; an option it holds unchanged is kept
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+function stripPresentationDefaults(
+  block: Readonly<Record<string, unknown>>,
+  defaults: Readonly<Record<string, unknown>>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {

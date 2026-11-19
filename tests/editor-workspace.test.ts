@@ -3,14 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CARD,
   CHASSIS,
-  type MountedEditor,
   changeField,
   changeFields,
   entry,
   formsOf,
   goEntry,
   goOverview,
-  goPage,
   keysOf,
   mountEditor,
   openPanels,
@@ -19,7 +17,9 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
@@ -68,9 +68,21 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
     .map(({ node }) => node.name);
 }
 
+/**
+ * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
+ * block field's own name, which may share a synthetic field's (Month's `card_height`).
+ */
+function optionKeys(schema: ReadonlyArray<HaFormSchema>): string[] {
+  return [...walkSchema(schema)]
+    .filter(({ node }) => 'selector' in node)
+    .flatMap(({ node, dataPath }) =>
+      dataPath.length === 0 ? configKeysForField(node.name) : [node.name],
+    );
+}
+
 /** Starting Layout and Settings For, wherever the open place draws them. */
 function viewControls(editor: EditorHost): Element[] {
-  return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope')];
+  return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope-block')];
 }
 
 /**
@@ -84,19 +96,6 @@ function offered(editor: EditorHost, name: string): string[] {
   return [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)].map(
     (input) => input.value,
   );
-}
-
-/**
- * Opens Settings For as a user does: on a page, the overview having none, with Change where it is
- * its compact line.
- *
- * @param editor - Editor
- */
-async function openScope(editor: EditorHost): Promise<void> {
-  await goPage(editor as unknown as MountedEditor, 'events');
-  const change = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="scope-change"]');
-  change?.click();
-  await editor.updateComplete;
 }
 
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
@@ -145,7 +144,15 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
         split_multiday_events: false,
       },
     ],
-    show_empty_days: true,
+    // Off everywhere, with Show Today When Empty on: `show_empty_today`, scoped since Month draws
+    // every day, is built only while Show Empty Days is off, which Columns and Grid default on,
+    // and Show Today When Empty keeps `empty_day_text` and `empty_day_color` built. Left on, it
+    // would read absent-because-gated as absent-because-withheld, the trap described below.
+    show_empty_days: false,
+    show_empty_today: true,
+    // Shown for the same reason: `week_number_background_color` is scoped since Month draws its
+    // week numbers as plain text, and is built only while week numbers are.
+    show_week_numbers: 'iso',
     // The three parents whose children are `VIEW_SCOPE` keys. Without them
     // `show_location_allday`, `show_description_allday` and `show_countdown_allday` are
     // never built at all, so the scope assertion below reads absent-because-gated as
@@ -163,30 +170,43 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     // without the name its color and size are not.
     month_separator_width: '1px',
     month_separator_label: true,
-    column: { event_font_size: '19px', show_location: true },
-    time_grid: { event_font_size: '23px', show_empty_days: true },
+    column: { event_font_size: '19px', show_location: true, show_empty_days: false },
+    time_grid: { event_font_size: '23px', show_empty_days: false },
   };
 }
+
+/** The scoped keys Whole Card's pages hold, drawn whatever the workspace: Open Links. */
+const WHOLE_CARD_KEYS: ReadonlySet<string> = new Set(
+  PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).flatMap((page) =>
+    page.headings.flatMap((heading) =>
+      heading.fields.flatMap(([id]) => configKeysForField(parseFieldId(id).name)),
+    ),
+  ),
+);
 
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
   const namesInForms = formsOf(editor, CARD).flatMap((form) => names(form.schema));
   expect(namesInForms.length).toBeGreaterThan(50);
-  const main = namesInForms.flatMap((name) => configKeysForField(name));
+  const main = formsOf(editor, CARD).flatMap((form) => optionKeys(form.schema));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
-    // view reads it. Asking `scope.has('shared')` would be false for every scoped key.
-    const expected = current === 'shared' ? scope.size > 1 : scope.has(current);
+    // view reads it. Asking `scope.has('shared')` would be false for every scoped key. A Whole
+    // Card page draws its keys in every workspace, saying where they do not apply instead.
+    const expected =
+      WHOLE_CARD_KEYS.has(key) || (current === 'shared' ? scope.size > 1 : scope.has(current));
     expect(main.includes(key), `${current}: ${key}`).toBe(expected);
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
-  expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
+  expect(main.includes('min_day_width')).toBe(
+    current === 'grid' || current === 'column' || current === 'month',
+  );
   // Each of the calendar's fields is a form of its own on its entry page, so the calendar's
   // options are what all of its forms draw together.
   const entityForms = formsOf(editor, entry(0));
   expect(entityForms.length).toBeGreaterThan(0);
   const entity = entityForms.flatMap((form) => names(form.schema));
   expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
-  expect(entity.includes('split_multiday_events')).toBe(current !== 'grid');
+  expect(entity.includes('split_multiday_events')).toBe(current !== 'grid' && current !== 'month');
   expect(editor.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
   if (current === 'list') {
     expect(editor.shadowRoot!.querySelectorAll('.width-table')).toHaveLength(0);
@@ -263,56 +283,21 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
         );
       };
       expect(offered(editor, 'view'), view).toEqual(values(display));
-      await openScope(editor);
-      expect(offered(editor, 'scope'), view).toEqual(values(scope));
+      // The layout being edited is the place's own: each layout has a page, Layout Defaults too,
+      // and Settings For draws nowhere.
+      expect(
+        [...editor.shadowRoot!.querySelectorAll('[data-focus^="layout:"]')].map((row) =>
+          row.getAttribute('data-focus')!.slice('layout:'.length),
+        ),
+        view,
+      ).toEqual([...values(scope).filter((each) => each !== 'shared'), 'shared']);
+      expect(editor.shadowRoot!.querySelector('input[name="scope"]'), view).toBeNull();
       editor.remove();
     }
   });
 });
 
 describe('displayed view and editing workspace are separate controls', () => {
-  it('draws Starting Layout on the overview and Settings For on a page, and declares both to the translation checker', async () => {
-    const editor = await mount({ view: 'grid' });
-    expect(viewControls(editor)).toHaveLength(1);
-    // Its frame's heading says its name once; the group keeps it as its accessible name.
-    const legend = editor.shadowRoot!.querySelector('fieldset.displays legend')!;
-    expect(legend.textContent!.trim()).toBe('Starting Layout');
-    expect(legend.classList.contains('visually-hidden')).toBe(true);
-    expect(
-      editor
-        .shadowRoot!.querySelector('[data-heading="starting_layout"] > .heading')!
-        .textContent!.trim(),
-    ).toBe('Starting Layout');
-    // The overview, top to bottom: the filter bar, Calendars, and Starting Layout.
-    const order = [
-      ...editor.shadowRoot!.querySelectorAll(
-        '.overview > .filter-bar, .overview > .scope, .overview > [data-heading], .overview > [data-heading] > .displays',
-      ),
-    ].map((element) => element.getAttribute('data-heading') ?? element.className.split(' ')[0]);
-    expect(order).toEqual(['filter-bar', 'calendars', 'starting_layout', 'displays']);
-    await openScope(editor);
-    expect(viewControls(editor)).toHaveLength(1);
-    expect(editor.shadowRoot!.querySelector('.scope legend')!.textContent!.trim()).toBe(
-      'Settings For',
-    );
-    expect(chassisSubforms().flatMap((subform) => names(subform.schema))).toEqual([
-      'view',
-      WORKSPACE_FIELD,
-      'search',
-      'pick',
-      'calendar',
-      'card_title',
-      'card_calendars',
-      'weather_entity',
-      'show_toolbar',
-      'event_details',
-      'day_adds',
-    ]);
-    expect(formsOf(editor, CARD).flatMap((form) => names(form.schema))).not.toContain('view');
-    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
-    expect(WORKSPACES).toEqual(EXPECTED_WORKSPACES);
-  });
-
   it.each(VIEWS)(
     'opens on the displayed %s view without emitting a config change',
     async (view) => {
@@ -417,13 +402,6 @@ describe('workspace transitions do not configure the card', () => {
     expect(seen).toEqual([]);
   });
 
-  it('offers only the four scopes, so no other can be chosen', async () => {
-    const editor = await mount();
-    await openScope(editor);
-    expect(offered(editor, 'scope')).toEqual(EXPECTED_WORKSPACES);
-    expect(workspace(editor)).toBe('list');
-  });
-
   it('draws no Settings For above what search finds, which keeps the scope a page chose', async () => {
     const editor = await mount();
     const seen = reports(editor);
@@ -454,6 +432,9 @@ describe('workspace state survives echoes and pending edits', () => {
       view: 'list',
     });
     await editor.updateComplete;
+    // Card & Header, where the title was changed, edits the whole card; the overview follows the
+    // layout the card opens in.
+    await goOverview(editor);
     expect(workspace(editor)).toBe('list');
     await display(editor, 'column');
     expect(workspace(editor)).toBe('column');

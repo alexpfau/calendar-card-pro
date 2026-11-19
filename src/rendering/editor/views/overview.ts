@@ -5,156 +5,26 @@
  * templates live outside `element.ts`).
  */
 
-import {
-  mdiCheck,
-  mdiChevronRight,
-  mdiClose,
-  mdiCreation,
-  mdiEyeOutline,
-  mdiLayersOutline,
-} from '@mdi/js';
+import { mdiCheck, mdiChevronRight, mdiClose, mdiCreation, mdiEyeOutline } from '@mdi/js';
 import { type TemplateResult, html, nothing } from 'lit';
 import { live } from 'lit/directives/live.js';
 
 import { icon } from './icon';
-import { interpolate } from '../strings';
-import type { EditorWorkspace } from '../workspace';
 
 /** Resolves one of the editor's own strings by its literal key. */
 export type Translate = (key: string) => string;
 
-/** One choice of Settings For. */
-export interface ScopeChoice {
-  readonly value: EditorWorkspace;
-  readonly label: string;
-}
-
-/** What Settings For shows. */
-export interface ScopeModel {
-  readonly compact: boolean;
-  readonly workspace: EditorWorkspace;
-  readonly choices: ReadonlyArray<ScopeChoice>;
-  /** The label of the layout the card displays, for the preview line. */
-  readonly displayedLabel: string;
-  /** Whether the scope is not the layout the card displays (All Layouts or another layout). */
-  readonly previewDiffers: boolean;
-  /**
-   * The preview switch, pressed or not, where the scope is a layout the preview can draw;
-   * `undefined` under All Layouts.
-   */
-  readonly previewSwitch?: boolean;
-}
-
 /**
- * A template with one placeholder drawn bold, as "Settings for **List**".
+ * The preview line: "Preview shows Grid · The card opens in Month", led by an eye that is no part
+ * of its words. Drawn under Settings For, and alone where a place draws none.
  *
- * @param template - The sentence, holding `{layout}`
- * @param value - What fills it
- * @returns The sentence
+ * @param text - The sentence
+ * @returns The line
  */
-function withBold(template: string, value: string): TemplateResult {
-  const [before, after = ''] = template.split('{layout}');
-  return html`${before}<b>${value}</b>${after}`;
-}
-
-/**
- * Settings For: one compact line, "Settings for List · Change", or the four choices, a line on what
- * the chosen one means, and the preview line where the card shows another layout, with the switch
- * that draws the layout being edited in the preview instead. Native radios, so arrow keys move
- * within the group and focus stays on the chosen one; choosing writes nothing, and nor does the
- * switch.
- *
- * @param model - What it shows
- * @param t - The editor's strings
- * @param onChange - Change was pressed
- * @param onPick - A scope was chosen
- * @param onPreview - The preview switch was pressed
- * @returns The control
- */
-export function scopeControl(
-  model: ScopeModel,
-  t: Translate,
-  onChange: () => void,
-  onPick: (workspace: EditorWorkspace) => void,
-  onPreview?: () => void,
-): TemplateResult {
-  const current = model.choices.find((choice) => choice.value === model.workspace);
-  const name = current?.label ?? '';
-  if (model.compact) {
-    return html`<div class="scope scope-compact">
-      <span class="scope-lead"
-        >${icon(mdiLayersOutline)}<span class="scope-line"
-          >${withBold(t('settings_for.compact'), name)}</span
-        ></span
-      >
-      <button
-        type="button"
-        class="text-button"
-        data-focus="scope-change"
-        aria-label=${interpolate(t('settings_for.change_named'), { layout: name })}
-        @click=${onChange}
-      >
-        ${t('settings_for.change')}
-      </button>
-    </div>`;
-  }
-  const help =
-    model.workspace === 'shared'
-      ? t('settings_for.help_shared')
-      : interpolate(t('settings_for.help_layout'), { layout: name });
-  return html`<fieldset class="scope">
-    <legend class="label">${t('settings_for.label')}</legend>
-    <div class="segmented-row">
-      <div class="segments">
-        ${model.choices.map(
-          (choice) =>
-            html`<label class="segment">
-              <input
-                type="radio"
-                name="scope"
-                value=${choice.value}
-                data-focus=${`scope:${choice.value}`}
-                .checked=${
-                  // Compared with the radio as it is, not as Lit last set it: after Duplicate and
-                  // Back, Home Assistant showed this group with nothing checked.
-                  live(choice.value === model.workspace)
-                }
-                @change=${() => onPick(choice.value)}
-              />
-              <span>${choice.label}</span>
-            </label>`,
-        )}
-      </div>
-    </div>
-    <p class="hint">${help}</p>
-    ${
-      model.previewDiffers
-        ? html`<p class="hint scope-preview">
-            ${icon(mdiEyeOutline)}<span class="scope-preview-text"
-              >${interpolate(
-                model.previewSwitch ? t('settings_for.previewing') : t('settings_for.preview'),
-                { layout: name, displayed: model.displayedLabel },
-              )}</span
-            >${
-              model.previewSwitch === undefined
-                ? nothing
-                : html`<button
-                    type="button"
-                    class="text-button scope-preview-switch"
-                    data-focus="scope-preview"
-                    aria-pressed=${model.previewSwitch ? 'true' : 'false'}
-                    @click=${onPreview}
-                  >
-                    ${model.previewSwitch ? icon(mdiCheck) : nothing}${interpolate(
-                      t('settings_for.preview_switch'),
-                      { layout: name },
-                    )}
-                  </button>`
-            }
-          </p>`
-        : nothing
-    }
-  </fieldset>`;
+export function previewLine(text: string): TemplateResult {
+  return html`<p class="hint scope-preview">
+    ${icon(mdiEyeOutline)}<span class="scope-preview-text">${text}</span>
+  </p>`;
 }
 
 /** One chip of a group of radio chips. */
@@ -225,8 +95,9 @@ export interface DisplayChoice {
 }
 
 /**
- * Starting Layout: the three illustrated layouts as native radios, labels that wrap, and the
- * helper line. Its frame's heading already says its name, so the legend is read and not seen.
+ * Starting Layout: a row per layout, as Quick Setup draws its examples: a native radio, the
+ * layout's picture, its name over its description, then the helper line. Its frame's heading
+ * already says its name, so the legend is read and not seen.
  *
  * @param label - The group's name
  * @param helper - The line under it
@@ -259,6 +130,7 @@ export function displayControl(
               }
               @change=${() => onPick(choice.value)}
             />
+            ${choice.image ? html`<img class="display-image" src=${choice.image} alt="" />` : nothing}
             <span class="display-text">
               <span class="display-label">${choice.label}</span>
               ${
@@ -267,12 +139,101 @@ export function displayControl(
                   : nothing
               }
             </span>
-            ${choice.image ? html`<img class="display-image" src=${choice.image} alt="" />` : nothing}
           </label>`,
       )}
     </div>
     ${helper ? html`<p class="hint">${helper}</p>` : nothing}
   </fieldset>`;
+}
+
+/** One layout's row under Layouts. */
+export interface LayoutChoice extends DisplayChoice {
+  /** The settings button's accessible name: "Grid Settings". */
+  readonly settingsName: string;
+}
+
+/**
+ * Layouts: a row per layout, each two targets side by side. The radio alone, in a zone of its
+ * own at the start, picks the layout the card opens in; the rest of the row, the layout's picture,
+ * name and description and a chevron, is one button that opens the layout's page and changes
+ * nothing. The radios are one group, so the arrow keys move the choice as Starting Layout's did;
+ * each row's button is a Tab stop of its own. The help sits above the rows, the note and Layout
+ * Defaults below them.
+ *
+ * @param legend - The radio group's name: Starting Layout
+ * @param help - The lines above the rows
+ * @param choices - The layouts
+ * @param value - The layout the card opens in
+ * @param note - The line under the rows
+ * @param after - What follows the note: Layout Defaults
+ * @param onPick - A layout was picked to open the card in
+ * @param onOpen - A layout's page was asked for
+ * @returns The block's body
+ */
+export function layoutsControl(
+  legend: string,
+  help: TemplateResult,
+  choices: ReadonlyArray<LayoutChoice>,
+  value: string,
+  note: string | undefined,
+  after: TemplateResult,
+  onPick: (view: string) => void,
+  onOpen: (view: string) => void,
+): TemplateResult {
+  return html`<div class="layouts-help">${help}</div>
+    <fieldset class="displays layouts">
+      <legend class="visually-hidden">${legend}</legend>
+      <div class="display-choices">
+        ${choices.map(
+          (choice) =>
+            html`<div class="display-choice layout-choice">
+              <label class="layout-pick">
+                <input
+                  type="radio"
+                  name="view"
+                  value=${choice.value}
+                  data-focus=${`view:${choice.value}`}
+                  aria-label=${choice.label}
+                  .checked=${
+                    // Compared with the radio as it is, not as Lit last set it.
+                    live(choice.value === value)
+                  }
+                  @change=${() => onPick(choice.value)}
+                />
+              </label>
+              <button
+                type="button"
+                class="layout-open"
+                data-focus=${`layout:${choice.value}`}
+                aria-label=${choice.settingsName}
+                aria-describedby=${`layout-${choice.value}-description`}
+                @click=${() => onOpen(choice.value)}
+              >
+                ${
+                  choice.image
+                    ? html`<img class="display-image" src=${choice.image} alt="" />`
+                    : nothing
+                }
+                <span class="display-text">
+                  <span class="display-label">${choice.label}</span>
+                  ${
+                    choice.description
+                      ? html`<span
+                          class="display-description"
+                          id=${`layout-${choice.value}-description`}
+                          >${choice.description}</span
+                        >`
+                      : nothing
+                  }
+                </span>
+                ${icon(mdiChevronRight, 'nav-chevron')}
+              </button>
+            </div>`,
+        )}
+      </div>
+      ${note ? html`<p class="hint">${note}</p>` : nothing}
+    </fieldset>
+    ${after}`;
 }
 
 /** One row that opens a page. */
@@ -322,11 +283,17 @@ export function navRow(row: NavRow, onOpen: () => void): TemplateResult {
  *
  * @param title - The heading
  * @param rows - Its rows
+ * @param lead - What comes before the rows: Settings For, under Settings
  * @returns The group
  */
-export function rowGroup(title: string, rows: ReadonlyArray<TemplateResult>): TemplateResult {
+export function rowGroup(
+  title: string,
+  rows: ReadonlyArray<TemplateResult>,
+  lead: TemplateResult | typeof nothing = nothing,
+): TemplateResult {
   return html`<section class="row-group">
     <h3 class="heading" tabindex="-1">${title}</h3>
+    ${lead}
     <div class="rows">${rows}</div>
   </section>`;
 }

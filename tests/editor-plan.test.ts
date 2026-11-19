@@ -210,6 +210,7 @@ describe('the shown set: each state', () => {
       kind: 'other-layout',
       views: ['list'],
     });
+    // Month's day list puts every time beside its title, so only List and Columns place it.
     expect(stateIn(cardCtx({}, 'grid'), 'events:time_position')).toEqual({
       kind: 'other-layout',
       views: ['list', 'column'],
@@ -321,7 +322,7 @@ describe('inherited and different', () => {
     ['split_multiday_events', { split_multiday_events: true }],
     ['multiday_banners', { view: 'grid', multiday_banners: false }],
     ['event_type', { event_type: 'timed' }],
-    ['show_weather', { weather: { entity: 'weather.home', position: 'event' } }],
+    ['show_weather', { weather_entity: 'weather.home', list: { weather: { position: 'event' } } }],
     ['days_of_week', undefined],
   ];
 
@@ -340,7 +341,9 @@ describe('inherited and different', () => {
     );
     for (const [option, card] of CASES) {
       const id = `calendar:${option}`;
-      const workspace = card?.view === 'grid' ? 'grid' : 'shared';
+      // A calendar's weather follows the forecast of the layout its page is open in.
+      const workspace =
+        card?.view === 'grid' ? 'grid' : option === 'show_weather' ? 'list' : 'shared';
       const follows = entryCtx({ ...card, entities: [ANNA] }, workspace);
       if (card === undefined) {
         expect(stateIn(follows, id), option).toEqual({ kind: 'add' });
@@ -360,16 +363,22 @@ describe('inherited and different', () => {
   });
 
   it('counts show_weather against the forecast beside events, not against the day header', () => {
-    const byDay = entryCtx(
-      { weather: { entity: 'weather.home', position: 'date' }, entities: [ANNA] },
-      'shared',
-    );
+    const at = (position: string) => ({
+      weather_entity: 'weather.home',
+      list: { weather: { position } },
+      entities: [ANNA],
+    });
+    const byDay = entryCtx(at('date'), 'list');
     expect(byDay.present.fields.has('calendar:show_weather')).toBe(false);
-    const both = entryCtx(
-      { weather: { entity: 'weather.home', position: 'both' }, entities: [ANNA] },
-      'shared',
-    );
+    const both = entryCtx(at('both'), 'list');
     expect(stateIn(both, 'calendar:show_weather')).toEqual({ kind: 'live', why: 'inherited' });
+    // Read in the layout the page is open in: Grid draws no forecast here, and Layout Defaults
+    // draws none of its own.
+    for (const workspace of ['grid', 'shared'] as const) {
+      expect(entryCtx(at('both'), workspace).present.fields.has('calendar:show_weather')).toBe(
+        false,
+      );
+    }
   });
 });
 
@@ -380,18 +389,24 @@ describe('state words: every row of the stateOf table', () => {
   };
 
   it('a field with no per-layout copy', () => {
-    // On a whole-card page: "Set" when stored, nothing when not, in any scope.
+    // On a Whole Card page: "Set" when stored, nothing when not, in any scope.
     expect(words({ title: 'Family' }, 'grid', 'card:title')).toEqual({ words: { kind: 'set' } });
     expect(words({}, 'grid', 'card:title')).toBeUndefined();
-    // Elsewhere "Whole Card", or "Whole Card · Set", in every scope: never "Set for All Layouts".
+    expect(words({ refresh_interval: 15 }, 'grid', 'actions:refresh_interval')).toEqual({
+      words: { kind: 'set' },
+    });
+    // On a layout's topic: "Whole Card", or "Whole Card · Set", in every scope: never "Set for
+    // Layout Defaults".
     for (const workspace of ['shared', 'grid'] as const) {
-      expect(words({}, workspace, 'actions:refresh_interval'), workspace).toEqual({
+      expect(words({}, workspace, 'content:first_day_of_week'), workspace).toEqual({
         words: { kind: 'whole-card', stored: false },
       });
-      expect(words({ refresh_interval: 15 }, workspace, 'actions:refresh_interval')).toEqual({
-        words: { kind: 'whole-card', stored: true },
-      });
+      expect(
+        words({ first_day_of_week: 'monday' }, workspace, 'content:first_day_of_week'),
+      ).toEqual({ words: { kind: 'whole-card', stored: true } });
     }
+    // A whole-card setting some layout draws nothing for says where it does not apply.
+    expect(words({}, 'shared', 'actions:open_links')).toEqual({ notIn: ['grid'] });
   });
 
   it('a per-layout field in All Layouts', () => {
@@ -527,7 +542,7 @@ describe('state words: every row of the stateOf table', () => {
       kind: 'card',
       value: true,
     });
-    // With the preview switched to List, List's value is the one drawn.
+    // With the preview drawing List, List's value is the one drawn.
     expect(stateOf(fieldIn(anna('list'), 'calendar:show_time'), anna('list'))).toEqual({
       words: { kind: 'follows-card', value: false },
     });
@@ -553,10 +568,11 @@ describe('state words: every row of the stateOf table', () => {
     }
     const weather = cardCtx(
       {
-        weather: { entity: 'weather.home', position: 'event' },
+        weather_entity: 'weather.home',
+        list: { weather: { position: 'event' } },
         entities: ['calendar.ben', { entity: ANNA, show_weather: false }],
       },
-      'shared',
+      'list',
     );
     expect(stateOf(fieldIn(weather, 'weather:weather.position'), weather)).toMatchObject({
       calendars: [11],

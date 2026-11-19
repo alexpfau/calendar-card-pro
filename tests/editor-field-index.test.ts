@@ -45,6 +45,7 @@ import * as Filter from '../src/rendering/editor/filter';
 import { corpus, freshConfig } from '../src/rendering/editor/gates';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel, lookup } from '../src/rendering/editor/localize';
+import { WHOLE_CARD_PAGES, placementOf } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildToolbarButtonSchema } from '../src/rendering/editor/schemas/card';
@@ -134,6 +135,8 @@ const HOLDS: ReadonlyArray<string> = [
   'column day_header:today_indicator_custom',
   'grid content:start_date_offset',
   'grid day_header:today_indicator_custom',
+  'month content:start_date_offset',
+  'month day_header:today_indicator_custom',
 ];
 
 /**
@@ -191,6 +194,35 @@ function candidateValues(node: SelectorSchema, current: unknown): unknown[] {
   );
 }
 
+/**
+ * A workspace's card fields as the editor draws them: a layout's topics in the workspace, Whole
+ * Card's pages in the shared scope, whichever workspace the editor reads the overview in.
+ *
+ * @param own - The workspace's fields
+ * @param shared - The shared scope's
+ * @returns The fields drawn
+ */
+function inScope<T>(
+  own: ReadonlyMap<FieldId, T>,
+  shared: ReadonlyMap<FieldId, T>,
+): Map<FieldId, T> {
+  return new Map([
+    ...[...own].filter(([id]) => !onWholeCardPage(id)),
+    ...[...shared].filter(([id]) => onWholeCardPage(id)),
+  ]);
+}
+
+/**
+ * Whether a field sits on one of Whole Card's pages, drawn in the shared scope.
+ *
+ * @param id - Field id
+ * @returns `true` there
+ */
+function onWholeCardPage(id: FieldId): boolean {
+  const page = placementOf(id)?.page;
+  return page !== undefined && WHOLE_CARD_PAGES.has(page as never);
+}
+
 describe('field ids', () => {
   it('follow the scope, the data path and the name', () => {
     expect(fieldId('events', [], 'show_time')).toBe('events:show_time');
@@ -243,7 +275,11 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    expect(EVERY_FIELD.size).toBe(225);
+    // 222 without Month or the name on List's month separator, Arrow & Chip Size among them.
+    // Month adds its own eleven: its four card heights, Minimum Day Width, its two shadings, the
+    // two font sizes of its days, Week Scrolling and Minimum Card Width, and Layouts in Switcher.
+    // List's month separator adds three: Month Name on Rule, its color and its size.
+    expect(EVERY_FIELD.size).toBe(237);
   });
 
   it('do not depend on the editor language', () => {
@@ -690,7 +726,8 @@ describe('the index builds what the editor draws today', () => {
     for (const { workspace, config, state } of RUNS) {
       await draw(config, workspace);
       const ctx = schemaCtx(config, workspace, 'en');
-      const card = buildFieldIndex(ctx).fields;
+      const sharedCtx = schemaCtx(config, 'shared', 'en');
+      const card = inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields);
       const entries = new Map(
         (config.entities ?? []).flatMap((entry) => [
           ...entityFieldIndex(entrySchema(entry, ctx)).fields,
@@ -793,7 +830,7 @@ describe('the index builds what the editor draws today', () => {
           label: fieldLabel(field, ctx.language),
           helper:
             helped === undefined || form.data[field.node.name] === helped
-              ? fieldHelper(field, ctx)
+              ? fieldHelper(field, onWholeCardPage(field.id) ? sharedCtx : ctx)
               : undefined,
         };
       });
@@ -854,17 +891,23 @@ describe('the index builds what the editor draws today', () => {
     console.info(`Index against the editor: ${names.length} states drawn and compared.`);
     expect(names.length).toBeGreaterThan(WORKSPACES.length * 10);
     // Draws the editor once per corpus state for this check and the next, working out each live
-    // field's Reset outcome and its Reset or Remove; the limit is set for CI's slower runner under
-    // load rather than for a hang.
-  }, 90_000);
+    // field's Reset outcome and its Reset or Remove, over five workspaces since Month. The limit is
+    // set for CI's slower runner under load rather than for a hang: the walk measured 64 s on CI
+    // with four workspaces, and with five ran past 90 s on a slower run (90 s timed out here, and
+    // the check below, awaiting the same walk, finished 20 s later).
+  }, 180_000);
 
   it('labels and explains every field as the form drawing it does today', async () => {
     const { labels } = await observed();
 
-    // Every field of every workspace's universe, and each toolbar button field, was reached.
+    // Every field of every workspace's universe, and each toolbar button field, was reached:
+    // Whole Card's pages draw theirs in the shared scope whatever the workspace.
     const expected = WORKSPACES.flatMap((workspace) =>
       [
-        ...universeIndex('en', workspace).fields.keys(),
+        ...inScope(
+          universeIndex('en', workspace).fields,
+          universeIndex('en', 'shared').fields,
+        ).keys(),
         ...buttonFieldIndex(buildToolbarButtonSchema()).fields.keys(),
       ].map((id) => `${workspace} ${id}`),
     );
@@ -880,5 +923,5 @@ describe('the index builds what the editor draws today', () => {
     expect(labels.nestedDiffer).toBeGreaterThan(0);
     // Reads what the check above drew, or draws it where run alone; the limit is the check
     // above's.
-  }, 90_000);
+  }, 180_000);
 });

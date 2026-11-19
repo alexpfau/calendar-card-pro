@@ -24,8 +24,8 @@ hero:
 
 features:
   - icon: 🗓️
-    title: List, Columns & Grid
-    details: An agenda, the days side by side, or hour by hour with each event sized by how long it runs.
+    title: List, Columns, Grid & Month
+    details: An agenda, the days side by side, hour by hour with each event sized by how long it runs, or the whole month.
   - icon: 🧰
     title: A Toolbar on the Card
     details: Page through the dates, switch layouts and show or hide calendars, right on the dashboard.
@@ -54,7 +54,7 @@ features:
 
 ## 🔍 About
 
-**Calendar Card Pro** is a calendar card for Home Assistant that you can work with right on the dashboard. It shows your events in **three layouts**, has a **toolbar** to page through the dates and switch between them, and lets you **open, add and edit events** in a popover of its own.
+**Calendar Card Pro** is a calendar card for Home Assistant that you can work with right on the dashboard. It shows your events in **four layouts**, has a **toolbar** to page through the dates and switch between them, and lets you **open, add and edit events** in a popover of its own.
 
 **Calendar Card Pro** was inspired by a beautiful [calendar design using button-card and Hass calendar add-on](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) shared in the Home Assistant community. While the original design was visually stunning, implementing it with **button-card** and **card-mod** led to **performance issues**.
 

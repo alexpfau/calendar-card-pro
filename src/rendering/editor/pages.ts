@@ -14,7 +14,6 @@ import {
   mdiCardTextOutline,
   mdiGestureTapButton,
   mdiResize,
-  mdiTimelineClockOutline,
   mdiWeatherPartlyCloudy,
 } from '@mdi/js';
 
@@ -22,7 +21,8 @@ import { type FieldId, parseFieldId } from './field-index';
 import { destination } from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField } from './synthetic';
-import { BLOCK_KEYS } from './workspace';
+import { WEATHER_ENTITY } from './weather-fields';
+import { isLayoutCopyPath } from './workspace';
 import type * as Types from '../../config/types';
 import { VIEWS, appliesToView, entityScopeFor } from '../../config/view';
 
@@ -32,7 +32,6 @@ export type PageId =
   | 'day_header'
   | 'events'
   | 'size_spacing'
-  | 'grid'
   | 'weather'
   | 'taps_refresh';
 
@@ -48,8 +47,10 @@ export type FamilyId =
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
  * - `chips`: drawn as a toggle chip (`chips.ts`), with the other chips of its kind on its page.
- * - `segmented`: drawn as a card-built radio group of its options with no head row: Calendar
- *   Filter's Off, Menu and Chips, and Start Date's chips.
+ * - `qualifies`: what a pressed toolbar control offers, drawn as its qualifier line under the
+ *   chips while that control is pressed, with no head row: Layouts in Switcher's checkboxes.
+ * - `segmented`: drawn as a card-built radio group of its options with no head row: Start Date's
+ *   chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
  */
 export type Appearance =
@@ -58,6 +59,7 @@ export type Appearance =
   | { readonly with: FieldId | ReadonlyArray<FieldId> }
   | { readonly family: FamilyId }
   | { readonly chips: 'parts' | 'toolbar' }
+  | { readonly qualifies: FieldId }
   | 'segmented'
   | 'button-rows';
 
@@ -96,8 +98,6 @@ export interface PageDef {
   readonly id: PageId;
   readonly titleKey: string;
   readonly iconPath: string;
-  /** The Grid page, shown only while Grid is the scope. */
-  readonly onlyIn?: Types.EffectiveView;
   readonly noteKey?: string;
   readonly headings: ReadonlyArray<HeadingDef>;
   /**
@@ -159,6 +159,24 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Grid's hours, after the days: an event outside them is not drawn, so they bound which
+        // events show as the dates do.
+        key: 'heading_hours',
+        fields: [
+          ['layout:time_grid.start_time', E],
+          ['layout:time_grid.end_time', E],
+        ],
+      },
+      {
+        // Month's own paging by wheel and swipe, beside the range it pages: Month's alone, so it
+        // sits on Month's Which Events rather than on Taps & Refresh, which is the whole card's.
+        key: 'heading.wheel_and_swipe',
+        fields: [
+          ['layout:month.week_scroll', A],
+          ['layout:month.week_scroll_min_width', A],
+        ],
+      },
+      {
         key: 'heading.selection_and_order',
         fields: [
           ['content:event_type', A],
@@ -181,10 +199,13 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        key: 'heading_multiday',
+        // All-day and multi-day events together: how a long event is split or drawn as a banner,
+        // and how many rows Grid's all-day band gives them.
+        key: 'heading_allday_multiday',
         fields: [
           ['content:split_multiday_events', A],
           ['content:multiday_banners', A],
+          ['layout:time_grid.allday_band_max_rows', A],
         ],
       },
       {
@@ -229,11 +250,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.show', E],
           ['card:toolbar.add_event', CONTROL],
           ['card:toolbar.view_switcher', CONTROL],
+          // A chip like the others; which form it takes is its qualifier line under the chips.
+          ['card:toolbar.legend', CONTROL],
           ['card:toolbar.reset', CONTROL],
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
           ['card:toolbar.navigation', CONTROL],
-          ['card:toolbar.legend', 'segmented'],
+          // View Switcher's qualifier line, drawn under the chips while it is pressed.
+          ['card:toolbar.view_switcher_layouts', { qualifies: 'card:toolbar.view_switcher' }],
           ['card:toolbar.size', A],
         ],
       },
@@ -298,6 +322,9 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:today_weekday_color', A],
           ['day_header:today_day_color', A],
           ['day_header:today_month_color', A],
+          // Grid's and Month's today shading, beside the colors of today's date.
+          ['layout:time_grid.today_background_color', A],
+          ['layout:month.today_background_color', A],
         ],
       },
       {
@@ -330,6 +357,10 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['day_header:weekend_weekday_color', member('weekend_colors')],
           ['day_header:weekend_day_color', member('weekend_colors')],
           ['day_header:weekend_month_color', member('weekend_colors')],
+          // Grid's and Month's weekend shading: a day's background rather than its date, so neither
+          // is a member of the family the date's colors are.
+          ['layout:time_grid.weekend_background_color', A],
+          ['layout:month.weekend_background_color', A],
         ],
       },
     ],
@@ -357,8 +388,21 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Grid's now line beside the color the now marker takes in every layout.
         key: 'heading_event_state',
-        fields: [['events:now_color', A]],
+        fields: [
+          ['layout:time_grid.show_now_line', A],
+          ['events:now_color', A],
+        ],
+      },
+      {
+        // How Grid places events that share a time: how an event sits beside the others, before
+        // how its parts look.
+        key: 'heading_overlapping_events',
+        fields: [
+          ['layout:time_grid.overlap_layout', A],
+          ['layout:time_grid.max_simultaneous_events', A],
+        ],
       },
       {
         key: 'heading_accent',
@@ -374,6 +418,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
         key: 'heading_title',
         fields: [
           ['events:event_font_size', A],
+          // The size of the titles in the wide month's days, beside the one a day's list takes.
+          ['layout:month.cell_event_font_size', A],
           ['events:event_color', A],
           ['events:title_max_lines', A],
           ['events:scroll_long_titles', A],
@@ -397,6 +443,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['events:show_multiday_allday_time', A],
           ['events:time_two_digit_hours', A],
           ['events:time_font_size', A],
+          // The size of the times in the wide month's days, beside the one a day's list takes.
+          ['layout:month.cell_time_font_size', A],
           ['events:time_color', A],
           ['events:time_icon_size', A],
           ['events:time_max_lines', A],
@@ -451,9 +499,26 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:height_mode', E],
           ['layout:card_height', withMode('layout:height_mode')],
           ['layout:card_max_height', withMode('layout:height_mode')],
+          // Grid's height, set per hour, beside the Height a fixed one replaces.
+          ['layout:time_grid.hour_height', A],
+          // Month's own, in the Height's place, which it does not read: the whole card, wide then
+          // compact, each height before its cap.
+          ['layout:month.card_height', A],
+          ['layout:month.card_max_height', A],
+          ['layout:month.compact_card_height', A],
+          ['layout:month.compact_card_max_height', A],
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],
+        ],
+      },
+      {
+        // Grid's hour labels: the time axis beside the days, sized as the card is.
+        key: 'heading_hour_labels',
+        fields: [
+          ['layout:time_grid.axis_width', A],
+          ['layout:time_grid.show_axis_labels', A],
+          ['layout:time_grid.axis_label_minutes', A],
         ],
       },
       {
@@ -471,6 +536,13 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:time_grid.min_days_to_show', member('grid_density')],
           ['layout:time_grid.min_days_fallback', member('grid_density')],
         ],
+      },
+      {
+        // How narrow Month's days may get, beside the same question for Columns and Grid. One
+        // field rather than a family: Month keeps its days and changes its form instead.
+        key: 'month.density',
+        helperKey: 'month.density.helper',
+        fields: [['layout:month.min_day_width', A]],
       },
       {
         key: 'heading_between_days',
@@ -491,6 +563,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'heading_across_the_grid',
         fields: [
+          // How often a line is drawn first, then how each looks.
+          ['layout:time_grid.slot_minutes', A],
           ['separators:time_grid.hour_line_width', A],
           ['separators:time_grid.hour_line_color', A],
           ['separators:time_grid.allday_band_line_width', A],
@@ -500,53 +574,16 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
   {
-    id: 'grid',
-    // The scope's own option label, which already names Grid in every editor language.
-    titleKey: 'editing_workspace.option.grid.label',
-    iconPath: mdiTimelineClockOutline,
-    onlyIn: 'grid',
-    summary: ['layout:time_grid.start_time', 'layout:time_grid.end_time'],
-    headings: [
-      {
-        key: 'time_grid.axis',
-        fields: [
-          ['layout:time_grid.start_time', E],
-          ['layout:time_grid.end_time', E],
-          ['layout:time_grid.slot_minutes', A],
-          ['layout:time_grid.hour_height', A],
-        ],
-      },
-      {
-        key: 'heading_hour_labels',
-        fields: [
-          ['layout:time_grid.axis_width', A],
-          ['layout:time_grid.show_axis_labels', A],
-          ['layout:time_grid.axis_label_minutes', A],
-        ],
-      },
-      {
-        key: 'heading_on_the_grid',
-        fields: [
-          ['layout:time_grid.weekend_background_color', A],
-          ['layout:time_grid.today_background_color', A],
-          ['layout:time_grid.show_now_line', A],
-          ['layout:time_grid.allday_band_max_rows', A],
-          ['layout:time_grid.overlap_layout', A],
-          ['layout:time_grid.max_simultaneous_events', A],
-        ],
-      },
-    ],
-  },
-  {
+    // Each layout's own weather, stored in its block, and the one entity every layout draws from.
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
-    summary: [`${W}entity`, `${W}position`],
+    summary: [WEATHER_ENTITY, `${W}position`],
     headings: [
       {
         key: 'heading.forecast',
         fields: [
-          [`${W}entity`, E],
+          [WEATHER_ENTITY, E],
           [`${W}position`, E],
         ],
       },
@@ -740,8 +777,9 @@ export function placementOf(id: FieldId): Placement | undefined {
  */
 function sameInEveryScope(id: FieldId): boolean {
   const { scope, dataPath, name } = parseFieldId(id);
-  // A nested field stays where its path puts it; inside a view block it is that layout's own.
-  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  // A nested field stays where its path puts it; inside a view block, or a layout group such as
+  // `weather:`, it is that layout's own.
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
   if (scope === 'button') return true;
   if (scope === 'calendar') return entityConfigKeys(name).every((key) => !entityScopeFor(key));
 
@@ -753,7 +791,7 @@ function sameInEveryScope(id: FieldId): boolean {
 /**
  * Whether a page applies to the whole card, so it says "Applies to the whole card." where other
  * pages show the scope. Derived from `routing.ts` › `destination` and the layouts that offer
- * each field, never declared: Card & Header and Weather qualify because no field there has a
+ * each field, never declared: Card & Header qualifies because no field there has a
  * layout copy or is missing from a layout, and Taps & Refresh does not because Grid has no Open
  * Links. A field that later gains a layout copy changes the answer by itself.
  *
@@ -762,4 +800,49 @@ function sameInEveryScope(id: FieldId): boolean {
  */
 export function isWholeCard(page: { readonly headings: ReadonlyArray<HeadingDef> }): boolean {
   return page.headings.every((heading) => heading.fields.every(([id]) => sameInEveryScope(id)));
+}
+
+/**
+ * The pages under Whole Card on the overview: one value for the whole card, edited outside any
+ * layout. Declared, not derived: Taps & Refresh holds Open Links, which Grid draws nothing for, and
+ * is the whole card's all the same; such a setting says where it does not apply instead
+ * (`plan.ts` › `stateOf`).
+ */
+export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set(['card_header', 'taps_refresh']);
+
+/** The topics every layout's page lists, in order: every page that is not the whole card's. */
+export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
+  (page) => !WHOLE_CARD_PAGES.has(page.id),
+);
+
+/**
+ * Whether a card field keeps no copy per layout: one value whichever layout's page draws it. Unlike
+ * `isWholeCard`, a field some layout ignores still counts, as Today's Weekday Color does for Month.
+ *
+ * @param id - Field id
+ * @returns `true` for a whole-card setting
+ */
+export function keepsNoLayoutCopy(id: FieldId): boolean {
+  const { scope, dataPath, name } = parseFieldId(id);
+  if (scope === 'calendar' || scope === 'button') return false;
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
+  return configKeysForField(name).every((key) =>
+    VIEWS.every((view) => destination(key, view) === undefined),
+  );
+}
+
+/**
+ * Shared Across Layouts: the whole-card settings the layout topics hold, gathered under one heading
+ * per topic, in each topic's own order and with each field's own appearance. A mode value comes
+ * with its mode, and a family member with its family, as on its page.
+ *
+ * @returns The headings, keyed by the topic page each comes from
+ */
+export function sharedAcrossHeadings(): ReadonlyArray<HeadingDef & { readonly from: PageId }> {
+  return TOPIC_PAGES.flatMap((page) => {
+    const fields = page.headings.flatMap((heading) =>
+      heading.fields.filter(([id]) => keepsNoLayoutCopy(id)),
+    );
+    return fields.length === 0 ? [] : [{ key: page.titleKey, from: page.id, fields }];
+  });
 }

@@ -12,7 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { parseStartDateExpression } from './start-date';
+import { getTimeWindow } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -344,12 +344,16 @@ function resolveRequest(
   // cache entry whenever `start_date` was week-relative.
   const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
 
+  // Named by the load's identity, which for home's load where month is reachable is the window
+  // as configured rather than the concrete window asked for below (`loadIdentity`).
+  const identity = ViewConfig.loadIdentity(config);
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
-    config.days_to_show,
-    config.start_date,
+    identity.days,
+    identity.startDate,
     firstDayOfWeek,
+    identity.variant,
   );
 
   const window = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
@@ -1528,13 +1532,17 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
+  // Grid and month take Grid's daily coverage in place of the List splitter
+  // (`multidaySplitPolicy`).
+  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
+
   // Which day of its event a row stands for, only where it is drawn, and only while the progress
   // bar is on, whose form the counter is on an event a day or more long, so a card without it
-  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
-  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
-  // since its splitter hands this function one-day segments, which never count. It is here so
-  // that stays a decision.
-  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
+  // keeps its rows as they were. Not in grid or month, whose all-day banners and bars already
+  // span their days and whose later blocks of a timed event draw a title alone; the gate decides
+  // nothing there today, since their splitter hands this function one-day segments, which never
+  // count. It is here so that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && !splitsForGrid;
 
   const referenceDate = getStartDateReference(
     config,
@@ -1556,7 +1564,6 @@ export function groupEventsByDay(
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
-  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
     const split = splitsForGrid
@@ -1609,18 +1616,20 @@ export function groupEventsByDay(
     // the same boundary, so it removes nothing that reached this far.
     if (startDate >= windowEnd) return false;
 
-    // Only the third term below decides anything for events this card can actually
-    // receive. An event starting inside the window, or after it, necessarily also ends
-    // at or after the window start, so `isOngoingEvent` is already true in both cases —
-    // removing the first two leaves the whole suite green. They diverge only for an
-    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
-    // `end` are present but not that they are ordered, so a malformed feed can still
-    // produce one, while nothing built here can — every multi-day segment ends at least
-    // a millisecond after it starts. Left in place rather than folded into one condition
-    // because dropping them would silently stop rendering those malformed events.
+    // The first two terms keep events starting in the window or after it. They differ from
+    // the third for an event whose end precedes its start (`keepWellFormedEvents` checks that
+    // `start` and `end` are present but not that they are ordered, so a malformed feed can
+    // still produce one) and for a timed event of no length at the window's first moment,
+    // which ends where the window opens and is still an instant of its first day.
+    //
+    // 🚨 A timed end is exclusive, so an event ending exactly at the window's first moment
+    // is over before the window opens: it belongs to the day before. An all-day `endDate` is
+    // already the last day it covers, so it touches the window when it is that day. Home
+    // Assistant never returns an event ending where a request starts, but a page now draws a
+    // prefix of a wider load (Month's starts at its grid's first row), which holds one.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
-    const isOngoingEvent = endDate >= referenceStart;
+    const isOngoingEvent = isAllDayEvent ? endDate >= referenceStart : endDate > referenceStart;
 
     if (!(isEventOnOrAfterReference || isFutureEvent || isOngoingEvent)) {
       return false;
@@ -1687,8 +1696,10 @@ export function groupEventsByDay(
   // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
   // calendar also discards the eligible copy behind it. Compare original intervals, not
   // sliced endpoints: distinct multi-day events can share an identical middle day.
+  // Not under Grid's coverage, whose daily segments are never `_isMultiDaySegment`: an unsplit
+  // winner there would key every day of an event alike and keep one of them.
   const firstEligible = new Map<string, Types.CalendarEventData>();
-  if (config.filter_duplicates && effectiveView !== 'grid') {
+  if (config.filter_duplicates && !splitsForGrid) {
     for (const event of upcomingEvents) {
       const signature = sourceSignatures.get(event)!;
       const previous = firstEligible.get(signature);
@@ -3166,8 +3177,8 @@ export function countsDays(event: Types.CalendarEventData): boolean {
  * window's first day for an event that began earlier. A row under a date the event takes up no
  * time on names no day, but is still a row of a counted event, so it draws no progress bar
  * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
- * such a row in one case, an unsplit event ending at the first midnight of a window that starts
- * later, which counted from the event's start would read "Day 4 of 3".
+ * no such row, since an event ending at a window's first midnight belongs to the day before; the
+ * guard stays so a row never reads "Day 4 of 3", which counting from the start would give it.
  *
  * @param event A whole event or one day of one, as list and column split it
  * @param displayDate The date the row is drawn under
@@ -3316,101 +3327,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/**
- * Calculate time window for event fetching
- *
- * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
- * to local midnight after the last, which Home Assistant's calendar API treats as an
- * exclusive end. The end used to be the close of the day after the last one, so every card
- * asked for one day more than it could draw.
- *
- * @param daysToShow - Number of days to show in the calendar
- * @param startDate - Optional start date: a relative expression (`today+7`,
- *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
- * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
- *   required by week-relative expressions such as `start_of_week`
- * @param now - The moment a relative start date is resolved against
- * @returns Object containing start and end dates for the calendar window
- */
-export function getTimeWindow(
-  daysToShow: number,
-  startDate: string | undefined,
-  firstDayOfWeek: number,
-  now: Date = new Date(),
-): { start: Date; end: Date } {
-  let start: Date;
-
-  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
-
-  if (rawStartDate.trim() !== '') {
-    try {
-      const trimmed = rawStartDate.trim();
-
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
-
-      if (parsed.kind === 'ok') {
-        start = parsed.date;
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(
-            `start_date "${trimmed}" resolved outside the supported date range. Falling back to today.`,
-          );
-          start = today();
-        } else {
-          Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
-        }
-      } else if (parsed.kind === 'error') {
-        Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
-        start = today();
-      } else if (trimmed.includes('T')) {
-        start = new Date(trimmed);
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(`Invalid ISO date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      } else {
-        const [year, month, day] = trimmed.split('-').map(Number);
-
-        if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          start = new Date(year, month - 1, day);
-
-          // `new Date(y, m - 1, d)` cannot fail on numbers this guard already bounded —
-          // it rolls a day past the end of its month forward instead, so `2025-02-30`
-          // becomes March 2 and an `isNaN` check here never fires. Reading the parts back
-          // is the only way to tell a real date from one JavaScript quietly moved.
-          if (
-            start.getFullYear() !== year ||
-            start.getMonth() !== month - 1 ||
-            start.getDate() !== day
-          ) {
-            Logger.warn(`Impossible date: ${trimmed}, falling back to today`);
-            start = today();
-          }
-        } else {
-          Logger.warn(`Malformed date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      }
-    } catch (error) {
-      Logger.warn(`Error parsing date: ${rawStartDate}, falling back to today`, error);
-      start = today();
-    }
-  } else {
-    start = today();
-  }
-
-  start.setHours(0, 0, 0, 0);
-
-  // Built from local fields, so a window spanning a DST change still ends at midnight.
-  const end = new Date(start);
-  const days = parseInt(daysToShow.toString()) || 3;
-  end.setDate(start.getDate() + days);
-
-  return { start, end };
-}
+// The window a `start_date` opens. It lives in `start-date.ts`, which `config/view.ts` can import
+// without this module, and stays reachable here for every caller that always read it here.
+export { getTimeWindow };
 
 /**
  * Whether a start date resolves against today, so the window it opens moves as days pass: no
@@ -3552,6 +3471,8 @@ function entryCalendars(entry: Types.CacheEntry): string[] {
  *   the window whenever `startDate` uses a week-relative expression. Numeric, not the
  *   raw `first_day_of_week` string: `'system'` resolves to a different weekday per user
  *   profile, so keying on the raw value gave two different windows one cache entry.
+ * @param variant Anything else that shapes the window, appended as it is
+ *   (`ViewConfig.loadIdentity`); empty where the rest says everything
  * @returns Base cache key
  */
 export function getBaseCacheKey(
@@ -3560,6 +3481,7 @@ export function getBaseCacheKey(
   daysToShow: number,
   startDate?: string,
   firstDayOfWeek?: number,
+  variant = '',
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -3584,7 +3506,7 @@ export function getBaseCacheKey(
   // One rule with the card's query identity, which this key begins with: see the helper.
   const firstDayPart = Helpers.firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${variant}${Constants.VERSION.CURRENT}`;
 }
 
 /**

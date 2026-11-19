@@ -17,7 +17,8 @@ import { atPath, destination } from './routing';
 import { isColorNode } from './schemas/common';
 import { interpolate } from './strings';
 import { configKeysForField, isSet } from './synthetic';
-import type { EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace, storedPath } from './workspace';
+import { OVERRIDE_BLOCK_BY_VIEW } from '../../config/view';
 
 /** Joins the parts of a summary. */
 export const SUMMARY_SEPARATOR = ' · ';
@@ -53,8 +54,13 @@ export function wordValue(
   if ('boolean' in selector) {
     return value === true ? lookup(language, 'summary.on') : lookup(language, 'summary.off');
   }
+  if ('select' in selector && selector.select?.multiple) {
+    return Array.isArray(value)
+      ? listWords(field, value, (selector.select.options ?? []) as Options, language)
+      : undefined;
+  }
   if ('select' in selector) {
-    const options = (selector.select?.options ?? []) as ReadonlyArray<SelectOption | string>;
+    const options = (selector.select?.options ?? []) as Options;
     for (const option of options) {
       if (typeof option === 'string') {
         if (option === value) return option;
@@ -68,6 +74,37 @@ export function wordValue(
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
   return describe?.(field, value);
+}
+
+/** A dropdown's options, labeled or bare. */
+type Options = ReadonlyArray<SelectOption | string>;
+
+/**
+ * Words a list of some of a field's options: their labels, in the options' order. Layouts in
+ * Switcher offering every layout reads as that, rather than as four names.
+ *
+ * @param field - Indexed field
+ * @param value - The values chosen
+ * @param options - The options offered
+ * @param language - Editor language
+ * @returns The words, or `undefined` for a list choosing none
+ */
+function listWords(
+  field: Pick<IndexedField, 'node'>,
+  value: ReadonlyArray<unknown>,
+  options: Options,
+  language: string,
+): string | undefined {
+  const chosen = options.filter((option) =>
+    value.includes(typeof option === 'string' ? option : option.value),
+  );
+  if (chosen.length === 0) return undefined;
+  if (field.node.name === 'view_switcher_layouts' && chosen.length === options.length) {
+    return lookup(language, 'summary.all_layouts');
+  }
+  return chosen
+    .map((option) => (typeof option === 'string' ? option : option.label))
+    .join(SUMMARY_SEPARATOR);
 }
 
 /**
@@ -198,7 +235,8 @@ export function setCount(count: number, language: string): string {
  * Where the YAML stores a value for a card field in a scope, as configuration paths: its own
  * nested path, or, for a field on the card's root, where the scope writes each of its keys, a
  * layout's block or the top level. A top-level value a layout inherits is not stored in that
- * layout. Read from the field's id, so a field a gate holds back is counted all the same.
+ * layout, and another layout's block is not this scope's: Grid's hours are no value of List's
+ * Which Events. Read from the field's id, so a field a gate holds back is counted all the same.
  *
  * @param raw - Configuration as the YAML holds it
  * @param id - The field
@@ -211,9 +249,15 @@ export function storedPaths(
   workspace: EditorWorkspace,
 ): string[] {
   const { dataPath, name } = parseFieldId(id);
+  if (dataPath.length > 0 && BLOCK_KEYS.has(dataPath[0])) {
+    const own = workspace === 'shared' ? undefined : OVERRIDE_BLOCK_BY_VIEW[workspace];
+    if (dataPath[0] !== own) return [];
+  }
+  const stored = storedPath(dataPath, workspace);
+  if (stored === undefined) return [];
   const paths: Array<readonly [ReadonlyArray<string>, string]> =
     dataPath.length > 0
-      ? [[dataPath, name]]
+      ? [[stored, name]]
       : configKeysForField(name).map((key) => {
           const block = destination(key, workspace);
           return [block === undefined ? [] : [block], key];

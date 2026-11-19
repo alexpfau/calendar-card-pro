@@ -5,7 +5,7 @@
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
 import { isSet as holdsValue } from './synthetic';
-import { DEFAULT_CONFIG, resolveToolbar } from '../../config/config';
+import { DEFAULT_CONFIG } from '../../config/config';
 import type * as Types from '../../config/types';
 import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
 import { hasOwn, isConfigBlock } from '../../utils/helpers';
@@ -123,6 +123,40 @@ const UNCOUNTED_ROOT_KEYS: ReadonlySet<string> = new Set([
 export const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
 
 /**
+ * Nested groups a layout's page edits in that layout's own block: `weather:` is drawn per layout,
+ * so its fields keep their path (`weather.position`) and are stored under the block of the layout
+ * being edited (`time_grid.weather.position`). All Layouts offers none of them.
+ */
+export const LAYOUT_GROUPS: ReadonlySet<string> = new Set(['weather']);
+
+/**
+ * Whether a nested field has a copy per layout: inside a view block, or in a layout group.
+ *
+ * @param dataPath - The field's enclosing data keys
+ * @returns `true` when its value can differ between layouts
+ */
+export function isLayoutCopyPath(dataPath: ReadonlyArray<string>): boolean {
+  return dataPath.length > 0 && (BLOCK_KEYS.has(dataPath[0]) || LAYOUT_GROUPS.has(dataPath[0]));
+}
+
+/**
+ * Where a nested field is stored in a scope: at its own path, or for a layout group under the
+ * block of the layout being edited.
+ *
+ * @param dataPath - The field's enclosing data keys
+ * @param workspace - The scope
+ * @returns The stored path, or `undefined` for a layout group in All Layouts, which stores none
+ */
+export function storedPath(
+  dataPath: ReadonlyArray<string>,
+  workspace: EditorWorkspace,
+): ReadonlyArray<string> | undefined {
+  if (dataPath.length === 0 || !LAYOUT_GROUPS.has(dataPath[0])) return dataPath;
+  const view = viewForWorkspace(workspace);
+  return view === undefined ? undefined : [OVERRIDE_BLOCK_BY_VIEW[view] as string, ...dataPath];
+}
+
+/**
  * How many values the YAML stores in a scope: a layout's own block, or for All Layouts the
  * card's own top-level settings. Read from the YAML as stored, never from the merged
  * configuration, which carries every default.
@@ -148,32 +182,4 @@ export function storedCount(
       hasOwn(DEFAULT_CONFIG, key) &&
       holdsValue(value),
   ).length;
-}
-
-/**
- * Whether Settings For shows as its one compact line, "Settings for List · Change", rather
- * than as the four choices.
- *
- * Compact until the scope is changed or Change is pressed, for the rest of the session; while
- * the toolbar is shown with its View Switcher, which lets the card show another layout; and
- * while no layout other than the one the card displays stores values in its block. Values in
- * the displayed layout's own block, where a List card's first edits land, and top-level values
- * keep it compact.
- *
- * @param raw - Configuration as the YAML holds it
- * @param config - Merged configuration
- * @param displayed - The layout the card displays
- * @param touched - Whether the scope was changed, or Change pressed, this session
- * @returns `true` for the compact line
- */
-export function isCompactScope(
-  raw: Readonly<Record<string, unknown>>,
-  config: Readonly<Types.Config>,
-  displayed: Types.EffectiveView,
-  touched: boolean,
-): boolean {
-  if (touched) return false;
-  const toolbar = resolveToolbar(config);
-  if (toolbar.show && toolbar.viewSwitcher) return false;
-  return VIEWS.every((view) => view === displayed || storedCount(raw, view) === 0);
 }

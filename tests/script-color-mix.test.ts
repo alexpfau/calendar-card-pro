@@ -10,10 +10,12 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
+import * as Month from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as ColorMix from '../src/utils/color-mix';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 
 /**
  * Safari before 16.2 has no color-mix(). Where the card writes a mix into an inline style from
@@ -148,6 +150,8 @@ function mixedDefaults(): Map<string, string> {
     ['column', ViewConfig.COLUMN_DEFAULT_OVERRIDES],
     ['grid', ViewConfig.TIME_GRID_DEFAULTS],
     ['grid', ViewConfig.TIME_GRID_DEFAULT_OVERRIDES],
+    ['month', ViewConfig.MONTH_DEFAULTS],
+    ['month', ViewConfig.MONTH_DEFAULT_OVERRIDES],
   ];
   const found = new Map<string, string>();
   const walk = (scope: string, path: string[], value: unknown): void => {
@@ -168,10 +172,12 @@ const MIXED_OPTIONS = [
   'grid:day_separator_color',
   'grid:hour_line_color',
   'grid:weekend_background_color',
+  'month:weekend_background_color',
 ];
 
 /**
- * The color options the views write from script into a separator, a rule or the grid's shading:
+ * The color options the views write from script into a separator, a rule or the grid's and the
+ * month's shading:
  * the family the card's own mixes belong to, the ones whose default is a mix and the rest of
  * that family, which a user can set to one. A view's own block (`column:`, `time_grid:`) is
  * named where only it reads one. Other color options (an event's or a label's color, the all-day
@@ -186,9 +192,15 @@ const COLOR_OPTIONS = [
   'card:week_separator_color',
   'column:day_header_separator_color',
   'grid:today_background_color',
+  'month:today_background_color',
 ].sort();
 
-type Scenario = { view: Types.EffectiveView; overrides: Partial<Types.Config> };
+/** A view rendered as the card renders it; a month in its compact form where `compact` is set. */
+type Scenario = {
+  view: Types.EffectiveView;
+  overrides: Partial<Types.Config>;
+  compact?: boolean;
+};
 
 /**
  * One rendering per view, with every color option above on: week numbers, week, month and day
@@ -242,6 +254,16 @@ const SCENARIOS: Record<string, Scenario> = {
       time_grid: { slot_minutes: 30 },
     } as Partial<Types.Config>,
   },
+  // The six weeks holding FROZEN_NOW, wide and compact: the two forms write the tints apart.
+  month: {
+    view: 'month',
+    overrides: { view: 'month', show_week_numbers: 'iso' },
+  },
+  'month-compact': {
+    view: 'month',
+    compact: true,
+    overrides: { view: 'month', show_week_numbers: 'iso' },
+  },
 };
 
 /** The YAML block a scope's options are read from, or none for a card-wide one. */
@@ -249,6 +271,7 @@ const BLOCK: Readonly<Record<string, string | undefined>> = {
   card: undefined,
   column: 'column',
   grid: 'time_grid',
+  month: 'month',
 };
 
 /** An option set to `value` where its scope reads it. */
@@ -270,6 +293,39 @@ function withOption(overrides: Partial<Types.Config>, option: string, value: str
 type Declaration = { at: string; property: string; value: string };
 
 /**
+ * The month holding FROZEN_NOW as the card hands it over, Mondays first, wide or compact with
+ * today selected.
+ *
+ * @param days - Grouped days of the page
+ * @param effective - Configuration resolved for month
+ * @param compact - Whether to draw the compact form
+ * @returns The month
+ */
+function renderMonth(days: Types.EventsByDay[], effective: Types.Config, compact: boolean) {
+  const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+  return Month.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
+    ...(compact
+      ? {
+          compact: {
+            selected: new Date(
+              FROZEN_NOW.getFullYear(),
+              FROZEN_NOW.getMonth(),
+              FROZEN_NOW.getDate(),
+            ),
+            dayLists: MonthDay.monthDayLists(
+              EVENTS,
+              effective,
+              rowsStart,
+              ViewConfig.MONTH_DAYS,
+              'en',
+            ),
+          },
+        }
+      : {}),
+  });
+}
+
+/**
  * Every inline declaration a scenario writes from script, in document order: the card's own
  * custom properties, then each styled element's, each element named by its position and class.
  */
@@ -282,7 +338,9 @@ function inlineDeclarations(scenario: Scenario, overrides = scenario.overrides):
       ? Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, FROZEN_NOW)
       : scenario.view === 'column'
         ? Column.renderColumnGroupedEvents(days, effective, 'en')
-        : Render.renderGroupedEvents(days, effective, 'en');
+        : scenario.view === 'month'
+          ? renderMonth(days, effective, scenario.compact === true)
+          : Render.renderGroupedEvents(days, effective, 'en');
   const container = document.createElement('div');
   litRender(template, container);
   const found: Declaration[] = Object.entries(generateCustomPropertiesObject(effective)).map(
@@ -426,6 +484,8 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       'rendering/grid.ts: today_background_color',
       'rendering/grid.ts: weekend_background_color',
       'rendering/leaves.ts: week_separator_color',
+      'rendering/month.ts: today_background_color',
+      'rendering/month.ts: weekend_background_color',
       'rendering/render.ts: day_separator_color',
       'rendering/render.ts: month_separator_color',
       'rendering/styles.ts: week_number_background_color',
@@ -464,6 +524,8 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
         'list-month-week | card | --calendar-card-week-number-bg-color',
         'list-separators | card | --calendar-card-week-number-bg-color',
         'list-week-numbers | card | --calendar-card-week-number-bg-color',
+        'month | card | --calendar-card-week-number-bg-color',
+        'month-compact | card | --calendar-card-week-number-bg-color',
       ],
       'card:week_separator_color': [
         'column | column-separator column-separator-week | background-color',
@@ -488,6 +550,14 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       ],
       'grid:today_background_color': ['grid | grid-container | --calendar-card-grid-today'],
       'grid:weekend_background_color': ['grid | grid-container | --calendar-card-grid-weekend'],
+      'month:today_background_color': [
+        'month | month-container | --calendar-card-month-today',
+        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-today',
+      ],
+      'month:weekend_background_color': [
+        'month | month-container | --calendar-card-month-weekend',
+        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-weekend',
+      ],
     });
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.

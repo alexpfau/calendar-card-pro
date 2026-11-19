@@ -436,6 +436,24 @@ async function readEditorOptionKeys() {
 }
 
 /**
+ * A probe variant drawing weather in every layout from one entity: the same presentation in
+ * List, Columns and Grid, and Month's own, which offers no date header.
+ *
+ * @param weather - The presentation for List, Columns and Grid
+ * @param month - Month's presentation
+ * @returns The variant
+ */
+function weatherInEveryLayout(weather, month) {
+  return {
+    weather_entity: 'weather.home',
+    list: { weather },
+    column: { weather },
+    time_grid: { weather },
+    month: { weather: month },
+  };
+}
+
+/**
  * Configurations chosen to open every conditional branch in every panel.
  *
  * Defaults alone hide conditional fields, so booleans and view-derived modes are swept.
@@ -493,16 +511,13 @@ function probeConfigs(defaults, views) {
     // built only while the toolbar itself is shown, and without this the checker reports
     // their strings and helpers as referenced by no panel.
     { toolbar: { ...defaults.toolbar, show: true } },
-    { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
-    {
-      weather: {
-        ...defaults.weather,
-        entity: 'weather.home',
-        position: 'both',
-        date: { ...defaults.weather.date, show_uv_index: true },
-        event: { ...defaults.weather.event, show_uv_index: true },
-      },
-    },
+    // Weather is drawn per layout, from blocks no sweep reaches: the position opens the date
+    // and event groups, and each UV switch its threshold.
+    weatherInEveryLayout({ position: 'both' }, { position: 'event' }),
+    weatherInEveryLayout(
+      { position: 'both', date: { show_uv_index: true }, event: { show_uv_index: true } },
+      { position: 'event', event: { show_uv_index: true } },
+    ),
   ];
 
   const configs = [];
@@ -1311,6 +1326,12 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
+  // "Layout" is the glossary's decided word in these languages, and German's plural is the same.
+  'de:overview.layouts',
+  'de:layouts.layout',
+  'it:layouts.layout',
+  'nb:layouts.layout',
+  'sv:layouts.layout',
   // A search result's value under its layout's name, as "Grid: Off": the two placeholders and a
   // colon, which every editor language writes the same way.
   'de:search.value_in',

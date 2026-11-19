@@ -836,9 +836,9 @@ export const GLOSSARY_TERMS = [
     rejected: {},
   },
   {
-    // The same words as `editing_workspace.option.shared.label`, which every language already had.
+    // Layouts in Switcher's value while it offers every layout (`summary.all_layouts`).
     name: 'all layouts',
-    sense: 'the values every layout starts from, as against one layout’s own',
+    sense: 'every layout the card has, offered together',
     decided: {
       de: 'Alle Layouts',
       et: 'Kõik paigutused',
@@ -849,6 +849,23 @@ export const GLOSSARY_TERMS = [
       pl: 'Wszystkie układy',
       sk: 'Všetky rozloženia',
       sv: 'Alla layouter',
+    },
+    rejected: {},
+  },
+  {
+    // `editing_workspace.option.shared.label`, which was All Layouts before every layout had a page.
+    name: 'layout defaults',
+    sense: 'the values every layout starts from, as against one layout’s own',
+    decided: {
+      de: 'Layout-Standards',
+      et: 'Paigutuste vaikeväärtused',
+      it: 'Predefiniti dei layout',
+      lt: 'Išdėstymų numatytosios reikšmės',
+      lv: 'Izkārtojumu noklusējumi',
+      nb: 'Standardverdier for layouter',
+      pl: 'Ustawienia domyślne układów',
+      sk: 'Predvolené hodnoty rozložení',
+      sv: 'Standardvärden för layouter',
     },
     rejected: {},
   },

@@ -52,6 +52,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
+  // Taps & Refresh's heading for Month's week scrolling: what a wheel or a swipe does.
+  'heading.wheel_and_swipe': 'Wheel & Swipe',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -101,6 +103,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.none': 'None',
   'value.no_limit': 'No Limit',
   'value.theme_default': 'Theme Default',
+  'value.map_marker': 'Map Marker',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A page's foot: its page on the documentation site, which says what the helpers leave out.
@@ -110,28 +113,46 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'nav.cross_link.past_days': 'Dates of past days:',
   'nav.cross_link.past_events': 'Whether past events show:',
   'nav.cross_link.days_of_week': 'Which days its events show:',
-  'settings_for.label': 'Settings For',
-  'settings_for.compact': 'Settings for {layout}',
-  'settings_for.change': 'Change',
-  'settings_for.change_named': 'Change: settings for {layout}',
+  // Layout Defaults' page line.
   'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
-  'settings_for.help_layout':
-    'Edits here are written for {layout} and apply when the card shows it.',
-  'settings_for.preview': 'Editing {layout} · Preview Shows {displayed}',
-  // The preview switch beside it, and the line while it is on. Nothing is saved by either.
-  'settings_for.preview_switch': 'Preview {layout}',
-  'settings_for.previewing':
-    'Editing {layout} · Preview Shows {layout} · The Card Opens in {displayed}',
-  'settings_for.grid_only': 'Applies when the card shows Grid.',
-  'announce.scope': 'Now editing settings for {layout}.',
+  // On a layout's page and its topics while the preview draws another layout than the card opens
+  // in. Nothing is saved by it.
+  'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
+  // The overview: Whole Card's frame, Shared Across Layouts' row and page, then Layouts.
+  'overview.whole_card': 'Whole Card',
+  'overview.whole_card.hint': 'The same in every layout.',
+  'overview.shared_across': 'Shared Across Layouts',
+  'overview.shared_across.summary': 'Start date, event type, day colors, time format',
+  'overview.shared_across.note':
+    'The same in every layout. Each also sits on its layout pages; a change here changes it there.',
+  'overview.layouts': 'Layouts',
+  'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
+  // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
+  'layouts.help_pick': 'The circle picks the layout the card opens in.',
+  'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
+  'layouts.help_switch_link': 'layout switcher',
+  'layouts.help_open': 'Select a layout to change its own settings.',
+  // A layout row's button, which opens the layout's page.
+  'layouts.settings_named': '{layout} Settings',
+  // Under a layout's name on its page, and the line there.
+  'layouts.layout': 'Layout',
+  'layouts.page_note': "This layout's own settings. Opening them changes nothing on the card.",
+  // A topic page under a layout: the jump to the same topic in another layout, and the walk on.
+  'layouts.also_for': 'Also for:',
+  'layouts.continue_with': 'Continue with',
   'summary.pair': '{label}: {value}',
   'summary.set': 'Set: {count}',
+  // Card & Header's row on the overview names the layout switcher's state last.
+  'summary.switcher_off': 'Layout Switcher: Off',
+  'summary.switcher_on': 'Layout Switcher: {layouts}',
   'summary.on': 'On',
   'summary.off': 'Off',
   // Words typed into a text field, as a summary quotes them: Title: “Our Week”.
   'summary.quoted': '“{value}”',
   // The toolbar's controls pressed, a label and a number: "Controls: 5 on".
   'summary.controls_on': 'Controls: {count} on',
+  // Layouts in Switcher's value while it offers every layout; otherwise their names.
+  'summary.all_layouts': 'All Layouts',
   'announce.removed': 'Removed {name}.',
   'announce.applied': 'Applied {story}.',
   'announce.moved': 'Moved {name} to position {position} of {total}.',
@@ -151,15 +172,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.set': 'Set',
   'state.default': 'Default',
   'state.whole_card': 'Whole Card',
-  // Under a Grid setting while All Layouts stores a value Grid's own default overrides.
-  'state.ignored': "Uses {layout}'s Default, Not All Layouts' {value}",
-  'state.from_all_layouts': 'From All Layouts',
+  // Under a Grid setting while Layout Defaults stores a value Grid's own default overrides.
+  'state.ignored': "Uses {layout}'s Default, Not {value} From Layout Defaults",
+  'state.from_all_layouts': 'From Layout Defaults',
+  // Under a whole-card setting some layout draws nothing for: "Not in Grid".
+  'state.not_in': 'Not in {layouts}',
   // A calendar option the calendar's entries share, naming the other entries by number.
   'state.shared_entry': 'Also Applies to Entry {entries}',
   'state.shared_entries': 'Also Applies to Entries {entries}',
   // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
-  // Under a field in All Layouts, for each layout the All Layouts value does not reach: one that
+  // Under a field in Layout Defaults, for each layout its value does not reach: one that
   // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
   'state.layout_default': '{layout} Default: {value}',
@@ -184,9 +207,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'reset.group_named': '{action}: {names}',
   // A value the YAML holds for a setting a gate withholds; the gate line above it says why.
   'inactive.line': 'Stored but not in use: {label} ({value})',
-  'inactive.line_top': 'Stored but not in use: {label} ({value}), from All Layouts',
+  'inactive.line_top': 'Stored but not in use: {label} ({value}), from Layout Defaults',
   'inactive.line_bare': 'Stored but not in use: {label}',
-  'inactive.line_top_bare': 'Stored but not in use: {label}, from All Layouts',
+  'inactive.line_top_bare': 'Stored but not in use: {label}, from Layout Defaults',
   // The preference under More, remembered in this browser (`prefs.ts`).
   'prefs.yaml': 'Show YAML Option Names',
   'prefs.yaml_note':
@@ -241,6 +264,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'search.return': 'Return to Results',
   'search.back_to': 'Back to {place}',
   'search.showing': 'Showing {label}.',
+  // A result another layout offers, opened on that layout's page.
+  'search.showing_in': 'Showing {label} in {layout}.',
   // The tag on a setting a gate withholds, around a gate phrase below or the label of the control
   // it waits on (`plan.ts` › `needsTag`): "Needs Show Description".
   'search.needs': 'Needs {needs}',
@@ -370,6 +395,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.column.description': 'Days side by side',
   'view.option.grid.label': 'Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
+  'view.option.month.label': 'Month',
+  'view.option.month.description': 'A whole month, a row per week',
   'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
   editing_workspace: 'Editing Settings For',
   'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
@@ -377,10 +404,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
-  'editing_workspace.option.shared.label': 'All Layouts',
+  'editing_workspace.option.shared.label': 'Layout Defaults',
   'editing_workspace.option.list.label': 'List',
   'editing_workspace.option.column.label': 'Columns',
   'editing_workspace.option.grid.label': 'Grid',
+  'editing_workspace.option.month.label': 'Month',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
@@ -481,6 +509,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.list_one': '{options} now applies to List, as before. The card looks the same.',
   'upgrade.shared': '{options} now apply to every layout, unless a layout has its own.',
   'upgrade.shared_one': '{options} now applies to every layout, unless a layout has its own.',
+  'upgrade.weather':
+    'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
+  'upgrade.weather_some':
+    'Weather is now set per layout: the top-level weather options now apply to {layouts}.',
+  'upgrade.weather_none': 'Weather is now set per layout.',
+  'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',
   'upgrade.share_one': 'Use It for Every Layout',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
@@ -524,7 +558,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
   'card_height.helper':
-    'List and Columns scroll when the events do not fit; Grid compresses its hours.',
+    'List and Columns scroll when the events do not fit; Grid compresses its hours, and Month its weeks.',
   card_max_height: 'Maximum Height',
   'card_max_height.helper': 'Grows with its content up to this height, then scrolls.',
 
@@ -620,6 +654,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
   'chip.part_state': '{part} ({state})',
+  // Why a layout's checkbox under "View Switcher offers" stays checked, drawn after its name: the
+  // layout the card opens in is always offered, and a switcher of one layout is not drawn.
+  'chip.kept_starting': 'Starting Layout',
+  'chip.kept_second': 'Switcher Needs Two',
+  // Under "View Switcher offers", where the list stored offers the starting layout alone, so View
+  // Switcher is on and the card draws no switcher; "checked" as its checkboxes are.
+  'chip.switcher_alone': 'No switcher is drawn until a second layout is checked.',
+  // The qualifier lines under the toolbar's chips, one for each pressed control with a choice.
+  'chip.qualifier.layouts': 'View Switcher offers',
+  'chip.qualifier.legend': 'Calendar Filter shows',
   // A calendar entry's page.
   'entry.back': 'Back to the overview',
   'entry.previous': 'Previous Calendar',
@@ -873,7 +917,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
-  heading_on_the_grid: 'On the Grid',
+  // Grid's First and Last Hour, on Which Events after the dates.
+  heading_hours: 'Hours',
+  // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
+  heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
   heading_accent: 'Accent',
   heading_title: 'Title',
@@ -883,6 +930,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_across_the_grid: 'Across the Grid',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
+  // Which Events' heading over how multi-day events are split and drawn, and how many rows of
+  // all-day events Grid's band holds. A calendar's page keeps `heading_multiday`.
+  heading_allday_multiday: 'All-Day & Multi-Day',
   heading_nothing: 'Empty Days',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
@@ -966,7 +1016,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
-  'time_grid.axis': 'Time Axis',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1003,13 +1052,53 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.show_now_line.helper': 'Hidden when now falls outside the hours shown.',
   'time_grid.allday_band_max_rows': 'Most All-Day Rows',
   'time_grid.allday_band_max_rows.helper': 'Banners past this many rows are dropped.',
-  'time_grid.overlap_layout': 'Overlapping Events',
+  // Not "Overlapping Events", the heading it sits under: a heading repeating its first field reads
+  // as a stutter.
+  'time_grid.overlap_layout': 'Arrangement',
   'time_grid.overlap_layout.helper':
     'Stacked draws an event over a longer one it starts inside; Side by Side splits the column.',
   'time_grid.overlap_layout.option.cascade.label': 'Stacked',
   'time_grid.overlap_layout.option.columns.label': 'Side by side',
   'time_grid.max_simultaneous_events': 'Most Events Side By Side',
   'time_grid.max_simultaneous_events.helper': 'The rest collapse into a +N block at the edge.',
+
+  // --- The month's own block --------------------------------------------------
+  //
+  // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
+  // Month Density follows the other two layouts'. The heights are named apart from the card's
+  // Height and Maximum Height, which share their option names, and which Month does not read.
+  'month.card_height': 'Month Card Height',
+  'month.card_height.helper':
+    'The whole card, title and toolbar included: auto is 44rem, and rows set in a Sections ' +
+    'dashboard’s Layout tab win over it.',
+  'month.card_max_height': 'Month Maximum Height',
+  'month.compact_card_height': 'Compact Card Height',
+  'month.compact_card_height.helper': 'auto is the compact month’s own 36rem.',
+  'month.compact_card_max_height': 'Compact Maximum Height',
+  'month.compact_card_max_height.helper':
+    'With Compact Card Height at auto, the card grows with the day’s list up to this.',
+  'month.weekend_background_color': 'Weekend Shading',
+  'month.weekend_background_color.helper':
+    'Any CSS color, or transparent for none; weekend days follow the country set in Home Assistant.',
+  'month.today_background_color': 'Today Shading',
+  'month.today_background_color.helper': 'On a weekend it replaces the weekend shading.',
+  'month.cell_event_font_size': 'Event Font Size in Days',
+  'month.cell_event_font_size.helper':
+    'Titles in the wide month’s days; Event Font Size sets a day’s list and the panel.',
+  'month.cell_time_font_size': 'Time Font Size in Days',
+  'month.cell_time_font_size.helper':
+    'Times and “+N more” in the wide month’s days; Time Font Size sets a day’s list and the panel.',
+  'month.density': 'Month Density',
+  'month.density.helper':
+    'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
+  'month.min_day_width': 'Minimum Day Width',
+  'month.week_scroll': 'Week Scrolling',
+  'month.week_scroll.helper':
+    'The wheel, a trackpad or a vertical swipe then moves the weeks rather than the dashboard, ' +
+    'except in the compact month.',
+  'month.week_scroll_min_width': 'Minimum Card Width',
+  'month.week_scroll_min_width.helper':
+    'Narrower cards leave the wheel and swipes to the dashboard; 0 means any width.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -1026,6 +1115,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view_default.column.split_multiday_events':
     'Column layout splits multi-day events whatever this is set to, so that every day ' +
     'an event covers shows it. Add an exception below to change that.',
+  'view_default.month.show_past_events':
+    'Month layout shows past events whatever this is set to, dimmed, so that its past days ' +
+    'are not left blank. Change it in Month’s own settings.',
+  'view_default.month.event_gap':
+    'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
+    'each reads as a block of its own. Change it in Month’s own settings.',
+  'view_default.month.day_font_size':
+    'Month layout sets its day numbers at 14px whatever this is set to, so that each fits ' +
+    'its day’s corner. Change it in Month’s own settings.',
 
   // --- Time Range & Content -------------------------------------------------
   days_to_show: 'Days To Show',
@@ -1165,6 +1263,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Arrows, a button back to the starting days, and a date picker on the month. Swiping pages too.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper': 'Each device remembers its choice.',
+  // Which layouts the switcher offers, a checkbox each, under the controls while View Switcher is
+  // pressed.
+  'toolbar.view_switcher_layouts': 'Layouts in Switcher',
+  'toolbar.view_switcher_layouts.aliases': 'view switcher',
   'toolbar.reset': 'Reset Button',
   'toolbar.reset.helper':
     'Undoes this device’s changes to the days, the layout, the calendars and an expanded view.',
@@ -1221,8 +1323,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.buttons.remove': 'Remove',
   'button.summary': '{action} · {target}',
 
-  // --- Day Header -----------------------------------------------------------
-  'panel.day_header': 'Day Header',
+  // --- Days -----------------------------------------------------------------
+  // The page holds each day's date and, since Grid's shading came here, its background too.
+  'panel.day_header': 'Days',
+  'panel.day_header.aliases': 'day header',
   date_vertical_alignment: 'Vertical Alignment',
   'date_vertical_alignment.option.top.label': 'Top',
   'date_vertical_alignment.option.middle.label': 'Middle',
@@ -1467,7 +1571,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // name inside a titled group would resolve to its own string rather than to these.
   'panel.weather': 'Weather',
   entity: 'Weather Entity',
-  'entity.helper': 'Leave empty for no forecast at all.',
+  // One entity for every layout: choosing it on a layout's page turns the forecast on there.
+  'entity.helper':
+    'Shared by every layout. Choosing one in a layout turns its forecast on there; clearing it removes the forecast everywhere.',
   position: 'Show The Forecast',
   'position.option.none.label': 'Nowhere',
   'position.option.date.label': 'In the Day Header',
@@ -1571,12 +1677,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Phrased as what the option *does* apply to, never as "this does nothing".
   // A column card renders as a list on a narrow screen, so a list-only option on a
   // column card is still the live control for what that card shows on a phone.
-  'scope.column_list_only': 'Applies to the list and column layouts, not to the time grid.',
+  'scope.column_list_only':
+    'Applies to the list and column layouts, not to the time grid or the month.',
   'scope.column_list_only.split_multiday_events':
-    'Grid derives daily coverage itself. All-day events use spanning banners across included ' +
-    'columns; timed events use a block per included day.',
+    'Grid and Month derive daily coverage themselves. All-day events span the days they ' +
+    'cover; timed events are drawn on each day they touch.',
+  'scope.column_list_month_only':
+    'Applies to the list, column and month layouts, not to the time grid.',
+  'scope.column_grid_list_only': 'Applies to every layout but the month.',
+  'scope.column_grid_list_only.days_to_show':
+    'Applies to every layout but the month, which always shows six whole weeks.',
+  'scope.column_grid_list_only.show_empty_days':
+    'Applies to every layout but the month, which always draws every day of its weeks.',
+  'scope.grid_month_only': 'Applies to the time grid and month layouts.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
-  'scope.grid_only': 'Applies to the time grid layout.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
   'scope.list_only.compact_events_to_show':

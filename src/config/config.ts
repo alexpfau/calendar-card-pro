@@ -4,6 +4,7 @@
 
 import * as Constants from './constants';
 import * as Types from './types';
+import { VIEWS } from './views';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
 import { normalizeVisibility } from '../utils/visibility';
@@ -159,6 +160,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   description_color: 'var(--secondary-text-color)',
   description_icon_size: '14px',
 
+  // The weather entity every layout draws from; each layout's `weather:` says how, off until it
+  // does (`resolveViewWeather`).
+  weather_entity: undefined,
+
   // Weather. `color` is deliberately absent so each placement can use its own fallback;
   // adding a default would be written to YAML by the editor and become indistinguishable
   // from a user choice.
@@ -207,6 +212,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     navigation: true,
     add_event: true,
     view_switcher: true,
+    view_switcher_layouts: ['list', 'column', 'grid', 'month'],
     reset: false,
     refresh: true,
     search: true,
@@ -221,6 +227,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   list: undefined,
   column: undefined,
   time_grid: undefined,
+  month: undefined,
 };
 
 export type ConfigVersionState =
@@ -452,7 +459,13 @@ export interface ResolvedToolbar {
   show: boolean;
   navigation: boolean;
   addEvent: boolean;
+  /** Whether the layout switcher is on: drawn while it offers two layouts that fit. */
   viewSwitcher: boolean;
+  /**
+   * The layouts `view_switcher_layouts` names, in `VIEWS` order, each once: every layout by
+   * default. The switcher offers these and the card's own `view` (`switcherOffers`).
+   */
+  switcherViews: ReadonlyArray<Types.EffectiveView>;
   reset: boolean;
   refresh: boolean;
   search: boolean;
@@ -493,8 +506,17 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'size' | 'buttons'>): boolean =>
+  const read = (
+    key: Exclude<
+      keyof Types.ToolbarConfig,
+      'legend' | 'size' | 'buttons' | 'view_switcher_layouts'
+    >,
+  ): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
+  const switcherViews = resolveSwitcherViews(
+    block.view_switcher_layouts,
+    defaults.view_switcher_layouts,
+  );
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
     : defaults.legend;
@@ -507,6 +529,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),
+    switcherViews,
     reset: read('reset'),
     refresh: read('refresh'),
     search: read('search'),
@@ -514,6 +537,63 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     size,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
+}
+
+/**
+ * The layouts a `view_switcher_layouts` value names, in `VIEWS` order: for a list, its members
+ * that name a layout, each once, so an empty list names none. A value of any other kind reads as
+ * the default.
+ *
+ * @param value - `view_switcher_layouts` as written
+ * @param fallback - The shipped default, for a value of the wrong kind
+ * @returns The layouts named
+ */
+function resolveSwitcherViews(
+  value: unknown,
+  fallback: ReadonlyArray<Types.EffectiveView>,
+): ReadonlyArray<Types.EffectiveView> {
+  const named: ReadonlyArray<unknown> = Array.isArray(value) ? value : fallback;
+  return VIEWS.filter((view) => named.includes(view));
+}
+
+/**
+ * The layouts the toolbar's view switcher offers: the card's own `view` and those
+ * `view_switcher_layouts` names, in `VIEWS` order, while the toolbar is shown with its switcher
+ * on and that comes to two or more. None otherwise, since a switcher of one layout is not drawn.
+ * Whether each fits the card's width is the card's to decide.
+ *
+ * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
+ * `view_switcher: true` and `show: false`, so reading the switcher flag alone would offer every
+ * layout on nearly every card.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The layouts offered, or none
+ */
+export function switcherOffers(
+  config: Readonly<Pick<Types.Config, 'toolbar' | 'view'>>,
+): ReadonlyArray<Types.EffectiveView> {
+  const toolbar = resolveToolbar(config);
+  if (!toolbar.show || !toolbar.viewSwitcher) return [];
+  const offered = VIEWS.filter(
+    (view) => view === config.view || toolbar.switcherViews.includes(view),
+  );
+  return offered.length >= 2 ? offered : [];
+}
+
+/**
+ * The `toolbar.view_switcher_layouts` members the card leaves out, as written: each that names
+ * no layout.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The members left out, in the order written
+ */
+export function unknownSwitcherViews(config: Readonly<Pick<Types.Config, 'toolbar'>>): unknown[] {
+  const list = Helpers.isConfigBlock(config.toolbar)
+    ? config.toolbar.view_switcher_layouts
+    : undefined;
+  return Array.isArray(list)
+    ? list.filter((member) => !VIEWS.includes(member as Types.EffectiveView))
+    : [];
 }
 
 /**
@@ -793,7 +873,9 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
  * stylesheet, which no font size feeds.
  *
  * Entries are option paths, as in the icon-size table, so the two weather `font_size`
- * options are named by where they live.
+ * options are named by where they live. The last two live in the `month:` block only and are
+ * named bare, as its other options are; the top-level check skips them and the block's reports
+ * them, with the block's default.
  */
 export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'title_font_size',
@@ -808,6 +890,8 @@ export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
   'description_font_size',
   'weather.date.font_size',
   'weather.event.font_size',
+  'cell_event_font_size',
+  'cell_time_font_size',
 ]);
 
 /**
@@ -833,6 +917,31 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 ]);
 
 /**
+ * A month's heights, whose unusable value is folded rather than passed through: the whole card's
+ * height and its cap, in the wide form and the compact one, judged by {@link toValidCardHeight}
+ * and {@link toValidCardMaxHeight}.
+ *
+ * The card measures how many lines fit under a date from a week's height, so a week must never
+ * be sized by its events. A percentage resolves against a height the month does not have, and a
+ * keyword such as `fit-content` sizes the box by what is in it. A card height takes `auto`, which
+ * is the month's own default rather than its content's, and a cap takes `none`; anything else that
+ * is not a length folds the same way.
+ *
+ * A wide key folds to the block's default, `auto` or `none`. A compact key has no default of its
+ * own: unusable, it counts as unset and the compact form takes the wide value.
+ *
+ * Its own table, for the reason the bar width has one, and its options live in a view block only,
+ * so the top-level check skips them and the block's (`validateViewOverrides`) reports them, with
+ * the block's default.
+ */
+export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'card_height',
+  'card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
+]);
+
+/**
  * The keywords a border width takes, at the widths CSS defines for them, and `none`.
  *
  * `thin`, `medium` and `thick` drew the old border at 1px, 3px and 5px, and still draw the
@@ -848,11 +957,15 @@ const BAR_WIDTH_KEYWORDS: Readonly<Record<string, string>> = {
   none: '0px',
 };
 
-/** Every option that folds an unusable value: the icon sizes, the font sizes, the bar width. */
+/**
+ * Every option that folds an unusable value: the icon sizes, the font sizes, the bar width, a
+ * month's heights.
+ */
 export const FOLDED_OPTIONS: ReadonlyArray<string> = [
   ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
 ];
 
 /**
@@ -860,8 +973,8 @@ export const FOLDED_OPTIONS: ReadonlyArray<string> = [
  * never folds.
  *
  * @param key - Option path
- * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth}, or
- *   `undefined`
+ * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth},
+ *   {@link toValidCardHeight}, {@link toValidCardMaxHeight}, or `undefined`
  */
 function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
   if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
@@ -870,6 +983,10 @@ function foldValidator(key: string): ((value: unknown) => string | undefined) | 
 
   if (BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
     return toValidBarWidth;
+  }
+
+  if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return key.endsWith('_max_height') ? toValidCardMaxHeight : toValidCardHeight;
   }
 
   return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
@@ -1043,6 +1160,59 @@ export function toValidBarWidth(value: unknown): string | undefined {
 }
 
 /**
+ * A row's height, tidied, or `undefined` when the value cannot be one: a size by
+ * {@link toValidSize}'s rule, a non-negative length with no percentage and no keyword, which is a
+ * length a row can be drawn at whatever is in it. An `!important` flag is dropped rather than
+ * kept, since the card writes the height into a custom property and a `calc()` of its own, where
+ * the flag means nothing and would make the `calc()` unusable.
+ *
+ * @param value - Raw configured value
+ * @returns The height to use, or `undefined` when the value cannot be one
+ */
+export function toValidRowHeight(value: unknown): string | undefined {
+  return toValidSize(value)?.replace(/ !important$/, '');
+}
+
+/**
+ * Whether a value is a keyword, in any case, around whitespace and a CSS declaration's trailing
+ * semicolons.
+ *
+ * @param value - Raw configured value
+ * @param keyword - The keyword, in lowercase
+ * @returns `true` when the value is that keyword
+ */
+function isKeyword(value: unknown, keyword: string): boolean {
+  return (
+    typeof value === 'string' && value.replace(DECLARATION_END, '').trim().toLowerCase() === keyword
+  );
+}
+
+/**
+ * A month card's height, tidied, or `undefined` when the value cannot be one: `auto`, which is
+ * the month's own default height rather than its content's, or a length a row can be drawn at by
+ * {@link toValidRowHeight}'s rule, a `calc()`, a `var()` and a viewport unit such as `dvh`
+ * included. A percentage and every other keyword are refused, since each would size the month by
+ * its events or by a height it does not have.
+ *
+ * @param value - Raw configured value
+ * @returns `auto`, the height to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'auto') ? 'auto' : toValidRowHeight(value);
+}
+
+/**
+ * A month card's cap, tidied, or `undefined` when the value cannot be one: `none`, no cap, or a
+ * length by {@link toValidCardHeight}'s rule.
+ *
+ * @param value - Raw configured value
+ * @returns `none`, the cap to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardMaxHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'none') ? 'none' : toValidRowHeight(value);
+}
+
+/**
  * Removes what a CSS declaration adds around a value — trailing semicolons and an
  * `!important` flag — judges the value that remains, and puts the flag back.
  *
@@ -1149,8 +1319,15 @@ export function foldsToDefault(key: string, value: unknown): boolean {
  * @param value - Raw value, before normalization
  * @param path - Where the value was written, as the diagnostic names it — the option path
  *   itself, or `column.time_icon_size` for a view override
+ * @param fallback - What the value folds to: the shipped top-level default, or a view block's
+ *   own for an option that lives in one alone
  */
-export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
+export function validateFoldedLength(
+  key: string,
+  value: unknown,
+  path: string = key,
+  fallback: unknown = valueAtPath(DEFAULT_CONFIG, key),
+): void {
   if (!foldsToDefault(key, value)) {
     return;
   }
@@ -1159,10 +1336,15 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
     ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
     : BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
       ? 'a non-negative CSS length such as "2px" or "0.2em", or "thin", "medium" or "thick"'
-      : 'a non-negative CSS length such as "6px" or "0.5em"';
+      : CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+        ? key.endsWith('_max_height')
+          ? '"none" or a non-negative CSS length such as "40rem", "600px" or "90dvh", not a ' +
+            'percentage or another keyword'
+          : '"auto" or a non-negative CSS length such as "44rem", "600px" or "100dvh", not a ' +
+            'percentage or another keyword'
+        : 'a non-negative CSS length such as "6px" or "0.5em"';
   // `title_font_size` ships unset, so folding it means leaving the title at the size it
   // would have had without the option.
-  const fallback = valueAtPath(DEFAULT_CONFIG, key);
   const outcome =
     fallback === undefined ? 'Ignoring it.' : `Falling back to "${String(fallback)}".`;
 
@@ -1181,6 +1363,9 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
  */
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
+    if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
+    // A view block's own option, which the top level does not hold.
+    if (!Helpers.hasOwn(DEFAULT_CONFIG, key.split('.')[0])) continue;
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }
@@ -1679,8 +1864,8 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
  * `view: grid` value, because the block is what they will edit. Untranslated for
  * the same reason as the column label above.
  *
- * Deliberately still "Time Grid" where the editor's own view tile now reads "Grid". The
- * tile sits beside "List" and "Columns" and is read by someone already inside the card,
+ * Deliberately still "Time Grid" where the editor's own Starting Layout row now reads "Grid".
+ * The row sits among "List" and "Columns" and is read by someone already inside the card,
  * where the extra word is noise; this label is read in Home Assistant's card picker by
  * someone who has never seen the card, beside a "Columns" entry it has to be told apart
  * from. Grep for "Time Grid" and you will find both — that is the split, and it is meant.
@@ -1713,8 +1898,10 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
  * Nothing here is part of the event-cache key, which is what keeps the two on it; see
  * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
  *
- * With a weather entity, the forecast is drawn beside each day. No position is written, so the
- * card subscribes to the daily forecast alone (`weather.position` defaults to the date).
+ * With a weather entity, the forecast is drawn beside each day in List, Columns and Grid, the
+ * layouts the toolbar's switcher offers that have a day header: each layout's own `weather:` says
+ * so, as converting the weather written before v6 does (`migrateWeatherFormat`). The card
+ * subscribes to the daily forecast alone.
  *
  * @param weatherEntity - The home's only weather entity, or `undefined` to leave weather out
  * @returns The options to spread over the plain recipe
@@ -1724,7 +1911,14 @@ function interactiveOptions(weatherEntity: string | undefined): Record<string, u
     toolbar: { show: true },
     event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
-    ...(weatherEntity === undefined ? {} : { weather: { entity: weatherEntity } }),
+    ...(weatherEntity === undefined
+      ? {}
+      : {
+          weather_entity: weatherEntity,
+          list: { weather: { position: 'date' } },
+          column: { weather: { position: 'date' } },
+          time_grid: { weather: { position: 'date' } },
+        }),
   };
 }
 
@@ -1782,8 +1976,9 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
  * come first, because Home Assistant shows a card's suggestions in the order returned and these
  * are the ones a new card is best started from. When the home has exactly one weather entity
- * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
- * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather_entity` and each
+ * layout's `weather:` are fetch-time, but not part of the event-cache key: they cost each of those
+ * two previews a forecast
  * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach

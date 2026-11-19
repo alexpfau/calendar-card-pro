@@ -24,6 +24,7 @@ import { valueSource } from '../src/rendering/editor/routing';
 import {
   storedViewBlocks,
   stripColumnDefaults,
+  stripMonthDefaults,
   stripTimeGridDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
@@ -84,6 +85,12 @@ const V4_CARD = {
   toolbar: { show: false },
 };
 
+/**
+ * {@link V4_CARD}'s weather as each layout that drew it takes it on the upgrade, the default it
+ * spells out kept, and the `date` position it defaulted to written out.
+ */
+const LAYOUT_WEATHER = { position: 'date', date: { show_high_temp: true } };
+
 /** Everything in {@link V4_CARD} that neither answer moves. */
 const UNMOVED = {
   entities: ['calendar.anna'],
@@ -92,21 +99,23 @@ const UNMOVED = {
   show_month: true,
   days_to_show: 3,
   tap_action: { action: 'none' },
-  column: { min_days_fallback: 'list', min_day_width: 140 },
-  weather: { entity: 'weather.home', date: { show_high_temp: true } },
+  column: { min_days_fallback: 'list', min_day_width: 140, weather: LAYOUT_WEATHER },
+  weather_entity: 'weather.home',
+  time_grid: { weather: LAYOUT_WEATHER },
   toolbar: { show: false },
 };
 
 const ANSWERS = {
   'keep-list': {
     ...UNMOVED,
-    list: { event_font_size: '18px', show_location: true },
+    list: { event_font_size: '18px', show_location: true, weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
   'shared-root': {
     ...UNMOVED,
     event_font_size: '18px',
     show_location: true,
+    list: { weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
 } as const;
@@ -264,6 +273,15 @@ describe('the serializer’s authored baseline', () => {
     expect(stripColumnDefaults(config, { min_day_width: '140' })).toEqual({
       min_day_width: '140',
     });
+
+    // Month's block by the same rule, and a bare length written fresh is stored as the card
+    // reads it.
+    const month = merged({ month: { min_day_width: '80', cell_event_font_size: 15 } });
+    expect(stripMonthDefaults(month)).toEqual({ cell_event_font_size: '15px' });
+    expect(stripMonthDefaults(month, { min_day_width: '80' })).toEqual({
+      min_day_width: '80',
+      cell_event_font_size: '15px',
+    });
   });
 
   /**
@@ -274,10 +292,12 @@ describe('the serializer’s authored baseline', () => {
   it('still drops a held view value the card rejects for its default', () => {
     const grid = { slot_minutes: 45, overlap_layout: 'column' };
     const column = { min_day_width: 0, min_days_to_show: 'some' };
-    const config = merged({ days_to_show: 7, time_grid: grid, column });
+    const month = { min_day_width: 0, week_scroll: 'yes', week_scroll_min_width: -5 };
+    const config = merged({ days_to_show: 7, time_grid: grid, column, month });
 
     expect(stripTimeGridDefaults(config, grid)).toBeUndefined();
     expect(stripColumnDefaults(config, column)).toBeUndefined();
+    expect(stripMonthDefaults(config, month)).toBeUndefined();
     expect(storedViewBlocks(config)).toEqual({});
   });
 

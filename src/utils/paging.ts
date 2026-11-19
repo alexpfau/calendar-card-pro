@@ -173,6 +173,32 @@ export function rangeContains(range: PageRange, date: Date): boolean {
   return offset >= 0 && offset < range.days;
 }
 
+/**
+ * The month a page mostly shows: the one holding the most of its days, which is the month a
+ * month grid names, since its first row often starts in the month before and its last ends in
+ * the month after. A tie goes to the month of its middle day, day 21 of a grid's 42.
+ *
+ * @param range - The page
+ * @returns The first day of that month, at local midnight
+ */
+export function majorityMonth(range: PageRange): Date {
+  const days = Math.max(1, Math.floor(range.days));
+  const counts = new Map<number, number>();
+  for (let i = 0; i < days; i++) {
+    const day = addDays(range.start, i);
+    const month = day.getFullYear() * 12 + day.getMonth();
+    counts.set(month, (counts.get(month) ?? 0) + 1);
+  }
+  const most = Math.max(...counts.values());
+  const middle = addDays(range.start, Math.floor(days / 2));
+  const middleMonth = middle.getFullYear() * 12 + middle.getMonth();
+  const month =
+    counts.get(middleMonth) === most
+      ? middleMonth
+      : [...counts].find(([, count]) => count === most)![0];
+  return new Date(Math.floor(month / 12), month % 12, 1);
+}
+
 //-----------------------------------------------------------------------------
 // WORDS
 //-----------------------------------------------------------------------------

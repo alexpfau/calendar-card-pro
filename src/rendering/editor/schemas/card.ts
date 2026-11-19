@@ -6,9 +6,10 @@ import { mdiButtonCursor } from '@mdi/js';
 
 import { ACTION_OPTIONS } from './actions';
 import * as Config from '../../../config/config';
+import { VIEWS } from '../../../config/view';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx, SubformDef } from '../panels';
-import { blockScope, bool, color, select, text } from './common';
+import { blockScope, bool, color, multiSelect, select, text } from './common';
 import { LEGEND_EDITOR_VALUES } from '../normalize';
 
 /** The leading icon of each toolbar button's panel: one icon for every button, not its own. */
@@ -57,7 +58,8 @@ export function cardSubforms(_ctx: SchemaCtx): SubformDef[] {
 /**
  * Builds the Card & Header panel schema: the title and the card's own background, then the
  * toolbar's switches, the first of which turns the whole toolbar on or off; only while it is on
- * are the rest offered, in the order the toolbar is read.
+ * are the rest offered, in the order the toolbar is read, and the layouts the View Switcher
+ * offers only while it is on too.
  *
  * @param ctx - Schema context
  * @returns The panel's schema
@@ -81,6 +83,10 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
             bool('refresh'),
             bool('search'),
             bool('navigation'),
+            // Which layouts the switcher offers matters only while it is on.
+            ...(toolbar.viewSwitcher
+              ? [multiSelect(ctx.language, 'view_switcher_layouts', VIEWS, 'view')]
+              : []),
             select(ctx.language, 'size', Config.TOOLBAR_SIZE_VALUES, 'toolbar.size'),
           ]
         : []),

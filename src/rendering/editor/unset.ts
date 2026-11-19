@@ -62,6 +62,9 @@ export function unsetWord(
         return t('value.follow_card');
       case 'allday_expires_at':
         return t('value.end_of_day');
+      // The marker the location row draws while the calendar names no icon of its own.
+      case 'location_icon':
+        return t('value.map_marker');
       case 'allowlist':
       case 'blocklist':
       case 'replace_pattern':
@@ -75,6 +78,12 @@ export function unsetWord(
     case 'title_font_size':
     case 'title_color':
       return t('value.theme_default');
+    // Month's compact form follows its wide one: named by its own string, since the bare name
+    // is also the card's Height.
+    case 'compact_card_height':
+      return t('value.same_as', { label: t('month.card_height') });
+    case 'compact_card_max_height':
+      return t('value.same_as', { label: t('month.card_max_height') });
     case 'compact_events_to_show':
     case 'compact_days_to_show':
       return t('value.no_limit');

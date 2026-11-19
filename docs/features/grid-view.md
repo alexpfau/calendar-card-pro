@@ -1,7 +1,7 @@
 # Grid View
 
 Grid view places the days side by side on an hour axis, so an event sits at the time it
-starts and is as tall as it is long. It is the same agenda the other two layouts show,
+starts and is as tall as it is long. It is the same agenda the other layouts show,
 measured against a clock instead of listed.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A family's week in grid view on a wall tablet, under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours and a forecast in each date header"><br>
@@ -15,11 +15,12 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor#the-overview), **Starting Layout** on the overview
-chooses the layout the card opens with. Select **Grid** under **Settings For**, at the top of a
-page, to configure
-its time axis on the **Grid** page and its lines on **Size & Spacing**, under
-**Across the Grid**, without changing **Starting Layout**.
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Grid** row itself to
+configure Grid's own settings on its topic pages, without changing the card: its hours under
+**Which Events → Hours**, its hour height, hour labels and lines on **Size & Spacing**, its
+weekend and today shading on **Days**, and its now line and overlapping events on **Event
+Appearance**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -322,8 +323,9 @@ time_grid:
 ```
 
 - Keep it faint, since event text sits on top of it. `transparent` turns it off.
-- It is a grid-only option, so it lives in `time_grid:` rather than beside the card-level
-  `weekend_*` text colors.
+- It lives in `time_grid:` rather than beside the card-level `weekend_*` text colors. Month view
+  takes the same option in `month:`; see
+  [Shading the Weekend & Today](/features/month-view#shading-the-weekend-today).
 - The tint runs from just under the date row, through the all-day band and down the hours, as
   one continuous column. The date row itself stays clear.
 - Which days are shaded comes from the
@@ -362,7 +364,7 @@ time_grid:
   next day's column.
 - When today falls on the weekend, today's color replaces the weekend shading on that column
   rather than mixing with it. The rest of the weekend keeps its own shade.
-- It is a grid-only option, so it lives in `time_grid:`.
+- It lives in `time_grid:`. Month view takes the same option in `month:`.
 
 ::: details Today Beside a Weekend Day
 The weekend shading fills the gap between two weekend days. With today's tint on and today a
@@ -427,9 +429,9 @@ time_grid:
   multiday_banners: false
 ```
 
-| Option             | Type    | Default | Description                                                                                                                                                              |
-| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid view only, so it belongs in `time_grid:`; a calendar's own value wins |
+| Option             | Type    | Default | Description                                                                                                                                                                                    |
+| ------------------ | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid and month view only, so it belongs in `time_grid:` or `month:`; a calendar's own value wins |
 
 - **A full day or longer** means the event ends at least two dates after it starts, or on the
   next date at or after the clock time it started at: Monday 10:00 to Tuesday 10:00 is a banner,
@@ -836,8 +838,8 @@ time_grid:
 ```
 
 Anything the block does not mention keeps its top-level value, except for the fourteen
-options listed below. In the visual editor, choose Grid under **Settings For** to edit these
-values directly without changing **Starting Layout**.
+options listed below. In the visual editor, open Grid under **Layouts** to edit these values
+directly without changing the card.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
 card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
@@ -945,7 +947,8 @@ column view; see [Grid Lines](#grid-lines) above.
 ## 🚫 Options That Do Nothing in Grid View
 
 These options have no effect while the card renders as a grid, and the visual editor leaves
-them out while **Settings For** is Grid. Stored values are kept for the layouts they apply to.
+them out of Grid's pages; Open Links, a whole-card setting on Taps & Refresh, says **Not in
+Grid** instead. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                            | In Grid View                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -964,12 +967,12 @@ them out while **Settings For** is Grid. Stored values are kept for the layouts 
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, choose a layout they apply to under **Settings For**, without changing
-**Starting Layout** (the all-day badge controls are in **All Layouts** too); see
+of these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is
+(the all-day badge controls are in **Layout Defaults** too); see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
-`show_progress_bar`, `weather.position: event`, per-calendar `label`, `label_type`,
+`show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,
 `label_icon_color` and the title and weather line limits. `show_time` reaches it only to decide
 whether a [timed banner](#long-timed-events-as-banners) draws its times.
 

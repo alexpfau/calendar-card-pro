@@ -20,7 +20,8 @@ import {
 const events: Route = { kind: 'page', page: 'events' };
 const dayHeader: Route = { kind: 'page', page: 'day_header' };
 const whichEvents: Route = { kind: 'page', page: 'which_events' };
-const grid: Route = { kind: 'page', page: 'grid' };
+// A place an outside change can take away: an entry whose calendar is removed.
+const gone: Route = { kind: 'entry', key: 7 };
 
 /**
  * A trail entry for leaving a place.
@@ -73,11 +74,15 @@ describe('routes', () => {
   });
 
   it('replaces a page reached by a cross-link when it cross-links again', () => {
-    const page = go(OVERVIEW, whichEvents, from(OVERVIEW.route));
+    // Overview, a layout's page, its topic: a cross-link from the topic still returns to it.
+    const grid = { kind: 'layout', layout: 'grid' } as const;
+    const layout = go(OVERVIEW, grid, from(OVERVIEW.route));
+    const page = go(layout, whichEvents, from(grid));
     const linked = go(page, dayHeader, from(whichEvents), 'cross-link');
+    expect(back(linked).nav.route).toEqual(whichEvents);
     const again = go(linked, events, from(dayHeader), 'cross-link');
     expect(again.route).toEqual(events);
-    expect(again.trail.map((entry) => entry.route)).toEqual([OVERVIEW.route, whichEvents]);
+    expect(again.trail.map((entry) => entry.route)).toEqual([OVERVIEW.route, grid, whichEvents]);
     expect(back(again).nav.route).toEqual(whichEvents);
   });
 
@@ -127,7 +132,6 @@ describe('routes', () => {
     const keys = [
       OVERVIEW.route,
       events,
-      grid,
       { kind: 'entry', key: 3 },
       { kind: 'audit' },
       { kind: 'audit', group: 'grid' },
@@ -138,21 +142,20 @@ describe('routes', () => {
 });
 
 describe('validation after an outside change', () => {
-  const existsOutsideGrid = (route: Route): boolean =>
-    !(route.kind === 'page' && route.page === 'grid');
+  const existsButGone = (route: Route): boolean => !(route.kind === 'entry' && route.key === 7);
 
   it('falls back to the overview when the open page is gone', () => {
-    const open = go(OVERVIEW, grid, from(OVERVIEW.route));
-    expect(validate(open, existsOutsideGrid)).toEqual({ nav: OVERVIEW, dropped: true });
+    const open = go(OVERVIEW, gone, from(OVERVIEW.route));
+    expect(validate(open, existsButGone)).toEqual({ nav: OVERVIEW, dropped: true });
   });
 
   it('drops a place gone from the trail and keeps the open page', () => {
-    const viaGrid: NavState = {
+    const viaGone: NavState = {
       route: dayHeader,
-      trail: [from(OVERVIEW.route), from(grid)],
+      trail: [from(OVERVIEW.route), from(gone)],
       fromResults: false,
     };
-    const { nav, dropped } = validate(viaGrid, existsOutsideGrid);
+    const { nav, dropped } = validate(viaGone, existsButGone);
     expect(dropped).toBe(false);
     expect(nav.route).toEqual(dayHeader);
     expect(nav.trail.map((entry) => entry.route)).toEqual([OVERVIEW.route]);

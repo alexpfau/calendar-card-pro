@@ -106,7 +106,7 @@ describe('the Documentation link', () => {
     });
     const link = () =>
       editor!.shadowRoot!.querySelector<HTMLAnchorElement>('.page-foot .docs-link');
-    for (const page of PAGES.filter((each) => each.onlyIn === undefined)) {
+    for (const page of PAGES) {
       await goPage(editor, page.id);
       expect(link()?.getAttribute('href'), page.id).toBe(docsUrl(page.id));
     }

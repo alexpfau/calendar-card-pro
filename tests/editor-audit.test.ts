@@ -195,7 +195,7 @@ describe('What This Card Changes, its groups', () => {
     // Group titles in that order, and no counts anywhere: the scope chips have none to match.
     expect(
       [...editor.shadowRoot!.querySelectorAll('.audit h3')].map((title) => text(title)),
-    ).toEqual(['Whole Card', 'All Layouts', 'List', 'Grid', 'Calendars', 'Kept as Written']);
+    ).toEqual(['Whole Card', 'Layout Defaults', 'List', 'Grid', 'Calendars', 'Kept as Written']);
     expect(editor.shadowRoot!.querySelector('.audit-count')).toBeNull();
     expect(text($(editor, '.audit'))).not.toMatch(/Set: \d/);
   });
@@ -242,6 +242,36 @@ describe('What This Card Changes, its groups', () => {
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.
   }, 30_000);
+
+  it('owns each layout’s own weather under its layout, never as kept', () => {
+    const raw = {
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      weather_entity: 'weather.home',
+      list: { day_spacing: '4px', weather: { position: 'event' } },
+      time_grid: { weather: { position: 'date', date: { show_low_temp: true } } },
+    };
+    const config = Config.mergeConfig(
+      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      raw,
+    ) as unknown as Types.Config;
+    const groups = Audit.auditGroups({ raw, config, entryKeys: [0] });
+    const of = (kind: string, workspace?: string) =>
+      groups
+        .filter((group) => group.kind === kind && (!workspace || group.workspace === workspace))
+        .flatMap((group) => group.lines.map((line) => [line.text, line.field]));
+
+    expect(of('kept')).toEqual([]);
+    expect(of('layout', 'list')).toEqual([
+      ['list.day_spacing', 'layout:day_spacing'],
+      ['list.weather.position', 'weather:weather.position'],
+    ]);
+    expect(of('layout', 'grid')).toEqual([
+      ['time_grid.weather.position', 'weather:weather.position'],
+      ['time_grid.weather.date.show_low_temp', 'weather:weather.date.show_low_temp'],
+    ]);
+    expect(of('whole')).toEqual([['weather_entity', 'weather:weather_entity']]);
+  });
 
   it('gives a line the field holding its value, not the mode choosing which', () => {
     const raw = {
@@ -353,7 +383,11 @@ describe('What This Card Changes, its groups', () => {
 
     expect(await strip(editor, 'time_grid.end_time')).toEqual([
       { id: 'change', label: 'Change Here', name: 'Change Last Hour in Grid Here' },
-      { id: 'open', label: 'Open in Grid', name: 'Open Last Hour in Grid in Grid' },
+      {
+        id: 'open',
+        label: 'Open in Which Events',
+        name: 'Open Last Hour in Grid in Which Events',
+      },
       { id: 'reset', label: 'Reset', name: 'Reset Last Hour in Grid' },
     ]);
     expect(row.getAttribute('aria-expanded')).toBe('true');
@@ -395,7 +429,7 @@ describe('What This Card Changes, its groups', () => {
     const editor = await mountEditor(WALL);
 
     expect(text($(editor, '[data-focus="more:audit"] .nav-summary'))).toBe(
-      'Whole Card · All Layouts · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
+      'Whole Card · Layout Defaults · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
     );
     const fresh = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
     expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe('Nothing Changed');
@@ -480,15 +514,22 @@ describe('What This Card Changes, its actions', () => {
       $(editor, '[data-audit="time_grid.show_location"] button.chip')!.getAttribute('aria-pressed'),
     ).toBe('true');
 
-    // Calendar Filter, a radio group on its page, mounts as that group and picks in place.
+    // Calendar Filter, a chip on its page with its form as a qualifier line under it, mounts as
+    // both: one option, read and written as its page draws it.
     await act(editor, 'toolbar.legend', 'change');
-    const off = $(
+    const filter = $(editor, '[data-audit="toolbar.legend"] button.chip')!;
+    expect(filter.getAttribute('data-field')).toBe('card:toolbar.legend');
+    expect(filter.getAttribute('aria-pressed')).toBe('true');
+    const menu = $(
       editor,
-      '[data-audit="toolbar.legend"] fieldset.segmented input[type="radio"][value="off"]',
+      '[data-audit="toolbar.legend"] .qualifier input[type="radio"][value="menu"]',
     ) as HTMLInputElement;
-    expect(off.checked).toBe(false);
-    off.checked = true;
-    off.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(menu.checked).toBe(false);
+    menu.checked = true;
+    menu.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.toolbar).toEqual({ show: true });
+    $(editor, '[data-audit="toolbar.legend"] button.chip')!.click();
     await editor.updateComplete;
     expect(lastConfig(editor)!.toolbar).toEqual({ show: true, legend: false });
   });
@@ -624,7 +665,7 @@ describe('What This Card Changes, its actions', () => {
     await openAudit(editor);
     await act(editor, 'time_grid.end_time', 'open');
 
-    expect($(editor, '.page')!.dataset.page).toBe('grid');
+    expect($(editor, '.page')!.dataset.page).toBe('which_events');
     expect($(editor, '[data-field="layout:time_grid.end_time"]')).not.toBeNull();
     // Back returns to the line it left.
     await click(editor, '[data-focus="back-top"]');

@@ -27,7 +27,7 @@ The button is `toolbar → add_event`, on by default once the toolbar is shown; 
 - **Adding.** Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 - **Not adding.** Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out.
 - **The calendar** is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
-- **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today.
+- **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. A month counts the month its heading names: today where that month holds it, and otherwise the start of its 1st, never a day of the month before that its first week shows.
 
 ::: tip Pressing the Button Is Not a Tap on the Card
 The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users keep the card's own `tap_action` too: Tab to the card itself and press Enter, as [beside tappable events](#where-you-can-tap).
@@ -67,13 +67,15 @@ Like the add button, it needs a calendar that [accepts new events](#what-each-in
 
 ### Where You Can Tap a Day
 
-Wherever a day shows no event, in all three layouts:
+Wherever a day shows no event, in every layout:
 
 - **List view:** the day's date, its "No events" line, and the space between its events.
 - **Column view:** the day's header, and the empty space under its events.
 - **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
   quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
   all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
+- **[Month view](/features/month-view):** the empty part of a day. On a compact month a tap
+  selects the day instead, and the selected day's name over its list adds.
 
 A tap on an event never adds: the tap is the event's when it has an `event_tap_action`, and the
 card's otherwise. Nor do a grid's `+N` block, which stands for several events, the week numbers,
@@ -178,7 +180,7 @@ On a card whose replacements exist to keep something private, set `allow_event_e
 
 ### Where You Can Tap
 
-With an event tap action set, every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
+With an event tap action set, every event is a tap target, in every layout: a list row, a column event, a grid block or all-day banner, and a month's line or bar. In list view the whole colored block answers, not only its text.
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 
@@ -655,8 +657,11 @@ Nothing on the card marks that events were held back, so a compact card looks th
 ::: warning List View Only
 The whole compact family is inert while the card is rendering as column or grid —
 `compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
-`compact_events_complete_days`, and the `expand` action that drives them. A side-by-side
-card with `tap_action: expand` has nothing visible to change until the layout is a list.
+`compact_events_complete_days`, and the `expand` action that drives them. Wherever nothing
+can fold, in any layout but List or in a List without compact limits, `expand` counts as no
+action: no pointer cursor, ripple, hold circle or Tab stop, as with `add-event`, `reset` and
+`back` where they cannot run. A column or grid card that falls back to a list on a narrow screen
+still expands.
 
 Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
 :::

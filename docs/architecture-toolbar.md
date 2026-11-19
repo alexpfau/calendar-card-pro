@@ -77,6 +77,11 @@ the configuration.
   on screen (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
   until the new page's events land, and the request generation discards the responses of pages
   passed by. Storage is under [What the Browser Stores](/architecture-data#what-the-browser-stores).
+- **A month's pages.** Arrows, swipes, the picker and Page Up and Page Down step whole months, from
+  the month the heading names. With `month → week_scroll` the wheel and a vertical finger step the
+  rows a week (`_scrollWeeks`), the heading following the month most of the days are in, and a
+  page then loads the month-sized piece its rows belong to (`ViewConfig.monthScrollPiece`), so a
+  scroll through a month's weeks asks once rather than once a week.
 - **Nothing remembers a page.** A reload, a configuration change and the start of editing bring the
   card home.
 - **Hiding leaves a way back.** `hide_when_empty` acts only at home and only while the legend hides
@@ -89,7 +94,14 @@ There are three views at once: the configured `view`, the requested view (`reque
 device's choice, else `view`) and the effective view the width fit makes of it (`_effectiveView`).
 
 - **No fetch.** The window's start is identical across views (`FETCH_TIME_KEYS`) and the load spans
-  the longest of them (`loadedDaysToShow`), so each view draws a prefix of one load.
+  the longest of them (`loadedDaysToShow`), with Month's six weeks added where it is reachable
+  (`ViewConfig.loadConfig`), so each view draws its range out of one load.
+- **Which layouts.** Two options: `toolbar → view_switcher` turns the switcher on or off, and
+  `toolbar → view_switcher_layouts` lists the layouts it offers, all four by default.
+  `resolveToolbar` reads them as `viewSwitcher` and `switcherViews`, and `switcherOffers` adds
+  `view` and answers none where that comes to fewer than two, as one layout draws no switcher. A
+  layout left off the list leaves the load too, which is how a card avoids Month's six weeks.
+  Neither option ever writes the other: the list never turns the switcher off.
 - **Per configuration.** `utils/view-choice.ts` stores the choice under a fingerprint of the raw
   configuration, so any edit resets every device. Old entries are pruned past `MAX_VIEW_CHOICES`,
   never deleted on edit, since no card learns which configuration it replaced.

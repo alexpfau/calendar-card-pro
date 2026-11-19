@@ -907,46 +907,83 @@ describe('editor: applicability', () => {
       // Column and grid view draw their days whatever their events, so leaving rows out
       // would leave holes rather than continue a list.
       skip_first_events: ['list'],
-      // A column's or grid's month rule is a vertical line in a gutter, with no room for words.
+      // A column's or grid's month rule is a vertical line in a gutter, with no room for words,
+      // and the Month layout draws no month separator at all.
       month_separator_label: ['list'],
       month_separator_label_color: ['list'],
       month_separator_label_font_size: ['list'],
+      // A month sizes its whole card with the heights in its own block, so the events area's
+      // shared height and cap have nothing to size there.
+      height: ['column', 'grid', 'list'],
+      max_height: ['column', 'grid', 'list'],
+      // A month always draws its six weeks, every day of them: no day count, and no empty day
+      // to hide or keep.
+      days_to_show: ['column', 'grid', 'list'],
+      show_empty_days: ['column', 'grid', 'list'],
+      show_empty_today: ['column', 'grid', 'list'],
+      // A month rules its days with hairlines of its own and its day list holds one day, so
+      // there is no space or rule between days, weeks or months to set.
+      day_spacing: ['column', 'grid', 'list'],
+      day_separator_width: ['column', 'grid', 'list'],
+      day_separator_color: ['column', 'grid', 'list'],
+      week_separator_width: ['column', 'grid', 'list'],
+      week_separator_color: ['column', 'grid', 'list'],
+      month_separator_width: ['column', 'grid', 'list'],
+      month_separator_color: ['column', 'grid', 'list'],
+      // A month's week numbers are plain text, with no background.
+      week_number_background_color: ['column', 'grid', 'list'],
+      // A month sets its dates at one scale on every day.
+      today_date_scale: ['column', 'grid', 'list'],
+      past_date_scale: ['column', 'grid', 'list'],
+      // A month marks today with the tile and draws none of the indicators this sizes.
+      today_indicator_size: ['column', 'grid', 'list'],
+      // A month names its weekdays once, over their columns, so no weekday is today's.
+      today_weekday_color: ['column', 'grid', 'list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
-      // events are segmented by the renderer instead of by the upstream list splitter.
+      // events are segmented by the renderer instead of by the upstream list splitter. Month
+      // takes Grid's coverage, and its day list splits every multi-day event across its days.
       split_multiday_events: ['column', 'list'],
-      // Only grid has an all-day band above an hour axis for a timed event to move into.
-      multiday_banners: ['grid'],
+      // Only grid has an all-day band above an hour axis for a timed event to move into, and
+      // month draws such an event as a bar across its days in the same way.
+      multiday_banners: ['grid', 'month'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
-      // label whatever the option resolves to.
-      show_now_indicator: ['column', 'list'],
+      // label whatever the option resolves to. Month's day list draws List's rows, which
+      // carry it.
+      show_now_indicator: ['column', 'list', 'month'],
+      // Grid discards empty-day rows, and a month has no empty day to fill.
       empty_day_text: ['column', 'list'],
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
-      show_single_allday_time: ['column', 'list'],
+      // Month's day list draws them, and so do the badge, the row's padding, its line clamp
+      // and its links below; all but the multi-day time row, since that list splits every
+      // multi-day event across its days, and a bar's length follows show_duration alone.
+      show_single_allday_time: ['column', 'list', 'month'],
       show_multiday_allday_time: ['column', 'list'],
-      show_location_allday: ['column', 'list'],
-      show_description_allday: ['column', 'list'],
-      show_countdown_allday: ['column', 'list'],
-      allday_badge: ['column', 'list'],
-      allday_badge_style: ['column', 'list'],
-      allday_badge_color: ['column', 'list'],
+      show_location_allday: ['column', 'list', 'month'],
+      show_description_allday: ['column', 'list', 'month'],
+      show_countdown_allday: ['column', 'list', 'month'],
+      allday_badge: ['column', 'list', 'month'],
+      allday_badge_style: ['column', 'list', 'month'],
+      allday_badge_color: ['column', 'list', 'month'],
       // A grid block fits its own rows and has no title row for the time to join; its
-      // renderer never passes the placement to the leaf.
+      // renderer never passes the placement to the leaf. A month's day list puts every time
+      // beside its title, whatever the option says.
       time_position: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
-      event_spacing: ['column', 'list'],
+      event_spacing: ['column', 'list', 'month'],
       // A grid block is placed by its time and kept apart by the grid's own layout; only
-      // the list and column renderers emit the class that draws the gap.
-      event_gap: ['column', 'list'],
+      // the list, column and month renderers emit the class that draws the gap, a month's
+      // between the rows of its day list.
+      event_gap: ['column', 'list', 'month'],
       // Grid blockifies the plain time span and resets the properties the folded-countdown
       // span reads, so neither clamp path acts there.
-      time_max_lines: ['column', 'list'],
+      time_max_lines: ['column', 'list', 'month'],
       // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
       // so it draws no links in them.
-      open_links: ['column', 'list'],
+      open_links: ['column', 'list', 'month'],
     });
 
     expect(
@@ -1268,21 +1305,28 @@ describe('editor: displayed view and the Layout panel', () => {
    * Pinned by value, as a whole ordered set. The test above walks `viewOptions()` and so
    * cannot notice one leaving it — the `Object.keys` trap `AGENTS.md` records — and the
    * one two above pins the option *values*, which are the config vocabulary rather than
-   * the words on the tile. Nothing else asserts what a user reads.
+   * the words on the row. Nothing else asserts what a user reads.
    *
    * Built through `buildDisplayViewSchema` rather than read out of `strings.ts`, so a
    * lookup wired to the wrong key fails here too: the fallback is `humanize(view)`, which
    * yields `Grid` for grid either way but `Column` — not `Columns` — for column.
    */
-  it('labels the tiles List, Columns and Grid', () => {
-    expect(viewOptions().map((option) => option.label)).toEqual(['List', 'Columns', 'Grid']);
+  // A row per layout, derived from `VIEWS`: four since Month, each drawn as Quick Setup draws its
+  // examples (`tests/editor-overview.test.ts`); this pins their labels, in the selector's order.
+  it('labels the rows List, Columns, Grid and Month', () => {
+    expect(viewOptions().map((option) => option.label)).toEqual([
+      'List',
+      'Columns',
+      'Grid',
+      'Month',
+    ]);
   });
 
   /**
-   * The tile deliberately disagrees with Home Assistant's card-picker entry, which stays
+   * The row deliberately disagrees with Home Assistant's card-picker entry, which stays
    * "Time Grid" — the reasoning is on `SUGGESTION_TIME_GRID_LABEL` in `config.ts`. Pinned
    * from both sides so the split stays a decision somebody has to revisit rather than
-   * drift somebody has to notice, and so the descriptive word the tile gave up is still
+   * drift somebody has to notice, and so the descriptive word the row gave up is still
    * carried somewhere the user meets it.
    */
   it('drops the word the card picker keeps, and leaves it in the description', () => {
@@ -1293,6 +1337,33 @@ describe('editor: displayed view and the Layout panel', () => {
   it('shows the column density group only for a view that has one', () => {
     expect(names(columnConfig())).toContain('min_day_width');
     expect(names(buildConfig({ view: 'list' }))).not.toContain('min_day_width');
+  });
+
+  it('builds Month’s own options in its block, its scroll limit only while it scrolls', () => {
+    const own = (config: Types.Config) =>
+      [...walkSchema(buildLayoutSchema(ctx(config)))]
+        .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
+        .map(({ node }) => node.name);
+
+    const always = [
+      'card_height',
+      'card_max_height',
+      'compact_card_height',
+      'compact_card_max_height',
+      'min_day_width',
+      'weekend_background_color',
+      'today_background_color',
+      'cell_event_font_size',
+      'cell_time_font_size',
+      'week_scroll',
+    ];
+    expect(own(buildConfig({ view: 'month' }))).toEqual(always);
+    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
+      ...always,
+      'week_scroll_min_width',
+    ]);
+    // Month's, and nobody else's: the block is read only where Month is the view.
+    expect(own(buildConfig({ view: 'grid', month: { week_scroll: true } }))).toEqual([]);
   });
 
   it('nests the density options under the block they are stored in', () => {
@@ -1914,8 +1985,9 @@ describe('editor: the panel set', () => {
     const group = (name: string) => Object.keys(weather[name] as Record<string, unknown>);
 
     const expected = [
-      // `entity` and `position` sit directly on the Weather panel, outside either group.
-      'entity',
+      // The entity sits at the top level, `position` directly on a layout's Weather panel,
+      // outside either group.
+      'weather_entity',
       'position',
       ...group('date').map((key) => `weather.date.${key}`),
       ...group('event').map((key) => `weather.event.${key}`),
@@ -1936,11 +2008,13 @@ describe('editor: the panel set', () => {
       buildConfig({ view: 'grid' }),
       // The UV threshold is held back until UV is on, in both groups.
       buildConfig({
-        weather: {
-          entity: 'weather.home',
-          position: 'both',
-          date: { show_uv_index: true },
-          event: { show_uv_index: true },
+        weather_entity: 'weather.home',
+        list: {
+          weather: {
+            position: 'both',
+            date: { show_uv_index: true },
+            event: { show_uv_index: true },
+          },
         },
       }),
     ];
@@ -2203,11 +2277,12 @@ describe('editor: the Weather panel', () => {
   }
 
   it('offers nothing but the entity until one is chosen', () => {
-    expect(namesIn(buildConfig())).toEqual(['weather', 'entity']);
+    expect(namesIn(buildConfig())).toEqual(['weather_entity']);
   });
 
-  it('nests the whole panel under the key it is stored in, without a second heading', () => {
-    const [root] = weatherSchemaFor(buildConfig());
+  it('nests the layout’s weather under the key it is stored in, without a second heading', () => {
+    const [entity, root] = weatherSchemaFor(buildConfig({ weather_entity: 'weather.home' }));
+    expect(entity.name).toBe('weather_entity');
 
     // A named grid nests the data exactly as an expandable would and draws no heading,
     // which is what keeps a "Weather" group out of the Weather panel.
@@ -2717,8 +2792,9 @@ describe('editor: the Card & Header panel', () => {
   /**
    * Pinned by value and in order. The toolbar's switches close the panel: the bar's own switch,
    * then the controls in the order the toolbar is read: the top row from start to end, the
-   * filter leading as its default button does, then the date navigation in the row under it.
-   * The heading over them is the registry's.
+   * filter leading as its default button does, then the date navigation in the row under it,
+   * then the layouts the switcher offers, and last how large the row under it draws its
+   * controls. The heading over them is the registry's.
    */
   it('closes the panel with the toolbar', () => {
     const head = ['title', 'title_font_size', 'title_color', 'background_color'];
@@ -2738,8 +2814,14 @@ describe('editor: the Card & Header panel', () => {
         'refresh',
         'search',
         'navigation',
+        'view_switcher_layouts',
         'size',
       ]);
+      // Which layouts the switcher offers is offered only while it is on.
+      expect(
+        namesIn(buildConfig({ view, toolbar: { show: true, view_switcher: false } })),
+        `${view} view, toolbar on, switcher off`,
+      ).not.toContain('view_switcher_layouts');
     }
   });
 });

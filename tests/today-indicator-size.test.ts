@@ -117,6 +117,11 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
 });
 
+/** The views whose block holds the option, so an override written there reaches the card. */
+const BLOCKS_HOLDING = View.VIEWS.filter((view) =>
+  (View.viewBlockFor(view)?.overrideKeys as ReadonlyArray<string> | undefined)?.includes(KEY),
+);
+
 describe('toValidSize', () => {
   it.each(FORGIVEN)('reads %o as %o', (input, size) => {
     expect(Config.toValidSize(input)).toBe(size);
@@ -281,7 +286,9 @@ describe('the folded value reaches the stylesheet by every path', () => {
     expect(generateCustomPropertiesObject(config)[PROPERTY]).toBe(size);
   });
 
-  it.each(View.VIEWS)('folds an override inside the %s block', (view) => {
+  // Every block that holds it: month draws no indicator this sizes, so its block refuses it
+  // (`MONTH_IGNORED_SHARED_KEYS`).
+  it.each(BLOCKS_HOLDING)('folds an override inside the %s block', (view) => {
     const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
     for (const [input, size] of [
@@ -448,7 +455,7 @@ describe('a folded value is reported', () => {
     expect(reports[0][0]).toContain('today_indicator_size "big"');
   });
 
-  it.each(View.VIEWS)('is reported for an override in the %s block, under its path', (view) => {
+  it.each(BLOCKS_HOLDING)('is reported for an override in the %s block, under its path', (view) => {
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 

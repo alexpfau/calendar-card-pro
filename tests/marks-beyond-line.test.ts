@@ -15,8 +15,9 @@
  * - either kind keeps 0.125em of room at its inline edges the same way, for a Thai tone mark past
  *   the last letter, the hook of a "j" past a grid word's edge, and the antialiasing Chromium drew
  *   past a field's first letter (backlog item 263), and so does text outside the event fields cut
- *   the same way: the month, a legend chip's name, a day's weather in column and grid view, and a
- *   clamped weather condition (backlog item 266);
+ *   the same way: the month, a legend chip's name, a day's weather in column and grid view, a
+ *   clamped weather condition (backlog item 266), and a month day list's name, which keeps room
+ *   above and below its line as well;
  * - the summary that clamps a labeled title's line in list and column view ends at its last line,
  *   its 0.2em below the text a margin, so no piece of the next line shows there (backlog item 264),
  *   and an unlabeled title there, which clamps itself, does the same with its 2px (backlog item 265);
@@ -215,13 +216,14 @@ describe('the room a clamping box keeps above its first line', () => {
 
   it('is given back by a top margin of the same size, in every rule that adds it', () => {
     const returned = RULES.flatMap((rule) => {
-      const margin = rule.declarations['margin-top'];
-      const room = margin ? roomOut(margin) : null;
+      const margin = rule.declarations['margin-top'] ?? rule.declarations['margin-block'];
+      const room = margin ? roomOut(splitTopLevel(margin, ' ')[0]) : null;
       return room ? [{ selectors: rule.selectors, room }] : [];
     });
     // The two summary rules, the title, the time folded with its countdown, the trailing time
-    // with the location and the description, the row cut beside the time, and grid's summary.
-    expect(added()).toHaveLength(7);
+    // with the location and the description, the row cut beside the time, grid's summary, and a
+    // month day list's name, which keeps the room below its line as well.
+    expect(added()).toHaveLength(8);
     expect(returned).toEqual(added());
   });
 
@@ -369,7 +371,8 @@ const GRID_TIME = '.grid-event-disclosure .time, .grid-event-disclosure .time-ac
 const TIME_SPAN = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
 const CUT_ROW = ".time-beside-title > .summary-row.title-wrap[data-title-cut='']";
 // Text outside the event fields that is cut at its inline edges (backlog item 266).
-const OUTSIDE_TEXT = '.toolbar-month-text, .legend-chip-label, .column-date-content .weather';
+const OUTSIDE_TEXT =
+  '.toolbar-month-text, .legend-chip-label, .column-date-content .weather, .month-day-list-fit';
 const CONDITION = '.time-location .event-weather .weather-condition';
 const CONDITION_ROOM = 'var(--calendar-card-weather-condition-inline-room, 0px)';
 
@@ -404,6 +407,15 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   // The row a title is cut in beside its time, which clamps in place of its summary.
   [CUT_ROW]: [CUT_ROW],
   '.grid-banner-title': ['.grid-banner-title'],
+  '.month-weekday': 'a weekday name, whose own padding is its room',
+  '.month-week': 'a row of day cells, whose lines, bars and dates keep their own',
+  '.month-line': 'a line, whose own padding is its room',
+  '.month-line-title': ['.month-line-title'],
+  '.month-more': 'a button, whose own padding is its room',
+  '.month-compact-marks': 'a capsule of colored segments, which draws no text',
+  '.month-day-list-probe': 'the day’s list staged for the card to fit from, never seen',
+  '.month-day-list-name': 'the day named in full, read out, never drawn',
+  '.month-day-list-fit': [OUTSIDE_TEXT],
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
   '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
   '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
@@ -486,6 +498,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       '.grid-event-disclosure': { '--calendar-card-time-inline-room': '0px' },
       [SPANS]: ROOM,
       '.grid-banner-title': ROOM,
+      '.month-line-title': ROOM,
       // The row around a grid title, in the title's size rather than its own.
       '.grid-event-disclosure .summary-row': {
         'padding-inline': EVENT_ROOM,
@@ -700,7 +713,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         );
       }
     }
-    expect(pairs).toBe(12);
+    expect(pairs).toBe(13);
   });
 });
 

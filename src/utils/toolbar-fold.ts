@@ -28,6 +28,8 @@
  */
 
 import * as Constants from '../config/constants';
+import type * as Types from '../config/types';
+import { VIEWS } from '../config/views';
 
 /** One control of the action row's start group. */
 export type StartControl =
@@ -81,6 +83,27 @@ export function switcherWidth(views: number): number {
   const { TOOLBAR_SWITCHER_SEGMENT_WIDTH: segment, TOOLBAR_SWITCHER_TRACK_PADDING: padding } =
     Constants.UI;
   return views <= 0 ? 0 : views * segment + 2 * padding;
+}
+
+/**
+ * The card width from which the switcher shows its views in words, alone in its row: the width
+ * every view's words need (`UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH`), less the segment of each view
+ * it does not offer, its word (`UI.TOOLBAR_SWITCHER_WORD_WIDTH`) and the segment's padding on
+ * both sides (`UI.TOOLBAR_SWITCHER_SEGMENT_PADDING`).
+ *
+ * @param views - The views the switcher offers
+ * @returns The width in CSS pixels
+ */
+export function switcherLabelWidth(views: ReadonlyArray<Types.EffectiveView>): number {
+  const {
+    TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: every,
+    TOOLBAR_SWITCHER_WORD_WIDTH: words,
+    TOOLBAR_SWITCHER_SEGMENT_PADDING: padding,
+  } = Constants.UI;
+  return VIEWS.filter((view) => !views.includes(view)).reduce(
+    (width, view) => width - 2 * padding - words[view],
+    every,
+  );
 }
 
 /**

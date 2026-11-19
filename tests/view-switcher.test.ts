@@ -66,8 +66,8 @@ const SWITCHER_AND_ADD: Types.ToolbarConfig = { ...SWITCHER_ONLY, add_event: tru
 
 /**
  * Seven days: at the default 140px a day, Columns needs about a thousand pixels, while Grid
- * sheds days down to one and fits almost anywhere. So a 400px card offers List and Grid,
- * and a 1400px card offers all three.
+ * sheds days down to one and fits almost anywhere. So a 400px card offers List, Grid and
+ * Month, which has no width it falls back from, and a 1400px card offers all four.
  */
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna'],
@@ -229,16 +229,21 @@ afterEach(() => {
 });
 
 describe('the view switcher', () => {
-  it('confirms the fixture: List and Grid fit a narrow card, all three a wide one', async () => {
+  it('confirms the fixture: List, Grid and Month fit a narrow card, all four a wide one', async () => {
     // Guards the widths every case below relies on. Without it a change to the column or
     // grid defaults would quietly turn the narrow cases into wide ones.
     const card = await mount();
 
     await measure(card, NARROW);
-    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([null, 'true', null]);
+    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([
+      null,
+      'true',
+      null,
+      null,
+    ]);
 
     await measure(card, WIDE);
-    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([null, null, null]);
+    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([null, null, null, null]);
   });
 
   it.each([
@@ -251,7 +256,7 @@ describe('the view switcher', () => {
     expect(card.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('offers List, Columns and Grid in that order, the configured view marked', async () => {
+  it('offers List, Columns, Grid and Month in that order, the configured view marked', async () => {
     const card = await mount({ view: 'column' });
 
     expect(switcher(card)!.getAttribute('role')).toBe('group');
@@ -259,6 +264,7 @@ describe('the view switcher', () => {
       { view: 'list', pressed: 'false', disabled: null },
       { view: 'column', pressed: 'true', disabled: null },
       { view: 'grid', pressed: 'false', disabled: null },
+      { view: 'month', pressed: 'false', disabled: null },
     ]);
     // Native buttons, so each is a tab stop and Enter and Space need no handling of ours.
     for (const button of segments(card)) {
@@ -455,6 +461,7 @@ describe('narrow cards', () => {
       { view: 'list', pressed: 'true', disabled: null },
       { view: 'column', pressed: 'false', disabled: 'true' },
       { view: 'grid', pressed: 'false', disabled: null },
+      { view: 'month', pressed: 'false', disabled: null },
     ]);
     expect(segment(card, 'column').classList.contains('unavailable')).toBe(true);
 
@@ -585,7 +592,11 @@ describe('narrow cards', () => {
   });
 
   it('draws no switcher when only one view fits', async () => {
-    const card = await mount({ time_grid: { min_days_to_show: 7 } });
+    // Month left off: it has no width it falls back from, so it always fits.
+    const card = await mount({
+      time_grid: { min_days_to_show: 7 },
+      toolbar: { ...SWITCHER_ONLY, view_switcher_layouts: ['list', 'column', 'grid'] },
+    });
     await measure(card, NARROW);
 
     expect(switcher(card)).toBeNull();
@@ -593,6 +604,16 @@ describe('narrow cards', () => {
 
     await measure(card, WIDE);
     expect(switcher(card)).not.toBeNull();
+
+    // On the default switcher month fits beside the list there, so the switcher stays.
+    const withMonth = await mount({ time_grid: { min_days_to_show: 7 } });
+    await measure(withMonth, NARROW);
+    expect(describeSegments(withMonth).map(({ view, disabled }) => [view, disabled])).toEqual([
+      ['list', null],
+      ['column', 'true'],
+      ['grid', 'true'],
+      ['month', null],
+    ]);
   });
 });
 
@@ -772,6 +793,7 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
       { view: 'list', pressed: 'false', disabled: null },
       { view: 'column', pressed: 'true', disabled: null },
       { view: 'grid', pressed: 'false', disabled: null },
+      { view: 'month', pressed: 'false', disabled: null },
     ]);
 
     await press(card, 'grid');
@@ -829,7 +851,12 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
 
 describe('words or pictograms', () => {
   const WITH_SWITCHER = Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH;
-  const { TOOLBAR_COMMAND_WIDTH: ICON, TOOLBAR_COMMAND_GAP: GAP } = Constants.UI;
+  const {
+    TOOLBAR_COMMAND_WIDTH: ICON,
+    TOOLBAR_COMMAND_GAP: GAP,
+    TOOLBAR_SWITCHER_SEGMENT_PADDING: PADDING,
+    TOOLBAR_SWITCHER_WORD_WIDTH: WORD,
+  } = Constants.UI;
 
   /** Home Assistant's words for every command the action row can hold. */
   const EVERY_LABEL: Readonly<Record<string, string>> = {
@@ -920,6 +947,7 @@ describe('words or pictograms', () => {
         'List',
         'Columns',
         'Grid',
+        'Month',
       ]);
       for (const button of segments(card)) {
         expect(button.querySelector('svg')).toBeNull();
@@ -936,47 +964,69 @@ describe('words or pictograms', () => {
    * the filter's chips are the heading row's, and count for nothing here. Each width is written
    * out rather than worked out, so a change to the rule shows up as a change to this table.
    */
-  it.each<[string, Types.ToolbarConfig, number, number]>([
-    ['the switcher alone', { view_switcher: true }, WITH_SWITCHER, 3],
-    ['the switcher and add', { view_switcher: true, add_event: true }, WITH_SWITCHER + ICON, 4],
-    ['the switcher and reset', { view_switcher: true, reset: true }, WITH_SWITCHER + ICON, 4],
+  it.each<[string, Types.ToolbarConfig, number, number, number]>([
+    ['the switcher alone', { view_switcher: true }, WITH_SWITCHER, 4, 4],
+    ['the switcher and add', { view_switcher: true, add_event: true }, WITH_SWITCHER + ICON, 5, 4],
+    ['the switcher and reset', { view_switcher: true, reset: true }, WITH_SWITCHER + ICON, 5, 4],
     [
       'the switcher, add and the folded filter',
       { view_switcher: true, add_event: true, legend: 'menu' },
       WITH_SWITCHER + 2 * ICON + GAP,
-      5,
+      6,
+      4,
     ],
     [
       'the switcher, add and reset',
       { view_switcher: true, add_event: true, reset: true },
       WITH_SWITCHER + 2 * ICON,
-      5,
+      6,
+      4,
     ],
     [
       'the switcher, reset and refresh',
       { view_switcher: true, reset: true, refresh: true },
       WITH_SWITCHER + 2 * ICON + GAP,
-      5,
+      6,
+      4,
     ],
-    ['every command', EVERY_COMMAND, WITH_SWITCHER + 5 * ICON + 3 * GAP, 8],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 5 * ICON + 3 * GAP, 9, 4],
     [
       'the switcher and add, the filter drawn as chips',
       { view_switcher: true, add_event: true, legend: 'chips' },
       WITH_SWITCHER + ICON,
+      5,
       4,
     ],
-  ])('names the views beside %s from its own width', async (_name, controls, threshold, count) => {
-    const card = await mount(
-      { toolbar: { ...NOTHING, ...controls } },
-      { localize: labelsWithout() },
-    );
+    // Fewer layouts on offer: each one left out gives back its word and the segment's padding.
+    [
+      'a switcher offering the list and month',
+      { view_switcher: true, view_switcher_layouts: ['list', 'month'] },
+      WITH_SWITCHER - (2 * PADDING + WORD.column) - (2 * PADDING + WORD.grid),
+      2,
+      2,
+    ],
+    [
+      'a switcher offering grid, beside the list the card opens in, and add',
+      { view_switcher: true, view_switcher_layouts: ['grid'], add_event: true },
+      WITH_SWITCHER - (2 * PADDING + WORD.column) - (2 * PADDING + WORD.month) + ICON,
+      3,
+      2,
+    ],
+  ])(
+    'names the views beside %s from its own width',
+    async (_name, controls, threshold, count, words) => {
+      const card = await mount(
+        { toolbar: { ...NOTHING, ...controls } },
+        { localize: labelsWithout() },
+      );
 
-    await measure(card, threshold - 1);
-    expect(actionRowWords(card)).toEqual({ controls: count, words: 0 });
+      await measure(card, threshold - 1);
+      expect(actionRowWords(card)).toEqual({ controls: count, words: 0 });
 
-    await measure(card, threshold);
-    expect(actionRowWords(card)).toEqual({ controls: count, words: 3 });
-  });
+      await measure(card, threshold);
+      expect(actionRowWords(card)).toEqual({ controls: count, words });
+    },
+  );
 
   it('keeps every command an icon at any width, named by its tooltip', async () => {
     const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout() });
@@ -998,7 +1048,7 @@ describe('words or pictograms', () => {
       expect(button.getAttribute('aria-label')).toBe(button.getAttribute('title'));
     }
     // The views beside them are words at this width.
-    expect(actionRowWords(card).words).toBe(3);
+    expect(actionRowWords(card).words).toBe(4);
 
     // Without the switcher, the row has no words at all.
     document.body.innerHTML = '';
@@ -1023,7 +1073,7 @@ describe('words or pictograms', () => {
 
       // The views are the card's own words, so a command Home Assistant cannot name does not
       // take them away.
-      expect(actionRowWords(card).words).toBe(3);
+      expect(actionRowWords(card).words).toBe(4);
       // The command is named for assistive technology in English, and shows no tooltip: an
       // English word on a card in another language would be worse than none.
       const button = part(card, selector);
@@ -1138,6 +1188,7 @@ describe('words or pictograms', () => {
       'Liste',
       'Spalten',
       'Zeitraster',
+      'Monat',
     ]);
   });
 
@@ -1149,6 +1200,7 @@ describe('words or pictograms', () => {
       'Liste',
       'Spalten',
       'Zeitraster',
+      'Monat',
     ]);
   });
 });
@@ -1161,6 +1213,7 @@ describe('the resolved toolbar the card reads', () => {
       navigation: false,
       addEvent: false,
       viewSwitcher: true,
+      switcherViews: ['list', 'column', 'grid', 'month'],
       reset: false,
       refresh: false,
       search: false,
@@ -1175,6 +1228,7 @@ describe('the resolved toolbar the card reads', () => {
       navigation: true,
       addEvent: true,
       viewSwitcher: true,
+      switcherViews: ['list', 'column', 'grid', 'month'],
       reset: false,
       refresh: true,
       search: true,
@@ -1343,6 +1397,7 @@ describe("the selected segment's surface", () => {
       ['list', 'rgb(97, 94, 92)'],
       ['column', ''],
       ['grid', ''],
+      ['month', ''],
     ]);
   });
 
@@ -1357,6 +1412,7 @@ describe("the selected segment's surface", () => {
       ['list', ''],
       ['column', ''],
       ['grid', ''],
+      ['month', ''],
     ]);
   });
 
@@ -1381,6 +1437,7 @@ describe("the selected segment's surface", () => {
         ['list', 'rgb(28, 28, 28)'],
         ['column', ''],
         ['grid', ''],
+        ['month', ''],
       ]);
     },
   );
@@ -1415,6 +1472,7 @@ describe("the selected segment's surface", () => {
       ['list', ''],
       ['column', ''],
       ['grid', 'rgb(97, 94, 92)'],
+      ['month', ''],
     ]);
   });
 
@@ -1450,7 +1508,7 @@ describe("the selected segment's surface", () => {
     await card.updateComplete;
 
     expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
-    expect(segments(card).map((button) => button.style.backgroundColor)).toEqual(['', '', '']);
+    expect(segments(card).map((button) => button.style.backgroundColor)).toEqual(['', '', '', '']);
     expect(declaredSelected('background')).toBe('var(--calendar-card-toolbar-selected)');
     expect(declaredSelected('background-color')).toBe(
       'var( --calendar-card-toolbar-selected-surface, var(--calendar-card-toolbar-selected) )',

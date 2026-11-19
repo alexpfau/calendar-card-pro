@@ -75,6 +75,7 @@ export function editorEntityIds(
     }
   }
   if (isConfigBlock(config.weather)) add(config.weather.entity);
+  add(config.weather_entity);
   for (const button of writtenButtons(config)) {
     if (isConfigBlock(button)) add(button.entity);
   }

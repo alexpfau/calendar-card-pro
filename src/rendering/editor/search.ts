@@ -44,9 +44,10 @@ import * as Shown from './shown';
 import { interpolate } from './strings';
 import { type Describe, wordValue } from './summary';
 import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
-import type { EditorWorkspace } from './workspace';
+import { type EditorWorkspace, storedPath } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
+import * as ViewConfig from '../../config/view';
 import { configuredCalendarName, homeAssistantName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 
@@ -676,7 +677,9 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
     field.dataPath.length === 0
       ? Routing.destination(written, scope as EditorWorkspace)
       : undefined;
-  const yamlPath = [...(block ? [block] : field.dataPath), written].join('.');
+  // A layout group is written under its layout's block: `list.weather.position`.
+  const nested = storedPath(field.dataPath, scope as EditorWorkspace) ?? field.dataPath;
+  const yamlPath = [...(block ? [block] : nested), written].join('.');
   const texts: Texts = [...fieldTexts(field, ctx, 'card'), [yamlPath, 'key']];
   const spec = absorbingSpec(place.id, ctx);
   const color =
@@ -913,7 +916,7 @@ function calendarsRow(ctx: SearchCtx): SearchEntry {
 function startingLayoutRow(ctx: SearchCtx): SearchEntry {
   const key = STARTING_LAYOUT_BLOCK.titleKey;
   const label = ctx.t(key);
-  const views = ['list', 'column', 'grid'] as const;
+  const views = ViewConfig.VIEWS;
   const shown = views.find((view) => view === ctx.config.view) ?? 'list';
   return {
     target: { kind: 'overview', block: 'starting_layout' },
@@ -982,9 +985,8 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
     if (row) rows.push(row);
   };
   rows.push(calendarsRow(ctx), startingLayoutRow(ctx));
-  const workspace = ctx.workspace ?? ctx.view;
   for (const page of PAGES) {
-    if (page.onlyIn === undefined || page.onlyIn === workspace) rows.push(pageRow(page, ctx));
+    rows.push(pageRow(page, ctx));
     for (const heading of page.headings) {
       for (const [id, appearance] of heading.fields) take({ id, appearance, page, heading });
       if (!heading.extras?.includes('own-buttons')) continue;

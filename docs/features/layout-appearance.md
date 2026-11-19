@@ -25,7 +25,9 @@ The card offers two distinct height control mechanisms:
 
 In list and column views, both options scroll when content exceeds the available space.
 In grid view a fixed `height` compresses the time axis instead — see
-[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view but month
+view, which takes neither and sizes the whole card from its own block; see
+[How Tall the Month Is](/features/month-view#how-tall-the-month-is).
 
 Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
 same on desktop and mobile.
@@ -193,9 +195,9 @@ toolbar:
 ```
 
 The commands in the top row are icons, each named in its tooltip by Home Assistant's own word,
-and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns
-and Grid, wherever the card is wide enough for them beside the commands, and shows a pictogram
-for each where it is not, with the name as its tooltip.
+and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns,
+Grid and Month, wherever the card is wide enough for them beside the commands, and shows a
+pictogram for each where it is not, with the name as its tooltip.
 
 ::: details Narrow Cards & Languages
 
@@ -234,7 +236,8 @@ toolbar:
 
 - **The arrows** move by as many days as the card shows, a week here. Where Columns or Grid
   draw fewer days on a narrow card, they move by the days drawn, so no day is skipped. A layout
-  with its own `days_to_show` pages by its own count.
+  with its own `days_to_show` pages by its own count, and Month moves a whole month; see
+  [Paging Through Months](/features/month-view#paging-through-months).
 - **The house** returns to the days the card opens with, the window
   [`start_date`](/features/start-date-offset) sets. Its tooltip says "Today", or names the day
   the window starts on when that window does not include today (`start_date: today+7`, a fixed
@@ -290,9 +293,9 @@ does nothing, and the card shows the days it opens with.
 
 ### Switching Between Layouts
 
-The view switcher lets each device show the card as List, Columns or Grid without editing it, so
-a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever more
-than one layout fits the card.
+The view switcher lets each device show the card as List, Columns, Grid or Month without editing
+it, so a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever
+more than one layout fits the card.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_view_switcher.mp4#t=0.001" width="740" height="728" loop muted playsinline controls preload="auto" aria-label="Two days of a family's calendar on a tablet in Grid; a tap on Columns lays the same two days out side by side, a tap on List stacks them under their dates, and a tap on Grid brings back the time grid"></video><br>
 
@@ -307,10 +310,12 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   is shared, and the card does not reload its events to switch. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
-  Options set for one layout in its own `list:`, `column:` or `time_grid:` block come with it.
+  Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come
+  with it.
 - **List draws every one of its days; Columns and Grid draw as many as fit** the card's width, as
   close to today as the range allows, or from the first day of a page the
-  [date navigation](#paging-through-dates) has moved to.
+  [date navigation](#paging-through-dates) has moved to. Month always draws six whole weeks; see
+  [Month View](/features/month-view).
 - **Columns and Grid need room.** A layout that cannot fit at the card's current width, Columns
   on a phone by default, is dimmed in the switcher, and returns when the card is wide enough
   again, as when a tablet is turned. If the layout a device remembers no longer fits, the card
@@ -319,11 +324,30 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   [Grid View](/features/grid-view) for how much room each needs.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
+- **Which layouts it offers.** All four by default. `view_switcher_layouts` offers those it
+  names, and the layout in `view` always, whether the list names it or not:
+
+  ```yaml
+  toolbar:
+    show: true
+    view_switcher_layouts: [list, grid]
+  ```
+
+  A layout left out is also left out of what the card loads: a card that can switch to Month
+  loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
+  that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
+  off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
+  chip on Card & Header turns it on and off, and while it is pressed, **View Switcher offers**,
+  under the controls, has a checkbox per layout; the starting layout's stays checked, and so does
+  the last other one. Making the one other layout the list names the one the card opens in adds
+  the layout it leaves, so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
+  under the checkboxes saying no switcher is drawn until a second layout is checked.
 
 ::: tip Nothing Switches While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
-`view` and a press on the switcher does nothing. To try another layout there, change
-**Starting Layout** in the editor.
+In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
+nothing. The editor's preview shows the layout whose
+[pages you open](/features/editor#options-for-the-selected-view), so open another layout to see
+it without changing the card; on the dashboard the card shows its configured `view`.
 :::
 
 ### Refreshing the Events
@@ -383,6 +407,11 @@ toolbar:
   show: true
   legend: chips
 ```
+
+In the visual editor, the **Calendar Filter** chip under Card & Header › Toolbar turns the filter
+on and off, and while it is pressed, **Calendar Filter shows**, under the controls, picks **Menu**
+or **Chips**. Pressed on again, it comes back in the form the card had or was last given there
+while the editor is open, else as a menu.
 
 - **Each chip is a switch.** A press hides that calendar's events and turns its chip gray, and
   another press shows them again.
@@ -762,7 +791,7 @@ event_background_opacity: 15
 
 Each event then becomes a block of its own, with an accent bar of its own, the way grid view draws an event. `event_gap: 1px` is the smallest way to have that: you will hardly see the gap without a background, but each event has its own bar. Each is also a tap and hover target of its own, and a press in the gap between two reaches neither event: it is a press on the day, which [adds an event there](/features/actions#where-you-can-tap-a-day) when `day_tap_action` is `add-event`.
 
-`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. A month's [day list](/features/month-view#the-days-list) starts from `6px` and takes another only from `month:`. Grid view places every event by its time and ignores it:
 
 ```yaml
 column:
@@ -871,8 +900,8 @@ All three belong inside `list:`.
   its last day in a list read latest first. That is the first month shown unless the month has
   no days on screen.
 - With week numbers on, a month that starts a week draws its label just after the week number.
-- It applies in list view only; in column and grid view the month rule is a vertical line
-  between two days, with no room for words.
+- It applies in list view only. In column and grid view the month rule is a vertical line between
+  two days, with no room for words, and month view draws no month rule at all.
 
 ::: details Languages That Abbreviate a Month to a Number
 A few languages write a month's short form as a number, such as Lithuanian's "2026-12". There the
@@ -1009,8 +1038,8 @@ past_date_opacity: 55
   display can enlarge today while the list a phone falls back to does not.
 
 ::: tip Visual Editor
-Today's scale and weight are under **Day Header → Today**, and the past-day options under
-**Day Header → Past Days**.
+Today's scale and weight are under **Days → Today**, and the past-day options under
+**Days → Past Days**.
 :::
 
 ::: details Layout, Units & Card-Mod
@@ -1065,10 +1094,10 @@ The dot can also be written `dot`. Text that is none of the above is drawn as it
 as a week number, a quarter or a sprint name.
 
 ::: tip Visual Editor
-Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
+Find it under **Days → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
-an **Indicator Size**, and while **Settings For** is List an **Indicator Position**.
+an **Indicator Size**, and on List's pages an **Indicator Position**.
 :::
 
 ::: warning Changed In v5

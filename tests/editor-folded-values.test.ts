@@ -18,6 +18,7 @@ import {
   keysOf,
   mountEditor,
 } from './helpers/editor-host';
+import { TOPIC_PAGES } from '../src/rendering/editor/pages';
 import { FOLLOWS, unsetWord } from '../src/rendering/editor/unset';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
@@ -58,9 +59,13 @@ describe('folded rows', () => {
     for (const scope of WORKSPACES) {
       await changeField(editor, 'workspace:editing_workspace', scope);
       await goOverview(editor);
-      const pages = [...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
-        row.getAttribute('data-focus')!.slice('nav:'.length),
-      );
+      // Whole Card's pages, and every layout's topics, the scope's own.
+      const pages = [
+        ...[...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+          row.getAttribute('data-focus')!.slice('nav:'.length),
+        ),
+        ...TOPIC_PAGES.map((page) => page.id),
+      ];
       for (const page of pages) {
         await goPage(editor, page);
         folded += root.querySelectorAll('.setting-head.folds').length;
@@ -88,6 +93,10 @@ describe('folded rows', () => {
     expect(unsetWord('day_header:today_day_color', t, label, false)).toBe(
       'value.same_as{"label":"<day_color>"}',
     );
+    // A calendar with no Location Icon of its own draws the map marker, as its helper says. The
+    // walk above reaches it once the card's last scope shows locations, which Month does and
+    // Grid did not.
+    expect(unsetWord('calendar:location_icon', t, label)).toBe('value.map_marker');
     expect(unsetWord('separators:month_separator_label_color', t, label)).toBe(
       'value.same_as{"label":"<month_separator_color>"}',
     );

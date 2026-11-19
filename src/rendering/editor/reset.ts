@@ -30,7 +30,7 @@ import { ENTRY_GROUPS, type FamilyId, type HeadingDef, PAGES } from './pages';
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import * as Synthetic from './synthetic';
-import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace, storedPath } from './workspace';
 import type { WriteState } from './write-frames';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -50,7 +50,7 @@ export type ResetTarget =
   /** Every member of a family on one calendar entry, by its key. */
   | { readonly kind: 'entry-family'; readonly key: number; readonly family: FamilyId }
   /** A layout's whole block: Reset All in Grid. */
-  | { readonly kind: 'block'; readonly blockKey: 'list' | 'column' | 'time_grid' };
+  | { readonly kind: 'block'; readonly blockKey: 'list' | 'column' | 'time_grid' | 'month' };
 
 /** The state a reset leaves, and the added-set keys it retires. */
 export interface ResetResult {
@@ -220,7 +220,9 @@ function removeField(
   workspace: EditorWorkspace,
 ): void {
   if (dataPath.length > 0) {
-    for (const key of keys) removePath(draft, [...dataPath, key]);
+    // A layout group's lines are the layout's own, in its block; All Layouts stores none.
+    const stored = storedPath(dataPath, workspace);
+    if (stored !== undefined) for (const key of keys) removePath(draft, [...stored, key]);
     return;
   }
 

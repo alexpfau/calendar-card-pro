@@ -131,17 +131,24 @@ describe('the misplaced-option notice', () => {
       time_grid: { weather: { entity: 'weather.home' } },
       weather: { entity: 'weather.home' },
     });
+    // Opening converts the weather written before v6, which drops the layout's own weather the
+    // old block made the card ignore, and says so, so the notices no longer list it.
+    expect(editor.shadowRoot!.querySelector('[data-upgrade-receipt]')!.textContent).toContain(
+      'Lines the card ignored are gone: time_grid.weather.',
+    );
     expect(editor.shadowRoot!.querySelector('[data-focus="notices"] .nav-title')!.textContent).toBe(
-      'Options the Card Ignores: 4',
+      'Options the Card Ignores: 3',
     );
     await openNotices(editor);
 
     expect(rows(editor)).toEqual({
+      // Month's block takes a `min_day_width` of its own too: the width below which it turns
+      // compact.
       min_day_width: {
         text:
-          'min_day_width Works only in a layout’s own settings: Columns or Grid. ' +
-          'Columns already sets it. Move to Grid',
-        buttons: ['Move to Grid'],
+          'min_day_width Works only in a layout’s own settings: Columns, Grid, or Month. ' +
+          'Columns already sets it. Move to Grid Move to Month',
+        buttons: ['Move to Grid', 'Move to Month'],
       },
       'list.toolbar': {
         text: 'list.toolbar Works only for the whole card, at the top level. Move to Top Level',
@@ -149,12 +156,6 @@ describe('the misplaced-option notice', () => {
       },
       'list.shwo_location': {
         text: 'list.shwo_location Not an option of this card. Check its spelling and where it is.',
-        buttons: [],
-      },
-      'time_grid.weather': {
-        text:
-          'time_grid.weather Decides which events are loaded, so it works only for the whole ' +
-          'card, at the top level. Top Level already sets it.',
         buttons: [],
       },
     });

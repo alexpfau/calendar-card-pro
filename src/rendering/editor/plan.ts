@@ -47,7 +47,7 @@ import {
   type HeadingDef,
   PAGES,
   type PageDef,
-  isWholeCard,
+  WHOLE_CARD_PAGES,
   placementOf,
 } from './pages';
 import * as Reset from './reset';
@@ -61,13 +61,12 @@ import {
   refinementHolds,
 } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
-import { BLOCK_KEYS, type EditorWorkspace, viewForWorkspace } from './workspace';
+import { type EditorWorkspace, isLayoutCopyPath, storedPath, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { hasOwn } from '../../utils/helpers';
-import { showsEventWeather } from '../../utils/weather-position';
 
 /** Why a field is live, or what stands in its place. */
 export type FieldState =
@@ -173,6 +172,8 @@ export interface StateWords {
   }>;
   /** "Set on Calendars: Ben, Bin Day": the keys of the entries storing their own. */
   readonly calendars?: ReadonlyArray<number>;
+  /** For a whole-card setting, the layouts it does nothing in: "Not in Grid". */
+  readonly notIn?: ReadonlyArray<Types.EffectiveView>;
 }
 
 /** What applies once Reset deletes the line. */
@@ -376,8 +377,16 @@ export function storedAt(
   workspace: EditorWorkspace,
 ): boolean {
   const { scope } = parseFieldId(field.id);
-  if (scope === 'calendar' || scope === 'button' || field.dataPath.length > 0) {
+  if (scope === 'calendar' || scope === 'button') {
     return field.configKeys.some((key) => holdsValue(Routing.atPath(raw, field.dataPath, key)));
+  }
+  if (field.dataPath.length > 0) {
+    // A layout group is stored in the block of the layout being edited, and in none for All Layouts.
+    const path = storedPath(field.dataPath, workspace);
+    return (
+      path !== undefined &&
+      field.configKeys.some((key) => holdsValue(Routing.atPath(raw, path, key)))
+    );
   }
   return field.configKeys.some((key) => {
     const block = Routing.destination(key, workspace);
@@ -498,7 +507,7 @@ function topStored(field: IndexedField, ctx: PlanCtx): boolean {
  * @returns `true` when its value can differ between layouts
  */
 export function hasLayoutCopy(field: Pick<IndexedField, 'dataPath' | 'configKeys'>): boolean {
-  if (field.dataPath.length > 0) return BLOCK_KEYS.has(field.dataPath[0]);
+  if (field.dataPath.length > 0) return isLayoutCopyPath(field.dataPath);
   return field.configKeys.some((key) =>
     ViewConfig.VIEWS.some((view) => Routing.destination(key, view) !== undefined),
   );
@@ -543,8 +552,10 @@ function cardCounterpart(
 ): unknown {
   const key = CARD_COUNTERPART[option];
   if (key === undefined) return undefined;
+  if (option === 'show_weather') {
+    return ViewConfig.showsEventWeatherIn(config as Types.Config, viewForWorkspace(workspace));
+  }
   const effective = Routing.workspaceConfig(config, workspace);
-  if (option === 'show_weather') return showsEventWeather(effective.weather);
   return normalizeRootValue(key, effective[key as keyof Types.Config]);
 }
 
@@ -889,24 +900,30 @@ export function planEntry(
 }
 
 /**
- * Whether a card field sits on a page that applies to the whole card (`pages.ts` › `isWholeCard`).
+ * Whether a card field sits on one of Whole Card's pages (`pages.ts` › `WHOLE_CARD_PAGES`), where
+ * every setting is the whole card's and none says so.
  *
  * @param id - Field id
- * @returns `true` on Card & Header and Weather
+ * @returns `true` on Card & Header, Taps & Refresh and Weather
  */
 function onWholeCardPage(id: FieldId): boolean {
   const page = placementOf(id)?.page;
-  if (page === undefined) return false;
-  let whole = wholeCardPages.get(page);
-  if (whole === undefined) {
-    const def = PAGES.find((each) => each.id === page);
-    wholeCardPages.set(page, (whole = def !== undefined && isWholeCard(def)));
-  }
-  return whole;
+  return page !== undefined && WHOLE_CARD_PAGES.has(page as never);
 }
 
-/** Whether each page applies to the whole card, worked out once (`pages.ts` › `isWholeCard`). */
-const wholeCardPages = new Map<string, boolean>();
+/**
+ * The layouts a whole-card field does nothing in: Grid for Open Links, Month for Today's Weekday
+ * Color. Empty where it reaches every layout.
+ *
+ * @param field - A card field with no layout copy
+ * @returns The layouts, in the card's order
+ */
+function layoutsIgnoring(field: Pick<IndexedField, 'configKeys'>): Types.EffectiveView[] {
+  if (field.configKeys.length === 0) return [];
+  return ViewConfig.VIEWS.filter((view) =>
+    field.configKeys.every((key) => !ViewConfig.appliesToView(key, view)),
+  );
+}
 
 /**
  * The entries storing their own value for the calendar option a card field is overridden by.
@@ -963,10 +980,13 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
   let words: StateWords['words'];
   let layoutsOwn: StateWords['layoutsOwn'];
 
+  let notIn: StateWords['notIn'];
   if (!hasLayoutCopy(field)) {
     // A whole-card setting on a page of per-layout ones says so in every scope, All Layouts too.
     if (onWholeCardPage(field.id)) words = here ? { kind: 'set' } : undefined;
     else words = { kind: 'whole-card', stored: here };
+    const ignoring = layoutsIgnoring(field);
+    if (ignoring.length > 0) notIn = ignoring;
   } else if (view === undefined) {
     if (here) words = { kind: 'set-all-layouts' };
     // Each layout that stores its own, and each that offers the field and defaults it otherwise:
@@ -974,7 +994,11 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     const top = shownValue(ctx.config, 'shared', field);
     const own = ViewConfig.VIEWS.flatMap((each) => {
       const value = shownValue(ctx.config, each, field);
-      if (storedAt(ctx.raw, field, each)) return [{ view: each, value, stored: true }];
+      // Only a layout that keeps its own copy of the option can store one. For any other the
+      // destination is the top level, so `storedAt` would find the All Layouts line itself and
+      // name it the layout's own: "Month Has Its Own: 7" for a Days To Show Month ignores.
+      const copies = field.configKeys.some((key) => Routing.destination(key, each) !== undefined);
+      if (copies && storedAt(ctx.raw, field, each)) return [{ view: each, value, stored: true }];
       const ownDefault =
         divergent(field, each) &&
         universeIndex('en', each).fields.has(field.id) &&
@@ -1001,11 +1025,19 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     words = { kind: 'from-all-layouts' };
   }
 
-  if (words === undefined && layoutsOwn === undefined && calendars.length === 0) return undefined;
+  if (
+    words === undefined &&
+    layoutsOwn === undefined &&
+    calendars.length === 0 &&
+    notIn === undefined
+  ) {
+    return undefined;
+  }
   return {
     ...(words ? { words } : {}),
     ...(layoutsOwn ? { layoutsOwn } : {}),
     ...(calendars.length > 0 ? { calendars } : {}),
+    ...(notIn ? { notIn } : {}),
   };
 }
 
@@ -1163,8 +1195,8 @@ export function resetAction(
 }
 
 /**
- * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip,
- * Calendar Filter's radio group or a toolbar button's row.
+ * Whether a setting stays live whatever is stored, while it applies: an essential one, a chip, a
+ * chip's qualifier line, Start Date's radio group or a toolbar button's row.
  *
  * @param appearance - How its page shows it
  * @returns `true` when it does
@@ -1174,7 +1206,7 @@ export function keepsControl(appearance: Appearance): boolean {
     appearance === 'essential' ||
     appearance === 'button-rows' ||
     appearance === 'segmented' ||
-    (typeof appearance === 'object' && 'chips' in appearance)
+    (typeof appearance === 'object' && ('chips' in appearance || 'qualifies' in appearance))
   );
 }
 

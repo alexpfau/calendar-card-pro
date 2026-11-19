@@ -189,6 +189,17 @@ export interface Config {
   description_icon_size: string;
 
   // Weather
+  /**
+   * The weather entity whose forecast every layout draws from, where its own `weather:` block
+   * shows one. Each layout is off until it does. Ignored while `weather` below names an entity.
+   */
+  weather_entity?: string;
+  /**
+   * Weather as written before v6: one block for every layout, with its entity. While it names
+   * an entity, List, Columns and Grid draw it as before, Month draws none, and the layouts'
+   * own `weather:` blocks and `weather_entity` are ignored (`readsWeatherAsBefore`). After
+   * resolving for a view (`resolveViewWeather`), it is that view's weather, entity included.
+   */
   weather?: WeatherConfig;
 
   // Actions
@@ -248,10 +259,13 @@ export interface Config {
 
   // Grid view
   time_grid?: TimeGridOverrides;
+
+  // Month view
+  month?: MonthOverrides;
 }
 
 /** Views the card can render. */
-export type EffectiveView = 'list' | 'column' | 'grid';
+export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
@@ -463,6 +477,13 @@ export interface SharedViewOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+
+  /**
+   * How this layout draws the forecast of `weather_entity`; without it, the layout draws none.
+   * Read by `resolveViewWeather`, never hoisted as the other keys are, and ignored while the
+   * top-level `weather` names an entity.
+   */
+  weather?: WeatherPresentationConfig;
 }
 
 /**
@@ -487,7 +508,8 @@ export interface ListOverrides extends SharedViewOverrides {
   date_vertical_alignment?: string;
   today_indicator_position?: string;
 
-  // A month rule in the other views is a vertical line in a narrow gutter, with no room for words.
+  // In Columns and Grid a month rule is a vertical line in a narrow gutter, with no room for
+  // words, and the Month layout draws no month separator at all.
   month_separator_label?: boolean;
   month_separator_label_color?: string;
   month_separator_label_font_size?: string;
@@ -697,6 +719,109 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 
   /** Label the axis with its hours. */
   show_axis_labels?: boolean;
+}
+
+/**
+ * The shared options a month draws nothing for, in its grid, its compact form or its day list:
+ * it sizes its whole card with its own heights; it always shows its six weeks whatever their
+ * events, never cuts a list short and splits every multi-day event across its days; it rules its
+ * days itself and lists one day at a time, so it has no space or rule between days, weeks or
+ * months; it sets its dates at one scale on every day, with today's indicator only as the tile,
+ * and its week numbers as plain text; and its day list puts each row's time beside its title.
+ */
+export type MonthIgnoredSharedKeys =
+  | 'height'
+  | 'max_height'
+  | 'days_to_show'
+  | 'show_empty_days'
+  | 'show_empty_today'
+  | 'empty_day_text'
+  | 'empty_day_color'
+  | 'split_multiday_events'
+  | 'show_multiday_allday_time'
+  | 'day_spacing'
+  | 'day_separator_width'
+  | 'day_separator_color'
+  | 'week_separator_width'
+  | 'week_separator_color'
+  | 'month_separator_width'
+  | 'month_separator_color'
+  | 'week_number_background_color'
+  | 'today_date_scale'
+  | 'past_date_scale'
+  | 'today_indicator_size'
+  | 'time_position';
+
+/**
+ * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
+ * and cell font size keys.
+ *
+ * The month-only keys below have no top-level counterpart and are read with
+ * `resolveMonthOption`, not `resolveViewOption`.
+ */
+export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSharedKeys> {
+  /** Whether a timed event a full day or longer is drawn as a bar, as Grid's banners are. */
+  multiday_banners?: boolean;
+
+  /**
+   * The whole card's height in the wide form, as a CSS length: its border box, the title, the
+   * toolbar and any notice included. `auto` is the month's own default. A row count a Sections
+   * dashboard gives the card wins over it.
+   */
+  card_height?: string;
+
+  /** The tallest the wide card may be, as a CSS length, clamping `card_height`; `none` sets none. */
+  card_max_height?: string;
+
+  /**
+   * `card_height` for the compact form, which takes `card_height` while this is unset; `auto` is
+   * the compact form's own default.
+   */
+  compact_card_height?: string;
+
+  /**
+   * `card_max_height` for the compact form, which takes `card_max_height` while this is unset.
+   * Under it a compact card whose height is `auto` grows with the day's list.
+   */
+  compact_card_max_height?: string;
+
+  /** Day-cell width in pixels below which the month draws its compact form. */
+  min_day_width?: number;
+
+  /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
+  week_scroll?: boolean;
+
+  /** Card width in pixels from which `week_scroll` applies; `0` for any width. */
+  week_scroll_min_width?: number;
+
+  /**
+   * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
+   * its date and events, a neighboring month's day included.
+   *
+   * Grid's option under Grid's name and default, and like Grid's a block option rather than a
+   * shared one: a month's cell is the same height whatever is in it, as a grid column is, and a
+   * list's or a column's day is not. Which days count as the weekend comes from the country set in
+   * Home Assistant, or its language when no country is set.
+   */
+  weekend_background_color?: string;
+
+  /**
+   * Background tint for today's cell, as a CSS color. Off by default, as Grid's is; on a weekend
+   * day it replaces the weekend tint rather than stacking on it.
+   */
+  today_background_color?: string;
+
+  /**
+   * Font size of what the wide month draws in its days: a line's title and its calendar label, and
+   * a bar's title. A day's list and the panel take `event_font_size`.
+   */
+  cell_event_font_size?: string;
+
+  /**
+   * Font size of a line's time, a bar's times and length, and a day's "+N more" in the wide month.
+   * A day's list and the panel take `time_font_size`.
+   */
+  cell_time_font_size?: string;
 }
 
 /** Calendar entity configuration. */
@@ -916,8 +1041,13 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, at the start of the action row, after the filter. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, in the middle of the action row. */
+  /** The layout switcher, in the middle of the action row. */
   view_switcher?: boolean;
+  /**
+   * The layouts the switcher offers, while it is on: every layout by default. The layout the card
+   * opens in is always offered, and the switcher is drawn only where two or more are.
+   */
+  view_switcher_layouts?: EffectiveView[];
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
    * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
@@ -966,13 +1096,22 @@ export interface ToolbarButtonConfig {
   tap_action?: ActionConfig;
 }
 
-/** Weather configuration. */
+/**
+ * Weather configuration: the top-level block as written before v6, and each view's weather
+ * once resolved, with the entity it draws from.
+ */
 export interface WeatherConfig {
   entity?: string;
   position?: 'none' | 'date' | 'event' | 'both';
   date?: WeatherPositionConfig;
   event?: WeatherPositionConfig;
 }
+
+/** Where a layout draws the weather: nowhere, beside each day, beside each event, or both. */
+export type WeatherPosition = NonNullable<WeatherConfig['position']>;
+
+/** How one layout draws the weather: a layout block's `weather:`, which names no entity. */
+export type WeatherPresentationConfig = Omit<WeatherConfig, 'entity'>;
 
 /** Raw weather forecast data from Home Assistant. */
 export interface WeatherForecast {
@@ -1600,6 +1739,21 @@ export interface Translations {
   viewList: string;
   viewColumns: string;
   viewGrid: string;
+  viewMonth: string;
+  /**
+   * What a month day says in its last line about the events it has no room for, with `{count}`
+   * where their number goes: "+{count} more", "+2 more".
+   */
+  moreEvents: string;
+  /**
+   * How many events a month day holds, as its cell is named for assistive technology, with
+   * `{count}` where the number goes: `eventCountOne` for the numbers the language's plural rules
+   * call "one" ("{count} event"), `eventCount` for every other ("{count} events"). A language
+   * whose other numbers need more than one form writes one that reads for all of them, as Polish
+   * does with "Wydarzenia: {count}". A day without events reads `noEvents`.
+   */
+  eventCount: string;
+  eventCountOne: string;
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;

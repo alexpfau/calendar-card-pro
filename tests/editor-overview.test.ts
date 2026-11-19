@@ -1,5 +1,6 @@
 /**
- * The overview: what Settings For shows (`workspace.ts` › `isCompactScope`, `storedCount`),
+ * The overview: Whole Card, the layouts and the preview each draws, what each scope stores
+ * (`storedCount`),
  * when Quick Setup's banner shows (`quick-setup.ts` › `isFreshCard`), and the line under each
  * section row (`summary.ts`).
  */
@@ -7,13 +8,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  chooseResult,
   goEntry,
   goOverview,
   goPage,
   keysOf,
   lastConfig,
   mountEditor,
-  openPageOf,
+  resultRows,
+  searchFor,
 } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -21,13 +24,9 @@ import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index'
 import { PAGES, type PageDef, placementOf } from '../src/rendering/editor/pages';
 import { isFreshCard } from '../src/rendering/editor/quick-setup';
 import { workspaceFormData } from '../src/rendering/editor/routing';
+import styles from '../src/rendering/editor/styles';
 import { SUMMARY_SEPARATOR, pageStoredCount, summaryParts } from '../src/rendering/editor/summary';
-import {
-  type EditorWorkspace,
-  WORKSPACES,
-  isCompactScope,
-  storedCount,
-} from '../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES, storedCount } from '../src/rendering/editor/workspace';
 
 /**
  * A configuration as the editor holds it: the YAML merged over the card's defaults.
@@ -41,167 +40,273 @@ function merged(raw: Record<string, unknown>): Types.Config {
 
 const LIST_CARD = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'], view: 'list' };
 
-describe('Settings For', () => {
-  it('stays compact on a List card whose edits land in list: and at the top level', () => {
-    const raw = { ...LIST_CARD, title: 'Family', list: { day_spacing: '12px' } };
-    expect(isCompactScope(raw, merged(raw), 'list', false)).toBe(true);
-  });
-
-  it('turns full once another layout stores a value in its block', () => {
-    const raw = { ...LIST_CARD, column: { event_font_size: '13px' } };
-    expect(isCompactScope(raw, merged(raw), 'list', false)).toBe(false);
-  });
-
-  it('stays compact when another layout’s block holds only blanks', () => {
-    const raw = { ...LIST_CARD, column: { event_font_size: '' } };
-    expect(isCompactScope(raw, merged(raw), 'list', false)).toBe(true);
-  });
-
-  it('turns full while the toolbar shows its View Switcher, and not while it is hidden', () => {
-    const shown = { ...LIST_CARD, toolbar: { show: true } };
-    expect(isCompactScope(shown, merged(shown), 'list', false)).toBe(false);
-    const noSwitcher = { ...LIST_CARD, toolbar: { show: true, view_switcher: false } };
-    expect(isCompactScope(noSwitcher, merged(noSwitcher), 'list', false)).toBe(true);
-    const hidden = { ...LIST_CARD, toolbar: { show: false, view_switcher: true } };
-    expect(isCompactScope(hidden, merged(hidden), 'list', false)).toBe(true);
-  });
-
-  // The line shows whenever the scope is not the displayed layout, and a
-  // value List keeps of its own is exactly what All Layouts cannot show in the preview.
-  it('says the preview shows another layout in every scope but the displayed one', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    // Settings For is a page's: the overview has none.
-    await goPage(editor, 'events');
-    const root = editor.shadowRoot!;
-    const line = () =>
-      root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
-    const pick = async (workspace: EditorWorkspace) => {
-      const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${workspace}"]`)!;
-      radio.checked = true;
-      radio.dispatchEvent(new Event('change'));
-      await editor.updateComplete;
-    };
-    expect(line()).toBeUndefined();
-    await pick('shared');
-    expect(line()).toBe('Editing All Layouts · Preview Shows List');
-    await pick('grid');
-    expect(line()).toBe('Editing Grid · Preview Shows List');
-    // The eye leads the line, as the mockup draws it, and is no part of its words.
-    expect(root.querySelector('.scope-preview > svg.icon')?.getAttribute('aria-hidden')).toBe(
-      'true',
-    );
-    await pick('list');
-    expect(line()).toBeUndefined();
-    document.body.replaceChildren();
-  });
-
-  it('offers a preview switch for a layout the card does not show, which writes nothing', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    // Settings For is a page's: the overview has none.
-    await goPage(editor, 'events');
-    const root = editor.shadowRoot!;
-    const line = () =>
-      root.querySelector('.scope-preview-text')?.textContent?.replace(/\s+/g, ' ').trim();
-    const toggle = () => root.querySelector<HTMLButtonElement>('[data-focus="scope-preview"]');
-    const pick = async (workspace: EditorWorkspace) => {
-      const radio = root.querySelector<HTMLInputElement>(`[data-focus="scope:${workspace}"]`)!;
-      radio.checked = true;
-      radio.dispatchEvent(new Event('change'));
-      await editor.updateComplete;
-    };
-    // All Layouts is no layout the preview can draw.
-    await pick('shared');
-    expect(toggle()).toBeNull();
-    // No counts on the choices, visible or named.
-    expect(root.querySelector('.scope-count')).toBeNull();
-    expect(
-      root.querySelector('[data-focus="scope:column"]')?.getAttribute('aria-label'),
-    ).toBeNull();
-
-    await pick('grid');
-    expect(toggle()?.textContent?.trim()).toBe('Preview Grid');
-    expect(toggle()?.getAttribute('aria-pressed')).toBe('false');
-    toggle()!.click();
+describe('Layouts and the preview', () => {
+  type Previewing = { _previewedScope(): { view: string; config: object } | undefined };
+  const previewed = (editor: Element): string | undefined =>
+    (editor as unknown as Previewing)._previewedScope()?.view;
+  const line = (editor: Element): string | undefined =>
+    editor
+      .shadowRoot!.querySelector('.scope-preview-text')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
+  const $ = (editor: Element, selector: string) =>
+    editor.shadowRoot!.querySelector<HTMLElement>(selector);
+  const press = async (editor: Element & { updateComplete: Promise<unknown> }, key: string) => {
+    $(editor, `[data-focus="${key}"]`)!.click();
     await editor.updateComplete;
-    expect(toggle()?.getAttribute('aria-pressed')).toBe('true');
-    expect(line()).toBe('Editing Grid · Preview Shows Grid · The Card Opens in List');
-    // It stays on, and follows the scope.
-    await pick('column');
-    expect(line()).toBe('Editing Columns · Preview Shows Columns · The Card Opens in List');
-    // The overview has no Settings For to say so, so it previews the card as it opens, and the
-    // switch is there again on the next page.
-    const previewed = () =>
-      (editor as unknown as { _previewedScope(): { view: string } | undefined })._previewedScope()
-        ?.view;
-    expect(previewed()).toBe('column');
-    await goOverview(editor);
-    expect(previewed()).toBeUndefined();
-    await goPage(editor, 'day_header');
-    expect(previewed()).toBe('column');
-    expect(toggle()?.getAttribute('aria-pressed')).toBe('true');
-    expect(lastConfig(editor)).toBeUndefined();
-    document.body.replaceChildren();
+  };
+  const text = (element: Element | null): string =>
+    element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  const THREE = {
+    config_version: CURRENT_CONFIG_VERSION,
+    entities: ['calendar.anna'],
+    view: 'month',
+    toolbar: { show: true, view_switcher: true, view_switcher_layouts: ['list', 'grid', 'month'] },
+  };
+
+  it('draws Calendars, Whole Card, Layouts and More, and no Settings For', async () => {
+    const editor = await mountEditor(THREE);
+    const blocks = [
+      ...editor.shadowRoot!.querySelectorAll('.overview > [data-heading], .overview > .row-group'),
+    ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
+    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
+    expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
+    // Whole Card's rows: its pages, then the shared settings. Weather is each layout's topic.
+    const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
+    expect(
+      [...whole.querySelectorAll('.nav-row')].map((row) => row.getAttribute('data-focus')),
+    ).toEqual(['nav:card_header', 'nav:taps_refresh', 'nav:shared']);
+    // Card & Header names the layout switcher, the thing a layout's status no longer says.
+    expect(text($(editor, '[data-focus="nav:card_header"] .nav-summary'))).toMatch(
+      /Layout Switcher: List, Grid, Month$/,
+    );
+    expect($(editor, '.scope-compact')).toBeNull();
+    expect($(editor, 'input[name="scope"]')).toBeNull();
   });
 
-  it('draws no Settings For on a calendar’s page, whose settings apply to every layout', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      view: 'grid',
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    await goPage(editor, 'events');
-    expect(editor.shadowRoot!.querySelector('.scope')).not.toBeNull();
-    await goEntry(editor, keysOf(editor, 'entry')[0]);
-    expect(editor.shadowRoot!.querySelector('.entry-page')).not.toBeNull();
-    expect(editor.shadowRoot!.querySelector('.scope, .scope-preview')).toBeNull();
-    document.body.replaceChildren();
-  });
-
-  // Both are one choice among a few words, so they share one row: the editor's width, an equal
-  // segment per choice (`styles.ts` › `.segment`). Settings For once sized each to its word.
-  it('draws Settings For as Calendar Filter’s segmented row, a segment per choice', async () => {
-    const editor = await mountEditor({
-      config_version: CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      column: { event_font_size: '13px' },
-    });
-    await goPage(editor, 'events');
-    const path = (radio: Element) => {
-      const classes: string[] = [];
-      for (let el = radio.parentElement; el && el.localName !== 'fieldset'; el = el.parentElement) {
-        classes.unshift(el.className);
-      }
-      return classes;
-    };
-    const scope = [...editor.shadowRoot!.querySelectorAll('fieldset.scope input[type="radio"]')];
-    expect(scope.map((radio) => (radio as HTMLInputElement).value)).toEqual([
-      'shared',
-      'list',
-      'column',
-      'grid',
+  it('splits each layout row in two: its radio picks where the card opens, the rest opens its page', async () => {
+    const editor = await mountEditor(THREE);
+    const rows = [...editor.shadowRoot!.querySelectorAll('.layout-choice')];
+    expect(
+      rows.map((row) => {
+        const radio = row.querySelector<HTMLInputElement>('.layout-pick > input')!;
+        const open = row.querySelector('.layout-open')!;
+        return [
+          `${radio.value}${radio.checked ? ' checked' : ''}`,
+          radio.getAttribute('aria-label'),
+          open.getAttribute('aria-label'),
+          text(open.querySelector('.display-text')),
+        ];
+      }),
+    ).toEqual([
+      ['list', 'List', 'List Settings', 'List Days stacked, one per row'],
+      ['column', 'Columns', 'Columns Settings', 'Columns Days side by side'],
+      ['grid', 'Grid', 'Grid Settings', 'Grid Days side by side on an hour axis'],
+      ['month checked', 'Month', 'Month Settings', 'Month A whole month, a row per week'],
     ]);
-    expect(scope.map(path)).toEqual(scope.map(() => ['segmented-row', 'segments', 'segment']));
-    expect(editor.shadowRoot!.querySelector('.scope-segments')).toBeNull();
-    document.body.replaceChildren();
-
-    const filter = await mountEditor({ toolbar: { show: true, legend: 'menu' } });
-    await openPageOf(filter, 'card:toolbar.legend');
-    const legend = filter.shadowRoot!.querySelector('fieldset.segmented input[type="radio"]')!;
-    expect(path(legend)).toEqual(['segmented-row', 'segments', 'segment']);
-    document.body.replaceChildren();
+    // The radio is the only thing in its zone, and the name sits in the button, not the label.
+    expect(rows.every((row) => row.querySelector('.layout-pick')!.children.length === 1)).toBe(
+      true,
+    );
+    // One group of native radios, named Starting Layout, so the arrow keys move the choice.
+    expect(new Set(rows.map((row) => row.querySelector<HTMLInputElement>('input')!.name))).toEqual(
+      new Set(['view']),
+    );
+    expect(text($(editor, 'fieldset.layouts > legend'))).toBe('Starting Layout');
+    // The help above the rows, its link opening the layout switcher where it is set.
+    expect(text($(editor, '.layouts-help'))).toBe(
+      'The circle picks the layout the card opens in. With the layout switcher on, people can ' +
+        'switch layouts on the card. Select a layout to change its own settings.',
+    );
+    // Opening a layout changes nothing on the card.
+    await press(editor, 'layout:grid');
+    expect($(editor, '.page[data-layout="grid"]')).not.toBeNull();
+    expect(lastConfig(editor)).toBeUndefined();
+    await press(editor, 'back-top');
+    await press(editor, 'layouts:switcher');
+    expect($(editor, '.page[data-page="card_header"]')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-field')).toBe(
+      'card:toolbar.view_switcher',
+    );
+    // The radio writes `view`.
+    await goOverview(editor);
+    const grid = $(editor, 'input[name="view"][value="grid"]') as HTMLInputElement;
+    grid.checked = true;
+    grid.dispatchEvent(new Event('change', { bubbles: true }));
+    await editor.updateComplete;
+    expect(lastConfig(editor)?.view).toBe('grid');
   });
 
-  it('turns full for the session once the scope was changed or Change pressed', () => {
-    expect(isCompactScope(LIST_CARD, merged(LIST_CARD), 'list', true)).toBe(false);
+  it('lists a layout’s topics on its page, each opening under that layout', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'layout:grid');
+    expect(text($(editor, '.page-title'))).toBe('Grid');
+    expect(text($(editor, '.page-sub'))).toBe('Layout');
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.layout-page .nav-row')].map((row) =>
+        row.getAttribute('data-focus'),
+      ),
+    ).toEqual([
+      'nav:which_events',
+      'nav:day_header',
+      'nav:events',
+      'nav:size_spacing',
+      'nav:weather',
+    ]);
+    // Which Events counts Grid's own hours here, and nothing of Grid's under another layout.
+    const hours = await mountEditor({ ...THREE, time_grid: { start_time: '07:00' } });
+    await press(hours, 'layout:grid');
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toMatch(/Set: 1$/);
+    await press(hours, 'back-top');
+    await press(hours, 'layout:column');
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).not.toMatch(/Set:/);
+  });
+
+  it('names a topic’s layout, jumps to the same topic in another, and walks on', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'layout:grid');
+    await press(editor, 'nav:events');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    expect(text($(editor, '.also-for'))).toBe('Also for: List · Columns · Month · Layout Defaults');
+    expect(text($(editor, '[data-focus="continue"]'))).toBe('Continue with Grid · Size & Spacing');
+    expect(previewed(editor)).toBe('grid');
+    expect(line(editor)).toBe('Preview shows Grid · The card opens in Month');
+    await press(editor, 'also:column');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    expect(text($(editor, '.page-title'))).toBe('Event Appearance');
+    // Columns is not offered by the switcher, so its preview draws none.
+    expect((editor as unknown as Previewing)._previewedScope()?.config).toMatchObject({
+      toolbar: { view_switcher: false },
+    });
+    // The last topic of a layout walks on to the next layout's first.
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-title'))).toBe('Size & Spacing');
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    expect(text($(editor, '.page-title'))).toBe('Weather');
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    expect(text($(editor, '.page-title'))).toBe('Which Events');
+    // Also For and Continue replace the place, so Back returns to the layout's page opened first,
+    // then to the overview, at the row that opened it.
+    await press(editor, 'back-top');
+    expect($(editor, '.page[data-layout="grid"]')).not.toBeNull();
+    await press(editor, 'back-top');
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('layout:grid');
+  });
+
+  it('edits the whole card on its own pages and Layout Defaults on its, previewing the card as it opens', async () => {
+    const editor = await mountEditor(THREE);
+    await goPage(editor, 'card_header');
+    expect(text($(editor, '.page-sub'))).toBe('Whole Card');
+    expect(previewed(editor)).toBeUndefined();
+    expect($(editor, '.also-for')).toBeNull();
+    await goOverview(editor);
+    await press(editor, 'layout:shared');
+    expect(text($(editor, '.page-title'))).toBe('Layout Defaults');
+    expect(previewed(editor)).toBeUndefined();
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    expect(previewed(editor)).toBeUndefined();
+  });
+
+  it('opens a result under the layout it belongs to, a calendar’s and a stored one not in use too', async () => {
+    // Stored but not in use: Event Appearance under List, the card's layout, not the whole card.
+    const list = await mountEditor({ ...LIST_CARD, description_color: 'red' });
+    await searchFor(list, 'description color');
+    const inactive = resultRows(list).find((row) => row.id === 'events:description_color')!;
+    await chooseResult(list, inactive.key);
+    expect(text($(list, '.page-sub'))).toBe('List');
+    expect($(list, '.also-for')).not.toBeNull();
+    // A calendar option only List offers, on a Grid card: the calendar's page, in List.
+    const grid = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+    });
+    await searchFor(grid, 'compact');
+    const other = resultRows(grid).find((row) => row.id === 'calendar:compact_events_to_show')!;
+    await chooseResult(grid, other.key);
+    expect($(grid, '.entry-page')).not.toBeNull();
+    expect(
+      $(
+        grid,
+        '.jump [data-field="calendar:compact_events_to_show"], [data-field="calendar:compact_events_to_show"].jump',
+      ),
+    ).not.toBeNull();
+  });
+
+  it('goes back to the layout the card opens in once a calendar opened in another is left', async () => {
+    // A result opens Anna's page in List, for an option only List offers. Left, the overview and
+    // Anna's own row edit in Grid again, and the preview no longer draws List.
+    const grid = await mountEditor({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      view: 'grid',
+    });
+    const compact = '[data-field="calendar:compact_events_to_show"]';
+    await searchFor(grid, 'compact');
+    const other = resultRows(grid).find((row) => row.id === 'calendar:compact_events_to_show')!;
+    await chooseResult(grid, other.key);
+    expect($(grid, compact)).not.toBeNull();
+    await goOverview(grid);
+    await searchFor(grid, '');
+    expect($(grid, '[data-focus^="row:"]')).not.toBeNull();
+    expect(previewed(grid)).toBeUndefined();
+    await goEntry(grid, keysOf(grid, 'entry')[0]);
+    expect($(grid, '.entry-page')).not.toBeNull();
+    expect($(grid, '.scope-preview')).toBeNull();
+    expect($(grid, compact)).toBeNull();
+  });
+
+  it('gathers the whole-card settings of the topics on Shared Across Layouts, composed ones too', async () => {
+    const editor = await mountEditor(THREE);
+    await press(editor, 'nav:shared');
+    expect(text($(editor, '.page-title'))).toBe('Shared Across Layouts');
+    expect(
+      $(editor, '[data-field="content:start_date_mode"][data-composed="chips"]'),
+    ).not.toBeNull();
+    expect($(editor, '[data-setting="content:first_day_of_week"]')).not.toBeNull();
+    expect($(editor, '[data-setting="events:event_font_size"]')).toBeNull();
+    // The page says once that they are the whole card's; its settings do not repeat it.
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.fact')].some((fact) => text(fact) === 'Whole Card'),
+    ).toBe(false);
+    // On a layout's topic, the same setting says it is the whole card's.
+    await goOverview(editor);
+    await press(editor, 'layout:grid');
+    await press(editor, 'nav:day_header');
+    const facts = [
+      ...editor.shadowRoot!.querySelectorAll('[data-setting="content:first_day_of_week"] .fact'),
+    ].map(text);
+    expect(facts).toContain('Whole Card');
+  });
+
+  it('positions the box around every input it hides, so focusing one scrolls nothing', () => {
+    const css = styles.cssText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
+    const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selector, body]) => ({
+      selectors: selector.split(',').map((each) => each.trim()),
+      body,
+    }));
+    const hidden = rules
+      .filter(({ body }) => /position: absolute/.test(body) && /opacity: 0/.test(body))
+      .flatMap(({ selectors }) => selectors)
+      .filter((selector) => / input$/.test(selector))
+      .map((selector) => selector.replace(/ input$/, ''));
+    expect(hidden.sort()).toEqual(['.chip-choice', '.color-row', '.color-swatch', '.segment']);
+    for (const box of hidden) {
+      const positioned = rules.some(
+        ({ selectors, body }) =>
+          selectors.includes(box) && /position: (relative|absolute|fixed|sticky)/.test(body),
+      );
+      expect(positioned, box).toBe(true);
+    }
+  });
+
+  it('lays All Layouts across the top of the frame and the four layouts under it', () => {
+    const css = styles.cssText.replace(/\s+/g, ' ');
+    expect(css).toMatch(/\.scope \.segments \{ flex-wrap: wrap; \}/);
+    expect(css).toMatch(/\.scope \.segment-all \{ flex-basis: 100%; border-bottom: [^}]*\}/);
+    expect(css).toMatch(/\.scope \.segment-all \+ \.segment \{ border-inline-start: none; \}/);
   });
 
   it('counts what each scope stores, as the YAML holds it', () => {
@@ -215,11 +320,26 @@ describe('Settings For', () => {
       empty_day_text: '',
       list: { day_spacing: '12px' },
       time_grid: { start_time: '07:00', end_time: '21:00', hour_height: null },
+      month: { min_day_width: 90, week_scroll: null },
     };
     const counts = Object.fromEntries(
       WORKSPACES.map((workspace) => [workspace, storedCount(raw, workspace)]),
     );
-    expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2 });
+    expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2, month: 1 });
+  });
+});
+
+// A row per layout, each the shape of Quick Setup's example rows (the approved Starting Layout
+// option C): a native radio, the layout's picture, then its name over its description.
+describe('Starting Layout', () => {
+  it('stacks the rows at every width, sharing Quick Setup’s row, text and line rules', () => {
+    const css = styles.cssText.replace(/\s+/g, ' ');
+    expect(css).toMatch(/\.display-choices \{ display: flex; flex-direction: column; gap: 8px; \}/);
+    expect(css).not.toMatch(/grid-template-columns: repeat\(3/);
+    expect(css).toMatch(/\.story-tile, \.display-choice \{ display: flex; align-items: center;/);
+    expect(css).toMatch(/\.story-text, \.display-choice > \.display-text \{ flex: 1;/);
+    expect(css).toMatch(/\.story-detail, \.display-choice \.display-description \{/);
+    expect(css).toMatch(/\.display-image \{ flex: none; width: 48px; height: 32px;/);
   });
 });
 
@@ -308,10 +428,18 @@ describe('section row summaries', () => {
       'Location · Now · Time Format: Follow Home Assistant · Set: 1',
     );
     // Without a weather entity, Show The Forecast is not built, and an empty entity says nothing.
-    expect(summaryOf(page('weather'), LIST_CARD, 'shared')).toBe('');
+    expect(summaryOf(page('weather'), LIST_CARD, 'list')).toBe('');
+    // The entity is the whole card's; Layout Defaults offers no forecast of its own.
+    const weather = { ...LIST_CARD, weather_entity: 'weather.home' };
+    expect(summaryOf(page('weather'), weather, 'shared')).toBe(
+      'Weather Entity: weather.home · Set: 1',
+    );
+    expect(summaryOf(page('weather'), weather, 'list')).toBe(
+      'Weather Entity: weather.home · Show The Forecast: Nowhere · Set: 1',
+    );
     expect(
-      summaryOf(page('weather'), { ...LIST_CARD, weather: { entity: 'weather.home' } }, 'shared'),
-    ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 1');
+      summaryOf(page('weather'), { ...weather, list: { weather: { position: 'date' } } }, 'list'),
+    ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 2');
   });
 
   // A chip stands for its group, named by the chips pressed: label-value pairs under-reported
@@ -337,10 +465,14 @@ describe('section row summaries', () => {
       'Time Format: Follow Home Assistant · Set: 3',
     );
     // The toolbar's controls only while the toolbar shows them, counted: their names read as
-    // actions ("Reset").
+    // actions ("Reset"). Calendar Filter is one of them, on in either form and off as false.
     const toolbar = { ...LIST_CARD, toolbar: { show: true, reset: false, search: false } };
     expect(summaryOf(page('card_header'), toolbar, 'shared')).toMatch(
-      /^Show Toolbar: On · Controls: 4 on · Set: 3$/,
+      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
+    );
+    const filterOff = { ...LIST_CARD, toolbar: { show: true, reset: false, legend: false } };
+    expect(summaryOf(page('card_header'), filterOff, 'shared')).toMatch(
+      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
     );
   });
 
@@ -362,6 +494,6 @@ describe('section row summaries', () => {
 
   it('counts a nested value where it is stored', () => {
     const raw = { ...LIST_CARD, view: 'grid', time_grid: { start_time: '07:00' } };
-    expect(summaryOf(page('grid'), raw, 'grid')).toMatch(/^First Hour: 07:00 · .* · Set: 1$/);
+    expect(summaryOf(page('which_events'), raw, 'grid')).toMatch(/ · Set: 1$/);
   });
 });

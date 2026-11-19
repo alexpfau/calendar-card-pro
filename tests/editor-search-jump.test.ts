@@ -441,7 +441,7 @@ describe('Search Settings in a page header', () => {
         .map((button) => button.dataset.focus ?? '')
         .filter((key) => key !== 'back-top');
     for (const open of [
-      '[data-focus="nav:events"]',
+      '[data-focus="nav:card_header"]',
       '[data-focus^="row:"]',
       '[data-focus="more:audit"]',
     ]) {
@@ -459,14 +459,14 @@ describe('Search Settings in a page header', () => {
 
   it('opens the overview with focus in the search field; Back returns to the page and to it', async () => {
     const editor = await mount();
-    $(editor, '[data-focus="nav:events"]')!.click();
+    $(editor, '[data-focus="nav:card_header"]')!.click();
     await editor.updateComplete;
     const box = await searchFromHeader(editor);
 
     expect($(editor, '.overview')).not.toBeNull();
     expect(editor.shadowRoot!.activeElement).toBe(box);
     const back = $(editor, '[data-focus="search-back"]')!;
-    expect(text(back)).toBe('Back to Event Appearance');
+    expect(text(back)).toBe('Back to Card & Header');
 
     // A query and its results keep the way back; choosing a result and returning keeps it too.
     await searchFor(editor, 'show time');
@@ -478,7 +478,7 @@ describe('Search Settings in a page header', () => {
     $(editor, '[data-focus="search-back"]')!.click();
     await editor.updateComplete;
     await editor.updateComplete;
-    expect($(editor, '.page')!.dataset.page).toBe('events');
+    expect($(editor, '.page')!.dataset.page).toBe('card_header');
     expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe('search-open');
   });
 
@@ -510,10 +510,10 @@ describe('Search Settings in a page header', () => {
 
   it('is forgotten once the overview opens another page by its own rows', async () => {
     const editor = await mount();
-    $(editor, '[data-focus="nav:events"]')!.click();
+    $(editor, '[data-focus="nav:card_header"]')!.click();
     await editor.updateComplete;
     await searchFromHeader(editor);
-    $(editor, '[data-focus="nav:weather"]')!.click();
+    $(editor, '[data-focus="nav:taps_refresh"]')!.click();
     await editor.updateComplete;
     $(editor, '[data-focus="back-top"]')!.click();
     await editor.updateComplete;

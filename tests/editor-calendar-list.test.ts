@@ -585,7 +585,7 @@ describe('what the card draws, before and after', () => {
         filter_duplicates: true,
         days_to_show: 1,
       });
-      for (const view of ['list', 'column', 'grid'] as const) {
+      for (const view of ['list', 'column', 'grid', 'month'] as const) {
         for (const raw of [
           [lunch('normal'), lunch('priority')],
           [lunch('priority'), lunch('normal')],

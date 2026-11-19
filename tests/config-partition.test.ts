@@ -66,7 +66,7 @@ function declaredConfigKeys(): string[] {
 }
 
 /** Options holding a nested block rather than a value of their own. */
-const CONTAINER_KEYS = ['weather', 'toolbar', 'list', 'column', 'time_grid'] as const;
+const CONTAINER_KEYS = ['weather', 'toolbar', 'list', 'column', 'time_grid', 'month'] as const;
 
 /**
  * Why an option is decided at card level rather than routed into a view's block.
@@ -302,12 +302,15 @@ describe('card-level reasons', () => {
     // and the exception gets argued for rather than inherited.
     //
     // `open_links` is the one argued exception. It is decided at card level with the event
-    // actions it depends on (the `row-link` reason above), and it is scoped to list and column
+    // actions it depends on (the `row-link` reason above), and it is scoped away from grid
     // only because grid draws no links. It is not unreachable: the Actions panel that holds it
     // is in every workspace, Column's included, which the assertion after this one proves.
+    //
+    // Read as list and column without grid, whether or not month reads it too: month reaching
+    // an option changes nothing about whether column's block can hold it.
     const ARGUED_EXCEPTIONS = ['open_links'];
     const listAndColumn = Object.entries(VIEW_SCOPE)
-      .filter(([, views]) => views.size === 2 && views.has('list') && views.has('column'))
+      .filter(([, views]) => views.has('list') && views.has('column') && !views.has('grid'))
       .map(([key]) => key)
       .filter((key) => CARD_LEVEL_KEYS.includes(key))
       .sort();

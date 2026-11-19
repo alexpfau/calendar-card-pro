@@ -38,8 +38,8 @@ instead.
 
 ## 🌦️ Weather Custom Properties
 
-The weather badges read six custom properties, which mirror the `weather.date` and
-`weather.event` options:
+The weather badges read six custom properties, which mirror a layout's `weather → date` and
+`weather → event` options:
 
 | Custom Property                           | Default                       | Affects                                                     |
 | ----------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
@@ -55,7 +55,7 @@ inside: on `.event` for the badge in an event, on `.content-container` for the o
 header. The card writes the first five on `ha-card` itself, from the options or the defaults
 above, so a theme does not replace them there and a card-mod rule on `ha-card` needs
 `!important`. `--calendar-card-weather-event-color` is written
-only once `weather.event.color` is set.
+only once `weather → event → color` is set.
 
 In grid view, and wherever `event_color` is `accent`, each event writes
 `--calendar-card-weather-event-color` on itself too, so the color below needs `!important`.
@@ -66,9 +66,10 @@ two event sizes on its own events the same way, so a size set on `.event` needs 
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-weather:
-  entity: weather.home
-  position: both
+weather_entity: weather.home
+list:
+  weather:
+    position: both
 card_mod:
   style: |
     .event {
@@ -118,7 +119,7 @@ for finished events therefore reaches past notices as well; to treat them differ
 ## 🎨 Card-Mod Examples
 
 Each CSS recipe goes under `card_mod:` in the card's YAML and needs [card-mod](#theming-card-mod)
-installed; the last section uses a built-in option instead. The first four sections list the
+installed; the last section uses a built-in option instead. The first five sections list the
 classes to select, and the rest are recipes to copy.
 Where the card writes a value inline from one of its options, on `ha-card` or on the element it
 colors, a card-mod rule for the same property needs `!important` to win.
@@ -134,17 +135,19 @@ nothing in the others unless each container is named:
 | List                            | `.day-table`                         | the table holding that day's rows                               |
 | [Column](/features/column-view) | `.day-column`                        | the grid cell holding that day's column                         |
 | [Grid](/features/grid-view)     | `.grid-day-header`, `.grid-day-body` | the day's cell in the date row, and its column on the time axis |
+| [Month](/features/month-view)   | `.month-day`                         | the day's cell in its week                                      |
 
 The containers carry the same state classes, so the state half of a selector is portable
-even though the container name is not. Grid's day body carries only three of them:
+even though the container name is not. Grid's day body carries only three of them, and a month's
+day four:
 
-| Class        | Applied when             | In grid view    |
-| ------------ | ------------------------ | --------------- |
-| `today`      | the day is today         | header and body |
-| `tomorrow`   | the day is tomorrow      | header only     |
-| `past-day`   | the day is before today  | header and body |
-| `future-day` | the day is not today     | header only     |
-| `weekend`    | the day is a weekend day | header and body |
+| Class        | Applied when             | In grid view    | In month view |
+| ------------ | ------------------------ | --------------- | ------------- |
+| `today`      | the day is today         | header and body | yes           |
+| `tomorrow`   | the day is tomorrow      | header only     | yes           |
+| `past-day`   | the day is before today  | header and body | yes           |
+| `future-day` | the day is not today     | header only     | no            |
+| `weekend`    | the day is a weekend day | header and body | yes           |
 
 `future-day` is on past days too, as it always has been; select the days after today with
 `.future-day:not(.past-day)`.
@@ -172,9 +175,10 @@ view switcher:
 .grid-day-body.today .event-title { ... }
 ```
 
-Most event-level classes are shared by all three views, so usually only the day container
-needs repeating. They are listed under [Card & Event Classes](#card-event-classes), and
-grid view's own under [Grid View Classes](#grid-view-classes).
+Most event-level classes are shared by every view, so usually only the day container
+needs repeating. They are listed under [Card & Event Classes](#card-event-classes), grid view's
+own under [Grid View Classes](#grid-view-classes), and month view's, whose day cells hold none of
+its events, under [Month View Classes](#month-view-classes).
 :::
 
 ### Card & Event Classes
@@ -182,15 +186,17 @@ grid view's own under [Grid View Classes](#grid-view-classes).
 The card root, `.calendar-card-pro`, names the view being drawn, and follows the
 [view switcher](/features/layout-appearance#switching-between-layouts) while the card is on
 screen. List view has no class of its own; select it as
-`.calendar-card-pro:not(.column-view):not(.grid-view)`.
+`.calendar-card-pro:not(.column-view):not(.grid-view):not(.month-view)`.
 
 | Class         | Applied when                                                   |
 | ------------- | -------------------------------------------------------------- |
 | `column-view` | [column view](/features/column-view) is the layout being drawn |
 | `grid-view`   | [grid view](/features/grid-view) is the layout being drawn     |
+| `month-view`  | [month view](/features/month-view) is the layout being drawn   |
 
-Every event carries `.event`, plus `past-event` once it has finished. In list and column view
-it also carries its place in the day; grid view's events carry none of these:
+Every event carries `.event`, plus `past-event` once it has finished. In list and column view,
+and in a month's list of one day, it also carries its place in the day; grid view's events, and
+a month's bars and lines, carry none of these:
 
 | Class          | Applied when                        |
 | -------------- | ----------------------------------- |
@@ -215,20 +221,20 @@ negative length counts as no gap:
 
 A few more classes mark something the card draws only some of the time:
 
-| Class               | Carried by                                                     | Applied when                                                                                                                             |
-| ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default                                                                                                 |
-| `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                                                                              |
-| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way, shorter than a full day, and `show_now_indicator` is on                                                          |
-| `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
-| `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
-| `event-text-scaled` | `.event` in every view                                         | its calendar has a [`text_scale`](/features/core-settings#scaling-one-calendars-text) other than 1                                       |
-| `count-up`          | `.time-countdown` in every view                                | it reads how long ago a finished event ended, [counting up](/features/event-content#counting-up-from-past-events)                        |
-| `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
-| `title-wrap`        | `.summary-row`, with `time-beside-title`                       | the title wraps beside the time: no `title_max_lines: 1` or `scroll_long_titles`. `.summary` ends in `.title-room`, kept for the time    |
-| `title-capped`      | `.summary-row`, with `title-wrap`                              | `title_max_lines` is two or more                                                                                                         |
-| `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                          |
-| `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                                                                         |
+| Class               | Carried by                                                                                           | Applied when                                                                                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `today-tile`        | today's day number, `.day`                                                                           | `today_indicator` is `tile`, the default                                                                                                                     |
+| `with-today-tile`   | every day's `.column-date-content`, in column and grid view                                          | `today_indicator` is `tile`                                                                                                                                  |
+| `event-now`         | `td.event` in list view and a month's day list, `.event` in column view, `.month-line` in month view | the event is under way, shorter than a full day, and `show_now_indicator` is on                                                                              |
+| `event-interactive` | `.event` in column, grid and month view, `.event-button` in list view and a month's day list         | `event_tap_action` is `details`                                                                                                                              |
+| `event-tappable`    | `td.event` in list view and a month's day list                                                       | `event_tap_action` is `details`                                                                                                                              |
+| `event-text-scaled` | `.event` in every view                                                                               | its calendar has a [`text_scale`](/features/core-settings#scaling-one-calendars-text) other than 1                                                           |
+| `count-up`          | `.time-countdown` in every view                                                                      | it reads how long ago a finished event ended, [counting up](/features/event-content#counting-up-from-past-events)                                            |
+| `time-beside-title` | `.event-content` in list and column view, and in a month's day list                                  | `time_position` is `title`, always in a month, and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
+| `title-wrap`        | `.summary-row`, with `time-beside-title`                                                             | the title wraps beside the time: no `title_max_lines: 1` or `scroll_long_titles`. `.summary` ends in `.title-room`, kept for the time                        |
+| `title-capped`      | `.summary-row`, with `title-wrap`                                                                    | `title_max_lines` is two or more                                                                                                                             |
+| `fetch-error`       | the line below the events naming the calendars that failed                                           | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                                              |
+| `page-pending`      | `.content-container`                                                                                 | the days on screen wait for another page's events, dimmed to 50%                                                                                             |
 
 - The [date tile](/features/layout-appearance#the-date-tile) is painted from
   `--calendar-card-today-indicator-color`, which the card writes on `ha-card` from
@@ -241,8 +247,8 @@ A few more classes mark something the card draws only some of the time:
   Change it with `now_color`, or in card-mod on `ha-card .event-now`. Grid view marks the present
   with its now line instead and adds no class.
 - When events are [tap targets](/features/actions#tapping-an-event), list view's is a
-  `.event-button` inside `td.event`, so `.event-interactive` alone reaches all three views,
-  while `.event.event-interactive` misses list view.
+  `.event-button` inside `td.event`, so `.event-interactive` alone reaches every view, while
+  `.event.event-interactive` misses list view and a month's day list.
 - In a `.title-wrap` row the card measures `.title-aside`, sizes `.title-room` to it and places
   the time over the room, marking the row `data-title-fit`. `data-title-cut` marks a title it
   cut at `title_max_lines`. A theme that changes the time's size or spacing is measured with it;
@@ -258,9 +264,9 @@ A few more classes mark something the card draws only some of the time:
 - `.event-title`, `.time` and `.location` are plain element classes with no state attached.
 
 Every event's accent bar is an element of its own, `.event-accent-bar`, the first child of the
-event in list, column and grid view; grid all-day banners and the `+N` block have none. Its color,
-`--calendar-card-event-accent-bar-color`, is its calendar's, written on each event itself, so
-overriding it on `.event` needs `!important`. Its width,
+event in list, column, grid and month view; all-day banners, a month's bars among them, and grid's
+`+N` block have none. Its color, `--calendar-card-event-accent-bar-color`, is its calendar's,
+written on each event itself, so overriding it on `.event` needs `!important`. Its width,
 `--calendar-card-line-width-vertical`, comes from
 [`vertical_line_width`](/features/layout-appearance#visual-styling-colors), which also decides how
 far the text keeps from the bar. Style the bar through `.event-accent-bar`, or hide it with
@@ -303,6 +309,34 @@ the now line and the events. A weekend stripe covers every weekend day in a run 
 between them, so it belongs to no single day; select one weekend day as `.grid-day-body.weekend`.
 While today's tint is on, the weekend stripe breaks around today's column, which `.grid-today`
 covers alone.
+
+### Month View Classes
+
+[Month view](/features/month-view) draws its weeks, its days and its events with classes of its
+own, in either form:
+
+| Class                  | Element                                                                                                                                                                            | Also carries                                                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.month-container`     | the month: the weekday names and its six weeks                                                                                                                                     | `.month-compact` in the [compact form](/features/month-view#the-compact-month), with `.with-week-numbers` while week numbers show; `.week-scroll` while week scrolling applies |
+| `.month-weekdays`      | the row of weekday names, one `.month-weekday` each                                                                                                                                | `.weekend` on a weekend day's name                                                                                                                                             |
+| `.month-week`          | one week                                                                                                                                                                           | —                                                                                                                                                                              |
+| `.month-day`           | a day's cell: in the wide form an empty box behind its date and events, in the compact form the day itself                                                                         | `.today`, `.tomorrow`, `.past-day`, `.weekend`; `.other-month` on a day of the month before or after; `.month-selected` on the compact form's chosen day                       |
+| `.month-date`          | the day's number, `.day`; in the wide form a month's 1st adds its name, `.month-date-month`                                                                                        | `.today-tile` on today's `.day`                                                                                                                                                |
+| `.month-week-number`   | a week's number                                                                                                                                                                    | `.current` on this week's, in the compact form                                                                                                                                 |
+| `.month-bar`           | an all-day event, or a timed one drawn across its days, on its days' lines                                                                                                         | grid view's banner classes: `.event`, `.grid-banner`, `.past-event`, `.continues-before`, `.continues-after`                                                                   |
+| `.month-line`          | a timed event's line in its day, with `.month-line-label`, `.month-line-title` and `.month-line-time`                                                                              | `.event`, `.past-event`, `.event-now`                                                                                                                                          |
+| `.month-more`          | the "+N more" button on a day's last line                                                                                                                                          | —                                                                                                                                                                              |
+| `.month-compact-marks` | a compact day's capsule, one `.month-compact-mark` per event                                                                                                                       | —                                                                                                                                                                              |
+| `.month-day-list`      | the chosen day's list under a compact month: `.month-day-list-header` naming it in `.month-day-list-date`, then `.month-day-list-rows` holding its rows or `.month-day-list-empty` | its rows are list view's `td.event`, in `table.month-day-table`, as many as fit                                                                                                |
+| `.month-day-list-more` | the list's "+N more" button, after the rows that fit                                                                                                                               | —                                                                                                                                                                              |
+
+In the wide form a day's `.month-day` holds nothing: its date, bars and lines are drawn over it in
+the week, so a day selector does not reach them. Reach the date as the cell's next sibling,
+`.month-day.today + .month-date`, and select events by their own classes. In the compact form the
+date is inside the day, `.month-day.today .month-date`.
+
+"+N more" opens the day in a panel of its own, a dialog outside the card, which card-mod on the
+card does not reach.
 
 ### Header Toolbar Classes
 
@@ -490,7 +524,10 @@ card_mod:
 For Grid, use [`time_grid.weekend_background_color`](/features/grid-view#shading-the-weekend)
 instead. Its tint spans the time axis and all-day band, which a rule on
 `.grid-day-body.weekend` cannot reach. Today's column has an option of its own there,
-[`time_grid.today_background_color`](/features/grid-view#shading-today), off by default.
+[`time_grid.today_background_color`](/features/grid-view#shading-today), off by default. Month
+has the same two in its own block,
+[`month.weekend_background_color` and `month.today_background_color`](/features/month-view#shading-the-weekend-today),
+which shade a day's whole cell.
 
 ### Frameless Calendar Integration
 

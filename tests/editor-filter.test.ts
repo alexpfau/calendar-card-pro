@@ -13,7 +13,12 @@ import {
   toFilterCriteria,
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { ENTRY_GROUPS, type HeadingDef, PAGES } from '../src/rendering/editor/pages';
+import {
+  ENTRY_GROUPS,
+  type HeadingDef,
+  PAGES,
+  WHOLE_CARD_PAGES,
+} from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { keepsControl } from '../src/rendering/editor/plan';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
@@ -317,8 +322,9 @@ describe('editor filter: the chassis', () => {
   it('shows results in place of the page rows', async () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    // A row per page before; a row per result after, and no page row.
-    expect(rows()).toHaveLength(PAGES.length - 1);
+    // A row per Whole Card page and Shared Across Layouts before; a row per result after, and no
+    // page row.
+    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size + 1);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
@@ -344,12 +350,13 @@ describe('editor filter: the chassis', () => {
   it('says so when a search matches nothing', async () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
-    // Column density is a Layout option of Columns and Grid, and the card is a list here: it is
-    // found as theirs, not as nothing.
+    // A minimum day width is a Layout option of Columns, Grid and Month, and the card is a list
+    // here: it is found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
     expect(panels().map(({ id }) => id)).toEqual([
       'layout:column.min_day_width',
       'layout:time_grid.min_day_width',
+      'layout:month.min_day_width',
     ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 
@@ -415,11 +422,12 @@ describe('editor filter: section headings', () => {
       'show',
       'add_event',
       'view_switcher',
+      'legend',
       'reset',
       'refresh',
       'search',
       'navigation',
-      'legend',
+      'view_switcher_layouts',
       'size',
       'title',
     ]);
@@ -558,13 +566,20 @@ describe('editor: the order of the two panels', () => {
   it('orders every shared category the same way in both panels', () => {
     // The card's categories are the headings of the page drawing its content options.
     const whichEvents = PAGES.find((page) => page.id === 'which_events')!;
-    const entity = ENTRY_GROUPS.flatMap((heading) => heading.key ?? []);
+    // The one category named differently on each side: the card's also holds Grid's all-day
+    // rows, which a calendar has no counterpart of, so its heading names all-day events too.
+    const CARD_NAME: Readonly<Record<string, string>> = {
+      heading_multiday: 'heading_allday_multiday',
+    };
+    const entity = ENTRY_GROUPS.flatMap((heading) => heading.key ?? []).map(
+      (key) => CARD_NAME[key] ?? key,
+    );
     const content = whichEvents.headings.flatMap((heading) => heading.key ?? []);
     const shared = entity.filter((name) => content.includes(name));
 
     // The denominator. With no shared categories the agreement below is vacuous, and it
     // would go vacuous silently if a heading were renamed on one side only.
-    expect(shared).toEqual(['heading_multiday']);
+    expect(shared).toEqual(['heading_allday_multiday']);
 
     expect(content.filter((name) => shared.includes(name))).toEqual(shared);
 
@@ -585,7 +600,11 @@ describe('editor: the order of the two panels', () => {
 
     // Both sides of the shared category, pinned by value.
     expect(optionsUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
-    expect(cardUnder('heading_multiday')).toEqual(['split_multiday_events', 'multiday_banners']);
+    expect(cardUnder('heading_allday_multiday')).toEqual([
+      'split_multiday_events',
+      'multiday_banners',
+      'time_grid.allday_band_max_rows',
+    ]);
 
     // The calendar's filters, and the card's filters under the page's opening heading.
     const entityFilters = optionsUnder('page.which_events');

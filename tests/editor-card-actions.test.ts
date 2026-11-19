@@ -473,6 +473,8 @@ describe('the event tap action in the editor', () => {
       refresh: true,
       search: true,
       legend: 'menu',
+      // View Switcher is on, so its qualifier line is drawn, offering every layout.
+      view_switcher_layouts: ['list', 'column', 'grid', 'month'],
     });
 
     // The one control off by default reads back on once it is switched on: one flip.
@@ -546,7 +548,7 @@ describe('the event tap action in the editor', () => {
     // rather than for a hang.
   }, 30_000);
 
-  it.each(['list', 'column', 'grid'])(
+  it.each(['list', 'column', 'grid', 'month'])(
     'writes the toolbar at the top level while editing the %s layout',
     async (view) => {
       const { element, reported } = await mount({ view });
@@ -560,4 +562,35 @@ describe('the event tap action in the editor', () => {
       });
     },
   );
+
+  // The layouts the switcher offers are an option of their own, `view_switcher_layouts`, so the
+  // View Switcher chip stays a plain on and off and an edit beside the list keeps it as written.
+  it('keeps a stored list of switcher layouts through edits beside it', async () => {
+    const toolbar = { show: true, view_switcher_layouts: ['list', 'month'] };
+    const { element, reported } = await mount({ view: 'month', toolbar });
+
+    expect(valueOf(element, 'card:toolbar.view_switcher')).toBe(true);
+    expect(valueOf(element, 'card:toolbar.view_switcher_layouts')).toEqual(['list', 'month']);
+    await changeField(element, 'card:toolbar.refresh', false);
+    await changeField(element, 'card:title', 'Family');
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      view: 'month',
+      title: 'Family',
+      toolbar: { ...toolbar, refresh: false },
+    });
+
+    // The chip turns the switcher off and keeps the list; on again, the list is still there.
+    await changeField(element, 'card:toolbar.view_switcher', false);
+    expect(last(reported)).toMatchObject({
+      toolbar: { ...toolbar, refresh: false, view_switcher: false },
+    });
+    await changeField(element, 'card:toolbar.view_switcher', true);
+    expect(last(reported)).toMatchObject({ toolbar: { ...toolbar, refresh: false } });
+    expect((last(reported).toolbar as Record<string, unknown>).view_switcher).toBeUndefined();
+    await changeField(element, 'card:toolbar.view_switcher_layouts', ['list', 'grid', 'month']);
+    expect(last(reported)).toMatchObject({
+      toolbar: { show: true, refresh: false, view_switcher_layouts: ['list', 'grid', 'month'] },
+    });
+  });
 });

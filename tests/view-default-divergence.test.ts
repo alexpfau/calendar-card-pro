@@ -62,6 +62,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
   Record<string, Readonly<Record<string, Acknowledgement>>>
 > = {
   column: {
+    day_font_size: {
+      verdict: 'inherits',
+      why: 'A column header names its day above the events, alone on its row as a list date is, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+    },
     day_separator_color: {
       verdict: 'inherits',
       why: 'Column keeps horizontal rules between days, the same thing the option has always named, so the card-wide color still describes them. Grid diverges because its rules turned vertical and needed a rule gray rather than a text hue.',
@@ -114,11 +118,86 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       verdict: 'inherits',
       why: 'A suppression the user asked for, and column has no reason to refuse it. Grid diverges to keep the morning from emptying as the day passes, which is a property of a fixed time axis that column does not have.',
     },
+    event_gap: {
+      verdict: 'inherits',
+      why: 'A column stacks a day of events under its date as a list does, so the shipped 0px joins them into one block there too and a card-wide gap reaches it. Month diverges because its day list holds one day under its name, with no date beside it to join against.',
+    },
   },
   grid: {
+    day_font_size: {
+      verdict: 'inherits',
+      why: 'A grid header names its day above its column, as a column header does, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+    },
+    event_gap: {
+      verdict: 'ignores',
+      why: 'A grid block is placed by its time and kept apart by the grid layout itself, and nothing in grid reads the gap, so VIEW_SCOPE keeps it out; Month diverges for its day list alone.',
+    },
     split_multiday_events: {
       verdict: 'ignores',
       why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
+    },
+  },
+  // Month diverges on `show_past_events`, on `event_gap` for its day list, whose events read
+  // better apart under one day's name, and on `day_font_size`, a number in a cell's corner. Its lines paint on the card background with the
+  // card's ink, as a column row does. Its bars are Grid's banner, which takes Grid's tint and ink
+  // where the card leaves event_background_opacity, event_color and time_color at their shipped
+  // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.
+  month: {
+    day_separator_color: {
+      verdict: 'ignores',
+      why: 'The month grid draws hairline rules of its own between its cells, and its day list holds one day, so there is no rule between days for the option to color; VIEW_SCOPE keeps it out.',
+    },
+    day_separator_width: {
+      verdict: 'ignores',
+      why: 'As day_separator_color: the month grid rules its cells itself and its day list holds one day. Grid diverges because a shared time axis needs its day boundaries drawn to read as separate columns at all.',
+    },
+    day_spacing: {
+      verdict: 'ignores',
+      why: 'The month grid sets its cells edge to edge, ruled, as macOS Calendar does, and its day list, one day long, has no gap between days to take, so VIEW_SCOPE keeps it out. Grid narrows it to 1px so its tinted blocks meet their rule.',
+    },
+    description_color: {
+      verdict: 'inherits',
+      why: 'A description is drawn only in the day list, whose rows are list rows on the card background, so card-wide ink stays legible there.',
+    },
+    event_background_opacity: {
+      verdict: 'inherits',
+      why: 'A month line carries its calendar by an accent bar, as list and column rows do, so the shipped 0 is right for it. Grid tints a block because its area is what carries meaning there.',
+    },
+    event_color: {
+      verdict: 'inherits',
+      why: 'A month line and the day list paint on the card background, where card-wide ink is legible. Grid substitutes the accent because its blocks are tinted.',
+    },
+    event_font_size: {
+      verdict: 'inherits',
+      why: 'In a month it sizes the day list and the panel, whose rows are list rows, so the card-wide 14px reads as it does in list. The lines and bars in its days take cell_event_font_size, a block option of its own. Grid drops to 12px for blocks that wrap their title in a seventh of the card.',
+    },
+    location_color: {
+      verdict: 'inherits',
+      why: 'A location is drawn only in the day list, on the card background, so the card-wide secondary hue keeps its contrast there.',
+    },
+    progress_bar_color: {
+      verdict: 'inherits',
+      why: 'The progress bar is drawn only in the day list, against the card background, where the card-wide hue reads as it does in list.',
+    },
+    progress_bar_width: {
+      verdict: 'inherits',
+      why: 'The progress bar is drawn only in the day list, whose rows are list rows, so the unset sentinel resolves there as it does in list. Grid needs 100% because a block is a box with an edge.',
+    },
+    show_empty_days: {
+      verdict: 'ignores',
+      why: 'A month always draws every day of its six weeks, whatever their events, so VIEW_SCOPE keeps the option out of it; there is no empty day to hide or keep.',
+    },
+    show_location: {
+      verdict: 'inherits',
+      why: 'A month line draws a title and a start time only, so the option decides the day list rows alone, where the card-wide answer stands as it does in list.',
+    },
+    split_multiday_events: {
+      verdict: 'ignores',
+      why: 'Month takes Grid daily coverage through multidaySplitPolicy and draws multi-day events as bars across their days, so the List splitter never runs for it and VIEW_SCOPE keeps the option out.',
+    },
+    time_color: {
+      verdict: 'inherits',
+      why: 'A month line paints its start time on the card background, as a column row does, so card-wide ink stays legible without substitution.',
     },
   },
 };

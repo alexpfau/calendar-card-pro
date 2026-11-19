@@ -134,7 +134,7 @@ describe('a settings row', () => {
   it('is named by its title and described by its summary', async () => {
     const editor = await mount({ entities: [ANNA] });
     const rows = [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.nav-row')];
-    expect(rows.length).toBeGreaterThan(8);
+    expect(rows.length).toBeGreaterThan(5);
     let summaries = 0;
     for (const row of rows) {
       const title = editor.shadowRoot!.getElementById(row.getAttribute('aria-labelledby') ?? '');

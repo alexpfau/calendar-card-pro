@@ -92,6 +92,24 @@ export function floorColor(value: string): string {
 }
 
 /**
+ * Whether a resolved color value would paint anything at all.
+ *
+ * `transparent` and `none` are what a user writes to switch an optional fill off, and an
+ * empty string is what an editor text field hands back when it is cleared. None of them
+ * needs a custom property emitted for it, and leaving the property unset lets the
+ * stylesheet's own fallback stand rather than overriding it with a no-op. Grid's and Month's
+ * tints both ask it, so the two layouts agree on what turns a tint off.
+ *
+ * @param value - A resolved CSS color
+ * @returns `true` when the value is worth writing to the DOM
+ */
+export function paintsSomething(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  return normalized !== '' && normalized !== 'transparent' && normalized !== 'none';
+}
+
+/**
  * A translucent color's floor without color-mix(): gray at the same strength, as a mix of the
  * accent keeps its own.
  *

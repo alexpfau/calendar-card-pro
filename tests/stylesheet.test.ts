@@ -3530,6 +3530,17 @@ describe('the toolbar layout', () => {
     // The card adds each command's width and the gaps between them to the switcher's own
     // threshold, so its numbers must be the ones the row is drawn with.
     expect(declared('.toolbar-button', 'width')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
+    // A switcher offering fewer views gives back each one's word and its segment's padding.
+    expect(declared('.view-switcher-segment', 'padding')).toBe(
+      `0 ${Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING}px`,
+    );
+    // All four views need what List, Columns and Grid needed before Month, 248px, and Month's
+    // segment as the stylesheet draws it, so leaving Month out gives back exactly the 248px.
+    expect(Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH).toBe(
+      248 +
+        Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH.month +
+        2 * Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING,
+    );
     for (const gap of [
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),
@@ -3562,7 +3573,7 @@ describe('the toolbar layout', () => {
     expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
     const list =
       border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
-    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    // Column, grid and month pad the card alike on both sides, and drop the row's own padding.
     const column =
       border +
       2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
@@ -3574,7 +3585,12 @@ describe('the toolbar layout', () => {
       border +
       2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
       px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
-    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+    // Month pads the card as column does.
+    const month =
+      border +
+      2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {

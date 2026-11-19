@@ -29,6 +29,7 @@ import * as TextDirection from '../utils/text-direction';
  */
 export { renderColumnGroupedEvents } from './column';
 export { renderGridGroupedEvents } from './grid';
+export { renderMonthGroupedEvents } from './month';
 
 /**
  * Whether a view draws at least one event for these days, rather than only empty-day
@@ -69,7 +70,13 @@ export function drawsLink(
   days: Types.EventsByDay[],
   config: Types.Config,
 ): boolean {
-  if (!ViewConfig.VIEW_SCOPE.open_links.has(view) || !Presentation.rowLinksOn(config)) {
+  // A month's cells draw a title and a time alone; its rows, with their links, are the day
+  // list's, which is drawn in a panel of its own rather than in the card.
+  if (
+    view === 'month' ||
+    !ViewConfig.VIEW_SCOPE.open_links.has(view) ||
+    !Presentation.rowLinksOn(config)
+  ) {
     return false;
   }
   return days.some((day) =>
@@ -767,28 +774,11 @@ export function renderDay(
             repeatedCountdowns.has(index),
           );
 
-          return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
+          return eventGap && index > 0 ? html`${Leaves.renderEventGapRow()}${row}` : row;
         },
       )}
     </table>
   `;
-}
-
-/**
- * The row that holds two of a day's events apart while `event_gap` is set.
- *
- * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
- * the first row and below the last, which moves the day itself and every separator whose
- * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
- * fills the event column only, because the day's date cell spans it, and it is hidden from
- * assistive technology because it holds nothing to read.
- *
- * @returns The gap row
- */
-function renderEventGapRow(): TemplateResult {
-  return html`<tr class="event-gap-row" aria-hidden="true">
-    <td class="event-gap-cell"></td>
-  </tr>`;
 }
 
 /**

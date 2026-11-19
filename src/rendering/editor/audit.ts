@@ -27,7 +27,7 @@ import type { PageId } from './pages';
 import { type PlanCtx, appearanceOf, fieldState, hasLayoutCopy } from './plan';
 import { destination } from './routing';
 import { isSet as holdsValue, isSyntheticKey } from './synthetic';
-import { type EditorWorkspace, WORKSPACES } from './workspace';
+import { type EditorWorkspace, WORKSPACES, storedPath } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import { VIEWS, viewBlockFor } from '../../config/view';
@@ -113,9 +113,12 @@ function ownersIn(workspace: EditorWorkspace | 'calendar'): Map<string, FieldId[
   for (const field of fields) {
     const { scope } = parseFieldId(field.id);
     if (entry !== (scope === 'calendar') || scope === 'button') continue;
+    // A layout group is written under the block of the layout: `list.weather.position`.
+    const nested = entry ? field.dataPath : storedPath(field.dataPath, workspace);
+    if (nested === undefined) continue;
     for (const key of field.configKeys) {
-      const block = entry || field.dataPath.length > 0 ? undefined : destination(key, workspace);
-      const path = [...(block ? [block] : field.dataPath), key].join('.');
+      const block = entry || nested.length > 0 ? undefined : destination(key, workspace);
+      const path = [...(block ? [block] : nested), key].join('.');
       const ids = map.get(path) ?? [];
       if (!ids.includes(field.id)) map.set(path, [...ids, field.id]);
     }
