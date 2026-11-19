@@ -100,6 +100,49 @@ async function monthEditor(config: Record<string, unknown> = CARD) {
   return editor;
 }
 
+/**
+ * Month has no hours and no Days To Show, so nothing on its pages may describe either: the banner
+ * switch and a calendar's banner choice are shared with Grid, and the Which Events row with every
+ * layout.
+ */
+describe('words Month shares with other layouts', () => {
+  const HOURS = /hour|time grid/i;
+
+  it('names the banner switch and its helper by what Month draws too', async () => {
+    const editor = await monthEditor();
+    await openPageOf(editor, 'content:multiday_banners');
+    expect(labelOf(editor, 'content:multiday_banners')).not.toMatch(HOURS);
+    expect(helperOf(editor, 'content:multiday_banners')).not.toMatch(HOURS);
+    editor.remove();
+  });
+
+  it('names a calendar’s banner choice and its options by what Month draws too', async () => {
+    const editor = await monthEditor();
+    const id = 'calendar:multiday_banners';
+    await openPageOf(editor, id);
+    expect(labelOf(editor, id)).not.toMatch(HOURS);
+    const form = formOf(editor, id) as unknown as {
+      schema: Array<{ selector: { select: { options: Array<{ label: string }> } } }>;
+    };
+    const options = form.schema[0].selector.select.options.map((option) => option.label);
+    expect(options.length).toBeGreaterThan(1);
+    for (const option of options) expect(option).not.toMatch(HOURS);
+    editor.remove();
+  });
+
+  it('describes Which Events on Month’s page without a Days To Show it lacks', async () => {
+    const editor = await mountEditor(CARD);
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="layout:month"]')!.click();
+    await editor.updateComplete;
+    const row = editor.shadowRoot!.querySelector('[data-focus="nav:which_events"]');
+    expect(row?.textContent).toMatch(/\S/);
+    expect(row?.textContent).not.toMatch(/days to show/i);
+    await openPageOf(editor, 'content:filter_duplicates_mode');
+    expect(formOf(editor, 'content:days_to_show')).toBeUndefined();
+    editor.remove();
+  });
+});
+
 describe('Month’s own settings in the editor', () => {
   it.each(FIELDS)(
     'draws %s on %s › %s, labeled as Month’s, and writes it into month:',

@@ -233,7 +233,7 @@ describe('a layout’s own settings', () => {
     await goOverview(editor);
     await click(editor, '[data-focus="layout:grid"]');
     expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toBe(
-      'Days to show, filters and empty days',
+      'Date range, filters and empty days',
     );
   });
 });

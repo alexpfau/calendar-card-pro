@@ -47,7 +47,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.description': 'Title, colors and toolbar controls',
   'page.events_weather_language.description': 'Start date, week start and time format',
   'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
-  'page.which_events.description': 'Days to show, filters and empty days',
+  'page.which_events.description': 'Date range, filters and empty days',
   'panel.day_header.description': 'Dates, week numbers, today and weekends',
   'panel.events.description': 'Event details, text styles and colors',
   'page.size_spacing.description': 'Card height, gaps and separator lines',
@@ -415,7 +415,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.grid.description': 'Days side by side on an hour axis',
   'view.option.month.label': 'Month',
   'view.option.month.description': 'A whole month, a row per week',
-  'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
+  'view.helper':
+    'Side-by-side layouts can fall back to List when space is tight, with List’s own settings.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
@@ -583,6 +584,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback': 'When Too Narrow',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
+  'column.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'column.day_header_gap': 'Day Header Gap',
   'time_grid.day_header_gap': 'Day Header Gap',
 
@@ -902,10 +904,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
-  'entity.multiday_banners': 'In the Time Grid',
+  'entity.multiday_banners': 'Long Timed Events',
   'entity.multiday_banners.option.inherit.label': 'Follow the card',
-  'entity.multiday_banners.option.banner.label': 'One banner above the hours',
-  'entity.multiday_banners.option.blocks.label': 'A block on each day',
+  'entity.multiday_banners.option.banner.label': 'One banner across its days',
+  'entity.multiday_banners.option.blocks.label': 'On each day it covers',
   'entity.multiday_banners.helper':
     'How this calendar\u2019s events with a time that last a full day or longer are drawn.',
 
@@ -1027,6 +1029,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
+  'time_grid.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1208,9 +1211,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
-  multiday_banners: 'Banners Above the Hours',
+  multiday_banners: 'Long Timed Events as Banners',
   'multiday_banners.helper':
-    'Draws an event with a time that lasts a day or longer as one banner above the hours.',
+    'Draws an event with a time that lasts a day or longer as one banner across its days.',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
