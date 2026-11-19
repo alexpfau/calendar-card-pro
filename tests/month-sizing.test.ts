@@ -258,7 +258,7 @@ describe('the rows a card asks a Sections dashboard for', () => {
   it.each<readonly [string, Partial<Types.Config>, number | 'auto']>([
     ['a month', { view: 'month' }, 10],
     ['a month with an empty block', { view: 'month', month: {} }, 10],
-    ['a month with other options', { view: 'month', month: { week_scroll: true } }, 10],
+    ['a month with other options', { view: 'month', month: { min_day_width: 90 } }, 10],
     // A key sizes the card only where it sets a height or a maximum, in either form.
     ['a month with card_height', { view: 'month', month: { card_height: '50rem' } }, 'auto'],
     [

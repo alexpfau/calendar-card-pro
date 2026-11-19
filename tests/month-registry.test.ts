@@ -30,8 +30,6 @@ describe('the month block', () => {
       'compact_card_height',
       'compact_card_max_height',
       'min_day_width',
-      'week_scroll',
-      'week_scroll_min_width',
       'weekend_background_color',
       'today_background_color',
       'cell_event_font_size',
@@ -43,8 +41,6 @@ describe('the month block', () => {
       card_height: 'auto',
       card_max_height: 'none',
       min_day_width: 80,
-      week_scroll: false,
-      week_scroll_min_width: 0,
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       today_background_color: 'transparent',
@@ -244,11 +240,6 @@ describe('a month-only option', () => {
     ['min_day_width', 0, 80],
     ['min_day_width', -5, 80],
     ['min_day_width', 'wide', 80],
-    ['week_scroll', true, true],
-    ['week_scroll', 'yes', false],
-    ['week_scroll_min_width', 0, 0],
-    ['week_scroll_min_width', '600', 600],
-    ['week_scroll_min_width', -1, 0],
     // Any string is a color, as Grid's tints take it; anything else is the default.
     ['weekend_background_color', 'rgb(1, 2, 3)', 'rgb(1, 2, 3)'],
     ['weekend_background_color', 'transparent', 'transparent'],
@@ -276,29 +267,33 @@ describe('a month-only option', () => {
     ).toBe(expected);
   });
 
-  it('is not row_height or day_list_events, which Month never shipped: each is unrecognized', () => {
-    // Neither was in a release, so neither has a migration: written in `month:`, each is reported
-    // as any unknown key is, once, and read by nothing.
-    expect(
-      ViewConfig.findMisplacedOptions({ month: { row_height: '120px', day_list_events: 3 } }),
-    ).toEqual([
-      { kind: 'unknown', key: 'row_height', from: 'month', to: [] },
-      { kind: 'unknown', key: 'day_list_events', from: 'month', to: [] },
-    ]);
+  it('is not row_height, day_list_events or week scrolling, which Month never shipped: each is unrecognized', () => {
+    // None was in a release, so none has a migration: written in `month:`, each is reported as any
+    // unknown key is, once, and read by nothing.
+    const unshipped = {
+      row_height: '120px',
+      day_list_events: 3,
+      week_scroll: true,
+      week_scroll_min_width: 600,
+    };
+    expect(ViewConfig.findMisplacedOptions({ month: unshipped })).toEqual(
+      Object.keys(unshipped).map((key) => ({ kind: 'unknown', key, from: 'month', to: [] })),
+    );
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     try {
-      ViewConfig.validateColumnOverrides(
-        buildConfig({ month: { row_height: 'auto', day_list_events: 0 } } as never),
-      );
+      ViewConfig.validateColumnOverrides(buildConfig({ month: unshipped } as never));
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
         'Ignoring "month.row_height": not a recognized option.',
         'Ignoring "month.day_list_events": not a recognized option.',
+        'Ignoring "month.week_scroll": not a recognized option.',
+        'Ignoring "month.week_scroll_min_width": not a recognized option.',
       ]);
     } finally {
       warn.mockRestore();
     }
-    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('row_height');
-    expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain('day_list_events');
+    for (const key of Object.keys(unshipped)) {
+      expect(Object.keys(ViewConfig.MONTH_DEFAULTS)).not.toContain(key);
+    }
   });
 
   it('says once that a cell size it cannot use falls back to the block’s default', () => {
@@ -327,10 +322,13 @@ describe('a month-only option', () => {
 
   it('is reported where it does nothing: at the top level, or in another view’s block', () => {
     expect(
-      ViewConfig.findMisplacedOptions({ card_height: '90px', column: { week_scroll: true } }),
+      ViewConfig.findMisplacedOptions({
+        card_height: '90px',
+        column: { cell_event_font_size: '12px' },
+      }),
     ).toEqual([
       { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
-      { kind: 'wrong-view', key: 'week_scroll', from: 'column', to: ['month'] },
+      { kind: 'wrong-view', key: 'cell_event_font_size', from: 'column', to: ['month'] },
     ]);
     // A tint is Grid's and Month's, each in its own block, so a misplaced one names both.
     expect(

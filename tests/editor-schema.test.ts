@@ -1339,7 +1339,7 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(names(buildConfig({ view: 'list' }))).not.toContain('min_day_width');
   });
 
-  it('builds Month’s own options in its block, its scroll limit only while it scrolls', () => {
+  it('builds Month’s own options in its block', () => {
     const own = (config: Types.Config) =>
       [...walkSchema(buildLayoutSchema(ctx(config)))]
         .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
@@ -1355,15 +1355,10 @@ describe('editor: displayed view and the Layout panel', () => {
       'today_background_color',
       'cell_event_font_size',
       'cell_time_font_size',
-      'week_scroll',
     ];
     expect(own(buildConfig({ view: 'month' }))).toEqual(always);
-    expect(own(buildConfig({ view: 'month', month: { week_scroll: true } }))).toEqual([
-      ...always,
-      'week_scroll_min_width',
-    ]);
     // Month's, and nobody else's: the block is read only where Month is the view.
-    expect(own(buildConfig({ view: 'grid', month: { week_scroll: true } }))).toEqual([]);
+    expect(own(buildConfig({ view: 'grid', month: { min_day_width: 90 } }))).toEqual([]);
   });
 
   it('nests the density options under the block they are stored in', () => {

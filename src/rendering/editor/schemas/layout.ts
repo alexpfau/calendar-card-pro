@@ -134,8 +134,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 /**
  * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
  * its cap in each form, the day width below which the compact form draws, the weekend's and today's
- * shading, the font sizes of the wide month's days, and week scrolling, whose card-width limit is
- * built only while it is on, since it limits nothing otherwise.
+ * shading, and the font sizes of the wide month's days.
  *
  * 🚨 Two of the names, `card_height` and `card_max_height`, are also the names of the card's
  * synthetic Height fields, which write the shared `height` and `max_height`. The field ids differ
@@ -144,13 +143,11 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
  * top level (`value.ts` › `stripBlockDefaults`, `routing.ts` › `workspaceFormData`).
  *
  * @param blockKey - Config key holding this view's override block
- * @param weekScroll - Whether week scrolling is on
  * @returns The fields, in the view's own block
  */
-function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
-  // No ceiling on either width, for the reason `densityFields` gives. The compact form's floor is
-  // `1`, the smallest integer the runtime's `parsed > 0` admits; the scroll limit's is `0`, which
-  // the runtime reads as no limit.
+function monthFields(blockKey: string): HaFormSchema[] {
+  // No ceiling on the width, for the reason `densityFields` gives. Its floor is `1`, the smallest
+  // integer the runtime's `parsed > 0` admits.
   return [
     blockScope(blockKey, [
       text('card_height'),
@@ -165,17 +162,6 @@ function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
       color('today_background_color'),
       text('cell_event_font_size'),
       text('cell_time_font_size'),
-      bool('week_scroll'),
-      ...(weekScroll
-        ? [
-            {
-              name: 'week_scroll_min_width',
-              selector: {
-                number: { min: 0, step: 1, mode: 'box' as const, unit_of_measurement: 'px' },
-              },
-            },
-          ]
-        : []),
     ]),
   ];
 }
@@ -187,7 +173,6 @@ function monthFields(blockKey: string, weekScroll: boolean): HaFormSchema[] {
  * @param heightMode - Derived height mode
  * @param daysToShow - Configured day count
  * @param language - Effective language code
- * @param weekScroll - Whether Month's week scrolling is on
  * @returns The panel's schema
  */
 const layoutSchema = Helpers.memoizeLast(
@@ -196,7 +181,6 @@ const layoutSchema = Helpers.memoizeLast(
     heightMode: string,
     daysToShow: number,
     language: string,
-    weekScroll: boolean,
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
@@ -231,7 +215,7 @@ const layoutSchema = Helpers.memoizeLast(
     }
 
     if (view === 'month' && blockKey !== undefined) {
-      schema.push(...monthFields(blockKey, weekScroll));
+      schema.push(...monthFields(blockKey));
     }
 
     return schema;
@@ -250,7 +234,6 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
     Synthetic.heightMode(ctx.config),
     ctx.config.days_to_show,
     ctx.language,
-    ViewConfig.resolveMonthOption(ctx.config, 'week_scroll'),
   );
 }
 

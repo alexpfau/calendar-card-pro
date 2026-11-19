@@ -1880,13 +1880,6 @@ class CalendarCardPro extends LitElement {
   /** The probes it watches, as last drawn. */
   private _monthProbes: ReadonlyArray<HTMLElement> = [];
 
-  /**
-   * Whether the card's content scrolls a wide month the card is too short for, below its floors,
-   * as last measured (`_syncMonthCapacity`). While it does, `week_scroll` stands down and the
-   * wheel and a finger scroll the content instead.
-   */
-  private _monthContentScrolls = false;
-
   /** Whether the day panel open was opened from a compact month, whose form it goes with. */
   private _dayPanelCompact = false;
 
@@ -1904,27 +1897,6 @@ class CalendarCardPro extends LitElement {
    * maybe onto another page (`_moveMonthFocus`). Any other page asked for ends it.
    */
   private _monthFocusPending = false;
-
-  /**
-   * How far the wheel has scrolled since a month last stepped a week, in CSS pixels, and when it
-   * last moved; see `_wheelWeeks`.
-   */
-  private _wheelTravel = { delta: 0, at: 0 };
-
-  /**
-   * A touch or pen gesture on a month whose weeks scroll: how many weeks it has stepped so far,
-   * and how far the finger travels for each (`_followWeekScroll`). Null for any other gesture.
-   */
-  private _pointerWeekScroll: { stepped: number; pitch: number } | null = null;
-
-  /**
-   * The wheel's listener on a month's weeks while `week_scroll` applies: not passive, since it
-   * takes the wheel from the page, and bound only then.
-   */
-  private readonly _weekScrollWheel: EventListenerObject & AddEventListenerOptions = {
-    handleEvent: (ev: Event) => this._wheelWeeks(ev as WheelEvent),
-    passive: false,
-  };
 
   private _gridScaleRaf: number | null = null;
 
@@ -2933,13 +2905,8 @@ class CalendarCardPro extends LitElement {
           this._dayPanel?.close();
         }
         this._syncToolbarLabels(width);
-        // A month's form, and whether its weeks scroll, are decided from the width alone.
-        const weekScrolled = this._weekScrollApplies;
-        const formChanged = this._syncMonthForm(width);
-        if (
-          this.effectiveView === 'month' &&
-          (formChanged || this._weekScrollApplies !== weekScrolled)
-        ) {
+        // A month's form is decided from the width alone.
+        if (this._syncMonthForm(width) && this.effectiveView === 'month') {
           this.requestUpdate();
         }
         this._scheduleLegendFit();
@@ -3679,31 +3646,25 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Writes a wide month's floors, re-reads whether the card's content scrolls and how many lines
-   * fit under a month day's date, and re-renders once if either moved.
+   * Writes a wide month's floors, re-reads how many lines fit under a month day's date, and
+   * re-renders once if that moved.
    *
    * Stable by construction. The card's height is a slot's or a declared one, known before
    * anything is drawn; the floors are read from fonts alone (`MonthRender.measureMonthFloors`)
    * and written only when they change, onto the month's style where no render binds them; and a
    * row's height follows from those, never from the capacity, so nothing the render this
-   * triggers draws can change what it reads. Whether the content scrolls decides only whether
-   * `week_scroll` applies, which moves no box. Nothing is read while the month is not on screen
+   * triggers draws can change what it reads. Nothing is read while the month is not on screen
    * or not laid out, which keeps the last floors and capacity rather than collapsing them.
    */
   private _syncMonthCapacity(): void {
     if (!this.isConnected || this.effectiveView !== 'month') return;
 
     this._writeMonthFloors();
-    const weekScrolled = this._weekScrollApplies;
-    this._monthContentScrolls =
-      !this._monthCompact && MonthRender.monthContentScrolls(this.renderRoot);
     const next = MonthRender.measureMonthCapacity(this.renderRoot);
-    const moved = next !== null && next !== this._monthCapacity;
-    if (moved) {
-      Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
-      this._monthCapacity = next;
-    }
-    if (moved || this._weekScrollApplies !== weekScrolled) this.requestUpdate();
+    if (next === null || next === this._monthCapacity) return;
+    Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
+    this._monthCapacity = next;
+    this.requestUpdate();
   }
 
   /**
@@ -6038,7 +5999,6 @@ class CalendarCardPro extends LitElement {
       Boolean(onLink || tapTarget || dayHit || monthPick),
     );
     const swipeable = this._swipeStartsAt(ev);
-    const weekScroll = this._weekScrollStartsAt(ev, path);
     const draftFrom = this._draftAnchorFor(dayHit);
     const moveFrom = press?.lifts ? this._moveFrom(ev, tapTarget, press.path) : undefined;
     // A press where a new event may be drawn has a hold of its own, which draws one, and so does
@@ -6047,18 +6007,11 @@ class CalendarCardPro extends LitElement {
       !onLink &&
       (draftFrom !== undefined || moveFrom !== undefined || this._holdRunsFor(tapTarget));
     // A press arms only when it could end in something: the card's own tap or hold, the
-    // event's own, the day under it, a swipe, or a month's weeks scrolled. Any other press is
-    // left wholly to the browser.
+    // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
     if (
       onLink
-        ? !swipeable && !weekScroll
-        : !this._hasTapAction &&
-          !holds &&
-          !tapTarget &&
-          !dayHit &&
-          !monthPick &&
-          !swipeable &&
-          !weekScroll
+        ? !swipeable
+        : !this._hasTapAction && !holds && !tapTarget && !dayHit && !monthPick && !swipeable
     ) {
       return;
     }
@@ -6077,7 +6030,6 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev, path)?.element ?? null);
     this._pointerHandedTo = press?.handedTo ?? null;
     this._pointerSwipeable = swipeable;
-    this._pointerWeekScroll = weekScroll ? { stepped: 0, pitch: this._weekScrollPitch() } : null;
     this._pointerOnLink = onLink;
     this._pointerDraftFrom = draftFrom ?? null;
     this._move = moveFrom ?? null;
@@ -7233,7 +7185,6 @@ class CalendarCardPro extends LitElement {
       }
     }
 
-    if (this._pointerWeekScroll) this._followWeekScroll(deltaX, deltaY);
     if (this._pointerSwipeable) this._nudgeSwipe(deltaX, deltaY);
   }
 
@@ -7337,8 +7288,7 @@ class CalendarCardPro extends LitElement {
         Actions.handleAction(this, this.config, 'tap', actions, this._shownEntries);
         ranOffEvents = true;
       }
-    } else if (this._pointerSwipeable && !this._pointerWeekScroll?.stepped) {
-      // A gesture that stepped a month's weeks was a vertical one, and pages nothing sideways.
+    } else if (this._pointerSwipeable) {
       const start = this._pointerStart;
       if (start) this._swipeEnded(ev.clientX - start.x, ev.clientY - start.y);
     }
@@ -7413,7 +7363,6 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = null;
     this._pointerHandedTo = null;
     this._pointerSwipeable = false;
-    this._pointerWeekScroll = null;
     this._pointerOnLink = false;
     this._pointerDraftFrom = null;
     this._liftingTouch = false;
@@ -7611,125 +7560,6 @@ class CalendarCardPro extends LitElement {
     const motion = element.animate(keyframes, { duration, easing: 'ease-out' });
     motion.finished?.catch(() => undefined);
     this._swipeMotion = motion;
-  }
-
-  //-----------------------------------------------------------------------------
-  // WEEK SCROLL
-  //-----------------------------------------------------------------------------
-
-  /**
-   * Whether `month → week_scroll` steps a month's rows by whole weeks now: on the wide form only,
-   * never the compact one a phone draws, on a card at least `week_scroll_min_width` wide, not
-   * while Home Assistant edits it, and not while the card's content scrolls a month it is too
-   * short for, whose hidden weeks the wheel and a finger have to reach. Only then does the card
-   * take the wheel and a vertical finger from the page.
-   */
-  private get _weekScrollApplies(): boolean {
-    if (this.effectiveView !== 'month' || this._monthCompact || this._isBeingEdited) return false;
-    if (this._monthContentScrolls) return false;
-    if (!ViewConfig.resolveMonthOption(this.config, 'week_scroll')) return false;
-    const minWidth = ViewConfig.resolveMonthOption(this.config, 'week_scroll_min_width');
-    return minWidth <= 0 || (this._monthWidthPx !== null && this._monthWidthPx >= minWidth);
-  }
-
-  /**
-   * Steps a month's rows by whole weeks, from the page asked for, so steps taken while a page
-   * loads add up: through the date navigation's own path, which goes home where the rows land on
-   * home's, and loads the month-sized piece the rows belong to (`ViewConfig.monthScrollPiece`).
-   *
-   * @param weeks - Weeks forward, or back where negative
-   */
-  private _scrollWeeks(weeks: number): void {
-    if (weeks === 0) return;
-    const from = this._pageRange(this._pageRequested).start;
-    Logger.debug(`Week scroll: ${weeks > 0 ? '+' : ''}${weeks}`);
-    this._goToPage(Paging.addDays(from, weeks * 7));
-  }
-
-  /**
-   * The wheel on a month's weeks while `week_scroll` applies: a week for every
-   * `WEEK_SCROLL_WHEEL_STEP` of vertical scroll, added up across events, a wheel that reports
-   * lines counted at `WEEK_SCROLL_WHEEL_LINE` a line. What falls short of a week is let go after
-   * `WEEK_SCROLL_WHEEL_RESET` at rest or a turn of direction. The page keeps a wheel turned
-   * mostly sideways, one with Ctrl, which is a trackpad's pinch, and every wheel once the scroll
-   * no longer applies; only the wheel the card takes is kept from it.
-   *
-   * @param ev - A wheel event on the weeks
-   */
-  private _wheelWeeks(ev: WheelEvent): void {
-    if (!this._weekScrollApplies || ev.ctrlKey) return;
-    if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
-    ev.preventDefault();
-
-    const step = Constants.UI.WEEK_SCROLL_WHEEL_STEP;
-    const unit =
-      ev.deltaMode === 1 ? Constants.UI.WEEK_SCROLL_WHEEL_LINE : ev.deltaMode === 2 ? step : 1;
-    const delta = ev.deltaY * unit;
-    const now = Date.now();
-    const travel = this._wheelTravel;
-    if (
-      now - travel.at > Constants.TIMING.WEEK_SCROLL_WHEEL_RESET ||
-      Math.sign(delta) !== Math.sign(travel.delta)
-    ) {
-      travel.delta = 0;
-    }
-    travel.at = now;
-    travel.delta += delta;
-    // A hair of give, so three lines of a third of a step each make a step.
-    const weeks = Math.trunc(travel.delta / step + Math.sign(travel.delta) * 1e-9);
-    if (weeks === 0) return;
-    travel.delta -= weeks * step;
-    this._scrollWeeks(weeks);
-  }
-
-  /**
-   * Whether a press may step a month's weeks as its finger moves up or down: a touch or a pen, on
-   * the weeks, while `week_scroll` applies. A mouse has the wheel.
-   *
-   * @param ev - The pointer-down
-   * @param path - The path the press is read from (`_pressPath`)
-   * @returns Whether the gesture it starts may scroll the weeks
-   */
-  private _weekScrollStartsAt(
-    ev: PointerEvent,
-    path: ReadonlyArray<EventTarget> | undefined,
-  ): boolean {
-    if (ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return false;
-    if (!this._weekScrollApplies || !path) return false;
-    return path.some(
-      (node) => node instanceof Element && node.classList.contains('month-container'),
-    );
-  }
-
-  /** How far a finger travels for a month to step one week: a row's height, as drawn. */
-  private _weekScrollPitch(): number {
-    const row = this.renderRoot.querySelector<HTMLElement>('.month-container .month-week');
-    const height = row?.getBoundingClientRect().height ?? 0;
-    return height > 0 ? height : Constants.UI.WEEK_SCROLL_TOUCH_STEP;
-  }
-
-  /**
-   * Steps a month's weeks with a finger moving mostly up or down: a week once it has gone
-   * `SWIPE_MIN_DISTANCE`, and another for each row's height after that, later weeks for a finger
-   * moving up, as a page scrolls. Back where it turns back. Sideways travel steps nothing, and
-   * may still page a month at its end (`_swipeEnded`).
-   *
-   * @param deltaX - Horizontal travel from pointer-down, positive to the right
-   * @param deltaY - Vertical travel, positive downward
-   */
-  private _followWeekScroll(deltaX: number, deltaY: number): void {
-    const scroll = this._pointerWeekScroll;
-    if (!scroll || Math.abs(deltaY) <= Math.abs(deltaX)) return;
-    const travel = Math.abs(deltaY);
-    const steps =
-      travel < Constants.UI.SWIPE_MIN_DISTANCE
-        ? 0
-        : 1 + Math.floor((travel - Constants.UI.SWIPE_MIN_DISTANCE) / scroll.pitch);
-    const weeks = deltaY < 0 ? steps : -steps;
-    if (weeks === scroll.stepped) return;
-    const by = weeks - scroll.stepped;
-    scroll.stepped = weeks;
-    this._scrollWeeks(by);
   }
 
   /**
@@ -8842,7 +8672,6 @@ class CalendarCardPro extends LitElement {
             more: (day, button) => this._openDayPanel(day, button),
             compact: monthCompact,
             focusDay: this._monthTabStop(rowsStart),
-            weekScroll: this._weekScrollApplies ? this._weekScrollWheel : undefined,
           },
         );
       }

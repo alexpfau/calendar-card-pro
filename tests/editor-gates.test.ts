@@ -146,8 +146,6 @@ const MONTH_ONLY = [
   'layout:month.cell_event_font_size',
   'layout:month.cell_time_font_size',
   'layout:month.min_day_width',
-  'layout:month.week_scroll',
-  'layout:month.week_scroll_min_width',
 ];
 
 /**
@@ -323,7 +321,6 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'weather.date.show_uv_index': [undefined, true, false],
   'weather.event.show_uv_index': [undefined, true, false],
   'weather.event.show_conditions': [undefined, true, false],
-  'month.week_scroll': [undefined, true, false],
   event_tap_action: ACTIONS,
   event_hold_action: ACTIONS,
   start_date: [undefined, '2026-01-01', 'today+7', '+3', '-1'],
@@ -876,12 +873,13 @@ describe('the universe', () => {
     // shadings and the two font sizes of its days. Then weather became each layout's own: Layout
     // Defaults lost the layout's eighteen weather settings and a calendar's Show Weather, keeping
     // the entity, and Month lost the eight of the forecast beside the days it has no header for.
+    // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped.
     expect(sizes).toEqual({
       shared: { card: 135, calendar: 27 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 133, calendar: 27 },
+      month: { card: 131, calendar: 27 },
     });
   });
 
@@ -1235,11 +1233,6 @@ describe('the gate table', () => {
         kind: 'mode-value',
         fields: ['layout:card_max_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
-      },
-      week_scroll: {
-        kind: 'gate',
-        fields: ['layout:month.week_scroll_min_width'],
-        requires: [p('layout:month.week_scroll', true, ON)],
       },
       accent: {
         kind: 'mode-value',

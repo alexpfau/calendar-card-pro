@@ -7959,23 +7959,6 @@ export const cardStyles = css`
     );
   }
 
-  /* While month -> week_scroll applies, the weeks take a vertical finger from the page as well as
-     a sideways one, so it steps them a week at a time; pinch zoom stays. Where no swipe pages the
-     card, the page keeps its sideways pan. Declared on every element of the weeks, as the swipe's
-     own restriction is, which these outrank. The first declaration of each pair is the fallback
-     for a browser that does not know pinch-zoom. */
-  .month-container.week-scroll,
-  .month-container.week-scroll * {
-    touch-action: pan-x;
-    touch-action: pan-x pinch-zoom;
-  }
-
-  ha-card.swipe-paging .content-container .month-container.week-scroll,
-  ha-card.swipe-paging .content-container .month-container.week-scroll * {
-    touch-action: none;
-    touch-action: pinch-zoom;
-  }
-
   .month-day:first-child {
     border-inline-start: none;
   }

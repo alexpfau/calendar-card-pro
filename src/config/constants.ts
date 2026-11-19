@@ -200,12 +200,6 @@ export const TIMING = {
   SEARCH_RING: 2000,
 
   /**
-   * How long the wheel rests before what it scrolled short of a month's next week is let go, so a
-   * notch of a wheel that reports a little more than a step never adds up to a week of its own.
-   */
-  WEEK_SCROLL_WHEEL_RESET: 200,
-
-  /**
    * How long the reset button takes to fade out after its check, still showing the check. The
    * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
    */
@@ -375,26 +369,6 @@ export const UI = {
    * and 8px gap.
    */
   MONTH_SECTIONS_ROWS: 10,
-
-  /**
-   * How far the wheel or a trackpad scrolls, in CSS pixels, for a month to step one week while
-   * `week_scroll` applies (`_wheelWeeks`): one notch of a mouse wheel, which Chromium and Safari
-   * report as 100px, so a notch is a week and a trackpad steps a week every 100px of its glide.
-   */
-  WEEK_SCROLL_WHEEL_STEP: 100,
-
-  /**
-   * How many CSS pixels a wheel line is counted as, for a browser that reports the wheel in lines,
-   * as Firefox does three to a notch: a third of a step, so a notch steps one week there too.
-   */
-  WEEK_SCROLL_WHEEL_LINE: 100 / 3,
-
-  /**
-   * How far a finger travels up or down a month for it to step one week while `week_scroll`
-   * applies, where the card has not measured its rows: about a week's height at the default card
-   * height. Measured, a week is a row's own height, so the weeks keep pace with the finger.
-   */
-  WEEK_SCROLL_TOUCH_STEP: 112,
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

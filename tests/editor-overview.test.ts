@@ -320,7 +320,7 @@ describe('Layouts and the preview', () => {
       empty_day_text: '',
       list: { day_spacing: '12px' },
       time_grid: { start_time: '07:00', end_time: '21:00', hour_height: null },
-      month: { min_day_width: 90, week_scroll: null },
+      month: { min_day_width: 90, cell_event_font_size: null },
     };
     const counts = Object.fromEntries(
       WORKSPACES.map((workspace) => [workspace, storedCount(raw, workspace)]),

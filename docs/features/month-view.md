@@ -16,8 +16,8 @@ view: month
 
 In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
 row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
-change how the month looks, such as week scrolling under **Which Events → Wheel & Swipe**. Its
-height is set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
+change how the month looks, such as its weekend and today shading under **Days**. Its height is
+set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 
 ## 📅 The Six Weeks
 
@@ -141,8 +141,6 @@ Height** and **Compact Maximum Height** on Month's Size & Spacing.
   the wide month at it.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
   scrolls rather than any text shrinking, so every day still shows its date and "+N more".
-  [`week_scroll`](#scrolling-by-weeks) stands down while it does, so the wheel reaches the hidden
-  weeks.
 - **`height` and `max_height` do not apply.** They size the events area of the other layouts;
   a month takes its height from the four above.
 
@@ -260,31 +258,6 @@ month selects the day. Each day is announced with its full date and how many eve
 
 The events in a wide month's days are not stops of their own, so a busy month does not hold
 hundreds of them; the day's list reaches each one.
-
-## 🖱️ Scrolling by Weeks
-
-`week_scroll` lets the mouse wheel, a trackpad or a vertical swipe move the month a week at a
-time, rather than scroll the dashboard. It is off by default, because it takes those gestures
-from the page:
-
-```yaml
-view: month
-month:
-  week_scroll: true
-  week_scroll_min_width: 700 # a wall tablet scrolls, a phone in landscape does not
-```
-
-| Option                          | Type    | Default | Description                                                                  |
-| ------------------------------- | ------- | ------- | ---------------------------------------------------------------------------- |
-| `month → week_scroll`           | boolean | `false` | Move the weeks a week at a time by the wheel, a trackpad or a vertical swipe |
-| `month → week_scroll_min_width` | number  | `0`     | Narrowest card, in pixels, it applies to; `0` applies it at any width        |
-
-- It never applies to the [compact month](#the-compact-month), or while the card is being
-  edited.
-- After a scroll the heading follows its rule, the arrows step from the heading's month, and
-  the home button returns to the month the card opens with.
-- Scrolled weeks are loaded a month at a time, so a long scroll does not ask Home Assistant for
-  every week on its own.
 
 ## 🔢 Week Numbers
 

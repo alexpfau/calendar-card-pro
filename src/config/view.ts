@@ -325,8 +325,8 @@ export const MONTH_OVERRIDE_KEYS = [
 
 /**
  * Month-only options: the whole card's height and its cap, wide and compact, the day width below
- * which the compact form draws, week scrolling, the weekend's and today's tints, which are Grid's,
- * and the font sizes of the wide month's days.
+ * which the compact form draws, the weekend's and today's tints, which are Grid's, and the font
+ * sizes of the wide month's days.
  */
 export const MONTH_ONLY_KEYS = [
   'card_height',
@@ -334,8 +334,6 @@ export const MONTH_ONLY_KEYS = [
   'compact_card_height',
   'compact_card_max_height',
   'min_day_width',
-  'week_scroll',
-  'week_scroll_min_width',
   'weekend_background_color',
   'today_background_color',
   'cell_event_font_size',
@@ -1149,9 +1147,7 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
  * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
  * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
- * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`). Week scrolling takes
- * wheel and swipe gestures from the page, so it ships off, and `week_scroll_min_width: 0` applies
- * it at any card width once it is on.
+ * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`).
  *
  * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
  * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme
@@ -1166,8 +1162,6 @@ export const MONTH_DEFAULTS = {
   card_height: 'auto',
   card_max_height: 'none',
   min_day_width: 80,
-  week_scroll: false,
-  week_scroll_min_width: 0,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
   cell_event_font_size: '13px',
@@ -1178,11 +1172,7 @@ export const MONTH_DEFAULTS = {
  * Value type a month-only option resolves to, derived from {@link MONTH_DEFAULTS}.
  */
 type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
-  (typeof MONTH_DEFAULTS)[K] extends boolean
-    ? boolean
-    : (typeof MONTH_DEFAULTS)[K] extends number
-      ? number
-      : string;
+  (typeof MONTH_DEFAULTS)[K] extends number ? number : string;
 
 /**
  * Normalizes a month-only option to a usable value of its declared type.
@@ -1191,9 +1181,8 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
  * reason {@link normalizeColumnValue} gives. The card's height and cap take `auto` and `none` as
  * well, and fold anything else that is not a length to them. `min_day_width` is a width above
- * zero, and `week_scroll_min_width` any width from zero, which means no limit. The two tints take
- * any string, as Grid's do ({@link normalizeTimeGridValue}), and the two cell sizes any font size
- * the card's own take.
+ * zero. The two tints take any string, as Grid's do ({@link normalizeTimeGridValue}), and the two
+ * cell sizes any font size the card's own take.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1202,23 +1191,12 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
 export function normalizeMonthValue(
   key: keyof typeof MONTH_DEFAULTS,
   value: unknown,
-): string | number | boolean {
+): string | number {
   const fallback = MONTH_DEFAULTS[key];
-
-  if (typeof fallback === 'boolean') {
-    return typeof value === 'boolean' ? value : fallback;
-  }
 
   if (typeof fallback === 'number') {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
-    if (!Number.isFinite(parsed)) return fallback;
-    return key === 'week_scroll_min_width'
-      ? parsed >= 0
-        ? parsed
-        : fallback
-      : parsed > 0
-        ? parsed
-        : fallback;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
   // Font sizes, judged as the card's own are, and folded to the block's default.
@@ -3345,30 +3323,6 @@ export function monthHomeRowsStart(start: Date, firstDayOfWeek: number): Date {
 }
 
 /**
- * The weeks one load holds for a month page while `week_scroll` is on: every row whose last day
- * falls in one month, and the five rows under the last of them. So a page scrolled to any of
- * that month's rows draws from the same load, and a scroll through the weeks asks once a month,
- * not once a week. A row belongs to the month its last day falls in, so the month's own home
- * rows (`monthHomeRowsStart`) are its first.
- *
- * @param rows - A page's first row's first day
- * @param firstDayOfWeek - First day of the week, 0 for Sunday
- * @returns The first day loaded, and the day after the last
- */
-export function monthScrollPiece(
-  rows: Date,
-  firstDayOfWeek: number,
-): { start: Date; end: Date; next: Date } {
-  const last = addDays(monthRowsStart(rows, firstDayOfWeek), 6);
-  const start = monthHomeRowsStart(last, firstDayOfWeek);
-  const next = monthHomeRowsStart(
-    new Date(last.getFullYear(), last.getMonth() + 1, 1),
-    firstDayOfWeek,
-  );
-  return { start, end: addDays(next, MONTH_DAYS - 7), next };
-}
-
-/**
  * Whether month is one of the views the card can show (`reachableViews`), which widens its
  * load to the month's weeks.
  *
@@ -3398,10 +3352,6 @@ export function reachesMonth(config: Types.Config): boolean {
  * they stay put while the union moves with the month and the other views' end. All of it is
  * counted in local calendar days.
  *
- * With `month → week_scroll` on, a page's load is the month-sized piece its rows belong to
- * (`monthScrollPiece`), the other views' days from any of those rows included, so every page a
- * scroll passes through in one month shares a load. Home's stays its own month's weeks.
- *
  * Never draw from it: its top-level `start_date` and `days_to_show` are the load, not any
  * view's.
  *
@@ -3430,22 +3380,6 @@ export function loadConfig(
     ? monthHomeRowsStart(window.start, firstDayOfWeek)
     : monthRowsStart(window.start, firstDayOfWeek);
   const others = views.some((view) => view !== 'month');
-
-  if (!home && resolveMonthOption(config, 'week_scroll')) {
-    // Any page whose rows belong to the piece starts on or after its first day, and any other
-    // view's days from one end at most `days` after the last day of the piece's last row.
-    const piece = monthScrollPiece(rows, firstDayOfWeek);
-    const othersEnd = addDays(piece.next, days - 1);
-    const until =
-      others && Number.isFinite(days) && calendarDayDiff(piece.end, othersEnd) > 0
-        ? othersEnd
-        : piece.end;
-    return {
-      ...config,
-      start_date: localDateKey(piece.start),
-      days_to_show: calendarDayDiff(piece.start, until),
-    };
-  }
 
   const rowsEnd = addDays(rows, MONTH_DAYS);
   const from = others && calendarDayDiff(window.start, rows) > 0 ? window.start : rows;

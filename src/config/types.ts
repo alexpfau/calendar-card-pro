@@ -788,12 +788,6 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   /** Day-cell width in pixels below which the month draws its compact form. */
   min_day_width?: number;
 
-  /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
-  week_scroll?: boolean;
-
-  /** Card width in pixels from which `week_scroll` applies; `0` for any width. */
-  week_scroll_min_width?: number;
-
   /**
    * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
    * its date and events, a neighboring month's day included.

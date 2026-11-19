@@ -52,8 +52,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
-  // Taps & Refresh's heading for Month's week scrolling: what a wheel or a swipe does.
-  'heading.wheel_and_swipe': 'Wheel & Swipe',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -1092,13 +1090,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'month.density.helper':
     'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
   'month.min_day_width': 'Minimum Day Width',
-  'month.week_scroll': 'Week Scrolling',
-  'month.week_scroll.helper':
-    'The wheel, a trackpad or a vertical swipe then moves the weeks rather than the dashboard, ' +
-    'except in the compact month.',
-  'month.week_scroll_min_width': 'Minimum Card Width',
-  'month.week_scroll_min_width.helper':
-    'Narrower cards leave the wheel and swipes to the dashboard; 0 means any width.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
