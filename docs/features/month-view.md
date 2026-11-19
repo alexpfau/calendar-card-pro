@@ -207,9 +207,10 @@ again only a little past the width it turned compact at, so a card on the edge d
 between the two.
 
 - **Choosing a day:** a tap selects it. The month opens with today selected, or a fixed
-  `start_date` such as `2027-01-15`. Paging selects today where the heading's month holds it, and
-  otherwise the 1st, and the home and [reset](/features/layout-appearance#resetting-the-card)
-  buttons go back to the day the month opens with.
+  `start_date` such as `2027-01-15`. Paging to another month selects today where the heading's
+  month holds it, and otherwise the 1st, and the home and
+  [reset](/features/layout-appearance#resetting-the-card) buttons go back to the day the month
+  opens with.
 - **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
   name over its list. A tap on a day only selects it.

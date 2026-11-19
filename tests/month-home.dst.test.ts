@@ -339,6 +339,26 @@ describe('the day a compact month selects at home', () => {
     await settle(card);
   }
 
+  it('is what Reset brings back for a fixed date, and counts as something to reset', async () => {
+    vi.setSystemTime(new Date(2026, 10, 18, 10));
+    const card = await mount(
+      { start_date: '2027-01-15', toolbar: { ...NAVIGATION, reset: true } },
+      360,
+    );
+    const reset = () => root(card).querySelector<HTMLButtonElement>('.reset-button')!;
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+    await select(card, '2027-01-01');
+    expect(listed(card)).toContain('January 1, 2027');
+    expect(reset().getAttribute('aria-disabled')).toBeNull();
+    reset().click();
+    await settle(card);
+    expect(listed(card)).toContain('January 15, 2027');
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+    // Selecting the fixed date is no change from what the card shows by itself.
+    await select(card, '2027-01-15');
+    expect(reset().getAttribute('aria-disabled')).toBe('true');
+  });
+
   it.each([
     // A fixed date in another month: that day, not the month's 1st.
     ['a fixed date in a later month', new Date(2026, 10, 18, 10), '2027-01-15', 'January 15, 2027'],
