@@ -732,7 +732,7 @@ describe('moving a calendar Split This Calendar made two of', () => {
     expect(tagged).toEqual([BEN, BEN]);
     expect(shown(editor)).toEqual(['Anna', 'Ben']);
 
-    // What This Card Changes lists Ben's parts at their new places.
+    // Stored Settings lists Ben's parts at their new places.
     await press(editor, 'more:audit');
     const paths = [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-audit]')].map(
       (row) => row.dataset.audit!,

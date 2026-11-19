@@ -605,6 +605,7 @@ function readRegistryKeys(editor) {
     helper(def.helperKey, `${where}, its helper line`);
     name(named, def.crossLink?.textKey, `${where}, its cross-link`);
     name(named, def.pointer?.textKey, `${where}, its pointer`);
+    name(named, def.layoutLinks?.textKey, `${where}, its layout links`);
   };
 
   name(titles, CALENDARS_BLOCK.titleKey, 'the Calendars block');
@@ -614,6 +615,7 @@ function readRegistryKeys(editor) {
       name(named, `${page.titleKey}.aliases`, `page ${page.id}, its search words`);
     }
     name(named, page.noteKey, `page ${page.id}, its note`);
+    name(named, page.descriptionKey, `page ${page.id}, its row's description`);
     page.headings.forEach((def, index) => heading(def, `page ${page.id}, heading ${index}`));
   }
   ENTRY_GROUPS.forEach((def, index) => heading(def, `calendar entry group ${index}`));

@@ -155,7 +155,7 @@ afterEach(() => {
 });
 
 describe('a row', () => {
-  it('says what the entry does in at most two parts, then what it sets', async () => {
+  it('says what the entry does in at most two parts, and never how many settings it holds', async () => {
     const editor = await mount([
       { entity: ANNA, blocklist: 'Homework|Chores', label: '🎒', name: 'Anna' },
       { entity: BEN, event_type: 'timed', allowlist: 'School|PTA', days_of_week: 'weekdays' },
@@ -164,23 +164,17 @@ describe('a row', () => {
     ]);
 
     expect(rows(editor)).toEqual([
-      ['Edit Anna, Without: Homework, Chores, Set: 3', 'Without: Homework, Chores · Set: 3'],
-      [
-        'Edit Ben, Events with a time, Only: School, PTA, Set: 3',
-        'Events with a time · Only: School, PTA · Set: 3',
-      ],
-      [
-        'Edit Leo, Weekend days, Expires at 18:00, Set: 2',
-        'Weekend days · Expires at 18:00 · Set: 2',
-      ],
-      ['Edit Family, Shown under conditions, Set: 1', 'Shown under conditions · Set: 1'],
+      ['Edit Anna, Without: Homework, Chores', 'Without: Homework, Chores'],
+      ['Edit Ben, Events with a time, Only: School, PTA', 'Events with a time · Only: School, PTA'],
+      ['Edit Leo, Weekend days, Expires at 18:00', 'Weekend days · Expires at 18:00'],
+      ['Edit Family, Shown under conditions', 'Shown under conditions'],
     ]);
   });
 
-  it('says "All events" and "Set: 0" for a bare calendar', async () => {
+  it('says "All events" for a bare calendar', async () => {
     const editor = await mount([ANNA]);
 
-    expect(rows(editor)).toEqual([['Edit Anna, All events, Set: 0', 'All events · Set: 0']]);
+    expect(rows(editor)).toEqual([['Edit Anna, All events', 'All events']]);
   });
 
   it('names an entry of a calendar listed twice with its parts and its position', async () => {
@@ -192,9 +186,9 @@ describe('a row', () => {
     const [first, , third] = keysOf(editor, 'entry');
 
     expect(rows(editor).map(([name]) => name)).toEqual([
-      'Edit Family, entry 1 of 2, All-day events, Set: 1',
-      'Edit Family, entry 2 of 2, Events with a time, Without: Private, Set: 2',
-      'Edit Anna, All events, Set: 0',
+      'Edit Family, entry 1 of 2, All-day events',
+      'Edit Family, entry 2 of 2, Events with a time, Without: Private',
+      'Edit Anna, All events',
     ]);
     expect(control(editor, `more:entry:${first}`)?.getAttribute('aria-label')).toBe(
       'Actions for Family, entry 1, All-day events',
@@ -437,7 +431,7 @@ describe('focus and announcements', () => {
 describe('a calendar Home Assistant no longer has', () => {
   it('warns on its row and its page, and the warning clears with a new hass alone', async () => {
     const editor = await mount([ANNA], {});
-    expect(rows(editor)[0][1]).toBe('Not found in Home Assistant · All events · Set: 0');
+    expect(rows(editor)[0][1]).toBe('Not found in Home Assistant · All events');
     await goEntry(editor, keysOf(editor, 'entry')[0]);
     const warning = () =>
       editor.shadowRoot!.querySelector('.entry-page .entry-notice.warning')?.textContent?.trim();
@@ -449,7 +443,7 @@ describe('a calendar Home Assistant no longer has', () => {
 
     expect(warning()).toBeUndefined();
     await press(editor, 'back-top');
-    expect(rows(editor)[0][1]).toBe('All events · Set: 0');
+    expect(rows(editor)[0][1]).toBe('All events');
   });
 });
 
@@ -563,7 +557,7 @@ describe('Filter Calendars', () => {
     filter.dispatchEvent(new Event('input'));
     await editor.updateComplete;
     expect(rows(editor).map(([name]) => name)).toEqual([
-      `Edit ${EIGHT[7]}, Not found in Home Assistant, Without: Chores, Set: 1`,
+      `Edit ${EIGHT[7]}, Not found in Home Assistant, Without: Chores`,
     ]);
 
     filter.value = 'c3';

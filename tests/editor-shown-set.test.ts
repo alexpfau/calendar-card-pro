@@ -122,9 +122,9 @@ describe('every setting on a fresh card', () => {
     const present = buildFieldIndex(schemaCtx(held, 'list', 'en')).fields;
     const placed = PAGES.find((page) => page.id === 'events')!
       .headings.flatMap((heading) => heading.fields)
-      .filter(([id]) => present.has(id));
+      .filter(([id, appearance]) => present.has(id) && appearance !== 'reference');
     // Every setting that applies is drawn: as a chip, or under a head row of its own, except a
-    // color's value, which its mode's control holds.
+    // color's value, which its mode's control holds. A reference, Time Format's, opens its home.
     const missing = placed.map(([id]) => id).filter((id) => !live(editor).includes(id));
     expect(missing).toEqual(['events:accent_color']);
     expect(editor.shadowRoot!.querySelectorAll('.add-row, .add-toggle')).toHaveLength(0);
@@ -369,7 +369,8 @@ describe('state words, by where they are drawn', () => {
   });
 
   it('draw nothing at a default, and say a whole-card setting’s scope in words', async () => {
-    const id = 'content:first_day_of_week';
+    // A whole-card setting drawn on a layout's topic, as the day's colors are.
+    const id = 'day_header:weekday_color';
     const head = (editor: MountedEditor) => $(editor, `[data-setting="${id}"] > .setting-head`)!;
     const fresh = await mount({ view: 'grid' });
     await openPageOf(fresh, id);
@@ -379,7 +380,7 @@ describe('state words, by where they are drawn', () => {
     expect(factsOf(fresh, id)).toEqual(['Whole Card']);
     expect(head(fresh).querySelectorAll('.setting-facts button')).toHaveLength(0);
 
-    const stored = await mount({ view: 'grid', first_day_of_week: 'monday' });
+    const stored = await mount({ view: 'grid', weekday_color: '#c62828' });
     await openPageOf(stored, id);
     expect(stateWordOf(stored, id)).toBe('Set');
     expect(factsOf(stored, id)).toEqual(['Set', 'Whole Card']);
@@ -426,10 +427,11 @@ describe('state words, by where they are drawn', () => {
     expect(reset.textContent?.trim()).toBe('Reset (Today)');
     expect(reset.getAttribute('aria-label')).toBe('Reset Start Date to Today');
     // One short button right after Set, among the facts: no mark, no outcome sentence beside it.
+    // At home on a Whole Card page, nothing says Whole Card.
     const line = reset.closest('.setting-facts')!;
     expect(line.querySelector('.mark, .outcome')).toBeNull();
     expect([...line.children].map((each) => each.textContent?.replace(/\s+/g, ' ').trim())).toEqual(
-      ['Set', 'Reset (Today)', 'Whole Card'],
+      ['Set', 'Reset (Today)'],
     );
 
     await click(editor, '[data-focus="reset:content:start_date_mode"]');
@@ -841,7 +843,7 @@ describe('the review’s findings', () => {
     // On its page, focus goes to its heading, which stays.
     const focused = editor.shadowRoot!.activeElement;
     expect(focused?.isConnected).toBe(true);
-    expect(focused?.textContent?.trim()).toBe('Date Range');
+    expect(focused?.textContent?.trim()).toBe('Which Events');
   });
 
   it('opens a setting on one calendar’s page, and leaves another calendar’s folded', async () => {

@@ -407,16 +407,3 @@ export function sameEventsAs(state: ListState, index: number): number | undefine
     );
   return at < 0 ? undefined : at + 1;
 }
-
-/**
- * How many settings an entry stores: every option it holds other than its id.
- *
- * @param entry - The entry as stored
- * @returns The count, zero for a bare id
- */
-export function setCount(entry: Entry): number {
-  if (entry === null || typeof entry !== 'object') return 0;
-
-  return Object.entries(entry).filter(([key, value]) => key !== 'entity' && value !== undefined)
-    .length;
-}

@@ -336,9 +336,9 @@ describe('the filter switch in the rendered editor', () => {
     // rather than for a hang.
   }, 30_000);
 
-  it("heads a calendar's row with its name, and counts the switch as a setting of its own", async () => {
-    // The name heads the row in place of Home Assistant's; the switch is a setting of its own,
-    // so Anna's row counts one more than Ben's, which holds the name alone.
+  it("heads a calendar's row with its name", async () => {
+    // The name heads the row in place of Home Assistant's; the row names the events the entry
+    // keeps, never how many settings it stores.
     const editor = await render(
       [
         { entity: ANNA, name: 'Anna at work', show_in_legend: false },
@@ -352,8 +352,8 @@ describe('the filter switch in the rendered editor', () => {
     ]);
 
     expect(rows).toEqual([
-      ['Anna at work', 'All events · Set: 2'],
-      ['Ben at school', 'All events · Set: 1'],
+      ['Anna at work', 'All events'],
+      ['Ben at school', 'All events'],
     ]);
   });
 

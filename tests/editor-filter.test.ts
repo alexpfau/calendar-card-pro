@@ -322,9 +322,8 @@ describe('editor filter: the chassis', () => {
   it('shows results in place of the page rows', async () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    // A row per Whole Card page and Shared Across Layouts before; a row per result after, and no
-    // page row.
-    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size + 1);
+    // A row per Whole Card page before; a row per result after, and no page row.
+    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 

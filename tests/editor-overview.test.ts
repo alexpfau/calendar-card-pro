@@ -19,25 +19,12 @@ import {
   resultRows,
   searchFor,
 } from './helpers/editor-host';
-import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
-import type * as Types from '../src/config/types';
-import { buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
-import { PAGES, type PageDef, placementOf } from '../src/rendering/editor/pages';
+import { CURRENT_CONFIG_VERSION } from '../src/config/config';
+import { PAGES } from '../src/rendering/editor/pages';
 import { isFreshCard } from '../src/rendering/editor/quick-setup';
-import { workspaceFormData } from '../src/rendering/editor/routing';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import styles from '../src/rendering/editor/styles';
-import { SUMMARY_SEPARATOR, pageStoredCount, summaryParts } from '../src/rendering/editor/summary';
-import { type EditorWorkspace, WORKSPACES, storedCount } from '../src/rendering/editor/workspace';
-
-/**
- * A configuration as the editor holds it: the YAML merged over the card's defaults.
- *
- * @param raw - The YAML
- * @returns The merged configuration
- */
-function merged(raw: Record<string, unknown>): Types.Config {
-  return { ...DEFAULT_CONFIG, ...raw } as Types.Config;
-}
+import { WORKSPACES, storedCount } from '../src/rendering/editor/workspace';
 
 const LIST_CARD = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'], view: 'list' };
 
@@ -72,14 +59,13 @@ describe('Layouts and the preview', () => {
     ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
     expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
     expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
-    // Whole Card's rows: its pages, then the shared settings. Weather is each layout's topic.
+    // Whole Card's rows: its three pages, each saying what it holds.
     const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
     expect(
       [...whole.querySelectorAll('.nav-row')].map((row) => row.getAttribute('data-focus')),
-    ).toEqual(['nav:card_header', 'nav:taps_refresh', 'nav:shared']);
-    // Card & Header names the layout switcher, the thing a layout's status no longer says.
-    expect(text($(editor, '[data-focus="nav:card_header"] .nav-summary'))).toMatch(
-      /Layout Switcher: List, Grid, Month$/,
+    ).toEqual(['nav:card_header', 'nav:events_weather_language', 'nav:taps_refresh']);
+    expect(text($(editor, '[data-focus="nav:card_header"] .nav-summary'))).toBe(
+      'Title, colors and toolbar controls',
     );
     expect($(editor, '.scope-compact')).toBeNull();
     expect($(editor, 'input[name="scope"]')).toBeNull();
@@ -154,13 +140,25 @@ describe('Layouts and the preview', () => {
       'nav:size_spacing',
       'nav:weather',
     ]);
-    // Which Events counts Grid's own hours here, and nothing of Grid's under another layout.
+    // Each topic says what it holds, the same in every layout, whatever the layout stores.
     const hours = await mountEditor({ ...THREE, time_grid: { start_time: '07:00' } });
     await press(hours, 'layout:grid');
-    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toMatch(/Set: 1$/);
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toBe(
+      'Days to show, filters and empty days',
+    );
     await press(hours, 'back-top');
     await press(hours, 'layout:column');
-    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).not.toMatch(/Set:/);
+    expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toBe(
+      'Days to show, filters and empty days',
+    );
+    // Layout Defaults lists four: no forecast setting has a top level.
+    await press(hours, 'back-top');
+    await press(hours, 'layout:shared');
+    expect(
+      [...hours.shadowRoot!.querySelectorAll('.layout-page .nav-row')].map((row) =>
+        row.getAttribute('data-focus'),
+      ),
+    ).toEqual(['nav:which_events', 'nav:day_header', 'nav:events', 'nav:size_spacing']);
   });
 
   it('names a topic’s layout, jumps to the same topic in another, and walks on', async () => {
@@ -168,6 +166,8 @@ describe('Layouts and the preview', () => {
     await press(editor, 'layout:grid');
     await press(editor, 'nav:events');
     expect(text($(editor, '.page-sub'))).toBe('Grid');
+    // Moving by heading names the layout too.
+    expect($(editor, '.page-title')!.getAttribute('aria-label')).toBe('Event Appearance, Grid');
     expect(text($(editor, '.also-for'))).toBe('Also for: List · Columns · Month · Layout Defaults');
     expect(text($(editor, '[data-focus="continue"]'))).toBe('Continue with Grid · Size & Spacing');
     expect(previewed(editor)).toBe('grid');
@@ -185,6 +185,8 @@ describe('Layouts and the preview', () => {
     await press(editor, 'continue');
     expect(text($(editor, '.page-sub'))).toBe('Columns');
     expect(text($(editor, '.page-title'))).toBe('Weather');
+    // Layout Defaults has no Weather to jump to.
+    expect(text($(editor, '.also-for'))).toBe('Also for: List · Grid · Month');
     await press(editor, 'continue');
     expect(text($(editor, '.page-sub'))).toBe('Grid');
     expect(text($(editor, '.page-title'))).toBe('Which Events');
@@ -259,27 +261,97 @@ describe('Layouts and the preview', () => {
     expect($(grid, compact)).toBeNull();
   });
 
-  it('gathers the whole-card settings of the topics on Shared Across Layouts, composed ones too', async () => {
-    const editor = await mountEditor(THREE);
-    await press(editor, 'nav:shared');
-    expect(text($(editor, '.page-title'))).toBe('Shared Across Layouts');
+  it('gathers the whole card’s own events, forecast and conventions on one page', async () => {
+    const editor = await mountEditor({ ...THREE, first_day_of_week: 'monday' });
+    await press(editor, 'nav:events_weather_language');
+    expect(text($(editor, '.page-title'))).toBe('Events, Weather & Language');
+    expect(text($(editor, '.page-sub'))).toBe('Whole Card');
+    expect(
+      [...editor.shadowRoot!.querySelectorAll('.page-group[data-heading]')].map((group) =>
+        text(group.querySelector('.heading')),
+      ),
+    ).toEqual(['Which Events', 'Forecast', 'Format & Language']);
     expect(
       $(editor, '[data-field="content:start_date_mode"][data-composed="chips"]'),
     ).not.toBeNull();
-    expect($(editor, '[data-setting="content:first_day_of_week"]')).not.toBeNull();
-    expect($(editor, '[data-setting="events:event_font_size"]')).toBeNull();
-    // The page says once that they are the whole card's; its settings do not repeat it.
+    for (const id of [
+      'content:event_type',
+      'content:hide_when_empty',
+      'weather:weather_entity',
+      'content:first_day_of_week',
+      'content:time_format',
+      'content:language_mode',
+    ]) {
+      expect($(editor, `[data-setting="${id}"]`), id).not.toBeNull();
+    }
+    // The page is the whole card's, so none of its settings says so.
     expect(
       [...editor.shadowRoot!.querySelectorAll('.fact')].some((fact) => text(fact) === 'Whole Card'),
     ).toBe(false);
-    // On a layout's topic, the same setting says it is the whole card's.
+    // Days To Show is each layout's own: the line names the layouts this card shows that count
+    // days. The forecast's names every layout the card shows, an entity or none.
+    expect([...editor.shadowRoot!.querySelectorAll('.layout-links')].map(text)).toEqual([
+      'Days to show, per layout: List · Grid',
+      'Show the forecast in: List · Grid · Month',
+    ]);
+    expect(
+      $(editor, '[data-focus="links:content:days_to_show:grid"]')!.getAttribute('aria-label'),
+    ).toBe('Days To Show in Grid');
+    // With no entity, a forecast link opens that layout's Weather at the entity it needs first.
+    await press(editor, 'links:weather:weather.position:month');
+    expect(text($(editor, '.page-title'))).toBe('Weather');
+    expect(text($(editor, '.page-sub'))).toBe('Month');
+    expect(
+      editor.shadowRoot!.activeElement?.closest('[data-field]')?.getAttribute('data-field'),
+    ).toBe('weather:weather_entity');
     await goOverview(editor);
+    await press(editor, 'nav:events_weather_language');
+    await press(editor, 'links:content:days_to_show:grid');
+    expect(text($(editor, '.page-title'))).toBe('Which Events');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    // With one, it opens the layout's Show The Forecast, which choosing the entity here leaves off.
+    const weather = await mountEditor({ ...THREE, weather_entity: 'weather.home' });
+    await press(weather, 'nav:events_weather_language');
+    await press(weather, 'links:weather:weather.position:month');
+    expect(text($(weather, '.page-title'))).toBe('Weather');
+    expect(text($(weather, '.page-sub'))).toBe('Month');
+    expect(
+      weather.shadowRoot!.activeElement?.closest('[data-field]')?.getAttribute('data-field'),
+    ).toBe('weather:weather.position');
+  });
+
+  it('names a whole-card setting on a topic by a row that opens it at home', async () => {
+    const editor = await mountEditor({ ...THREE, first_day_of_week: 'monday' });
     await press(editor, 'layout:grid');
     await press(editor, 'nav:day_header');
-    const facts = [
-      ...editor.shadowRoot!.querySelectorAll('[data-setting="content:first_day_of_week"] .fact'),
-    ].map(text);
-    expect(facts).toContain('Whole Card');
+    const reference = '[data-focus="reference:content:first_day_of_week"]';
+    expect($(editor, reference)!.getAttribute('aria-label')).toBe(
+      'First Day Of Week: Monday. Whole Card. Opens Events, Weather & Language',
+    );
+    expect(text($(editor, '[data-reference="content:first_day_of_week"] .setting-facts'))).toBe(
+      'Whole Card · Events, Weather & Language',
+    );
+    // Its field is at home alone, so search's landing and Pick From Preview find it there.
+    expect($(editor, '[data-field="content:first_day_of_week"]')).toBeNull();
+    await press(editor, 'reference:content:first_day_of_week');
+    expect(text($(editor, '.page-title'))).toBe('Events, Weather & Language');
+    expect(
+      editor.shadowRoot!.activeElement?.closest('[data-setting]')?.getAttribute('data-setting'),
+    ).toBe('content:first_day_of_week');
+    // Back returns to the row on Grid's Days.
+    await press(editor, 'back-top');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(
+      'reference:content:first_day_of_week',
+    );
+    // Start Date stays editable beside Days To Show, and says it is the whole card's.
+    await goOverview(editor);
+    await press(editor, 'layout:grid');
+    await press(editor, 'nav:which_events');
+    const chips = $(editor, '[data-field="content:start_date_mode"][data-composed="chips"]')!;
+    expect([...chips.querySelectorAll('.fact')].map(text)).toContain('Whole Card');
+    expect($(editor, '[data-reference="content:event_type"]')).not.toBeNull();
+    expect($(editor, '[data-reference="content:hide_when_empty"]')).not.toBeNull();
   });
 
   it('positions the box around every input it hides, so focusing one scrolls nothing', () => {
@@ -547,128 +619,44 @@ describe('Quick Setup banner', () => {
   });
 });
 
-describe('section row summaries', () => {
-  it('names only fields placed on their own page', () => {
-    for (const page of PAGES) {
-      expect(page.summary.length).toBeGreaterThan(0);
-      for (const id of page.summary) expect(placementOf(id)?.page, id).toBe(page.id);
-    }
+describe('section row descriptions', () => {
+  const rows = (editor: Element): string[][] =>
+    [...editor.shadowRoot!.querySelectorAll('.overview .nav-row')].map((row) => [
+      row.getAttribute('data-focus') ?? '',
+      row.querySelector('.nav-summary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    ]);
+
+  it('describes every page', () => {
+    for (const page of PAGES) expect(EDITOR_STRINGS[page.descriptionKey], page.id).toBeTruthy();
   });
 
-  /**
-   * A page's summary as the overview words it.
-   *
-   * @param page - The page
-   * @param raw - The YAML
-   * @param workspace - The scope
-   * @returns The line
-   */
-  function summaryOf(
-    page: PageDef,
-    raw: Record<string, unknown>,
-    workspace: EditorWorkspace,
-  ): string {
-    const config = merged(raw);
-    const present = buildFieldIndex(schemaCtx(config, workspace, 'en'));
-    const stored = pageStoredCount(page, raw, workspace);
-    return summaryParts(
-      page,
-      present,
-      workspaceFormData(config, workspace, {}),
-      stored,
-      'en',
-      (_field, value) => (typeof value === 'string' ? value : undefined),
-    ).join(SUMMARY_SEPARATOR);
-  }
-
-  const page = (id: string): PageDef => PAGES.find((candidate) => candidate.id === id)!;
-
-  it('pairs labels with values and counts what the page stores in this scope', () => {
-    const raw = { ...LIST_CARD, list: { show_past_events: true } };
-    expect(summaryOf(page('which_events'), raw, 'list')).toBe(
-      'Days To Show: 3 · Start Date: Today · Show Past Events: On · Show Empty Days: Off · Set: 1',
-    );
-    // At the top level nothing on the page is stored, and List's own value is not shown there.
-    expect(summaryOf(page('which_events'), raw, 'shared')).toBe(
-      'Days To Show: 3 · Start Date: Today · Show Past Events: Off · Show Empty Days: Off',
-    );
-  });
-
-  it('words a dropdown by its option label and leaves out a field not built here', () => {
-    const raw = { ...LIST_CARD, title: 'Family' };
-    expect(summaryOf(page('card_header'), raw, 'shared')).toBe(
-      'Title: “Family” · Show Toolbar: Off · Set: 1',
-    );
-    expect(summaryOf(page('events'), { ...LIST_CARD, show_time: false }, 'shared')).toBe(
-      'Location · Now · Time Format: Follow Home Assistant · Set: 1',
-    );
-    // Without a weather entity, Show The Forecast is not built, and an empty entity says nothing.
-    expect(summaryOf(page('weather'), LIST_CARD, 'list')).toBe('');
-    // The entity is the whole card's; Layout Defaults offers no forecast of its own.
-    const weather = { ...LIST_CARD, weather_entity: 'weather.home' };
-    expect(summaryOf(page('weather'), weather, 'shared')).toBe(
-      'Weather Entity: weather.home · Set: 1',
-    );
-    expect(summaryOf(page('weather'), weather, 'list')).toBe(
-      'Weather Entity: weather.home · Show The Forecast: Nowhere · Set: 1',
-    );
-    expect(
-      summaryOf(page('weather'), { ...weather, list: { weather: { position: 'date' } } }, 'list'),
-    ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 2');
-  });
-
-  // A chip stands for its group, named by the chips pressed: label-value pairs under-reported
-  // what an event shows, naming two of its eight parts.
-  it('names a chip group by its pressed chips, the Events parts and the toolbar’s controls', () => {
-    const parts = {
+  it('says what each page holds, whatever the card stores', async () => {
+    const plain = await mountEditor(LIST_CARD);
+    const busy = await mountEditor({
       ...LIST_CARD,
-      show_end_time: true,
-      show_countdown: 'once_per_day',
-      show_now_indicator: false,
-    };
-    expect(summaryOf(page('events'), parts, 'shared')).toBe(
-      'Time · End Time · Location · Countdown · Time Format: Follow Home Assistant · Set: 3',
-    );
-    // None pressed: the group says nothing.
-    const none = {
-      ...LIST_CARD,
+      title: 'Family',
+      toolbar: { show: true, reset: false },
       show_time: false,
-      show_location: false,
-      show_now_indicator: false,
-    };
-    expect(summaryOf(page('events'), none, 'shared')).toBe(
-      'Time Format: Follow Home Assistant · Set: 3',
-    );
-    // The toolbar's controls only while the toolbar shows them, counted: their names read as
-    // actions ("Reset"). Calendar Filter is one of them, on in either form and off as false.
-    const toolbar = { ...LIST_CARD, toolbar: { show: true, reset: false, search: false } };
-    expect(summaryOf(page('card_header'), toolbar, 'shared')).toMatch(
-      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
-    );
-    const filterOff = { ...LIST_CARD, toolbar: { show: true, reset: false, legend: false } };
-    expect(summaryOf(page('card_header'), filterOff, 'shared')).toMatch(
-      /^Show Toolbar: On · Controls: 5 on · Set: 3$/,
-    );
+      event_tap_action: { action: 'none' },
+      list: { show_past_events: true },
+    });
+    expect(rows(busy)).toEqual(rows(plain));
+    expect(rows(plain)).toEqual([
+      ['nav:card_header', 'Title, colors and toolbar controls'],
+      ['nav:events_weather_language', 'Start date, week start and time format'],
+      ['nav:taps_refresh', 'Tap and hold actions, editing and refresh'],
+      ['layout:shared', 'What a layout uses where it has no value of its own'],
+      ['more:audit', 'What is set, grouped by where it lives'],
+      ['more:example', 'Quick Setup: an example card and a few questions'],
+    ]);
   });
 
-  it('quotes a title, so one holding the separator stays one value', () => {
-    const raw = { ...LIST_CARD, title: 'Everything · Grid' };
-    expect(summaryOf(page('card_header'), raw, 'shared')).toBe(
-      'Title: “Everything · Grid” · Show Toolbar: Off · Set: 1',
-    );
-  });
-
-  it('counts each stored value once, and one a gate holds back as well', () => {
-    // Height Mode and Card Height both write `height`: one value.
-    const height = { ...LIST_CARD, list: { height: '300px' } };
-    expect(summaryOf(page('size_spacing'), height, 'list')).toMatch(/ · Set: 1$/);
-    // The description's size is held back while the description is off, and still stored.
-    const description = { ...LIST_CARD, show_description: false, description_font_size: '12px' };
-    expect(pageStoredCount(page('events'), description, 'shared')).toBe(2);
-  });
-
-  it('counts a nested value where it is stored', () => {
-    const raw = { ...LIST_CARD, view: 'grid', time_grid: { start_time: '07:00' } };
-    expect(summaryOf(page('which_events'), raw, 'grid')).toMatch(/ · Set: 1$/);
+  it('counts nothing a calendar or a page stores', async () => {
+    const editor = await mountEditor({
+      ...LIST_CARD,
+      entities: [{ entity: 'calendar.anna', accent_color: '#e57373', blocklist: 'Private' }],
+      title: 'Family',
+    });
+    expect(editor.shadowRoot!.textContent).not.toMatch(/Set: \d/);
   });
 });

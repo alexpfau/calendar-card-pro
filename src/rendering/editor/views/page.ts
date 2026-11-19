@@ -33,6 +33,9 @@ export function pageHead(
   back?: string,
 ): TemplateResult {
   const backName = back ?? t('nav.back');
+  // Named with what the line under it says, "Days, Grid", so moving by heading tells the same
+  // topic in two layouts apart; the line itself is then not read twice.
+  const named = sub === undefined ? nothing : `${title}, ${sub}`;
   return html`<div class="page-head">
     <button
       type="button"
@@ -45,8 +48,10 @@ export function pageHead(
       ${icon(mdiChevronLeft)}
     </button>
     <div class="page-titles">
-      <h2 class="page-title" tabindex="-1">${title}</h2>
-      <span class="page-sub">${sub ?? t('overview.settings')}</span>
+      <h2 class="page-title" tabindex="-1" aria-label=${named}>${title}</h2>
+      <span class="page-sub" aria-hidden=${sub === undefined ? nothing : 'true'}
+        >${sub ?? t('overview.settings')}</span
+      >
     </div>
     ${actions === undefined ? nothing : html`<div class="head-actions">${actions}</div>`}
   </div>`;
@@ -194,6 +199,8 @@ export function headingBlock(block: HeadingBlock): TemplateResult {
 /** One link of a topic page's "Also for" line. */
 export interface AlsoLink {
   readonly label: string;
+  /** Its accessible name where the label alone says too little: "Days To Show in Grid". */
+  readonly name?: string;
   /** `data-focus` key, so Back returns focus to it. */
   readonly key: string;
   readonly onOpen: () => void;
@@ -217,6 +224,34 @@ export function alsoFor(lead: string, links: ReadonlyArray<AlsoLink>): TemplateR
               type="button"
               class="link"
               data-focus=${link.key}
+              @click=${link.onOpen}
+            >
+              ${link.label}
+            </button>`,
+      )}</span
+    >
+  </p>`;
+}
+
+/**
+ * A line after a whole-card setting linking to the layouts that hold the setting it goes with,
+ * drawn as a cross-link is: "Days to show, per layout: List · Grid", each layout's name a link.
+ *
+ * @param lead - "Days to show, per layout:"
+ * @param links - The layouts
+ * @returns The line
+ */
+export function layoutLinks(lead: string, links: ReadonlyArray<AlsoLink>): TemplateResult {
+  return html`<p class="page-line layout-links">
+    ${icon(mdiArrowRight)}<span
+      >${lead}
+      ${links.map(
+        (link, at) =>
+          html`${at > 0 ? html`<span aria-hidden="true"> · </span>` : nothing}<button
+              type="button"
+              class="link"
+              data-focus=${link.key}
+              aria-label=${link.name ?? nothing}
               @click=${link.onOpen}
             >
               ${link.label}
