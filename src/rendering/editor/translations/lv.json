@@ -711,6 +711,7 @@
   "view_default.month.day_font_size": "Mēneša izkārtojums rāda dienu numurus 16px lielumā neatkarīgi no šīs vērtības, lai katrs ietilptu savas dienas stūrī. Mainiet to paša mēneša iestatījumos.",
   "view_default.month.weekday_font_size": "Mēneša izkārtojums rāda nedēļas dienu nosaukumus 16px lielumā neatkarīgi no šīs vērtības, lai tie saskanētu ar dienu numuriem. Mainiet to paša mēneša iestatījumos.",
   "view_default.month.week_number_font_size": "Mēneša izkārtojums rāda nedēļu numurus 13.5px lielumā neatkarīgi no šīs vērtības, lai tie saskanētu ar dienu numuriem. Mainiet to paša mēneša iestatījumos.",
+  "view_default.month.month_font_size": "Mēneša izkārtojums rāda mēneša nosaukumu blakus mēneša pirmās dienas numuram 16px lielumā neatkarīgi no šīs vērtības, tikpat lielu kā numuru. Mainiet to paša mēneša iestatījumos.",
   "view_default.month.vertical_line_width": "Mēneša izkārtojums zīmē akcenta joslas 3px platas neatkarīgi no šīs vērtības, lai tās būtu redzamas blakus sīkajam tekstam. Mainiet to paša mēneša iestatījumos.",
   "days_to_show": "Rādāmo dienu skaits",
   "days_to_show.aliases": "dienas uz priekšu, nedēļas uz priekšu, nākamās nedēļas, datumu diapazons, periods",

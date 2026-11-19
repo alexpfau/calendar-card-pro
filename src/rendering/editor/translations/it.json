@@ -710,6 +710,7 @@
   "view_default.month.day_font_size": "Il layout a mese mostra i numeri dei giorni a 16px, a prescindere da questa impostazione, così ciascuno sta nell’angolo del suo giorno. Cambialo nelle impostazioni proprie del mese.",
   "view_default.month.weekday_font_size": "Il layout a mese mostra i nomi dei giorni della settimana a 16px, a prescindere da questa impostazione, in proporzione ai numeri dei giorni. Cambialo nelle impostazioni proprie del mese.",
   "view_default.month.week_number_font_size": "Il layout a mese mostra i numeri delle settimane a 13.5px, a prescindere da questa impostazione, in proporzione ai numeri dei giorni. Cambialo nelle impostazioni proprie del mese.",
+  "view_default.month.month_font_size": "Il layout a mese mostra il mese accanto al numero del primo giorno a 16px, a prescindere da questa impostazione, alla stessa dimensione del numero. Cambialo nelle impostazioni proprie del mese.",
   "view_default.month.vertical_line_width": "Il layout a mese disegna le barre accento larghe 3px, a prescindere da questa impostazione, così si vedono accanto al testo piccolo. Cambialo nelle impostazioni proprie del mese.",
   "days_to_show": "Giorni da mostrare",
   "days_to_show.aliases": "numero di giorni, prossime settimane, settimane in avanti, intervallo di date, periodo",

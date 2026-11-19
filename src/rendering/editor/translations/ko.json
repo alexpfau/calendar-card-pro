@@ -528,6 +528,7 @@
   "view_default.month.day_font_size": "월 레이아웃은 이 설정과 무관하게 일자 숫자를 16px로 표시하여 각 날짜의 모서리에 맞춥니다. 월 자체 설정에서 변경하세요.",
   "view_default.month.weekday_font_size": "월 레이아웃은 이 설정과 무관하게 요일 이름을 16px로 표시하여 일자 숫자와 비율을 맞춥니다. 월 자체 설정에서 변경하세요.",
   "view_default.month.week_number_font_size": "월 레이아웃은 이 설정과 무관하게 주차 번호를 13.5px로 표시하여 일자 숫자와 비율을 맞춥니다. 월 자체 설정에서 변경하세요.",
+  "view_default.month.month_font_size": "월 레이아웃은 이 설정과 무관하게 매월 1일 숫자 옆의 월 이름을 16px로 표시하여 숫자와 같은 크기로 맞춥니다. 월 자체 설정에서 변경하세요.",
   "view_default.month.vertical_line_width": "월 레이아웃은 이 설정과 무관하게 강조 막대를 3px 너비로 그려 작은 글자 옆에서도 잘 보이게 합니다. 월 자체 설정에서 변경하세요.",
   "days_to_show": "표시할 일수",
   "start_date_mode": "시작일",

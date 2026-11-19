@@ -710,6 +710,7 @@
   "view_default.month.day_font_size": "Układ miesiąca pokazuje numery dni w rozmiarze 16px, niezależnie od tego ustawienia, aby każdy mieścił się w rogu swojego dnia. Zmień to w ustawieniach samego miesiąca.",
   "view_default.month.weekday_font_size": "Układ miesiąca pokazuje nazwy dni tygodnia w rozmiarze 16px, niezależnie od tego ustawienia, w proporcji do numerów dni. Zmień to w ustawieniach samego miesiąca.",
   "view_default.month.week_number_font_size": "Układ miesiąca pokazuje numery tygodni w rozmiarze 13.5px, niezależnie od tego ustawienia, w proporcji do numerów dni. Zmień to w ustawieniach samego miesiąca.",
+  "view_default.month.month_font_size": "Układ miesiąca pokazuje nazwę miesiąca obok numeru pierwszego dnia w rozmiarze 16px, niezależnie od tego ustawienia, tak jak sam numer. Zmień to w ustawieniach samego miesiąca.",
   "view_default.month.vertical_line_width": "Układ miesiąca rysuje paski akcentu o szerokości 3px, niezależnie od tego ustawienia, aby były widoczne obok drobnego tekstu. Zmień to w ustawieniach samego miesiąca.",
   "days_to_show": "Dni do wyświetlenia",
   "days_to_show.aliases": "liczba dni, dni do przodu, tygodnie do przodu, kolejne tygodnie, zakres dat, okres",

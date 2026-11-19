@@ -710,6 +710,7 @@
   "view_default.month.day_font_size": "Mėnesio išdėstymas dienų numerius rodo 16px dydžio, nesvarbu, kokia čia reikšmė, kad kiekvienas tilptų savo dienos kampe. Tai pakeisite paties mėnesio nustatymuose.",
   "view_default.month.weekday_font_size": "Mėnesio išdėstymas savaitės dienų pavadinimus rodo 16px dydžio, nesvarbu, kokia čia reikšmė, kad derėtų prie dienų numerių. Tai pakeisite paties mėnesio nustatymuose.",
   "view_default.month.week_number_font_size": "Mėnesio išdėstymas savaičių numerius rodo 13.5px dydžio, nesvarbu, kokia čia reikšmė, kad derėtų prie dienų numerių. Tai pakeisite paties mėnesio nustatymuose.",
+  "view_default.month.month_font_size": "Mėnesio išdėstymas mėnesio pavadinimą šalia pirmosios dienos numerio rodo 16px dydžio, nesvarbu, kokia čia reikšmė, kad būtų tokio pat dydžio kaip numeris. Tai pakeisite paties mėnesio nustatymuose.",
   "view_default.month.vertical_line_width": "Mėnesio išdėstymas akcentines juostas piešia 3px pločio, nesvarbu, kokia čia reikšmė, kad jos matytųsi šalia smulkaus teksto. Tai pakeisite paties mėnesio nustatymuose.",
   "days_to_show": "Rodomų dienų skaičius",
   "days_to_show.aliases": "dienų į priekį, savaitės į priekį, ateinančios savaitės, datų intervalas, laikotarpis",

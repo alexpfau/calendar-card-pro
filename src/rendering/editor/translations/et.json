@@ -711,6 +711,7 @@
   "view_default.month.day_font_size": "Kuupaigutus näitab päevanumbreid olenemata sellest seadest suurusega 16px, et iga number mahuks oma päeva nurka. Muuda seda kuu enda seadetes.",
   "view_default.month.weekday_font_size": "Kuupaigutus näitab nädalapäevade nimesid olenemata sellest seadest suurusega 16px, sobivalt päevanumbritega. Muuda seda kuu enda seadetes.",
   "view_default.month.week_number_font_size": "Kuupaigutus näitab nädalanumbreid olenemata sellest seadest suurusega 13.5px, sobivalt päevanumbritega. Muuda seda kuu enda seadetes.",
+  "view_default.month.month_font_size": "Kuupaigutus näitab kuu esimese päeva numbri kõrval kuu nime olenemata sellest seadest suurusega 16px, sama suurena kui numbrit. Muuda seda kuu enda seadetes.",
   "view_default.month.vertical_line_width": "Kuupaigutus joonistab esiletõsteribad olenemata sellest seadest 3px laiused, et need oleksid väikese teksti kõrval näha. Muuda seda kuu enda seadetes.",
   "days_to_show": "Kuvatavate päevade arv",
   "days_to_show.aliases": "mitu päeva ette, mitu nädalat ette, järgmised nädalad, ajavahemik, kuupäevavahemik",

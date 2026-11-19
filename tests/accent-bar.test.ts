@@ -354,7 +354,7 @@ describe('the stylesheet', () => {
     // screenshot. The list text starts 12px past the bar's room, as it did past the border,
     // and so does the "+N more" of a month's day list, under its rows' titles; the grid text 6px
     // past it, the bar's 3px inset and 3px clear of it; and a month line's and its "+N more"
-    // 4.3px past it, the bar's 0.5px inset and 3.8px clear of it, from one property on the month.
+    // 5px past it, the bar's 0.5px inset and 4.5px clear of it, from one property on the month.
     const readers = innermost.flatMap((rule) =>
       rule.declarations
         .filter(([, value]) => value.includes('--calendar-card-line-width-vertical'))

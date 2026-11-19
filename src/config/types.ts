@@ -806,14 +806,14 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   today_background_color?: string;
 
   /**
-   * Font size of what the wide month draws in its days: a line's title and its calendar label, and
-   * a bar's title. A day's list and the panel take `event_font_size`.
+   * Font size of what the wide month draws in its days: a line's title and its calendar label, a
+   * bar's title, and a day's "+N more". A day's list and the panel take `event_font_size`.
    */
   cell_event_font_size?: string;
 
   /**
-   * Font size of a line's time, a bar's times and length, and a day's "+N more" in the wide month.
-   * A day's list and the panel take `time_font_size`.
+   * Font size of a line's time, and a bar's times and length, in the wide month. A day's list and
+   * the panel take `time_font_size`.
    */
   cell_time_font_size?: string;
 }

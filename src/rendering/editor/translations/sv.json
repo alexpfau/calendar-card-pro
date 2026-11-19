@@ -712,6 +712,7 @@
   "view_default.month.day_font_size": "Månadslayouten visar dagnumren i 16px, oavsett vad det här står på, så att vart och ett får plats i hörnet av sin dag. Ändra det i månadens egna inställningar.",
   "view_default.month.weekday_font_size": "Månadslayouten visar veckodagarnas namn i 16px, oavsett vad det här står på, i proportion till dagnumren. Ändra det i månadens egna inställningar.",
   "view_default.month.week_number_font_size": "Månadslayouten visar veckonumren i 13.5px, oavsett vad det här står på, i proportion till dagnumren. Ändra det i månadens egna inställningar.",
+  "view_default.month.month_font_size": "Månadslayouten visar månaden bredvid numret för den 1:a i 16px, oavsett vad det här står på, lika stor som numret. Ändra det i månadens egna inställningar.",
   "view_default.month.vertical_line_width": "Månadslayouten ritar accentstaplarna 3px breda, oavsett vad det här står på, så att de syns bredvid den lilla texten. Ändra det i månadens egna inställningar.",
   "days_to_show": "Dagar att visa",
   "days_to_show.aliases": "antal dagar, dagar framåt, veckor framåt, kommande veckor, datumintervall, period",

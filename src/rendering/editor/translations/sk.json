@@ -711,6 +711,7 @@
   "view_default.month.day_font_size": "Rozloženie mesiaca zobrazuje čísla dní vo veľkosti 16px bez ohľadu na toto nastavenie, aby sa každé zmestilo do rohu svojho dňa. Zmeňte to vo vlastných nastaveniach mesiaca.",
   "view_default.month.weekday_font_size": "Rozloženie mesiaca zobrazuje názvy dní v týždni vo veľkosti 16px bez ohľadu na toto nastavenie, v pomere k číslam dní. Zmeňte to vo vlastných nastaveniach mesiaca.",
   "view_default.month.week_number_font_size": "Rozloženie mesiaca zobrazuje čísla týždňov vo veľkosti 13.5px bez ohľadu na toto nastavenie, v pomere k číslam dní. Zmeňte to vo vlastných nastaveniach mesiaca.",
+  "view_default.month.month_font_size": "Rozloženie mesiaca zobrazuje názov mesiaca vedľa čísla prvého dňa vo veľkosti 16px bez ohľadu na toto nastavenie, rovnako veľký ako číslo. Zmeňte to vo vlastných nastaveniach mesiaca.",
   "view_default.month.vertical_line_width": "Rozloženie mesiaca kreslí pruhy zvýraznenia široké 3px bez ohľadu na toto nastavenie, aby boli vidieť vedľa drobného textu. Zmeňte to vo vlastných nastaveniach mesiaca.",
   "days_to_show": "Zobrazované dni",
   "days_to_show.aliases": "počet dní, dni dopredu, týždne dopredu, nasledujúce týždne, rozsah dátumov, obdobie",

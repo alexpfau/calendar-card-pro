@@ -64,7 +64,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
   column: {
     day_font_size: {
       verdict: 'inherits',
-      why: 'A column header names its day above the events, alone on its row as a list date is, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+      why: 'A column header names its day above the events, alone on its row as a list date is, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, sized with their titles, a third larger.',
     },
     day_separator_color: {
       verdict: 'inherits',
@@ -132,7 +132,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
     month_font_size: {
       verdict: 'inherits',
-      why: 'A column header sets a 1st’s month at the card-wide 12px with its 26px date, as a list date does, so the two read as a date and its month. Month diverges because its 1st reads as one label in a cell corner, its month at its 16px number’s size.',
+      why: 'A column header sets each day’s month, where show_month draws one, at the card-wide 12px with its 26px date, as a list date does, so the two read as a date and its month. Month diverges because its 1st reads as one label in a cell corner, its month at its 16px number’s size.',
     },
     vertical_line_width: {
       verdict: 'inherits',
@@ -150,7 +150,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
     month_font_size: {
       verdict: 'inherits',
-      why: 'A grid header sets a 1st’s month at the card-wide 12px with its 26px date, as a column header does. Month diverges because its 1st reads as one label in a cell corner, its month at its 16px number’s size.',
+      why: 'A grid header sets each day’s month, where show_month draws one, at the card-wide 12px with its 26px date, as a column header does. Month diverges because its 1st reads as one label in a cell corner, its month at its 16px number’s size.',
     },
     vertical_line_width: {
       verdict: 'inherits',
@@ -158,7 +158,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
     day_font_size: {
       verdict: 'inherits',
-      why: 'A grid header names its day above its column, as a column header does, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
+      why: 'A grid header names its day above its column, as a column header does, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, sized with their titles, a third larger.',
     },
     event_gap: {
       verdict: 'ignores',
