@@ -18,13 +18,14 @@ export type DocsPage = PageId | 'entry' | 'audit' | 'notices';
 export const PAGE_DOCS: Readonly<Record<DocsPage, string>> = {
   which_events: '/features/core-settings#event-filtering',
   card_header: '/features/layout-appearance#header-toolbar',
+  events_weather_language: '/features/editor#events-weather-language',
   day_header: '/features/layout-appearance#date-column-customization',
   events: '/features/event-content',
   size_spacing: '/features/layout-appearance#spacing-alignment',
   weather: '/features/weather',
   taps_refresh: '/features/actions',
   entry: '/features/core-settings#entity-configuration',
-  audit: '/features/editor#what-this-card-changes',
+  audit: '/features/editor#stored-settings',
   notices: '/features/editor#options-the-card-ignores',
 };
 

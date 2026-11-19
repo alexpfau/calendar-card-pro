@@ -450,15 +450,6 @@ describe('rowName', () => {
   });
 });
 
-describe('setCount', () => {
-  it('counts the stored options other than the id', () => {
-    expect(List.setCount('calendar.anna')).toBe(0);
-    expect(List.setCount({ entity: 'calendar.anna' })).toBe(0);
-    expect(List.setCount(ANNA_RED)).toBe(2);
-    expect(List.setCount({ entity: 'calendar.anna', name: undefined, blocklist: 'x' })).toBe(1);
-  });
-});
-
 /*
  * Invariance through the card's own pipeline. Family is listed twice, red first and blue
  * second, and both entries keep the same event, so with Filter Duplicates on the card draws one

@@ -79,7 +79,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // The ⋯ menu holding the preferences, and the page Search Settings left for the overview.
     '_prefsOpen',
     '_searchFrom',
-    // The line What This Card Changes is editing in place.
+    // The line Stored Settings is editing in place.
     '_auditEdit',
     // Split This Calendar: Undo cancels an open run first, closes the panel a split left, and
     // leaves the New tags for the session, on keys a restored list no longer holds.
@@ -106,7 +106,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmed',
     // Each field's Reset or Remove, recomputed once the configuration moves.
     '_actions',
-    // What This Card Changes' groups, made again once what they read moves.
+    // Stored Settings' groups, made again once what they read moves.
     '_audit',
   ],
   // Derived from what is snapshotted, or from the render in progress.
@@ -139,7 +139,6 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_openSwitcher',
     '_previewConfig',
     '_ctxMemos',
-    '_sharedPresent',
     '_describe',
     '_addButton',
     '_openQuickSetup',

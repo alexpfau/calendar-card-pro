@@ -727,7 +727,7 @@ describe('the review’s findings', () => {
     });
   });
 
-  it('opens a date Start Date holds back at Start Date, on Which Events', async () => {
+  it('opens a date Start Date holds back at Start Date, on its home page', async () => {
     // A relative start date is stored in the option the fixed date's control writes, and Start
     // Date reads it, so the fixed date only waits on Start Date: no value of its own is unused.
     const editor = await mount({ ...LIST, start_date: '+1' });
@@ -735,7 +735,8 @@ describe('the review’s findings', () => {
     const fixed = row(editor, 'content:start_date_fixed');
     expect(fixed.tag).toBe('Needs Start Date');
     await chooseResult(editor, fixed.key);
-    expect(openPage(editor)).toBe('which_events');
+    // Start Date is the whole card's, at home on Events, Weather & Language.
+    expect(openPage(editor)).toBe('events_weather_language');
     expect(editor.shadowRoot!.activeElement).toBe(
       $(editor, '[data-field="content:start_date_mode"]'),
     );

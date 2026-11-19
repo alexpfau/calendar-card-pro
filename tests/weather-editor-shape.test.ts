@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  goPage,
   lastConfig,
   mountEditor,
   openPageOf,
@@ -36,6 +37,8 @@ describe('the entity every layout draws from', () => {
     const editor = await mountEditor({ ...CARD, view: 'grid' });
     await changeField(editor, 'workspace:editing_workspace', 'grid');
 
+    // Chosen on Grid's Weather, where the entity is copied beside Grid's own forecast.
+    await goPage(editor, 'weather');
     await changeField(editor, 'weather:weather_entity', 'weather.home');
     expect(lastConfig(editor)).toEqual({
       ...CARD,
@@ -53,6 +56,7 @@ describe('the entity every layout draws from', () => {
     });
     await changeField(editor, 'workspace:editing_workspace', 'month');
 
+    await goPage(editor, 'weather');
     await changeField(editor, 'weather:weather_entity', 'weather.home');
     expect(lastConfig(editor)).toMatchObject({
       weather_entity: 'weather.home',
@@ -63,9 +67,9 @@ describe('the entity every layout draws from', () => {
     expect(lastConfig(editor)).not.toHaveProperty('column');
   });
 
-  it('turns nothing on from Layout Defaults, which draws no forecast of its own', async () => {
+  it('turns nothing on from its home on a Whole Card page, which draws no forecast of its own', async () => {
     const editor = await mountEditor(CARD);
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await openPageOf(editor, 'weather:weather_entity');
 
     await changeField(editor, 'weather:weather_entity', 'weather.home');
     expect(lastConfig(editor)).toEqual({ ...CARD, weather_entity: 'weather.home' });

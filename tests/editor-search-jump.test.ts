@@ -178,11 +178,12 @@ describe('the results', () => {
       'Event Appearance › Event Details',
       'List: On · YAML: list.show_location',
     ],
+    // At home on a Whole Card page, where no setting says Whole Card.
     [
       '12h',
       'content:time_format',
-      'Event Appearance › Event Details',
-      'Follow Home Assistant · Whole Card · YAML: time_24h',
+      'Events, Weather & Language › Format & Language',
+      'Follow Home Assistant · YAML: time_24h',
     ],
     ['days', 'content:days_to_show', 'Which Events › Date Range', '3 · YAML: list.days_to_show'],
     [
@@ -506,6 +507,60 @@ describe('Search Settings in a page header', () => {
     $(editor, '[data-focus="back-top"]')!.click();
     await editor.updateComplete;
     expect($(editor, '[data-focus="search-back"]')).toBeNull();
+  });
+
+  it('searches the layout of the page it was opened from; a calendar’s result opens there', async () => {
+    // Grid draws no split multi-day events, so a calendar's split option is List's and Columns'.
+    const editor = await mountEditor(
+      { config_version: Config.CURRENT_CONFIG_VERSION, view: 'grid', entities: ['calendar.anna'] },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    const [key] = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    for (const row of ['layout:list', 'nav:which_events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    expect($(editor, '.page-sub')?.textContent).toContain('List');
+    await searchFromHeader(editor);
+    await searchFor(editor, 'split multi');
+    const hit = resultRows(editor).find(
+      (each) => each.ownerKey === key && each.id.endsWith(':split_multiday_events'),
+    );
+    expect(hit, 'the calendar’s split option is a result').toBeDefined();
+    // Searched in List, which draws it, the result is not another layout's.
+    expect(hit!.tag ?? '').toBe('');
+    await chooseResult(editor, hit!.key);
+    await editor.updateComplete;
+    expect($(editor, '.entry-page')).not.toBeNull();
+    expect((editor as unknown as { _workspace: string })._workspace).toBe('list');
+    expect($(editor, `[data-field="${hit!.id}"]`)).not.toBeNull();
+  });
+
+  it('opens a calendar’s result from Layout Defaults’ search with what Layout Defaults offers', async () => {
+    const editor = await mountEditor(
+      { config_version: Config.CURRENT_CONFIG_VERSION, view: 'grid', entities: ['calendar.anna'] },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    const [key] = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    for (const row of ['layout:shared', 'nav:which_events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    await searchFromHeader(editor);
+    await searchFor(editor, 'split multi');
+    const hit = resultRows(editor).find(
+      (each) => each.ownerKey === key && each.id.endsWith(':split_multiday_events'),
+    )!;
+    expect(hit.tag ?? '').toBe('');
+    await chooseResult(editor, hit.key);
+    await editor.updateComplete;
+    expect($(editor, '.entry-page')).not.toBeNull();
+    expect($(editor, `[data-field="${hit.id}"]`)).not.toBeNull();
+    // Its writes are the calendar's, wherever its page edits.
+    await changeField(editor, hit.id as never, 'split', entry(0));
+    expect((editor as unknown as { _config: { entities: unknown } })._config.entities).toEqual([
+      { entity: 'calendar.anna', split_multiday_events: true },
+    ]);
   });
 
   it('is forgotten once the overview opens another page by its own rows', async () => {

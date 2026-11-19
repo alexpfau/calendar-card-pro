@@ -10,6 +10,7 @@
 import {
   mdiCalendarFilterOutline,
   mdiCalendarText,
+  mdiCalendarToday,
   mdiCalendarWeekBegin,
   mdiCardTextOutline,
   mdiGestureTapButton,
@@ -22,13 +23,14 @@ import { destination } from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField } from './synthetic';
 import { WEATHER_ENTITY } from './weather-fields';
-import { isLayoutCopyPath } from './workspace';
+import { type EditorWorkspace, isLayoutCopyPath } from './workspace';
 import type * as Types from '../../config/types';
 import { VIEWS, appliesToView, entityScopeFor } from '../../config/view';
 
 export type PageId =
   | 'which_events'
   | 'card_header'
+  | 'events_weather_language'
   | 'day_header'
   | 'events'
   | 'size_spacing'
@@ -52,6 +54,14 @@ export type FamilyId =
  * - `segmented`: drawn as a card-built radio group of its options with no head row: Start Date's
  *   chips.
  * - `button-rows`: one of the toolbar's own buttons' fields, drawn in each button's row.
+ * - `copy`: a whole-card setting drawn here, editable, though its home is a Whole Card page, where
+ *   it is placed with its own appearance: Start Date beside Days To Show. It writes what its home
+ *   writes and says Whole Card.
+ * - `reference`: a whole-card setting named here by a row that opens it on its Whole Card page,
+ *   with its value: First Day Of Week under Weeks.
+ *
+ * A copy or a reference is not a placement: `placementOf`, search and every other walk of where a
+ * setting lives read the field's home alone (`isBorrowed`).
  */
 export type Appearance =
   | 'essential'
@@ -61,7 +71,19 @@ export type Appearance =
   | { readonly chips: 'parts' | 'toolbar' }
   | { readonly qualifies: FieldId }
   | 'segmented'
-  | 'button-rows';
+  | 'button-rows'
+  | 'copy'
+  | 'reference';
+
+/**
+ * Whether a registry entry draws a setting whose home is elsewhere.
+ *
+ * @param appearance - The entry's appearance
+ * @returns `true` for a copy or a reference
+ */
+export function isBorrowed(appearance: Appearance): appearance is 'copy' | 'reference' {
+  return appearance === 'copy' || appearance === 'reference';
+}
 
 /** What a page draws besides its fields, at one heading. */
 export type HeadingExtra = 'own-buttons' | 'weather-calendar-links' | 'split';
@@ -91,6 +113,17 @@ export interface HeadingDef {
    * setting, added where it waits in an Add row.
    */
   readonly pointer?: { readonly field: FieldId; readonly textKey: string };
+  /**
+   * A line after `after`, led by `textKey`, linking to `to` in each layout the card can show that
+   * offers it: Days To Show beside Start Date, each layout's forecast beside the entity. `to` has a
+   * value per layout, which a whole-card page cannot hold.
+   */
+  readonly layoutLinks?: {
+    readonly after: FieldId;
+    readonly to: FieldId;
+    readonly page: PageId;
+    readonly textKey: string;
+  };
 }
 
 /** One section page. */
@@ -101,11 +134,10 @@ export interface PageDef {
   readonly noteKey?: string;
   readonly headings: ReadonlyArray<HeadingDef>;
   /**
-   * The settings the overview's row for this page names with their values, in order; each one
-   * only where it is present (`summary.ts`). A toggle chip stands for its whole group, named by
-   * the chips pressed.
+   * The line under the page's row: what to expect on the page, the same whatever the card holds.
+   * A row describes its page rather than naming values, which read as a riddle at a glance.
    */
-  readonly summary: ReadonlyArray<FieldId>;
+  readonly descriptionKey: string;
 }
 
 const E = 'essential';
@@ -141,21 +173,18 @@ export const PAGES: ReadonlyArray<PageDef> = [
     titleKey: 'page.which_events',
     iconPath: mdiCalendarFilterOutline,
     noteKey: 'page.which_events.note',
-    summary: [
-      'content:days_to_show',
-      'content:start_date_mode',
-      'content:show_past_events',
-      'content:show_empty_days',
-    ],
+    descriptionKey: 'page.which_events.description',
     headings: [
       {
-        // First: how many days, and from when, is the widest question this page answers.
+        // First: how many days, and from when, is the widest question this page answers. Start
+        // Date is the whole card's, at home on Events, Weather & Language; it stays editable
+        // here, where it is set together with the days it starts.
         key: 'heading.date_range',
         fields: [
           ['content:days_to_show', E],
-          ['content:start_date_mode', 'segmented'],
-          ['content:start_date_fixed', withMode('content:start_date_mode')],
-          ['content:start_date_offset', withMode('content:start_date_mode')],
+          ['content:start_date_mode', 'copy'],
+          ['content:start_date_fixed', 'copy'],
+          ['content:start_date_offset', 'copy'],
         ],
       },
       {
@@ -170,7 +199,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'heading.selection_and_order',
         fields: [
-          ['content:event_type', A],
+          ['content:event_type', 'reference'],
           ['content:filter_duplicates_mode', A],
           ['content:duplicate_accent_color', A],
           ['content:event_order', A],
@@ -206,7 +235,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['content:show_empty_today', E],
           ['content:empty_day_text', E],
           ['content:empty_day_color', A],
-          ['content:hide_when_empty', A],
+          ['content:hide_when_empty', 'reference'],
         ],
       },
       {
@@ -223,7 +252,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'card_header',
     titleKey: 'panel.card',
     iconPath: mdiCardTextOutline,
-    summary: ['card:title', 'card:toolbar.show', 'card:toolbar.add_event'],
+    descriptionKey: 'panel.card.description',
     headings: [
       {
         key: 'heading.general',
@@ -232,7 +261,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:title_font_size', A],
           ['card:title_color', A],
           ['card:background_color', A],
-          ['content:language_mode', A],
         ],
       },
       {
@@ -265,10 +293,57 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
   {
+    // The whole card's own answers to a first setup's questions, each with one value for every
+    // layout, in the order of the page's name: which events, the forecast, then the conventions
+    // the card's dates and times are written in, language last, since few change it. Each is
+    // also named on its topic, by a row that opens it here, or, for Start Date and the entity, by
+    // a copy, where it is set together with a layout's own.
+    id: 'events_weather_language',
+    titleKey: 'page.events_weather_language',
+    iconPath: mdiCalendarToday,
+    descriptionKey: 'page.events_weather_language.description',
+    headings: [
+      {
+        key: 'page.which_events',
+        layoutLinks: {
+          after: 'content:start_date_offset',
+          to: 'content:days_to_show',
+          page: 'which_events',
+          textKey: 'links.days_to_show',
+        },
+        fields: [
+          ['content:start_date_mode', 'segmented'],
+          ['content:start_date_fixed', withMode('content:start_date_mode')],
+          ['content:start_date_offset', withMode('content:start_date_mode')],
+          ['content:event_type', A],
+          ['content:hide_when_empty', A],
+        ],
+      },
+      {
+        key: 'heading.forecast',
+        layoutLinks: {
+          after: WEATHER_ENTITY,
+          to: `${W}position`,
+          page: 'weather',
+          textKey: 'links.forecast',
+        },
+        fields: [[WEATHER_ENTITY, E]],
+      },
+      {
+        key: 'heading.format_language',
+        fields: [
+          ['content:first_day_of_week', E],
+          ['content:time_format', E],
+          ['content:language_mode', A],
+        ],
+      },
+    ],
+  },
+  {
     id: 'day_header',
     titleKey: 'panel.day_header',
     iconPath: mdiCalendarWeekBegin,
-    summary: ['day_header:week_number_mode', 'day_header:today_indicator_style'],
+    descriptionKey: 'panel.day_header.description',
     headings: [
       {
         key: 'heading.date',
@@ -297,7 +372,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'heading.weeks',
         fields: [
-          ['content:first_day_of_week', E],
+          ['content:first_day_of_week', 'reference'],
           ['day_header:week_number_mode', E],
           ['day_header:show_current_week_number', E],
           ['day_header:week_number_font_size', A],
@@ -360,7 +435,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'events',
     titleKey: 'panel.events',
     iconPath: mdiCalendarText,
-    summary: ['events:show_time', 'content:time_format'],
+    descriptionKey: 'panel.events.description',
     headings: [
       {
         key: 'heading_details',
@@ -374,7 +449,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['events:show_progress_bar', PART],
           ['events:show_duration', PART],
           ['events:show_now_indicator', PART],
-          ['content:time_format', E],
+          ['content:time_format', 'reference'],
           ['events:time_position', A],
         ],
       },
@@ -482,7 +557,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'size_spacing',
     titleKey: 'page.size_spacing',
     iconPath: mdiResize,
-    summary: ['layout:height_mode'],
+    descriptionKey: 'page.size_spacing.description',
     headings: [
       {
         key: 'heading_card_size',
@@ -565,16 +640,18 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
   {
-    // Each layout's own weather, stored in its block, and the one entity every layout draws from.
+    // Each layout's own weather, stored in its block, and the one entity every layout draws from,
+    // at home on Events, Weather & Language and copied here, where choosing it also turns this
+    // layout's forecast on. Layout Defaults has no Weather: no forecast setting has a top level.
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
-    summary: [WEATHER_ENTITY, `${W}position`],
+    descriptionKey: 'panel.weather.description',
     headings: [
       {
         key: 'heading.forecast',
         fields: [
-          [WEATHER_ENTITY, E],
+          [WEATHER_ENTITY, 'copy'],
           [`${W}position`, E],
         ],
       },
@@ -615,7 +692,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     titleKey: 'page.taps_refresh',
     iconPath: mdiGestureTapButton,
     noteKey: 'page.taps_refresh.note',
-    summary: ['actions:event_tap_action', 'actions:day_tap_action_mode'],
+    descriptionKey: 'page.taps_refresh.description',
     headings: [
       {
         key: 'heading.taps',
@@ -743,8 +820,11 @@ let placements: ReadonlyMap<FieldId, Placement> | undefined;
 export function placementOf(id: FieldId): Placement | undefined {
   if (!placements) {
     const map = new Map<FieldId, Placement>();
+    // A copy or a reference draws a setting placed elsewhere, so neither is a placement.
     const place = (fields: HeadingDef['fields'], at: Placement): void => {
-      for (const [field] of fields) if (!map.has(field)) map.set(field, at);
+      for (const [field, appearance] of fields) {
+        if (!isBorrowed(appearance) && !map.has(field)) map.set(field, at);
+      }
     };
     for (const page of PAGES) {
       page.headings.forEach((heading, index) =>
@@ -790,7 +870,9 @@ function sameInEveryScope(id: FieldId): boolean {
  * @returns `true` when the scope cannot change anything on it
  */
 export function isWholeCard(page: { readonly headings: ReadonlyArray<HeadingDef> }): boolean {
-  return page.headings.every((heading) => heading.fields.every(([id]) => sameInEveryScope(id)));
+  return page.headings.every((heading) =>
+    heading.fields.every(([id, appearance]) => isBorrowed(appearance) || sameInEveryScope(id)),
+  );
 }
 
 /**
@@ -799,7 +881,11 @@ export function isWholeCard(page: { readonly headings: ReadonlyArray<HeadingDef>
  * is the whole card's all the same; such a setting says where it does not apply instead
  * (`plan.ts` › `stateOf`).
  */
-export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set(['card_header', 'taps_refresh']);
+export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set([
+  'card_header',
+  'events_weather_language',
+  'taps_refresh',
+]);
 
 /** The topics every layout's page lists, in order: every page that is not the whole card's. */
 export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
@@ -823,17 +909,13 @@ export function keepsNoLayoutCopy(id: FieldId): boolean {
 }
 
 /**
- * Shared Across Layouts: the whole-card settings the layout topics hold, gathered under one heading
- * per topic, in each topic's own order and with each field's own appearance. A mode value comes
- * with its mode, and a family member with its family, as on its page.
+ * The topics a scope's page lists, in order: every topic for a layout, and for Layout Defaults
+ * each topic holding a setting with a top level. Weather holds none there: each layout's forecast
+ * is its own, and the entity every layout shares is the whole card's.
  *
- * @returns The headings, keyed by the topic page each comes from
+ * @param scope - A layout, or `shared` for Layout Defaults
+ * @returns The topics
  */
-export function sharedAcrossHeadings(): ReadonlyArray<HeadingDef & { readonly from: PageId }> {
-  return TOPIC_PAGES.flatMap((page) => {
-    const fields = page.headings.flatMap((heading) =>
-      heading.fields.filter(([id]) => keepsNoLayoutCopy(id)),
-    );
-    return fields.length === 0 ? [] : [{ key: page.titleKey, from: page.id, fields }];
-  });
+export function topicsFor(scope: EditorWorkspace): ReadonlyArray<PageDef> {
+  return scope === 'shared' ? TOPIC_PAGES.filter((page) => page.id !== 'weather') : TOPIC_PAGES;
 }

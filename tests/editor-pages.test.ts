@@ -94,7 +94,8 @@ describe('the overview', () => {
       'section[data-heading="calendars"]',
       '.row-group > h3',
       '.row-group [data-focus="nav:card_header"]',
-      '.row-group [data-focus="nav:shared"]',
+      '.row-group [data-focus="nav:events_weather_language"]',
+      '.row-group [data-focus="nav:taps_refresh"]',
       'section[data-heading="starting_layout"] > h3',
       'section[data-heading="starting_layout"] fieldset.layouts',
       'section[data-heading="starting_layout"] [data-focus="layout:shared"]',
@@ -162,16 +163,16 @@ describe('a search by a page’s title', () => {
       const editor = await mountEditor(CARD);
       await changeField(editor, 'workspace:editing_workspace', scope);
       await goOverview(editor);
-      // Whole Card's rows on the overview, then the topics a layout's page lists.
+      // Whole Card's rows on the overview, then the topics the scope's page lists.
       const read = () =>
-        [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]')]
-          .map((row) => ({
+        [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]')].map(
+          (row) => ({
             page: row.dataset.focus!.slice('nav:'.length),
             title: row.querySelector('.nav-title')!.textContent!.trim(),
-          }))
-          .filter((row) => row.page !== 'shared');
+          }),
+        );
       const rows = read();
-      await click(editor, '[data-focus="layout:list"]');
+      await click(editor, `[data-focus="layout:${scope}"]`);
       rows.push(...read());
       await goOverview(editor);
       expect(rows.length).toBeGreaterThan(5);
@@ -227,11 +228,11 @@ describe('a layout’s own settings', () => {
     await goPage(editor, 'which_events');
     expect($(editor, '[data-heading="heading_hours"]')).not.toBeNull();
     expect($(editor, '[data-field="layout:time_grid.start_time"]')).not.toBeNull();
-    // Grid's page summarizes the topic in Grid, the hours' stored value counted.
+    // Grid's page says what the topic holds, in every layout alike.
     await goOverview(editor);
     await click(editor, '[data-focus="layout:grid"]');
-    expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toMatch(
-      /Set: 1$/,
+    expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toBe(
+      'Days to show, filters and empty days',
     );
   });
 });

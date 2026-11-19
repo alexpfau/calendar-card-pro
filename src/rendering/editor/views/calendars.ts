@@ -227,9 +227,13 @@ function entryRow(row: EntryRowModel, grouped: boolean): TemplateResult {
           <span class="cal-title"
             >${row.title}${row.tag ? html` <span class="tag">${row.tag}</span>` : nothing}</span
           >
-          <span class="cal-summary"
-            >${row.missing ? icon(mdiAlertOutline, 'cal-missing') : nothing}${row.summary}</span
-          >
+          ${
+            row.missing || row.summary !== ''
+              ? html`<span class="cal-summary"
+                  >${row.missing ? icon(mdiAlertOutline, 'cal-missing') : nothing}${row.summary}</span
+                >`
+              : nothing
+          }
         </span>
         ${icon(mdiChevronRight, 'nav-chevron')}
       </button>

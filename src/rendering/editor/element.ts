@@ -19,7 +19,6 @@ import {
   mdiFormatListChecks,
   mdiFormatVerticalAlignTop,
   mdiInformationOutline,
-  mdiLayersOutline,
   mdiPlus,
   mdiRestore,
   mdiTuneVariant,
@@ -80,10 +79,9 @@ import {
   type PageDef,
   type PageId,
   STARTING_LAYOUT_BLOCK,
-  TOPIC_PAGES,
   WHOLE_CARD_PAGES,
   placementOf,
-  sharedAcrossHeadings,
+  topicsFor,
 } from './pages';
 import { PANELS, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
 import * as Plan from './plan';
@@ -471,7 +469,7 @@ interface StatusLine {
   readonly text: string;
   /** The removed calendar's place among the calendars, where the line stands in the list. */
   readonly at: number;
-  /** For a line reset on What This Card Changes, its group's key, atop which the line stands. */
+  /** For a line reset on Stored Settings, its group's key, atop which the line stands. */
   readonly group?: string;
   /** The upgrade's options, the editor before it, and whether they were shared since. */
   readonly upgrade?: {
@@ -960,7 +958,7 @@ export class CalendarCardProEditor extends LitElement {
   private _greeted = false;
 
   /**
-   * The line What This Card Changes is editing in place, and its group: kept drawn while it is
+   * The line Stored Settings is editing in place, and its group: kept drawn while it is
    * edited, even once the edit takes it out of the YAML, so its control stays under the cursor.
    */
   @state() private _auditEdit?: {
@@ -1165,18 +1163,37 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The layout being edited, which the place says: a layout's page and its topics are that
    * layout's (Layout Defaults is `shared`), and Whole Card's pages edit the whole card, in the
-   * shared scope, where every value they hold is written. Anywhere else, a calendar's page, the
-   * overview and What This Card Changes, it is the layout the card opens in, unless a step chose
-   * one.
+   * shared scope, where every value they hold is written. The overview's search, opened from a
+   * layout's page, searches that layout, so a result opens where the search began. Anywhere else,
+   * a calendar's page, the overview and Stored Settings, it is the layout the card opens in,
+   * unless a step chose one.
    */
   private get _workspace(): Workspace.EditorWorkspace {
     const route = this._nav.route;
     const scope = Navigation.routeScope(route);
     if (scope !== undefined) return scope;
-    if (route.kind === 'shared' || (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page))) {
-      return 'shared';
-    }
+    const searched = this._searchFrom && Navigation.routeScope(this._searchFrom.nav.route);
+    if (route.kind === 'overview' && searched !== undefined) return searched;
+    if (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page)) return 'shared';
     return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+  }
+
+  /**
+   * A calendar entry's page, opened for one of its fields: in the layout that offers the field,
+   * else in the one being edited, which a search opened from a layout's page makes that layout's.
+   * The route carries the layout only where it is not the one a calendar's page edits anyway, so
+   * the overview and the calendar's row keep the card's.
+   *
+   * @param key - The entry's key
+   * @param scope - The layout that offers the field, where it is not the one being edited
+   * @returns The entry's route
+   */
+  private _entryRoute(
+    key: number,
+    scope: Workspace.EditorWorkspace = this._workspace,
+  ): Navigation.Route {
+    const unscoped = this._selectedWorkspace ?? this._viewForConfig(this._config!);
+    return scope === unscoped ? { kind: 'entry', key } : { kind: 'entry', key, scope };
   }
 
   /**
@@ -1186,8 +1203,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private get _layoutInView(): Workspace.EditorWorkspace {
     const route = this._nav.route;
-    const whole =
-      route.kind === 'shared' || (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page));
+    const whole = route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page);
     return whole
       ? (this._selectedWorkspace ?? this._viewForConfig(this._config!))
       : this._workspace;
@@ -1205,15 +1221,18 @@ export class CalendarCardProEditor extends LitElement {
     route: Navigation.Route,
     scope: Workspace.EditorWorkspace = this._layoutInView,
   ): Navigation.Route {
-    if (route.kind !== 'page' || route.scope !== undefined || WHOLE_CARD_PAGES.has(route.page)) {
-      return route;
-    }
-    return { ...route, scope };
+    if (route.kind !== 'page' || WHOLE_CARD_PAGES.has(route.page)) return route;
+    const under = route.scope ?? scope;
+    // A topic the scope has no page for, as Layout Defaults has no Weather, opens under the
+    // layout the card opens in.
+    return topicsFor(under).some((each) => each.id === route.page)
+      ? { ...route, scope: under }
+      : { ...route, scope: this._viewForConfig(this._config!) };
   }
 
   /**
    * The layout the preview draws other than the one the card opens in: the layout being edited.
-   * That is the scope, on the overview and on every page; on What This Card Changes, the layout of
+   * That is the scope, on the overview and on every page; on Stored Settings, the layout of
    * the line being edited in place, and the card as it opens while none is. Quick Setup and Split
    * preview their own answers, and All Layouts is no layout of its own, so it previews the card as
    * it opens, with every layout's own values.
@@ -1272,7 +1291,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The preview line alone, for a place that draws no Settings For: a page for the whole card, a
-   * calendar's page, and the overview's search results. What This Card Changes draws none: a line
+   * calendar's page, and the overview's search results. Stored Settings draws none: a line
    * edited there previews its own layout, which its group's title names, and a line drawn above it
    * would move it.
    *
@@ -1767,10 +1786,17 @@ export class CalendarCardProEditor extends LitElement {
   private _placeName(route: Navigation.Route): string | undefined {
     if (route.kind === 'entry') return this._entryName(route.key);
     if (route.kind === 'layout') return this._layoutTitle(route.layout, this._ctx);
-    if (route.kind === 'shared') return this._string(this._ctx, 'overview.shared_across');
     if (route.kind !== 'page') return undefined;
     const page = PAGES.find((each) => each.id === route.page);
-    return page === undefined ? undefined : this._pageTitle(page, this._ctx);
+    if (page === undefined) return undefined;
+    const title = this._pageTitle(page, this._ctx);
+    // A topic is a layout's: "Days in Grid", as its header names it.
+    return route.scope === undefined
+      ? title
+      : this._string(this._ctx, 'audit.in_layout', {
+          label: title,
+          layout: this._layoutTitle(route.scope, this._ctx),
+        });
   }
 
   /**
@@ -2210,11 +2236,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /** `_ctxFor`'s kept context, by scope. */
   private _ctxMemos = new Map<Workspace.EditorWorkspace, typeof scopeCtx>();
-
-  /** The fields built in the shared scope, kept while its context is (`_presentIn`). */
-  private _sharedPresent = Helpers.memoizeLast(
-    (ctx: SchemaCtx): ReadonlyMap<FieldId, IndexedField> => buildFieldIndex(ctx).fields,
-  );
 
   /**
    * The `hass` a form is handed, and the feed it comes from (`hass-key.ts`).
@@ -2831,7 +2852,7 @@ export class CalendarCardProEditor extends LitElement {
     const spec = colors.specs.get(field.id);
     if (spec !== undefined) {
       // A mode's value is drawn inside its mode's control where a page draws both; drawn alone
-      // (What This Card Changes' Edit), the value is the control.
+      // (Stored Settings' Edit), the value is the control.
       const absorbed =
         show !== undefined &&
         spec.mode !== undefined &&
@@ -2853,7 +2874,7 @@ export class CalendarCardProEditor extends LitElement {
     if (composed !== undefined) return this._jumpedCardField(field, ctx, composed);
     const workspace = ctx.workspace ?? ctx.view;
     const slot = `field.${workspace}.${field.id}`;
-    // The scope's data, which What This Card Changes draws a line's field in whatever the scope.
+    // The scope's data, which Stored Settings draws a line's field in whatever the scope.
     const all = this._formDataFor(this._config!, workspace, this._pending);
     const schema = this._intern(slot, this._yamlSchema(field, all, ctx));
     const data = this._intern(`${slot}.data`, Routing.formDataFor(all, schema));
@@ -2940,7 +2961,7 @@ export class CalendarCardProEditor extends LitElement {
     const options = 'select' in selector ? (selector.select?.options ?? []) : [];
     const label = fieldLabel(field, ctx.language);
     const text = this._fieldText(`field.${workspace}.${field.id}`, field, ctx, show?.words);
-    // Drawn alone (What This Card Changes' Edit), the chips bring the field their choice reveals,
+    // Drawn alone (Stored Settings' Edit), the chips bring the field their choice reveals,
     // which a page draws beside them.
     const revealed =
       value === 'fixed'
@@ -3382,13 +3403,7 @@ export class CalendarCardProEditor extends LitElement {
     const word = this._wordOf(field, ctx);
     const state = Plan.stateOf(field, pctx);
     const label = fieldLabel(field, ctx.language);
-    const all = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
-    // Shared Across Layouts holds whole-card settings only, which its page says once.
-    const wholeCard = this._string(ctx, 'state.whole_card');
-    const facts =
-      this._nav.route.kind === 'shared'
-        ? all.filter((fact) => !(fact.kind === 'scope' && fact.text === wholeCard))
-        : all;
+    const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner));
     const calendars =
       state?.calendars === undefined
         ? undefined
@@ -3753,7 +3768,7 @@ export class CalendarCardProEditor extends LitElement {
         | { readonly at: number; readonly drawn: unknown }
         | { readonly at: number; readonly gated: FieldId; readonly clause: string };
       const items: Item[] = [];
-      for (const { id, appearance, why } of plan.live) {
+      for (const { id, appearance, why, copy } of plan.live) {
         const at = order.get(id) ?? 0;
         // A qualifier line is drawn by its chips, under them.
         if (typeof appearance === 'object' && 'qualifies' in appearance) continue;
@@ -3772,12 +3787,11 @@ export class CalendarCardProEditor extends LitElement {
         const field = present.get(id);
         if (field === undefined) continue;
         if (appearance === 'segmented') {
+          const segmented = this._renderSegmented(field, appearance, pctx, ctx, heading.key);
           items.push({
             at,
-            drawn: keyed(
-              `:${id}`,
-              this._renderSegmented(field, appearance, pctx, ctx, heading.key),
-            ),
+            // A copy says so in the tree, for what walks every page and meets it twice.
+            drawn: keyed(`:${id}`, copy ? html`<div data-copy>${segmented}</div>` : segmented),
           });
           continue;
         }
@@ -3789,7 +3803,11 @@ export class CalendarCardProEditor extends LitElement {
           at,
           drawn: keyed(
             `${prefix}:${id}`,
-            html`<div class="setting${show.open ? ' open' : ''}" data-setting=${id}>
+            html`<div
+              class="setting${show.open ? ' open' : ''}"
+              data-setting=${id}
+              ?data-copy=${copy === true}
+            >
               ${ShownView.settingHead(
                 show.switchRow
                   ? { ...head, control: draw(field, { ...show, line: nothing }) }
@@ -3804,6 +3822,21 @@ export class CalendarCardProEditor extends LitElement {
             </div>`,
           ),
         });
+      }
+      // A whole-card setting this topic names, by a row that opens it at home.
+      for (const { id } of plan.references) {
+        const field = present.get(id);
+        if (field === undefined) continue;
+        items.push({
+          at: order.get(id) ?? 0,
+          drawn: keyed(`${prefix}:${id}:reference`, this._renderReference(field, ctx)),
+        });
+      }
+      // The layouts holding the setting a whole-card one goes with, after it.
+      const links = heading.layoutLinks;
+      const linked = links === undefined ? nothing : this._renderLayoutLinks(links, ctx);
+      if (links !== undefined && linked !== nothing) {
+        items.push({ at: (order.get(links.after) ?? 0) + 0.5, drawn: linked });
       }
       // The conditions a setting drawn in place already says it waits on.
       const said = new Set<string>();
@@ -4139,7 +4172,7 @@ export class CalendarCardProEditor extends LitElement {
         ctx,
         name,
         valueField,
-        // The scope's data, which What This Card Changes draws a line's field in whatever the scope.
+        // The scope's data, which Stored Settings draws a line's field in whatever the scope.
         data: this._formDataFor(this._config!, workspace, this._pending),
         fallback: Routing.atPath(
           this._defaultData(workspace),
@@ -4643,6 +4676,119 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * A whole-card setting a topic names, whose home is a Whole Card page: its value as its folded
+   * row would show it, Whole Card and the page under its name, and the whole row opening it there.
+   * Back returns to the row.
+   *
+   * @param field - The setting
+   * @param ctx - Schema context
+   * @returns The row
+   */
+  private _renderReference(field: IndexedField, ctx: SchemaCtx): TemplateResult {
+    const home = placementOf(field.id)?.page;
+    const page = PAGES.find((each) => each.id === home);
+    const where = page === undefined ? '' : this._pageTitle(page, ctx);
+    const label = fieldLabel(field, ctx.language);
+    const raw = Routing.atPath(
+      Routing.workspaceFormData(this._config!, 'shared', this._pending),
+      field.dataPath,
+      field.node.name,
+    );
+    const worded =
+      raw === undefined || raw === null || raw === ''
+        ? undefined
+        : (Summary.wordValue(field, raw, ctx.language, this._describe) ??
+          (typeof raw === 'object' ? undefined : String(raw)));
+    const value =
+      worded ??
+      Unset.unsetWord(
+        field.id,
+        (k, values) => this._string(ctx, k, values),
+        (name) => this._string(ctx, name),
+        this._todayTile(),
+      );
+    const whole = this._string(ctx, 'state.whole_card');
+    const focusKey = `reference:${field.id}`;
+    return ShownView.referenceRow({
+      id: field.id,
+      label,
+      lang: ctx.language,
+      value,
+      facts: [{ kind: 'scope', text: `${whole}${Summary.SUMMARY_SEPARATOR}${where}` }],
+      name: [
+        value === undefined ? label : `${label}: ${value}`,
+        whole,
+        this._string(ctx, 'nav.opens', { page: where }),
+      ].join('. '),
+      onOpen: () =>
+        home === undefined || home === 'overview' || home === 'entry'
+          ? undefined
+          : this._openResult(
+              { target: { kind: 'field', id: field.id, page: home }, label },
+              focusKey,
+              false,
+            ),
+    });
+  }
+
+  /**
+   * A whole-card setting's line linking to the layouts that hold the setting it goes with
+   * (`HeadingDef.layoutLinks`): each layout the card can show that offers it, in the card's order.
+   * Each opens the setting in that layout, as a search result does. With no weather entity, the
+   * forecast's links open each layout's Weather at its Weather Entity instead, as a search result
+   * for a setting that needs one opens what it needs: choosing it there turns that layout's
+   * forecast on.
+   *
+   * @param links - The heading's links
+   * @param ctx - Schema context
+   * @returns The line, or nothing where no layout holds the setting
+   */
+  private _renderLayoutLinks(
+    links: NonNullable<HeadingDef['layoutLinks']>,
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    const entity = Routing.atPath(
+      Routing.workspaceFormData(this._config!, 'shared', this._pending),
+      [],
+      parseFieldId(WEATHER_ENTITY).name,
+    );
+    const to =
+      links.after === WEATHER_ENTITY && (typeof entity !== 'string' || entity === '')
+        ? WEATHER_ENTITY
+        : links.to;
+    const reachable = ViewConfig.reachableViews(this._config!);
+    const views = ViewConfig.VIEWS.filter(
+      (view) => reachable.includes(view) && universeIndex('en', view).fields.has(links.to),
+    );
+    if (views.length === 0) return nothing;
+    const field = universeIndex(ctx.language, views[0]).fields.get(links.to);
+    const label = field === undefined ? links.to : fieldLabel(field, ctx.language);
+    return PageView.layoutLinks(
+      this._string(ctx, links.textKey),
+      views.map((view) => {
+        const layout = this._layoutTitle(view, ctx);
+        const key = `links:${links.to}:${view}`;
+        const needed =
+          to === links.to ? undefined : universeIndex(ctx.language, view).fields.get(to);
+        const opens = needed === undefined ? label : fieldLabel(needed, ctx.language);
+        return {
+          label: layout,
+          name: this._string(ctx, 'audit.in_layout', { label, layout }),
+          key,
+          onOpen: () =>
+            this._openResult(
+              { target: { kind: 'field', id: to, page: links.page }, label: opens },
+              key,
+              false,
+              () => this._string(ctx, 'search.showing_in', { label: opens, layout }),
+              view,
+            ),
+        };
+      }),
+    );
+  }
+
+  /**
    * A heading's link to the heading on another page that answers the neighboring question.
    *
    * @param heading - The heading
@@ -4769,8 +4915,7 @@ export class CalendarCardProEditor extends LitElement {
       route.kind === 'overview' ||
       route.kind === 'audit' ||
       route.kind === 'notices' ||
-      route.kind === 'layout' ||
-      route.kind === 'shared'
+      route.kind === 'layout'
     ) {
       return true;
     }
@@ -4778,6 +4923,9 @@ export class CalendarCardProEditor extends LitElement {
       return this._entryKeysFor((this._config?.entities ?? []).length).includes(route.key);
     }
     if (route.kind !== 'page') return false;
+    if (route.scope !== undefined) {
+      return topicsFor(route.scope).some((candidate) => candidate.id === route.page);
+    }
     return PAGES.some((candidate) => candidate.id === route.page);
   }
 
@@ -4863,13 +5011,7 @@ export class CalendarCardProEditor extends LitElement {
       target.kind === 'button-field' ? 'card_header' : target.kind === 'field' && target.page;
     this._closeDisclosures();
     if (target.kind === 'entry-field') {
-      // A calendar entry's field opens on the entry's own page, in the layout that offers it; the
-      // route carries that layout, so the overview and the calendar's row keep the card's.
-      const route: Navigation.Route =
-        scope === undefined
-          ? { kind: 'entry', key: target.key }
-          : { kind: 'entry', key: target.key, scope };
-      this._nav = Navigation.go(this._nav, route, from);
+      this._nav = Navigation.go(this._nav, this._entryRoute(target.key, scope), from);
     } else if (page) {
       this._nav = Navigation.go(this._nav, this._scoped({ kind: 'page', page }, scope), from);
     } else if (search) {
@@ -5339,32 +5481,6 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
-   * A section row's summary: its main settings with their values, and what it stores here.
-   *
-   * @param page - The page
-   * @param ctx - Schema context
-   * @param present - The fields built here
-   * @returns The line
-   */
-  private _summary(
-    page: PageDef,
-    ctx: SchemaCtx,
-    present: ReadonlyMap<FieldId, IndexedField>,
-    data: Readonly<Record<string, unknown>> = this._formData(),
-  ): string {
-    const workspace = ctx.workspace ?? ctx.view;
-    const stored = Summary.pageStoredCount(page, this._rawConfig, workspace);
-    return Summary.summaryParts(
-      page,
-      { fields: present },
-      data,
-      stored,
-      ctx.language,
-      this._describe,
-    ).join(Summary.SUMMARY_SEPARATOR);
-  }
-
-  /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
    * grouped by page, or Calendars, Starting Layout, Settings For over a row per section page, and
    * More.
@@ -5423,35 +5539,24 @@ export class CalendarCardProEditor extends LitElement {
       // Settings For gives way to the results, and the preview line stays above them.
       return html`${this._renderPreviewLine(ctx)} ${this._renderResults(ctx, present)}`;
     }
-    // Calendars, then what the whole card shares, then the layouts, each a page of its own.
-    const shared = this._ctxIn('shared');
-    const sharedPresent = this._presentIn('shared');
+    // Calendars, then what the whole card shares, then the layouts, each a page of its own. Each
+    // row says what its page holds, not the values it holds.
     const wholeRows = PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).map((page) =>
       Overview.navRow(
         {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._wholeSummary(page, shared, sharedPresent),
+          summary: this._string(ctx, page.descriptionKey),
         },
         () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
       ),
-    );
-    // The shared settings come last.
-    const sharedRow = Overview.navRow(
-      {
-        key: 'nav:shared',
-        iconPath: mdiLayersOutline,
-        title: t('overview.shared_across'),
-        summary: t('overview.shared_across.summary'),
-      },
-      () => this._open({ kind: 'shared' }, 'nav:shared'),
     );
     const calendars = this._renderCalendars(ctx);
     return html`${calendars}
     ${Overview.rowGroup(
       t('overview.whole_card'),
-      [...wholeRows, sharedRow],
+      wholeRows,
       html`<p class="hint frame-hint">${t('overview.whole_card.hint')}</p>`,
     )}
     ${this._renderLayouts(ctx, chassis)}
@@ -5461,55 +5566,12 @@ export class CalendarCardProEditor extends LitElement {
           key: 'more:audit',
           iconPath: mdiFormatListChecks,
           title: t('more.audit'),
-          summary: this._auditSummary(ctx),
+          summary: t('more.audit_note'),
         },
         () => this._open({ kind: 'audit' }, 'more:audit'),
       ),
       Overview.exampleRow(t, this._openQuickSetup),
     ])}`;
-  }
-
-  /**
-   * A Whole Card page's row summary, read in the shared scope, Card & Header's naming the layout
-   * switcher too: "Layout Switcher: List, Grid, Month", or Off.
-   *
-   * @param page - The page
-   * @param ctx - Schema context, in the shared scope
-   * @param present - The fields built there
-   * @returns The line
-   */
-  private _wholeSummary(
-    page: PageDef,
-    ctx: SchemaCtx,
-    present: ReadonlyMap<FieldId, IndexedField>,
-  ): string {
-    const line = this._summary(
-      page,
-      ctx,
-      present,
-      this._formDataFor(this._config!, 'shared', this._pending),
-    );
-    if (page.id !== 'card_header') return line;
-    const offered = Config.switcherOffers(ctx.config);
-    const switcher =
-      offered.length === 0
-        ? this._string(ctx, 'summary.switcher_off')
-        : this._string(ctx, 'summary.switcher_on', {
-            layouts: offered.map((view) => this._layoutTitle(view, ctx)).join(', '),
-          });
-    return line === '' ? switcher : `${line}${Summary.SUMMARY_SEPARATOR}${switcher}`;
-  }
-
-  /**
-   * The fields built in a scope, for a summary read there.
-   *
-   * @param workspace - The scope
-   * @returns The fields
-   */
-  private _presentIn(workspace: Workspace.EditorWorkspace): ReadonlyMap<FieldId, IndexedField> {
-    return workspace === this._workspace
-      ? this._drawing!.present
-      : this._sharedPresent(this._ctxIn(workspace));
   }
 
   /**
@@ -5964,7 +6026,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
     const route: Navigation.Route =
       target.kind === 'entry-field'
-        ? { kind: 'entry', key: target.key }
+        ? this._entryRoute(target.key)
         : { kind: 'page', page: (target.kind === 'field' && target.page) || 'card_header' };
     this._leaveResults(route, focusKey);
     void this.updateComplete.then(() => {
@@ -6005,7 +6067,8 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The body
    */
   private _renderPageBody(page: PageDef, ctx: SchemaCtx): unknown[] {
-    const pctx = this._planCtx(ctx);
+    // The page being drawn, so a copy of a whole-card setting on a topic says Whole Card.
+    const pctx: Plan.PlanCtx = { ...this._planCtx(ctx), page: page.id };
     const plan = Plan.planPage(page, pctx);
     const present = this._drawing!.present;
     const parts = this._renderHeadings(
@@ -6343,7 +6406,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Calendar Filter alone, as What This Card Changes' Edit and a search result's Edit Here mount
+   * Calendar Filter alone, as Stored Settings' Edit and a search result's Edit Here mount
    * it: its chip, and while it is pressed its qualifier line, so its one option reads and writes
    * as its page draws it.
    *
@@ -6365,7 +6428,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * One part or toolbar control as the chip its page draws it as, alone: What This Card Changes'
+   * One part or toolbar control as the chip its page draws it as, alone: Stored Settings'
    * Edit mounts it, pressed as the line's scope reads it, and a press writes in that scope.
    *
    * @param field - The chip's field
@@ -6529,7 +6592,10 @@ export class CalendarCardProEditor extends LitElement {
     scope: Workspace.EditorWorkspace,
     ctx: SchemaCtx,
   ): TemplateResult {
-    const others = [...ViewConfig.VIEWS, 'shared' as const].filter((each) => each !== scope);
+    // The same topic wherever a scope has it: Layout Defaults has no Weather.
+    const others = [...ViewConfig.VIEWS, 'shared' as const].filter(
+      (each) => each !== scope && topicsFor(each).some((topic) => topic.id === page.id),
+    );
     return PageView.alsoFor(
       this._string(ctx, 'layouts.also_for'),
       others.map((each) => ({
@@ -6548,7 +6614,7 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Where a topic page's Continue row goes: the layout's next topic, else the next layout's first;
    * the walk takes List, Columns, Grid and Month in turn and ends after Month, and Layout Defaults
-   * walks its own topics only.
+   * walks its own four topics only.
    *
    * @param id - The topic open
    * @param scope - The layout it is open in
@@ -6558,17 +6624,19 @@ export class CalendarCardProEditor extends LitElement {
     id: PageId,
     scope: Workspace.EditorWorkspace,
   ): { readonly page: PageDef; readonly scope: Workspace.EditorWorkspace } | undefined {
-    const at = TOPIC_PAGES.findIndex((each) => each.id === id);
+    const topics = topicsFor(scope);
+    const at = topics.findIndex((each) => each.id === id);
     if (at < 0) return undefined;
-    if (at + 1 < TOPIC_PAGES.length) return { page: TOPIC_PAGES[at + 1], scope };
+    if (at + 1 < topics.length) return { page: topics[at + 1], scope };
     if (scope === 'shared') return undefined;
     const view = ViewConfig.VIEWS[ViewConfig.VIEWS.indexOf(scope) + 1];
-    return view === undefined ? undefined : { page: TOPIC_PAGES[0], scope: view };
+    return view === undefined ? undefined : { page: topicsFor(view)[0], scope: view };
   }
 
   /**
    * A layout's page: its name, a line saying it changes nothing on the card, and a row per topic,
-   * each summarized in the layout. Layout Defaults is the same page for the shared base.
+   * each saying what it holds. Layout Defaults is the same page for the shared base, without
+   * Weather.
    *
    * @param layout - The layout, `shared` for Layout Defaults
    * @param ctx - Schema context, in the layout
@@ -6576,15 +6644,14 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderLayoutPage(layout: Workspace.EditorWorkspace, ctx: SchemaCtx): TemplateResult {
     const t = this._t(ctx);
-    const present = this._drawing!.present;
     const title = this._layoutTitle(layout, ctx);
-    const rows = TOPIC_PAGES.map((page) =>
+    const rows = topicsFor(layout).map((page) =>
       Overview.navRow(
         {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._summary(page, ctx, present),
+          summary: this._string(ctx, page.descriptionKey),
         },
         () => this._open({ kind: 'page', page: page.id, scope: layout }, `nav:${page.id}`),
       ),
@@ -6603,37 +6670,6 @@ export class CalendarCardProEditor extends LitElement {
       )}
       ${this._renderPreviewLine(ctx)}
       <section class="row-group"><div class="rows">${rows}</div></section>
-      ${PageView.footBack(t, this._back)}
-    </div>`;
-  }
-
-  /**
-   * Shared Across Layouts: the whole-card settings the layout topics hold, under one heading per
-   * topic, drawn as their topic pages draw them, in the shared scope.
-   *
-   * @param ctx - Schema context, in the shared scope
-   * @returns The page
-   */
-  private _renderSharedPage(ctx: SchemaCtx): TemplateResult {
-    const t = this._t(ctx);
-    const title = t('overview.shared_across');
-    const page: PageDef = {
-      id: 'which_events',
-      titleKey: 'overview.shared_across',
-      iconPath: mdiLayersOutline,
-      summary: [],
-      headings: sharedAcrossHeadings(),
-    };
-    return html`<div class="page shared-page" data-page="shared">
-      ${PageView.pageHead(
-        title,
-        t,
-        this._back,
-        this._renderHeadActions(ctx, title),
-        t('overview.whole_card'),
-      )}
-      ${this._renderPickBanner(ctx)} ${this._jumpDrawn() ? nothing : this._renderReturn(ctx)}
-      ${PageView.pageLine(t('overview.shared_across.note'))} ${this._renderPageBody(page, ctx)}
       ${PageView.footBack(t, this._back)}
     </div>`;
   }
@@ -7068,10 +7104,6 @@ export class CalendarCardProEditor extends LitElement {
     const query = this._calendarQuery.trim().toLowerCase();
     const matches = (texts: ReadonlyArray<unknown>): boolean =>
       texts.some((text) => typeof text === 'string' && text.toLowerCase().includes(query));
-    const set = (entry: string | Types.EntityConfig) =>
-      this._string(ctx, 'summary.set', {
-        count: CalendarList.setCount(entry),
-      });
     const grab = this._grabbed('calendar');
     const calendars = CalendarList.groups(state);
     // Every row keeps a label slot once any has a label, so the names align.
@@ -7110,24 +7142,19 @@ export class CalendarCardProEditor extends LitElement {
           total: row.total,
         });
         // Inside a calendar listed more than once, each entry is numbered and says when it keeps
-        // the very events an earlier one keeps, which shows each of them twice.
+        // the very events an earlier one keeps, which shows each of them twice. A row names the
+        // events it keeps, never how many settings it stores.
         const same = grouped ? CalendarList.sameEventsAs(state, row.index) : undefined;
-        const tail = [
-          ...(same === undefined ? [] : [this._string(ctx, 'row.same_events', { position: same })]),
-          set(entry),
-        ];
-        const described = grouped
-          ? [name, position, ...parts, ...tail]
-          : [name, ...parts, set(entry)];
+        const tail =
+          same === undefined ? [] : [this._string(ctx, 'row.same_events', { position: same })];
+        const described = grouped ? [name, position, ...parts, ...tail] : [name, ...parts];
         return [
           {
             key: row.key,
             title: grouped
               ? [String(row.position), ...parts].join(Summary.SUMMARY_SEPARATOR)
               : name,
-            summary: grouped
-              ? tail.join(Summary.SUMMARY_SEPARATOR)
-              : [...parts, set(entry)].join(Summary.SUMMARY_SEPARATOR),
+            summary: (grouped ? tail : parts).join(Summary.SUMMARY_SEPARATOR),
             editName: this._string(ctx, 'calendars.edit', {
               row: described.join(', '),
             }),
@@ -8044,7 +8071,7 @@ export class CalendarCardProEditor extends LitElement {
     const spec = this._entryColors(ctx).specs.get(field.id);
     if (spec !== undefined) {
       // A mode's value is drawn inside its mode's control where the page draws both, as an
-      // entry's page always draws its accent's mode; drawn alone (What This Card Changes' Edit),
+      // entry's page always draws its accent's mode; drawn alone (Stored Settings' Edit),
       // the value is the control.
       if (show !== undefined && spec.mode !== undefined && field.id === spec.value) {
         return html``;
@@ -8934,10 +8961,7 @@ export class CalendarCardProEditor extends LitElement {
       return {
         key: entryKey,
         title: `${name}${Summary.SUMMARY_SEPARATOR}${parts[0]}`,
-        summary: [
-          ...parts.slice(1),
-          t('summary.set', { count: CalendarList.setCount(entry) }),
-        ].join(Summary.SUMMARY_SEPARATOR),
+        summary: parts.slice(1).join(Summary.SUMMARY_SEPARATOR),
         tag: t('split.new'),
         color: this._rowColor(entry),
         badge:
@@ -9640,13 +9664,11 @@ export class CalendarCardProEditor extends LitElement {
                   ? this._renderEntryPage(route.key, ctx)
                   : route.kind === 'layout'
                     ? this._renderLayoutPage(route.layout, ctx)
-                    : route.kind === 'shared'
-                      ? this._renderSharedPage(ctx)
-                      : route.kind === 'audit'
-                        ? this._renderAudit(ctx)
-                        : route.kind === 'notices'
-                          ? this._renderNotices(ctx)
-                          : this._renderPage(page!, ctx),
+                    : route.kind === 'audit'
+                      ? this._renderAudit(ctx)
+                      : route.kind === 'notices'
+                        ? this._renderNotices(ctx)
+                        : this._renderPage(page!, ctx),
               ),
         )}
         <div class="live-region" role="status" aria-live="polite">${this._spoken}</div>
@@ -10349,7 +10371,7 @@ export class CalendarCardProEditor extends LitElement {
     </div>`;
   }
 
-  /** What This Card Changes' groups, made again only when what they read moves. */
+  /** Stored Settings' groups, made again only when what they read moves. */
   private _audit = Helpers.memoizeLast(
     (
       raw: Readonly<Record<string, unknown>>,
@@ -10366,7 +10388,7 @@ export class CalendarCardProEditor extends LitElement {
   );
 
   /**
-   * What This Card Changes' groups, for the YAML as it stands.
+   * Stored Settings' groups, for the YAML as it stands.
    *
    * @returns The groups
    */
@@ -10376,42 +10398,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Where the card stores values, as the More row on the overview names them: Whole Card, All
-   * Layouts, each layout and each calendar holding a line, then "Not in Use: 1" where any is.
-   * Lines kept as written are the YAML's own and named by none.
-   *
-   * @param ctx - Schema context
-   * @returns The words
-   */
-  private _auditSummary(ctx: SchemaCtx): string {
-    const t = this._t(ctx);
-    const layout = this._layoutName(ctx);
-    const groups = this._auditGroups().filter((group) => group.kind !== 'kept');
-    const places = [
-      ...new Set(
-        groups.map((group) => {
-          switch (group.kind) {
-            case 'whole':
-              return t('state.whole_card');
-            case 'card':
-              return t('editing_workspace.option.shared.label');
-            case 'layout':
-              return layout(group.workspace);
-            default:
-              return this._entryName(group.key ?? 0);
-          }
-        }),
-      ),
-    ];
-    const { inactive } = Audit.auditCounts(groups);
-    if (places.length === 0) return t('audit.none');
-    return [...places, ...(inactive > 0 ? [t('audit.not_in_use', { count: inactive })] : [])].join(
-      Summary.SUMMARY_SEPARATOR,
-    );
-  }
-
-  /**
-   * What This Card Changes: every stored line, grouped as Whole Card, All Layouts,
+   * Stored Settings: every stored line, grouped as Whole Card, All Layouts,
    * each layout, each calendar and the lines kept as written. Each line is one button opening a
    * strip with Change Here, which mounts its field's control in place and writes where the line
    * lives, Open in its page, and Reset or Remove; Reset All per layout. The lines kept as written
@@ -10512,6 +10499,16 @@ export class CalendarCardProEditor extends LitElement {
       )}
       ${this._renderPickBanner(ctx)}
       <p class="hint">${t('audit.intro')}</p>
+      ${
+        // A reset that took its group's last line leaves no group to say so in: the line that
+        // says what was reset, with Undo, stands above the rest.
+        this._status?.kind === 'audit' &&
+        this._status.group !== undefined &&
+        !groups.some((group) => this._auditGroupKey(group) === this._status!.group)
+          ? status(this._status.group)
+          : nothing
+      }
+      ${groups.length === 0 ? PageView.pageLine(t('audit.none')) : nothing}
       ${groups.filter((group) => group.kind !== 'entry' && group.kind !== 'kept').map(view)}
       ${
         entries.length > 0
@@ -10583,7 +10580,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Resets one line of What This Card Changes, as one undo step, and leaves the line that says so
+   * Resets one line of Stored Settings, as one undo step, and leaves the line that says so
    * at the top of its group, with Undo, which takes focus. The line words it as the strip did:
    * "Reset Last Hour in Grid", or "Removed Language" where the strip said Remove.
    *
@@ -10610,7 +10607,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * One line of What This Card Changes, as its row: label and value, its YAML path with Show YAML
+   * One line of Stored Settings, as its row: label and value, its YAML path with Show YAML
    * Option Names on, and what is worth knowing about it ("Same as the Default", "Not in Use until
    * …", "Grid Has Its Own: 5"). Where the editor owns the line, the row is one button opening its
    * strip: Change Here, Open in its page, and Reset or Remove. A line kept as written has none.
@@ -10732,9 +10729,13 @@ export class CalendarCardProEditor extends LitElement {
       return each ? fieldLabel(each, ctx.language) : id;
     };
     const word = this._wordOf(field, ctx);
-    // Under All Layouts, the layouts that keep their own value of it, a line each.
+    // Under Layout Defaults, each layout its value does not reach, a line each: one storing its
+    // own, and one whose own default differs, as the setting's page words them.
     const own = (state?.layoutsOwn ?? []).map((each) =>
-      t('state.layout_own', { layout: layout(each.view), value: word(each.value) }),
+      t(each.stored ? 'state.layout_own' : 'state.layout_default', {
+        layout: layout(each.view),
+        value: word(each.value),
+      }),
     );
     const editing = this._auditEdit?.line.text === line.text;
     const owner: PlanOwner = entry === undefined ? CARD : { kind: 'entry', key: entry };

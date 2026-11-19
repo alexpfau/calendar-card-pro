@@ -35,7 +35,9 @@ list:
 ```
 
 ::: tip Visual Editor
-Each layout has a **Weather** page of its own. Choose a **Weather Entity**, which every layout shares, and the forecast turns on in the layout you are editing; **Show The Forecast** then decides where: **In the Day Header**, **Beside Each Event**, or both, each with the options for its position. Month offers **Nowhere** and **Beside Each Event**.
+Each layout has a **Weather** page of its own. Choose a **Weather Entity** there, which every layout shares, and the forecast turns on in the layout you are editing; **Show The Forecast** then decides where: **In the Day Header**, **Beside Each Event**, or both, each with the options for its position. Month offers **Nowhere** and **Beside Each Event**.
+
+The entity is also on [Events, Weather & Language](/features/editor#events-weather-language) under Whole Card, where choosing it turns no forecast on; its **Show the forecast in** line opens each layout's Weather.
 :::
 
 ## ⚙️ Weather Configuration Options

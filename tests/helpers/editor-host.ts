@@ -80,6 +80,7 @@ import {
   TOPIC_PAGES,
   WHOLE_CARD_PAGES,
   placementOf,
+  topicsFor,
 } from '../../src/rendering/editor/pages';
 import { type SchemaCtx, walkSchema } from '../../src/rendering/editor/panels';
 import { PREFS_KEY } from '../../src/rendering/editor/prefs';
@@ -97,7 +98,7 @@ import {
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
 import * as Value from '../../src/rendering/editor/value';
 import * as WordLists from '../../src/rendering/editor/word-lists';
-import { WORKSPACES } from '../../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES } from '../../src/rendering/editor/workspace';
 import * as Helpers from '../../src/utils/helpers';
 
 /** An `ha-form` as the editor hands it its properties. */
@@ -194,6 +195,11 @@ interface Drawn {
   readonly place: number;
   /** The page it was drawn on, for a form `openPanels` kept from a page no longer open. */
   readonly page?: string;
+  /**
+   * A whole-card setting drawn on a topic though its home is a Whole Card page (`pages.ts` ›
+   * `copy`): the same field as its home's form, which a visit of every page keeps instead.
+   */
+  readonly copy?: boolean;
 }
 
 /** A node a form draws, as `walkSchema` visits it. */
@@ -492,16 +498,17 @@ function liveForms(editor: EditorElement, root: ShadowRoot, page?: string): Draw
   return [...root.querySelectorAll<HTMLElement>('ha-form, .color-field, [data-composed]')]
     .filter((form) => form.closest('[inert]') === null)
     .flatMap((node) =>
-      node.classList.contains('color-field')
+      (node.classList.contains('color-field')
         ? [colorForm(editor, node)]
         : node.hasAttribute('data-composed')
           ? [composedForm(editor, node)]
           : node.closest('.color-field, [data-composed]') === null
             ? [node as FormElement]
-            : [],
+            : []
+      ).map((form) => ({ form, copy: node.closest('[data-copy]') !== null })),
     )
-    .map((form, at) => {
-      const drawn = { ...placeForm(form, at + 1, entries, buttons), page };
+    .map(({ form, copy }, at) => {
+      const drawn = { ...placeForm(form, at + 1, entries, buttons), page, copy };
       formScopes.set(form, drawn.scope);
       return drawn;
     });
@@ -990,7 +997,8 @@ function keptForms(editor: EditorElement): Drawn[] {
     rows._openButtons = new Set(keysOf(editor, 'button'));
     draw();
     unfold();
-    forms.push(...liveForms(editor, root, page));
+    // A copy is the same field as its home's form, which this walk keeps.
+    forms.push(...liveForms(editor, root, page).filter((drawn) => !drawn.copy));
     rows._openButtons = open;
   }
   for (const key of keysOf(editor, 'entry')) {
@@ -1023,21 +1031,21 @@ function openPage(editor: EditorElement): string | undefined {
 
 /**
  * The pages a visit of every page goes through, from the overview: Whole Card's, by their rows,
- * then each topic under the layout being edited. Shared Across Layouts draws the topics' own
- * whole-card fields again, so it is not one of them.
+ * then each topic the layout being edited has (Layout Defaults has no Weather).
  *
- * @param root - The editor's shadow root, on the overview
+ * @param editor - Editor element, on the overview
  * @returns The page ids
  */
-function pagesToVisit(root: ShadowRoot): string[] {
+function pagesToVisit(editor: EditorElement): string[] {
+  const root = editor.shadowRoot!;
   return [
-    ...[...root.querySelectorAll('[data-focus^="nav:"]')]
-      .map((row) => row.getAttribute('data-focus')!.slice('nav:'.length))
-      .filter((page) => page !== 'shared'),
+    ...[...root.querySelectorAll('[data-focus^="nav:"]')].map((row) =>
+      row.getAttribute('data-focus')!.slice('nav:'.length),
+    ),
     // An editor that draws no layouts, a blocked one, has no topics to visit either.
     ...(root.querySelector('[data-focus^="layout:"]') === null
       ? []
-      : TOPIC_PAGES.map((page) => page.id)),
+      : topicsFor(scopeFor(editor) as EditorWorkspace).map((page) => page.id)),
   ];
 }
 
@@ -1426,6 +1434,11 @@ function find(editor: EditorElement, id: FieldId, owner: Owner | undefined): Fou
     return { ...mine[0], all: mine };
   }
 
+  // A copy drawn on the open page and its home's form kept from a visit are one field: the open
+  // page's is the one in reach.
+  const copy = mine.filter((drawn) => drawn.copy && drawn.page === undefined);
+  if (mine.length === 2 && copy.length === 1) return copy[0];
+
   if (mine.length > 1) {
     const names = [...new Set(mine.map((drawn) => ownerName(drawn.kind, drawn.index)))];
     if (names.length > 1) {
@@ -1741,7 +1754,7 @@ async function choose(editor: EditorElement, id: FieldId, value: unknown): Promi
     // its Also For line, and a layout's page to that layout's.
     scopes.set(editor, String(value));
     // The editor reads the places that carry no layout of their own (the overview, a calendar's
-    // page) in the layout last chosen, as a step it undoes or a line of What This Card Changes
+    // page) in the layout last chosen, as a step it undoes or a line of Stored Settings
     // sets it; forms the helpers keep from a layout's topics are read in that layout too.
     (editor as unknown as { _selectedWorkspace?: string })._selectedWorkspace = String(value);
     (editor as unknown as { requestUpdate(): void }).requestUpdate();
@@ -1976,11 +1989,12 @@ export async function openPanels(editor: EditorElement): Promise<void> {
   await nextRender();
   await goOverview(editor);
   const kept: Drawn[] = [];
-  const pages = pagesToVisit(root);
+  const pages = pagesToVisit(editor);
   for (const page of pages) {
     await goPage(editor, page);
     await expandAll(editor);
-    kept.push(...liveForms(editor, root, page));
+    // A copy is the same field as its home's form, which this visit keeps.
+    kept.push(...liveForms(editor, root, page).filter((drawn) => !drawn.copy));
   }
   for (const key of keysOf(editor, 'entry')) {
     await goOverview(editor);
@@ -2185,7 +2199,7 @@ export async function resetButtons(editor: EditorElement): Promise<HTMLButtonEle
   if (root === null) throw new Error('The editor has not rendered: mount it, and await it.');
   const found = [...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]')];
   await goOverview(editor);
-  for (const page of pagesToVisit(root)) {
+  for (const page of pagesToVisit(editor)) {
     await goPage(editor, page);
     found.push(...root.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'));
   }

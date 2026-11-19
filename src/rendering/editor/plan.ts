@@ -47,7 +47,9 @@ import {
   type HeadingDef,
   PAGES,
   type PageDef,
+  type PageId,
   WHOLE_CARD_PAGES,
+  isBorrowed,
   placementOf,
 } from './pages';
 import * as Reset from './reset';
@@ -107,6 +109,11 @@ export interface PlanCtx {
    * scope the card's pages are edited in. The workspace where absent.
    */
   readonly previewed?: EditorWorkspace;
+  /**
+   * The page being drawn, where it is not a field's home: a copy of a whole-card setting on a
+   * topic says Whole Card there, as it would not on its home page. Its home where absent.
+   */
+  readonly page?: PageId;
 }
 
 /** One item of a heading's Add row: a field, or a family as one. */
@@ -122,6 +129,8 @@ export interface HeadingPlan {
     readonly id: FieldId;
     readonly appearance: Appearance;
     readonly why: Extract<FieldState, { kind: 'live' }>['why'];
+    /** A whole-card setting drawn here as a copy, at home on a Whole Card page. */
+    readonly copy?: true;
   }>;
   /** The Add row's items, in registry order. */
   readonly add: ReadonlyArray<AddItem>;
@@ -138,6 +147,8 @@ export interface HeadingPlan {
     readonly unmet: Prereq;
     readonly source: 'here' | 'all-layouts';
   }>;
+  /** Whole-card settings named here by a row that opens them at home, in registry order. */
+  readonly references: ReadonlyArray<{ readonly id: FieldId }>;
 }
 
 /** What a field says about its value, in data; the words are drawn from it. */
@@ -262,8 +273,11 @@ let appearances: ReadonlyMap<FieldId, Appearance> | undefined;
 export function appearanceOf(id: FieldId): Appearance | undefined {
   if (!appearances) {
     const map = new Map<FieldId, Appearance>();
+    // A copy or a reference is drawn as its home places it.
     const each = (fields: HeadingDef['fields']): void => {
-      for (const [field, appearance] of fields) if (!map.has(field)) map.set(field, appearance);
+      for (const [field, appearance] of fields) {
+        if (!isBorrowed(appearance) && !map.has(field)) map.set(field, appearance);
+      }
     };
     for (const page of PAGES) for (const heading of page.headings) each(heading.fields);
     for (const heading of ENTRY_GROUPS) each(heading.fields);
@@ -819,13 +833,25 @@ function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): Headin
     const add: AddItem[] = [];
     const gated: Array<HeadingPlan['gated'][number]> = [];
     const inactive: Array<HeadingPlan['inactive'][number]> = [];
+    const references: Array<HeadingPlan['references'][number]> = [];
     const families = new Map<FamilyId, FieldId[]>();
 
-    for (const [id, appearance] of heading.fields) {
+    for (const [id, placed] of heading.fields) {
+      if (placed === 'reference') {
+        if (ctx.present.fields.has(id)) references.push({ id });
+        continue;
+      }
+      // A copy is drawn, gated and folded as at home.
+      const appearance = placed === 'copy' ? (appearanceOf(id) ?? 'add') : placed;
       const state = fieldState(id, appearance, ctx);
       switch (state.kind) {
         case 'live':
-          live.push({ id, appearance, why: state.why });
+          live.push({
+            id,
+            appearance,
+            why: state.why,
+            ...(placed === 'copy' ? { copy: true } : {}),
+          });
           break;
         case 'add':
           if (typeof appearance === 'object' && 'family' in appearance) {
@@ -851,7 +877,7 @@ function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): Headin
           break;
       }
     }
-    return { heading, live, add, gated, inactive };
+    return { heading, live, add, gated, inactive, references };
   });
 }
 
@@ -864,7 +890,7 @@ function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): Headin
  * @returns The plan
  */
 export function planPage(page: PageDef, ctx: PlanCtx): { headings: HeadingPlan[] } {
-  return { headings: planHeadings(page.headings, ctx) };
+  return { headings: planHeadings(page.headings, { ...ctx, page: ctx.page ?? page.id }) };
 }
 
 /**
@@ -900,14 +926,16 @@ export function planEntry(
 }
 
 /**
- * Whether a card field sits on one of Whole Card's pages (`pages.ts` › `WHOLE_CARD_PAGES`), where
- * every setting is the whole card's and none says so.
+ * Whether a card field is drawn on one of Whole Card's pages (`pages.ts` › `WHOLE_CARD_PAGES`),
+ * where every setting is the whole card's and none says so: the page being drawn, else the
+ * field's home, as a search result opens it.
  *
  * @param id - Field id
- * @returns `true` on Card & Header, Taps & Refresh and Weather
+ * @param ctx - Plan context
+ * @returns `true` on Card & Header, Events, Weather & Language and Taps & Refresh
  */
-function onWholeCardPage(id: FieldId): boolean {
-  const page = placementOf(id)?.page;
+function onWholeCardPage(id: FieldId, ctx: PlanCtx): boolean {
+  const page = ctx.page ?? placementOf(id)?.page;
   return page !== undefined && WHOLE_CARD_PAGES.has(page as never);
 }
 
@@ -983,7 +1011,7 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
   let notIn: StateWords['notIn'];
   if (!hasLayoutCopy(field)) {
     // A whole-card setting on a page of per-layout ones says so in every scope, All Layouts too.
-    if (onWholeCardPage(field.id)) words = here ? { kind: 'set' } : undefined;
+    if (onWholeCardPage(field.id, ctx)) words = here ? { kind: 'set' } : undefined;
     else words = { kind: 'whole-card', stored: here };
     const ignoring = layoutsIgnoring(field);
     if (ignoring.length > 0) notIn = ignoring;

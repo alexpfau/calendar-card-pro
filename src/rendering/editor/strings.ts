@@ -38,6 +38,22 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
+  // Whole Card's page for a first setup's questions, in the order its headings ask them.
+  'page.events_weather_language': 'Events, Weather & Language',
+  // The line under each page's row: what to expect there, the same whatever the card holds.
+  'panel.card.description': 'Title, colors and toolbar controls',
+  'page.events_weather_language.description': 'Start date, week start and time format',
+  'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
+  'page.which_events.description': 'Days to show, filters and empty days',
+  'panel.day_header.description': 'Dates, week numbers, today and weekends',
+  'panel.events.description': 'Event details, text styles and colors',
+  'page.size_spacing.description': 'Card height, gaps and separator lines',
+  'panel.weather.description': 'Forecast placement, details and styling',
+  // A line after a whole-card setting linking to the layouts that hold the setting it goes with,
+  // each layout's name a link: "Days to show, per layout: List · Grid".
+  'links.days_to_show': 'Days to show, per layout:',
+  'links.forecast': 'Show the forecast in:',
+  'heading.format_language': 'Format & Language',
   'heading.past_events': 'Past Events',
   // Week Numbers until this heading took the first day of the week as well.
   'heading.weeks': 'Weeks',
@@ -62,11 +78,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.more': 'More',
   'more.example': 'Start From an Example',
   'more.example_note': 'Quick Setup: an example card and a few questions',
-  'more.audit': 'What This Card Changes',
+  'more.audit': 'Stored Settings',
+  'more.audit_note': 'What is set, grouped by where it lives',
   'audit.intro':
-    'Every value this card stores, grouped by where it lives. Anything not listed uses its default.',
-  'audit.not_in_use': 'Not in Use: {count}',
-  'audit.none': 'Nothing Changed',
+    'Every value this card stores, grouped by where it lives, including values that match a default or are not in use. Anything not listed uses its default.',
+  'audit.none': 'No Stored Settings',
   'audit.whole_note': 'One value for every layout.',
   'audit.all_layouts_note': 'Every layout uses these unless it has its own.',
   'audit.reset_all': 'Reset All in {layout}',
@@ -104,6 +120,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.map_marker': 'Map Marker',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
+  // A row on a topic naming a whole-card setting at home on a Whole Card page: what it opens, for
+  // screen readers, after the setting's name, value and Whole Card.
+  'nav.opens': 'Opens {page}',
   // A page's foot: its page on the documentation site, which says what the helpers leave out.
   'nav.docs': 'Documentation',
   // A link to the heading on another page that answers the neighboring question.
@@ -112,17 +131,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'nav.cross_link.past_events': 'Whether past events show:',
   'nav.cross_link.days_of_week': 'Which days its events show:',
   // Layout Defaults' page line.
-  'settings_for.help_shared': 'Every layout uses these unless it has its own value.',
+  'settings_for.help_shared':
+    'Every layout uses these unless it has its own value. Settings marked Whole Card have one value for every layout.',
   // On a layout's page and its topics while the preview draws another layout than the card opens
   // in. Nothing is saved by it.
   'settings_for.preview': 'Preview shows {layout} · The card opens in {displayed}',
-  // The overview: Whole Card's frame, Shared Across Layouts' row and page, then Layouts.
+  // The overview: Whole Card's frame, then Layouts.
   'overview.whole_card': 'Whole Card',
   'overview.whole_card.hint': 'The same in every layout.',
-  'overview.shared_across': 'Shared Across Layouts',
-  'overview.shared_across.summary': 'Start date, event type, day colors, time format',
-  'overview.shared_across.note':
-    'The same in every layout. Each also sits on its layout pages; a change here changes it there.',
   'overview.layouts': 'Layouts',
   'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
@@ -139,16 +155,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'layouts.also_for': 'Also for:',
   'layouts.continue_with': 'Continue with',
   'summary.pair': '{label}: {value}',
-  'summary.set': 'Set: {count}',
-  // Card & Header's row on the overview names the layout switcher's state last.
-  'summary.switcher_off': 'Layout Switcher: Off',
-  'summary.switcher_on': 'Layout Switcher: {layouts}',
   'summary.on': 'On',
   'summary.off': 'Off',
-  // Words typed into a text field, as a summary quotes them: Title: “Our Week”.
-  'summary.quoted': '“{value}”',
-  // The toolbar's controls pressed, a label and a number: "Controls: 5 on".
-  'summary.controls_on': 'Controls: {count} on',
   // Layouts in Switcher's value while it offers every layout; otherwise their names.
   'summary.all_layouts': 'All Layouts',
   'announce.removed': 'Removed {name}.',
@@ -211,7 +219,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The preference under More, remembered in this browser (`prefs.ts`).
   'prefs.yaml': 'Show YAML Option Names',
   'prefs.yaml_note':
-    'Shows each setting’s option name beside its label, in search and in What This Card Changes. Remembered in this browser.',
+    'Shows each setting’s option name beside its label, in search and in Stored Settings. Remembered in this browser.',
   'prefs.menu': 'Editor Preferences',
 
   // --- Undo & Redo ----------------------------------------------------------
@@ -1143,6 +1151,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'start_date_offset.helper':
     'An anchor (today, start_of_week or a weekday), then +N or -N days, +Nw weeks or +weekday. For example today+7, saturday, monday+1w.',
   first_day_of_week: 'First Day Of Week',
+  'first_day_of_week.aliases': 'week start',
   'first_day_of_week.option.system.label': 'Follow Home Assistant',
   'first_day_of_week.option.monday.label': 'Monday',
   'first_day_of_week.option.sunday.label': 'Sunday',
