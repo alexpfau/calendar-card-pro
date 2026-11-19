@@ -1729,6 +1729,7 @@ describe('the weeks’ lines and bars', () => {
 describe('today’s tile in the wide month', () => {
   const WIDE_TILE = '.month-container:not(.month-compact) .month-date > .day.today-tile';
   const SELECTED_TODAY = '.month-compact .month-day.month-selected.today .month-date > .day';
+  const COMPACT_DAY = '.month-compact .month-date > .day';
 
   /** A rule's declarations outside any at-rule, by property. */
   const rule = (selector: string) =>
@@ -1756,6 +1757,28 @@ describe('today’s tile in the wide month', () => {
       wide['--calendar-card-today-indicator-ink'],
       wide['font-weight'],
     ]).toEqual([selected.background, selected.color, selected['font-weight']]);
+  });
+
+  it('rounds its corners as the compact tile does, short of a pill, and leaves the list’s', () => {
+    const SQUIRCLE = '@supports (corner-shape: squircle)';
+    const radius = (selector: string, at: readonly string[]) =>
+      declarations(cardStyles.cssText)
+        .filter(
+          (d) =>
+            d.property === 'border-radius' &&
+            d.selectors.includes(selector) &&
+            d.at.join() === at.join(),
+        )
+        .map((d) => d.value);
+    // With a squircle, the compact tile's own corner; without one, its share of the side, since
+    // its 0.6em would round a 1.2em tile's ends into a pill.
+    const compact = rule(COMPACT_DAY)['border-radius'];
+    expect(compact).toBe('0.6em');
+    expect(radius(WIDE_TILE, [SQUIRCLE])).toEqual([compact]);
+    expect(radius(WIDE_TILE, [])).toEqual(['0.41em']);
+    // The control: the list's and the columns' tile keeps its corners.
+    expect(radius('.day.today-tile', [])).toEqual(['0.27em']);
+    expect(radius('.day.today-tile', [SQUIRCLE])).toEqual(['0.456em']);
   });
 
   it('reaches the wide month’s tile alone, whose digits take the ink it redefines', async () => {

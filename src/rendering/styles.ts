@@ -8043,11 +8043,23 @@ export const cardStyles = css`
      the weight. The ink is redefined rather than the color set, since the digits
      take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
-     week-number pill and the week separators, keeps the list's tile. */
+     week-number pill and the week separators, keeps the list's tile.
+
+     Its corners are the compact tile's too, short of a pill. With a squircle they are that tile's
+     own 0.6em, 9.6px at the month's 16px dates, half this tile's height. A plain corner of 0.6em
+     would round its ends into a pill, so without one it takes 0.41em, the compact tile's 34% of
+     its side, of this tile's height. The list's tile keeps 0.27em and 0.456em. */
   .month-container:not(.month-compact) .month-date > .day.today-tile {
     background: var(--calendar-card-today-indicator-color);
     font-weight: 600;
+    border-radius: 0.41em;
     --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
+  }
+
+  @supports (corner-shape: squircle) {
+    .month-container:not(.month-compact) .month-date > .day.today-tile {
+      border-radius: 0.6em;
+    }
   }
 
   /* Today without the tile, where today_indicator names another style or none: its number in
