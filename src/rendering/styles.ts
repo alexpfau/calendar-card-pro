@@ -5814,7 +5814,7 @@ export const cardStyles = css`
      element opacity dims only one of the two. They carry the same ink at the shipped
      defaults, and each family now has its own option to say so: hour_line_color arrives
      here as --calendar-card-grid-rule-color, day_separator_color paints the verticals, and
-     both ship var(--divider-color) at half strength. Dimming belongs in those defaults,
+     both ship var(--divider-color) at 75%. Dimming belongs in those defaults,
      where a user who supplies a color still gets exactly what they asked for -- an
      opacity here would halve theirs too, and it would halve only one of the two families.
 
@@ -7799,6 +7799,11 @@ export const cardStyles = css`
      lines, bars and "+N more" read the cells' sizes while a day's list and the panel, outside
      it, read the card's.
 
+     The rules are the theme's divider at 75%, as Grid's are, between parts of one whole: weeks,
+     days and the compact form's weeks and list. The one under the weekday names is the card's
+     stronger header rule, the theme's text color at 18%, as Grid's under its date row is.
+     Without color-mix() both take the theme's divider as it is (below).
+
      The text of a line and of "+N more" starts 4.3px past the accent stripe's width: the stripe
      sits 0.5px into its line, whose 3px margin keeps it, the hover wash and the focus ring off the
      day's rule, and the text clears it by 3.8px, which reads as about 0.45 of the 10px title once
@@ -7813,7 +7818,16 @@ export const cardStyles = css`
       );
     position: relative;
     box-sizing: border-box;
-    --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+    --calendar-card-month-rule: color-mix(
+      in srgb,
+      var(--divider-color, rgba(127, 127, 127, 0.25)) 75%,
+      transparent
+    );
+    --calendar-card-month-header-rule: color-mix(
+      in srgb,
+      var(--primary-text-color) 18%,
+      transparent
+    );
     --calendar-card-month-text-start: calc(4.3px + var(--calendar-card-line-width-vertical));
   }
 
@@ -7873,6 +7887,13 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-container {
+      --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+      --calendar-card-month-header-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
+    }
+  }
+
   .month-weekdays {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -7904,6 +7925,11 @@ export const cardStyles = css`
     min-height: 0;
     overflow: hidden;
     border-block-start: 1px solid var(--calendar-card-month-rule);
+  }
+
+  /* The first week's rule is the one under the weekday names, in either form. */
+  .month-weekdays + .month-week {
+    border-block-start-color: var(--calendar-card-month-header-rule);
   }
 
   /* The day's own box, behind its events, spanning every line of its column. Its empty space is

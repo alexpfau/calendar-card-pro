@@ -2210,10 +2210,10 @@ describe('card stylesheet', () => {
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
 
       // The dilution lives in the option's own default, so a user's color is never
-      // quietly halved. Half of the divider token, spelled as a mix rather than as an
-      // alpha, so it follows a theme that redefines the token.
+      // quietly softened. 75% of the divider token, the card's rule in every layout, spelled
+      // as a mix rather than as an alpha, so it follows a theme that redefines the token.
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
-        'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       );
 
       // ...and only then: nothing may dim one side of the pair. An element opacity is

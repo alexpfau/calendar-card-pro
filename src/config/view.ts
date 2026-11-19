@@ -749,13 +749,14 @@ export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  *   first event. The separator, when present, sits centered in that gap.
  * - `day_header_separator_width` is `0px` — no rule by default. `day_header_gap`
  *   keeps the header spacing stable when the rule is off.
- * - `day_header_separator_color` is `var(--divider-color)`, Home Assistant's semantic
- *   divider token. It is a structural divider, not text.
+ * - `day_header_separator_color` is the theme's text color at 18%, the card's rule under a
+ *   header in every layout, as strong again as the theme's divider at its usual 12%, so the
+ *   header reads as set apart from what it heads.
  */
 export const COLUMN_DEFAULTS = {
   day_header_gap: '8px',
   day_header_separator_width: '0px',
-  day_header_separator_color: 'var(--divider-color)',
+  day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
 
   // Chosen so three default columns fit inside a 500px Home Assistant section after
   // card padding, gutters and half the hysteresis band are included.
@@ -823,11 +824,13 @@ export const COLUMN_DEFAULTS = {
  * school morning no longer halves the width of everything inside it for its whole length.
  * `columns` stays one option away for anyone who reads a day by counting parallel lanes.
  *
- * 🚨 Four rules ship the same gray and the repetition is the design, not a missed
- * constant. `day_header_separator_*`, `hour_line_*`, `allday_band_line_*` and — over in
- * the grid's divergent-default table below — `day_separator_*` each carry
- * `var(--divider-color)` at half strength, because that is what the grid draws today and
- * splitting them apart was a change of *which option controls what*, not of how anything
+ * 🚨 Three rules ship the same gray and the repetition is the design, not a missed
+ * constant. `hour_line_*`, `allday_band_line_*` and — over in the grid's divergent-default
+ * table below — `day_separator_*` each carry `var(--divider-color)` at 75%, the card's rule
+ * between parts of one whole in every layout, as Month's cells are ruled. The fourth,
+ * `day_header_separator_*`, is the rule under the date row, which takes the card's stronger
+ * header rule, the theme's text color at 18%, as Month's under its weekday names does.
+ * Splitting them apart was a change of *which option controls what*, not of how anything
  * looks. Factoring the value into one binding would put four independently settable
  * options back on one string, which is the coupling this split exists to remove; it would
  * also read to `check:docs`, which reconciles this table as source text, as a default of
@@ -855,7 +858,7 @@ export const COLUMN_DEFAULTS = {
 export const TIME_GRID_DEFAULTS = {
   day_header_gap: '8px',
   day_header_separator_width: '1px',
-  day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+  day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
 
   // A grid column carries positioned blocks rather than a full text list, so it can be
   // narrower than column view's 140px default. The width threshold also reserves the
@@ -884,9 +887,9 @@ export const TIME_GRID_DEFAULTS = {
   show_axis_labels: true,
   axis_label_minutes: 60,
   hour_line_width: '1px',
-  hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+  hour_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
   allday_band_line_width: '2px',
-  allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+  allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
 } as const;
 
 /**
@@ -1804,7 +1807,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * `hour_line_*`, all in {@link TIME_GRID_DEFAULTS} — and `day_separator_width: 0` in grid
  * now removes the vertical rules and nothing else.
  *
- * 🚨 The gray is `var(--divider-color)` at **half** strength, and the halving lives here —
+ * 🚨 The gray is `var(--divider-color)` at **75%**, and the softening lives here —
  * in the option's own default — rather than as an `opacity` on `.grid-rules`, which is
  * where it used to be. An element opacity dims one of the two rule families and not the
  * other, and it dims a color the user supplied as well as the one the card shipped. As a
@@ -1881,7 +1884,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
   day_separator_width: '1px',
-  day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+  day_separator_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
   day_spacing: '1px',
   description_color: EntityColors.ACCENT_TEXT_SENTINEL,
   event_background_opacity: 20,

@@ -622,7 +622,7 @@ describe('editor: the column block as the form shows it', () => {
     expect(block).toEqual({
       day_header_gap: '8px',
       day_header_separator_width: '0px',
-      day_header_separator_color: 'var(--divider-color)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       min_day_width: 140,
       min_days_fallback: 'list',
       min_days_to_show: 3,
@@ -678,11 +678,11 @@ describe('editor: the grid block as the form shows it', () => {
       // rule between the date row and the all-day band in grid — a rule the grid has
       // always drawn, and which used to come out of `day_separator_*`.
       day_header_separator_width: '1px',
-      day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       hour_line_width: '1px',
-      hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      hour_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       allday_band_line_width: '2px',
-      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
     });
   });
 

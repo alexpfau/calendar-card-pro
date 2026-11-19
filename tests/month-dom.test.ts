@@ -751,6 +751,39 @@ describe('the rows’ height', () => {
     });
   });
 
+  it('rules its weeks and days at 75% of the theme divider, and under the names more strongly', () => {
+    // The card's rule in every layout, and its stronger one under a header (Grid's under its
+    // date row), so a theme's divider still sets both.
+    expect(rule('.month-container')).toMatchObject({
+      '--calendar-card-month-rule':
+        'color-mix(in srgb, var(--divider-color, rgba(127, 127, 127, 0.25)) 75%, transparent)',
+      '--calendar-card-month-header-rule':
+        'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+    });
+    expect(rule('.month-week')['border-block-start']).toBe(
+      '1px solid var(--calendar-card-month-rule)',
+    );
+    expect(rule('.month-weekdays + .month-week')).toEqual({
+      'border-block-start-color': 'var(--calendar-card-month-header-rule)',
+    });
+    // Without color-mix() both are the theme's divider as it is, never an invalid mix that
+    // would draw each rule in the text color.
+    const fallback = Object.fromEntries(
+      declarations(cardStyles.cssText)
+        .filter(
+          (d) =>
+            d.at.join(' ') === '@supports not (color: color-mix(in srgb, red, blue))' &&
+            d.selectors.length === 1 &&
+            d.selectors[0] === '.month-container',
+        )
+        .map((d) => [d.property, d.value]),
+    );
+    expect(fallback).toEqual({
+      '--calendar-card-month-rule': 'var(--divider-color, rgba(127, 127, 127, 0.25))',
+      '--calendar-card-month-header-rule': 'var(--divider-color, rgba(127, 127, 127, 0.25))',
+    });
+  });
+
   it('takes nothing from height or max_height', async () => {
     const card = await mount({ height: '600px', max_height: '300px' });
     const style = month(card).style;

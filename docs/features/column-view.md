@@ -345,11 +345,11 @@ A 2px header rule in the primary color and a wider `day_header_gap`, with per-ca
 `accent_color` and `event_background_opacity`, which are ordinary options that apply in both
 layouts.
 
-| Option                       | Type   | Default                | Description                                                                      |
-| ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
-| `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
-| `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
-| `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
+| Option                       | Type   | Default                                                          | Description                                                                      |
+| ---------------------------- | ------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `day_header_gap`             | string | `8px`                                                            | Vertical space between a day header and its first event                          |
+| `day_header_separator_width` | string | `0px`                                                            | Thickness of the rule under each day header; `0px`, the default, renders no rule |
+| `day_header_separator_color` | string | `color-mix(in srgb, var(--primary-text-color) 18%, transparent)` | Color of that rule                                                               |
 
 ```yaml
 view: column
