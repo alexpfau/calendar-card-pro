@@ -68,7 +68,8 @@ The layouts' topics name all but Language too, each in its place. Start Date sit
 Days to Show, and the Weather Entity on each layout's Weather, where choosing it turns that
 layout's forecast on. Event Type and Hide The Card When Empty on Which Events, First Day of Week on
 Days and Time Format on Event Appearance show as a row with their value and **Whole Card · Events,
-Weather & Language**, which opens the setting here; Back returns to the row.
+Weather & Language**, which opens the setting here; **Back to** and the topic's name, under the
+header there, returns to the row.
 
 Under Start Date, **Days to show, per layout** links to Days to Show in each layout the card can
 show that counts days, since each layout keeps a count of its own. **Show the forecast in** links
@@ -85,12 +86,15 @@ menu, Down Arrow opens it from the button, and Escape closes it.
 ### Pages & Back
 
 A row opens its page with focus on the page's title. **Back**, at the top and at the foot of
-every page, returns to where you came from, the overview, a layout's page or the search results,
-with its scroll position and focus where you left them. Nothing goes deeper than a layout's
-topic. At the top, Back and the
-title share the first row, and **Search Settings**, **Undo**, **Redo** and **Pick From Preview**
-sit on the row under it, at every width.
+every page, goes up one level: from a layout's topic to that layout's page, and from every other
+page to the overview. It lands on the row that opens the page you left, in view and focused, with
+the page scrolled as you left it on the way down. Nothing goes deeper than a layout's topic. At
+the top, Back and the title share the first row, and **Search Settings**, **Undo**, **Redo** and
+**Pick From Preview** sit on the row under it, at every width.
 
+- A page you reached another way than by its row says how to return under its header:
+  **Return to Results** after a search result, and **Back to** and the page's name after a link
+  from another page, Pick From Preview or Undo of a step taken there. Back still goes up.
 - **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
   actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
   close the dialog. A picker Home Assistant opened keeps its own Escape.
@@ -248,7 +252,7 @@ which layout they are about, and a calendar's page is about every layout the car
 | **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                                  |
 | **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                                |
 | **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links; under Layout Defaults, any setting a layout draws nothing for |
-| **Day List & Panel**                                   | after Month's icon      | On Month's pages: a setting that acts on a day's list and the panel "+N more" opens, never on the weeks                               |
+| **Day List & Panel**                                   | after Month's icon      | On Month's pages: a setting that acts on a day's list and the panel "+N more" opens, never on the weeks, listed after the weeks' own  |
 | **Only in List**                                       | after the layout's icon | On a calendar's page: a setting only some of the card's layouts use as they are set up, such as Compact Events to Show                |
 | **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                                            |
 | **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                                             |
@@ -689,7 +693,8 @@ a search result opens one.
 - While it is on, a line above the editor says so, with **Cancel**, and the part under the
   pointer is outlined and named, as in **Event Appearance › Location · Click to Edit**.
 - One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
-  anywhere else in the editor. **Back** returns to where you were.
+  anywhere else in the editor. Picked from another page, its page says **Back to** and that
+  page's name under its header, which returns there.
 - The preview's own taps, holds and Grid's drag do nothing while it is on.
 - A legend chip opens its calendar's page, and the filter's button or row of chips the
   **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just

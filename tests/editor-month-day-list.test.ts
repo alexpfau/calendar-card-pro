@@ -36,10 +36,13 @@ import {
   universeIndex,
 } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
+import { ENTRY_GROUPS, type HeadingDef, topicsFor } from '../src/rendering/editor/pages';
 import {
   MONTH_DAY_LIST_ENTRY_OPTIONS,
   MONTH_DAY_LIST_OPTIONS,
   type PlanCtx,
+  fieldsInDrawOrder,
+  readsInMonthDayListOnly,
   stateOf,
   storedAt,
 } from '../src/rendering/editor/plan';
@@ -47,7 +50,7 @@ import { reset } from '../src/rendering/editor/reset';
 import { stateFacts } from '../src/rendering/editor/shown';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { deriveSyntheticData } from '../src/rendering/editor/synthetic';
-import type { EditorWorkspace } from '../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 import * as EntityColors from '../src/utils/entity-colors';
 
 /**
@@ -408,5 +411,126 @@ describe('Accent Text on Month’s page', () => {
     ]) {
       expect([key, stored[key]]).toEqual([key, EntityColors.ACCENT_TEXT_SENTINEL]);
     }
+  });
+});
+
+describe('the order of Month’s pages', () => {
+  afterEach(() => document.body.replaceChildren());
+
+  /** Each heading of every page a workspace offers, with the fields a corpus state builds there. */
+  function headingsOver(
+    workspace: EditorWorkspace,
+  ): Array<{ heading: HeadingDef; present: ReadonlyMap<string, IndexedField> }> {
+    const out: Array<{ heading: HeadingDef; present: ReadonlyMap<string, IndexedField> }> = [];
+    for (const state of corpus()) {
+      if (state.workspace !== workspace) continue;
+      const ctx = schemaCtx(state.config, workspace, 'en');
+      const card = buildFieldIndex(ctx).fields;
+      for (const page of topicsFor(workspace)) {
+        for (const heading of page.headings) out.push({ heading, present: card });
+      }
+      const first = state.config.entities?.[0];
+      if (first === undefined) continue;
+      const own = entityFieldIndex(entrySchema(first, ctx)).fields;
+      for (const heading of ENTRY_GROUPS) out.push({ heading, present: own });
+    }
+    return out;
+  }
+
+  it('draws no Day List & Panel setting ahead of one the weeks read, on any Month page', () => {
+    let headings = 0;
+    let reordered = 0;
+    for (const { heading, present } of headingsOver('month')) {
+      const drawn = fieldsInDrawOrder(heading, 'month', present).map(([id]) => id);
+      const late = (id: string): boolean => {
+        const field = present.get(id);
+        return field !== undefined && readsInMonthDayListOnly(field);
+      };
+      const first = drawn.findIndex(late);
+      expect(first < 0 || drawn.slice(first).every(late), drawn.join(', ')).toBe(true);
+      expect([...drawn].sort()).toEqual(heading.fields.map(([id]) => id).sort());
+      headings += 1;
+      if (drawn.join() !== heading.fields.map(([id]) => id).join()) reordered += 1;
+    }
+    expect(headings).toBeGreaterThan(100);
+    expect(reordered).toBeGreaterThan(0);
+  });
+
+  it('leaves every other scope in the registry’s order', () => {
+    for (const workspace of WORKSPACES.filter((each) => each !== 'month')) {
+      const over = headingsOver(workspace);
+      expect(over.length, workspace).toBeGreaterThan(0);
+      for (const { heading, present } of over) {
+        expect(fieldsInDrawOrder(heading, workspace, present), workspace).toBe(heading.fields);
+      }
+    }
+  });
+
+  it('puts the weeks’ settings first on Month’s Event Appearance, and leaves List’s as it was', async () => {
+    const drawn = async (workspace: 'month' | 'list'): Promise<string[]> => {
+      const editor = await mountEditor({ entities: ['calendar.anna'], view: workspace });
+      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await openPageOf(editor, 'events:event_font_size');
+      return [...editor.shadowRoot!.querySelectorAll('[data-field]')].map(
+        (each) => each.getAttribute('data-field') ?? '',
+      );
+    };
+    const among = (ids: string[], keep: ReadonlyArray<string>): string[] =>
+      ids.filter((id) => keep.includes(id));
+    const CHIPS = [
+      'events:show_time',
+      'events:show_end_time',
+      'events:show_location',
+      'events:show_duration',
+      'events:show_now_indicator',
+    ];
+    const TITLE = [
+      'layout:month.cell_event_font_size',
+      'events:event_font_size',
+      'events:event_color',
+      'events:scroll_long_titles',
+    ];
+    const TIME = [
+      'events:show_single_allday_time',
+      'events:time_two_digit_hours',
+      'events:time_font_size',
+      'layout:month.cell_time_font_size',
+      'events:time_color',
+    ];
+    const month = await drawn('month');
+    expect(among(month, CHIPS)).toEqual([
+      'events:show_time',
+      'events:show_end_time',
+      'events:show_duration',
+      'events:show_now_indicator',
+      'events:show_location',
+    ]);
+    expect(among(month, TITLE)).toEqual([
+      'layout:month.cell_event_font_size',
+      'events:event_color',
+      'events:event_font_size',
+      'events:scroll_long_titles',
+    ]);
+    expect(among(month, TIME)).toEqual([
+      'events:time_two_digit_hours',
+      'layout:month.cell_time_font_size',
+      'events:time_color',
+      'events:show_single_allday_time',
+      'events:time_font_size',
+    ]);
+    // The control: List draws the registry's order, which places these for every layout.
+    const list = await drawn('list');
+    expect(among(list, CHIPS)).toEqual(CHIPS);
+    expect(among(list, TITLE)).toEqual([
+      'events:event_font_size',
+      'events:event_color',
+      'events:scroll_long_titles',
+    ]);
+    expect(among(list, TIME)).toEqual([
+      'events:show_single_allday_time',
+      'events:time_two_digit_hours',
+      'events:time_font_size',
+      'events:time_color',
+    ]);
   });
 });

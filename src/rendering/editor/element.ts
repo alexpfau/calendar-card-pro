@@ -3276,9 +3276,22 @@ export class CalendarCardProEditor extends LitElement {
   private _renderReturn(ctx: SchemaCtx): TemplateResult | typeof nothing {
     const returnable =
       this._nav.route.kind === 'overview' ? this._resultsLeft !== undefined : this._nav.fromResults;
-    return returnable
-      ? SearchView.returnButton(this._string(ctx, 'search.return'), this._back)
-      : nothing;
+    if (returnable) {
+      return SearchView.returnButton(this._string(ctx, 'search.return'), this._returnBack);
+    }
+    // A page a link, a pick or Undo jumped to: Back goes up, and this line goes where it was.
+    const jumped = Navigation.jumpedFrom(this._nav);
+    const place =
+      jumped === undefined
+        ? undefined
+        : jumped.route.kind === 'audit'
+          ? this._string(ctx, 'more.audit')
+          : jumped.route.kind === 'notices'
+            ? this._string(ctx, 'misplaced.title')
+            : this._placeName(jumped.route);
+    return place === undefined
+      ? nothing
+      : SearchView.returnButton(this._string(ctx, 'search.back_to', { place }), this._returnBack);
   }
 
   /**
@@ -3723,9 +3736,9 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Draws the headings of a page or of a calendar entry's page from their plans: each heading's
-   * title and line, and in registry order every setting under its head row and every setting a
-   * gate withholds in its place, then the values stored for settings that are not in use (section
-   * 5.2). A heading with none of these, and nothing else to draw, is left out.
+   * title and line, and in drawing order (`Plan.fieldsInDrawOrder`) every setting under its head
+   * row and every setting a gate withholds in its place, then the values stored for settings that
+   * are not in use (section 5.2). A heading with none of these, and nothing else to draw, is left out.
    *
    * @param plans - The headings' plans
    * @param pctx - Plan context, the entry's on an entry page
@@ -3769,10 +3782,13 @@ export class CalendarCardProEditor extends LitElement {
           typeof appearance === 'object' && ('chips' in appearance || 'qualifies' in appearance)
         );
       };
-      // Every setting in registry order: the chips of one kind together where the first of them
-      // is placed, with their qualifier lines, Start Date as its radio group, every other setting
-      // under its head row, and a setting a gate withholds in its place, saying when it appears.
-      const order = new Map(heading.fields.map(([id], at) => [id, at]));
+      // Every setting in drawing order, the registry's but on Month's pages (Plan.fieldsInDrawOrder):
+      // the chips of one kind together where the first of them is placed, with their qualifier
+      // lines, Start Date as its radio group, every other setting under its head row, and a setting
+      // a gate withholds in its place, saying when it appears.
+      const order = new Map(
+        Plan.fieldsInDrawOrder(heading, pctx.workspace, present).map(([id], at) => [id, at]),
+      );
       const prefix = owner.kind === 'entry' ? owner.key : '';
       const grouped = new Set<string>();
       type Item =
@@ -5073,8 +5089,10 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Goes Back one place, restoring its scroll position and the control that left it. On the
-   * overview, where a result shows a field in place of the results, Back is Return to Results.
+   * Goes Back: up one level, to the place the open one belongs to (`navigation.ts` › `back`),
+   * restoring its scroll position and focus where it was left by the same row, else landing on
+   * the row that opens the place Back came from. On the overview, where a result shows a field in
+   * place of the results, Back is Return to Results.
    */
   private _back = (): void => {
     if (this._resultsLeft === undefined && this._backToSearchOrigin()) return;
@@ -5092,10 +5110,29 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
+   * Return to Results, and a jump's "Back to …" line: one step back along the trail, to the place
+   * left last (`navigation.ts` › `returnTo`), as it was left.
+   */
+  private _returnBack = (): void => {
+    if (this._nav.route.kind === 'overview') {
+      this._back();
+      return;
+    }
+    this._closeDisclosures();
+    const moved = Navigation.returnTo(this._nav);
+    this._nav = moved.nav;
+    if (moved.restore?.search) this._editHere = moved.restore.search.editHere;
+    this._jump = this._resultsLeft = undefined;
+    void this._afterMove(moved.restore);
+  };
+
+  /**
    * Moves focus once a move has rendered, in the same continuation, before the swapped-out
    * control's loss of focus can land anywhere else: a page's `h2`, with its header at the top
    * of what scrolls the editor; back on a place, its saved scroll position and the control
-   * that left it, else that place's list heading.
+   * that left it, else that place's list heading. Back always lands with that control in view: a
+   * position saved on a page that has since changed height, or on a scroller other than the one
+   * scrolling now, never leaves the editor showing none of the page.
    *
    * @param restore - The place returned to, for Back
    * @param heading - A heading to bring to the top instead of the page's header
@@ -5104,9 +5141,10 @@ export class CalendarCardProEditor extends LitElement {
     await this.updateComplete;
     const root = this.renderRoot;
     if (restore !== undefined) {
-      Focus.restoreScroll(this, restore.scrollTop);
+      if (restore.scrollTop !== undefined) Focus.restoreScroll(this, restore.scrollTop);
       const keys = restore.focusKey === undefined ? [] : [Focus.byFocusKey(restore.focusKey)];
-      Focus.focusFirst(root, [...keys, '.row-group .heading', '.page-title']);
+      const focused = Focus.focusFirst(root, [...keys, '.row-group .heading', '.page-title']);
+      if (focused) Focus.keepInView(this, focused);
       return;
     }
     const section =
@@ -6146,7 +6184,7 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._formData();
     const layout = this._layoutName(ctx);
     const label = (id: FieldId): string => this._string(ctx, Chips.CHIP_LABELS[id]);
-    const placed = heading.fields.filter(
+    const placed = Plan.fieldsInDrawOrder(heading, workspace, present).filter(
       ([, appearance]) =>
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
@@ -6771,7 +6809,7 @@ export class CalendarCardProEditor extends LitElement {
         this._renderHeadActions(ctx, title),
         layout === 'shared' ? t('overview.layouts') : t('layouts.layout'),
       )}
-      ${this._renderPickBanner(ctx)}
+      ${this._renderPickBanner(ctx)} ${this._renderReturn(ctx)}
       ${PageView.pageLine(
         layout === 'shared' ? t('settings_for.help_shared') : t('layouts.page_note'),
       )}
@@ -10435,7 +10473,7 @@ export class CalendarCardProEditor extends LitElement {
         this._renderHeadActions(ctx, t('misplaced.title')),
         '',
       )}
-      ${this._renderPickBanner(ctx)} ${this._renderMisplaced(ctx)}
+      ${this._renderPickBanner(ctx)} ${this._renderReturn(ctx)} ${this._renderMisplaced(ctx)}
       ${
         old.length > 0
           ? PageView.headingBlock({
@@ -10597,7 +10635,7 @@ export class CalendarCardProEditor extends LitElement {
         this._renderHeadActions(ctx, t('more.audit')),
         t('overview.more'),
       )}
-      ${this._renderPickBanner(ctx)}
+      ${this._renderPickBanner(ctx)} ${this._renderReturn(ctx)}
       <p class="hint">${t('audit.intro')}</p>
       ${
         // A reset that took its group's last line leaves no group to say so in: the line that
