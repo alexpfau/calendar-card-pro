@@ -891,11 +891,40 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
 }
 
 /**
+ * A heading's fields in the order a scope draws them. On Month's pages a setting that acts in the
+ * weeks comes before one Month reads only in a day's list and the panel, the settings marked Day
+ * List & Panel ({@link readsInMonthDayListOnly}), each group in registry order: the wide month,
+ * which a Month card draws on all but a narrow screen, reads first. Every other scope draws the
+ * registry's order, which `pages.ts` places by scope, coarse to fine, for every layout at once,
+ * so a field moved there for Month would move in List and Columns too.
+ *
+ * @param heading - The heading
+ * @param workspace - Editing scope
+ * @param present - The fields built here, which say what each one writes
+ * @returns The fields, in drawing order
+ */
+export function fieldsInDrawOrder(
+  heading: HeadingDef,
+  workspace: EditorWorkspace,
+  present: ReadonlyMap<FieldId, IndexedField>,
+): HeadingDef['fields'] {
+  if (viewForWorkspace(workspace) !== 'month') return heading.fields;
+  const late = ([id]: HeadingDef['fields'][number]): boolean => {
+    const field = present.get(id);
+    return field !== undefined && readsInMonthDayListOnly(field);
+  };
+  const first = heading.fields.filter((entry) => !late(entry));
+  return first.length === heading.fields.length
+    ? heading.fields
+    : [...first, ...heading.fields.filter(late)];
+}
+
+/**
  * Plans the headings of a list of them.
  *
  * @param headings - The headings, in registry order
  * @param ctx - Plan context
- * @returns A plan per heading
+ * @returns A plan per heading, its fields in drawing order ({@link fieldsInDrawOrder})
  */
 function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): HeadingPlan[] {
   return headings.map((heading) => {
@@ -906,7 +935,7 @@ function planHeadings(headings: ReadonlyArray<HeadingDef>, ctx: PlanCtx): Headin
     const references: Array<HeadingPlan['references'][number]> = [];
     const families = new Map<FamilyId, FieldId[]>();
 
-    for (const [id, placed] of heading.fields) {
+    for (const [id, placed] of fieldsInDrawOrder(heading, ctx.workspace, ctx.present.fields)) {
       if (placed === 'reference') {
         if (ctx.present.fields.has(id)) references.push({ id });
         continue;

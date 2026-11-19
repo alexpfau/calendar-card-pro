@@ -240,7 +240,8 @@ See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maxi
 - **A row holds a title, a time, a location and a forecast.** The weeks draw an event as its
   title and start time, and a bar as its title and length, so `show_location`, its styling and
   the [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone;
-  the editor marks those settings **Day List & Panel** on Month's pages. The description, the
+  the editor marks those settings **Day List & Panel** on Month's pages and lists them after the
+  settings the weeks read, under each heading. The description, the
   countdown, the progress bar and the all-day badge are left to the
   [event details](/features/actions#event-details) a tap on an event opens, whatever the card
   says; see [below](#options-that-do-nothing-in-month-view).
