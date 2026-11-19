@@ -379,6 +379,7 @@
   "filter_duplicates_mode.option.off.label": "Vypnuté",
   "filter_duplicates_mode.option.exact.label": "Zhodujú sa názov, začiatok, koniec a miesto",
   "filter_duplicates_mode.option.ignore_location.label": "Zhodujú sa názov, začiatok a koniec",
+  "filter_duplicates_mode.option.merge_locations.label": "Zhodujú sa názov, začiatok a koniec — zobraziť všetky miesta",
   "filter_duplicates_mode.helper": "Skryje udalosť, ktorá sa v tu zvolených poliach zhoduje s inou. Zachová sa kópia z položky uvedenej skôr, aj s jej farbou. Bez miesta sa sviatok, ktorý dva regionálne kalendáre uvádzajú každý so svojím miestom, zobrazí raz.",
   "duplicate_accent_color": "Farba spoločnej udalosti",
   "duplicate_accent_color.helper": "Farba zvýraznenia pre udalosť zachovanú z dvoch alebo viacerých rôznych kalendárov, namiesto farby prvého kalendára. Ak zostane prázdne, zachová farbu daného kalendára.",

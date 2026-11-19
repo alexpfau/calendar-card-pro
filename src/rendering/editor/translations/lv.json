@@ -379,6 +379,7 @@
   "filter_duplicates_mode.option.off.label": "Izslēgts",
   "filter_duplicates_mode.option.exact.label": "Sakrīt virsraksts, sākums, beigas un atrašanās vieta",
   "filter_duplicates_mode.option.ignore_location.label": "Sakrīt virsraksts, sākums un beigas",
+  "filter_duplicates_mode.option.merge_locations.label": "Sakrīt virsraksts, sākums un beigas — rādīt visas atrašanās vietas",
   "filter_duplicates_mode.helper": "Paslēpj notikumu, kas šeit izvēlētajos laukos sakrīt ar citu. Tiek paturēta kopija no augstāk esošā ieraksta kopā ar tā krāsu. Bez atrašanās vietas svētku diena, ko divi reģionālie kalendāri katrs norāda ar savu atrašanās vietu, tiek parādīta vienreiz.",
   "duplicate_accent_color": "Kopīga notikuma krāsa",
   "duplicate_accent_color.helper": "Akcenta krāsa notikumam, kas tiek paturēts no diviem vai vairākiem dažādiem kalendāriem, pirmā kalendāra krāsas vietā. Atstājot tukšu, tiek paturēta tā kalendāra krāsa.",

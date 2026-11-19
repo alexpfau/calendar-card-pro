@@ -5102,6 +5102,10 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // A list option whose dropdown is exactly the union: `earliest_first` is the shipped
     // order rather than an absent value.
     event_order: { field: 'event_order' },
+    // Discovered once `merge_locations` gave the union a second string literal. Its two
+    // boolean members are the dropdown's `off` and `exact`, which a union of literals
+    // cannot spell, the way `show_week_numbers` spells `null` as `none`.
+    filter_duplicates: { field: 'filter_duplicates_mode', editorOnly: ['off', 'exact'] },
   };
 
   /**

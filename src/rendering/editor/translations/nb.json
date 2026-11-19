@@ -379,6 +379,7 @@
   "filter_duplicates_mode.option.off.label": "Av",
   "filter_duplicates_mode.option.exact.label": "Samme tittel, start, slutt og sted",
   "filter_duplicates_mode.option.ignore_location.label": "Samme tittel, start og slutt",
+  "filter_duplicates_mode.option.merge_locations.label": "Samme tittel, start og slutt — vis alle steder",
   "filter_duplicates_mode.helper": "Skjuler en hendelse som stemmer med en annen i feltene som er valgt her. Kopien fra oppføringen som står først, beholdes sammen med fargen sin. Uten sted vises en helligdag som to regionale kalendere har med hvert sitt sted, bare én gang.",
   "duplicate_accent_color": "Felles hendelsesfarge",
   "duplicate_accent_color.helper": "Aksentfarge for en hendelse som beholdes fra to eller flere forskjellige kalendere, i stedet for fargen til den første kalenderen. Står det tomt, beholder hendelsen fargen til den kalenderen.",

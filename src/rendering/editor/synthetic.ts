@@ -7,6 +7,7 @@ import * as Config from '../../config/config';
 import {
   COUNTDOWN_ONCE_PER_DAY,
   DUPLICATES_IGNORE_LOCATION,
+  DUPLICATES_MERGE_LOCATIONS,
   EVENT_DETAILS_ACTION,
 } from '../../config/constants';
 import * as Types from '../../config/types';
@@ -231,19 +232,25 @@ export function dayTapActionMode(config: Readonly<Types.Config>): 'none' | 'add-
 }
 
 /** The duplicate filter's choices, in the order its dropdown lists them: off, then strictest. */
-export const FILTER_DUPLICATES_MODES = ['off', 'exact', DUPLICATES_IGNORE_LOCATION] as const;
+export const FILTER_DUPLICATES_MODES = [
+  'off',
+  'exact',
+  DUPLICATES_IGNORE_LOCATION,
+  DUPLICATES_MERGE_LOCATIONS,
+] as const;
 
 /**
- * Derives which events count as copies, as the editor's three-choice dropdown shows it.
- * `ignore_location` is the one string the card reads as a mode of its own, and it treats any
- * other truthy value as `true`. So does this, or the dropdown would say off while the card
- * filtered.
+ * Derives which events count as copies, as the editor's four-choice dropdown shows it.
+ * `ignore_location` and `merge_locations` are the strings the card reads as modes of their own,
+ * and it treats any other truthy value as `true`. So does this, or the dropdown would say off
+ * while the card filtered.
  *
  * @param value - Configured `filter_duplicates`, already resolved for the view
- * @returns Which of the three choices applies
+ * @returns Which of the four choices applies
  */
 export function filterDuplicatesMode(value: unknown): (typeof FILTER_DUPLICATES_MODES)[number] {
   if (value === DUPLICATES_IGNORE_LOCATION) return DUPLICATES_IGNORE_LOCATION;
+  if (value === DUPLICATES_MERGE_LOCATIONS) return DUPLICATES_MERGE_LOCATIONS;
   return value ? 'exact' : 'off';
 }
 
@@ -454,16 +461,16 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   /**
-   * `filter_duplicates` as a dropdown, because its third value leaves the location out of the
-   * comparison and a switch has only two positions. Every choice stores itself, `false`
+   * `filter_duplicates` as a dropdown, because its third and fourth values leave the location
+   * out of the comparison and a switch has only two positions. Every choice stores itself, `false`
    * included, the way `time_format` stores `time_24h`.
    */
   filter_duplicates_mode: {
     configKeys: ['filter_duplicates'],
     derive: (config) => filterDuplicatesMode(config.filter_duplicates),
     apply: (value) =>
-      value === DUPLICATES_IGNORE_LOCATION
-        ? { changes: { filter_duplicates: DUPLICATES_IGNORE_LOCATION } }
+      value === DUPLICATES_IGNORE_LOCATION || value === DUPLICATES_MERGE_LOCATIONS
+        ? { changes: { filter_duplicates: value } }
         : { changes: { filter_duplicates: value === 'exact' } },
   },
 

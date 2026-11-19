@@ -657,13 +657,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'filter_duplicates_mode.option.off.label': 'Off',
   'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
   'filter_duplicates_mode.option.ignore_location.label': 'Same title, start and end',
+  'filter_duplicates_mode.option.merge_locations.label':
+    'Same title, start and end — list all locations',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.
   'filter_duplicates_mode.helper':
     'Hides an event that matches another on the fields chosen here. The copy from the ' +
     'entry listed first is the one kept, along with its color. Leaving location out suits ' +
-    'a holiday that two regional calendars each carry under their own location.',
+    'a holiday that two regional calendars each carry under their own location; listing ' +
+    'all locations suits one event held in a different place on each calendar.',
   duplicate_accent_color: 'Shared Event Color',
   'duplicate_accent_color.helper':
     'Accent color for an event kept from two or more different calendars, in place of ' +

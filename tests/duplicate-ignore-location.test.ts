@@ -269,7 +269,8 @@ describe('the editor’s duplicate dropdown', () => {
   }
 
   it('offers off, every field, and every field but the location, in that order', () => {
-    expect(FILTER_DUPLICATES_MODES).toEqual(['off', 'exact', 'ignore_location']);
+    // `merge_locations` follows, pinned in `duplicate-merge-locations.test.ts`.
+    expect(FILTER_DUPLICATES_MODES).toEqual(['off', 'exact', 'ignore_location', 'merge_locations']);
   });
 
   it.each([
