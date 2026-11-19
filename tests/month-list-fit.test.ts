@@ -2,11 +2,17 @@
  * How many of a day's events a compact month's list draws in its room
  * (`utils/month-list-fit.ts`), from measured numbers alone: where each row ends, "+N more"'s
  * height, the gap before it and the room. The card's side, measuring them off the staged rows, is
- * in `month-compact.test.ts`.
+ * in `month-compact.test.ts`; how the measuring reads a scale an ancestor draws the card at is
+ * here, on boxes laid out by hand.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { MONTH_LIST_FIT_TOLERANCE, fitMonthList } from '../src/utils/month-list-fit';
+import {
+  MONTH_LIST_FIT_TOLERANCE,
+  fitMonthList,
+  measureMonthList,
+  measureMonthListMin,
+} from '../src/utils/month-list-fit';
 
 /**
  * Where each of a day's rows ends, from rows this tall with this gap between two.
@@ -84,5 +90,107 @@ describe('the rows a day’s list draws', () => {
       seen.add(shown);
     }
     expect([...seen]).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// MEASURING AT A SCALE
+//-----------------------------------------------------------------------------
+
+/** A scale an ancestor draws the card at, across and down, as a transform may set them apart. */
+interface Scale {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * A compact month's card laid out by hand, in layout pixels before the scale: a 343px card 600px
+ * tall under a 640px cap, its list's 44px header over a rows' box 100px tall, and nine staged rows
+ * 40px tall and 6px apart with a 28px "+N more" 6px under them. Every box is scaled as a browser
+ * reports it; `offsetWidth` and `offsetHeight` are not.
+ */
+function laidOutCard({ x, y }: Scale): HTMLElement {
+  const root = document.createElement('div');
+  const cells = '<tr><td class="event"></td></tr>'.repeat(9);
+  root.innerHTML =
+    '<ha-card><div class="content-container"><div class="weeks"></div>' +
+    '<div class="month-day-list"><div class="month-day-list-rows"></div></div></div>' +
+    `<div class="month-day-list-probe"><table class="month-day-table">${cells}</table>` +
+    '<button class="month-day-list-more"></button></div></ha-card>';
+  const place = (selector: string, top: number, height: number, width = 343) => {
+    const element = root.querySelector<HTMLElement>(selector)!;
+    element.getBoundingClientRect = () =>
+      ({
+        top: top * y,
+        bottom: (top + height) * y,
+        height: height * y,
+        left: 0,
+        right: width * x,
+        width: width * x,
+      }) as DOMRect;
+    Object.defineProperty(element, 'offsetWidth', { configurable: true, value: width });
+    Object.defineProperty(element, 'offsetHeight', {
+      configurable: true,
+      value: Math.round(height),
+    });
+  };
+  place('ha-card', 0, 600);
+  place('.content-container', 0, 600);
+  place('.weeks', 0, 400);
+  place('.month-day-list', 400, 200);
+  place('.month-day-list-rows', 444, 100);
+  place('.month-day-table', 1000, 9 * 40 + 8 * 6);
+  root.querySelectorAll<HTMLElement>('td.event').forEach((cell, index) => {
+    const top = 1000 + index * 46;
+    cell.getBoundingClientRect = () =>
+      ({ top: top * y, bottom: (top + 40) * y, height: 40 * y, width: 343 * x }) as DOMRect;
+  });
+  place('.month-day-list-more', 1000 + 9 * 40 + 8 * 6 + 6, 28);
+  return root;
+}
+
+describe('the list measured at a scale an ancestor draws the card at', () => {
+  const computed = window.getComputedStyle;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The card's cap as a browser computes it, in its own pixels; every other style as declared. */
+  const capAt = (cap: string) =>
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const declared = computed.call(window, element, pseudo);
+      if (element.localName !== 'ha-card') return declared;
+      return new Proxy(declared, {
+        get: (target, key) => {
+          if (key === 'maxHeight') return cap;
+          const value = Reflect.get(target, key) as unknown;
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+
+  /** What the list fits under the cap, and the least it writes, at a scale. */
+  const measured = (scale: Scale) => {
+    const root = laidOutCard(scale);
+    const geometry = measureMonthList(root, true)!;
+    return {
+      shown: fitMonthList(geometry),
+      room: +(geometry.room / scale.y).toFixed(6),
+      least: measureMonthListMin(root, { more: null, empty: null }),
+    };
+  };
+
+  it('reads the same fit and the same least down a scale that leaves the width alone', () => {
+    capAt('640px');
+    // The cap less the card's 500px around the rows' box: 140px, two rows and "+7 more"
+    // (86 + 6 + 28). The least is the 44px header and the 28px "+N more".
+    const unscaled = { shown: 2, room: 140, least: 72 };
+    expect(measured({ x: 1, y: 1 })).toEqual(unscaled);
+    // Down alone, across alone, and both: every vertical length is read against the height.
+    expect(measured({ x: 1, y: 0.75 })).toEqual(unscaled);
+    expect(measured({ x: 0.75, y: 1 })).toEqual(unscaled);
+    expect(measured({ x: 0.75, y: 0.75 })).toEqual(unscaled);
+    expect(measured({ x: 1, y: 1.5 })).toEqual(unscaled);
   });
 });

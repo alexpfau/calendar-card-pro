@@ -160,6 +160,9 @@ function linesIn(week: Element, gridColumn: string): HTMLElement[] {
 interface Layout {
   /** The scale an ancestor draws the card at, by a transform or a zoom. */
   readonly scale?: number;
+  /** The scale across and down, where a transform sets them apart; each defaults to `scale`. */
+  readonly scaleX?: number;
+  readonly scaleY?: number;
   /** The first week's height, its rule included. */
   readonly week?: number;
   /** The rule along the week's top. */
@@ -180,12 +183,13 @@ interface Layout {
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
   const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
+  const { scaleX = scale, scaleY = scale } = layout;
   const box = (top: number, height: number, width = 0) =>
     ({
-      top: top * scale,
-      bottom: (top + height) * scale,
-      height: height * scale,
-      width: width * scale,
+      top: top * scaleY,
+      bottom: (top + height) * scaleY,
+      height: height * scaleY,
+      width: width * scaleX,
     }) as DOMRect;
   const container = month(card);
   const height = 40 + 6 * week + 1;
@@ -701,6 +705,10 @@ describe('the rows’ height', () => {
     expect(await at({ scale: 1 })).toEqual(['43px', '299px']);
     expect(await at({ scale: 0.5 })).toEqual(['43px', '299px']);
     expect(await at({ scale: 0.8 })).toEqual(['43px', '299px']);
+    // A transform that scales one way alone: the heights are read against the month's height.
+    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '299px']);
     // A time set taller than the title is the line, as the capacity takes it.
     expect(await at({ time: 24 })).toEqual(['47px', '323px']);
   });
