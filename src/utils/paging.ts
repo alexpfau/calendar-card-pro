@@ -575,3 +575,21 @@ export function homeButtonName(
   if (rangeContains(home, now)) return todayWord(language);
   return rangeLabel({ start: leadingDay(home, latestFirst), days: 1 }, language, now);
 }
+
+/**
+ * What a month's home button is called: "Today" while home's heading names today's month, and
+ * otherwise that month, as the heading writes it in full ("January 2027"), so the name says where
+ * the button goes. Today drawn among another month's first or last days does not count, as it does
+ * for the other views (`homeButtonName`), since the button goes to the month the heading names.
+ *
+ * @param home - The month page the card opens with, its six weeks
+ * @param language - Card language
+ * @param now - The current moment
+ * @returns The button's name
+ */
+export function monthHomeButtonName(home: PageRange, language: string, now: Date): string {
+  const month = majorityMonth(home);
+  return month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth()
+    ? todayWord(language)
+    : monthHeading(month, language);
+}

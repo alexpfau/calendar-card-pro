@@ -279,4 +279,19 @@ describe("the home button's name", () => {
       'Do., 24. Dez.',
     );
   });
+
+  it("is Month's own: today's month's weeks are Today, any other month's are its name", () => {
+    // June 2026's weeks, Mondays first, hold today; January 2027's do not.
+    const june = { start: day(2026, 6, 1), days: 42 };
+    expect(Paging.monthHomeButtonName(june, 'de', NOW)).toBe('Heute');
+    const january = { start: day(2026, 12, 28), days: 42 };
+    expect(Paging.monthHomeButtonName(january, 'en', NOW)).toBe('January 2027');
+    expect(Paging.monthHomeButtonName(january, 'de', NOW)).toBe('Januar 2027');
+    // On June 3, May's weeks run into June and draw today among their last days: still May's
+    // name, where the other views' rule would say Today.
+    const may = { start: day(2026, 4, 27), days: 42 };
+    const june3 = new Date(2026, 5, 3, 10);
+    expect(Paging.homeButtonName(may, 'en', june3)).toBe('Today');
+    expect(Paging.monthHomeButtonName(may, 'en', june3)).toBe('May 2026');
+  });
 });

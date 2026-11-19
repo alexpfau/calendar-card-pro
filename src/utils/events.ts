@@ -12,7 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { getTimeWindow } from './start-date';
+import { getTimeWindow, startDateFollowsToday } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -3330,30 +3330,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// The window a `start_date` opens. It lives in `start-date.ts`, which `config/view.ts` can import
-// without this module, and stays reachable here for every caller that always read it here.
-export { getTimeWindow };
-
-/**
- * Whether a start date resolves against today, so the window it opens moves as days pass: no
- * start date, any relative expression, or a value so malformed that it falls back to today.
- *
- * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
- * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
- * exactly that week and a fixed date does not move at all. The first weekday decides where a
- * week-relative date lands, never whether it moves, so any value answers here.
- *
- * @param startDate - The configured `start_date`
- * @returns True when the resolved first day depends on the current date
- */
-export function startDateFollowsToday(startDate: string | undefined): boolean {
-  const now = new Date();
-  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
-  return (
-    getTimeWindow(1, startDate, 1, now).start.getTime() !==
-    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
-  );
-}
+// The window a `start_date` opens, and whether it follows today. Both live in `start-date.ts`,
+// which `config/view.ts` can import without this module, and stay reachable here for every
+// caller that always read them here.
+export { getTimeWindow, startDateFollowsToday };
 
 //-----------------------------------------------------------------------------
 // CACHE MANAGEMENT FUNCTIONS

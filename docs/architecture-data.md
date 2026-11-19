@@ -16,8 +16,9 @@ they draw what is stored first and when they ask Home Assistant.
 1. **Request.** `resolveRequest` fixes the cache key, the first weekday and the window, half-open
    from local midnight on the first day to local midnight after the last. The window spans every
    view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
-   start (`loadedDaysToShow`), and where Month is reachable its six weeks, which can start before
-   `start_date`. So switching views never fetches. The key names the window as configured
+   start (`loadedDaysToShow`), and where Month is reachable its six weeks: today's month, or a
+   fixed `start_date`'s (`ViewConfig.monthHomeDay`), as one span with the other views' days. So
+   switching views at home never fetches. The key names the window as configured
    (`ViewConfig.loadIdentity`), so home's stays put while Month's weeks move with the months; an
    entry stored for a window that has since moved is refetched into the same key (`isEntryDue`).
 2. **Stored window.** `readEventSnapshot` reads and processes the stored payload synchronously, so

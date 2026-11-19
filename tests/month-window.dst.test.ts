@@ -198,20 +198,76 @@ describe('the load where month is reachable', () => {
     }
   });
 
-  it('holds a relative start date to the month it resolves in', () => {
-    // `today` on the 18th and `today+7` on the 25th both open March's weeks, and the list's
-    // fourteen days from the 25th reach two days past them; `today+14` opens April's.
-    const load = (start_date: string) =>
-      ViewConfig.loadConfig(
-        buildConfig({ start_date, days_to_show: 14, toolbar: SWITCHER }),
-        MONDAY,
-        true,
-        NOW,
-      );
-    expect(window(load('today'), MONDAY)).toEqual(['2026-02-23', '2026-04-05']);
-    expect(window(load('today+7'), MONDAY)).toEqual(['2026-02-23', '2026-04-07']);
-    expect(window(load('today+14'), MONDAY)).toEqual(['2026-03-30', '2026-05-10']);
+  it.each([
+    // Every start date that follows today opens today's month, March's weeks, and the list's
+    // fourteen days from wherever it starts join them as one span.
+    ['today', 'today', ['2026-02-23', '2026-04-05']],
+    ['a week ahead, past the weeks by two days', 'today+7', ['2026-02-23', '2026-04-07']],
+    // The list starts on 1 April; Month still opens March, not April.
+    ['two weeks ahead, in April', 'today+14', ['2026-02-23', '2026-04-14']],
+    ['the start of the week', 'start_of_week', ['2026-02-23', '2026-04-05']],
+    // The list starts on 17 February, before the weeks; Month still opens March, not February.
+    ['29 days back, in February', 'today-29', ['2026-02-17', '2026-04-05']],
+    // A fixed date opens its own month: April's weeks hold the list's days.
+    ['a fixed date in April', '2026-04-10', ['2026-03-30', '2026-05-10']],
+    ['a fixed date in March', '2026-03-25', ['2026-02-23', '2026-04-07']],
+  ])('holds %s to Month’s home month', (_name, start_date, expected) => {
+    const load = ViewConfig.loadConfig(
+      buildConfig({ start_date, days_to_show: 14, toolbar: SWITCHER }),
+      MONDAY,
+      true,
+      NOW,
+    );
+    expect(window(load, MONDAY)).toEqual(expected);
   });
+
+  it.each([
+    // Tuesday 1 December: the week began on Monday 30 November, yet Month opens December.
+    [
+      'the start of the week on a month’s first days',
+      new Date(2026, 11, 1, 12),
+      'start_of_week',
+      14,
+      ['2026-11-30', '2027-01-10'],
+    ],
+    // Monday 30 November: tomorrow is 1 December, yet Month opens November.
+    [
+      'tomorrow on a month’s last day',
+      new Date(2026, 10, 30, 12),
+      'today+1',
+      14,
+      ['2026-10-26', '2026-12-14'],
+    ],
+    // Monday 1 March 2027, a common year: 29 days back is 31 January. Month opens March, whose
+    // weeks cross the spring change in Berlin, New York and the Azores.
+    [
+      '29 days back on 1 March',
+      new Date(2027, 2, 1, 12),
+      'today-29',
+      30,
+      ['2027-01-31', '2027-04-11'],
+    ],
+  ] as const)('holds %s to today’s month', (_name, now, start_date, days, expected) => {
+    const load = ViewConfig.loadConfig(
+      buildConfig({ start_date, days_to_show: days, toolbar: SWITCHER }),
+      MONDAY,
+      true,
+      now,
+    );
+    const asked = getTimeWindow(load.days_to_show, load.start_date, MONDAY, now);
+    expect([key(asked.start), key(Paging.addDays(asked.end, -1))]).toEqual(expected);
+  });
+
+  it.each([
+    ['a relative start date', 'today-29', ['2026-02-23', '2026-04-05']],
+    ['a fixed date', '2026-05-20', ['2026-04-27', '2026-06-07']],
+  ])(
+    'loads a month card alone, with %s, for its home month’s weeks',
+    (_name, start_date, expected) => {
+      const config = buildConfig({ view: 'month', start_date });
+      expect(window(ViewConfig.loadConfig(config, MONDAY, true, NOW), MONDAY)).toEqual(expected);
+    },
+  );
 
   // The windows the union `view_switcher: true | false | [layouts]` loaded, unchanged now that the
   // switch and the list are two options: each row is the same configuration written that way.

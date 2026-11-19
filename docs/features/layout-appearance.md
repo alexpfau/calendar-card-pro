@@ -241,7 +241,8 @@ toolbar:
 - **The house** returns to the days the card opens with, the window
   [`start_date`](/features/start-date-offset) sets. Its tooltip says "Today", or names the day
   the window starts on when that window does not include today (`start_date: today+7`, a fixed
-  date).
+  date). In Month it says "Today" while the month shown is today's, and otherwise names that
+  month.
 - **The month** names the page by its first day: the week of November 30 to December 6 reads
   "November 2026". Press it to pick a day in the browser's date picker, and the card shows the
   page that holds that day, lined up with its usual pages, so a week card still starts its week
@@ -306,8 +307,9 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   a sections dashboard, returns every device to `view`, and the
   [reset button](#resetting-the-card) returns one; see
   [What the Card Keeps](/features/performance#what-the-card-keeps).
-- **The same days, nothing reloaded.** Every layout starts on the same date, since `start_date`
-  is shared, and the card does not reload its events to switch. `days_to_show` is shared too,
+- **The same days, nothing reloaded.** List, Columns and Grid start on the same date, since
+  `start_date` is shared, and Month opens today's month unless `start_date` is a fixed date. The
+  card does not reload its events to switch. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
   Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come

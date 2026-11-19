@@ -1407,8 +1407,9 @@ toolbar:
   view_switcher: true
 ```
 
-Every layout starts on the same day, because `start_date` stays shared, and switching
-layouts never loads anything. The rest of the card follows the layout on screen:
+List, Columns and Grid start on the same day, because `start_date` stays shared, and Month
+opens the month holding it when it is a fixed date, today's month otherwise. Switching layouts
+never loads anything. The rest of the card follows the layout on screen:
 
 - The [date navigation](/features/layout-appearance#paging-through-dates) pages by that
   layout's days. Switching layouts while paged keeps the first day and shows the new layout's

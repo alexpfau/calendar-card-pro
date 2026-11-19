@@ -31,7 +31,13 @@ import { VIEWS } from './views';
 import * as EntityColors from '../utils/entity-colors';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
-import { addDays, calendarDayDiff, getTimeWindow, localDateKey } from '../utils/start-date';
+import {
+  addDays,
+  calendarDayDiff,
+  getTimeWindow,
+  localDateKey,
+  startDateFollowsToday,
+} from '../utils/start-date';
 import {
   getRequiredForecastTypes,
   markResolvedWeather,
@@ -3452,15 +3458,35 @@ export function monthRowsStart(day: Date, firstDayOfWeek: number): Date {
 }
 
 /**
- * The first day of the month grid a card opens on: the week row holding the 1st of the month
- * its first day falls in.
+ * The first day of a month's grid: the week row holding the 1st of the month a day falls in.
  *
- * @param start - The card's first day, its resolved `start_date`
+ * @param day - Any day of the month, such as Month's home day ({@link monthHomeDay})
  * @param firstDayOfWeek - First day of the week, 0 for Sunday
  * @returns The grid's first day, at local midnight
  */
-export function monthHomeRowsStart(start: Date, firstDayOfWeek: number): Date {
-  return monthRowsStart(new Date(start.getFullYear(), start.getMonth(), 1), firstDayOfWeek);
+export function monthHomeRowsStart(day: Date, firstDayOfWeek: number): Date {
+  return monthRowsStart(new Date(day.getFullYear(), day.getMonth(), 1), firstDayOfWeek);
+}
+
+/**
+ * The day Month's home is the month of: today, unless `start_date` is a fixed date, which opens
+ * its own month.
+ *
+ * The other layouts start on the resolved start date itself. Taking the month that date falls
+ * in would make every relative start date (Tomorrow, Start of Week, a weekday, an offset) draw
+ * today's month on most days and another near a month's ends: Start of Week last month on a
+ * month's first days, Tomorrow next month on its last day, and a `today-29` log last month nearly
+ * every day, without today. A day offset cannot name another month exactly anyway (`today+30`
+ * skips February from January 31). The other layouts' windows are untouched; a card that can
+ * show Month loads both as one span (`loadConfig`), so switching never fetches.
+ *
+ * @param start - The card's first day, its resolved `start_date`
+ * @param followsToday - Whether `start_date` follows today (`startDateFollowsToday`)
+ * @param now - The current moment
+ * @returns The day, at local midnight
+ */
+export function monthHomeDay(start: Date, followsToday: boolean, now: Date): Date {
+  return followsToday ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : start;
 }
 
 /**
@@ -3483,8 +3509,8 @@ export function reachesMonth(config: Types.Config): boolean {
  * fetch-side trim, the card's instance id and `hasConfigChanged` — so handing them this config
  * is what makes them load for every view at once, without any of them learning about views.
  *
- * Where month is reachable, the load also covers the month's six weeks, which start before
- * `start_date`: at home the weeks of the month `start_date` falls in, on a page the weeks from
+ * Where month is reachable, the load also covers the month's six weeks: at home the weeks of
+ * Month's home month (`monthHomeDay`: today's, or a fixed date's), on a page the weeks from
  * the row holding the page's first day, since a page key is already a row's first day and
  * another view's key snaps to its week. The other reachable views keep their window from the
  * resolved start. The result names the union of the two by a concrete date and its length,
@@ -3518,7 +3544,10 @@ export function loadConfig(
 
   const window = getTimeWindow(days, config.start_date, firstDayOfWeek, now);
   const rows = home
-    ? monthHomeRowsStart(window.start, firstDayOfWeek)
+    ? monthHomeRowsStart(
+        monthHomeDay(window.start, startDateFollowsToday(config.start_date, now), now),
+        firstDayOfWeek,
+      )
     : monthRowsStart(window.start, firstDayOfWeek);
   const others = views.some((view) => view !== 'month');
 

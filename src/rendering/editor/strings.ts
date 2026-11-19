@@ -198,6 +198,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
   'state.layout_default': '{layout} Default: {value}',
+  // Under Start Date on Month's page, where Month reads the stored start date as Today: what the
+  // other layouts start on, "Start of Week in List, Columns, and Grid".
+  'state.start_date_layouts': '{value} in {layouts}',
   'state.set_on_calendars': 'Set on Calendars:',
   // The button under a stored field. Reset keeps the setting on the page and names the value it
   // goes back to, "Reset (Off)", or "Reset (Empty)" where nothing comes back. Remove Setting takes
@@ -1152,6 +1155,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Each layout can set its own. The card loads the longest once, so switching layouts never reloads.',
   start_date_mode: 'Start Date',
   'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
+  'start_date_mode.helper': "Month opens on today's month, or on a fixed date's own month.",
   'start_date_mode.option.default.label': 'Today',
   'start_date_mode.option.tomorrow.label': 'Tomorrow',
   'start_date_mode.option.start_of_week.label': 'Start of Week',
