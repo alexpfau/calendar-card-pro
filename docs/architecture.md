@@ -229,8 +229,13 @@ renders through the second. A change to the rule changes both.
   the layout in their route (`navigation.ts` › `Route`, `routeScope`), and `_workspace` derives
   from the route. **Layout Defaults** (`shared`) writes roots; **List**, **Columns**, **Grid** and
   **Month** write their blocks (`workspace.ts`). Whole Card's pages (`pages.ts` ›
-  `WHOLE_CARD_PAGES`) edit in the shared scope, and a place with no layout, such as a calendar's
-  page, edits in the layout the card opens in. A whole-card setting a topic also names is drawn
+  `WHOLE_CARD_PAGES`) edit in the shared scope, and the overview edits in the layout the card
+  opens in. A calendar's page belongs to no layout: its options are stored once, on the entry, so
+  it is built for every layout the card can show (`field-index.ts` › `entryViews`,
+  `entrySchemaAcross`), and an option only some of them apply says so. Its route names a layout
+  only where a search result adds one none of them is, for an option only that layout applies
+  (`element.ts` › `_entryWorkspace`), and search judges a calendar's fields in that page's context,
+  whatever scope it runs in. A whole-card setting a topic also names is drawn
   there as a `copy` or a `reference` (`pages.ts` › `Appearance`), never placed there, so search
   and every walk of where a setting lives read its home alone. A copy carries the field's
   `data-field` and a reference does not, so Pick From Preview, landing on the page a part opens,

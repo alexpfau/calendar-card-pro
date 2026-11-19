@@ -237,20 +237,22 @@ empty_day_color: '#607d8b'
 
 Under a setting's name, its facts say where its value lives, in words, so the state is never told
 by color alone. Each kind of fact has a form of its own, and none of them can be pressed. A
-setting at its default shows none; a screen reader still reads **Default** with its name. The
-words are the same on every page; the page's title says which layout they are about.
+setting at its default shows none, except where only some layouts use it; a screen reader still
+reads **Default** with its name. The words are the same on every page; a layout's page title says
+which layout they are about, and a calendar's page is about every layout the card shows.
 
-| Fact                                                   | Form                    | Means                                                                                   |
-| ------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
-| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar |
-| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out    |
-| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there  |
-| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links                  |
-| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                              |
-| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card               |
-| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there              |
-| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                     |
-| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from           |
+| Fact                                                   | Form                    | Means                                                                                                                  |
+| ------------------------------------------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar                                |
+| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                   |
+| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                 |
+| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links                                                 |
+| **Only in List**                                       | after the layout's icon | On a calendar's page: a setting only some of the card's layouts use as they are set up, such as Compact Events to Show |
+| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                             |
+| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                              |
+| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there                                             |
+| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                                                    |
+| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from                                          |
 
 A setting with a stored value is always open, with **Reset** in plain view right after **Set**,
 on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value
@@ -459,6 +461,15 @@ ignores that pattern, so it stops filtering events.
 
 The calendar's name and **Show in Calendar Filter** belong to the calendar, not to one entry:
 changing them on one entry changes every entry, and the page says so.
+
+A calendar's settings are stored once and apply wherever a layout uses them, so its page shows
+those any of the card's layouts use: the layout it opens in, the layouts the layout switcher
+offers while it is shown, and List where Columns or Grid fall back to it on a narrow screen. A
+setting only some of them use, as the card is set up now, says which, as in **Only in List**:
+Event Weather says so where only List shows the forecast beside events. A search result for a
+setting none of them uses opens the page with that setting's layout added, until you leave it.
+One left on **Follow the card** takes the card's value in each layout, so where those values
+differ, **Reset** reads **Reset (Follow the card)** rather than naming one of them.
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything an entry page can set.
 

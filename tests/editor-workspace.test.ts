@@ -17,7 +17,7 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
-import { parseFieldId } from '../src/rendering/editor/field-index';
+import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
@@ -204,12 +204,20 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
     current === 'grid' || current === 'column' || current === 'month',
   );
   // Each of the calendar's fields is a form of its own on its entry page, so the calendar's
-  // options are what all of its forms draw together.
+  // options are what all of its forms draw together. The page is built for the layouts the card
+  // can show plus the one being edited (`field-index.ts` › `entryViews`), not for that one alone.
   const entityForms = formsOf(editor, entry(0));
   expect(entityForms.length).toBeGreaterThan(0);
   const entity = entityForms.flatMap((form) => names(form.schema));
-  expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
-  expect(entity.includes('split_multiday_events')).toBe(current !== 'grid' && current !== 'month');
+  const config = (editor as unknown as { _config: Types.Config })._config;
+  const built = entryViews(config, current);
+  expect(built.length).toBeGreaterThan(0);
+  expect(entity.includes('compact_events_to_show'), `${current}: ${built}`).toBe(
+    built.includes('list'),
+  );
+  expect(entity.includes('split_multiday_events'), `${current}: ${built}`).toBe(
+    built.includes('list') || built.includes('column'),
+  );
   expect(editor.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
   if (current === 'list') {
     expect(editor.shadowRoot!.querySelectorAll('.width-table')).toHaveLength(0);
