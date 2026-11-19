@@ -165,6 +165,11 @@ interface Layout {
   readonly scaleY?: number;
   /** The first week's height, its rule included. */
   readonly week?: number;
+  /**
+   * The month's height, to the fraction, where it is not the weekday names and six such weeks: as
+   * tall as a card leaves it, or as its floor.
+   */
+  readonly height?: number;
   /** The rule along the week's top. */
   readonly rule?: number;
   /** The date line, and a line's title and time, each as its probe stands for it. */
@@ -173,13 +178,40 @@ interface Layout {
   readonly time?: number;
 }
 
+/** The used heights `layOut` gives boxes, to the fraction, as a browser computes them. */
+const usedHeights = new WeakMap<Element, number>();
+const computedStyle = window.getComputedStyle;
+
+/**
+ * Answers `getComputedStyle` for a box `layOut` gave a used height with that height, its border
+ * box, and every other style as declared. Restored after each test.
+ */
+function answerUsedHeights(): void {
+  if (vi.isMockFunction(window.getComputedStyle)) return;
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+    const declared = computedStyle.call(window, element, pseudo);
+    const height = pseudo ? undefined : usedHeights.get(element);
+    if (height === undefined) return declared;
+    return new Proxy(declared, {
+      get: (target, key) => {
+        if (key === 'height') return `${height}px`;
+        if (key === 'boxSizing') return 'border-box';
+        const value = Reflect.get(target, key) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  });
+}
+
 /**
  * Lays a mounted month out as a browser would at a scale an ancestor applies: every box
  * `getBoundingClientRect` reports is scaled, and the layout sizes are not, as a browser reports
- * them. The single probe the card measured from before the probes were split is answered too, its
- * width the line pitch and its height the date line, so a measurement that mixes a layout height
- * with scaled boxes reads differently at another scale. The month is 700px wide, its weekday
- * names take the 40px above the first week, and its closing rule is 1px.
+ * them, `offsetHeight` and `clientHeight` rounded to whole pixels and the used height
+ * `getComputedStyle` gives to the fraction. The single probe the card measured from before the
+ * probes were split is answered too, its width the line pitch and its height the date line, so a
+ * measurement that mixes a layout height with scaled boxes reads differently at another scale.
+ * The month is 700px wide, its weekday names take the 40px above the first week, and its closing
+ * rule is 1px.
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
   const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
@@ -192,8 +224,10 @@ function layOut(card: CardUnderTest, layout: Layout = {}): void {
       width: width * scaleX,
     }) as DOMRect;
   const container = month(card);
-  const height = 40 + 6 * week + 1;
+  const height = layout.height ?? 40 + 6 * week + 1;
   container.getBoundingClientRect = () => box(0, height, 700);
+  usedHeights.set(container, height);
+  answerUsedHeights();
   for (const [name, value] of [
     ['offsetWidth', 700],
     ['offsetHeight', Math.round(height)],
@@ -232,6 +266,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  if (vi.isMockFunction(window.getComputedStyle)) vi.mocked(window.getComputedStyle).mockRestore();
   document.body.replaceChildren();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -496,6 +531,36 @@ describe('the capacity the card measures', () => {
       ['div', 'month-probe', 'time', 'true', 0, true],
     ]);
   });
+
+  it('marks the date probe to leave the month out where no 1st draws it', async () => {
+    /** Whether a 1st draws its month, and each probe's kind, mark and children. */
+    const drawn = async (config: Record<string, unknown>) => {
+      document.body.replaceChildren();
+      const card = await mount(config);
+      return [
+        month(card).querySelector('.month-date-month') !== null,
+        ...[...month(card).querySelectorAll('.month-probe')].map((probe) => [
+          probe.getAttribute('data-probe'),
+          probe.getAttribute('data-month'),
+          probe.childNodes.length,
+        ]),
+      ];
+    };
+    const unmarked = [
+      ['date', null, 0],
+      ['title', null, 0],
+      ['time', null, 0],
+    ];
+    const marked = [['date', 'none', 0], ...unmarked.slice(1)];
+    // The month's own show_month decides, as it decides whether a 1st draws its month.
+    expect(await drawn({})).toEqual([true, ...unmarked]);
+    expect(await drawn({ show_month: false })).toEqual([false, ...marked]);
+    expect(await drawn({ month: { show_month: false } })).toEqual([false, ...marked]);
+    expect(await drawn({ show_month: false, month: { show_month: true } })).toEqual([
+      true,
+      ...unmarked,
+    ]);
+  });
 });
 
 describe('the line pitch and the date line the card measures', () => {
@@ -575,6 +640,11 @@ describe('the line pitch and the date line the card measures', () => {
       content: "''",
       height: '1em',
       'font-size': 'var(--calendar-card-font-size-month)',
+    });
+    // Where no 1st draws its month, show_month off, the probe drops that strut, so the month's
+    // size costs the weeks nothing.
+    expect(rule(".month-probe[data-probe='date'][data-month='none']::after")).toEqual({
+      content: 'none',
     });
   });
 });
@@ -711,6 +781,31 @@ describe('the rows’ height', () => {
     expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '299px']);
     // A time set taller than the title is the line, as the capacity takes it.
     expect(await at({ time: 24 })).toEqual(['47px', '323px']);
+  });
+
+  it('reads the same floors whatever fraction of a pixel the month is tall', async () => {
+    const card = await mount();
+    const at = async (height: number) => {
+      layOut(card, { scale: 0.75, height });
+      card.requestUpdate();
+      await card.updateComplete;
+      return floors(card);
+    };
+    // A card that leaves the month 303.6px, which offsetHeight rounds to 304px: the month is that
+    // tall or as tall as its floor, whichever is taller. Read against 304px the scale was 0.749,
+    // which wrote a 44px week and a 306px month; at 306px it read 0.75 and wrote 43px and 299px,
+    // which let the month back to 303.6px, and so on for good.
+    let height = 303.6;
+    const passes: string[][] = [];
+    for (let pass = 0; pass < 4; pass += 1) {
+      passes.push(await at(height));
+      height = Math.max(303.6, Number.parseFloat(passes[pass][1]));
+    }
+    expect(passes).toEqual(Array.from({ length: 4 }, () => ['43px', '299px']));
+    // Either side of a half pixel and a whole one, the same.
+    for (const fraction of [303.4, 303.5, 303.6, 304, 306, 310.7]) {
+      expect(await at(fraction)).toEqual(['43px', '299px']);
+    }
   });
 
   it('writes the floors only when they change', async () => {

@@ -65,8 +65,9 @@ export const MONTH_LINE_CAPACITY_DEFAULT = 4;
 
 /**
  * The class of the three empty boxes the card reads the date line and the line pitch from, told
- * apart by `data-probe`: `date`, as tall as the tallest date line, a 1st's with its month, and
- * `title` and `time`, each as tall as a line set in its font. See `measureMonthCapacity`.
+ * apart by `data-probe`: `date`, as tall as the tallest date line, a 1st's with its month, or
+ * without it where no 1st draws one (`data-month="none"`), and `title` and `time`, each as tall as
+ * a line set in its font. See `measureMonthCapacity`.
  */
 export const MONTH_PROBE_CLASS = 'month-probe';
 
@@ -1017,7 +1018,12 @@ export function renderMonthGroupedEvents(
           options.more,
         ),
       )}
-      <div class=${MONTH_PROBE_CLASS} data-probe="date" aria-hidden="true"></div>
+      <div
+        class=${MONTH_PROBE_CLASS}
+        data-probe="date"
+        data-month=${config.show_month ? nothing : 'none'}
+        aria-hidden="true"
+      ></div>
       <div class=${MONTH_PROBE_CLASS} data-probe="title" aria-hidden="true"></div>
       <div class=${MONTH_PROBE_CLASS} data-probe="time" aria-hidden="true"></div>
     </div>
@@ -1635,9 +1641,10 @@ export function renderMonthDayList(
  * Read from the first week row: the room under its rule, less its date line, in line pitches.
  * The probes (`MONTH_PROBE_CLASS`) are each as tall as what they stand for, set in the stylesheet
  * in its font: the date line, a 1st's with its month in every week so that one capacity holds for
- * all six, and a line set in the title's font and in the time's, the taller of which is the
- * pitch, so a time set larger than its title still fits. The room runs from the top of the week's
- * first cell, which starts under the rule, to the bottom of the week.
+ * all six, its month left out where `show_month` draws none, and a line set in the title's font
+ * and in the time's, the taller of which is the pitch, so a time set larger than its title still
+ * fits. The room runs from the top of the week's first cell, which starts under the rule, to the
+ * bottom of the week.
  *
  * Every box is read with `getBoundingClientRect`, so a scale an ancestor draws the card at, by a
  * transform or a zoom, scales them all alike and cancels in the quotient. A layout height such as
@@ -1753,10 +1760,12 @@ export interface MonthFloors {
  * and the rules. Never from a week's height, so writing them cannot move what they were read
  * from. Boxes come in the page's pixels and the floors are written in the card's own, so each box
  * is divided by the scale an ancestor draws the card at down the page, the month's box against
- * its layout height, since a transform may scale one way alone and every length here is a height;
- * the closing rule is read in the card's own pixels already. Rounded up to whole pixels,
- * so a week at its floor is never a fraction short of its line, except for the hundredth of a
- * pixel a scale's division leaves over a whole one, which would otherwise cost a pixel more.
+ * its used height to the fraction (`MonthListFit.verticalScale`), since a transform may scale one
+ * way alone and every length here is a height. The month's height follows its floors, and that
+ * quotient does not; one against a height rounded to a whole pixel did. The closing rule is read
+ * in the card's own pixels already. Rounded up to whole pixels, so a week at its floor is never a
+ * fraction short of its line, except for the hundredth of a pixel a scale's division leaves over a
+ * whole one, which would otherwise cost a pixel more.
  *
  * @param container - The wide month (`.month-container`)
  * @returns The floors, or null
@@ -1776,11 +1785,7 @@ export function measureMonthFloors(container: HTMLElement): MonthFloors | null {
   const box = container.getBoundingClientRect();
   const pitch = Math.max(title, time);
   if (!(box.width > 0) || !(date > 0) || !(pitch > 0)) return null;
-  // A pixel of give, as offsetHeight rounds the layout height to a whole one.
-  const scale =
-    container.offsetHeight > 0 && Math.abs(box.height - container.offsetHeight) >= 1
-      ? box.height / container.offsetHeight
-      : 1;
+  const scale = MonthListFit.verticalScale(container, box);
   const first = weeks[0].getBoundingClientRect();
   const rule = Math.max(0, cell.getBoundingClientRect().top - first.top);
   const names = Math.max(0, first.top - box.top);

@@ -7743,13 +7743,14 @@ export const cardStyles = css`
      the today tile's 1.2em in the day's size and the month's 1em line box in its own, two struts
      centered across it as the parts are. Every week is counted as holding a month, so one
      capacity holds for all six, and a large month_font_size costs every week the room it costs
-     the 1st's. Each strut sets its own size, as the part it stands for does, and the box none, so
-     a keyword or a percentage resolves as the date line's does. A line is its 1.2em line box with
-     1px of padding and 1px of margin above and below, which a bar takes as well (Grid's banner
-     pads 1px), and is as tall as the taller of its title and its time, so one box is set in each
-     one's font and the card takes the taller. Boxes rather than layout heights, so a scale an
-     ancestor applies reaches all of them and the week alike. tests/month-dom.test.ts pins them
-     against what they stand for. */
+     the 1st's; where show_month is off no 1st draws its month, so the probe drops that strut
+     (data-month none) and the month's size costs nothing. Each strut sets its own size, as the
+     part it stands for does, and the box none, so a keyword or a percentage resolves as the date
+     line's does. A line is its 1.2em line box with 1px of padding and 1px of margin above and
+     below, which a bar takes as well (Grid's banner pads 1px), and is as tall as the taller of
+     its title and its time, so one box is set in each one's font and the card takes the taller.
+     Boxes rather than layout heights, so a scale an ancestor applies reaches all of them and the
+     week alike. tests/month-dom.test.ts pins them against what they stand for. */
   .month-probe {
     position: absolute;
     top: 0;
@@ -7774,6 +7775,10 @@ export const cardStyles = css`
     content: '';
     height: 1em;
     font-size: var(--calendar-card-font-size-month);
+  }
+
+  .month-probe[data-probe='date'][data-month='none']::after {
+    content: none;
   }
 
   .month-probe[data-probe='title'] {

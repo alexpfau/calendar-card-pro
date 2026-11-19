@@ -70,10 +70,10 @@ export function fitMonthList(geometry: MonthListGeometry): number {
  * Every length is a box in the page's pixels, read with `getBoundingClientRect`, so a scale an
  * ancestor draws the card at scales them all alike and the fit does not change; only the cap, read
  * from the card's computed style in its own pixels, is scaled to match, by the card's box against
- * its layout height, since a transform may scale one way alone. The rows end where each
- * staged event's cell ends, below the table's top, with the gaps between them; a row is as tall
- * staged as listed, each part of it on one line in both. The gap before "+N more" runs from the
- * table's foot to the button's top, as the list draws it after its rows.
+ * its used height (`verticalScale`), since a transform may scale one way alone. The rows end where
+ * each staged event's cell ends, below the table's top, with the gaps between them; a row is as
+ * tall staged as listed, each part of it on one line in both. The gap before "+N more" runs from
+ * the table's foot to the button's top, as the list draws it after its rows.
  *
  * The room is the rows' box, which the list's flexible height sets whatever is in it. A list that
  * grows under a cap (`monthCompactGrows` in `rendering/month.ts`) has no such box: its room is the
@@ -126,19 +126,34 @@ export function measureMonthList(root: ParentNode, grows: boolean): MonthListGeo
 }
 
 /**
- * The scale an ancestor draws an element at down the page: its box's height against its layout
- * height, or 1 within a pixel of it, as `offsetHeight` rounds the layout height to a whole one. Read
- * down rather than across, so a transform that scales one way alone converts heights by the right
- * one.
+ * The scale an ancestor draws an element at down the page: its box's height against its used
+ * height, the border box its computed style gives to the fraction of a pixel. Read down rather
+ * than across, so a transform that scales one way alone converts heights by the right one.
+ *
+ * Never against `offsetHeight`, which rounds the height to a whole pixel, so the quotient moved
+ * with the height's fraction. The elements read here are as tall as what is written from the
+ * reading lets them be, a month's floors or a list's least, so a floor written from one quotient
+ * moved the height to where the next read another, and the two moved each other back and forth for
+ * good. Against the used height the quotient is the scale itself, whatever the height. 1 where the
+ * used height is not a length, as for a box not laid out.
  *
  * @param element - The element whose heights are converted
  * @param box - Its box, as `getBoundingClientRect` reads it
  * @returns The scale, 1 where there is none
  */
-function verticalScale(element: HTMLElement, box: DOMRect): number {
-  return element.offsetHeight > 0 && Math.abs(box.height - element.offsetHeight) >= 1
-    ? box.height / element.offsetHeight
-    : 1;
+export function verticalScale(element: Element, box: DOMRect): number {
+  const style = getComputedStyle(element);
+  const px = (value: string) => Number.parseFloat(value) || 0;
+  const height = Number.parseFloat(style.height);
+  const used =
+    style.boxSizing === 'border-box'
+      ? height
+      : height +
+        px(style.paddingTop) +
+        px(style.paddingBottom) +
+        px(style.borderTopWidth) +
+        px(style.borderBottomWidth);
+  return Number.isFinite(used) && used > 0 && box.height > 0 ? box.height / used : 1;
 }
 
 /**
@@ -175,7 +190,7 @@ function contentOverflow(content: HTMLElement, scale: number): number {
  * (`known`) and the least is the taller of the two known. Rounded up to whole pixels, past the
  * hundredth a scale's division leaves, as the wide month's floors are (`measureMonthFloors` in
  * `rendering/month.ts`). Every length here is a height, so the scale is the list's box against its
- * layout height.
+ * used height (`verticalScale`).
  *
  * @param root - The card's render root
  * @param known - The heights of "+N more" and "No events" last read, which this updates
