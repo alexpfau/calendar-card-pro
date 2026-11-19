@@ -15,13 +15,15 @@ import type { EditorWorkspace } from './workspace';
 /**
  * A place in the editor. A layout's page lists its topics, and a topic page under a layout carries
  * that layout as its `scope`; Layout Defaults is the `shared` layout. A Whole Card page has none.
+ * A calendar's page carries one only where a deep link opened it for an option another layout
+ * offers; opened from its row, it edits in the layout the card opens in.
  */
 export type Route =
   | { readonly kind: 'overview' }
   | { readonly kind: 'page'; readonly page: PageId; readonly scope?: EditorWorkspace }
   | { readonly kind: 'layout'; readonly layout: EditorWorkspace }
   | { readonly kind: 'shared' }
-  | { readonly kind: 'entry'; readonly key: number }
+  | { readonly kind: 'entry'; readonly key: number; readonly scope?: EditorWorkspace }
   | { readonly kind: 'audit'; readonly group?: string }
   | { readonly kind: 'notices' };
 
@@ -67,7 +69,7 @@ export function routeKey(route: Route): string {
     case 'layout':
       return `layout:${route.layout}`;
     case 'entry':
-      return `entry:${route.key}`;
+      return route.scope === undefined ? `entry:${route.key}` : `entry:${route.key}@${route.scope}`;
     case 'audit':
       return route.group === undefined ? 'audit' : `audit:${route.group}`;
     default:
@@ -76,14 +78,15 @@ export function routeKey(route: Route): string {
 }
 
 /**
- * The layout a place edits: a layout's own page, or a topic page under it.
+ * The layout a place edits: a layout's own page, a topic page under it, or a calendar's page a
+ * deep link opened in another layout.
  *
  * @param route - The place
  * @returns The layout, `shared` for Layout Defaults, or `undefined` for a place of no layout
  */
 export function routeScope(route: Route): EditorWorkspace | undefined {
   if (route.kind === 'layout') return route.layout;
-  if (route.kind === 'page') return route.scope;
+  if (route.kind === 'page' || route.kind === 'entry') return route.scope;
   return undefined;
 }
 
