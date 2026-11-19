@@ -1006,7 +1006,6 @@
   "time_grid.day_header_separator_color": "Färg på dagrubrikslinje",
   "panel.weather": "Väder",
   "entity": "Väderentitet",
-  "entity.helper": "Lämna tom för ingen prognos alls.",
   "position": "Visa prognosen",
   "position.option.none.label": "Ingenstans",
   "position.option.date.label": "I dagrubriken",

@@ -1005,7 +1005,6 @@
   "time_grid.day_header_separator_color": "Dienas galvenes līnijas krāsa",
   "panel.weather": "Laikapstākļi",
   "entity": "Laikapstākļu vienība",
-  "entity.helper": "Atstājiet tukšu, ja prognoze nav vajadzīga vispār.",
   "position": "Rādīt prognozi",
   "position.option.none.label": "Nekur",
   "position.option.date.label": "Dienas galvenē",

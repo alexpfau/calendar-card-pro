@@ -32,8 +32,10 @@ import * as Logger from '../utils/logger';
 import { addDays, calendarDayDiff, getTimeWindow, localDateKey } from '../utils/start-date';
 import {
   getRequiredForecastTypes,
+  markResolvedWeather,
   monthWeatherPosition,
   readsWeatherAsBefore,
+  showsEventWeather,
   weatherEntityOf,
 } from '../utils/weather-position';
 
@@ -2293,7 +2295,7 @@ export function resolveEffectiveConfig(
 //-----------------------------------------------------------------------------
 
 /** The weather a view's block starts from: off, with the shipped details of each part. */
-const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
+export const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
   date: DEFAULT_CONFIG.weather?.date,
   event: DEFAULT_CONFIG.weather?.event,
   position: 'none',
@@ -2324,8 +2326,9 @@ const viewWeathers = new WeakMap<
  * paths (`weather.event.icon_size`), so a quoted number in a view's block works as it does at the
  * top level. Remembered per configuration and view, so the same inputs give the same object.
  *
- * Takes the unresolved card configuration. A resolved one reads as weather written before v6,
- * because its `weather` names the entity, so resolving it again changes nothing.
+ * Takes the unresolved card configuration. Resolving a resolved one gives the same weather: the
+ * view's weather is marked (`markResolvedWeather`), so it never reads as the block written before
+ * v6, though it names its entity.
  *
  * @param config - Merged configuration, defaults already applied
  * @param view - View drawing it
@@ -2341,24 +2344,75 @@ export function resolveViewWeather(
   if (entity === undefined) return config.weather;
 
   const own = blockValues(config, view)?.weather;
-  return remembered(config, view, [config.weather, own, entity], () => {
-    const written: Record<string, unknown> = Helpers.isConfigBlock(own) ? { ...own } : {};
-    delete written.entity;
-    const presentation = mergeConfig(
-      LAYOUT_WEATHER_BASE as Record<string, unknown>,
-      written,
-    ) as Types.WeatherPresentationConfig;
-    // A blank or cleared position is none here, where the top-level block's meant `date`.
-    const positionWritten = presentation.position as unknown;
-    const stated =
-      typeof positionWritten === 'string' && positionWritten !== ''
-        ? presentation.position
-        : 'none';
-    const position = view === 'month' ? monthWeatherPosition(stated) : stated;
-    return normalizeLengthOptions({
-      weather: { ...presentation, position, entity },
-    } as Types.Config).weather as Types.WeatherConfig;
-  });
+  return remembered(config, view, [config.weather, own, entity], () =>
+    markResolvedWeather(layoutWeatherOf(own, view, entity)),
+  );
+}
+
+/**
+ * How a view draws the forecast, whatever entity the card names: what the editor shows on a
+ * layout's Weather page, entity or not. Its own `weather:` block over every part's shipped details
+ * with the position `none`; or, while the weather written before v6 decides every view's, that
+ * block, with Month off (`drawnViewWeather`).
+ *
+ * @param config - Merged configuration, defaults already applied, or one resolved for a view
+ * @param view - The view
+ * @returns The view's weather, without an entity
+ */
+export function layoutWeather(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): Types.WeatherPresentationConfig {
+  const presentation: Types.WeatherConfig = readsWeatherAsBefore(config)
+    ? view === 'month'
+      ? layoutWeatherOf(undefined, view, undefined)
+      : (mergeConfig(
+          (DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>,
+          config.weather as Record<string, unknown>,
+        ) as Types.WeatherConfig)
+    : layoutWeatherOf(blockValues(config, view)?.weather, view, undefined);
+  delete presentation.entity;
+  return presentation;
+}
+
+/**
+ * Whether any view the card can be set to draws a forecast beside events, which is what a
+ * calendar's own `show_weather` can take away.
+ *
+ * @param config - Merged or authored configuration, never resolved for a view
+ * @returns Whether one does
+ */
+export function showsEventWeatherAnywhere(config: Types.Config): boolean {
+  return VIEWS.some((view) => showsEventWeather(drawnViewWeather(config, view)));
+}
+
+/**
+ * A view block's `weather:` over the layout base, its lengths coerced as the top level's are.
+ *
+ * @param own - The block's `weather:`, as written
+ * @param view - The view, whose Month draws beside events only
+ * @param entity - The entity to name, or none
+ * @returns The weather
+ */
+function layoutWeatherOf(
+  own: unknown,
+  view: Types.EffectiveView,
+  entity: string | undefined,
+): Types.WeatherConfig {
+  const written: Record<string, unknown> = Helpers.isConfigBlock(own) ? { ...own } : {};
+  delete written.entity;
+  const presentation = mergeConfig(
+    LAYOUT_WEATHER_BASE as Record<string, unknown>,
+    written,
+  ) as Types.WeatherPresentationConfig;
+  // A blank or cleared position is none here, where the top-level block's meant `date`.
+  const positionWritten = presentation.position as unknown;
+  const stated =
+    typeof positionWritten === 'string' && positionWritten !== '' ? presentation.position : 'none';
+  const position = view === 'month' ? monthWeatherPosition(stated) : stated;
+  return normalizeLengthOptions({
+    weather: { ...presentation, position, entity },
+  } as Types.Config).weather as Types.WeatherConfig;
 }
 
 /**

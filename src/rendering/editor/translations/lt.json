@@ -1004,7 +1004,6 @@
   "time_grid.day_header_separator_color": "Dienos antraštės linijos spalva",
   "panel.weather": "Orai",
   "entity": "Orų subjektas",
-  "entity.helper": "Palikite tuščią, jei prognozės nereikia visai.",
   "position": "Rodyti prognozę",
   "position.option.none.label": "Niekur",
   "position.option.date.label": "Dienos antraštėje",

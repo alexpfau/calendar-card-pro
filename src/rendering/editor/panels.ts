@@ -160,6 +160,8 @@ export const PANELS: ReadonlyArray<PanelDef> = [
   {
     id: 'weather',
     build: buildWeatherSchema,
+    // Month's position offers two of the four, worded for a month (`schemas/weather.ts`).
+    strings: ['month_weather'],
   },
   {
     id: 'actions',

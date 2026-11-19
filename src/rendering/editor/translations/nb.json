@@ -1007,7 +1007,6 @@
   "time_grid.day_header_separator_color": "Farge på dagoverskriftslinje",
   "panel.weather": "Vær",
   "entity": "Værenhet",
-  "entity.helper": "La stå tom for ingen værmelding i det hele tatt.",
   "position": "Vis værmeldingen",
   "position.option.none.label": "Ingen steder",
   "position.option.date.label": "I dagoverskriften",

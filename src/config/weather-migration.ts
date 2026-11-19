@@ -66,11 +66,14 @@ function layoutWeather(
  *   it defaulted to written out. Month, which never drew it, gets none. Each layout's own
  *   `weather:`, and a `weather_entity` naming another entity, were ignored beside it and are
  *   dropped.
- * - A block without an entity drew nothing. The card reads such a configuration per layout
- *   already, so a layout's own `weather:` wins, and the block's options fill List, Columns and
- *   Grid where they have none, as it would have been read with `weather_entity` as its entity.
- *   That can turn weather on in a configuration that was half converted by hand, which is what
- *   its author meant; the editor names those layouts. An empty block is only removed.
+ * - A block without an entity beside a `weather_entity` drew nothing. The card reads such a
+ *   configuration per layout already, so a layout's own `weather:` wins, and the block's options
+ *   fill List, Columns and Grid where they have none, as it would have been read with
+ *   `weather_entity` as its entity. That can turn weather on in a configuration that was half
+ *   converted by hand, which is what its author meant; the editor names those layouts.
+ * - A block with no entity anywhere drew nothing and named nothing to draw, so it is removed and
+ *   no layout takes its options: listed as dropped where it held any. Choosing an entity later
+ *   turns weather on in the layout it is chosen for, as on any card.
  * - Anything else, including `weather: null`, a scalar, or no block at all, is left as written.
  *
  * Converting a converted configuration changes nothing: it holds no top-level block.
@@ -127,7 +130,7 @@ export function migrateWeatherFormat(
         }
         continue;
       }
-    } else if (holds || !draws || !hasOptions) {
+    } else if (holds || !draws || !hasOptions || resulting === undefined) {
       continue;
     }
 
@@ -138,5 +141,22 @@ export function migrateWeatherFormat(
     filled.push(view);
   }
 
+  if (!asBefore && resulting === undefined && hasOptions) dropped.push('weather');
   return { config, converted: true, filled, dropped };
+}
+
+/**
+ * Whether converting a configuration changes what the card draws or names an entity it draws
+ * from: a top-level `weather:` block naming an entity, or one beside a `weather_entity`. The
+ * editor converts such a card when it opens, with a receipt; a block naming no entity anywhere is
+ * converted by the first write, since the card drew nothing from it.
+ *
+ * @param stored - The configuration as stored
+ * @returns Whether it does
+ */
+export function convertsDrawnWeather(stored: Readonly<Record<string, unknown>>): boolean {
+  const block = stored.weather;
+  if (!Helpers.isConfigBlock(block)) return false;
+  if ((block as Record<string, unknown>).entity) return true;
+  return typeof stored.weather_entity === 'string' && stored.weather_entity.trim() !== '';
 }

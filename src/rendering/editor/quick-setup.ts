@@ -25,6 +25,7 @@ import * as Value from './value';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as Helpers from '../../utils/helpers';
+import { weatherEntityOf } from '../../utils/weather-position';
 
 /** What Quick Setup has been told. */
 export interface QuickSetupAnswers {
@@ -155,8 +156,8 @@ export function initialAnswers(
 ): QuickSetupAnswers {
   const story = storyById(storyId);
   const shell = story.shell();
-  const ownWeather = Helpers.isConfigBlock(opening.weather) ? opening.weather.entity : undefined;
-  const storyWeather = Helpers.isConfigBlock(shell.weather);
+  const ownWeather = weatherEntityOf(opening as unknown as Types.Config);
+  const storyWeather = typeof shell.weather_entity === 'string';
 
   return {
     story: storyId,
@@ -249,18 +250,13 @@ export function buildQuickSetupConfig(
 
   for (const [key, value] of Object.entries(shell)) {
     if (key === 'title' || Value.VIEW_BLOCK_KEYS.includes(key)) continue;
-    if (key === 'weather' || key === 'toolbar') continue;
+    if (key === 'weather_entity' || key === 'toolbar') continue;
     if (key === 'event_tap_action' || key === 'day_tap_action') continue;
     desired[key] = value;
   }
 
   const weather = answers.weather.trim();
-  if (weather !== '') {
-    desired.weather = {
-      ...(Helpers.isConfigBlock(shell.weather) ? shell.weather : {}),
-      entity: weather,
-    };
-  }
+  if (weather !== '') desired.weather_entity = weather;
 
   if (Helpers.isConfigBlock(shell.toolbar) || answers.toolbar) {
     // The story's other toolbar choices stay with "no", as the editor keeps them while the
@@ -277,7 +273,16 @@ export function buildQuickSetupConfig(
   desired.entities = entitiesFor(opening, answers);
 
   for (const key of Value.VIEW_BLOCK_KEYS) {
-    if (shell[key] !== undefined) desired[key] = shell[key];
+    const block = shell[key];
+    if (block === undefined) continue;
+    // A story's weather per layout, only where the card has an entity to draw it from.
+    if (weather === '' && Helpers.isConfigBlock(block) && Helpers.hasOwn(block, 'weather')) {
+      const rest: Record<string, unknown> = { ...block };
+      delete rest.weather;
+      if (Object.keys(rest).length > 0) desired[key] = rest;
+      continue;
+    }
+    desired[key] = block;
   }
 
   for (const [key, value] of Object.entries(opening)) {

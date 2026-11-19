@@ -1006,7 +1006,6 @@
   "time_grid.day_header_separator_color": "Farbe der Tagesüberschrift-Linie",
   "panel.weather": "Wetter",
   "entity": "Wetter-Entität",
-  "entity.helper": "Leer lassen, wenn gar keine Vorhersage angezeigt werden soll.",
   "position": "Vorhersage anzeigen",
   "position.option.none.label": "Nirgends",
   "position.option.date.label": "In der Tagesüberschrift",

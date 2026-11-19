@@ -99,8 +99,27 @@ export function readsWeatherAsBefore(config: Pick<Types.Config, 'weather'> | und
     weather !== null &&
     typeof weather === 'object' &&
     !Array.isArray(weather) &&
+    !RESOLVED.has(weather) &&
     !!(weather as Types.WeatherConfig).entity
   );
+}
+
+/**
+ * A view's weather resolved from `weather_entity` and its block, which names its entity as the
+ * block written before v6 does. Marked so a configuration already resolved for a view, which
+ * holds it as its `weather`, still reads per layout: resolving it again gives the same weather.
+ */
+const RESOLVED = new WeakSet<object>();
+
+/**
+ * Marks a view's weather as resolved per layout (`readsWeatherAsBefore` reads past it).
+ *
+ * @param weather The weather `resolveViewWeather` resolved from `weather_entity`
+ * @returns The same object
+ */
+export function markResolvedWeather<T extends object>(weather: T): T {
+  RESOLVED.add(weather);
+  return weather;
 }
 
 /**

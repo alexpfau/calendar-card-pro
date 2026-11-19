@@ -15,7 +15,7 @@ import { buildConfig } from './fixtures';
 import { RecordingResizeObserver, mount } from './helpers/weather-card';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import { migrateWeatherFormat } from '../src/config/weather-migration';
+import { convertsDrawnWeather, migrateWeatherFormat } from '../src/config/weather-migration';
 import { resolveWeatherPosition } from '../src/utils/weather-position';
 
 const ENTITY = 'weather.home';
@@ -72,13 +72,9 @@ describe('what the conversion writes', () => {
       },
     ],
     [
-      'options without an entity, which drew nothing',
-      { weather: { position: 'event' } },
-      {
-        list: { weather: { position: 'event' } },
-        column: { weather: { position: 'event' } },
-        time_grid: { weather: { position: 'event' } },
-      },
+      'options naming no entity anywhere, which drew nothing and named nothing to draw',
+      { title: 'Family', weather: { position: 'event' }, list: { show_location: false } },
+      { title: 'Family', list: { show_location: false } },
     ],
     [
       'a layout’s own weather, which the old block made the card ignore',
@@ -162,6 +158,32 @@ describe('what the conversion writes', () => {
       filled: [],
       dropped: [],
     });
+  });
+
+  it('names a block of options that named no entity anywhere as dropped, and fills nothing', () => {
+    for (const weather_entity of [undefined, '', '  ']) {
+      const result = migrateWeatherFormat({ weather: { position: 'both' }, weather_entity });
+      expect(result.filled).toEqual([]);
+      expect(result.dropped).toEqual(['weather']);
+      expect(result.config).not.toHaveProperty('weather');
+    }
+    expect(migrateWeatherFormat({ weather: {} }).dropped).toEqual([]);
+  });
+
+  it('converts on opening only a block that names weather the card draws from', () => {
+    expect(convertsDrawnWeather({ weather: { entity: ENTITY } })).toBe(true);
+    expect(convertsDrawnWeather({ weather: {}, weather_entity: ENTITY })).toBe(true);
+    for (const config of [
+      {},
+      { weather_entity: ENTITY },
+      { weather: { position: 'both' } },
+      { weather: { position: 'both' }, weather_entity: ' ' },
+      { weather: null, weather_entity: ENTITY },
+    ]) {
+      expect(convertsDrawnWeather(config as Record<string, unknown>), JSON.stringify(config)).toBe(
+        false,
+      );
+    }
   });
 });
 

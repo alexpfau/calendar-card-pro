@@ -12,6 +12,7 @@ import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
+import { weatherEntityOf } from '../../utils/weather-position';
 
 export interface WorkspaceField {
   node: SelectorSchema;
@@ -177,12 +178,16 @@ export function workspaceFormData(
       return [
         [
           block.blockKey,
-          Object.fromEntries(
-            Object.entries(values).map(([key, value]) => [
-              key,
-              normalizeFieldValue(config, [block.blockKey], key, value),
-            ]),
-          ),
+          {
+            ...Object.fromEntries(
+              Object.entries(values).map(([key, value]) => [
+                key,
+                normalizeFieldValue(config, [block.blockKey], key, value),
+              ]),
+            ),
+            // The layout's own weather as it draws, every option at its effective value.
+            weather: ViewConfig.layoutWeather(config, view),
+          },
         ],
       ];
     }),
@@ -196,6 +201,8 @@ export function workspaceFormData(
     ...projected,
     ...blocks,
     weather: Value.weatherFormBlock(projected),
+    // The entity every layout draws from, wherever it is written.
+    weather_entity: weatherEntityOf(config) ?? '',
     // The card's own `view`, not the layout Settings For projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
@@ -407,6 +414,7 @@ export function applyWorkspaceChange(
       )
         continue;
       draft = writePath(draft, block ? [block] : [], key, value);
+      if (key === 'weather_entity') draft = turnOnLayoutWeather(draft, frame.workspace);
     }
     if ('pending' in applied) {
       for (const [name, value] of Object.entries(applied.pending ?? {})) {
@@ -422,4 +430,24 @@ export function applyWorkspaceChange(
     draft = Value.reconcileTimeGridValues(draft, gridResetKeys, authoredRootKeys);
   }
   return { config: draft, pending: held };
+}
+
+/**
+ * Turns the forecast on in the layout being edited when an entity is chosen there while that
+ * layout shows none: beside its days, or in Month, which has none, beside its events. Every other
+ * layout keeps its own setting.
+ *
+ * @param config - The configuration with the entity just written
+ * @param workspace - The scope the entity was chosen in
+ * @returns The configuration, with that layout's weather on where it was off
+ */
+export function turnOnLayoutWeather(
+  config: Types.Config,
+  workspace: EditorWorkspace,
+): Types.Config {
+  const view = viewForWorkspace(workspace);
+  if (view === undefined || weatherEntityOf(config) === undefined) return config;
+  if (ViewConfig.layoutWeather(config, view).position !== 'none') return config;
+  const block = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view] as string;
+  return writePath(config, [block, 'weather'], 'position', view === 'month' ? 'event' : 'date');
 }

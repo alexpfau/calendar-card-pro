@@ -797,7 +797,6 @@
   "column.day_header_separator_color": "일자 헤더 구분선 색상",
   "panel.weather": "날씨",
   "entity": "날씨 엔티티",
-  "entity.helper": "일기예보를 표시하지 않으려면 비워두세요.",
   "position": "일기예보 표시 위치",
   "position.option.none.label": "어디에도 표시 안 함",
   "position.option.date.label": "일자 헤더에 표시",

@@ -2,10 +2,12 @@
  * Weather schema rows.
  */
 
+import { blockScope, bool, color, number, scope, select, text } from './common';
+import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
+import { weatherEntityOf } from '../../../utils/weather-position';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
-import { blockScope, bool, color, number, scope, select, text } from './common';
 
 function styling(): HaFormSchema[] {
   return [text('icon_size'), text('font_size'), color('color')];
@@ -32,11 +34,24 @@ function eventLineLimit(showConditions: boolean): HaFormSchema[] {
 }
 
 /**
- * Builds the Weather panel schema.
+ * The weather entity, written as `weather_entity`: one for every layout. Its label and helper are
+ * the bare `entity` keys, which every translation already holds the label for.
+ */
+const ENTITY_FIELD: HaFormSchema = {
+  name: 'weather_entity',
+  titleKey: 'entity',
+  selector: { entity: { filter: { domain: 'weather' } } },
+};
+
+/**
+ * Builds the Weather panel schema for one layout: the card's entity, and with it the layout's own
+ * `weather:`, stored in its block (`list.weather`, `time_grid.weather`).
  *
  * @param language - Effective language code
+ * @param blockKey - Config key of the layout's block, or none for a scope without a layout
+ * @param month - Whether the layout is Month, which draws the forecast beside events only
  * @param hasEntity - Whether a weather entity is configured
- * @param position - Where the forecast is shown
+ * @param position - Where this layout shows the forecast
  * @param dateUvIndex - Whether the day forecast shows a UV index
  * @param eventUvIndex - Whether the event forecast shows a UV index
  * @param eventConditions - Whether the event row shows its condition, which is the only
@@ -46,62 +61,69 @@ function eventLineLimit(showConditions: boolean): HaFormSchema[] {
 const weatherSchema = Helpers.memoizeLast(
   (
     language: string,
+    blockKey: string | undefined,
+    month: boolean,
     hasEntity: boolean,
     position: string,
     dateUvIndex: boolean,
     eventUvIndex: boolean,
     eventConditions: boolean,
   ): HaFormSchema[] => {
+    if (blockKey === undefined || !hasEntity) return [ENTITY_FIELD];
+
     const inside: HaFormSchema[] = [
-      { name: 'entity', selector: { entity: { filter: { domain: 'weather' } } } },
+      month
+        ? select(language, 'position', ['none', 'event'], 'month_weather')
+        : select(language, 'position', ['none', 'date', 'event', 'both']),
     ];
 
-    if (hasEntity) {
-      inside.push(select(language, 'position', ['none', 'date', 'event', 'both']));
-
-      if (position === 'date' || position === 'both') {
-        inside.push(
-          blockScope('date', [
-            bool('show_conditions'),
-            bool('show_high_temp'),
-            bool('show_low_temp'),
-            ...uvIndexFields(dateUvIndex),
-            ...styling(),
-          ]),
-        );
-      }
-
-      if (position === 'event' || position === 'both') {
-        inside.push(
-          blockScope('event', [
-            bool('show_conditions'),
-            bool('show_temp'),
-            ...uvIndexFields(eventUvIndex),
-            bool('daily_forecast_fallback'),
-            ...styling(),
-            ...eventLineLimit(eventConditions),
-          ]),
-        );
-      }
+    if (!month && (position === 'date' || position === 'both')) {
+      inside.push(
+        blockScope('date', [
+          bool('show_conditions'),
+          bool('show_high_temp'),
+          bool('show_low_temp'),
+          ...uvIndexFields(dateUvIndex),
+          ...styling(),
+        ]),
+      );
     }
 
-    return [scope('weather', inside)];
+    if (position === 'event' || position === 'both') {
+      inside.push(
+        blockScope('event', [
+          bool('show_conditions'),
+          bool('show_temp'),
+          ...uvIndexFields(eventUvIndex),
+          bool('daily_forecast_fallback'),
+          ...styling(),
+          ...eventLineLimit(eventConditions),
+        ]),
+      );
+    }
+
+    return [ENTITY_FIELD, scope(blockKey, [scope('weather', inside)])];
   },
 );
 
 /**
- * Builds the Weather panel schema for a context.
+ * Builds the Weather panel schema for a context: the layout being edited, or the card's entity
+ * alone where no layout is.
  *
  * @param ctx - Schema context
  * @returns The panel's schema
  */
 export function buildWeatherSchema(ctx: SchemaCtx): HaFormSchema[] {
-  const weather = ctx.config.weather;
+  const workspace = ctx.workspace ?? ctx.view;
+  const view = workspace === 'shared' ? undefined : workspace;
+  const weather = view === undefined ? undefined : ViewConfig.layoutWeather(ctx.config, view);
 
   return weatherSchema(
     ctx.language,
-    Boolean(weather?.entity),
-    weather?.position ?? 'date',
+    view === undefined ? undefined : ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view],
+    view === 'month',
+    weatherEntityOf(ctx.config) !== undefined,
+    weather?.position ?? 'none',
     Boolean(weather?.date?.show_uv_index),
     Boolean(weather?.event?.show_uv_index),
     weather?.event?.show_conditions !== false,

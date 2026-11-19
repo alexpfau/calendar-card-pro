@@ -1004,7 +1004,6 @@
   "time_grid.day_header_separator_color": "Päevapäise joone värv",
   "panel.weather": "Ilm",
   "entity": "Ilmaolem",
-  "entity.helper": "Jäta tühjaks, kui ilmateadet pole vaja.",
   "position": "Näita ilmateadet",
   "position.option.none.label": "Mitte kusagil",
   "position.option.date.label": "Päevapäises",

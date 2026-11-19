@@ -1004,7 +1004,6 @@
   "time_grid.day_header_separator_color": "Colore linea intestazione giorno",
   "panel.weather": "Meteo",
   "entity": "Entità meteo",
-  "entity.helper": "Lascia vuoto per non mostrare alcuna previsione.",
   "position": "Mostra le previsioni",
   "position.option.none.label": "Da nessuna parte",
   "position.option.date.label": "Nell'intestazione del giorno",

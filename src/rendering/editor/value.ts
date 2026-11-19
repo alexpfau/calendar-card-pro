@@ -205,6 +205,18 @@ function stripBlockDefaults(
     const owned = key in layout.defaults || overrideKeys.has(key);
     if (isSyntheticKey(key) && !owned && !held) continue;
 
+    // A layout's own weather, minimized against what a layout's weather starts from.
+    if (key === 'weather' && Helpers.isConfigBlock(value)) {
+      const authoredWeather = Helpers.isConfigBlock(authored) ? authored.weather : undefined;
+      const kept = stripPresentationDefaults(
+        value,
+        ViewConfig.LAYOUT_WEATHER_BASE as Record<string, unknown>,
+        authoredWeather,
+      );
+      if (kept !== undefined) result[key] = kept;
+      continue;
+    }
+
     const special = layout.special?.(config, key, value, held);
     if (special !== undefined) {
       if (special) result[key] = value;
@@ -1039,7 +1051,27 @@ export function stripWeatherDefaults(
     return undefined;
   }
 
-  const defaults = (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>;
+  return stripPresentationDefaults(
+    block,
+    (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>,
+    authored,
+  );
+}
+
+/**
+ * Strips the options of a weather block that equal what it starts from: the top-level block's
+ * defaults, or a layout's (`ViewConfig.LAYOUT_WEATHER_BASE`), whose position starts at none.
+ *
+ * @param block - The weather block
+ * @param defaults - What it starts from
+ * @param authored - The block as the YAML holds it; an option it holds unchanged is kept
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+function stripPresentationDefaults(
+  block: Readonly<Record<string, unknown>>,
+  defaults: Readonly<Record<string, unknown>>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {

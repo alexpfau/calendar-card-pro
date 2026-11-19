@@ -1004,7 +1004,6 @@
   "time_grid.day_header_separator_color": "Farba čiary hlavičky dňa",
   "panel.weather": "Počasie",
   "entity": "Entita počasia",
-  "entity.helper": "Ak nechcete žiadnu predpoveď, nechajte prázdne.",
   "position": "Zobraziť predpoveď",
   "position.option.none.label": "Nikde",
   "position.option.date.label": "V hlavičke dňa",

@@ -1004,7 +1004,6 @@
   "time_grid.day_header_separator_color": "Kolor linii nagłówka dnia",
   "panel.weather": "Pogoda",
   "entity": "Encja pogody",
-  "entity.helper": "Pozostaw puste, aby nie pokazywać żadnej prognozy.",
   "position": "Pokaż prognozę",
   "position.option.none.label": "Nigdzie",
   "position.option.date.label": "W nagłówku dnia",
