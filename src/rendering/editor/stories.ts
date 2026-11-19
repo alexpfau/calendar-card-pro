@@ -109,7 +109,9 @@ export const STORIES: ReadonlyArray<Story> = [
     show_end_time: false,
     scroll_long_titles: true,
     event_gap: '4px',
+    // A tap anywhere expands the card, events included, and a hold opens an event.
     tap_action: { action: 'expand' },
+    event_tap_action: { action: 'none' },
     event_hold_action: { action: 'details' },
     list: { compact_events_to_show: 4 },
   }),

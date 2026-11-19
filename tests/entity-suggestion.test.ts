@@ -66,9 +66,9 @@ describe('getEntitySuggestion', () => {
         entities: ['calendar.family'],
         days_to_show: 3,
       };
+      // A tap on an event opens it on every card, so the interactive two need not say so.
       const interactive = {
         toolbar: { show: true },
-        event_tap_action: { action: 'details' },
         day_tap_action: { action: 'add-event' },
       };
       const gridOptions = { grid_options: { columns: 'full', rows: 'auto' } };
@@ -123,15 +123,7 @@ describe('getEntitySuggestion', () => {
 
     it('shares no mutable object between the entries', () => {
       // The picker keeps whichever config the user takes, and the editor then writes into it.
-      const shared = [
-        'grid_options',
-        'toolbar',
-        'event_tap_action',
-        'day_tap_action',
-        'list',
-        'column',
-        'time_grid',
-      ];
+      const shared = ['grid_options', 'toolbar', 'day_tap_action', 'list', 'column', 'time_grid'];
       const list = [
         ...(suggestions ?? []),
         ...(getEntitySuggestion(hass('calendar.family', 'weather.home'), 'calendar.family') ?? []),

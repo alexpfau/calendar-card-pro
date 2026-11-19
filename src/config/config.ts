@@ -194,7 +194,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
   day_tap_action: { action: 'none' },
-  event_tap_action: { action: 'none' },
+  // A tap on an event opens it, in every layout: a month's weeks show little more than each title,
+  // and nowhere else does one event open. `none` turns it off, leaving the tap to `tap_action`.
+  event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
   event_hold_action: { action: 'none' },
   open_links: false,
   allow_event_edit: true,
@@ -409,6 +411,15 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Options a configuration states whole: an event's tap and hold actions. The user's object
+ * replaces the default instead of merging into it, so one that names no `action`, `{}` among them,
+ * is nothing on an event (`eventActionKind`), as the editor reads it, rather than taking the
+ * default's `details`. The card's own three actions still merge: `_cardActionRuns` reads an
+ * object without `action` as one that runs.
+ */
+const WHOLE_OPTIONS: ReadonlySet<string> = new Set(['event_tap_action', 'event_hold_action']);
+
+/**
  * Merges a user configuration over the defaults, filling nested blocks key by key.
  *
  * A plain spread merges the top level only, so a `weather:` block naming just `entity:`
@@ -422,7 +433,8 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
  * Only plain objects recurse. **Arrays are replaced wholesale**, which is what `entities:`
  * needs — merging a two-calendar list over a three-calendar default would leave behind a
  * third calendar the user had deleted. A user value that is not a plain object always wins,
- * so `weather: null` clears the block rather than being merged into.
+ * so `weather: null` clears the block rather than being merged into. So does any value of an
+ * option in {@link WHOLE_OPTIONS}.
  *
  * The write path already matches this: `toStoredConfig` routes `weather` through
  * `stripWeatherDefaults`, which compares each nested option against these same defaults and
@@ -443,7 +455,7 @@ export function mergeConfig(
     const fallback = defaults[key];
 
     merged[key] =
-      Helpers.isConfigBlock(value) && Helpers.isConfigBlock(fallback)
+      !WHOLE_OPTIONS.has(key) && Helpers.isConfigBlock(value) && Helpers.isConfigBlock(fallback)
         ? mergeConfig(fallback, value)
         : value;
   }
@@ -1903,7 +1915,7 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
 const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
 
 /**
- * The label of the list suggestion that switches on the toolbar, event details and tap-to-add.
+ * The label of the list suggestion that switches on the toolbar and tap-to-add.
  *
  * Named for what the tile cannot show. In the picker the card is a preview, where every tap is
  * inert, so the tile shows only the toolbar; the popover and the new event a tap opens arrive
@@ -1918,11 +1930,11 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
 /**
  * What the two interactive suggestions add to the plain recipe.
  *
- * The three options that put v5.1's interaction on the card: the toolbar, with paging, swipe,
- * the layout switcher, search, the calendar menu, add and refresh at their defaults; a tap on
- * an event opening it in the card's popover, and in grid dragging it; and a tap on a day,
- * or a hold or drag in the grid, adding an event there. Each degrades on its own where the
- * calendar cannot write: the add button, day taps and drawing need one that accepts new
+ * The two options that put v5.1's interaction on the card beside what every card does, a tap on
+ * an event opening it in the card's popover (and in grid dragging it): the toolbar, with paging,
+ * swipe, the layout switcher, search, the calendar menu, add and refresh at their defaults; and a
+ * tap on a day, or a hold or drag in the grid, adding an event there. Each degrades on its own
+ * where the calendar cannot write: the add button, day taps and drawing need one that accepts new
  * events, and the popover offers only what the integration allows.
  *
  * Nothing here is part of the event-cache key, which is what keeps the two on it; see
@@ -1939,7 +1951,6 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
 function interactiveOptions(weatherEntity: string | undefined): Record<string, unknown> {
   return {
     toolbar: { show: true },
-    event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
     ...(weatherEntity === undefined
       ? {}
@@ -2003,7 +2014,7 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * sets a member of the event-cache key (`entities`, the loaded day count, `start_date`,
  * `first_day_of_week`) or a view's own `days_to_show`. So they share one event-cache key, and
  * the picker's five live previews cost one calendar request. The three plain ones differ only by
- * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
+ * `view`; the two interactive ones add the toolbar and a day tap action (`interactiveOptions`), and
  * come first, because Home Assistant shows a card's suggestions in the order returned and these
  * are the ones a new card is best started from. When the home has exactly one weather entity
  * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather_entity` and each

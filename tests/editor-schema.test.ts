@@ -149,7 +149,7 @@ describe('editor: default stripping', () => {
 
   /**
    * `filterDefaultValues` recurses into any key whose default is an object, and an
-   * action config's default is `{ action: 'none' }`. Left to that recursion,
+   * action config's default is one, such as `{ action: 'none' }`. Left to that recursion,
    * `{ action: 'none', navigation_path: '/x' }` loses its `action` key and becomes an
    * action with no action in it. `value.ts` holds these out and treats them whole.
    */
@@ -166,14 +166,20 @@ describe('editor: default stripping', () => {
     },
   );
 
-  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+  it.each(['tap_action', 'hold_action', 'event_tap_action'] as const)(
     'drops %s when it equals the default',
     (key) => {
-      const stored = toStoredConfig(buildConfig({ [key]: { action: 'none' } }));
+      const stored = toStoredConfig(buildConfig({ [key]: structuredClone(DEFAULT_CONFIG[key]) }));
 
       expect(stored).not.toHaveProperty(key);
     },
   );
+
+  it('keeps event_tap_action none, which is not its default', () => {
+    const stored = toStoredConfig(buildConfig({ event_tap_action: { action: 'none' } }));
+
+    expect(stored.event_tap_action).toEqual({ action: 'none' });
+  });
 
   /**
    * `filterDefaultValues` passes `weather` through unconditionally — its comment says
@@ -1907,8 +1913,8 @@ describe('editor: the panel set', () => {
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
       buildConfig({ filter_duplicates: true }),
-      // The event dialog's two permissions are held back until an event tap opens it.
-      buildConfig({ event_tap_action: { action: 'details' } }),
+      // Links in rows are held back while an event tap opens the event, as it does by default.
+      buildConfig({ event_tap_action: { action: 'none' } }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -2841,8 +2847,22 @@ describe('editor: the Actions & Refresh panel', () => {
    * them, and the refresh pair closes the panel. No headings: a split between card and
    * event taps would misfile the hold, which runs on events too.
    */
-  it('orders the gestures card, day, event, then refresh, with no dialog switches by default', () => {
+  it('orders the gestures card, day, event, then refresh, with the dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
+      'tap_action',
+      'hold_action',
+      'day_tap_action_mode',
+      'event_tap_action',
+      'event_hold_action',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers open_links in their place where events open nothing', () => {
+    expect(namesIn(withEventTap('none'))).toEqual([
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
@@ -2897,7 +2917,10 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 
   it('offers the two dialog switches once the event hold opens details', () => {
-    const config = buildConfig({ event_hold_action: { action: 'details' } });
+    const config = buildConfig({
+      event_tap_action: { action: 'none' },
+      event_hold_action: { action: 'details' },
+    });
     expect(namesIn(config)).toEqual([
       'tap_action',
       'hold_action',

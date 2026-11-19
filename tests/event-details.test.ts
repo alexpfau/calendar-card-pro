@@ -199,9 +199,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('event_tap_action none, the default', () => {
+/** Events that run nothing of their own, which a tap on one opens by default. */
+const NONE = { event_tap_action: { action: 'none' } } as const;
+
+describe('event_tap_action none', () => {
   it.each(['list', 'column', 'grid'])('leaves %s events inert', async (view) => {
-    const { card, dialogs } = await mount({ view });
+    const { card, dialogs } = await mount({ view, ...NONE });
 
     const root = card.shadowRoot!;
     expect(root.querySelectorAll('.event-interactive')).toHaveLength(0);
@@ -216,7 +219,11 @@ describe('event_tap_action none, the default', () => {
   it.each(['list', 'column', 'grid'])(
     "runs the card's tap action for a tap on a %s event, as before",
     async (view) => {
-      const { card, dialogs, actions } = await mount({ view, tap_action: { action: 'more-info' } });
+      const { card, dialogs, actions } = await mount({
+        view,
+        ...NONE,
+        tap_action: { action: 'more-info' },
+      });
 
       tap(leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist'));
       await settle();
@@ -224,6 +231,45 @@ describe('event_tap_action none, the default', () => {
       expect(dialogs).toHaveLength(0);
     },
   );
+});
+
+describe('event_tap_action left unset', () => {
+  it.each(['list', 'column', 'grid', 'month'])(
+    "opens a %s event's details on a tap and on Enter, instead of the card's tap",
+    async (view) => {
+      const { card, dialogs, actions } = await mount({ view, tap_action: { action: 'more-info' } });
+
+      const target = buttonsShowing(card, 'Dentist')[0];
+      tap(leafShowing(target, 'Dentist'));
+      await settle();
+      expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([EVENT_POPOVER_TAG]);
+      expect(dialogs[0].dialogParams.entry?.summary).toBe('Dentist');
+
+      key(target, 'keydown', 'Enter');
+      await settle();
+      expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([
+        EVENT_POPOVER_TAG,
+        EVENT_POPOVER_TAG,
+      ]);
+      expect(actions).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['an empty action object', {}],
+    ['an action object that names no action', { navigation_path: '/elsewhere' }],
+  ])('reads %s as nothing, as the editor does', async (_name, action) => {
+    const { card, dialogs, actions } = await mount({
+      event_tap_action: action,
+      tap_action: { action: 'more-info' },
+    });
+
+    expect(card.shadowRoot!.querySelectorAll('.event-interactive')).toHaveLength(0);
+    tap(leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist'));
+    await settle();
+    expect(actions).toEqual(['tap']);
+    expect(dialogs).toHaveLength(0);
+  });
 });
 
 describe('event_tap_action details', () => {
@@ -645,8 +691,8 @@ describe("the list view's event button", () => {
       (cell) => !cell.querySelector('.empty-day-title'),
     );
 
-  it('is drawn only while events are tap targets, so the default cell is as it was', async () => {
-    const { card } = await mount({ show_empty_days: true });
+  it('is drawn only while events are tap targets, so a cell without one is as it was', async () => {
+    const { card } = await mount({ ...NONE, show_empty_days: true });
 
     expect(cells(card).length).toBeGreaterThan(0);
     expect(card.shadowRoot!.querySelectorAll('.event-button, .event-tappable')).toHaveLength(0);
@@ -1064,7 +1110,7 @@ describe("event actions with Home Assistant's actions", () => {
 
   it("runs an event's hold for a hold, and the card's tap for a tap", async () => {
     const { card, hassActions } = await mount(
-      { ...TWO, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
+      { ...TWO, ...NONE, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
       BEN,
     );
     const target = leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming');
@@ -1089,7 +1135,7 @@ describe("event actions with Home Assistant's actions", () => {
 
   it.each([
     ['its tap', { event_tap_action: SEARCH }, 'tap'],
-    ['its hold, having no tap', { event_hold_action: SEARCH }, 'hold'],
+    ['its hold, having no tap', { ...NONE, event_hold_action: SEARCH }, 'hold'],
   ] as const)('runs %s from the keyboard', async (_name, config, gesture) => {
     const { card, hassActions } = await mount({ ...TWO, ...config }, BEN);
     const button = buttonsShowing(card, 'Swimming')[0];
@@ -1102,6 +1148,15 @@ describe("event actions with Home Assistant's actions", () => {
         config: { entity: 'calendar.ben', [`${gesture}_action`]: SEARCH_FILLED },
       },
     ]);
+  });
+
+  it('opens details from the keyboard where the tap is left unset, rather than run the hold', async () => {
+    const { card, dialogs, hassActions } = await mount({ ...TWO, event_hold_action: SEARCH }, BEN);
+
+    key(buttonsShowing(card, 'Swimming')[0], 'keydown', 'Enter');
+    await settle();
+    expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([EVENT_POPOVER_TAG]);
+    expect(hassActions).toEqual([]);
   });
 
   it('refuses a url action whose own scheme is not http or https once a field is in it', async () => {
@@ -1371,7 +1426,7 @@ describe("a tappable event's day", () => {
   it.each(['list', 'column', 'grid'])(
     'adds no id and no description in %s view while events are not tap targets',
     async (view) => {
-      const { card } = await mount({ view }, { events: EVENTS });
+      const { card } = await mount({ view, ...NONE }, { events: EVENTS });
 
       expect(eventsShowing(card, 'Yoga')).toHaveLength(2);
       expect(card.shadowRoot!.querySelectorAll('[id], [aria-describedby]')).toHaveLength(0);

@@ -51,7 +51,7 @@ describe('buildQuickSetupConfig', () => {
       duplicate_accent_color: '#ffb74d',
       weather_entity: 'weather.home',
       toolbar: { show: true, legend: 'chips', reset: true },
-      event_tap_action: { action: 'details' },
+      // Events open their details by default, so a "yes" writes no line for it.
       day_tap_action: { action: 'add-event' },
       // Anna's two blocks stay together, in first-listed order; Ben keeps his own color.
       entities: [
@@ -87,18 +87,22 @@ describe('buildQuickSetupConfig', () => {
       const answers = initialAnswers({ entities: ['calendar.anna'] }, id, ONE_WEATHER);
       const built = buildQuickSetupConfig({ entities: ['calendar.anna'] }, answers);
       const shell = storyById(id).shell();
+      // A story's event tap that opens details is the default, which the card leaves unwritten.
+      const opensByDefault = (key: string, value: unknown) =>
+        key === 'event_tap_action' && (value as { action?: unknown }).action === 'details';
+      const written = Object.entries(shell).filter(([key, value]) => !opensByDefault(key, value));
 
-      for (const [key, value] of Object.entries(shell)) {
+      for (const [key, value] of written) {
         if (key === 'weather_entity') continue;
         expect(built[key], key).toEqual(value);
       }
       expect(Object.keys(built).sort()).toEqual(
-        [...Object.keys(shell), 'config_version', 'entities'].sort(),
+        [...written.map(([key]) => key), 'config_version', 'entities'].sort(),
       );
     },
   );
 
-  it('answers no to weather and taps by leaving those lines out, and hides the toolbar', () => {
+  it('answers no to weather and taps, writing Nothing for the event tap, and hides the toolbar', () => {
     const answers: QuickSetupAnswers = {
       ...initialAnswers(OPENING, 'family_hub', ONE_WEATHER),
       weather: '',
@@ -112,7 +116,8 @@ describe('buildQuickSetupConfig', () => {
     // The story's weather per layout goes with it: nothing would draw it.
     expect(built.list).toEqual({ days_to_show: 3 });
     expect(built.time_grid).not.toHaveProperty('weather');
-    expect(built).not.toHaveProperty('event_tap_action');
+    // Events open by default, so "no" is the answer that has to be written.
+    expect(built.event_tap_action).toEqual({ action: 'none' });
     expect(built).not.toHaveProperty('day_tap_action');
     // Kept, hidden, so switching the toolbar on later brings back the story's own.
     expect(built.toolbar).toEqual({ show: false, legend: 'chips', reset: true });
@@ -151,7 +156,8 @@ describe('buildQuickSetupConfig', () => {
 
     expect(built.tap_action).toEqual({ action: 'expand' });
     expect(built.event_hold_action).toEqual({ action: 'details' });
-    expect(built).not.toHaveProperty('event_tap_action');
+    // Its event tap is Nothing, so a tap on an event expands the card as anywhere else.
+    expect(built.event_tap_action).toEqual({ action: 'none' });
     expect(built).not.toHaveProperty('weather_entity');
   });
 
@@ -265,6 +271,15 @@ describe('initialAnswers', () => {
       eventDetails: true,
       dayAdds: false,
     });
+  });
+
+  it('starts a story that names no event tap at yes, as the card opens events by default', () => {
+    expect(initialAnswers(OPENING, 'simple_agenda', {}).eventDetails).toBe(true);
+    expect(
+      buildQuickSetupConfig(OPENING, initialAnswers(OPENING, 'simple_agenda', {})),
+    ).not.toHaveProperty('event_tap_action');
+    // Now & Next says Nothing, so it starts at no.
+    expect(initialAnswers(OPENING, 'now_and_next', {}).eventDetails).toBe(false);
   });
 
   it('prefers the card’s own weather entity, else the only one in a story that shows weather', () => {
