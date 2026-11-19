@@ -5,6 +5,7 @@ import {
   type EditorElement,
   type FormElement,
   changeField,
+  editLayout,
   emitChange,
   fakeHass,
   formOf,
@@ -153,13 +154,13 @@ describe('past-event opacity editor contract', () => {
       // The Events panel, opened as a user would to edit it: a closed panel mounts no form.
       await openPageOf(editor, 'events:past_event_opacity');
       expect(reports).toHaveLength(0);
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       expect(reports).toHaveLength(0);
 
       const origin = opacityForm(editor);
       expect(valueOf(editor, 'events:past_event_opacity')).toBe(75.25);
       const other = workspace === 'grid' ? 'list' : 'grid';
-      await changeField(editor, 'workspace:editing_workspace', other);
+      await editLayout(editor, other);
       emitChange(origin, { 'events:past_event_opacity': '0' });
       await editor.updateComplete;
       const block = Routing.destination('past_event_opacity', workspace);
@@ -174,7 +175,7 @@ describe('past-event opacity editor contract', () => {
 
       editor.setConfig(saved as unknown as Types.Config);
       await editor.updateComplete;
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       expect(valueOf(editor, 'events:past_event_opacity')).toBe(0);
       for (const input of ['1', '12', '12.5', 100]) {
         await changeField(editor, 'events:past_event_opacity', input);

@@ -9,6 +9,7 @@ import {
   type MountedEditor,
   addFromRow,
   changeField,
+  editLayout,
   entry,
   formOf,
   goEntry,
@@ -384,7 +385,7 @@ describe('a word list', () => {
     await openPageOf(editor, field);
     const drawn = listForm(editor, field);
     expect(drawn.data).toEqual({ location_country_pattern: ['Germany'] });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     drawn.dispatchEvent(
       new CustomEvent('value-changed', {
         detail: { value: { location_country_pattern: ['Germany', 'Austria'] } },

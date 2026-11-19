@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, mountEditor, openPanels, valueOf } from './helpers/editor-host';
+import { changeField, editLayout, mountEditor, openPanels, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 async function mount(config: Record<string, unknown>) {
@@ -44,9 +44,9 @@ describe.each(['list', 'column', 'grid', 'month'] as const)(
           editor.setConfig(saved);
           await editor.updateComplete;
         }
-        await changeField(editor, 'workspace:editing_workspace', 'shared');
+        await editLayout(editor, 'shared');
         await changeField(editor, id, true);
-        await changeField(editor, 'workspace:editing_workspace', view);
+        await editLayout(editor, view);
 
         const stored = reports.slice(-1)[0]!;
         expect(stored).toHaveProperty(option, true);
@@ -77,9 +77,9 @@ it.each([false, true])(
       editor.setConfig(reports.slice(-1)[0]!);
       await editor.updateComplete;
     }
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await changeField(editor, 'events:event_font_size', '20px');
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
     expect(valueOf(editor, 'events:event_font_size')).toBe('12px');

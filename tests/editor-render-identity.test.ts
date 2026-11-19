@@ -22,6 +22,7 @@ import {
   type Owner,
   button,
   changeField,
+  editLayout,
   entry,
   fakeHass,
   formOf,
@@ -34,7 +35,6 @@ import {
 import * as Config from '../src/config/config';
 import { PANELS } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 const INPUTS = ['schema', 'data', 'hass', 'computeLabel', 'computeHelper'] as const;
 
@@ -137,8 +137,7 @@ describe.each<{
       hass: fakeHass({ localize: (key: string) => key }),
       every: true,
     });
-    if (workspace !== undefined)
-      await changeField(editor, `workspace:${WORKSPACE_FIELD}`, workspace);
+    if (workspace !== undefined) await editLayout(editor, workspace);
     for (const [field, who] of open) await openPageOf(editor, field, who);
     const render = vi.spyOn(editor, 'render');
 
@@ -214,7 +213,7 @@ describe('a panel’s builder', () => {
 describe('a kept helper', () => {
   it('draws the pill again once the state it shows moves, so a setting never reads stale', async () => {
     const editor = await mountEditor(CONFIG);
-    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
+    await editLayout(editor, 'list');
     await openPageOf(editor, 'events:event_font_size');
     expect(stateWordOf(editor, 'events:event_font_size')).not.toBe(EDITOR_STRINGS['state.set']);
 
@@ -228,7 +227,7 @@ describe('a kept helper', () => {
     // set for this layout: the Layout form's notes read the same, place by place, before and after
     // the switch, while the field in the last place is another one.
     const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
-    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'list');
+    await editLayout(editor, 'list');
     await openPageOf(editor, 'layout:card_height');
     const own = EDITOR_STRINGS['state.set'];
     expect(stateWordOf(editor, 'layout:card_height')).toBe(own);

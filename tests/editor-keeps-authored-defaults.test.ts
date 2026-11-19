@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  editLayout,
   mountEditor,
   openPanels,
   reportsOf,
@@ -186,7 +187,7 @@ describe('what an edit still removes', () => {
     });
 
     // All Layouts writes the top level; List would write `list:`, which keeps every value.
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     expect(reports).toEqual([]);
 
     await changeField(editor, 'day_header:show_month', false);

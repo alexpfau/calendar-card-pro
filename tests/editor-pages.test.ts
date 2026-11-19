@@ -12,6 +12,7 @@ import { declarations } from './helpers/css-declarations';
 import {
   type MountedEditor,
   changeField,
+  editLayout,
   formOf,
   goOverview,
   goPage,
@@ -161,7 +162,7 @@ describe('a search by a page’s title', () => {
     'lists every field of every page the overview lists, by the title it shows, in %s',
     async (scope) => {
       const editor = await mountEditor(CARD);
-      await changeField(editor, 'workspace:editing_workspace', scope);
+      await editLayout(editor, scope);
       await goOverview(editor);
       // Whole Card's rows on the overview, then the topics the scope's page lists.
       const read = () =>
@@ -224,7 +225,7 @@ describe('a layout’s own settings', () => {
     });
     await goPage(editor, 'which_events');
     expect($(editor, '[data-heading="heading_hours"]')).toBeNull();
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     await goPage(editor, 'which_events');
     expect($(editor, '[data-heading="heading_hours"]')).not.toBeNull();
     expect($(editor, '[data-field="layout:time_grid.start_time"]')).not.toBeNull();

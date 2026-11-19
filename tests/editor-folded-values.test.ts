@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  changeField,
+  editLayout,
   fakeHass,
   goEntry,
   goOverview,
@@ -57,7 +57,7 @@ describe('folded rows', () => {
     const empty: string[] = [];
     let folded = 0;
     for (const scope of WORKSPACES) {
-      await changeField(editor, 'workspace:editing_workspace', scope);
+      await editLayout(editor, scope);
       await goOverview(editor);
       // Whole Card's pages, and the topics the scope has (Layout Defaults has no Weather).
       const pages = [

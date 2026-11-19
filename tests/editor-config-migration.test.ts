@@ -9,6 +9,7 @@ import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import {
   changeField,
+  editLayout,
   emitChange,
   entry,
   formOf,
@@ -534,11 +535,11 @@ describe('All Layouts follows shared values rather than List', () => {
             .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
         );
       };
-      await changeField(editor, 'workspace:editing_workspace', 'shared');
+      await editLayout(editor, 'shared');
       expect(valueOf(editor, 'events:show_location')).toBe(enabled);
       for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
 
-      await changeField(editor, 'workspace:editing_workspace', 'list');
+      await editLayout(editor, 'list');
       for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
       expect(reports).toEqual([]);
       // Over a second in a full local run; the limit is set for CI's slower runner under load
@@ -549,7 +550,7 @@ describe('All Layouts follows shared values rather than List', () => {
 
   it('preserves default-valued Shared intent after closing and reopening', async () => {
     const { editor, reports } = await mount({ config_version: Config.CURRENT_CONFIG_VERSION });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     const values = {
       'events:event_font_size': ['18px', '14px'],
       'layout:day_spacing': ['18px', '10px'],

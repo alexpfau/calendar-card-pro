@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  editLayout,
   formOf,
   helperOf,
   labelOf,
@@ -95,7 +96,7 @@ function stored(editor: Parameters<typeof lastConfig>[0]): Record<string, unknow
 
 async function monthEditor(config: Record<string, unknown> = CARD) {
   const editor = await mountEditor(config);
-  await changeField(editor, 'workspace:editing_workspace', 'month');
+  await editLayout(editor, 'month');
   return editor;
 }
 

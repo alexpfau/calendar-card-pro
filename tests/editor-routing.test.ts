@@ -6,6 +6,7 @@ import { buildConfig } from './fixtures';
 import {
   type FormElement,
   changeField,
+  editLayout,
   emitChange,
   fakeHass,
   formOf,
@@ -13,6 +14,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  pressReset,
   resetButton,
   resetButtons,
   valueOf,
@@ -495,7 +497,7 @@ describe('rendered form frames preserve edit intent', () => {
    */
   it('clears a root option without restoring it from the previous object', async () => {
     const { editor, seen } = await mount();
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await changeField(editor, 'events:event_font_size', undefined);
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('event_font_size');
@@ -513,7 +515,7 @@ describe('rendered form frames preserve edit intent', () => {
    */
   it('clears a list override back to the shared base rather than to the default', async () => {
     const { editor, seen } = await mount({ list: { event_font_size: '21px' } });
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
 
     expect(valueOf(editor, 'events:event_font_size')).toBe('21px');
 
@@ -546,7 +548,7 @@ describe('rendered form frames preserve edit intent', () => {
     'still clears a %s value through the nested write path',
     async (view) => {
       const { editor, seen } = await mount();
-      await changeField(editor, 'workspace:editing_workspace', view);
+      await editLayout(editor, view);
       await changeField(editor, 'events:event_font_size', undefined);
       expect(seen).toHaveLength(1);
       expect(seen[0]).not.toHaveProperty(`${View.OVERRIDE_BLOCK_BY_VIEW[view]}.event_font_size`);
@@ -562,7 +564,7 @@ describe('rendered form frames preserve edit intent', () => {
     'keeps %s font input intact through renders and save echoes',
     async (view) => {
       const { editor, seen } = await mount();
-      await changeField(editor, 'workspace:editing_workspace', view);
+      await editLayout(editor, view);
       editor.addEventListener('config-changed', (event) =>
         editor.setConfig((event as CustomEvent<{ config: Types.Config }>).detail.config),
       );
@@ -630,9 +632,9 @@ describe('rendered form frames preserve edit intent', () => {
     const { editor } = await mount();
     await changeField(editor, 'events:event_font_size', '2');
     expect(valueOf(editor, 'events:event_font_size')).toBe('2');
-    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await editLayout(editor, 'column');
     expect(valueOf(editor, 'events:event_font_size')).toBe('19px');
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     expect(valueOf(editor, 'events:event_font_size')).toBe('2');
     editor.setConfig(
       buildConfig({
@@ -760,7 +762,7 @@ describe('reset controls follow the workspace destination, not the built view', 
     });
 
   const select = async (editor: CalendarCardProEditor, workspace: string) => {
-    await changeField(editor, 'workspace:editing_workspace', workspace);
+    await editLayout(editor, workspace);
   };
 
   it('offers a list override its reset in the List workspace', async () => {
@@ -772,8 +774,7 @@ describe('reset controls follow the workspace destination, not the built view', 
   it('resets the top-level line in the shared workspace, and leaves the list override', async () => {
     const { editor, seen } = await mountListCard();
     await select(editor, 'shared');
-    (await resetButton(editor, 'event_font_size'))!.click();
-    await editor.updateComplete;
+    await pressReset(editor, 'events:event_font_size');
     expect(seen).toHaveLength(1);
     expect(seen[0]).not.toHaveProperty('event_font_size');
     expect(seen[0].list).toEqual({ event_font_size: '18px' });
@@ -795,7 +796,7 @@ describe('entity subforms resolve show_location against the layer being edited',
     formsOf(editor).some((form) => JSON.stringify(form.schema ?? []).includes('location_icon'));
 
   const openWorkspace = async (editor: CalendarCardProEditor, workspace: string) => {
-    await changeField(editor, 'workspace:editing_workspace', workspace);
+    await editLayout(editor, workspace);
   };
 
   const mountLocationCard = async () =>

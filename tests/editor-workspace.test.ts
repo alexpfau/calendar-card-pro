@@ -5,11 +5,13 @@ import {
   CHASSIS,
   changeField,
   changeFields,
+  editLayout,
   entry,
   formsOf,
   goEntry,
   goOverview,
   keysOf,
+  layoutOf,
   mountEditor,
   openPanels,
   valueOf,
@@ -21,6 +23,7 @@ import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
+import { startingView } from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
   ADD_CALENDAR_PATH,
@@ -116,11 +119,17 @@ async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost>
 }
 
 function workspace(editor: EditorHost): unknown {
-  return valueOf(editor, `workspace:${WORKSPACE_FIELD}`);
+  return layoutOf(editor);
 }
 
 async function choose(editor: EditorHost, value: EditorWorkspace): Promise<void> {
-  await changeField(editor, `workspace:${WORKSPACE_FIELD}`, value);
+  await editLayout(editor, value);
+}
+
+/** Starting Layout, read where the overview draws it. */
+async function starting(editor: EditorHost): Promise<unknown> {
+  await goOverview(editor);
+  return valueOf(editor, 'display:view');
 }
 
 async function display(editor: EditorHost, view: Types.EffectiveView): Promise<void> {
@@ -212,13 +221,14 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
     current === 'grid' || current === 'column' || current === 'month',
   );
   // Each of the calendar's fields is a form of its own on its entry page, so the calendar's
-  // options are what all of its forms draw together. The page is built for the layouts the card
-  // can show plus the one being edited (`field-index.ts` › `entryViews`), not for that one alone.
+  // options are what all of its forms draw together. Opened from its row, the page is built for
+  // the layouts the card can show, whichever layout was edited last; only a search result for an
+  // option no such layout applies adds another (`field-index.ts` › `entryViews`).
   const entityForms = formsOf(editor, entry(0));
   expect(entityForms.length).toBeGreaterThan(0);
   const entity = entityForms.flatMap((form) => names(form.schema));
   const config = (editor as unknown as { _config: Types.Config })._config;
-  const built = entryViews(config, current);
+  const built = entryViews(config, startingView(config));
   expect(built.length).toBeGreaterThan(0);
   expect(entity.includes('compact_events_to_show'), `${current}: ${built}`).toBe(
     built.includes('list'),
@@ -326,7 +336,7 @@ describe('displayed view and editing workspace are separate controls', () => {
       const other = VIEWS.find((candidate) => candidate !== view)!;
       await choose(editor, other);
       expect(workspace(editor)).toBe(other);
-      expect(valueOf(editor, 'display:view')).toBe(view);
+      expect(await starting(editor)).toBe(view);
       expect(seen).toEqual([]);
     },
   );
@@ -347,7 +357,7 @@ describe('displayed view and editing workspace are separate controls', () => {
   );
 
   it.each(EXPECTED_WORKSPACES)(
-    'keeps the chosen %s workspace when Card Displays changes',
+    'still opens %s as its own when Card Displays changes',
     async (chosen) => {
       const editor = await mount(enabled('list'));
       await choose(editor, 'column');
@@ -355,6 +365,9 @@ describe('displayed view and editing workspace are separate controls', () => {
       const seen = reports(editor);
       await display(editor, 'column');
       await display(editor, 'grid');
+      // The overview follows the layout the card opens in; the layout's row still opens it.
+      expect(workspace(editor)).toBe('grid');
+      await choose(editor, chosen);
       expect(workspace(editor)).toBe(chosen);
       assertWorkspaceFields(editor, chosen);
       expect(seen).toHaveLength(2);
@@ -377,7 +390,7 @@ describe('workspace transitions do not configure the card', () => {
         await choose(editor, to);
         assertWorkspaceFields(editor, to);
         expect(workspace(editor)).toBe(to);
-        expect(valueOf(editor, 'display:view')).toBe(view);
+        expect(await starting(editor)).toBe(view);
         expect(seen).toEqual([]);
         editor.remove();
       }
@@ -416,7 +429,7 @@ describe('workspace transitions do not configure the card', () => {
     editor.addEventListener('change', escaped);
     await choose(editor, 'grid');
     expect(workspace(editor)).toBe('grid');
-    expect(valueOf(editor, 'display:view')).toBe('list');
+    expect(await starting(editor)).toBe('list');
     expect(escaped).not.toHaveBeenCalled();
     expect(seen).toEqual([]);
   });
@@ -435,11 +448,11 @@ describe('workspace transitions do not configure the card', () => {
 });
 
 describe('workspace state survives echoes and pending edits', () => {
-  it('keeps the chosen workspace on a sparse Home Assistant echo, but resets for an external config', async () => {
+  it('keeps the page open on a sparse Home Assistant echo, and on an external config', async () => {
     const editor = await mount(enabled('column'));
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await changeField(editor, 'card:title', 'Example');
+    await changeField(editor, 'events:title_max_lines', 2);
     expect(seen).toHaveLength(1);
     editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...seen[0] });
     await editor.updateComplete;
@@ -451,8 +464,9 @@ describe('workspace state survives echoes and pending edits', () => {
       view: 'list',
     });
     await editor.updateComplete;
-    // Card & Header, where the title was changed, edits the whole card; the overview follows the
+    // Grid's page is still open, as the card can still show Grid; the overview follows the
     // layout the card opens in.
+    expect(workspace(editor)).toBe('grid');
     await goOverview(editor);
     expect(workspace(editor)).toBe('list');
     await display(editor, 'column');
@@ -525,7 +539,7 @@ describe('the shared workspace', () => {
     const editor = await mount();
     const seen = reports(editor);
 
-    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'shared');
+    await editLayout(editor, 'shared');
 
     expect(workspace(editor)).toBe('shared');
     expect(seen).toEqual([]);
@@ -537,7 +551,7 @@ describe('the shared workspace', () => {
     const editor = await mount({ view: 'list' });
     const seen = reports(editor);
 
-    await changeField(editor, `workspace:${WORKSPACE_FIELD}`, 'shared');
+    await editLayout(editor, 'shared');
     await changeField(editor, 'events:event_font_size', '24px');
 
     expect(seen).toEqual([

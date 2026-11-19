@@ -4,6 +4,7 @@ import {
   CARD,
   type EditorElement,
   changeField,
+  editLayout,
   formsOf,
   mountEditor,
   openPageOf,
@@ -52,7 +53,7 @@ describe('all-day badge controls follow the layouts that render badges', () => {
     'offers only effective controls in %s',
     async (workspace) => {
       const { editor } = await mount();
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       const names = fields(editor);
       expect(names).toContain('event_icon_vertical_alignment');
       for (const key of BADGE_FIELDS) {
