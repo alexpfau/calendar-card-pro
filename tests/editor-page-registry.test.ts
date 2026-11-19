@@ -247,7 +247,8 @@ const APPROVED_MAP: ReadonlyArray<
     [
       'content:start_date_mode R',
       'content:start_date_fixed W',
-      'content:start_date_offset W',
+      // Month's page offers Today and A Fixed Date alone, so every scope but Month offers this.
+      'content:start_date_offset W SLCG',
       'content:event_type A',
       'content:hide_when_empty A',
     ],

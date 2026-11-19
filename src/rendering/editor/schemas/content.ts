@@ -8,7 +8,7 @@ import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { resolveWorkspaceOption } from '../workspace';
+import { resolveWorkspaceOption, viewForWorkspace } from '../workspace';
 import { bool, color, number, select, text } from './common';
 
 /**
@@ -16,10 +16,15 @@ import { bool, color, number, select, text } from './common';
  *
  * @param language - Effective language code
  * @param mode - Start-date mode, as presented
+ * @param modes - The choices offered: Month's page offers two (`Synthetic.MONTH_START_DATE_MODES`)
  * @returns The mode selector and the control it calls for
  */
-function startDateFields(language: string, mode: string): HaFormSchema[] {
-  const fields: HaFormSchema[] = [select(language, 'start_date_mode', Synthetic.START_DATE_MODES)];
+function startDateFields(
+  language: string,
+  mode: string,
+  modes: ReadonlyArray<string>,
+): HaFormSchema[] {
+  const fields: HaFormSchema[] = [select(language, 'start_date_mode', modes)];
 
   if (mode === 'fixed') {
     fields.push({ name: 'start_date_fixed', selector: { text: { type: 'date' } } });
@@ -63,6 +68,7 @@ const contentSchema = Helpers.memoizeLast(
   (
     language: string,
     startMode: string,
+    startModes: ReadonlyArray<string>,
     hasEventLimit: boolean,
     showEmptyDays: boolean,
     showEmptyToday: boolean,
@@ -73,7 +79,7 @@ const contentSchema = Helpers.memoizeLast(
 
     return [
       number('days_to_show', 1),
-      ...startDateFields(language, startMode),
+      ...startDateFields(language, startMode, startModes),
       select(language, 'first_day_of_week', ['system', 'monday', 'sunday']),
       // A list option: the List workspace offers it, and the others withhold it.
       select(language, 'event_order', ['earliest_first', 'latest_first']),
@@ -111,9 +117,15 @@ const contentSchema = Helpers.memoizeLast(
  */
 export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
   const workspace = ctx.workspace ?? ctx.view;
+  // Start Date's home is a Whole Card page, whose base view is List: only Month's own page reads it
+  // as Month does.
+  const month = viewForWorkspace(workspace) === 'month';
   return contentSchema(
     ctx.language,
-    Synthetic.modeFor(ctx, 'start_date_mode', Synthetic.startDateMode),
+    Synthetic.modeFor(ctx, 'start_date_mode', (config) =>
+      Synthetic.startDateModeIn(config, month ? 'month' : undefined),
+    ),
+    month ? Synthetic.MONTH_START_DATE_MODES : Synthetic.START_DATE_MODES,
     hasCompactEventLimit(ctx.config),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_days', workspace)),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_today', workspace)),

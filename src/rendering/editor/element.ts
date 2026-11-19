@@ -80,6 +80,7 @@ import {
   type PageId,
   STARTING_LAYOUT_BLOCK,
   WHOLE_CARD_PAGES,
+  keepsNoLayoutCopy,
   placementOf,
   topicsFor,
 } from './pages';
@@ -5761,7 +5762,9 @@ export class CalendarCardProEditor extends LitElement {
         return undefined;
       }
       const field = present.get(target.id);
-      if (field === undefined) return undefined;
+      // A whole-card setting holds one value, however a layout reads it: Month reads a start date
+      // that follows today as Today.
+      if (field === undefined || keepsNoLayoutCopy(field.id)) return undefined;
       const here = read(workspace, field);
       const differs = ViewConfig.VIEWS.some((view) => !Value.deepEqual(read(view, field), here));
       return differs ? this._layoutName(ctx)(workspace) : undefined;
@@ -6375,11 +6378,54 @@ export class CalendarCardProEditor extends LitElement {
     ctx: SchemaCtx,
     heading?: string,
   ): TemplateResult {
-    const show = this._fieldShow(field, appearance, pctx, ctx, CARD, heading);
+    const show =
+      this._monthStartDateShow(field, ctx) ??
+      this._fieldShow(field, appearance, pctx, ctx, CARD, heading);
     const drawn = this._renderStartDate(field, ctx, show);
     return this._jump?.target.kind === 'field' && this._jump.target.id === field.id
       ? this._jumpTo(ctx, drawn)
       : drawn;
+  }
+
+  /**
+   * The line under Start Date on Month's page while the card stores a start date that follows
+   * today: Whole Card, and what the other layouts start on ("Start of Week in List, Columns, and
+   * Grid"). Month reads such a value as Today (`Synthetic.startDateModeIn`), so the line has no
+   * Set and no Reset, which would change those layouts alone. A fixed date, or none, takes the
+   * usual line.
+   *
+   * @param field - Start Date's mode field
+   * @param ctx - Schema context
+   * @returns The line, or `undefined` for the usual one
+   */
+  private _monthStartDateShow(field: IndexedField, ctx: SchemaCtx): FieldShow | undefined {
+    if (Workspace.viewForWorkspace(ctx.workspace ?? ctx.view) !== 'month') return undefined;
+    const stored = this._rawConfig.start_date;
+    const mode = Synthetic.startDateMode({ start_date: stored } as Types.Config);
+    if (mode === 'default' || mode === 'fixed') return undefined;
+    const value =
+      mode === 'offset'
+        ? String(stored).trim()
+        : this._string(ctx, `${field.node.name}.option.${mode}.label`);
+    const layout = this._layoutName(ctx);
+    const layouts = EditorLocalize.formatList(
+      ctx.language,
+      ViewConfig.VIEWS.filter((view) => view !== 'month').map(layout),
+      'conjunction',
+    );
+    return {
+      line: ShownView.fieldLine({
+        notes: [],
+        actions: [],
+        facts: [
+          { kind: 'scope', text: this._string(ctx, 'state.whole_card') },
+          {
+            kind: 'source',
+            text: this._string(ctx, 'state.start_date_layouts', { value, layouts }),
+          },
+        ],
+      }),
+    };
   }
 
   /**

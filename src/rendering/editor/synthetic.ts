@@ -134,6 +134,14 @@ export const START_DATE_MODES = [
 
 export type StartDateMode = (typeof START_DATE_MODES)[number];
 
+/**
+ * The start-date choices Month's page offers: Today and A Fixed Date. Month opens today's month for
+ * every start date that follows today and a fixed date's own month otherwise
+ * (`ViewConfig.monthHomeDay`), so Tomorrow, Start of Week and Relative to Today would each draw
+ * what Today draws there (`startDateModeIn`).
+ */
+export const MONTH_START_DATE_MODES: ReadonlyArray<StartDateMode> = ['default', 'fixed'];
+
 /** What Tomorrow writes; `+1` reads back as Tomorrow too. */
 const TOMORROW = 'today+1';
 
@@ -167,6 +175,23 @@ export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
   const text = String(value);
   if (FIXED_DATE_PATTERN.test(text.trim())) return 'fixed';
   return startDateShortcut(text) ?? 'offset';
+}
+
+/**
+ * The start-date choice a layout's page shows: Month reads every start date that follows today as
+ * Today, which is what it draws for them, and offers nothing else but A Fixed Date
+ * (`MONTH_START_DATE_MODES`).
+ *
+ * @param config - Current configuration
+ * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
+ * @returns Which of the start-date choices applies
+ */
+export function startDateModeIn(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): StartDateMode {
+  const mode = startDateMode(config);
+  return view === 'month' && mode !== 'fixed' ? 'default' : mode;
 }
 
 /**
@@ -476,7 +501,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    */
   start_date_mode: {
     configKeys: ['start_date'],
-    derive: (config) => startDateMode(config),
+    derive: (config, view) => startDateModeIn(config, view),
     apply: (value, config) => {
       const discardDates = {
         start_date_offset: null,

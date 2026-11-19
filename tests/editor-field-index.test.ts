@@ -135,8 +135,8 @@ const HOLDS: ReadonlyArray<string> = [
   'column day_header:today_indicator_custom',
   'grid content:start_date_offset',
   'grid day_header:today_indicator_custom',
-  // Month draws today on the tile or not at all, so it offers no image for it.
-  'month content:start_date_offset',
+  // Month draws today on the tile or not at all, so it offers no image for it, and it offers no
+  // start-date expression, since every start date that follows today opens today's month there.
 ];
 
 /**
