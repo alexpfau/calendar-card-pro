@@ -1067,11 +1067,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Height and Maximum Height, which share their option names, and which Month does not read.
   'month.card_height': 'Month Card Height',
   'month.card_height.helper':
-    'The whole card, title and toolbar included: auto is 44rem, and rows set in a Sections ' +
-    'dashboard’s Layout tab win over it.',
+    'The whole card, title and toolbar included: auto is 632px, or 760px with the toolbar, and ' +
+    'rows set in a Sections dashboard’s Layout tab win over it.',
   'month.card_max_height': 'Month Maximum Height',
   'month.compact_card_height': 'Compact Card Height',
-  'month.compact_card_height.helper': 'auto is the compact month’s own 36rem.',
+  'month.compact_card_height.helper':
+    'auto is 632px, or 760px with the toolbar, as in the wide month.',
   'month.compact_card_max_height': 'Compact Maximum Height',
   'month.compact_card_max_height.helper':
     'With Compact Card Height at auto, the card grows with the day’s list up to this.',
@@ -1113,8 +1114,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
     'each reads as a block of its own. Change it in Month’s own settings.',
   'view_default.month.day_font_size':
-    'Month layout sets its day numbers at 14px whatever this is set to, so that each fits ' +
+    'Month layout sets its day numbers at 13px whatever this is set to, so that each fits ' +
     'its day’s corner. Change it in Month’s own settings.',
+  'view_default.month.weekday_font_size':
+    'Month layout sets its weekday names at 12.75px whatever this is set to, in proportion to ' +
+    'its day numbers. Change it in Month’s own settings.',
+  'view_default.month.week_number_font_size':
+    'Month layout sets its week numbers at 11px whatever this is set to, in proportion to its ' +
+    'day numbers. Change it in Month’s own settings.',
+  'view_default.month.vertical_line_width':
+    'Month layout draws its accent bars 3px wide whatever this is set to, so that they show ' +
+    'beside its small text. Change it in Month’s own settings.',
 
   // --- Time Range & Content -------------------------------------------------
   days_to_show: 'Days To Show',

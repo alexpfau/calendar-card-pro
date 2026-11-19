@@ -39,7 +39,7 @@ import * as Presentation from './presentation';
 import { generateCustomPropertiesObject } from './styles';
 import * as TextScale from './text-scale';
 import { stopCardGesture } from './toolbar';
-import { DEFAULT_CONFIG } from '../config/config';
+import { DEFAULT_CONFIG, asksForToolbar } from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -1691,9 +1691,10 @@ export function monthCompactGrows(config: Types.Config): boolean {
 
 /**
  * The height and the cap a month writes on its card where no Sections slot sizes it, from its
- * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the form's own
- * default (`UI.MONTH_CARD_HEIGHT`); a length is handed to CSS as written, so `rem`, `dvh` and a
- * `calc()` with a `var()` survive.
+ * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the month's own
+ * default, one height in both forms and a taller one where the configuration asks for a toolbar
+ * (`UI.MONTH_CARD_HEIGHT`, `Config.asksForToolbar`); a length is handed to CSS as written, so
+ * `rem`, `dvh` and a `calc()` with a `var()` survive.
  *
  * The whole card's, its title, toolbar and notices included, so the weeks share what those leave
  * and never take their height from their events. The one exception is a compact month whose
@@ -1720,7 +1721,10 @@ export function monthCardStyle(
     };
   }
   return {
-    height: height === 'auto' ? Constants.UI.MONTH_CARD_HEIGHT[form] : height,
+    height:
+      height === 'auto'
+        ? Constants.UI.MONTH_CARD_HEIGHT[asksForToolbar(config) ? 'toolbar' : 'plain']
+        : height,
     'max-height': max,
   };
 }
@@ -1746,7 +1750,7 @@ export interface MonthFloors {
  *
  * A week holds its date line and one line, the taller of a title and a time, under its rule, so
  * a day the card is too short for still shows its date and "+N more"; the month holds the weekday
- * names, six such weeks and its own closing rule. Below them the card's content scrolls rather
+ * names, six such weeks and a closing rule where one is drawn. Below them the card's content scrolls rather
  * than any text shrinking.
  *
  * Read from what fonts alone decide: the three probes (`measureMonthCapacity`), the weekday row

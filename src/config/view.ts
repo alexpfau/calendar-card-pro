@@ -1154,8 +1154,10 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * and lightens a dark one, and today's `transparent`, off.
  *
  * `cell_event_font_size` and `cell_time_font_size` size what the wide month draws in its days, a
- * line's or a bar's title and its time, a step under the list's 14px and 12px, since a day is a
- * seventh of the card wide and holds its lines one under another. A day's list and the panel keep
+ * line's or a bar's title and its time: 10px titles, with times at 0.85 of them, since a day is a
+ * seventh of the card wide and holds its lines one under another. The stylesheet's line geometry
+ * is scaled from the 10px title (`.month-line`), and the month's dates, weekday names and week
+ * numbers from it too ({@link MONTH_DEFAULT_OVERRIDES}). A day's list and the panel keep
  * `event_font_size` and `time_font_size`.
  */
 export const MONTH_DEFAULTS = {
@@ -1164,8 +1166,8 @@ export const MONTH_DEFAULTS = {
   min_day_width: 80,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
-  cell_event_font_size: '13px',
-  cell_time_font_size: '11px',
+  cell_event_font_size: '10px',
+  cell_time_font_size: '8.5px',
 } as const;
 
 /**
@@ -1263,8 +1265,8 @@ export interface MonthCardSize {
  * unusable. The compact form reads `compact_card_height` and `compact_card_max_height`, each of
  * which counts as set by being written in the `month:` block, so an explicit `auto` or `none`
  * keeps the wide value out; written as nothing or as something unusable, it is unset, and the
- * compact form takes the wide value. `auto` is left for the renderer, which draws each form at
- * its own default and lets a compact list grow under a cap. Pure: the card's layout, a Sections
+ * compact form takes the wide value. `auto` is left for the renderer, which draws it at the
+ * month's own default and lets a compact list grow under a cap. Pure: the card's layout, a Sections
  * row count, is decided elsewhere and wins over both.
  *
  * @param config - Merged configuration, defaults already applied
@@ -1906,13 +1908,23 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  * beside its date; a month's list holds one day under its name, with nothing beside it to join
  * against, so its events read better apart.
  *
- * `day_font_size` is 14px: a day's number sits in its cell's corner over the lines, at the size
- * of the list's titles rather than the 26px a list's date column holds alone.
+ * The month's own text is sized from the wide month's 10px titles (`cell_event_font_size` in
+ * {@link MONTH_DEFAULTS}), so a day reads as one piece: `day_font_size` 13px, 1.3 times the title,
+ * since a day's number sits in its cell's corner over the lines rather than alone in a list's
+ * 26px date column; `weekday_font_size` 12.75px over the columns; `week_number_font_size` 11px in
+ * the first day's corner. Both forms take them, so the compact form's numbers, weekday names and
+ * the day list's heading are a little smaller than a list's as well.
+ *
+ * `vertical_line_width` is 3px, 0.3 of the title: a 2px stripe beside 10px text reads as a
+ * hairline. It is the month's whole stripe, so the day's list and the panel draw it as well.
  */
 export const MONTH_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.MonthOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
-  day_font_size: '14px',
+  day_font_size: '13px',
+  weekday_font_size: '12.75px',
+  week_number_font_size: '11px',
+  vertical_line_width: '3px',
   event_gap: '6px',
   show_past_events: true,
 };

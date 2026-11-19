@@ -122,8 +122,32 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       verdict: 'inherits',
       why: 'A column stacks a day of events under its date as a list does, so the shipped 0px joins them into one block there too and a card-wide gap reaches it. Month diverges because its day list holds one day under its name, with no date beside it to join against.',
     },
+    weekday_font_size: {
+      verdict: 'inherits',
+      why: 'A column header names its weekday over a full-height track, as a list date does, so the card-wide 14px reads there. Month diverges because its names stand over seven narrow cells and are sized with its 10px titles.',
+    },
+    week_number_font_size: {
+      verdict: 'inherits',
+      why: 'A column week number is a pill in a band over its columns, above dates at the card-wide 26px, so the card-wide 12px keeps its proportion. Month diverges because its number sits in a cell corner beside a 13px date.',
+    },
+    vertical_line_width: {
+      verdict: 'inherits',
+      why: 'A column row carries 14px titles, beside which the card-wide 2px stripe reads clearly. Month diverges because its lines carry 10px titles, beside which 2px reads as a hairline.',
+    },
   },
   grid: {
+    weekday_font_size: {
+      verdict: 'inherits',
+      why: 'A grid header names its weekday over its column, as a column header does, so the card-wide 14px reads there. Month diverges because its names stand over seven narrow cells and are sized with its 10px titles.',
+    },
+    week_number_font_size: {
+      verdict: 'inherits',
+      why: 'A grid week number is a pill above its date columns, over dates at the card-wide 26px, so the card-wide 12px keeps its proportion. Month diverges because its number sits in a cell corner beside a 13px date.',
+    },
+    vertical_line_width: {
+      verdict: 'inherits',
+      why: 'A grid block is a tinted box whose stripe runs its whole height, so the card-wide 2px reads at any block length. Month diverges because its lines carry 10px titles, beside which 2px reads as a hairline.',
+    },
     day_font_size: {
       verdict: 'inherits',
       why: 'A grid header names its day above its column, as a column header does, so the card-wide 26px reads there. Month diverges because its day number sits in a cell corner over the lines, at the size of their titles.',
@@ -138,7 +162,9 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     },
   },
   // Month diverges on `show_past_events`, on `event_gap` for its day list, whose events read
-  // better apart under one day's name, and on `day_font_size`, a number in a cell's corner. Its lines paint on the card background with the
+  // better apart under one day's name, and on four sizes taken from its 10px titles:
+  // `day_font_size`, a number in a cell's corner, `weekday_font_size`, `week_number_font_size`
+  // and `vertical_line_width`. Its lines paint on the card background with the
   // card's ink, as a column row does. Its bars are Grid's banner, which takes Grid's tint and ink
   // where the card leaves event_background_opacity, event_color and time_color at their shipped
   // values (`barConfig` in `rendering/month.ts`), so none of the three needs a divergent default.

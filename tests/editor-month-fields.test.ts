@@ -130,9 +130,9 @@ describe('Month’s own settings in the editor', () => {
         return [...list, [id, helperOf(editor, id)]];
       }, Promise.resolve([])),
     );
-    expect(helpers['layout:month.card_height']).toMatch(/44rem/);
+    expect(helpers['layout:month.card_height']).toMatch(/632px, or 760px with the toolbar/);
     expect(helpers['layout:month.card_height']).toMatch(/Layout tab/);
-    expect(helpers['layout:month.compact_card_height']).toMatch(/36rem/);
+    expect(helpers['layout:month.compact_card_height']).toMatch(/632px, or 760px with the toolbar/);
     expect(helpers['layout:month.compact_card_max_height']).toMatch(/grows/);
     expect(helpers['layout:month.today_background_color']).toMatch(/replaces/);
     expect(helpers['layout:month.cell_event_font_size']).toMatch(/Event Font Size/);

@@ -87,9 +87,10 @@ leaves a day out, and starts again after it, so a weekday-only trip never covers
 ## 📏 How Tall the Month Is
 
 A month is one height whatever its events, so a busy month is as tall as a quiet one, and its six
-weeks share that height evenly. On a Sections dashboard it fills the rows it is given, ten unless
-you choose others; anywhere else `card_height` sets the whole card's height, `44rem` by default,
-at which a week holds four events under its date at the default text sizes.
+weeks share that height evenly. On a Sections dashboard it fills the rows it is given: ten unless
+you choose others, or twelve with the toolbar. Anywhere else `card_height` sets the whole card's
+height, by default the same `632px`, or `760px` with the toolbar. At the default text sizes either
+leaves a day five lines under its date, the last of a busy day being "+N more".
 
 ```yaml
 # On a Sections dashboard: the month fills its rows
@@ -115,21 +116,25 @@ month:
   compact_card_max_height: 40rem
 ```
 
-| Option                            | Type   | Default           | Description                                                                                                          |
-| --------------------------------- | ------ | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `month → card_height`             | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `44rem`                |
-| `month → card_max_height`         | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                        |
-| `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is `36rem` |
-| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it              |
+| Option                            | Type   | Default           | Description                                                                                                                                      |
+| --------------------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `month → card_height`             | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `632px`, `760px` with the toolbar                  |
+| `month → card_max_height`         | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                                                    |
+| `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's |
+| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it                                          |
 
 In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Compact Card
 Height** and **Compact Maximum Height** on Month's Size & Spacing.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
-  room from the weeks: at `44rem` a week holds four events without a header, three with the
-  toolbar or a title.
+  room from the weeks. The default makes room for the toolbar, so a day keeps its five lines with
+  it; a title costs a card without a toolbar one line.
+- **With the toolbar** means `toolbar → show` with at least one of its controls on. The room is
+  kept where a control is not drawn on one screen, such as add where no calendar can be written
+  to, so the card's height never changes with it.
 - **A Sections row count wins.** While none of the four sets a height or a maximum, a month asks
-  a Sections dashboard for ten rows; `auto`, `none` and a value it cannot use set neither. Once
+  a Sections dashboard for ten rows, or twelve with the toolbar; `auto`, `none` and a value it
+  cannot use set neither. Once
   one does, the card sizes itself, and rows chosen in the dashboard's Layout tab always win, the
   four then doing nothing. A card that opens as a month keeps its rows when you switch it to
   another layout, which scrolls within them.
@@ -301,9 +306,11 @@ In the visual editor they are **Weekend Shading** and **Today Shading** on Month
 
 ## 🔤 Text Sizes
 
-`cell_event_font_size` and `cell_time_font_size` set the text in the wide month's days, a step
-under a list's, so a day a seventh of the card wide keeps more of each title. A day's number takes
-`day_font_size` and the month named on a 1st `month_font_size`, as a list's dates do.
+`cell_event_font_size` and `cell_time_font_size` set the text in the wide month's days, 10px
+titles and 8.5px times, so a day a seventh of the card wide keeps more of each title and more of
+its events. A day's number takes `day_font_size` and the month named on a 1st `month_font_size`,
+as a list's dates do, and the month's own defaults for them, the weekday names and the week
+numbers are sized with its titles.
 
 ```yaml
 view: month
@@ -313,12 +320,14 @@ month:
   day_font_size: 16px
 ```
 
-| Option                         | Type   | Default | Description                                                                        |
-| ------------------------------ | ------ | ------- | ---------------------------------------------------------------------------------- |
-| `month → cell_event_font_size` | string | `13px`  | A line's title and calendar label, and a bar's title, in the wide month            |
-| `month → cell_time_font_size`  | string | `11px`  | A line's time, a bar's times and length, and a day's "+N more", in the wide month  |
-| `day_font_size`                | string | `14px`  | Each day's number, in both forms; Month's own default, which only `month:` changes |
-| `month_font_size`              | string | `12px`  | The month named beside the number on a 1st                                         |
+| Option                         | Type   | Default   | Description                                                                                    |
+| ------------------------------ | ------ | --------- | ---------------------------------------------------------------------------------------------- |
+| `month → cell_event_font_size` | string | `10px`    | A line's title and calendar label, and a bar's title, in the wide month                        |
+| `month → cell_time_font_size`  | string | `8.5px`   | A line's time, a bar's times and length, and a day's "+N more", in the wide month              |
+| `day_font_size`                | string | `13px`    | Each day's number, in both forms; Month's own default, which only `month:` changes             |
+| `weekday_font_size`            | string | `12.75px` | The weekday names over the columns and a day list's heading; Month's own default               |
+| `week_number_font_size`        | string | `11px`    | The week numbers, in the first day's corner or the compact month's gutter; Month's own default |
+| `month_font_size`              | string | `12px`    | The month named beside the number on a 1st                                                     |
 
 In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
 Days** on Month's Event Appearance, beside the sizes a day's list takes.
@@ -326,9 +335,10 @@ Days** on Month's Event Appearance, beside the sizes a day's list takes.
 - **The day's list and the panel** keep `event_font_size` and `time_font_size`, so their rows read
   as a list's; set those inside `month:` to change them for Month alone.
 - **A taller size fits fewer lines** in a week, and the rest go under "+N more"; text never
-  shrinks to fit.
+  shrinks to fit. The lines' spacing and color stripe are drawn for the 10px titles, so a line
+  set larger stays as compact as its text allows.
 - **`text_scale`** on a calendar multiplies the cell sizes in its days: at `1.5` its lines are
-  `19.5px` where the others are `13px`.
+  `15px` where the others are `10px`.
 
 ## 🧰 Month in the View Switcher
 
@@ -365,8 +375,7 @@ month:
 There `event_font_size` sets the rows of [a day's list](#the-days-list) and the panel; the lines in
 the days take [their own sizes](#text-sizes).
 
-Anything the block does not mention keeps its top-level value, except `show_past_events`,
-`event_gap` and `day_font_size`, below.
+Anything the block does not mention keeps its top-level value, except the six options below.
 Options that decide which events the card loads, such as `start_date` and `entities`, and others
 that act on the card as a whole, such as the actions and the `toolbar`, are card-wide and ignored
 inside `month:`; see
@@ -374,13 +383,16 @@ inside `month:`; see
 
 ## 🔀 Options That Start From a Different Default
 
-Three shared options do not inherit their top-level value in month view:
+Six shared options do not inherit their top-level value in month view:
 
-| Option             | Type    | Default | Month Default |
-| ------------------ | ------- | ------- | ------------- |
-| `show_past_events` | boolean | `false` | `true`        |
-| `event_gap`        | string  | `0px`   | `6px`         |
-| `day_font_size`    | string  | `26px`  | `14px`        |
+| Option                  | Type    | Default | Month Default |
+| ----------------------- | ------- | ------- | ------------- |
+| `show_past_events`      | boolean | `false` | `true`        |
+| `event_gap`             | string  | `0px`   | `6px`         |
+| `day_font_size`         | string  | `26px`  | `13px`        |
+| `weekday_font_size`     | string  | `14px`  | `12.75px`     |
+| `week_number_font_size` | string  | `12px`  | `11px`        |
+| `vertical_line_width`   | string  | `2px`   | `3px`         |
 
 A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
 `show_past_events: false` inside `month:` to hide them.
@@ -389,8 +401,10 @@ A [day's list](#the-days-list) holds one day under its name, so its events read 
 joined into one block beside a date, as the list layout keeps them. Set `event_gap: 0px` inside
 `month:` to join them; a top-level `event_gap` changes the list and column layouts alone.
 
-A day's number sits in its cell's corner over the lines, so it starts at the size of a list's
-titles rather than a list's 26px date. Set `day_font_size` inside `month:` to change it.
+A day's number sits in its cell's corner over the lines, so it is sized with the month's 10px
+titles rather than a list's 26px date, and the weekday names and week numbers with it. Beside text
+that small a 2px color stripe reads as a hairline, so a month's is 3px, in its days, its day list
+and the panel alike. Set any of the four inside `month:` to change it.
 
 ## 🚫 Options That Do Nothing in Month View
 

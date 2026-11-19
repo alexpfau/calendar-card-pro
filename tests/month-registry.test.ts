@@ -22,7 +22,14 @@ describe('the month block', () => {
       overrideKeys: ViewConfig.MONTH_OVERRIDE_KEYS,
       onlyKeys: ViewConfig.MONTH_ONLY_KEYS,
       onlyDefaults: ViewConfig.MONTH_DEFAULTS,
-      defaultOverrides: { day_font_size: '14px', event_gap: '6px', show_past_events: true },
+      defaultOverrides: {
+        day_font_size: '13px',
+        weekday_font_size: '12.75px',
+        week_number_font_size: '11px',
+        vertical_line_width: '3px',
+        event_gap: '6px',
+        show_past_events: true,
+      },
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'card_height',
@@ -44,9 +51,9 @@ describe('the month block', () => {
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       today_background_color: 'transparent',
-      // What the wide month draws in its days, a step under the list's 14px and 12px.
-      cell_event_font_size: '13px',
-      cell_time_font_size: '11px',
+      // What the wide month draws in its days: 10px titles and times at 0.85 of them.
+      cell_event_font_size: '10px',
+      cell_time_font_size: '8.5px',
     });
     expect(ViewConfig.MONTH_DEFAULTS.weekend_background_color).toBe(
       ViewConfig.TIME_GRID_DEFAULTS.weekend_background_color,
@@ -204,21 +211,61 @@ describe('the options month reads', () => {
     expect(ViewConfig.appliesToView('event_gap', 'month')).toBe(true);
   });
 
-  it('sets its day numbers at 14px by default, which only its block changes', () => {
-    // A divergent default, as the gap is: a list's 26px date column stands alone, a month's day
-    // number sits in its cell's corner over the lines.
-    const day = (config: Partial<Types.Config>) =>
-      ViewConfig.resolveEffectiveConfig(buildConfig(config), 'month').day_font_size;
-    expect(day({})).toBe('14px');
-    expect(day({ day_font_size: '30px' })).toBe('14px');
-    expect(day({ month: { day_font_size: '1.1rem' } })).toBe('1.1rem');
+  it('sizes its dates, names, week numbers and stripe from its titles, which only its block changes', () => {
+    // Divergent defaults, as the gap is: a list's 26px date column stands alone, a month's day
+    // number sits in its cell's corner over the lines, and all four follow the 10px titles.
+    const month = (config: Partial<Types.Config>) =>
+      ViewConfig.resolveEffectiveConfig(buildConfig(config), 'month');
+    const sizes = (config: Partial<Types.Config>) => {
+      const resolved = month(config);
+      return [
+        resolved.day_font_size,
+        resolved.weekday_font_size,
+        resolved.week_number_font_size,
+        resolved.vertical_line_width,
+      ];
+    };
+    expect(sizes({})).toEqual(['13px', '12.75px', '11px', '3px']);
+    expect(
+      sizes({
+        day_font_size: '30px',
+        weekday_font_size: '20px',
+        week_number_font_size: '16px',
+        vertical_line_width: '6px',
+      }),
+    ).toEqual(['13px', '12.75px', '11px', '3px']);
+    expect(
+      sizes({
+        month: {
+          day_font_size: '1.1rem',
+          weekday_font_size: '1em',
+          week_number_font_size: '12px',
+          vertical_line_width: '2px',
+        },
+      }),
+    ).toEqual(['1.1rem', '1em', '12px', '2px']);
+    // A list keeps the card's own.
+    const list = ViewConfig.resolveEffectiveConfig(buildConfig({}), 'list');
+    expect([
+      list.day_font_size,
+      list.weekday_font_size,
+      list.week_number_font_size,
+      list.vertical_line_width,
+    ]).toEqual(['26px', '14px', '12px', '2px']);
     expect(
       ViewConfig.resolveEffectiveConfig(
         buildConfig({ month: { month_font_size: '10px' } }),
         'month',
       ).month_font_size,
     ).toBe('10px');
-    expect(ViewConfig.appliesToView('day_font_size', 'month')).toBe(true);
+    for (const key of [
+      'day_font_size',
+      'weekday_font_size',
+      'week_number_font_size',
+      'vertical_line_width',
+    ] as const) {
+      expect(ViewConfig.appliesToView(key, 'month')).toBe(true);
+    }
     expect(ViewConfig.appliesToView('month_font_size', 'month')).toBe(true);
   });
 
@@ -254,9 +301,9 @@ describe('a month-only option', () => {
     ['cell_event_font_size', '15px', '15px'],
     ['cell_event_font_size', '0.9 rem', '0.9rem'],
     ['cell_event_font_size', 12, '12px'],
-    ['cell_event_font_size', 'big', '13px'],
+    ['cell_event_font_size', 'big', '10px'],
     ['cell_time_font_size', 'smaller', 'smaller'],
-    ['cell_time_font_size', '-2px', '11px'],
+    ['cell_time_font_size', '-2px', '8.5px'],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
     expect(
@@ -303,7 +350,7 @@ describe('a month-only option', () => {
       ViewConfig.validateColumnOverrides(buildConfig({ month: { cell_time_font_size: '1em' } }));
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
         'Invalid month.cell_event_font_size "big": expected a CSS font size such as "14px", ' +
-          '"1.2em", "120%" or "large". Falling back to "13px".',
+          '"1.2em", "120%" or "large". Falling back to "10px".',
       ]);
     } finally {
       warn.mockRestore();

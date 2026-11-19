@@ -356,19 +356,24 @@ export const UI = {
   MONTH_COMPACT_MARKS: 4,
 
   /**
-   * A month card's height where nothing sets one (`month → card_height: auto`), the whole card's
-   * border box, its title and toolbar included, in each form. The wide form's holds four lines
-   * under each date at the default text sizes on a card without a title or toolbar, as measured
-   * in Chromium (`MonthRender.monthCardStyle`).
+   * The rows a month asks a Sections dashboard for while none of its four height keys sets a
+   * height or a maximum (`Sections.cardGridOptions`): ten, 632px at Home Assistant's default 56px
+   * row and 8px gap, and twelve, 760px, where the configuration asks for a toolbar
+   * (`Config.asksForToolbar`). The toolbar's two rows take about 89px, a title beside it about 17px
+   * more, so two rows more keep the lines a card without one has, and one more besides: at the
+   * default text sizes a wide day holds five lines either way, and a compact month's day list three
+   * events at least, also where the toolbar's buttons wrap onto a second line.
    */
-  MONTH_CARD_HEIGHT: { wide: '44rem', compact: '36rem' },
+  MONTH_SECTIONS_ROWS: { plain: 10, toolbar: 12 },
 
   /**
-   * The rows a month asks a Sections dashboard for while none of its four height keys sets a
-   * height or a maximum (`Sections.cardGridOptions`): 632px at Home Assistant's default 56px row
-   * and 8px gap.
+   * A month card's height where nothing sets one (`month → card_height: auto`) and no Sections
+   * slot sizes it, the whole card's border box, its title and toolbar included, in either form:
+   * the Sections slot's own height (`MONTH_SECTIONS_ROWS`), so a month in a stack or on a masonry
+   * dashboard is as tall as on a Sections one. In pixels, because Home Assistant sets its root
+   * font to 14px, which a length in `rem` would be read against (`MonthRender.monthCardStyle`).
    */
-  MONTH_SECTIONS_ROWS: 10,
+  MONTH_CARD_HEIGHT: { plain: '632px', toolbar: '760px' },
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

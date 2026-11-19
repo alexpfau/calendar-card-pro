@@ -7,6 +7,7 @@
  * else it writes the height its `month:` block asks for (`MonthRender.monthCardStyle`).
  */
 
+import * as Config from '../config/config';
 import * as Constants from '../config/constants';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -20,7 +21,8 @@ export interface CardGridOptions {
 /**
  * The size the card asks a Sections dashboard for: the whole width, and for a month that opens
  * as one `UI.MONTH_SECTIONS_ROWS` rows while its `month:` block sets no height and no maximum
- * (`ViewConfig.monthSetsCardSize`), which every other card sizes itself.
+ * (`ViewConfig.monthSetsCardSize`), more of them where it asks for a toolbar
+ * (`Config.asksForToolbar`), which every other card sizes itself.
  *
  * Read from the configuration alone, never from a layout this device picked, because Home
  * Assistant asks again only when the configuration changes. A row count the dashboard's Layout
@@ -34,7 +36,7 @@ export function cardGridOptions(config: Types.Config): CardGridOptions {
     columns: 'full',
     rows:
       config.view === 'month' && !ViewConfig.monthSetsCardSize(config)
-        ? Constants.UI.MONTH_SECTIONS_ROWS
+        ? Constants.UI.MONTH_SECTIONS_ROWS[Config.asksForToolbar(config) ? 'toolbar' : 'plain']
         : 'auto',
   };
 }

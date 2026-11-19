@@ -775,7 +775,7 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /**
    * `card_height` for the compact form, which takes `card_height` while this is unset; `auto` is
-   * the compact form's own default.
+   * the month's own default, the same in both forms.
    */
   compact_card_height?: string;
 
