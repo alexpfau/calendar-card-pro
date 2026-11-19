@@ -65,8 +65,8 @@ export const MONTH_LINE_CAPACITY_DEFAULT = 4;
 
 /**
  * The class of the three empty boxes the card reads the date line and the line pitch from, told
- * apart by `data-probe`: `date`, as tall as the date line, and `title` and `time`, each as tall as
- * a line set in its font. See `measureMonthCapacity`.
+ * apart by `data-probe`: `date`, as tall as the tallest date line, a 1st's with its month, and
+ * `title` and `time`, each as tall as a line set in its font. See `measureMonthCapacity`.
  */
 export const MONTH_PROBE_CLASS = 'month-probe';
 
@@ -1634,9 +1634,10 @@ export function renderMonthDayList(
  *
  * Read from the first week row: the room under its rule, less its date line, in line pitches.
  * The probes (`MONTH_PROBE_CLASS`) are each as tall as what they stand for, set in the stylesheet
- * in its font: the date line, and a line set in the title's font and in the time's, the taller of
- * which is the pitch, so a time set larger than its title still fits. The room runs from the top
- * of the week's first cell, which starts under the rule, to the bottom of the week.
+ * in its font: the date line, a 1st's with its month in every week so that one capacity holds for
+ * all six, and a line set in the title's font and in the time's, the taller of which is the
+ * pitch, so a time set larger than its title still fits. The room runs from the top of the week's
+ * first cell, which starts under the rule, to the bottom of the week.
  *
  * Every box is read with `getBoundingClientRect`, so a scale an ancestor draws the card at, by a
  * transform or a zoom, scales them all alike and cancels in the quotient. A layout height such as

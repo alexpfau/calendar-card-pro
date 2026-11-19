@@ -539,12 +539,14 @@ describe('the line pitch and the date line the card measures', () => {
     });
     // The date: the tile's 1.2em with 4px above and 2px below, in the day's size dates are set
     // in. The line sets no size of its own; an empty strut in the day's size makes it 1.2em tall,
-    // and the number and the 1st's month each take their own option.
-    expect(probe('date')).toEqual({
-      height: 'calc(1.2em + 6px)',
-      'font-size': 'var(--calendar-card-font-size-day)',
+    // and the number and the 1st's month each take their own option, the month's line box 1em
+    // tall in its size, which a large month makes the taller of the two.
+    expect(rule('.month-date')).toMatchObject({
+      display: 'flex',
+      'align-items': 'center',
+      padding: '4px 6px 2px',
+      'line-height': '1',
     });
-    expect(rule('.month-date')).toMatchObject({ padding: '4px 6px 2px', 'line-height': '1' });
     expect(rule('.month-date')).not.toHaveProperty('font-size');
     expect(rule('.month-date')).not.toHaveProperty('height');
     expect(rule('.month-date::before')).toEqual({
@@ -554,6 +556,22 @@ describe('the line pitch and the date line the card measures', () => {
     });
     expect(rule('.month-date > .day')['font-size']).toBe('var(--calendar-card-font-size-day)');
     expect(rule('.month-date-month')['font-size']).toBe('var(--calendar-card-font-size-month)');
+    // Its probe is laid out as a 1st's date line is, the same padding above and below and two
+    // struts centered across it: the day's, and one as tall as the month's line box. Every week
+    // is counted as holding the month, so one capacity holds for all six. Each strut sets its
+    // own size, as the parts it stands for do, so a keyword or a percentage resolves against what
+    // theirs does, and the probe sets none.
+    expect(probe('date')).toEqual({
+      display: 'flex',
+      'align-items': 'center',
+      'padding-block': '4px 2px',
+    });
+    expect(rule(".month-probe[data-probe='date']::before")).toEqual(rule('.month-date::before'));
+    expect(rule(".month-probe[data-probe='date']::after")).toEqual({
+      content: "''",
+      height: '1em',
+      'font-size': 'var(--calendar-card-font-size-month)',
+    });
   });
 });
 
