@@ -317,6 +317,67 @@ describe('moving an event in a grid by drag', () => {
     expect(drawn(card)).toEqual([]);
   });
 
+  describe('a long press let go where it was', () => {
+    it.each(['mouse', 'touch'])(
+      'opens the popover by %s where a hold runs nothing, as a tap does, and writes nothing',
+      async (pointerType) => {
+        const { card, writes, dialogs } = await mount(DETAILS);
+        const dentist = block(card, 'Dentist');
+        pointer(dentist, 'pointerdown', X(0), Y(14, 30), pointerType);
+        hold();
+        // Lifted, as a hold on an event a drag may move lifts it.
+        expect(drawn(card)).toEqual([bodies(card)[0]]);
+        pointer(dentist, 'pointermove', X(0), Y(14, 33), pointerType);
+        pointer(dentist, 'pointerup', X(0), Y(14, 33), pointerType);
+        // The click a browser derives from the press opens no second one.
+        dentist.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        await settle();
+
+        expect(dialogs.map(({ dialogParams }) => dialogParams.entry?.summary)).toEqual(['Dentist']);
+        expect(dialogs[0].dialogParams.moved).toBeUndefined();
+        expect(writes()).toEqual([]);
+        expect(drawn(card)).toEqual([]);
+        expect(origin(card, 'Dentist')).toBeNull();
+      },
+    );
+
+    it("runs the card's hold instead, where it has one", async () => {
+      const { card, writes, dialogs } = await mount({
+        ...DETAILS,
+        hold_action: { action: 'more-info' },
+      });
+      const actions: string[] = [];
+      card.addEventListener('hass-action', (ev) =>
+        actions.push((ev as Event & { detail: { action: string } }).detail.action),
+      );
+      const dentist = block(card, 'Dentist');
+      pointer(dentist, 'pointerdown', X(0), Y(14, 30));
+      hold();
+      pointer(dentist, 'pointerup', X(0), Y(14, 30));
+      await settle();
+      expect(actions).toEqual(['hold']);
+      expect(dialogs).toEqual([]);
+      expect(writes()).toEqual([]);
+    });
+
+    it.each(['list', 'column', 'grid', 'month'])(
+      'opens the popover in %s view, where no hold action is set',
+      async (view) => {
+        const { card, dialogs } = await mount({ view });
+        // The innermost button naming the event, which is the event's own.
+        const targets = all(card, view === 'grid' ? '.grid-event' : '[role="button"]').filter(
+          (element) => element.textContent?.includes('Dentist'),
+        );
+        const target = targets[targets.length - 1];
+        pointer(target, 'pointerdown', X(0), Y(14, 30), 'touch');
+        hold();
+        pointer(target, 'pointerup', X(0), Y(14, 30), 'touch');
+        await settle();
+        expect(dialogs.map(({ dialogParams }) => dialogParams.entry?.summary)).toEqual(['Dentist']);
+      },
+    );
+  });
+
   it('writes nothing for an event let go where it was taken from', async () => {
     const { card, writes, dialogs } = await mount(DETAILS);
     const dentist = block(card, 'Dentist');

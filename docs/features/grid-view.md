@@ -739,9 +739,11 @@ view: grid
 - **With a mouse,** press on the event and drag at once. A click that does not move still opens
   the popover.
 - **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
-  does not scroll while you do. Held and let go without moving, the hold does what it always did,
-  such as opening the popover under `event_hold_action: details`. Only a finger on the event
-  lifts it, not one held just beside it.
+  does not scroll while you do. Only a finger on the event lifts it, not one held just beside it.
+
+A long press let go before the event has moved, by mouse or finger, does what it does in the other
+layouts: the event's hold action, such as opening the popover under `event_hold_action: details`,
+else the card's `hold_action`, and with neither, what a tap does.
 
 The event follows the pointer in quarter hours, keeping its length and the minute it starts at
 within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another

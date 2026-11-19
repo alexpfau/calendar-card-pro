@@ -68,7 +68,10 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 - **Moving.** Where the popover could change an event (`_movesEvents`, `_moveFrom`), a timed grid
   block on one day moves by mouse drag at once, or by finger after the hold. A single event is
   written on release (`_writeMove`); a repeating one opens the popover to ask which occurrences
-  move (`_dropMove`). Escape puts it back.
+  move (`_dropMove`). Escape puts it back. Lifted and let go before it left its span
+  (`move.left`), the press runs the event's hold, else the card's, else the tap, as on an event
+  that cannot move (`liftedForNothing`). Its derived click is owed by `clickOwner`, the event a
+  touch was handed to where it was read from under the finger.
 - **The block** is drawn by the grid's own renderers from the event run through `processEvents`
   and `groupEventsByDay` (`_newEventByDay`), so it looks like the real event, inside an element the
   structure observer skips (`NEW_EVENT_HOST_CLASS`). After a save it stays until the save's own
