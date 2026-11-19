@@ -890,14 +890,6 @@ export class CalendarCardProEditor extends LitElement {
   /** The settings whose helper is shown behind its ⓘ, by added-set key. */
   @state() private _helpOpen: ReadonlySet<string> = new Set();
 
-  /**
-   * A layout the overview and an unscoped calendar's page edit in instead of the card's own. No
-   * control sets it: a deep link scopes only the page it opens (`Navigation.routeScope`), so
-   * leaving that page returns to the layout the card opens in. Only an undo step restores a
-   * recorded one, and the test helper still sets it directly.
-   */
-  @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
-
   @state() private _gridReconciliation: ReadonlyArray<string> = [];
 
   @state() private _migration: MigrationState = { kind: 'current' };
@@ -1157,8 +1149,7 @@ export class CalendarCardProEditor extends LitElement {
    * layout's (Layout Defaults is `shared`), and Whole Card's pages edit the whole card, in the
    * shared scope, where every value they hold is written. The overview's search, opened from a
    * layout's page, searches that layout, so a result opens where the search began. Anywhere else,
-   * a calendar's page, the overview and Stored Settings, it is the layout the card opens in,
-   * unless a step chose one.
+   * a calendar's page, the overview and Stored Settings, it is the layout the card opens in.
    */
   private get _workspace(): Workspace.EditorWorkspace {
     const route = this._nav.route;
@@ -1167,7 +1158,7 @@ export class CalendarCardProEditor extends LitElement {
     const searched = this._searchFrom && Navigation.routeScope(this._searchFrom.nav.route);
     if (route.kind === 'overview' && searched !== undefined) return searched;
     if (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page)) return 'shared';
-    return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+    return this._viewForConfig(this._config!);
   }
 
   /**
@@ -1198,13 +1189,12 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The workspace a calendar's page is built in with no layout added: the layout the card opens
-   * in. A test's chosen layout counts as added (`_selectedWorkspace`), which nothing in the editor
-   * sets.
+   * in.
    *
    * @returns The workspace
    */
   private _entryBase(): Workspace.EditorWorkspace {
-    return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+    return this._viewForConfig(this._config!);
   }
 
   /**
@@ -1215,9 +1205,7 @@ export class CalendarCardProEditor extends LitElement {
   private get _layoutInView(): Workspace.EditorWorkspace {
     const route = this._nav.route;
     const whole = route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page);
-    return whole
-      ? (this._selectedWorkspace ?? this._viewForConfig(this._config!))
-      : this._workspace;
+    return whole ? this._viewForConfig(this._config!) : this._workspace;
   }
 
   /**
@@ -1292,19 +1280,16 @@ export class CalendarCardProEditor extends LitElement {
     const previewed = this._previewedScope()?.view;
     if (previewed === undefined) return undefined;
     return this._string(ctx, 'settings_for.preview', {
-      layout: this._string(ctx, `editing_workspace.option.${previewed}.label`),
-      displayed: this._string(
-        ctx,
-        `editing_workspace.option.${this._viewForConfig(this._config!)}.label`,
-      ),
+      layout: this._layoutTitle(previewed, ctx),
+      displayed: this._layoutTitle(this._viewForConfig(this._config!), ctx),
     });
   }
 
   /**
-   * The preview line alone, for a place that draws no Settings For: a page for the whole card, a
-   * calendar's page, and the overview's search results. Stored Settings draws none: a line
-   * edited there previews its own layout, which its group's title names, and a line drawn above it
-   * would move it.
+   * The preview line: on a layout's page and its topics, a page for the whole card, a calendar's
+   * page, and above the overview's search results. Stored Settings draws none: a line edited there
+   * previews its own layout, which its group's title names, and a line drawn above it would move
+   * it.
    *
    * @param ctx - Schema context
    * @returns The line, or nothing where the preview shows the card as it opens
@@ -1400,7 +1385,6 @@ export class CalendarCardProEditor extends LitElement {
       this._wordModes = new Map();
       this._wordDrafts = new Map();
       this._entryNotice = undefined;
-      this._selectedWorkspace = undefined;
       this._pending = {};
       this._gridReconciliation = [];
       this._gridResetKeys.clear();
@@ -1686,7 +1670,7 @@ export class CalendarCardProEditor extends LitElement {
       this._splitDone = undefined;
     }
     before ??= this._snapshot();
-    const where = { route: this._nav.route, workspace: this._selectedWorkspace, focusKey };
+    const where = { route: this._nav.route, focusKey };
     const status = this._status;
     const notice = this._entryNotice;
     this._committing = true;
@@ -1762,9 +1746,8 @@ export class CalendarCardProEditor extends LitElement {
     if (entry === undefined) return;
     this._grab = undefined;
     this._restore(way === 'undo' ? entry.before : entry.after);
-    const { route, workspace, focusKey } = entry.where;
+    const { route, focusKey } = entry.where;
     const before = this._nav.route;
-    if (workspace !== this._selectedWorkspace) this._selectedWorkspace = workspace;
     if (!Navigation.sameRoute(route, this._nav.route)) {
       const from = { route: this._nav.route, scrollTop: Focus.scrollPosition(this) };
       this._nav = Navigation.go(this._nav, route, from);
@@ -3319,13 +3302,13 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * A layout's name, as Settings For words it: "Grid", "All Layouts".
+   * A layout's name, as its row under Layouts words it: "Grid", "Layout Defaults".
    *
    * @param ctx - Schema context
    * @returns The namer
    */
   private _layoutName(ctx: SchemaCtx): Shown.LayoutName {
-    return (view) => this._string(ctx, `editing_workspace.option.${view}.label`);
+    return (view) => this._layoutTitle(view, ctx);
   }
 
   /**
@@ -3968,8 +3951,8 @@ export class CalendarCardProEditor extends LitElement {
         return [
           {
             text: interpolate(template, { label, value }),
-            // A value from All Layouts is reset there, under Settings For; a reset here cannot
-            // reach it, so the line carries no button and is itself where a search lands.
+            // A value from Layout Defaults is reset on its page; a reset here cannot reach it, so
+            // the line carries no button and is itself where a search lands.
             focus: top ? `inactive:${field.id}` : undefined,
             button: top
               ? undefined
@@ -5380,7 +5363,7 @@ export class CalendarCardProEditor extends LitElement {
       {
         key: 'layout:shared',
         iconPath: mdiTuneVariant,
-        title: t('editing_workspace.option.shared.label'),
+        title: t('layouts.defaults'),
         summary: t('overview.layout_defaults.summary'),
       },
       () => this._open({ kind: 'layout', layout: 'shared' }, 'layout:shared'),
@@ -5531,8 +5514,7 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
-   * grouped by page, or Calendars, Starting Layout, Settings For over a row per section page, and
-   * More.
+   * grouped by page, or Calendars, Whole Card's rows, Layouts and More.
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5569,9 +5551,9 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What the overview draws below its filter bar: what a query finds, or Calendars, Starting
-   * Layout, Settings For over a row per section page, and More. Its summaries and results follow
-   * the scope the pages they open are edited in, which Settings For chooses here and on a page.
+   * What the overview draws below its filter bar: what a query finds, or Calendars, Whole Card's
+   * rows, Layouts and More. Its results follow the layout the card opens in, or the page Search
+   * Settings was pressed on (`_workspace`).
    *
    * @param ctx - Schema context
    * @param chassis - The chassis schemas
@@ -5585,7 +5567,7 @@ export class CalendarCardProEditor extends LitElement {
   ): TemplateResult {
     const t = this._t(ctx);
     if (Filter.hasQuery(this._filter) && this._resultsLeft === undefined) {
-      // Settings For gives way to the results, and the preview line stays above them.
+      // The preview line stays above the results.
       return html`${this._renderPreviewLine(ctx)} ${this._renderResults(ctx, present)}`;
     }
     // Calendars, then what the whole card shares, then the layouts, each a page of its own. Each
@@ -5631,7 +5613,9 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The name
    */
   private _layoutTitle(workspace: Workspace.EditorWorkspace, ctx: SchemaCtx): string {
-    return this._string(ctx, `editing_workspace.option.${workspace}.label`);
+    return workspace === 'shared'
+      ? this._string(ctx, 'layouts.defaults')
+      : this._string(ctx, `view.option.${workspace}.label`);
   }
 
   /**
@@ -9138,8 +9122,8 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * A calendar entry's page: its header with Back, the calendar's name and id, Undo, Redo and the
-   * entry's ⋮; Previous and Next Calendar; the warnings and notices that concern it; Settings For;
-   * its Calendar; its groups; and Remove and Back at its foot.
+   * entry's ⋮; Previous and Next Calendar; the warnings and notices that concern it; the preview
+   * line; its Calendar; its groups; and Remove and Back at its foot.
    *
    * @param key - The entry's key
    * @param ctx - Schema context
@@ -10351,7 +10335,6 @@ export class CalendarCardProEditor extends LitElement {
     this._adopt(stored, stored);
     this._authoredRootKeys = new Set(Object.keys(stored));
     this._migration = { kind: 'current' };
-    this._selectedWorkspace = undefined;
     this._pending = {};
     this._gridReconciliation = [];
     this._gridResetKeys.clear();
@@ -10379,10 +10362,11 @@ export class CalendarCardProEditor extends LitElement {
     const findings = ViewConfig.findMisplacedOptions(raw);
     if (findings.length === 0) return nothing;
 
-    const placeName = (place: Misplaced.Place): string =>
-      place === null
-        ? this._string(ctx, 'misplaced.top_level')
-        : this._string(ctx, `editing_workspace.option.${Misplaced.viewForBlock(place)}.label`);
+    const placeName = (place: Misplaced.Place): string => {
+      if (place === null) return this._string(ctx, 'misplaced.top_level');
+      const view = Misplaced.viewForBlock(place);
+      return view === undefined ? place : this._layoutTitle(view, ctx);
+    };
     const places = (to: ReadonlyArray<Misplaced.Place>): string =>
       EditorLocalize.formatList(ctx.language, to.map(placeName));
 

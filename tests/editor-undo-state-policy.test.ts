@@ -29,7 +29,7 @@ const SNAPSHOT_FIELDS: Readonly<Record<keyof Snapshot, string>> = {
 /** Every other field, by why Undo leaves it. */
 const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
   // Restored through the step's `Where`.
-  where: ['_selectedWorkspace', '_nav'],
+  where: ['_nav'],
   // Session UI state, outside Undo.
   session: [
     // The toolbar buttons' rows open, Add Button's among them.

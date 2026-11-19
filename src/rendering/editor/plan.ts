@@ -107,7 +107,7 @@ export interface PlanCtx {
   readonly entry?: number;
   /**
    * The layout the preview draws, which a calendar's field reads the card's value in. A calendar's
-   * page has no Settings For, so what it says the card gives must match the preview, whatever
+   * page belongs to no layout, so what it says the card gives must match the preview, whatever
    * scope the card's pages are edited in. The workspace where absent.
    */
   readonly previewed?: EditorWorkspace;

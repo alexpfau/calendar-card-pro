@@ -533,8 +533,7 @@ export default css`
   /* An icon beside a button's label takes the label's color, disabled and destructive included,
      rather than the theme's icon color. */
   .with-icon,
-  .strip-button,
-  .scope-lead {
+  .strip-button {
     --mdc-icon-size: 18px;
   }
 
@@ -547,16 +546,6 @@ export default css`
   .with-icon .icon,
   .strip-button .icon {
     fill: currentcolor;
-  }
-
-  /* As tall as Change beside it, so the line keeps its height where a long name wraps Change
-     under it. */
-  .scope-lead {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    min-height: 44px;
   }
 
   /* --- Overview and pages ---------------------------------------------------
@@ -649,8 +638,6 @@ export default css`
     padding-inline: 16px;
   }
 
-  .scope-block,
-  .scope,
   .displays,
   .chips {
     display: flex;
@@ -662,22 +649,6 @@ export default css`
     border: none;
   }
 
-  .scope-compact {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 4px 0 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: 12px;
-    color: var(--secondary-text-color);
-  }
-
-  .scope-line b {
-    color: var(--primary-text-color);
-    font-weight: 500;
-  }
-
   .chip-choices {
     display: flex;
     flex-wrap: wrap;
@@ -686,8 +657,10 @@ export default css`
 
   /* Start Date's choices are native radios drawn as the toggle chips are: the circle hidden, the
      chosen one tinted with a check, so the state never rests on color alone. The radio keeps the
-     arrow keys and the group's name; it takes no pointer events. Settings For is a segmented row,
-     so it never reads as chips that change the card. */
+     arrow keys and the group's name; it takes no pointer events. Positioned, so the hidden radio's
+     containing block is its own chip: left unpositioned, it was Home Assistant's dialog body,
+     across the shadow boundary, and WebKit scrolled that body to the radio whenever it took focus,
+     preventScroll or not. A hidden input's chip or row must always be positioned. */
   .chip-choice {
     position: relative;
     box-sizing: border-box;
@@ -729,7 +702,6 @@ export default css`
   }
 
   /* A fieldset's legend is no flex item, so the gap under it is its own. */
-  .scope > legend,
   .chips > legend,
   .displays > legend {
     margin-bottom: 8px;
@@ -945,12 +917,6 @@ export default css`
 
   .row-group > .heading {
     padding: 8px 16px 4px;
-  }
-
-  /* Settings For leads the overview's Settings, inset as Starting Layout's rows are, over the
-     section rows it chooses the scope of. */
-  .row-group > .scope-block {
-    margin: 4px 16px 8px;
   }
 
   .heading {
@@ -2059,15 +2025,13 @@ export default css`
     font-size: 12px;
   }
 
-  .chip:hover:not([aria-disabled='true']),
-  .segment:hover {
+  .chip:hover:not([aria-disabled='true']) {
     background: var(--secondary-background-color);
   }
 
   .chip:focus-visible,
   .chip-group:focus-visible,
-  .qualifier:focus-visible,
-  .segment:focus-within {
+  .qualifier:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -2137,76 +2101,6 @@ export default css`
 
   .chip-source {
     color: var(--secondary-text-color);
-  }
-
-  .segmented-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .segments {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-    border: 1px solid var(--divider-color);
-    border-radius: 22px;
-  }
-
-  /* Settings For: the row takes the editor's width and every segment an
-     equal share of it, whatever its word. A word wider than its share wraps, hyphenated in the
-     page's language where the browser can, and broken only where it cannot. Settings For puts All
-     Layouts on a row of its own (.segment-all, below). */
-  /* Positioned, so the hidden radio's containing block is its own segment. Left unpositioned, it
-     was Home Assistant's dialog body, across the shadow boundary, and WebKit scrolled that body to
-     the radio whenever it took focus, preventScroll or not: the whole dialog jumped. A hidden
-     input's segment, chip or row must always be positioned. */
-  .segment {
-    position: relative;
-    flex: 1 1 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    min-height: 44px;
-    padding: 0 8px;
-    color: var(--primary-color);
-    cursor: pointer;
-    text-align: center;
-    hyphens: auto;
-    overflow-wrap: break-word;
-  }
-
-  .segment + .segment {
-    border-inline-start: 1px solid var(--divider-color);
-  }
-
-  .segment input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .segment:has(input:checked) {
-    background: var(--primary-color);
-    color: var(--text-primary-color, #fff);
-  }
-
-  /* Settings For: All Layouts across the top, the four layouts sharing the row under it, in one
-     frame and one radio group, so the arrow keys still go All Layouts, List, Columns, Grid,
-     Month. One shared default over four layouts that can override it, and each layout keeps a
-     quarter of the width rather than a fifth, which holds a German or Finnish word at 272px. */
-  .scope .segments {
-    flex-wrap: wrap;
-  }
-
-  .scope .segment-all {
-    flex-basis: 100%;
-    border-bottom: 1px solid var(--divider-color);
-  }
-
-  .scope .segment-all + .segment {
-    border-inline-start: none;
   }
 
   /* A stored value that does nothing now: the warning's icon, the words in the text color. */

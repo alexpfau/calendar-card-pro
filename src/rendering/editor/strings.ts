@@ -149,6 +149,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
   'layouts.help_switch_link': 'layout switcher',
   'layouts.help_open': 'Select a layout to change its own settings.',
+  // The row and page of the values every layout starts from; a layout's own name is its option
+  // under Starting Layout (`view.option.<view>.label`).
+  'layouts.defaults': 'Layout Defaults',
   // A layout row's button, which opens the layout's page.
   'layouts.settings_named': '{layout} Settings',
   // Under a layout's name on its page, and the line there.
@@ -174,8 +177,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // A page draws every setting that applies; one at its default folds to its head row, which
   // opens it. Its ⓘ, named for the setting, shows its helper.
   'setting.about': 'About {label}',
-  // What a setting says under its name, one vocabulary on every page, since Settings For already
-  // names the layout: whether a value is stored here, what it reaches, where it comes from, and
+  // What a setting says under its name, one vocabulary on every page, since the page's title
+  // already names the layout: whether a value is stored here, what it reaches, where it comes from, and
   // what each other layout uses. A setting at its default says nothing; a screen reader hears
   // "Default".
   'state.set': 'Set',
@@ -413,17 +416,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.month.label': 'Month',
   'view.option.month.description': 'A whole month, a row per week',
   'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
-  editing_workspace: 'Editing Settings For',
-  'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
-  'editing_workspace.shared_note':
-    'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
-  'editing_workspace.option.shared.label': 'Layout Defaults',
-  'editing_workspace.option.list.label': 'List',
-  'editing_workspace.option.column.label': 'Columns',
-  'editing_workspace.option.grid.label': 'Grid',
-  'editing_workspace.option.month.label': 'Month',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
@@ -667,7 +661,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.not_in': 'Not in {layout}: {names}.',
   // Month's parts that act on a day's list and the panel "+N more" opens, never on its weeks.
   'chip.day_list': 'Day List & Panel: {names}.',
-  // The chips stored where Settings For points, under the chips with where the others come from.
+  // The chips stored in the scope the page edits, under the chips with where the others come from.
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
   'chip.part_state': '{part} ({state})',

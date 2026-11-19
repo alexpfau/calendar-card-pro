@@ -346,7 +346,7 @@ describe('Pick From Preview', () => {
   });
 });
 
-// The preview follows Settings For through the card Home Assistant's dialog previews, found as
+// The preview follows the layout being edited through the card Home Assistant's dialog previews, found as
 // Pick From Preview finds it, and configured through its own `setConfig` (`views/scope-preview.ts`).
 describe('the preview in Home Assistant’s dialog', () => {
   it('draws the layout being edited, the card as it opens elsewhere, and no switcher the card never offers', async () => {

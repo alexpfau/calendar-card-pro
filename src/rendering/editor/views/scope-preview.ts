@@ -1,6 +1,6 @@
 /**
- * The preview follows Settings For: the card in Home Assistant's dialog drawn in the layout being
- * edited, without writing `view`.
+ * The preview follows the layout being edited: the card in Home Assistant's dialog drawn in the
+ * layout whose page is open, without writing `view`.
  *
  * Nothing is sent to Home Assistant, so nothing a Save could keep changes. The editor hands the
  * preview's own card the configuration with `view` replaced, through the card's `setConfig`, which

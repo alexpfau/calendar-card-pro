@@ -1,8 +1,8 @@
 /**
  * Small defects a user meets on the way through the editor, each pinned where it was found:
  * where focus lands after Add Calendar, Add Setting, a cross-link and a fresh card's first
- * render; what Undo says when it opens another page; Settings For's checked option after a visit
- * to a calendar's page; and the words a few lines put together.
+ * render; what Undo says when it opens another page; Starting Layout's checked option after a
+ * visit to a calendar's page; and the words a few lines put together.
  */
 
 import { LitElement, html } from 'lit';

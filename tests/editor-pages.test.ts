@@ -116,7 +116,7 @@ describe('the overview', () => {
 
   it('names its radio group, each option with a value', async () => {
     const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
-    // Starting Layout; Start Date's chips are on Which Events, Settings For on every page.
+    // Starting Layout; Start Date's chips are on Which Events.
     for (const name of ['view']) {
       const radios = [
         ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),

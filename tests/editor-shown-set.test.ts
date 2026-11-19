@@ -316,7 +316,7 @@ describe('what the card sets stays on its page', () => {
       const editor = await mount(config);
       await openPageOf(editor, id);
       expect(live(editor)).toContain(id);
-      // Settings For names the layout, so the pill says only that it is set.
+      // The page's title names the layout, so the fact says only that it is set.
       expect(stateWordOf(editor, id)).toBe('Set');
     },
   );
@@ -633,7 +633,7 @@ describe('gate lines and stored values not in use', () => {
         line.textContent!.replace(/\s+/g, ' ').trim(),
       ),
     ).toEqual(['Stored but not in use: Description Font Size (20px), from Layout Defaults']);
-    // No Reset here reaches All Layouts' value, so the line has no button; Settings For does.
+    // No Reset here reaches Layout Defaults' value, so the line has no button; its page does.
     const line = $(editor, '[data-focus="inactive:events:description_font_size"]')!;
     expect(line.querySelector('button')).toBeNull();
   });

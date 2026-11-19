@@ -1,5 +1,5 @@
 /**
- * The overview's own controls and the pages': Quick Setup's banner, Settings For, Starting
+ * The overview's own controls and the pages': Quick Setup's banner, the preview line, Starting
  * Layout, the section rows and More. Templates only: each takes what it shows and what to call, holds no state and
  * reaches nothing in the element (AGENTS.md, _Editor_: `views/` is where the editor's Lit
  * templates live outside `element.ts`).
@@ -16,7 +16,7 @@ export type Translate = (key: string) => string;
 
 /**
  * The preview line: "Preview shows Grid · The card opens in Month", led by an eye that is no part
- * of its words. Drawn under Settings For, and alone where a place draws none.
+ * of its words. Drawn under a page's head, and above the overview's search results.
  *
  * @param text - The sentence
  * @returns The line
@@ -125,7 +125,8 @@ export function displayControl(
               value=${choice.value}
               data-focus=${`view:${choice.value}`}
               .checked=${
-                // Compared with the radio as it is, as Settings For's are (`scopeControl`).
+                // Compared with the radio as it is, so a press the editor did not take leaves no
+                // other radio checked.
                 live(choice.value === value)
               }
               @change=${() => onPick(choice.value)}
@@ -283,7 +284,7 @@ export function navRow(row: NavRow, onOpen: () => void): TemplateResult {
  *
  * @param title - The heading
  * @param rows - Its rows
- * @param lead - What comes before the rows: Settings For, under Settings
+ * @param lead - What comes before the rows: Whole Card's line, under its heading
  * @returns The group
  */
 export function rowGroup(

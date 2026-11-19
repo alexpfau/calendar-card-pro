@@ -31,11 +31,7 @@ import {
   chassisSubforms,
 } from '../src/rendering/editor/subforms';
 import { configKeysForField } from '../src/rendering/editor/synthetic';
-import {
-  type EditorWorkspace,
-  WORKSPACES,
-  WORKSPACE_FIELD,
-} from '../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 
 // Complete shipped translations must not remove the partial-language fallback fixture.
 vi.mock('../src/rendering/editor/translations/index', async (importOriginal) => {
@@ -89,7 +85,7 @@ function optionKeys(schema: ReadonlyArray<HaFormSchema>, workspace: EditorWorksp
     });
 }
 
-/** Starting Layout and Settings For, wherever the open place draws them. */
+/** Starting Layout, and the scope block Settings For drew, wherever the open place draws them. */
 function viewControls(editor: EditorHost): Element[] {
   return [...editor.shadowRoot!.querySelectorAll('fieldset.displays, .scope-block')];
 }
@@ -278,12 +274,14 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
         view,
       })) as unknown as EditorHost;
       // Quick Setup's forms are drawn only while it is open, one step at a time; the test below
-      // walks them.
-      const [display, scope, filter] = at([]);
+      // walks them. Above the panels the chassis declares Starting Layout and the search field,
+      // and nothing it never draws.
+      expect(at([]), view).toHaveLength(2);
+      const [display, filter] = at([]);
       const [addCalendar] = at(ADD_CALENDAR_PATH);
       const [entryCalendar] = at(ENTRY_CALENDAR_PATH);
-      // The filter bar is a form; Card Displays and Settings For are the editor's own radio
-      // groups, drawn from the options their declared schemas hold.
+      // The filter bar is a form; Starting Layout is the editor's own radio group, drawn from the
+      // options its declared schema holds.
       expect(
         formsOf(editor, CHASSIS).map((form) => form.schema),
         view,
@@ -312,14 +310,14 @@ describe('the chassis draws exactly the forms subforms.ts declares', () => {
         );
       };
       expect(offered(editor, 'view'), view).toEqual(values(display));
-      // The layout being edited is the place's own: each layout has a page, Layout Defaults too,
-      // and Settings For draws nowhere.
+      // The layout being edited is the place's own: each layout has a page, Layout Defaults
+      // last, and no control chooses one apart from its page.
       expect(
         [...editor.shadowRoot!.querySelectorAll('[data-focus^="layout:"]')].map((row) =>
           row.getAttribute('data-focus')!.slice('layout:'.length),
         ),
         view,
-      ).toEqual([...values(scope).filter((each) => each !== 'shared'), 'shared']);
+      ).toEqual([...VIEWS, 'shared']);
       expect(editor.shadowRoot!.querySelector('input[name="scope"]'), view).toBeNull();
       editor.remove();
     }
@@ -352,7 +350,6 @@ describe('displayed view and editing workspace are separate controls', () => {
       expect(workspace(editor)).toBe(to);
       expect(seen).toHaveLength(1);
       expect(seen[0].view ?? 'list').toBe(to);
-      expect(seen[0]).not.toHaveProperty(WORKSPACE_FIELD);
     },
   );
 
@@ -372,7 +369,6 @@ describe('displayed view and editing workspace are separate controls', () => {
       assertWorkspaceFields(editor, chosen);
       expect(seen).toHaveLength(2);
       expect(seen[1].view).toBe('grid');
-      expect(seen[1]).not.toHaveProperty(WORKSPACE_FIELD);
     },
   );
 });
@@ -578,17 +574,14 @@ describe('the editor names each view once', () => {
    * entry without failing. `AGENTS.md` records this project losing rows from
    * hand-maintained tables while the suite stayed green.
    *
-   * The two selectors stack in the same editor — the illustrated tiles pick what the card
-   * displays, the workspace picker below them picks what you are configuring — so a view
-   * reading "Columns" in one and "Column" in the other is two names on one screen. That is
-   * what this caught.
+   * A layout's row under Layouts, its page and its Starting Layout option all read the one
+   * string, so a view reading "Columns" in one place and "Column" in another cannot come back;
+   * this was a reconciliation of two tables while Settings For kept a copy of its own.
    */
-  it('gives the workspace picker and the display tiles the same labels', () => {
-    for (const view of VIEWS) {
-      expect(EDITOR_STRINGS[`editing_workspace.option.${view}.label`]).toBe(
-        EDITOR_STRINGS[`view.option.${view}.label`],
-      );
-    }
+  it('names each layout once, by its Starting Layout option, and Layout Defaults apart', () => {
+    const names = VIEWS.map((view) => EDITOR_STRINGS[`view.option.${view}.label`]);
+    for (const [at, name] of names.entries()) expect(name, VIEWS[at]).toBeTruthy();
+    expect(new Set([...names, EDITOR_STRINGS['layouts.defaults']]).size).toBe(VIEWS.length + 1);
   });
 
   /**
@@ -597,9 +590,7 @@ describe('the editor names each view once', () => {
    * the value every other view falls back to — the ambiguity a `list:` block would remove,
    * at which point the sentence becomes plainly false.
    *
-   * Reconciled against `VIEWS` for the same reason as the test above. `editing_workspace`
-   * strings are deliberately out of scope: the note under the picker names Column and Grid
-   * on purpose, because it is telling a List editor who else reads these values.
+   * Reconciled against `VIEWS` for the same reason as the test above.
    */
   it('describes provenance by layer, never by view name', () => {
     // The state words that name no layout of their own; the rest take it as `{layout}`.

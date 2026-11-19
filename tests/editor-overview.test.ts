@@ -368,7 +368,7 @@ describe('Layouts and the preview', () => {
       .flatMap(({ selectors }) => selectors)
       .filter((selector) => / input$/.test(selector))
       .map((selector) => selector.replace(/ input$/, ''));
-    expect(hidden.sort()).toEqual(['.chip-choice', '.color-row', '.color-swatch', '.segment']);
+    expect(hidden.sort()).toEqual(['.chip-choice', '.color-row', '.color-swatch']);
     for (const box of hidden) {
       const positioned = rules.some(
         ({ selectors, body }) =>
@@ -376,13 +376,6 @@ describe('Layouts and the preview', () => {
       );
       expect(positioned, box).toBe(true);
     }
-  });
-
-  it('lays All Layouts across the top of the frame and the four layouts under it', () => {
-    const css = styles.cssText.replace(/\s+/g, ' ');
-    expect(css).toMatch(/\.scope \.segments \{ flex-wrap: wrap; \}/);
-    expect(css).toMatch(/\.scope \.segment-all \{ flex-basis: 100%; border-bottom: [^}]*\}/);
-    expect(css).toMatch(/\.scope \.segment-all \+ \.segment \{ border-inline-start: none; \}/);
   });
 
   it('counts what each scope stores, as the YAML holds it', () => {

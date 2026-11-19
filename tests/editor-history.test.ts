@@ -132,7 +132,7 @@ describe('History', () => {
     label,
     before: snap(from),
     after: snap(to),
-    where: { route: { kind: 'overview' }, workspace: undefined },
+    where: { route: { kind: 'overview' } },
   });
 
   it('joins typing in one field under COALESCE_MS, and nothing else', () => {

@@ -211,9 +211,9 @@ describe('Layouts in Switcher on Card & Header', () => {
     expect(writtenToolbar(editor)).toEqual({ show: true });
   });
 
-  it('reads the card’s own starting layout whatever Settings For edits', async () => {
-    // Settings For keeps its layout from page to page, and the scope's projection draws that
-    // layout as the view; the switcher's chips must still be those of the card as it opens.
+  it('reads the card’s own starting layout whatever layout was edited last', async () => {
+    // A layout's page projects that layout as the view; Card & Header, opened after it, must still
+    // draw the switcher's chips as the card opens.
     const editor = await mount({ view_switcher_layouts: ['list', 'grid'] }, { view: 'list' });
     await editLayout(editor, 'month');
     await goPage(editor, 'card_header');

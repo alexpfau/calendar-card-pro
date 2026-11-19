@@ -12,14 +12,11 @@ import {
   QUICK_SETUP_TAPS_SCHEMA,
   QUICK_SETUP_WEATHER_SCHEMA,
 } from './schemas/quick-setup';
-import { buildWorkspaceSchema } from './workspace';
 
 /** The forms the chassis renders itself, above the panels and belonging to none. */
 export interface ChassisSchemas {
   /** The configured view, written to the config */
   displayView: ReadonlyArray<HaFormSchema>;
-  /** Which view's options the panels show; never written */
-  workspace: ReadonlyArray<HaFormSchema>;
   /** The search field; never written */
   filter: ReadonlyArray<HaFormSchema>;
   /** Add Calendar's picker; what it chooses joins the card only once Add is pressed */
@@ -59,7 +56,6 @@ const ENTRY_CALENDAR_SCHEMA: ReadonlyArray<HaFormSchema> = [
 export function chassisSchemas(language = 'en'): ChassisSchemas {
   return {
     displayView: buildDisplayViewSchema(language),
-    workspace: buildWorkspaceSchema(language),
     filter: FILTER_SCHEMA,
     addCalendar: ADD_CALENDAR_SCHEMA,
     entryCalendar: ENTRY_CALENDAR_SCHEMA,
@@ -73,9 +69,9 @@ export function chassisSchemas(language = 'en'): ChassisSchemas {
  * @returns Sub-forms the chassis renders above the panels, in render order
  */
 export function chassisSubforms(language = 'en'): SubformDef[] {
-  const { displayView, workspace, filter, addCalendar, entryCalendar } = chassisSchemas(language);
+  const { displayView, filter, addCalendar, entryCalendar } = chassisSchemas(language);
   return [
-    ...[displayView, workspace, filter].map((schema) => ({ path: [], schema })),
+    ...[displayView, filter].map((schema) => ({ path: [], schema })),
     { path: [...ADD_CALENDAR_PATH], schema: addCalendar },
     { path: [...ENTRY_CALENDAR_PATH], schema: entryCalendar },
     // Quick Setup, which takes the place of the panels while it is open.
@@ -126,7 +122,6 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
 export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'filter',
   'entity',
-  'editing_workspace',
   'value_source',
   'grid_reconciliation',
   'config_migration',
