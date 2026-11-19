@@ -10,6 +10,7 @@ import {
   EVENT_DETAILS_ACTION,
 } from '../../config/constants';
 import * as Types from '../../config/types';
+import { appliesToView } from '../../config/view';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import { CARD_LANGUAGES } from '../../translations/language-codes';
 import * as EntityColors from '../../utils/entity-colors';
@@ -34,17 +35,23 @@ interface SyntheticField {
    * Reads the field's value out of the configuration.
    *
    * @param config - Current configuration
+   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
    * @returns The value to show in the form
    */
-  derive(config: Readonly<Types.Config>): unknown;
+  derive(config: Readonly<Types.Config>, view?: Types.EffectiveView): unknown;
   /**
    * Turns a user edit into configuration changes.
    *
    * @param value - Value the form produced
    * @param config - Current configuration
+   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
    * @returns Config changes, and any text to hold uncommitted
    */
-  apply(value: unknown, config: Readonly<Types.Config>): SyntheticApplyResult;
+  apply(
+    value: unknown,
+    config: Readonly<Types.Config>,
+    view?: Types.EffectiveView,
+  ): SyntheticApplyResult;
   /**
    * A switch that refines another control's option rather than owning it: Leave Out Repeated
    * Countdowns reads `show_countdown`, which the Countdown chip writes. The line belongs to that
@@ -239,6 +246,23 @@ export function todayIndicatorStyle(
 }
 
 /**
+ * The today-indicator style a layout draws. Month marks today with the tile alone: every other
+ * style removes it and draws nothing in its place, so its page offers the tile and none, and
+ * reads any other style as none.
+ *
+ * @param config - Current configuration
+ * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
+ * @returns Which indicator control applies
+ */
+export function todayIndicatorStyleIn(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): ReturnType<typeof todayIndicatorStyle> {
+  const style = todayIndicatorStyle(config);
+  return view === 'month' && style !== 'tile' ? 'none' : style;
+}
+
+/**
  * Derives how much of a location's country the card removes.
  *
  * @param config - Current configuration
@@ -350,14 +374,33 @@ export function alldayBadgeColorMode(value: unknown): string {
 }
 
 /**
+ * The colors the accent text switch governs on a layout's page: those the layout draws. Month
+ * draws no description and no progress bar (`ViewConfig.MONTH_PINNED`), so its switch writes
+ * neither: written from Month's page they would have no `month:` copy and land at the top level,
+ * recoloring every other layout. Layout Defaults governs all five.
+ *
+ * @param view - The layout whose page draws the switch, or `undefined` for Layout Defaults
+ * @returns The governed options
+ */
+export function accentTextKeys(view?: Types.EffectiveView): ReadonlyArray<string> {
+  return view === undefined
+    ? AccentText.ACCENT_TEXT_KEYS
+    : AccentText.ACCENT_TEXT_KEYS.filter((key) => appliesToView(key, view));
+}
+
+/**
  * Whether every governed color in the supplied form projection is the accent sentinel.
  * The workspace projection resolves inheritance before deriving any synthetic field.
  *
  * @param config - Current configuration
+ * @param view - The layout whose page draws the switch, or `undefined` for Layout Defaults
  * @returns `true` when every governed option is the sentinel
  */
-export function accentEventText(config: Readonly<Types.Config>): boolean {
-  return AccentText.ACCENT_TEXT_KEYS.every((key) =>
+export function accentEventText(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): boolean {
+  return accentTextKeys(view).every((key) =>
     EntityColors.isAccentTextSentinel(config[key as keyof Types.Config]),
   );
 }
@@ -673,12 +716,12 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    */
   accent_event_text: {
     configKeys: AccentText.ACCENT_TEXT_KEYS,
-    derive: (config) => accentEventText(config),
-    apply: (value) => {
+    derive: (config, view) => accentEventText(config, view),
+    apply: (value, _config, view) => {
       const on = value === true;
       const changes: Record<string, unknown> = {};
 
-      for (const key of AccentText.ACCENT_TEXT_KEYS) {
+      for (const key of accentTextKeys(view)) {
         changes[key] = on
           ? EntityColors.ACCENT_TEXT_SENTINEL
           : Config.DEFAULT_CONFIG[key as keyof Types.Config];
@@ -699,7 +742,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
 
   today_indicator_style: {
     configKeys: ['today_indicator'],
-    derive: (config) => todayIndicatorStyle(config),
+    derive: (config, view) => todayIndicatorStyleIn(config, view),
     apply: (value, config) => {
       const discardText = { today_indicator_custom: null };
       const current = String(config.today_indicator ?? '');
@@ -816,16 +859,18 @@ export function refinementHolds(name: string, key: string, value: unknown): bool
  *
  * @param config - Current configuration
  * @param pending - Uncommitted text, keyed by field name
+ * @param view - The layout whose page draws the fields, or `undefined` for Layout Defaults
  * @returns Synthetic keys and their values, ready to merge into the form data
  */
 export function deriveSyntheticData(
   config: Readonly<Types.Config>,
   pending: PendingValues = {},
+  view?: Types.EffectiveView,
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
 
   for (const [name, field] of Object.entries(SYNTHETIC_FIELDS)) {
-    data[name] = name in pending ? pending[name] : field.derive(config);
+    data[name] = name in pending ? pending[name] : field.derive(config, view);
   }
 
   return data;
@@ -837,12 +882,14 @@ export function deriveSyntheticData(
  * @param name - Synthetic field name
  * @param value - Value the form produced
  * @param config - Current configuration
+ * @param view - The layout whose page draws the field, or `undefined` for Layout Defaults
  * @returns Config changes, and any text to hold uncommitted
  */
 export function applySyntheticChange(
   name: string,
   value: unknown,
   config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
 ): SyntheticApplyResult {
-  return SYNTHETIC_FIELDS[name].apply(value, config);
+  return SYNTHETIC_FIELDS[name].apply(value, config, view);
 }

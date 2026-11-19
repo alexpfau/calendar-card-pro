@@ -66,6 +66,12 @@ export interface DayPanelSource {
   /** The card's custom properties, which the rows' stylesheet reads. */
   styles(): Readonly<Record<string, string>>;
   /**
+   * The color the card sets for its day names (`weekday_color`), which the panel's title takes as
+   * the compact list's does; `undefined` while the card leaves it at its default, and the title
+   * keeps the panel's own text color.
+   */
+  titleColor?(): string | undefined;
+  /**
    * Called as the panel opens, so the card can tell it about changes and close it.
    *
    * @param panel - The open panel
@@ -450,7 +456,13 @@ export class DayPanel extends Shell.PopoverShell {
         <div class="panel day-panel" style=${panelStyle} ?inert=${this._closing}>
           ${Shell.renderGrabber(this._sheet)}
           <div class="day-panel-head">
-            <h2 class="day-panel-title" id="day-panel-title">${params.title}</h2>
+            <h2
+              class="day-panel-title"
+              id="day-panel-title"
+              style=${styleMap({ color: params.source.titleColor?.() })}
+            >
+              ${params.title}
+            </h2>
             <button
               type="button"
               class="day-panel-close"

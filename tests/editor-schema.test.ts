@@ -961,17 +961,37 @@ describe('editor: applicability', () => {
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
-      // Month's day list draws them, and so do the badge, the row's padding, its line clamp
-      // and its links below; all but the multi-day time row, since that list splits every
-      // multi-day event across its days, and a bar's length follows show_duration alone.
+      // Month's day list draws a row's time and location, and so the row's padding and its
+      // links below; it splits every multi-day event across its days, so it draws no multi-day
+      // time row, and a bar's length follows show_duration alone.
       show_single_allday_time: ['column', 'list', 'month'],
       show_multiday_allday_time: ['column', 'list'],
       show_location_allday: ['column', 'list', 'month'],
-      show_description_allday: ['column', 'list', 'month'],
-      show_countdown_allday: ['column', 'list', 'month'],
-      allday_badge: ['column', 'list', 'month'],
-      allday_badge_style: ['column', 'list', 'month'],
-      allday_badge_color: ['column', 'list', 'month'],
+      // A month keeps its description, countdown, progress bar, badge, line limits and the
+      // icons' alignment at their shipped values (`MONTH_PINNED`): its rows draw a title, a
+      // time, a location and a forecast, and leave the rest to the event's details.
+      show_description_allday: ['column', 'list'],
+      show_countdown_allday: ['column', 'list'],
+      allday_badge: ['column', 'list'],
+      allday_badge_style: ['column', 'list'],
+      allday_badge_color: ['column', 'list'],
+      show_description: ['column', 'grid', 'list'],
+      description_font_size: ['column', 'grid', 'list'],
+      description_color: ['column', 'grid', 'list'],
+      description_icon_size: ['column', 'grid', 'list'],
+      description_max_lines: ['column', 'grid', 'list'],
+      show_countdown: ['column', 'grid', 'list'],
+      countdown_max_days: ['column', 'grid', 'list'],
+      countdown_exact_days: ['column', 'grid', 'list'],
+      show_progress_bar: ['column', 'grid', 'list'],
+      progress_bar_color: ['column', 'grid', 'list'],
+      progress_bar_height: ['column', 'grid', 'list'],
+      progress_bar_width: ['column', 'grid', 'list'],
+      title_max_lines: ['column', 'grid', 'list'],
+      location_max_lines: ['column', 'grid', 'list'],
+      event_icon_vertical_alignment: ['column', 'grid', 'list'],
+      // A month draws no clock beside a time.
+      time_icon_size: ['column', 'grid', 'list'],
       // A grid block fits its own rows and has no title row for the time to join; its
       // renderer never passes the placement to the leaf. A month's day list puts every time
       // beside its title, whatever the option says.
@@ -985,8 +1005,8 @@ describe('editor: applicability', () => {
       // between the rows of its day list.
       event_gap: ['column', 'list', 'month'],
       // Grid blockifies the plain time span and resets the properties the folded-countdown
-      // span reads, so neither clamp path acts there.
-      time_max_lines: ['column', 'list', 'month'],
+      // span reads, so neither clamp path acts there; a month keeps it at its shipped value.
+      time_max_lines: ['column', 'list'],
       // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
       // so it draws no links in them.
       open_links: ['column', 'list', 'month'],

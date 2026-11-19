@@ -16,6 +16,7 @@ import { memoryStorage } from './memory-storage';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import { DAY_PANEL_TAG, type DayPanelParams } from '../src/rendering/day-panel';
 import * as Logger from '../src/utils/logger';
 import * as Sections from '../src/utils/sections';
 import '../src/calendar-card-pro';
@@ -672,5 +673,51 @@ describe('the height a month writes on its card', () => {
     await card.updateComplete;
     expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
     expect(written(card)).toEqual(['40rem', 'none']);
+  });
+
+  it('leaves the day panel its own height, in either form, and hands it the card’s properties', async () => {
+    // The panel binds what the card hands it on its rows, so a card height there would size a
+    // day's list to the whole card's height, or cap it at the card's.
+    const opened: DayPanelParams[] = [];
+    const listen = (event: Event) => {
+      const detail = (event as CustomEvent<{ dialogTag: string; dialogParams: DayPanelParams }>)
+        .detail;
+      if (detail.dialogTag === DAY_PANEL_TAG) opened.push(detail.dialogParams);
+    };
+    document.addEventListener('show-dialog', listen);
+    try {
+      const card = await mount({
+        month: {
+          card_height: '50rem',
+          card_max_height: '400px',
+          compact_card_height: '30rem',
+          compact_card_max_height: '300px',
+        },
+        event_font_size: '20px',
+      });
+      expect(written(card)).toEqual(['50rem', '400px']);
+      const cell = card.shadowRoot!.querySelector<HTMLElement>(
+        '.month-container [role="gridcell"]',
+      )!;
+      // Assistive technology's click, which opens a wide day's panel whatever the day holds.
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 0 }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(opened).toHaveLength(1);
+      const styles = () => opened[0].source.styles();
+      const size = () => [styles().height, styles()['max-height']];
+      expect(size()).toEqual([undefined, undefined]);
+      expect(styles()['--calendar-card-font-size-event']).toBe('20px');
+
+      // The source is read live, so the compact form's sizes must stay off it too.
+      for (const observer of RecordingResizeObserver.instances) {
+        observer.callback([{ contentRect: { width: 375 } }]);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      await card.updateComplete;
+      expect(written(card)).toEqual(['30rem', '300px']);
+      expect(size()).toEqual([undefined, undefined]);
+    } finally {
+      document.removeEventListener('show-dialog', listen);
+    }
   });
 });

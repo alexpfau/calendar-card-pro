@@ -97,7 +97,9 @@ const weatherSchema = Helpers.memoizeLast(
           ...uvIndexFields(eventUvIndex),
           bool('daily_forecast_fallback'),
           ...styling(),
-          ...eventLineLimit(eventConditions),
+          // A month's rows set the forecast beside the title, as an icon, a temperature and a UV
+          // index, and never in words, so it has no line for the limit to cut.
+          ...(month ? [] : eventLineLimit(eventConditions)),
         ]),
       );
     }

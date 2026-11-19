@@ -671,7 +671,11 @@ describe('the visual editor holds a font size that is not one yet', () => {
     const shown = (state: State, workspace: Workspace.EditorWorkspace) =>
       Routing.workspaceFormData(state.config, workspace, state.pending)[key];
 
-    it.each(Workspace.WORKSPACES)('in %s, writes nothing until the size parses', (workspace) => {
+    it.each(
+      Workspace.WORKSPACES.filter(
+        (workspace) => workspace === 'shared' || View.appliesToView(key, workspace),
+      ),
+    )('in %s, writes nothing until the size parses', (workspace) => {
       const start = buildConfig({ [key]: '10px' } as Partial<Types.Config>);
       let state: State = { config: start, pending: {} };
 

@@ -727,7 +727,9 @@ export interface TimeGridOverrides extends SharedViewOverrides {
  * events, never cuts a list short and splits every multi-day event across its days; it rules its
  * days itself and lists one day at a time, so it has no space or rule between days, weeks or
  * months; it sets its dates at one scale on every day, with today's indicator only as the tile,
- * and its week numbers as plain text; and its day list puts each row's time beside its title.
+ * and its week numbers as plain text; its day list puts each row's time beside its title; and it
+ * draws no clock beside a time. With them, the ones it keeps at their shipped values
+ * ({@link MonthPinnedKeys}).
  */
 export type MonthIgnoredSharedKeys =
   | 'height'
@@ -750,7 +752,39 @@ export type MonthIgnoredSharedKeys =
   | 'today_date_scale'
   | 'past_date_scale'
   | 'today_indicator_size'
-  | 'time_position';
+  | 'time_position'
+  | 'time_icon_size'
+  | MonthPinnedKeys;
+
+/**
+ * The shared options a month keeps at their shipped values, whatever the card, its `month:` block
+ * or a calendar says: a day's list and the panel "+N more" opens draw an event's title, time,
+ * location and forecast, and leave its description, countdown, progress bar and all-day badge to
+ * the event's details, with every part on one line under a compact month's weeks and in full in
+ * the panel (`ViewConfig.MONTH_PINNED`).
+ */
+export type MonthPinnedKeys =
+  | 'show_description'
+  | 'show_description_allday'
+  | 'description_font_size'
+  | 'description_color'
+  | 'description_icon_size'
+  | 'description_max_lines'
+  | 'show_countdown'
+  | 'show_countdown_allday'
+  | 'countdown_max_days'
+  | 'countdown_exact_days'
+  | 'show_progress_bar'
+  | 'progress_bar_color'
+  | 'progress_bar_height'
+  | 'progress_bar_width'
+  | 'allday_badge'
+  | 'allday_badge_style'
+  | 'allday_badge_color'
+  | 'title_max_lines'
+  | 'time_max_lines'
+  | 'location_max_lines'
+  | 'event_icon_vertical_alignment';
 
 /**
  * The `month:` block — the shared options a month grid reads, plus its own height, width, tint

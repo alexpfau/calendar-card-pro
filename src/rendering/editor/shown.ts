@@ -150,6 +150,7 @@ export function stateFacts(
       text: interpolate(t('search.only_in'), { layouts: list(state.onlyIn.map(layout)) }),
     });
   }
+  if (state?.dayList) facts.push({ kind: 'layout', view: 'month', text: t('state.day_list') });
   for (const own of state?.layoutsOwn ?? []) {
     const text = own.stored ? t('state.layout_own') : t('state.layout_default');
     facts.push({

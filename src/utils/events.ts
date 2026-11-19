@@ -1765,9 +1765,12 @@ export function groupEventsByDay(
         };
       }
 
-      const showDescription =
-        getEntitySetting(event._entityId, 'show_description', config, event) ??
-        config.show_description;
+      // A view that pins `show_description` draws no description, so a calendar's own `true`
+      // cannot bring one back, and search, which matches what is drawn, finds none either.
+      const showDescription = ViewConfig.isPinned(effectiveView, 'show_description')
+        ? config.show_description
+        : (getEntitySetting(event._entityId, 'show_description', config, event) ??
+          config.show_description);
 
       // 🚨 Read the marker off the **raw** event and write the result into the display
       // copy. The `description` a few lines down is `''` whenever `show_description` is

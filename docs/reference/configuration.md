@@ -46,7 +46,7 @@ cards.
 | `list`                         | object            | Inherits the top-level values | Values that differ in list view, plus the ten options only list view reads. Only options a view can override, and `days_to_show`, belong here; see [Per-View Options](/features/core-settings#per-view-options)                                                                                                                                                                                                                                                                                                                                                                    |
 | `column`                       | object            | Inherits the top-level values | Values that differ in column view, plus column view's own layout options. Only options a view can override, and `days_to_show`, belong here; see [Column View](/features/column-view)                                                                                                                                                                                                                                                                                                                                                                                              |
 | `time_grid`                    | object            | Inherits the top-level values | Values that differ in grid view, plus the time axis's own options. Only options a view can override, and `days_to_show`, belong here; see [Grid View](/features/grid-view)                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `month`                        | object            | Inherits the top-level values | Values that differ in month view, plus the month's own card heights, row height, compact width, day list room and week scrolling. Only options month view reads belong here; see [Month View](/features/month-view)                                                                                                                                                                                                                                                                                                                                                                |
+| `month`                        | object            | Inherits the top-level values | Values that differ in month view, plus the month's own card heights, compact width, weekend and today shading and the text sizes in its days. Only options month view reads belong here; see [Month View](/features/month-view)                                                                                                                                                                                                                                                                                                                                                    |
 
 ### Column-Only Options
 
@@ -187,13 +187,23 @@ pages, without deleting stored values.
 `day_separator_width` · `day_separator_color` · `week_separator_width` · `week_separator_color` ·
 `month_separator_width` · `month_separator_color` · `week_number_background_color` ·
 `today_date_scale` · `past_date_scale` ·
-`today_indicator_size` · `today_weekday_color` · `time_position`
+`today_indicator_size` · `today_weekday_color` · `time_position` · `time_icon_size` ·
+`show_description` (card-wide and per-entity) · `show_description_allday` ·
+`description_font_size` · `description_color` · `description_icon_size` ·
+`description_max_lines` · `show_countdown` · `show_countdown_allday` · `countdown_max_days` ·
+`countdown_exact_days` · `show_progress_bar` · `progress_bar_color` · `progress_bar_height` ·
+`progress_bar_width` · `allday_badge` · `allday_badge_style` · `allday_badge_color` ·
+`title_max_lines` · `time_max_lines` · `location_max_lines` · `event_icon_vertical_alignment`
 
 A month sizes its whole card with the heights in `month:`, always draws six whole weeks, splits
 every multi-day event across the days of its day list, rules its days itself, with no month
 separator to carry a month's name, sets its dates at one size on every day and puts each time beside its
-title in a day's list, so these have nothing to act on there. They keep working in the other
-layouts, and the editor hides their controls on Month's pages, without deleting stored values.
+title in a day's list, with no clock beside it, so these have nothing to act on there. A day's
+list and its panel draw an event's title, time, location and forecast, one line each in the list
+and in full in the panel, and leave the description, the countdown, the progress bar and the
+all-day badge to the [event details](/features/actions#event-details), so those options keep
+their shipped values in a month whatever they say. They keep working in the other layouts, and
+the editor hides their controls on Month's pages, without deleting stored values.
 
 **→ [Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view)** — why each one.
 
