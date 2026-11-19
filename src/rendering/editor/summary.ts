@@ -20,7 +20,8 @@ export type Describe = (field: Pick<IndexedField, 'node'>, value: unknown) => st
 
 /**
  * Words a field's value as its control shows it: On or Off for a switch, the option's label for
- * a dropdown, the text, number or icon name as written; anything else through `describe`.
+ * a dropdown, a number with the unit its box shows, the text or icon name as written; anything
+ * else through `describe`.
  *
  * @param field - Indexed field
  * @param value - Its value, as its form holds it
@@ -59,10 +60,30 @@ export function wordValue(
     }
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
-  if ('text' in selector || 'number' in selector || 'icon' in selector) {
+  if ('number' in selector) {
+    if (value === undefined || value === null || value === '') return undefined;
+    const unit = selector.number?.unit_of_measurement;
+    return unit ? withUnit(String(value), unit) : String(value);
+  }
+  if ('text' in selector || 'icon' in selector) {
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
   return describe?.(field, value);
+}
+
+/** Units written against their number, as a length or a share is: "100px", "60%". */
+const CLOSE_UNITS: ReadonlySet<string> = new Set(['%', 'px']);
+
+/**
+ * A number with its unit: set close where the unit is a length or a share, after a space where it
+ * is a word, "30 min".
+ *
+ * @param text - The number, as written
+ * @param unit - The unit its box shows
+ * @returns The words
+ */
+function withUnit(text: string, unit: string): string {
+  return CLOSE_UNITS.has(unit) ? `${text}${unit}` : `${text} ${unit}`;
 }
 
 /** A dropdown's options, labeled or bare. */

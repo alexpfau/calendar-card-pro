@@ -475,6 +475,8 @@ function describeText(
   if (text.toLowerCase() === Config.DEFAULT_CONFIG.now_color) {
     return lookup(language, 'color.emerald') ?? text;
   }
+  // A shading that paints nothing, as Month's Today Shading does by default.
+  if (text.toLowerCase() === 'transparent') return lookup(language, 'value.none') ?? text;
   return text;
 }
 
