@@ -584,38 +584,38 @@ describe('the line pitch and the date line the card measures', () => {
       visibility: 'hidden',
       'pointer-events': 'none',
     });
-    // A line: its 1.2em line box, 0.25px of padding and 0.5px of margin above and below, as
+    // A line: its 1.2em line box, 0.25px of padding and 0.75px of margin above and below, as
     // tall as the taller of its title and its time, each in its own font. A bar takes the same.
     expect(probe('title')).toEqual({
-      height: 'calc(1.2em + 1.5px)',
+      height: 'calc(1.2em + 2px)',
       'font-size': 'var(--calendar-card-font-size-event)',
     });
     expect(probe('time')).toEqual({
-      height: 'calc(1.2em + 1.5px)',
+      height: 'calc(1.2em + 2px)',
       'font-size': 'var(--calendar-card-font-size-time)',
     });
     expect(rule('.month-line')).toMatchObject({
       'line-height': '1.2',
       'padding-block': '0.25px',
-      margin: '0.5px 3px',
+      margin: '0.75px 3px',
     });
     expect(rule('.month-line-title')['font-size']).toBe('var(--calendar-card-font-size-event)');
     expect(rule('.month-line-time')['font-size']).toBe('var(--calendar-card-font-size-time)');
     // A bar takes the same, over the 1px Grid's banner pads, and its title's line box is 1.2em.
-    expect(rule('.month-bar')).toEqual({ margin: '0.5px 3px', 'padding-block': '0.25px' });
+    expect(rule('.month-bar')).toEqual({ margin: '0.75px 3px', 'padding-block': '0.25px' });
     expect(rule('.grid-banner').padding).toBe('1px 6px');
     expect(rule('.grid-banner-title')).toMatchObject({
       'font-size': 'var(--calendar-card-font-size-event)',
       'line-height': '1.2',
     });
-    // The date: the tile's 1.2em with 4px above and 2px below, in the day's size dates are set
+    // The date: the tile's 1.2em with 5px above and 3px below, in the day's size dates are set
     // in. The line sets no size of its own; an empty strut in the day's size makes it 1.2em tall,
     // and the number and the 1st's month each take their own option, the month's line box 1em
     // tall in its size, which a large month makes the taller of the two.
     expect(rule('.month-date')).toMatchObject({
       display: 'flex',
       'align-items': 'center',
-      padding: '4px 6px 2px',
+      padding: '5px 11.5px 3px',
       'line-height': '1',
     });
     expect(rule('.month-date')).not.toHaveProperty('font-size');
@@ -635,7 +635,7 @@ describe('the line pitch and the date line the card measures', () => {
     expect(probe('date')).toEqual({
       display: 'flex',
       'align-items': 'center',
-      'padding-block': '4px 2px',
+      'padding-block': '5px 3px',
     });
     expect(rule(".month-probe[data-probe='date']::before")).toEqual(rule('.month-date::before'));
     expect(rule(".month-probe[data-probe='date']::after")).toEqual({
@@ -668,16 +668,16 @@ describe('the sizes a month’s text is set in', () => {
   it('sets its days’ lines in the cell sizes, and its dates and everything else in the card’s', async () => {
     const card = await mount();
     // The card writes the list's 14px and 12px, which a day's list and the panel read, the
-    // month's 13px day number and the 12px month on a 1st.
+    // month's 16px day number and the 16px month on a 1st.
     expect(sizes(card.shadowRoot!.querySelector('ha-card')!)).toEqual([
       '14px',
       '12px',
-      '13px',
-      '12px',
+      '16px',
+      '16px',
     ]);
-    // The wide month writes its cells' 10px and 8.5px over them, for the lines, the bars and "+N
+    // The wide month writes its cells' 12px and 10px over them, for the lines, the bars and "+N
     // more" inside it, and leaves the dates' sizes to the card.
-    expect(sizes(month(card))).toEqual(['10px', '8.5px', undefined, undefined]);
+    expect(sizes(month(card))).toEqual(['12px', '10px', undefined, undefined]);
     card.remove();
   });
 
@@ -731,13 +731,14 @@ describe('the rows’ height', () => {
     });
     // Never a bare 1fr, and never a basis from the content: either would let a week's lines size
     // the week the capacity is read from. Until the card has measured, the floors are reckoned in
-    // em: a 1.2em date line and 6px, a 1.2em line and 1.5px, the 1px rule over each week.
+    // em: a 1.2em date line and 8px, a 1.2em line and 2px, the 1px rule over each week, and
+    // under the names a 1.2em line and their 7px.
     expect(rule('.month-container')).toMatchObject({
       display: 'grid',
       flex: '1 1 0',
-      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 8.5px) + 1.2em + 4px))',
+      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px))',
       'grid-template-rows':
-        'auto repeat(6, minmax(var(--calendar-card-month-week-min, calc(2.4em + 8.5px)), 1fr))',
+        'auto repeat(6, minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr))',
     });
     // The wide month's last week ends at the card's edge with no rule of its own.
     expect(rule('.month-container')['border-block-end']).toBeUndefined();

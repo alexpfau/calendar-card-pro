@@ -365,7 +365,7 @@ describe('the stylesheet', () => {
       '.event { padding-inline-start: calc(12px + var(--calendar-card-line-width-vertical)) }',
       '.event-accent-bar { border-inline-start: var(--calendar-card-line-width-vertical) solid var(--calendar-card-event-accent-bar-color) }',
       '.grid-event, .grid-event-backdrop { --calendar-card-grid-text-start: calc(6px + var(--calendar-card-line-width-vertical)) }',
-      '.month-container { --calendar-card-month-text-start: calc(4.3px + var(--calendar-card-line-width-vertical)) }',
+      '.month-container { --calendar-card-month-text-start: calc(5px + var(--calendar-card-line-width-vertical)) }',
       '.month-day-list-more { padding-inline: calc(12px + var(--calendar-card-line-width-vertical)) 12px }',
     ]);
   });

@@ -1091,10 +1091,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'month.today_background_color.helper': 'On a weekend it replaces the weekend shading.',
   'month.cell_event_font_size': 'Event Font Size in Days',
   'month.cell_event_font_size.helper':
-    'Titles in the wide month’s days; Event Font Size sets a day’s list and the panel.',
+    'Titles and “+N more” in the wide month’s days; Event Font Size sets a day’s list and the panel.',
   'month.cell_time_font_size': 'Time Font Size in Days',
   'month.cell_time_font_size.helper':
-    'Times and “+N more” in the wide month’s days; Time Font Size sets a day’s list and the panel.',
+    'Times in the wide month’s days; Time Font Size sets a day’s list and the panel.',
   'month.density': 'Month Density',
   'month.density.helper':
     'Narrower days show a dot per event instead, and list the tapped day’s events under the weeks.',
@@ -1122,14 +1122,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
     'each reads as a block of its own. Change it in Month’s own settings.',
   'view_default.month.day_font_size':
-    'Month layout sets its day numbers at 13px whatever this is set to, so that each fits ' +
+    'Month layout sets its day numbers at 16px whatever this is set to, so that each fits ' +
     'its day’s corner. Change it in Month’s own settings.',
   'view_default.month.weekday_font_size':
-    'Month layout sets its weekday names at 12.75px whatever this is set to, in proportion to ' +
+    'Month layout sets its weekday names at 16px whatever this is set to, in proportion to ' +
     'its day numbers. Change it in Month’s own settings.',
   'view_default.month.week_number_font_size':
-    'Month layout sets its week numbers at 11px whatever this is set to, in proportion to its ' +
+    'Month layout sets its week numbers at 13.5px whatever this is set to, in proportion to its ' +
     'day numbers. Change it in Month’s own settings.',
+  'view_default.month.month_font_size':
+    'Month layout sets the month beside a 1st’s number at 16px whatever this is set to, so ' +
+    'that the two read as one label. Change it in Month’s own settings.',
   'view_default.month.vertical_line_width':
     'Month layout draws its accent bars 3px wide whatever this is set to, so that they show ' +
     'beside its small text. Change it in Month’s own settings.',

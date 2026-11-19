@@ -73,7 +73,7 @@ const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> 
     'Event Font Size in Days',
     '15px',
   ],
-  ['layout:month.cell_time_font_size', 'events', 'time', 'Time Font Size in Days', '10px'],
+  ['layout:month.cell_time_font_size', 'events', 'time', 'Time Font Size in Days', '11px'],
 ];
 
 /** The page and heading the registry places a field under. */
@@ -169,11 +169,11 @@ describe('Month’s own settings in the editor', () => {
       height: '300px',
       month: { card_height: '50rem', compact_card_max_height: '40rem' },
     });
-    await changeField(editor, 'layout:month.cell_time_font_size', '10px');
+    await changeField(editor, 'layout:month.cell_time_font_size', '11px');
     expect(stored(editor).month).toEqual({
       card_height: '50rem',
       compact_card_max_height: '40rem',
-      cell_time_font_size: '10px',
+      cell_time_font_size: '11px',
     });
     expect(stored(editor).height).toBe('300px');
     editor.remove();

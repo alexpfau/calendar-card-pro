@@ -402,13 +402,13 @@ describe('a scaled calendar on the card', () => {
     const event = '--calendar-card-font-size-event';
     const time = '--calendar-card-font-size-time';
 
-    // The month writes its cells' 10px and 8.5px on itself; a line at 1.5 is 15px and 12.75px.
+    // The month writes its cells' 12px and 10px on itself; a line at 1.5 is 18px and 15px.
     const month = wide.querySelector('.month-container')!;
-    expect([ownProperty(month, event), ownProperty(month, time)]).toEqual(['10px', '8.5px']);
+    expect([ownProperty(month, event), ownProperty(month, time)]).toEqual(['12px', '10px']);
     const line = eventNamed(wide, '.month-line', 'Standup');
-    expect([ownProperty(line, event), ownProperty(line, time)]).toEqual(['15px', '12.75px']);
+    expect([ownProperty(line, event), ownProperty(line, time)]).toEqual(['18px', '15px']);
     expect(ownProperty(eventNamed(wide, '.month-line', 'Dentist'), event)).toBeUndefined();
-    expect(ownProperty(eventNamed(wide, '.month-bar', 'Offsite'), event)).toBe('15px');
+    expect(ownProperty(eventNamed(wide, '.month-bar', 'Offsite'), event)).toBe('18px');
 
     // A day's list keeps the list's 14px, so its row at 1.5 is 21px.
     const list = document.createElement('div');

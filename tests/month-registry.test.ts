@@ -23,9 +23,10 @@ describe('the month block', () => {
       onlyKeys: ViewConfig.MONTH_ONLY_KEYS,
       onlyDefaults: ViewConfig.MONTH_DEFAULTS,
       defaultOverrides: {
-        day_font_size: '13px',
-        weekday_font_size: '12.75px',
-        week_number_font_size: '11px',
+        day_font_size: '16px',
+        weekday_font_size: '16px',
+        week_number_font_size: '13.5px',
+        month_font_size: '16px',
         vertical_line_width: '3px',
         event_gap: '6px',
         show_past_events: true,
@@ -51,9 +52,9 @@ describe('the month block', () => {
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       today_background_color: 'transparent',
-      // What the wide month draws in its days: 10px titles and times at 0.85 of them.
-      cell_event_font_size: '10px',
-      cell_time_font_size: '8.5px',
+      // What the wide month draws in its days: 12px titles and 10px times.
+      cell_event_font_size: '12px',
+      cell_time_font_size: '10px',
     });
     expect(ViewConfig.MONTH_DEFAULTS.weekend_background_color).toBe(
       ViewConfig.TIME_GRID_DEFAULTS.weekend_background_color,
@@ -213,7 +214,7 @@ describe('the options month reads', () => {
 
   it('sizes its dates, names, week numbers and stripe from its titles, which only its block changes', () => {
     // Divergent defaults, as the gap is: a list's 26px date column stands alone, a month's day
-    // number sits in its cell's corner over the lines, and all four follow the 10px titles.
+    // number sits in its cell's corner over the lines, and all five follow the 12px titles.
     const month = (config: Partial<Types.Config>) =>
       ViewConfig.resolveEffectiveConfig(buildConfig(config), 'month');
     const sizes = (config: Partial<Types.Config>) => {
@@ -222,36 +223,40 @@ describe('the options month reads', () => {
         resolved.day_font_size,
         resolved.weekday_font_size,
         resolved.week_number_font_size,
+        resolved.month_font_size,
         resolved.vertical_line_width,
       ];
     };
-    expect(sizes({})).toEqual(['13px', '12.75px', '11px', '3px']);
+    expect(sizes({})).toEqual(['16px', '16px', '13.5px', '16px', '3px']);
     expect(
       sizes({
         day_font_size: '30px',
         weekday_font_size: '20px',
         week_number_font_size: '16px',
+        month_font_size: '14px',
         vertical_line_width: '6px',
       }),
-    ).toEqual(['13px', '12.75px', '11px', '3px']);
+    ).toEqual(['16px', '16px', '13.5px', '16px', '3px']);
     expect(
       sizes({
         month: {
           day_font_size: '1.1rem',
           weekday_font_size: '1em',
           week_number_font_size: '12px',
+          month_font_size: '0.8em',
           vertical_line_width: '2px',
         },
       }),
-    ).toEqual(['1.1rem', '1em', '12px', '2px']);
+    ).toEqual(['1.1rem', '1em', '12px', '0.8em', '2px']);
     // A list keeps the card's own.
     const list = ViewConfig.resolveEffectiveConfig(buildConfig({}), 'list');
     expect([
       list.day_font_size,
       list.weekday_font_size,
       list.week_number_font_size,
+      list.month_font_size,
       list.vertical_line_width,
-    ]).toEqual(['26px', '14px', '12px', '2px']);
+    ]).toEqual(['26px', '14px', '12px', '12px', '2px']);
     expect(
       ViewConfig.resolveEffectiveConfig(
         buildConfig({ month: { month_font_size: '10px' } }),
@@ -300,10 +305,10 @@ describe('a month-only option', () => {
     // Any font size the card's own take; anything else is the block's default.
     ['cell_event_font_size', '15px', '15px'],
     ['cell_event_font_size', '0.9 rem', '0.9rem'],
-    ['cell_event_font_size', 12, '12px'],
-    ['cell_event_font_size', 'big', '10px'],
+    ['cell_event_font_size', 11, '11px'],
+    ['cell_event_font_size', 'big', '12px'],
     ['cell_time_font_size', 'smaller', 'smaller'],
-    ['cell_time_font_size', '-2px', '8.5px'],
+    ['cell_time_font_size', '-2px', '10px'],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
     expect(
@@ -350,7 +355,7 @@ describe('a month-only option', () => {
       ViewConfig.validateColumnOverrides(buildConfig({ month: { cell_time_font_size: '1em' } }));
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
         'Invalid month.cell_event_font_size "big": expected a CSS font size such as "14px", ' +
-          '"1.2em", "120%" or "large". Falling back to "10px".',
+          '"1.2em", "120%" or "large". Falling back to "12px".',
       ]);
     } finally {
       warn.mockRestore();

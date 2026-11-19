@@ -360,9 +360,9 @@ export const UI = {
    * height or a maximum (`Sections.cardGridOptions`): ten, 632px at Home Assistant's default 56px
    * row and 8px gap, and twelve, 760px, where the configuration asks for a toolbar
    * (`Config.asksForToolbar`). The toolbar's two rows take about 89px, a title beside it about 17px
-   * more, so two rows more keep the lines a card without one has, and one more besides: at the
-   * default text sizes a wide day holds five lines either way, and a compact month's day list three
-   * events at least, also where the toolbar's buttons wrap onto a second line.
+   * more, so two rows more keep the lines a card without one has: at the default text sizes a wide
+   * day holds four lines either way, three events and "+N more", and a compact month's day list
+   * three events at least, also where the toolbar's buttons wrap onto a second line.
    */
   MONTH_SECTIONS_ROWS: { plain: 10, toolbar: 12 },
 

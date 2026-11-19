@@ -1157,10 +1157,10 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * and lightens a dark one, and today's `transparent`, off.
  *
  * `cell_event_font_size` and `cell_time_font_size` size what the wide month draws in its days, a
- * line's or a bar's title and its time: 10px titles, with times at 0.85 of them, since a day is a
- * seventh of the card wide and holds its lines one under another. The stylesheet's line geometry
- * is scaled from the 10px title (`.month-line`), and the month's dates, weekday names and week
- * numbers from it too ({@link MONTH_DEFAULT_OVERRIDES}). A day's list and the panel keep
+ * line's or a bar's title and its time: 12px titles, with 10px times, about 0.83 of them, since a
+ * day is a seventh of the card wide and holds its lines one under another. The stylesheet's line
+ * geometry is scaled from the 12px title (`.month-line`), and the month's dates, weekday names and
+ * week numbers from it too ({@link MONTH_DEFAULT_OVERRIDES}). A day's list and the panel keep
  * `event_font_size` and `time_font_size`.
  */
 export const MONTH_DEFAULTS = {
@@ -1169,8 +1169,8 @@ export const MONTH_DEFAULTS = {
   min_day_width: 80,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
-  cell_event_font_size: '10px',
-  cell_time_font_size: '8.5px',
+  cell_event_font_size: '12px',
+  cell_time_font_size: '10px',
 } as const;
 
 /**
@@ -1911,22 +1911,26 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  * beside its date; a month's list holds one day under its name, with nothing beside it to join
  * against, so its events read better apart.
  *
- * The month's own text is sized from the wide month's 10px titles (`cell_event_font_size` in
- * {@link MONTH_DEFAULTS}), so a day reads as one piece: `day_font_size` 13px, 1.3 times the title,
- * since a day's number sits in its cell's corner over the lines rather than alone in a list's
- * 26px date column; `weekday_font_size` 12.75px over the columns; `week_number_font_size` 11px in
- * the first day's corner. Both forms take them, so the compact form's numbers, weekday names and
- * the day list's heading are a little smaller than a list's as well.
+ * The month's own text is sized from the wide month's 12px titles (`cell_event_font_size` in
+ * {@link MONTH_DEFAULTS}), so a day reads as one piece: `day_font_size` 16px, a third larger than
+ * the title, since a day's number sits in its cell's corner over the lines rather than alone in a
+ * list's 26px date column; `weekday_font_size` 16px, as the dates under them;
+ * `week_number_font_size` 13.5px in the first day's corner; and `month_font_size` 16px, so a 1st's
+ * month reads at its number's size, as one label. Both forms take the first three: the compact
+ * form sets its numbers in boxes 1.75 times their size, and its day list's heading in the date's
+ * size. Only the wide form draws a 1st's month.
  *
- * `vertical_line_width` is 3px, 0.3 of the title: a 2px stripe beside 10px text reads as a
- * hairline. It is the month's whole stripe, so the day's list and the panel draw it as well.
+ * `vertical_line_width` is 3px, a quarter of the title: a 2px stripe beside it reads as a
+ * hairline, and a fraction would not help, since Chrome draws a border's width in whole pixels.
+ * It is the month's whole stripe, so the day's list and the panel draw it as well.
  */
 export const MONTH_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.MonthOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
-  day_font_size: '13px',
-  weekday_font_size: '12.75px',
-  week_number_font_size: '11px',
+  day_font_size: '16px',
+  weekday_font_size: '16px',
+  week_number_font_size: '13.5px',
+  month_font_size: '16px',
   vertical_line_width: '3px',
   event_gap: '6px',
   show_past_events: true,
