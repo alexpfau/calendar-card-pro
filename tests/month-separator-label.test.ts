@@ -392,9 +392,9 @@ describe("the month name's color and size", () => {
   });
 
   it('writes a shipped mix as the browser can draw it, inherited or its own, on both paths', () => {
-    // The week rule's shipped color: a mix the card floors to a translucent gray where the
+    // The grid rules' shipped color: a mix the card floors to a translucent gray where the
     // browser has no color-mix().
-    const mix = DEFAULT_CONFIG.week_separator_color;
+    const mix = ViewConfig.TIME_GRID_DEFAULTS.hour_line_color;
     const floor = ColorMix.COLOR_MIX_FLOORS.get(mix)!;
     expect(floor).toBeDefined();
     expect(asWritten(floor)).not.toBe('');

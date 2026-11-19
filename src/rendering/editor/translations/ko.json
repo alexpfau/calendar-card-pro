@@ -55,6 +55,7 @@
   "value.from_yaml": "{value} (YAML에서)",
   "value.same_as": "{label}과(와) 같음",
   "value.tile_ink": "오늘 타일과 같음",
+  "value.depends_on": "{label}에 따라 다름",
   "value.follow_card": "카드 설정 따르기",
   "value.end_of_day": "하루가 끝날 때",
   "value.none": "없음",

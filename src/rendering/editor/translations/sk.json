@@ -55,6 +55,7 @@
   "value.from_yaml": "{value} (z YAML)",
   "value.same_as": "Rovnaké ako {label}",
   "value.tile_ink": "Ako dnešná dlaždica",
+  "value.depends_on": "Závisí od: {label}",
   "value.follow_card": "Podľa karty",
   "value.end_of_day": "Koniec dňa",
   "value.none": "Žiadne",

@@ -279,12 +279,20 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(248_000);
-    // Month's compact list fit moved the ceiling last, from 245,000 to 248,000: the notes on why
-    // the list and its rows' box flex with a basis of 0, what the staged copy beside the list is
-    // for, why the rows' box cuts only at its foot and only as a guard, and why a list under a cap
-    // with no height takes its own height. The reading went from 244,527 to 245,566, taken with
-    // stripComments after the last comment was written.
+    expect(saved).toBeLessThan(251_000);
+    // The week-number pill taking today's tile's colors moved the ceiling last, from 248,000 to
+    // 251,000 (backlog item 325): the notes on why the pill and the week separators read the
+    // tile's wash and ink from ha-card while the tile keeps its own, why the chroma is scaled as
+    // Oklab's a and b (Chromium gives a low-chroma mix no hue, and scaling OKLCH's c then paints
+    // it pink), and how a set pill background colors its number only while it is a light wash.
+    // The reading went from 247,077 to 249,358, taken with stripComments after the last comment
+    // was written.
+    //
+    // Month's compact list fit moved the ceiling before that, from 245,000 to 248,000: the notes
+    // on why the list and its rows' box flex with a basis of 0, what the staged copy beside the
+    // list is for, why the rows' box cuts only at its foot and only as a guard, and why a list
+    // under a cap with no height takes its own height. The reading went from 244,527 to 245,566,
+    // taken with stripComments after the last comment was written.
     //
     // Month's weekend and today tints moved the ceiling before that, from 242,000 to 245,000: the
     // notes on which cells the two tints shade in either form and why a neighboring month's day

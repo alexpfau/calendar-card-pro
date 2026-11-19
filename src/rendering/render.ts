@@ -456,12 +456,14 @@ function renderHorizontalSeparator(
   config: Types.Config,
   isFirstWeek: boolean = false,
   separatorType: 'day' | 'week' | 'month' = 'day',
+  ink?: string,
 ): TemplateResult | typeof nothing {
   if (ViewConfig.isZeroLength(lineWidth) || isFirstWeek) {
     return nothing;
   }
 
   const separatorStyle = createSeparatorStyle(lineWidth, lineColor, config, separatorType);
+  if (ink) separatorStyle.color = ink;
 
   return html`<div class="${className}" style=${styleMap(separatorStyle)}></div>`;
 }
@@ -559,11 +561,12 @@ function renderWeekSeparator(
 ): TemplateResult | typeof nothing {
   return renderHorizontalSeparator(
     config.week_separator_width,
-    config.week_separator_color,
+    Leaves.weekSeparatorColor(config),
     'week-separator',
     config,
     isFirstWeek,
     'week',
+    Leaves.weekSeparatorInk(config),
   );
 }
 
@@ -610,7 +613,11 @@ function renderWeekRow(
       labeled = monthLabel !== undefined;
     } else if (!ViewConfig.isZeroLength(config.week_separator_width)) {
       lineStyle['--separator-border-width'] = config.week_separator_width;
-      lineStyle['--separator-border-color'] = ColorMix.floorColor(config.week_separator_color);
+      lineStyle['--separator-border-color'] = ColorMix.floorColor(
+        Leaves.weekSeparatorColor(config),
+      );
+      const ink = Leaves.weekSeparatorInk(config);
+      if (ink) lineStyle.color = ink;
       lineStyle['--separator-display'] = 'block';
     } else {
       lineStyle['--separator-display'] = 'none';

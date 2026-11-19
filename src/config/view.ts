@@ -7,6 +7,7 @@
 import {
   DEFAULT_CONFIG,
   FOLDED_OPTIONS,
+  WEEK_MARK_COLOR_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
   mergeConfig,
@@ -22,6 +23,7 @@ import {
   toValidPercentage,
   validateFoldedLength,
   validatePastEventOpacity,
+  validateWeekMarkColor,
 } from './config';
 import { HA_CARD_KEYS } from './constants';
 import * as Types from './types';
@@ -2659,6 +2661,15 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
         `${block.blockKey}.${key}`,
         // A block's own option folds to the block's default, which the top level does not hold.
         block.onlyKeys.includes(key) ? block.onlyDefaults[key] : undefined,
+      );
+    }
+  }
+
+  for (const key of WEEK_MARK_COLOR_OPTIONS) {
+    if (ownKeys.has(key)) {
+      validateWeekMarkColor(
+        (overrides as Record<string, unknown>)[key],
+        `${block.blockKey}.${key}`,
       );
     }
   }

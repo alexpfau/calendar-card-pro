@@ -55,6 +55,7 @@
   "value.from_yaml": "{value} (z YAML)",
   "value.same_as": "Jak {label}",
   "value.tile_ink": "Jak kafelek dzisiejszego dnia",
+  "value.depends_on": "Zależy od: {label}",
   "value.follow_card": "Zgodnie z kartą",
   "value.end_of_day": "Koniec dnia",
   "value.none": "Brak",
