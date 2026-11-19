@@ -167,7 +167,13 @@ export function initialAnswers(
       startedWith(opening, firstCalendar(states)) === undefined ? calendarsOf(opening) : [],
     weather: textOf(ownWeather) || (storyWeather ? (Config.findWeatherEntity(states) ?? '') : ''),
     toolbar: Helpers.isConfigBlock(shell.toolbar) && shell.toolbar.show === true,
-    eventDetails: actionOf(shell.event_tap_action) === 'details',
+    // A story that names no event tap opens events, as every card does by default.
+    eventDetails:
+      actionOf(
+        Helpers.hasOwn(shell, 'event_tap_action')
+          ? shell.event_tap_action
+          : Config.DEFAULT_CONFIG.event_tap_action,
+      ) === 'details',
     dayAdds: actionOf(shell.day_tap_action) === 'add-event',
   };
 }
@@ -268,7 +274,8 @@ export function buildQuickSetupConfig(
     };
   }
 
-  if (answers.eventDetails) desired.event_tap_action = { action: 'details' };
+  // Events open by default, so it is "no" that has to be written.
+  if (!answers.eventDetails) desired.event_tap_action = { action: 'none' };
   if (answers.dayAdds) desired.day_tap_action = { action: 'add-event' };
 
   desired.entities = entitiesFor(opening, answers);

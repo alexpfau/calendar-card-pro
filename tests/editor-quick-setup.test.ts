@@ -261,9 +261,10 @@ describe('Quick Setup', () => {
     });
     expect(lastConfig(editor)).toMatchObject({
       toolbar: { show: true },
-      event_tap_action: { action: 'details' },
       tap_action: { action: 'expand' },
     });
+    // Yes to event details is the default, so Now & Next's Nothing goes and no line replaces it.
+    expect(lastConfig(editor)).not.toHaveProperty('event_tap_action');
     expect(lastConfig(editor)).not.toHaveProperty('day_tap_action');
   });
 

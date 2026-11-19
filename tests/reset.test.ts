@@ -983,7 +983,11 @@ describe('the reset card action', () => {
   it('collapses an expansion its expand action was edited away from', async () => {
     // The configuration changes, the expansion stays: with no expand action left, only the
     // reset action can still undo it, so it must still run.
-    const compact = { toolbar: { show: false }, compact_events_to_show: 1 };
+    const compact = {
+      toolbar: { show: false },
+      compact_events_to_show: 1,
+      event_tap_action: { action: 'none' },
+    };
     const card = await mount({ ...compact, tap_action: { action: 'expand' } });
     await expand(card);
     expect(titles(card)).toHaveLength(3);
@@ -1046,15 +1050,17 @@ describe('the reset card action', () => {
   });
 
   it('is no action at all on a card with nothing a reset could undo', async () => {
-    // No toolbar and no expand action: nothing could ever differ from the configuration, so the
-    // card promises nothing, as `add-event` on a card that cannot add one does not.
-    const card = await mount({ toolbar: { show: false }, tap_action: { action: 'reset' } });
+    // No toolbar, no expand action and events that are no buttons: nothing could ever differ
+    // from the configuration, so the card promises nothing, as `add-event` on a card that cannot
+    // add one does not.
+    const quiet = { toolbar: { show: false }, event_tap_action: { action: 'none' } };
+    const card = await mount({ ...quiet, tap_action: { action: 'reset' } });
 
     expect(haCard(card).hasAttribute('role')).toBe(false);
     expect(haCard(card).hasAttribute('tabindex')).toBe(false);
 
     // The control: the same card with an action that runs is a button with a tab stop.
-    const control = await mount({ toolbar: { show: false }, tap_action: { action: 'refresh' } });
+    const control = await mount({ ...quiet, tap_action: { action: 'refresh' } });
     expect(haCard(control).getAttribute('role')).toBe('button');
     expect(haCard(control).getAttribute('tabindex')).toBe('0');
   });

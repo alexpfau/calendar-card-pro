@@ -45,8 +45,9 @@ Each layout's page, and Layout Defaults, lists the same five topics:
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
-`start_of_week`, and Relative to Today takes any offset, such as `today-29`. To open an event's
-details on a tap, choose Show Event Details under **Event Tap Action** on Taps & Refresh.
+`start_of_week`, and Relative to Today takes any offset, such as `today-29`. A tap on an event
+opens its details; to change that, choose another action under **Event Tap Action** on Taps &
+Refresh.
 
 **Weather** opens with **Weather Entity**, shared by every layout. Choosing one turns the forecast
 on in the layout you are editing, beside its days, or in Month beside its events, and leaves the

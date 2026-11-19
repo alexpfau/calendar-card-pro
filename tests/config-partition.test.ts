@@ -304,7 +304,8 @@ describe('card-level reasons', () => {
     // `open_links` is the one argued exception. It is decided at card level with the event
     // actions it depends on (the `row-link` reason above), and it is scoped away from grid
     // only because grid draws no links. It is not unreachable: the Actions panel that holds it
-    // is in every workspace, Column's included, which the assertion after this one proves.
+    // is in every workspace, Column's included, which the assertion after this one proves on a
+    // card whose events run nothing of their own, the one state that offers it.
     //
     // Read as list and column without grid, whether or not month reads it too: month reaching
     // an option changes nothing about whether column's block can hold it.
@@ -322,7 +323,11 @@ describe('card-level reasons', () => {
         actions.build({
           view: 'column',
           workspace: 'column',
-          config: { ...DEFAULT_CONFIG, view: 'column' } as Types.Config,
+          config: {
+            ...DEFAULT_CONFIG,
+            view: 'column',
+            event_tap_action: { action: 'none' },
+          } as Types.Config,
           language: 'en',
         }),
       ),

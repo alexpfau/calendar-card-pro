@@ -1442,7 +1442,12 @@ describe('what a gate says it waits for', () => {
       text: 'both event actions set to Nothing',
       unmet: 'actions:event_tap_action',
     });
-    expect(explain(GATES.open_links, 'list', [['actions:event_hold_action', DETAILS]])).toEqual({
+    expect(
+      explain(GATES.open_links, 'list', [
+        ['actions:event_tap_action', { action: 'none' }],
+        ['actions:event_hold_action', DETAILS],
+      ]),
+    ).toEqual({
       text: 'both event actions set to Nothing',
       unmet: 'actions:event_hold_action',
     });
