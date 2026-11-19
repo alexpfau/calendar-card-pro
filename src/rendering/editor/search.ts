@@ -168,6 +168,11 @@ export interface SearchCtx extends SchemaCtx {
   /** The scope's form data. */
   readonly data: Readonly<Record<string, unknown>>;
   readonly entries: ReadonlyArray<SearchOwner>;
+  /**
+   * The workspace calendars' pages are built in (`element.ts` › `_entryWorkspace`), where their
+   * fields are judged whatever scope the search runs in; the plan's where not given.
+   */
+  readonly entryWorkspace?: EditorWorkspace;
   readonly buttons: ReadonlyArray<SearchOwner>;
   /** The editor's strings, by literal key. */
   readonly t: (key: string) => string;
@@ -546,7 +551,7 @@ function standing(
   switch (state.kind) {
     case 'gated':
     case 'inactive': {
-      const field = universeIndex(ctx.language, ctx.plan.workspace).fields.get(place.id);
+      const field = universeIndex(ctx.language, plan.workspace).fields.get(place.id);
       if (!field) return undefined;
       const needs = needsText(state.gate, gateData, ctx.language, labelNamer(ctx)) ?? '';
       const top = state.kind === 'inactive' && state.source === 'all-layouts';
@@ -810,17 +815,29 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
   const name = Entities.entityDisplayName(config.entity, ctx.hass);
   const identity = calendarTexts(owner.entry, ctx);
   const present = entityFieldIndex(owner.schema);
-  const plan: Plan.PlanCtx = { ...ctx.plan, present, entry: owner.key };
+  // Judged in the calendar page's own context, as its page draws it.
+  const workspace = ctx.entryWorkspace ?? ctx.plan.workspace;
+  const plan: Plan.PlanCtx =
+    workspace === ctx.plan.workspace
+      ? { ...ctx.plan, present, entry: owner.key }
+      : {
+          ...ctx.plan,
+          workspace,
+          universe: universeIndex('en', workspace),
+          present,
+          entry: owner.key,
+        };
+  const card =
+    workspace === ctx.plan.workspace
+      ? ctx.data
+      : Routing.workspaceFormData(ctx.plan.config as Types.Config, workspace, ctx.plan.pending);
   const data = Entities.toEntityFormData(owner.entry as Types.EntityConfig, entities);
   const rows: SearchEntry[] = [];
   for (const group of ENTRY_GROUPS) {
     for (const [id, appearance] of group.fields) {
       const spec = absorbingSpec(id, ctx);
       if (spec?.value === id) continue;
-      const found = standing({ id, appearance }, ctx, plan, present.fields, {
-        card: ctx.data,
-        entry: data,
-      });
+      const found = standing({ id, appearance }, ctx, plan, present.fields, { card, entry: data });
       if (!found) continue;
       const { field, status, tag, needs } = found;
       const { name: key } = { name: field.node.name };
@@ -837,7 +854,20 @@ function entryRows(owner: SearchOwner, ctx: SearchCtx): SearchEntry[] {
         get words() {
           return live ? stateWords(field, plan, ctx, words()) : undefined;
         },
-        tag,
+        // A calendar's option some of the card's layouts do not apply says where it does, as
+        // its page's facts do.
+        get tag() {
+          const onlyIn = live ? words()?.onlyIn : undefined;
+          return onlyIn === undefined
+            ? tag
+            : interpolate(ctx.t('search.only_in'), {
+                layouts: EditorLocalize.formatList(
+                  ctx.language,
+                  onlyIn.map(layoutNamer(ctx)),
+                  'conjunction',
+                ),
+              });
+        },
         needs,
         status,
         tier: 1,

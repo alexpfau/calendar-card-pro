@@ -19,7 +19,7 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import type { CalendarCardProEditor } from '../src/rendering/editor/element';
-import { parseFieldId } from '../src/rendering/editor/field-index';
+import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
@@ -165,6 +165,25 @@ function expectedFields(
       return !Object.prototype.hasOwnProperty.call(scopes, key) || scopes[key].has(owner);
     });
   });
+}
+
+/**
+ * A calendar's fields as its page draws them: what any of the layouts the page is built for
+ * applies (`field-index.ts` › `entryViews`), in the builder's order. A calendar's option is stored
+ * once and applies wherever a layout reads it, so its page is not one layout's.
+ *
+ * @param schema - The calendar's schema, as declared
+ * @param views - The layouts the page is built for
+ * @returns The fields some layout applies
+ */
+function expectedAcross(
+  schema: ReadonlyArray<HaFormSchema>,
+  views: ReadonlyArray<Types.EffectiveView>,
+): Field[] {
+  const kept = new Set(
+    views.flatMap((view) => expectedFields(schema, view, true).map((f) => f.key)),
+  );
+  return fields(schema).filter((field) => kept.has(field.key));
 }
 
 /**
@@ -391,17 +410,19 @@ describe('view withholding reconciles both directions', () => {
       );
       // The one calendar's entry page draws each of its fields in a form of its own, grouped
       // under the page's headings, so its fields are compared in the order the builder builds
-      // them.
+      // them. The page is built for the card's layouts, so it holds what any of them applies.
       const editor = await mount(config);
       const entityForms = formsOf(editor, entry());
       expect(entityForms.length).toBeGreaterThan(0);
       expect(entityForms).toEqual(formsOf(editor, entry(0)));
-      const order = expected.map((field) => field.key);
+      const across = expectedAcross(raw, entryViews(config, view));
+      expect(across.length).toBeGreaterThanOrEqual(expected.length);
+      const order = across.map((field) => field.key);
       reconcile(
         entityForms
           .flatMap((form) => fields(form.schema))
           .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)),
-        expected,
+        across,
       );
     }
     // Over a second in a full local run; the limit is set for CI's slower runner under load
@@ -467,7 +488,11 @@ describe('withholding is not a search filter or a config edit', () => {
       PANELS.flatMap((panel) => panel.build(context(config))),
       'grid',
     ).map((field) => field.key);
-    const calendarKeys = expectedFields(buildEntitySchema(context(config)), 'grid', true).map(
+    // A calendar's page holds what any of the card's layouts applies: Grid, and List, which a
+    // Grid card falls back to on a narrow screen.
+    const calendarViews = entryViews(config, 'grid');
+    expect(calendarViews).toEqual(['list', 'grid']);
+    const calendarKeys = expectedAcross(buildEntitySchema(context(config)), calendarViews).map(
       (field) => field.key,
     );
 
@@ -491,9 +516,10 @@ describe('withholding is not a search filter or a config edit', () => {
           );
           reconcile(
             actual,
-            expectedFields(form.schema, 'grid', calendars.includes(form)).filter(
-              (field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key),
-            ),
+            (calendars.includes(form)
+              ? expectedAcross(form.schema, calendarViews)
+              : expectedFields(form.schema, 'grid')
+            ).filter((field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key)),
           );
         }
         continue;
@@ -504,7 +530,18 @@ describe('withholding is not a search filter or a config edit', () => {
       const rows = resultRows(editor);
       const onlyIn = rows.filter(({ tag }) => tag?.startsWith('Only in '));
       expect(
-        onlyIn.filter(({ tag }) => tag!.includes('Grid')).map(({ id }) => id),
+        onlyIn
+          .filter(({ id, tag }) => !id.startsWith('calendar:') && tag!.includes('Grid'))
+          .map(({ id }) => id),
+        criteria.search,
+      ).toEqual([]);
+      // A calendar's option tagged with its layouts is one its page draws: some of the card's
+      // layouts apply it, and the tag says which.
+      expect(
+        onlyIn
+          .filter(({ id }) => id.startsWith('calendar:'))
+          .filter(({ id }) => !calendarKeys.includes(id.slice(id.indexOf(':') + 1)))
+          .map(({ id }) => id),
         criteria.search,
       ).toEqual([]);
       const listed = rows
@@ -552,7 +589,12 @@ describe('withholding is not a search filter or a config edit', () => {
       ...configFor('grid'),
       ...hiddenRoot,
       ...hiddenList,
-      time_grid: { split_multiday_events: true, empty_day_text: 'Grid placeholder' },
+      // Grid alone, with no narrow fallback to List, so List's calendar options stay hidden too.
+      time_grid: {
+        split_multiday_events: true,
+        empty_day_text: 'Grid placeholder',
+        min_days_fallback: 'cramp',
+      },
     });
     const editor = await mount(config, false);
     const seen: Record<string, unknown>[] = [];
