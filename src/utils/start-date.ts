@@ -306,3 +306,27 @@ export function getTimeWindow(
 
   return { start, end };
 }
+
+/**
+ * Whether a start date resolves against today, so the window it opens moves as days pass: no
+ * start date, any relative expression, or a value so malformed that it falls back to today.
+ *
+ * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
+ * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
+ * exactly that week and a fixed date does not move at all. The first weekday decides where a
+ * week-relative date lands, never whether it moves, so any value answers here.
+ *
+ * @param startDate - The configured `start_date`
+ * @param now - The moment it is resolved against
+ * @returns True when the resolved first day depends on the current date
+ */
+export function startDateFollowsToday(
+  startDate: string | undefined,
+  now: Date = new Date(),
+): boolean {
+  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
+  return (
+    getTimeWindow(1, startDate, 1, now).start.getTime() !==
+    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
+  );
+}

@@ -2343,9 +2343,9 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The first day of a month page's rows: at home the weeks of the month home starts in, on a
-   * page the row holding the page's key, which is already a row's first day unless another view
-   * left it there.
+   * The first day of a month page's rows: at home the weeks of Month's home month
+   * (`_monthHomeDay`), on a page the row holding the page's key, which is already a row's first
+   * day unless another view left it there.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -2354,8 +2354,19 @@ class CalendarCardPro extends LitElement {
   private _monthRowsStart(page: string | null, now: Date = new Date()): Date {
     const firstDayOfWeek = this._firstDayOfWeek;
     return page === null
-      ? ViewConfig.monthHomeRowsStart(this._homeWindowStart(now), firstDayOfWeek)
+      ? ViewConfig.monthHomeRowsStart(this._monthHomeDay(now), firstDayOfWeek)
       : ViewConfig.monthRowsStart(Paging.pageStart(page), firstDayOfWeek);
+  }
+
+  /**
+   * The day Month's home is the month of (`ViewConfig.monthHomeDay`): today, or a fixed
+   * `start_date`. Only Month reads it; every other view's home starts on `_homeWindowStart`.
+   *
+   * @param now - The current moment
+   * @returns The day, at local midnight
+   */
+  private _monthHomeDay(now: Date): Date {
+    return ViewConfig.monthHomeDay(this._homeWindowStart(now), this._windowFollowsToday, now);
   }
 
   /** The first day of the week, 0 for Sunday, from the configuration or the profile as it is now. */
@@ -2578,8 +2589,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The page the card opens with, as drawn now: the configured window, or the slice of it the
-   * card draws while the layout drops columns. For month, the six weeks of the month the
-   * configured window starts in.
+   * card draws while the layout drops columns. For month, the six weeks of Month's home month:
+   * today's, or a fixed start date's (`_monthHomeDay`).
    *
    * @param now - The current moment
    * @returns Home
@@ -2703,7 +2714,7 @@ class CalendarCardPro extends LitElement {
    * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
    * its one caller is, so the raw configuration is home's.
    *
-   * Month counts only from the configured start on, as List would (`_monthCountConfig`), so the
+   * Month counts only from today on, or from a fixed start date (`_monthCountConfig`), so the
    * weeks of the month before it never keep an otherwise empty card visible. So it never answers
    * from the view on screen, whose count covers those weeks.
    *
@@ -2733,17 +2744,20 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Home's month, as `hide_when_empty` counts it: Month's own options, from the configured start
-   * to the end of its six weeks, so an event in the weeks before the start does not count.
+   * Home's month, as `hide_when_empty` counts it: Month's own options, from the day its home is
+   * the month of (`_monthHomeDay`: today, or a fixed start date) to the end of its six weeks, so
+   * an event in the weeks before that day does not count. Not from the configured start, which a
+   * relative start date can put outside the six weeks altogether.
    *
    * @returns The configuration to count Month's events with
    */
   private _monthCountConfig(): Types.Config {
     const now = new Date();
-    const start = this._homeWindowStart(now);
+    const start = this._monthHomeDay(now);
     const end = Paging.addDays(this._monthRowsStart(null, now), ViewConfig.MONTH_DAYS);
     return {
       ...ViewConfig.resolveEffectiveConfig(this.config, 'month'),
+      start_date: FormatUtils.getLocalDateKey(start),
       days_to_show: FormatUtils.getCalendarDayDiff(start, end),
     };
   }
@@ -9416,7 +9430,10 @@ class CalendarCardPro extends LitElement {
     const latestFirst = this._listsLatestFirst;
 
     return {
-      homeName: Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
+      homeName:
+        this.effectiveView === 'month'
+          ? Paging.monthHomeButtonName(this._homeRange(now), language, now)
+          : Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
       languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
