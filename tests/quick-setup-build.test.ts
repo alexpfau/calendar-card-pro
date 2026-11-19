@@ -49,7 +49,7 @@ describe('buildQuickSetupConfig', () => {
       event_gap: '4px',
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
-      weather: { entity: 'weather.home' },
+      weather_entity: 'weather.home',
       toolbar: { show: true, legend: 'chips', reset: true },
       event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
@@ -60,14 +60,20 @@ describe('buildQuickSetupConfig', () => {
         { entity: 'calendar.ben', accent_color: '#123456' },
         { entity: 'calendar.leo', accent_color: '#03a9f4' },
       ],
-      list: { days_to_show: 3 },
+      list: { days_to_show: 3, weather: { position: 'date' } },
       column: {
         min_days_to_show: 3,
         show_past_events: true,
         past_event_opacity: 40,
         event_background_opacity: 15,
+        weather: { position: 'date' },
       },
-      time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+      time_grid: {
+        start_time: '07:00',
+        end_time: '22:00',
+        hour_height: '36px',
+        weather: { position: 'date' },
+      },
       month: { event_gap: '4px' },
       grid_options: { columns: 'full', rows: 'auto' },
       view_layout: { position: 'main' },
@@ -83,7 +89,7 @@ describe('buildQuickSetupConfig', () => {
       const shell = storyById(id).shell();
 
       for (const [key, value] of Object.entries(shell)) {
-        if (key === 'weather') continue;
+        if (key === 'weather_entity') continue;
         expect(built[key], key).toEqual(value);
       }
       expect(Object.keys(built).sort()).toEqual(
@@ -102,7 +108,10 @@ describe('buildQuickSetupConfig', () => {
     };
     const built = buildQuickSetupConfig(OPENING, answers);
 
-    expect(built).not.toHaveProperty('weather');
+    expect(built).not.toHaveProperty('weather_entity');
+    // The story's weather per layout goes with it: nothing would draw it.
+    expect(built.list).toEqual({ days_to_show: 3 });
+    expect(built.time_grid).not.toHaveProperty('weather');
     expect(built).not.toHaveProperty('event_tap_action');
     expect(built).not.toHaveProperty('day_tap_action');
     // Kept, hidden, so switching the toolbar on later brings back the story's own.
@@ -115,7 +124,7 @@ describe('buildQuickSetupConfig', () => {
     ).not.toHaveProperty('toolbar');
   });
 
-  it('overrides a leaf of the story’s weather and toolbar, never the whole block', () => {
+  it('keeps the story’s weather per layout under the entity chosen, and overrides a leaf of its toolbar', () => {
     const answers: QuickSetupAnswers = {
       ...initialAnswers(OPENING, 'today_and_tomorrow', {}),
       weather: 'weather.cabin',
@@ -123,11 +132,14 @@ describe('buildQuickSetupConfig', () => {
     };
     const built = buildQuickSetupConfig(OPENING, answers);
 
-    expect(built.weather).toEqual({
-      entity: 'weather.cabin',
-      position: 'both',
-      event: { show_conditions: false },
-    });
+    expect(built.weather_entity).toBe('weather.cabin');
+    expect(built).not.toHaveProperty('weather');
+    for (const block of ['list', 'time_grid']) {
+      expect((built[block] as Record<string, unknown>).weather, block).toEqual({
+        position: 'both',
+        event: { show_conditions: false },
+      });
+    }
     expect(built.toolbar).toEqual({ show: true, view_switcher: false, legend: false });
   });
 
@@ -140,7 +152,7 @@ describe('buildQuickSetupConfig', () => {
     expect(built.tap_action).toEqual({ action: 'expand' });
     expect(built.event_hold_action).toEqual({ action: 'details' });
     expect(built).not.toHaveProperty('event_tap_action');
-    expect(built).not.toHaveProperty('weather');
+    expect(built).not.toHaveProperty('weather_entity');
   });
 
   it('keeps a development card a development card', () => {
@@ -256,8 +268,11 @@ describe('initialAnswers', () => {
   });
 
   it('prefers the card’s own weather entity, else the only one in a story that shows weather', () => {
-    const own = { ...OPENING, weather: { entity: 'weather.cabin' } };
+    const own = { ...OPENING, weather_entity: 'weather.cabin' };
     expect(initialAnswers(own, 'now_and_next', ONE_WEATHER).weather).toBe('weather.cabin');
+    // The weather written before v6 names it too.
+    const before = { ...OPENING, weather: { entity: 'weather.cabin' } };
+    expect(initialAnswers(before, 'now_and_next', ONE_WEATHER).weather).toBe('weather.cabin');
     expect(initialAnswers(OPENING, 'family_hub', ONE_WEATHER).weather).toBe('weather.home');
     expect(
       initialAnswers(OPENING, 'family_hub', { 'weather.home': {}, 'weather.cabin': {} }).weather,

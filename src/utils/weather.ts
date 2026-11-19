@@ -6,47 +6,22 @@
 import * as FormatUtils from './format';
 import * as Logger from './logger';
 import * as WeatherI18n from './weather-i18n';
-import { resolveWeatherPosition } from './weather-position';
+import { weatherEntityOf } from './weather-position';
 import * as Types from '../config/types';
 
 // Kept in a module of their own, which imports nothing, so the editor can ask them without
 // bundling this one and the Day.js locales it reaches through `format`.
-export { resolveWeatherPosition, showsEventWeather } from './weather-position';
+export {
+  getRequiredForecastTypes,
+  readsWeatherAsBefore,
+  resolveWeatherPosition,
+  showsEventWeather,
+  weatherEntityOf,
+} from './weather-position';
 
 //-----------------------------------------------------------------------------
 // CORE WEATHER DATA PROCESSING
 //-----------------------------------------------------------------------------
-
-/**
- * Determine which forecast types (daily, hourly) are required based on configuration
- *
- * @param weatherConfig Weather configuration options
- * @returns Array of required forecast types
- */
-export function getRequiredForecastTypes(
-  weatherConfig?: Types.WeatherConfig,
-): Array<'daily' | 'hourly'> {
-  if (!weatherConfig || !weatherConfig.entity) {
-    return [];
-  }
-
-  const position = resolveWeatherPosition(weatherConfig);
-
-  // 'none' renders nothing anywhere, so subscribing to a forecast would pay the
-  // cost of a stream nobody reads. Without this arm it falls through to the
-  // `['daily', 'hourly']` return below and becomes the most expensive option.
-  if (position === 'none') {
-    return [];
-  }
-
-  if (position === 'date') {
-    return ['daily'];
-  }
-
-  // 'event' and 'both' both render a per-event forecast, which needs hourly data;
-  // 'both' additionally keeps the daily forecast on the day header.
-  return ['daily', 'hourly'];
-}
 
 function processForecastData(
   forecast: Array<Types.WeatherForecast>,
@@ -321,7 +296,7 @@ export function resetUntranslatedConditions(): void {
  * Subscribe to weather forecast data from Home Assistant
  *
  * @param hass Home Assistant instance
- * @param config Calendar card configuration
+ * @param config Calendar card configuration, naming the entity (`weatherEntityOf`)
  * @param forecastType Type of forecast to subscribe to ('daily' or 'hourly')
  * @param callback Callback function to receive forecast data
  * @returns Unsubscribe function or undefined
@@ -332,11 +307,10 @@ export async function subscribeToWeatherForecast(
   forecastType: 'daily' | 'hourly',
   callback: (forecasts: Record<string, Types.WeatherData>) => void,
 ): Promise<(() => void) | undefined> {
-  if (!hass?.connection || !config?.weather?.entity) {
+  const entityId = weatherEntityOf(config);
+  if (!hass?.connection || !entityId) {
     return undefined;
   }
-
-  const entityId = config.weather.entity;
 
   try {
     const unsubscribe = await hass.connection.subscribeMessage(

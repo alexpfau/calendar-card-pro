@@ -85,6 +85,12 @@ const V4_CARD = {
   toolbar: { show: false },
 };
 
+/**
+ * {@link V4_CARD}'s weather as each layout that drew it takes it on the upgrade, the default it
+ * spells out kept, and the `date` position it defaulted to written out.
+ */
+const LAYOUT_WEATHER = { position: 'date', date: { show_high_temp: true } };
+
 /** Everything in {@link V4_CARD} that neither answer moves. */
 const UNMOVED = {
   entities: ['calendar.anna'],
@@ -93,21 +99,23 @@ const UNMOVED = {
   show_month: true,
   days_to_show: 3,
   tap_action: { action: 'none' },
-  column: { min_days_fallback: 'list', min_day_width: 140 },
-  weather: { entity: 'weather.home', date: { show_high_temp: true } },
+  column: { min_days_fallback: 'list', min_day_width: 140, weather: LAYOUT_WEATHER },
+  weather_entity: 'weather.home',
+  time_grid: { weather: LAYOUT_WEATHER },
   toolbar: { show: false },
 };
 
 const ANSWERS = {
   'keep-list': {
     ...UNMOVED,
-    list: { event_font_size: '18px', show_location: true },
+    list: { event_font_size: '18px', show_location: true, weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
   'shared-root': {
     ...UNMOVED,
     event_font_size: '18px',
     show_location: true,
+    list: { weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
 } as const;

@@ -203,7 +203,13 @@ describe('a layout’s own settings', () => {
       );
     await click(editor, '[data-focus="layout:grid"]');
     const grid = listed();
-    expect(grid).toEqual(['nav:which_events', 'nav:day_header', 'nav:events', 'nav:size_spacing']);
+    expect(grid).toEqual([
+      'nav:which_events',
+      'nav:day_header',
+      'nav:events',
+      'nav:size_spacing',
+      'nav:weather',
+    ]);
     await goOverview(editor);
     await click(editor, '[data-focus="layout:month"]');
     expect(listed()).toEqual(grid);

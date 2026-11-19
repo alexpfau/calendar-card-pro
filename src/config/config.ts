@@ -158,6 +158,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   description_color: 'var(--secondary-text-color)',
   description_icon_size: '14px',
 
+  // The weather entity every layout draws from; each layout's `weather:` says how, off until it
+  // does (`resolveViewWeather`).
+  weather_entity: undefined,
+
   // Weather. `color` is deliberately absent so each placement can use its own fallback;
   // adding a default would be written to YAML by the editor and become indistinguishable
   // from a user choice.
@@ -1842,8 +1846,10 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
  * Nothing here is part of the event-cache key, which is what keeps the two on it; see
  * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
  *
- * With a weather entity, the forecast is drawn beside each day. No position is written, so the
- * card subscribes to the daily forecast alone (`weather.position` defaults to the date).
+ * With a weather entity, the forecast is drawn beside each day in List, Columns and Grid, the
+ * layouts the toolbar's switcher offers that have a day header: each layout's own `weather:` says
+ * so, as converting the weather written before v6 does (`migrateWeatherFormat`). The card
+ * subscribes to the daily forecast alone.
  *
  * @param weatherEntity - The home's only weather entity, or `undefined` to leave weather out
  * @returns The options to spread over the plain recipe
@@ -1853,7 +1859,14 @@ function interactiveOptions(weatherEntity: string | undefined): Record<string, u
     toolbar: { show: true },
     event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
-    ...(weatherEntity === undefined ? {} : { weather: { entity: weatherEntity } }),
+    ...(weatherEntity === undefined
+      ? {}
+      : {
+          weather_entity: weatherEntity,
+          list: { weather: { position: 'date' } },
+          column: { weather: { position: 'date' } },
+          time_grid: { weather: { position: 'date' } },
+        }),
   };
 }
 
@@ -1911,8 +1924,9 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
  * come first, because Home Assistant shows a card's suggestions in the order returned and these
  * are the ones a new card is best started from. When the home has exactly one weather entity
- * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
- * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather_entity` and each
+ * layout's `weather:` are fetch-time, but not part of the event-cache key: they cost each of those
+ * two previews a forecast
  * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach

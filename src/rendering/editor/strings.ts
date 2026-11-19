@@ -508,6 +508,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.list_one': '{options} now applies to List, as before. The card looks the same.',
   'upgrade.shared': '{options} now apply to every layout, unless a layout has its own.',
   'upgrade.shared_one': '{options} now applies to every layout, unless a layout has its own.',
+  'upgrade.weather':
+    'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
+  'upgrade.weather_some':
+    'Weather is now set per layout: the top-level weather options now apply to {layouts}.',
+  'upgrade.weather_none': 'Weather is now set per layout.',
+  'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',
   'upgrade.share_one': 'Use It for Every Layout',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
@@ -1564,7 +1570,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // name inside a titled group would resolve to its own string rather than to these.
   'panel.weather': 'Weather',
   entity: 'Weather Entity',
-  'entity.helper': 'Leave empty for no forecast at all.',
+  // One entity for every layout: choosing it on a layout's page turns the forecast on there.
+  'entity.helper':
+    'Shared by every layout. Choosing one in a layout turns its forecast on there; clearing it removes the forecast everywhere.',
   position: 'Show The Forecast',
   'position.option.none.label': 'Nowhere',
   'position.option.date.label': 'In the Day Header',

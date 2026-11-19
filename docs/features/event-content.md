@@ -1079,7 +1079,7 @@ thing and leaves the rest alone. The five are everything inside the event box:
 - Grid view starts all five at `accent`; list and column view accept it when you set it. See
   [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 - The event weather badge follows the title: left unset, it takes the accent wherever
-  `event_color` is `accent`. See [`weather.event.color`](/features/weather#weather-configuration-options).
+  `event_color` is `accent`. See [`weather → event → color`](/features/weather#weather-configuration-options).
 - Three things never follow a calendar. An **empty day's** _No events_ notice keeps
   `empty_day_color`, the grid's **`+N` overflow block** stays in the theme's secondary text
   color, and the badge in the **day header** belongs to the day, not to any calendar on it.
@@ -1097,7 +1097,7 @@ before.
 - Nothing else about the text changes. The secondary rows are not dimmed further, and the title
   keeps its weight, `font-weight: 500` against normal. Finished events still use the shared
   [past-content opacity](#past-events-display), applied after their colors resolve.
-- Give `weather.event.color` a color of its own and that color wins; write `accent` into it and
+- Give `weather → event → color` a color of its own and that color wins; write `accent` into it and
   the weather badge follows the calendar in any view, whatever the title does.
 - The mix lifts contrast more in light themes than in dark ones.
 

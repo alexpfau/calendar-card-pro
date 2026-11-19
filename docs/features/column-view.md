@@ -167,9 +167,9 @@ overrides it. Grid substitutes `true` for both options. The editor guide include
 Some options act on the card as a whole, so they hold one value in every layout and are
 ignored inside `list:`, `column:`, `time_grid:` or `month:`. Set them at the top level.
 
-Which events the card loads:
+Which events and forecasts the card loads:
 
-`entities` · `start_date` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
+`entities` · `start_date` · `first_day_of_week` · `weather_entity` · `weather` · `refresh_interval` · `refresh_on_navigate`
 
 Its actions and its toolbar:
 
@@ -184,6 +184,11 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 `event_type` · `hide_when_empty`
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor names every such option under **Options the Card Ignores** at the top of its overview and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
+
+Two of them need a word. `weather_entity` is the one entity every layout draws its forecast
+from; how a layout draws it is that layout's own `weather:`, which belongs in its block. The
+top-level `weather:` is weather as written before v6, which decides every layout's while it
+names an entity. See [Weather Per Layout](/features/weather#weather-per-layout).
 
 Three options sound as though they belong in the first list, and do not:
 

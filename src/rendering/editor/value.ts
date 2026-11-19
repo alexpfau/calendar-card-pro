@@ -205,6 +205,12 @@ function stripBlockDefaults(
     const owned = key in layout.defaults || overrideKeys.has(key);
     if (isSyntheticKey(key) && !owned && !held) continue;
 
+    if (key === 'weather' && Helpers.isConfigBlock(value)) {
+      const kept = stripLayoutWeather(value, authored);
+      if (kept !== undefined) result[key] = kept;
+      continue;
+    }
+
     const special = layout.special?.(config, key, value, held);
     if (special !== undefined) {
       if (special) result[key] = value;
@@ -380,11 +386,35 @@ export function stripListDefaults(
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (ViewConfig.inheritsInView(key, value)) continue;
     if (isSyntheticKey(key) && !unchangedFromAuthored(authored, key, value)) continue;
+    if (key === 'weather' && Helpers.isConfigBlock(value)) {
+      const kept = stripLayoutWeather(value, authored);
+      if (kept !== undefined) result[key] = kept;
+      continue;
+    }
 
     result[key] = value;
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * A layout's own `weather:`, minimized against what a layout's weather starts from: every part's
+ * shipped details, and the position `none`. A line the YAML holds unchanged is kept.
+ *
+ * @param weather - The block's `weather:`
+ * @param authored - The block as the YAML holds it
+ * @returns What to store, or `undefined` for nothing
+ */
+function stripLayoutWeather(
+  weather: Readonly<Record<string, unknown>>,
+  authored: unknown,
+): Record<string, unknown> | undefined {
+  return stripPresentationDefaults(
+    weather,
+    ViewConfig.LAYOUT_WEATHER_BASE as Record<string, unknown>,
+    Helpers.isConfigBlock(authored) ? authored.weather : undefined,
+  );
 }
 
 /**
@@ -991,38 +1021,8 @@ export function stripToolbarDefaults(
 }
 
 /**
- * Builds the `weather:` block as the form should show it.
- *
- * The card reads every nested weather option as `!== false`, so an omitted one
- * renders as its default. Binding the block raw would therefore show the five
- * default-on toggles unchecked while the card draws them enabled. Merging the
- * defaults in mirrors {@link columnFormBlock}; {@link stripWeatherDefaults}
- * takes them back out on write, so the stored block stays minimal.
- *
- * @param config - Merged configuration, defaults already applied
- * @returns The block, with every unset option at its effective value
- */
-export function weatherFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
-  const defaults = Config.DEFAULT_CONFIG.weather ?? {};
-  const stored = (config.weather ?? {}) as Record<string, unknown>;
-  const block: Record<string, unknown> = { ...defaults, ...stored };
-
-  for (const group of WEATHER_GROUPS) {
-    const nested = stored[group];
-    block[group] = {
-      ...(defaults[group] ?? {}),
-      ...(Helpers.isConfigBlock(nested) ? nested : {}),
-    };
-  }
-
-  return block;
-}
-
-/**
- * Strips redundant entries from a `weather:` block.
- *
- * The counterpart to {@link weatherFormBlock}: the form binds every defaulted
- * option, so without this every edit would persist the whole block.
+ * Strips redundant entries from the top-level `weather:` block written before v6, which a card
+ * holds until its first write converts it (`weather-migration.ts`).
  *
  * @param config - Merged configuration, defaults already applied
  * @param authored - The `weather:` block as the YAML holds it; an option it holds unchanged
@@ -1039,7 +1039,27 @@ export function stripWeatherDefaults(
     return undefined;
   }
 
-  const defaults = (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>;
+  return stripPresentationDefaults(
+    block,
+    (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>,
+    authored,
+  );
+}
+
+/**
+ * Strips the options of a weather block that equal what it starts from: the top-level block's
+ * defaults, or a layout's (`ViewConfig.LAYOUT_WEATHER_BASE`), whose position starts at none.
+ *
+ * @param block - The weather block
+ * @param defaults - What it starts from
+ * @param authored - The block as the YAML holds it; an option it holds unchanged is kept
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+function stripPresentationDefaults(
+  block: Readonly<Record<string, unknown>>,
+  defaults: Readonly<Record<string, unknown>>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {

@@ -193,14 +193,60 @@ describe('a field', () => {
 
   it('nested two deep: deletes weather.date.color and the group once empty', () => {
     const { stored } = run(
-      { weather: { entity: 'weather.home', date: { color: 'red' } } },
+      {
+        weather_entity: 'weather.home',
+        time_grid: { weather: { position: 'date', date: { color: 'red' } } },
+      },
       (s) => ({
         kind: 'field',
-        field: fieldOf(s, 'shared', 'weather:weather.date.color'),
-        workspace: 'shared',
+        field: fieldOf(s, 'grid', 'weather:weather.date.color'),
+        workspace: 'grid',
       }),
     );
-    expect(stored).toEqual({ weather: { entity: 'weather.home' } });
+    expect(stored).toEqual({
+      weather_entity: 'weather.home',
+      time_grid: { weather: { position: 'date' } },
+    });
+  });
+
+  it('a layout’s weather: forgets the text held for it in that layout alone', () => {
+    const { state } = run(
+      {
+        weather_entity: 'weather.home',
+        list: { weather: { position: 'date', date: { icon_size: '20px' } } },
+      },
+      (s) => ({
+        kind: 'field',
+        field: fieldOf(s, 'list', 'weather:weather.date.icon_size'),
+        workspace: 'list',
+      }),
+      {
+        pending: {
+          'list.weather.date.icon_size': '2r',
+          'column.weather.date.icon_size': '3r',
+        },
+      },
+    );
+    expect(state.pending).toEqual({ 'column.weather.date.icon_size': '3r' });
+  });
+
+  it('a layout’s weather: deletes its line in that layout’s block, and the block once empty', () => {
+    const { stored } = run(
+      {
+        weather_entity: 'weather.home',
+        list: { weather: { position: 'event' } },
+        column: { weather: { position: 'event' } },
+      },
+      (s) => ({
+        kind: 'field',
+        field: fieldOf(s, 'list', 'weather:weather.position'),
+        workspace: 'list',
+      }),
+    );
+    expect(stored).toEqual({
+      weather_entity: 'weather.home',
+      column: { weather: { position: 'event' } },
+    });
   });
 
   it('a synthetic mode resets with its values and their held text, together (R6)', () => {

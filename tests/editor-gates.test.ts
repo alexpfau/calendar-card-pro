@@ -57,7 +57,7 @@ import { ENTRY_GROUPS, PAGES } from '../src/rendering/editor/pages';
 import * as Routing from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { deepEqual } from '../src/rendering/editor/value';
-import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
+import { type EditorWorkspace, WORKSPACES, storedPath } from '../src/rendering/editor/workspace';
 import * as Helpers from '../src/utils/helpers';
 
 const STATES = corpus();
@@ -211,13 +211,43 @@ const NOT_IN_MONTH = [
   'separators:month_separator_color',
 ];
 
+/**
+ * Each layout's own weather, offered on that layout's Weather page and stored in its block. Layout
+ * Defaults draws no forecast of its own, so it offers the entity alone, and no calendar's Show
+ * Weather, which waits on a forecast beside events.
+ */
+const LAYOUT_WEATHER = [
+  'weather:weather.position',
+  'weather:weather.date.show_conditions',
+  'weather:weather.date.show_high_temp',
+  'weather:weather.date.show_low_temp',
+  'weather:weather.date.show_uv_index',
+  'weather:weather.date.uv_index_threshold',
+  'weather:weather.date.icon_size',
+  'weather:weather.date.font_size',
+  'weather:weather.date.color',
+  'weather:weather.event.show_conditions',
+  'weather:weather.event.show_temp',
+  'weather:weather.event.show_uv_index',
+  'weather:weather.event.uv_index_threshold',
+  'weather:weather.event.daily_forecast_fallback',
+  'weather:weather.event.icon_size',
+  'weather:weather.event.font_size',
+  'weather:weather.event.color',
+  'weather:weather.event.max_lines',
+  'calendar:show_weather',
+];
+
+/** The forecast beside the days, which Month, having no day header, does not offer. */
+const WEATHER_BY_DAY = LAYOUT_WEATHER.filter((id) => id.startsWith('weather:weather.date.'));
+
 /** What each workspace's universe lacks, pinned by value. */
 const LACKS: Readonly<Record<EditorWorkspace, ReadonlyArray<FieldId>>> = {
-  shared: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...MONTH_ONLY],
+  shared: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...MONTH_ONLY, ...LAYOUT_WEATHER],
   list: [...COLUMN_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
   column: [...LIST_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
   grid: [...LIST_ONLY, ...COLUMN_ONLY, ...MONTH_ONLY, ...NOT_IN_GRID],
-  month: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...NOT_IN_MONTH],
+  month: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...NOT_IN_MONTH, ...WEATHER_BY_DAY],
 };
 
 /** Each workspace's universe as pinned: the expectation every check below starts from. */
@@ -288,7 +318,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'toolbar.show': [true, false],
   'toolbar.view_switcher': [true, false],
   'toolbar.legend': [false, 'menu', 'chips'],
-  'weather.entity': [undefined, '', 'weather.home'],
+  weather_entity: [undefined, '', 'weather.home'],
   'weather.position': [undefined, 'none', 'date', 'event', 'both'],
   'weather.date.show_uv_index': [undefined, true, false],
   'weather.event.show_uv_index': [undefined, true, false],
@@ -362,6 +392,11 @@ function writeLegal(
   else if (parts.length === 1) {
     const block = Routing.destination(parts[0], workspace);
     if (block !== undefined) parts = [block, ...parts];
+  } else {
+    // A layout's own weather is held in its block; Layout Defaults holds none to write.
+    const stored = storedPath(parts.slice(0, -1), workspace);
+    if (stored === undefined) return config;
+    parts = [...stored, parts[parts.length - 1]];
   }
   const last = parts[parts.length - 1];
 
@@ -800,7 +835,7 @@ function p(field: FieldId, opens: unknown, accepts: ReadonlyArray<unknown>, need
 
 const W = 'weather:weather.';
 const ON = [true];
-const ENTITY = p(`${W}entity`, 'weather.home', ['weather.home']);
+const ENTITY = p('weather:weather_entity', 'weather.home', ['weather.home']);
 const BY_DAY = p(`${W}position`, 'date', ['date', 'both'], 'gate.needs.forecast_by_day');
 const BY_EVENT = p(`${W}position`, 'event', ['event', 'both'], 'gate.needs.forecast_by_event');
 const DETAILS = { action: 'details' };
@@ -838,13 +873,15 @@ describe('the universe', () => {
     // Layouts keeps all four, which more than one other layout reads. Then Month gained the Day
     // Number and Month font sizes, which its dates now take, lost Height Per Week and Events in
     // Day List, which nothing read, and gained its own eight: its four card heights, its two
-    // shadings and the two font sizes of its days.
+    // shadings and the two font sizes of its days. Then weather became each layout's own: Layout
+    // Defaults lost the layout's eighteen weather settings and a calendar's Show Weather, keeping
+    // the entity, and Month lost the eight of the forecast beside the days it has no header for.
     expect(sizes).toEqual({
-      shared: { card: 153, calendar: 28 },
+      shared: { card: 135, calendar: 27 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 141, calendar: 27 },
+      month: { card: 133, calendar: 27 },
     });
   });
 
@@ -1336,7 +1373,7 @@ describe('the gate table', () => {
 
   it('lists opening edits as the conditions, in order', () => {
     expect(openingEdits(GATES.uv_by_day)).toEqual([
-      [`${W}entity`, 'weather.home'],
+      ['weather:weather_entity', 'weather.home'],
       [`${W}position`, 'date'],
       [`${W}date.show_uv_index`, true],
     ]);
@@ -1381,20 +1418,18 @@ describe('what a gate says it waits for', () => {
   };
 
   it('names whichever condition is unmet, so one gate explains itself differently', () => {
-    const entity: readonly [FieldId, unknown] = [`${W}entity`, 'weather.home'];
+    const entity: readonly [FieldId, unknown] = ['weather:weather_entity', 'weather.home'];
     const beside: readonly [FieldId, unknown] = [`${W}position`, 'event'];
+    // In List, whose own weather the page edits: choosing the entity there turns its forecast on
+    // beside the days, which leaves the position unmet.
     const lines = [
-      explain(GATES.weather_lines, 'shared', []),
-      explain(GATES.weather_lines, 'shared', [entity]),
-      explain(GATES.weather_lines, 'shared', [
-        entity,
-        beside,
-        [`${W}event.show_conditions`, false],
-      ]),
-      explain(GATES.weather_lines, 'shared', [entity, beside]),
+      explain(GATES.weather_lines, 'list', []),
+      explain(GATES.weather_lines, 'list', [entity]),
+      explain(GATES.weather_lines, 'list', [entity, beside, [`${W}event.show_conditions`, false]]),
+      explain(GATES.weather_lines, 'list', [entity, beside]),
     ];
     expect(lines).toEqual([
-      { text: 'Weather Entity', unmet: `${W}entity` },
+      { text: 'Weather Entity', unmet: 'weather:weather_entity' },
       { text: 'the forecast beside each event', unmet: `${W}position` },
       { text: 'Show Conditions Beside Events', unmet: `${W}event.show_conditions` },
       { text: undefined, unmet: undefined },

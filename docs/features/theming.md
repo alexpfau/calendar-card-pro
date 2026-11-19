@@ -38,8 +38,8 @@ instead.
 
 ## 🌦️ Weather Custom Properties
 
-The weather badges read six custom properties, which mirror the `weather.date` and
-`weather.event` options:
+The weather badges read six custom properties, which mirror a layout's `weather → date` and
+`weather → event` options:
 
 | Custom Property                           | Default                       | Affects                                                     |
 | ----------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
@@ -55,7 +55,7 @@ inside: on `.event` for the badge in an event, on `.content-container` for the o
 header. The card writes the first five on `ha-card` itself, from the options or the defaults
 above, so a theme does not replace them there and a card-mod rule on `ha-card` needs
 `!important`. `--calendar-card-weather-event-color` is written
-only once `weather.event.color` is set.
+only once `weather → event → color` is set.
 
 In grid view, and wherever `event_color` is `accent`, each event writes
 `--calendar-card-weather-event-color` on itself too, so the color below needs `!important`.
@@ -66,9 +66,10 @@ two event sizes on its own events the same way, so a size set on `.event` needs 
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-weather:
-  entity: weather.home
-  position: both
+weather_entity: weather.home
+list:
+  weather:
+    position: both
 card_mod:
   style: |
     .event {

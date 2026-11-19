@@ -21,7 +21,8 @@ import { type FieldId, parseFieldId } from './field-index';
 import { destination } from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField } from './synthetic';
-import { BLOCK_KEYS } from './workspace';
+import { WEATHER_ENTITY } from './weather-fields';
+import { isLayoutCopyPath } from './workspace';
 import type * as Types from '../../config/types';
 import { VIEWS, appliesToView, entityScopeFor } from '../../config/view';
 
@@ -573,15 +574,16 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
   {
+    // Each layout's own weather, stored in its block, and the one entity every layout draws from.
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
-    summary: [`${W}entity`, `${W}position`],
+    summary: [WEATHER_ENTITY, `${W}position`],
     headings: [
       {
         key: 'heading.forecast',
         fields: [
-          [`${W}entity`, E],
+          [WEATHER_ENTITY, E],
           [`${W}position`, E],
         ],
       },
@@ -775,8 +777,9 @@ export function placementOf(id: FieldId): Placement | undefined {
  */
 function sameInEveryScope(id: FieldId): boolean {
   const { scope, dataPath, name } = parseFieldId(id);
-  // A nested field stays where its path puts it; inside a view block it is that layout's own.
-  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  // A nested field stays where its path puts it; inside a view block, or a layout group such as
+  // `weather:`, it is that layout's own.
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
   if (scope === 'button') return true;
   if (scope === 'calendar') return entityConfigKeys(name).every((key) => !entityScopeFor(key));
 
@@ -788,7 +791,7 @@ function sameInEveryScope(id: FieldId): boolean {
 /**
  * Whether a page applies to the whole card, so it says "Applies to the whole card." where other
  * pages show the scope. Derived from `routing.ts` › `destination` and the layouts that offer
- * each field, never declared: Card & Header and Weather qualify because no field there has a
+ * each field, never declared: Card & Header qualifies because no field there has a
  * layout copy or is missing from a layout, and Taps & Refresh does not because Grid has no Open
  * Links. A field that later gains a layout copy changes the answer by itself.
  *
@@ -805,11 +808,7 @@ export function isWholeCard(page: { readonly headings: ReadonlyArray<HeadingDef>
  * is the whole card's all the same; such a setting says where it does not apply instead
  * (`plan.ts` › `stateOf`).
  */
-export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set([
-  'card_header',
-  'taps_refresh',
-  'weather',
-]);
+export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set(['card_header', 'taps_refresh']);
 
 /** The topics every layout's page lists, in order: every page that is not the whole card's. */
 export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
@@ -826,7 +825,7 @@ export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
 export function keepsNoLayoutCopy(id: FieldId): boolean {
   const { scope, dataPath, name } = parseFieldId(id);
   if (scope === 'calendar' || scope === 'button') return false;
-  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
   return configKeysForField(name).every((key) =>
     VIEWS.every((view) => destination(key, view) === undefined),
   );

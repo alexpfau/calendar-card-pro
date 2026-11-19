@@ -513,7 +513,7 @@ describe('Search Settings in a page header', () => {
     $(editor, '[data-focus="nav:card_header"]')!.click();
     await editor.updateComplete;
     await searchFromHeader(editor);
-    $(editor, '[data-focus="nav:weather"]')!.click();
+    $(editor, '[data-focus="nav:taps_refresh"]')!.click();
     await editor.updateComplete;
     $(editor, '[data-focus="back-top"]')!.click();
     await editor.updateComplete;

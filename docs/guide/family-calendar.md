@@ -39,8 +39,7 @@ days_to_show: 7
 event_gap: 4px
 filter_duplicates: true
 duplicate_accent_color: '#ffb74d'
-weather:
-  entity: weather.home
+weather_entity: weather.home
 toolbar:
   show: true
   legend: chips
@@ -70,15 +69,21 @@ entities:
     accent_color: '#b388ff'
 list:
   days_to_show: 3
+  weather:
+    position: date
 column:
   min_days_to_show: 3
   show_past_events: true
   past_event_opacity: 40
   event_background_opacity: 15
+  weather:
+    position: date
 time_grid:
   start_time: '07:00'
   end_time: '22:00'
   hour_height: 36px
+  weather:
+    position: date
 month:
   event_gap: 4px
 ```
@@ -172,7 +177,7 @@ The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-it
 
 `view: grid` gives each day a column and puts every timed event at the time it starts, as tall as it is long, unless it lasts a full day or longer and runs into a second date, which makes it a banner in the all-day band. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
 
-Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather` puts each day's forecast in its date header, as far ahead as the forecast reaches. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
+Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather_entity` with `position: date` in the List, Columns and Grid blocks puts each day's forecast in its date header, as far ahead as the forecast reaches; Month shows none. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
 
 The axis runs from 07:00 to 22:00, the hours a family is awake. See [Choosing the Hours the Card Shows](/features/grid-view#choosing-the-hours-the-card-shows).
 

@@ -276,9 +276,9 @@ describe('the feeds in the rendered editor', () => {
     ]);
 
     // Pages: a field takes the live feed by its own selector, one form apiece.
-    await openPageOf(editor, 'weather:weather.entity');
+    await openPageOf(editor, 'weather:weather_entity');
     await unfoldAll(editor);
-    expect(field('weather:weather.entity')).toBe('live');
+    expect(field('weather:weather_entity')).toBe('live');
     expect(field('weather:weather.position')).toBe('steady');
     await openPageOf(editor, 'actions:tap_action');
     await unfoldAll(editor);

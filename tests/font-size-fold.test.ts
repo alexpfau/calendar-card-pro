@@ -704,6 +704,7 @@ describe('the visual editor holds a font size that is not one yet', () => {
 
   describe.each(['weather.date.font_size', 'weather.event.font_size'])('%s', (path) => {
     const WEATHER = PANELS.find((panel) => panel.id === 'weather')!;
+    const group = path.split('.')[1];
 
     /** A form frame built from the real weather panel, so the nesting is the shipped one. */
     function frame(state: State, workspace: Workspace.EditorWorkspace): Routing.FormFrame {
@@ -731,28 +732,42 @@ describe('the visual editor holds a font size that is not one yet', () => {
       );
     }
 
-    const start = () =>
-      buildConfig({
-        weather: {
-          entity: 'weather.home',
-          position: 'both',
-          date: { font_size: '10px' },
-          event: { font_size: '10px' },
-        },
+    /** Each layout edits its own weather, stored in its block; Month has no day header. */
+    const layouts = Workspace.WORKSPACES.filter(
+      (workspace) => workspace !== 'shared' && (group === 'event' || workspace !== 'month'),
+    );
+    const stored = (workspace: Workspace.EditorWorkspace) =>
+      `${View.OVERRIDE_BLOCK_BY_VIEW[workspace as Types.EffectiveView]}.${path}`;
+
+    const start = () => {
+      const weather = {
+        position: 'both',
+        date: { font_size: '10px' },
+        event: { font_size: '10px' },
+      };
+      return buildConfig({
+        weather_entity: 'weather.home',
+        list: { weather },
+        column: { weather },
+        time_grid: { weather },
+        month: { weather: { position: 'event', event: { font_size: '10px' } } },
       } as unknown as Partial<Types.Config>);
+    };
 
     it('renders the field at the path under test', () => {
       // The positive control: without it, a schema that stopped offering the field would
       // leave every edit below a no-op, and the held-value assertions would pass on nothing.
       const state: State = { config: start(), pending: {} };
-      const fields = [...Routing.workspaceFields(frame(state, 'shared').schema)];
-
-      expect(fields.map(({ node, path: parent }) => [...parent, node.name].join('.'))).toContain(
-        path,
-      );
+      for (const workspace of layouts) {
+        const fields = [...Routing.workspaceFields(frame(state, workspace).schema)];
+        expect(
+          fields.map(({ node, path: parent }) => [...parent, node.name].join('.')),
+          workspace,
+        ).toContain(path);
+      }
     });
 
-    it.each(Workspace.WORKSPACES)('in %s, writes nothing until the size parses', (workspace) => {
+    it.each(layouts)('in %s, writes nothing until the size parses', (workspace) => {
       let state: State = { config: start(), pending: {} };
 
       for (const text of ['1', '1r', '1re']) {
@@ -762,13 +777,13 @@ describe('the visual editor holds a font size that is not one yet', () => {
         );
       }
       // `1` parsed and was stored as `1px`; the two after it were held.
-      expect(read(state.config, path)).toBe('1px');
+      expect(read(state.config, stored(workspace))).toBe('1px');
 
       state = type(state, workspace, '1rem');
-      expect(read(state.config, path)).toBe('1rem');
+      expect(read(state.config, stored(workspace))).toBe('1rem');
 
       state = type(state, workspace, '150%');
-      expect(read(state.config, path)).toBe('150%');
+      expect(read(state.config, stored(workspace))).toBe('150%');
     });
   });
 });

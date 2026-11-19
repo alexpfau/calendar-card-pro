@@ -445,5 +445,10 @@ The editor also leaves out the per-calendar compact limit and multi-day splittin
 these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is; see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
+Month's weather is its own, set in `month → weather`, and shows only beside events, in the day's
+list and the panel: `position: event` or `both` shows it there, and the `date` options do
+nothing, since a month has no day header for them. See
+[Weather Per Layout](/features/weather#weather-per-layout).
+
 **→ [Options With No Effect in Month View](/reference/configuration#options-with-no-effect-in-month-view)** — the same options in the configuration reference.
 **→ [Month-Only Options in the configuration reference](/reference/configuration#month-only-options)** — full option table.

@@ -268,6 +268,9 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   ['language', '`System`, fallback `en`'],
   // Absent renders no title at all; there is nothing to fall back to.
   ['title', '-'],
+  // utils/weather-position.ts `weatherEntityOf` — absent, and no top-level `weather:` naming an
+  // entity as written before v6, means no layout draws weather; there is nothing to fall back to.
+  ['weather_entity', '-'],
   // rendering/styles.ts — the custom property is only written when the option is set, so
   // absence leaves the stylesheet's own value in place. The documented default is that
   // variable because that is literally what applies.

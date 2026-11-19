@@ -142,28 +142,26 @@ import * as SearchView from './views/search';
 import * as ShownView from './views/shown';
 import * as SplitView from './views/split';
 import * as Wizard from './views/wizard';
+import { WEATHER_ENTITY } from './weather-fields';
 import * as WordLists from './word-lists';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import * as WeatherMigration from '../../config/weather-migration';
 import { loadIntlLocaleData } from '../../translations/intl-locale-data';
 import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
-import { showsEventWeather } from '../../utils/weather-position';
 
 /** How many entries the list holds before Filter Calendars appears above it. */
 const CALENDAR_FILTER_ROWS = 8;
 
 /** The settings Quick Setup's review lists Apply replacing before Show All. */
 const REVIEW_SHOWN = 5;
-
-/** The weather entity, which a weather heading's settings wait on until one is chosen. */
-const WEATHER_ENTITY = 'weather:weather.entity' as FieldId;
 
 /** Home Assistant's own Visibility editor: the element under a card's Visibility tab. */
 const CONDITIONS_EDITOR = 'ha-card-conditions-editor';
@@ -480,6 +478,8 @@ interface StatusLine {
     readonly keys: ReadonlyArray<string>;
     readonly before: Snapshot;
     readonly shared: boolean;
+    /** What converting the weather written before v6 did, where the upgrade converted it. */
+    readonly weather?: WeatherMigration.WeatherMigrationResult;
   };
 }
 
@@ -1348,7 +1348,10 @@ export class CalendarCardProEditor extends LitElement {
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
     this._adopt(rawConfig, config);
     this._migration = this._migrationState(rawConfig);
-    if (!isEcho) this._pendingUpgrade = this._migration.kind === 'ambiguous';
+    if (!isEcho) {
+      this._pendingUpgrade =
+        this._migration.kind === 'ambiguous' || WeatherMigration.convertsDrawnWeather(rawConfig);
+    }
     // Found once, where the walk over every state is not part of a render the key could skip.
     if (!isEcho) this._pickerCalendar = QuickSetup.firstCalendar(this.hass?.states);
 
@@ -1454,7 +1457,29 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
     if (kind === 'ambiguous') this._adoptMigration(this._migrationResult('keep-list'));
+    this._convertWeather();
     return true;
+  }
+
+  /**
+   * Converts the weather written before v6 into weather per layout (`migrateWeatherFormat`) and
+   * makes the result the editor's local truth, where the YAML still holds a top-level `weather:`
+   * block. The editor writes weather per layout only, so every write starts from a converted card.
+   *
+   * @returns What converting did, or `undefined` where there was nothing to convert
+   */
+  private _convertWeather(): WeatherMigration.WeatherMigrationResult | undefined {
+    if (!Helpers.isConfigBlock(this._rawConfig?.weather)) return undefined;
+    const result = WeatherMigration.migrateWeatherFormat(
+      Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
+    );
+    if (!result.converted) return undefined;
+    this._authoredRootKeys.delete('weather');
+    for (const key of Object.keys(result.config)) {
+      if (!Helpers.hasOwn(this._rawConfig!, key)) this._authoredRootKeys.add(key);
+    }
+    this._adopt(result.config, result.config);
+    return result;
   }
 
   /**
@@ -1464,17 +1489,36 @@ export class CalendarCardProEditor extends LitElement {
    * every layout, and Undo; nothing moves focus, and the receipt is read out once.
    */
   private _upgradeOnOpen(): void {
-    if (this._migration.kind !== 'ambiguous') return;
-    const keys = this._migration.keys;
+    const keys = this._migration.kind === 'ambiguous' ? this._migration.keys : [];
+    const weatherDrawn = WeatherMigration.convertsDrawnWeather(this._rawConfig ?? {});
+    if (keys.length === 0 && !weatherDrawn) return;
     const before = this._snapshot();
     const ctx = this._ctx;
+    let weather: WeatherMigration.WeatherMigrationResult | undefined;
     this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
-      const result = this._migrationResult('keep-list');
-      this._adoptMigration(result);
-      this._send(result.config);
+      if (keys.length > 0) this._adoptMigration(this._migrationResult('keep-list'));
+      else if (!this._prepareForWriteWithoutWeather()) return;
+      // A block that names no entity is left to the first write, with the list migration's.
+      if (weatherDrawn) weather = this._convertWeather();
+      this._send(this._rawConfig!);
     });
-    this._status = { kind: 'upgrade', text: '', at: 0, upgrade: { keys, before, shared: false } };
-    this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeText(ctx, keys, false)}`);
+    if (keys.length === 0 && weather === undefined) return;
+    const upgrade = { keys, before, shared: false, weather };
+    this._status = { kind: 'upgrade', text: '', at: 0, upgrade };
+    this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, upgrade)}`);
+  }
+
+  /**
+   * The list migration a write starts with (`_prepareForWrite`), without converting the weather,
+   * which the upgrade on opening does itself so it can say what it did.
+   *
+   * @returns Whether configuration editing is allowed
+   */
+  private _prepareForWriteWithoutWeather(): boolean {
+    const kind = this._migration.kind;
+    if (kind === 'future' || kind === 'invalid') return false;
+    if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
+    return true;
   }
 
   /**
@@ -1485,21 +1529,66 @@ export class CalendarCardProEditor extends LitElement {
   private _shareUpgraded = (): void => {
     const upgrade = this._status?.upgrade;
     if (upgrade === undefined || upgrade.shared) return;
-    const { keys, before } = upgrade;
+    const { before } = upgrade;
     const ctx = this._ctx;
     this._commit(this._string(ctx, 'history.upgrade_share'), undefined, () => {
       this._adopt(before.raw, structuredClone(before.raw));
       this._authoredRootKeys = new Set(before.authoredRootKeys);
       this._migration = before.migration;
-      const result = this._migrationResult('shared-root');
-      this._adoptMigration(result);
-      this._send(result.config);
+      this._adoptMigration(this._migrationResult('shared-root'));
+      this._convertWeather();
+      this._send(this._rawConfig!);
     });
+    const shared = { ...upgrade, shared: true };
     this._showStatus(
-      { kind: 'upgrade', text: '', at: 0, upgrade: { keys, before, shared: true } },
-      `${this._string(ctx, 'upgrade.title')} ${this._upgradeText(ctx, keys, true)}`,
+      { kind: 'upgrade', text: '', at: 0, upgrade: shared },
+      `${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, shared)}`,
     );
   };
+
+  /**
+   * The upgrade receipt's sentences after its title: what it kept for List, and what it did with
+   * the weather written before v6.
+   *
+   * @param ctx - Schema context
+   * @param upgrade - The upgrade
+   * @returns The sentences
+   */
+  private _upgradeSentences(ctx: SchemaCtx, upgrade: NonNullable<StatusLine['upgrade']>): string {
+    const sentences: string[] = [];
+    if (upgrade.keys.length > 0) {
+      sentences.push(this._upgradeText(ctx, upgrade.keys, upgrade.shared));
+    }
+    const weather = upgrade.weather;
+    if (weather !== undefined) {
+      const layouts = EditorLocalize.formatList(
+        ctx.language,
+        weather.filled.map((view) => this._string(ctx, `view.option.${view}.label`)),
+        'conjunction',
+      );
+      sentences.push(
+        // Only a block the card drew keeps what it showed; options beside `weather_entity` are
+        // new to the layouts they fill, and say nothing of Month, which keeps its own.
+        this._string(
+          ctx,
+          weather.drawn
+            ? 'upgrade.weather'
+            : weather.filled.length > 0
+              ? 'upgrade.weather_some'
+              : 'upgrade.weather_none',
+          { layouts },
+        ),
+      );
+      if (weather.dropped.length > 0) {
+        sentences.push(
+          this._string(ctx, 'upgrade.weather_dropped', {
+            lines: EditorLocalize.formatList(ctx.language, weather.dropped, 'conjunction'),
+          }),
+        );
+      }
+    }
+    return sentences.join(' ');
+  }
 
   /**
    * The upgrade receipt's sentences after its title: "Day Spacing and Event Font Size now apply
@@ -2053,13 +2142,14 @@ export class CalendarCardProEditor extends LitElement {
     const { keys, shared } = upgrade;
     return HistoryView.upgradeReceipt({
       title: this._string(ctx, 'upgrade.title'),
-      text: this._upgradeText(ctx, keys, shared),
-      share: shared
-        ? undefined
-        : {
-            label: this._string(ctx, keys.length === 1 ? 'upgrade.share_one' : 'upgrade.share'),
-            onPress: this._shareUpgraded,
-          },
+      text: this._upgradeSentences(ctx, upgrade),
+      share:
+        shared || keys.length === 0
+          ? undefined
+          : {
+              label: this._string(ctx, keys.length === 1 ? 'upgrade.share_one' : 'upgrade.share'),
+              onPress: this._shareUpgraded,
+            },
       undoLabel: this._haWord(ctx, 'ui.common.undo', 'history.undo'),
       onUndo: this._undo,
     });
@@ -2285,10 +2375,14 @@ export class CalendarCardProEditor extends LitElement {
     const keys = field.configKeys;
     const key = keys.includes(field.node.name) ? field.node.name : (keys[0] ?? field.node.name);
     const { scope } = parseFieldId(field.id);
+    const workspace = ctx.workspace ?? ctx.view;
+    if (scope !== 'calendar' && scope !== 'button' && field.dataPath.length > 0) {
+      return [...(Workspace.storedPath(field.dataPath, workspace) ?? field.dataPath), key].join(
+        '.',
+      );
+    }
     const block =
-      scope === 'calendar' || scope === 'button' || field.dataPath.length > 0
-        ? undefined
-        : Routing.destination(key, ctx.workspace ?? ctx.view);
+      scope === 'calendar' || scope === 'button' ? undefined : Routing.destination(key, workspace);
     return [...(block ? [block] : field.dataPath), key].join('.');
   }
 
@@ -4026,6 +4120,10 @@ export class CalendarCardProEditor extends LitElement {
     const configKey = valueField.configKeys[0] ?? valueField.node.name;
     const block =
       valueField.dataPath.length === 0 ? Routing.destination(configKey, workspace) : undefined;
+    // A layout group's color is the layout's own, stored under its block: `list.weather.date`.
+    const nested = Workspace.LAYOUT_GROUPS.has(valueField.dataPath[0] ?? '')
+      ? Workspace.storedPath(valueField.dataPath, workspace)
+      : undefined;
     // Named for the mode it absorbs, as the page draws it, wherever it is drawn.
     const name = fieldLabel(colors.fields.get(spec.mode ?? field.id) ?? field, ctx.language);
     const wrapper = html`<div
@@ -4050,10 +4148,10 @@ export class CalendarCardProEditor extends LitElement {
         ),
         stored: Routing.atPath(
           this._rawConfig,
-          [...(block === undefined ? [] : [block]), ...valueField.dataPath],
+          nested ?? [...(block === undefined ? [] : [block]), ...valueField.dataPath],
           valueField.node.name,
         ),
-        destination: block ?? '',
+        destination: block ?? nested?.[0] ?? '',
         anchor: field.id,
         focusKey: `field:${field.id}`,
         // Behind its head's ⓘ where it has one, so it is never shown twice.
@@ -5339,13 +5437,7 @@ export class CalendarCardProEditor extends LitElement {
         () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
       ),
     );
-    // Weather stays a Whole Card page until it is set per layout; the shared settings come last.
-    const weather = wholeRows.splice(
-      PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).findIndex(
-        (page) => page.id === 'weather',
-      ),
-      1,
-    );
+    // The shared settings come last.
     const sharedRow = Overview.navRow(
       {
         key: 'nav:shared',
@@ -5359,7 +5451,7 @@ export class CalendarCardProEditor extends LitElement {
     return html`${calendars}
     ${Overview.rowGroup(
       t('overview.whole_card'),
-      [...wholeRows, ...weather, sharedRow],
+      [...wholeRows, sharedRow],
       html`<p class="hint frame-hint">${t('overview.whole_card.hint')}</p>`,
     )}
     ${this._renderLayouts(ctx, chassis)}
@@ -6595,7 +6687,10 @@ export class CalendarCardProEditor extends LitElement {
         Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
         labelImageSourceOf(Entities.asEntityConfig(entry).label),
         hasLegend,
-        showsEventWeather(ctx.config.weather),
+        ViewConfig.showsEventWeatherIn(
+          ctx.config,
+          ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace),
+        ),
       );
       const schema = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
       return { entry, index, key: keys[index], schema };

@@ -25,6 +25,7 @@ import { humanize, lookup } from './localize';
 import { LEGEND_OFF } from './normalize';
 import * as Routing from './routing';
 import { interpolate } from './strings';
+import { WEATHER_ENTITY } from './weather-fields';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -185,7 +186,7 @@ function asAction(value: unknown): Types.ActionConfig | undefined {
 const W = 'weather:weather.';
 
 const HAS_WEATHER = phrased(
-  filled(`${W}entity`, 'weather.home'),
+  filled(WEATHER_ENTITY, 'weather.home'),
   undefined,
   'gate.when.weather_entity',
 );
@@ -568,6 +569,7 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     needsKey: 'gate.needs.calendar_filter',
     whenKey: 'gate.when.calendar_filter',
   },
+  // Read in the scope the calendar's page is open in: the layout's own forecast beside events.
   show_weather: {
     fields: ['calendar:show_weather'],
     requires: [HAS_WEATHER, BY_EVENT],

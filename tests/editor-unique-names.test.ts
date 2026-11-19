@@ -97,14 +97,16 @@ describe('unique names on a page', () => {
     const config = {
       ...DEFAULT_CONFIG,
       entities: ['calendar.anna'],
-      weather: {
-        entity: 'weather.home',
-        position: 'both',
-        date: { show_uv_index: true },
-        event: { show_uv_index: true },
+      weather_entity: 'weather.home',
+      list: {
+        weather: {
+          position: 'both',
+          date: { show_uv_index: true },
+          event: { show_uv_index: true },
+        },
       },
     } as Types.Config;
-    const ctx = schemaCtx(config, 'shared', 'en');
+    const ctx = schemaCtx(config, 'list', 'en');
     const index = buildFieldIndex(ctx);
     const label = (id: FieldId): string => fieldLabel(index.fields.get(id)!, 'en');
     expect(label('weather:weather.date.show_conditions')).toBe('Show Conditions Beside Days');

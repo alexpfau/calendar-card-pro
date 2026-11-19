@@ -7,11 +7,19 @@ import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize
 import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
-import { type EditorWorkspace, WORKSPACE_FIELD, viewForWorkspace } from './workspace';
+import {
+  BLOCK_KEYS,
+  type EditorWorkspace,
+  LAYOUT_GROUPS,
+  WORKSPACE_FIELD,
+  storedPath,
+  viewForWorkspace,
+} from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
+import { weatherEntityOf } from '../../utils/weather-position';
 
 export interface WorkspaceField {
   node: SelectorSchema;
@@ -106,7 +114,8 @@ export function pendingKey(
   workspace: EditorWorkspace,
   path: ReadonlyArray<string> = [],
 ): string {
-  if (path.length > 0) return [...path, name].join('.');
+  // A layout group's text is held where it is stored: `list.weather.date.icon_size`.
+  if (path.length > 0) return [...(storedPath(path, workspace) ?? path), name].join('.');
   const destinations = Synthetic.configKeysForField(name).map((key) => destination(key, workspace));
   const block = destinations[0];
   return block !== undefined && destinations.every((candidate) => candidate === block)
@@ -177,12 +186,14 @@ export function workspaceFormData(
       return [
         [
           block.blockKey,
-          Object.fromEntries(
-            Object.entries(values).map(([key, value]) => [
-              key,
-              normalizeFieldValue(config, [block.blockKey], key, value),
-            ]),
-          ),
+          {
+            ...Object.fromEntries(
+              Object.entries(values).map(([key, value]) => [
+                key,
+                normalizeFieldValue(config, [block.blockKey], key, value),
+              ]),
+            ),
+          },
         ],
       ];
     }),
@@ -195,7 +206,9 @@ export function workspaceFormData(
   let data: Record<string, unknown> = {
     ...projected,
     ...blocks,
-    weather: Value.weatherFormBlock(projected),
+    weather: workspaceWeather(config, workspace),
+    // The entity every layout draws from, wherever it is written.
+    weather_entity: weatherEntityOf(config),
     // The card's own `view`, not the layout Settings For projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
@@ -204,7 +217,12 @@ export function workspaceFormData(
   for (const [key, text] of Object.entries(pending)) {
     const parts = key.split('.');
     const name = parts[parts.length - 1];
-    const path = parts.slice(0, -1);
+    let path = parts.slice(0, -1);
+    // A layout group's text, held under its layout's block, shows in that layout alone.
+    if (path.length > 1 && BLOCK_KEYS.has(path[0]) && LAYOUT_GROUPS.has(path[1])) {
+      if (storedPath(path.slice(1), workspace)?.[0] !== path[0]) continue;
+      path = path.slice(1);
+    }
     // A synthetic field's text, which the derived data above took. Asked of the key, not the
     // name alone: Month's own `card_height` shares its name with the card's Height.
     if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;
@@ -384,7 +402,9 @@ export function applyWorkspaceChange(
     }
 
     if (path.length > 0) {
-      draft = writePath(draft, path, node.name, next);
+      // A layout group is stored in the block of the layout being edited.
+      const stored = storedPath(path, frame.workspace);
+      if (stored !== undefined) draft = writePath(draft, stored, node.name, next);
       continue;
     }
 
@@ -407,6 +427,7 @@ export function applyWorkspaceChange(
       )
         continue;
       draft = writePath(draft, block ? [block] : [], key, value);
+      if (key === 'weather_entity') draft = turnOnLayoutWeather(draft, frame.workspace);
     }
     if ('pending' in applied) {
       for (const [name, value] of Object.entries(applied.pending ?? {})) {
@@ -422,4 +443,42 @@ export function applyWorkspaceChange(
     draft = Value.reconcileTimeGridValues(draft, gridResetKeys, authoredRootKeys);
   }
   return { config: draft, pending: held };
+}
+
+/**
+ * The weather a scope's Weather page edits, every option at its effective value: the layout's own,
+ * as it draws, or for All Layouts, which draws none, the layout base, off.
+ *
+ * @param config - Merged configuration
+ * @param workspace - The scope
+ * @returns The weather, without an entity
+ */
+export function workspaceWeather(
+  config: Readonly<Types.Config>,
+  workspace: EditorWorkspace,
+): Types.WeatherPresentationConfig {
+  const view = viewForWorkspace(workspace);
+  return view === undefined
+    ? structuredClone(ViewConfig.LAYOUT_WEATHER_BASE)
+    : ViewConfig.layoutWeather(config as Types.Config, view);
+}
+
+/**
+ * Turns the forecast on in the layout being edited when an entity is chosen there while that
+ * layout shows none: beside its days, or in Month, which has none, beside its events. Every other
+ * layout keeps its own setting.
+ *
+ * @param config - The configuration with the entity just written
+ * @param workspace - The scope the entity was chosen in
+ * @returns The configuration, with that layout's weather on where it was off
+ */
+export function turnOnLayoutWeather(
+  config: Types.Config,
+  workspace: EditorWorkspace,
+): Types.Config {
+  const view = viewForWorkspace(workspace);
+  if (view === undefined || weatherEntityOf(config) === undefined) return config;
+  if (ViewConfig.layoutWeather(config, view).position !== 'none') return config;
+  const block = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view] as string;
+  return writePath(config, [block, 'weather'], 'position', view === 'month' ? 'event' : 'date');
 }

@@ -393,13 +393,18 @@ column view, but not in grid view.
 
 ## 🌦️ Weather
 
-| Option               | Type   | Default | Description                                                                                                  |
-| -------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `weather`            | object | -       | Weather configuration object containing the options below                                                    |
-| `weather → entity`   | string | -       | Home Assistant weather entity to use for forecasts                                                           |
-| `weather → position` | string | `date`  | Where to show the weather: `none` (nowhere), `date` (in the day header), `event` (next to events), or `both` |
-| `weather → date`     | object | -       | The weather in the day header, with the options below                                                        |
-| `weather → event`    | object | -       | The weather next to events, with the options below                                                           |
+`weather_entity` sits at the top level. `weather` sits inside a layout's block, `list:`,
+`column:`, `time_grid:` or `month:`, and sets how that layout shows the forecast; a layout
+without one shows none.
+
+| Option               | Type   | Default | Description                                                                                                                                                                                                                                                   |
+| -------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weather_entity`     | string | -       | Home Assistant weather entity every layout draws its forecast from                                                                                                                                                                                            |
+| `weather`            | object | -       | In a layout's block: how that layout shows the forecast, with the options below. At the top level, with an `entity`: weather as written before v6, which List, Columns and Grid show as before and which makes the card ignore the options above and below    |
+| `weather → entity`   | string | -       | Only in the top-level `weather` written before v6; the entity it draws from                                                                                                                                                                                   |
+| `weather → position` | string | `none`  | Where this layout shows the weather: `none` (nowhere), `date` (in the day header), `event` (next to events), or `both`. Month shows `event` and `both` beside events and nothing for `date`. In the top-level `weather` written before v6, unset means `date` |
+| `weather → date`     | object | -       | The weather in the day header, with the options below                                                                                                                                                                                                         |
+| `weather → event`    | object | -       | The weather next to events, with the options below                                                                                                                                                                                                            |
 
 ### Weather Position Options
 
@@ -421,6 +426,7 @@ One calendar can leave the weather out beside its own events with `show_weather:
 entry under `entities`; see [Per-Entity Options](#per-entity-options).
 
 **→ [Weather configuration options](/features/weather#weather-configuration-options)** — full table with defaults and worked examples.
+**→ [Weather per layout](/features/weather#weather-per-layout)** — what each layout shows, Month and a narrow screen's list included, and weather written before v6.
 **→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and where.
 
 ## 👆 Actions

@@ -18,6 +18,11 @@ export const LEGEND_OFF = 'off';
 /** The legend's dropdown, in the order it lists them: off, then the two forms. */
 export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 'chips'];
 
+/** Whether a value is a string holding nothing but whitespace. */
+function isBlank(value: unknown): boolean {
+  return typeof value === 'string' && value.trim() === '';
+}
+
 /**
  * Normalizes one root option without turning an explicit clear into a default.
  *
@@ -28,6 +33,8 @@ export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 
 export function normalizeRootValue(key: string, value: unknown): unknown {
   if (key === 'past_event_opacity') return Config.toValidPercentage(value);
   if (value === undefined || value === null) return value;
+  // A cleared entity picker hands back an empty string, which names no entity.
+  if (key === 'weather_entity' && isBlank(value)) return undefined;
   const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
   return typeof defaults[key] === 'number'
     ? (Config.toValidNumber(value) ?? value)
