@@ -129,6 +129,7 @@ describe('what the conversion writes', () => {
     expect(result.config.month).toEqual({ row_height: '90px' });
     expect(result.dropped).toEqual(['weather_entity', 'list.weather', 'month.weather']);
     expect(result.filled).toEqual(['list', 'column', 'grid']);
+    expect(result.drawn).toBe(true);
   });
 
   it('writes a copy into each layout, never one shared object', () => {
@@ -282,8 +283,9 @@ describe('the converted card draws what the old one drew', () => {
       list: { weather: { position: 'both' } },
       time_grid: { weather: { position: 'both' } },
     });
-    // Columns kept its own weather, which the card already drew.
+    // Columns kept its own weather, which the card already drew; the other two are new to it.
     expect(result.filled).toEqual(['list', 'grid']);
+    expect(result.drawn).toBe(false);
   });
 });
 

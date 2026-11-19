@@ -306,6 +306,24 @@ describe('what a result says it is', () => {
     localStorage.removeItem(PREFS_KEY);
   });
 
+  it('a layout’s own weather by the path it is written at in that layout', async () => {
+    const editor = await mount({
+      ...LIST,
+      weather_entity: 'weather.home',
+      time_grid: { weather: { position: 'date' } },
+    });
+    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await searchFor(editor, 'time_grid.weather.position');
+    expect(row(editor, 'weather:weather.position')).toBeDefined();
+    await searchFor(editor, '');
+    await togglePref(editor, 'yaml');
+    await searchFor(editor, 'show the forecast');
+    expect(row(editor, 'weather:weather.position').meta).toContain(
+      'YAML: time_grid.weather.position',
+    );
+    localStorage.removeItem(PREFS_KEY);
+  });
+
   it('a setting waiting in an Add row: one action, the row itself, with nothing beside it', async () => {
     const editor = await mount(LIST);
     await searchFor(editor, 'time font size');

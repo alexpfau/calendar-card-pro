@@ -44,7 +44,7 @@ import * as Shown from './shown';
 import { interpolate } from './strings';
 import { type Describe, wordValue } from './summary';
 import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
-import type { EditorWorkspace } from './workspace';
+import { type EditorWorkspace, storedPath } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -677,7 +677,9 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
     field.dataPath.length === 0
       ? Routing.destination(written, scope as EditorWorkspace)
       : undefined;
-  const yamlPath = [...(block ? [block] : field.dataPath), written].join('.');
+  // A layout group is written under its layout's block: `list.weather.position`.
+  const nested = storedPath(field.dataPath, scope as EditorWorkspace) ?? field.dataPath;
+  const yamlPath = [...(block ? [block] : nested), written].join('.');
   const texts: Texts = [...fieldTexts(field, ctx, 'card'), [yamlPath, 'key']];
   const spec = absorbingSpec(place.id, ctx);
   const color =

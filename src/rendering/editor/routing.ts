@@ -7,7 +7,14 @@ import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize
 import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
-import { type EditorWorkspace, WORKSPACE_FIELD, storedPath, viewForWorkspace } from './workspace';
+import {
+  BLOCK_KEYS,
+  type EditorWorkspace,
+  LAYOUT_GROUPS,
+  WORKSPACE_FIELD,
+  storedPath,
+  viewForWorkspace,
+} from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -107,7 +114,8 @@ export function pendingKey(
   workspace: EditorWorkspace,
   path: ReadonlyArray<string> = [],
 ): string {
-  if (path.length > 0) return [...path, name].join('.');
+  // A layout group's text is held where it is stored: `list.weather.date.icon_size`.
+  if (path.length > 0) return [...(storedPath(path, workspace) ?? path), name].join('.');
   const destinations = Synthetic.configKeysForField(name).map((key) => destination(key, workspace));
   const block = destinations[0];
   return block !== undefined && destinations.every((candidate) => candidate === block)
@@ -209,7 +217,12 @@ export function workspaceFormData(
   for (const [key, text] of Object.entries(pending)) {
     const parts = key.split('.');
     const name = parts[parts.length - 1];
-    const path = parts.slice(0, -1);
+    let path = parts.slice(0, -1);
+    // A layout group's text, held under its layout's block, shows in that layout alone.
+    if (path.length > 1 && BLOCK_KEYS.has(path[0]) && LAYOUT_GROUPS.has(path[1])) {
+      if (storedPath(path.slice(1), workspace)?.[0] !== path[0]) continue;
+      path = path.slice(1);
+    }
     // A synthetic field's text, which the derived data above took. Asked of the key, not the
     // name alone: Month's own `card_height` shares its name with the card's Height.
     if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;

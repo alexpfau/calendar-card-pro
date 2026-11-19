@@ -269,8 +269,12 @@ A card whose top-level `weather:` names an entity is converted to
 entity becomes `weather_entity`, and List, Columns and Grid each take the old block's options as
 their own `weather:`. Month, which drew no forecast from it, stays off. The receipt says so and
 names any line the card ignored that the conversion removes, such as a layout's own `weather:`
-beside the old block. **Undo** puts the old block back, and your next change converts it again. A
-top-level `weather:` that names no entity drew nothing, and your first change removes it.
+beside the old block. **Undo** puts the old block back, and your next change converts it again.
+
+A top-level `weather:` that names no entity drew nothing. Beside `weather_entity` it is converted
+on opening too, and the layouts with no `weather:` of their own take its options, so they show
+what they did not show before; the receipt names them. With no entity anywhere, your first change
+removes it.
 
 The upgrade is a change to the card like any other: it is kept only when you press **Save**, so
 **Cancel** leaves the card as it was, and a card you never open in the editor keeps working as it

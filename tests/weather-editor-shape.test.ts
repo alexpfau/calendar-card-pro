@@ -230,6 +230,24 @@ describe('a card written before v6', () => {
       column: { weather: { position: 'event' } },
       time_grid: { weather: { position: 'event' } },
     });
-    expect(receipt(editor)).toContain('Columns and Grid');
+    // Columns and Grid show what they did not before, and Month is not mentioned.
+    expect(receipt(editor)).toBe(
+      'Upgraded. Weather is now set per layout: Columns and Grid now use the top-level weather ' +
+        'options. Undo',
+    );
+  });
+
+  it('says nothing of Month when it keeps its own weather beside weather_entity', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      weather_entity: 'weather.home',
+      weather: { position: 'date' },
+      month: { weather: { position: 'event' } },
+    });
+    expect(lastConfig(editor)).toMatchObject({ month: { weather: { position: 'event' } } });
+    expect(receipt(editor)).toBe(
+      'Upgraded. Weather is now set per layout: List, Columns, and Grid now use the top-level ' +
+        'weather options. Undo',
+    );
   });
 });

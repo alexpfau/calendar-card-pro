@@ -243,6 +243,36 @@ describe('What This Card Changes, its groups', () => {
     // rather than for a hang.
   }, 30_000);
 
+  it('owns each layout’s own weather under its layout, never as kept', () => {
+    const raw = {
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      weather_entity: 'weather.home',
+      list: { day_spacing: '4px', weather: { position: 'event' } },
+      time_grid: { weather: { position: 'date', date: { show_low_temp: true } } },
+    };
+    const config = Config.mergeConfig(
+      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      raw,
+    ) as unknown as Types.Config;
+    const groups = Audit.auditGroups({ raw, config, entryKeys: [0] });
+    const of = (kind: string, workspace?: string) =>
+      groups
+        .filter((group) => group.kind === kind && (!workspace || group.workspace === workspace))
+        .flatMap((group) => group.lines.map((line) => [line.text, line.field]));
+
+    expect(of('kept')).toEqual([]);
+    expect(of('layout', 'list')).toEqual([
+      ['list.day_spacing', 'layout:day_spacing'],
+      ['list.weather.position', 'weather:weather.position'],
+    ]);
+    expect(of('layout', 'grid')).toEqual([
+      ['time_grid.weather.position', 'weather:weather.position'],
+      ['time_grid.weather.date.show_low_temp', 'weather:weather.date.show_low_temp'],
+    ]);
+    expect(of('whole')).toEqual([['weather_entity', 'weather:weather_entity']]);
+  });
+
   it('gives a line the field holding its value, not the mode choosing which', () => {
     const raw = {
       config_version: VERSION,

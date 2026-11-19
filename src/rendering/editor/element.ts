@@ -1567,9 +1567,11 @@ export class CalendarCardProEditor extends LitElement {
         'conjunction',
       );
       sentences.push(
+        // Only a block the card drew keeps what it showed; options beside `weather_entity` are
+        // new to the layouts they fill, and say nothing of Month, which keeps its own.
         this._string(
           ctx,
-          weather.filled.length === WeatherMigration.LAYOUTS_DRAWING_OLD_WEATHER.length
+          weather.drawn
             ? 'upgrade.weather'
             : weather.filled.length > 0
               ? 'upgrade.weather_some'
@@ -4118,6 +4120,10 @@ export class CalendarCardProEditor extends LitElement {
     const configKey = valueField.configKeys[0] ?? valueField.node.name;
     const block =
       valueField.dataPath.length === 0 ? Routing.destination(configKey, workspace) : undefined;
+    // A layout group's color is the layout's own, stored under its block: `list.weather.date`.
+    const nested = Workspace.LAYOUT_GROUPS.has(valueField.dataPath[0] ?? '')
+      ? Workspace.storedPath(valueField.dataPath, workspace)
+      : undefined;
     // Named for the mode it absorbs, as the page draws it, wherever it is drawn.
     const name = fieldLabel(colors.fields.get(spec.mode ?? field.id) ?? field, ctx.language);
     const wrapper = html`<div
@@ -4142,10 +4148,10 @@ export class CalendarCardProEditor extends LitElement {
         ),
         stored: Routing.atPath(
           this._rawConfig,
-          [...(block === undefined ? [] : [block]), ...valueField.dataPath],
+          nested ?? [...(block === undefined ? [] : [block]), ...valueField.dataPath],
           valueField.node.name,
         ),
-        destination: block ?? '',
+        destination: block ?? nested?.[0] ?? '',
         anchor: field.id,
         focusKey: `field:${field.id}`,
         // Behind its head's ⓘ where it has one, so it is never shown twice.

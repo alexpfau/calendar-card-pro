@@ -28,6 +28,11 @@ export interface WeatherMigrationResult {
   readonly config: Record<string, unknown>;
   /** Whether a top-level `weather:` block was converted. */
   readonly converted: boolean;
+  /**
+   * Whether the block named its entity, so the card drew it as before and the layouts it filled
+   * keep what the card showed. Otherwise a layout it filled shows what it did not show before.
+   */
+  readonly drawn: boolean;
   /** The layouts that took the top-level block's options, in `VIEWS` order. */
   readonly filled: ReadonlyArray<Types.EffectiveView>;
   /**
@@ -86,7 +91,13 @@ export function migrateWeatherFormat(
 ): WeatherMigrationResult {
   const block = stored.weather;
   if (!Helpers.isConfigBlock(block)) {
-    return { config: stored as Record<string, unknown>, converted: false, filled: [], dropped: [] };
+    return {
+      config: stored as Record<string, unknown>,
+      converted: false,
+      drawn: false,
+      filled: [],
+      dropped: [],
+    };
   }
 
   const { entity, ...presentation } = block as Record<string, unknown>;
@@ -142,7 +153,7 @@ export function migrateWeatherFormat(
   }
 
   if (!asBefore && resulting === undefined && hasOptions) dropped.push('weather');
-  return { config, converted: true, filled, dropped };
+  return { config, converted: true, drawn: asBefore, filled, dropped };
 }
 
 /**

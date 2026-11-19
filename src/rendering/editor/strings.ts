@@ -511,7 +511,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.weather':
     'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
   'upgrade.weather_some':
-    'Weather is now set per layout: {layouts} take the card’s weather options, and Month is off.',
+    'Weather is now set per layout: {layouts} now use the top-level weather options.',
   'upgrade.weather_none': 'Weather is now set per layout.',
   'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',
@@ -1572,7 +1572,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   entity: 'Weather Entity',
   // One entity for every layout: choosing it on a layout's page turns the forecast on there.
   'entity.helper':
-    'Shared by every layout. Choosing one turns the forecast on here only; clearing it removes it everywhere.',
+    'Shared by every layout. Choosing one in a layout turns its forecast on there; clearing it removes the forecast everywhere.',
   position: 'Show The Forecast',
   'position.option.none.label': 'Nowhere',
   'position.option.date.label': 'In the Day Header',

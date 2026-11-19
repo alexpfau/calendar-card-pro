@@ -209,6 +209,27 @@ describe('a field', () => {
     });
   });
 
+  it('a layout’s weather: forgets the text held for it in that layout alone', () => {
+    const { state } = run(
+      {
+        weather_entity: 'weather.home',
+        list: { weather: { position: 'date', date: { icon_size: '20px' } } },
+      },
+      (s) => ({
+        kind: 'field',
+        field: fieldOf(s, 'list', 'weather:weather.date.icon_size'),
+        workspace: 'list',
+      }),
+      {
+        pending: {
+          'list.weather.date.icon_size': '2r',
+          'column.weather.date.icon_size': '3r',
+        },
+      },
+    );
+    expect(state.pending).toEqual({ 'column.weather.date.icon_size': '3r' });
+  });
+
   it('a layout’s weather: deletes its line in that layout’s block, and the block once empty', () => {
     const { stored } = run(
       {

@@ -620,6 +620,12 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
       // `1` parsed and was stored as `1px`; the two after it were held.
       expect(read(state.config, stored(workspace))).toBe('1px');
 
+      // Held for this layout alone, where its line is stored; every other layout shows its own.
+      expect(Object.keys(state.pending)).toEqual([stored(workspace)]);
+      for (const other of layouts.filter((each) => each !== workspace)) {
+        expect(shown(state, other), other).toBe('10px');
+      }
+
       state = type(state, workspace, path, '1rem');
       expect(read(state.config, stored(workspace))).toBe('1rem');
 
