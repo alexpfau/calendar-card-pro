@@ -227,8 +227,6 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
     '--calendar-card-week-number-font-size': config.week_number_font_size,
     '--calendar-card-month-separator-label-font-size': config.month_separator_label_font_size,
-    '--calendar-card-week-number-color': config.week_number_color,
-    '--calendar-card-week-number-bg-color': config.week_number_background_color,
 
     '--calendar-card-empty-day-color':
       config.empty_day_color === Config.DEFAULT_CONFIG.empty_day_color
@@ -281,6 +279,27 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   if (config.title_font_size) {
     props['--calendar-card-font-size-title'] = config.title_font_size;
+  }
+
+  // The week-number pill's colors, only where set: unset, the stylesheet draws the pill as
+  // today's tile (`.week-number`). A background set without a number color gives its number the
+  // text color, and a light wash, by the tile's rule, a shade of itself where the browser can mix
+  // one: the background is handed on as the source of that shade only then. Behind a stronger
+  // background the shade fails as text, and the text color comes through exactly.
+  // A value that is not text is drawn as unset (Config.validateWeekMarkColor reports it).
+  const weekNumberColor = Config.weekMarkColor(config.week_number_color);
+  const weekNumberBackground = Config.weekMarkColor(config.week_number_background_color);
+  if (weekNumberColor) {
+    props['--calendar-card-week-number-color'] = weekNumberColor;
+  }
+  if (weekNumberBackground) {
+    props['--calendar-card-week-number-bg-color'] = weekNumberBackground;
+    if (!weekNumberColor) {
+      props['--calendar-card-week-number-ink-floor'] = 'var(--primary-text-color)';
+      if (ColorMix.isLightWash(weekNumberBackground)) {
+        props['--calendar-card-week-number-fill-source'] = weekNumberBackground;
+      }
+    }
   }
 
   if (config.title_color) {
@@ -1713,7 +1732,20 @@ export const cardStyles = css`
   /* Sized in em because the pill carries the week-number font size itself, so em measures
      that font whatever form the option takes. Multiplying the option's value instead broke on
      every valid font size that is not a length: 150% drew the pill 171px wide across the
-     separator, and a keyword dropped the pill shape. */
+     separator, and a keyword dropped the pill shape.
+
+     Its colors are today's tile's unless set: the tile's wash and the tile's ink, declared on
+     ha-card below the tile, so a pill and the tile above it never disagree. Without color-mix()
+     neither is declared, and the pill is a neutral gray with the text color, as it always was
+     there; the solid tile is too loud to repeat at every week.
+
+     A background set without a number color gets the number the tile's rule gives a light wash:
+     a shade of that background, --calendar-card-week-number-fill-ink, declared below the tile
+     in the relative-color tier, from the source the card writes only for a light wash. With no
+     such source it is invalid and falls through. Otherwise the number of a set background is the
+     text color, which the card writes as --calendar-card-week-number-ink-floor. The week
+     separators repeat this chain as their own color (WEEK_MARK_INK in leaves.ts), so a
+     background written with currentColor means the same color on a pill and a separator. */
   .week-number {
     width: 2.5em;
     height: 1.5em;
@@ -1722,8 +1754,20 @@ export const cardStyles = css`
     justify-content: center;
     font-size: var(--calendar-card-week-number-font-size);
     font-weight: 500;
-    color: var(--calendar-card-week-number-color);
-    background-color: var(--calendar-card-week-number-bg-color);
+    color: var(
+      --calendar-card-week-number-color,
+      var(
+        --calendar-card-week-number-fill-ink,
+        var(
+          --calendar-card-week-number-ink-floor,
+          var(--calendar-card-today-indicator-ink, var(--primary-text-color))
+        )
+      )
+    );
+    background-color: var(
+      --calendar-card-week-number-bg-color,
+      var(--calendar-card-today-indicator-wash, rgba(128, 128, 128, 0.31))
+    );
     border-radius: 999px;
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
@@ -1927,7 +1971,10 @@ export const cardStyles = css`
     margin: 0.15em auto;
     border-radius: 0.27em;
     font-variant-numeric: proportional-nums;
-    background: var(--calendar-card-today-indicator-color);
+    background: var(
+      --calendar-card-today-indicator-wash,
+      var(--calendar-card-today-indicator-color)
+    );
     /* Home Assistant's own "text on the primary color" token, for the solid floor. */
     --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
   }
@@ -1965,10 +2012,15 @@ export const cardStyles = css`
 
      Mixed into the card's own background and text colors, both theme tokens, so the wash
      darkens on a dark theme and the digits lighten, with no question asked of the OS (see
-     the all-day pill's ink for why light-dark() is not used). */
+     the all-day pill's ink for why light-dark() is not used).
+
+     Both are declared on ha-card as well, which the week-number pills and the week separators
+     read them from, and again on the tile, so a card-mod rule setting the indicator color on
+     the tile itself still recolors it: a custom property resolves where it is declared. */
   @supports (color: color-mix(in oklab, red, blue)) {
+    ha-card,
     .day.today-tile {
-      background: color-mix(
+      --calendar-card-today-indicator-wash: color-mix(
         in oklab,
         var(--calendar-card-today-indicator-color) 25%,
         var(--calendar-card-background-color, var(--card-background-color))
@@ -1984,29 +2036,56 @@ export const cardStyles = css`
   /* Chroma restored, as for the all-day pill: a mix spends the color's chroma along with its
      lightness, so each half takes its lightness from the mix and its chroma back up toward
      the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
-     the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
-     so a half-transparent indicator color still gives a solid number. Gated as the pill's
-     relative-color tier is (#731, #742). */
+     the two numbers holds here unchanged). Gated as the pill's relative-color tier is (#731,
+     #742).
+
+     The chroma is scaled as Oklab's a and b rather than as OKLCH's c, which is the same
+     scaling wherever the color has a hue. Below a chroma of about 0.02 Chromium converts the
+     mix to OKLCH with no hue at all, and scaling c then paints hue 0: a wash of a muted blue
+     came out pink. Oklab has no hue to lose.
+
+     The digits take the indicator color at full opacity, as the digits of a set pill
+     background do (below): mixed with its transparency in, a half-transparent color drew a
+     number close to the text color, while a pill in that color drew the full shade. They are
+     opaque whatever the color's alpha. */
   @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
     (width: round(1px, 1px)) {
+    ha-card,
     .day.today-tile {
-      background: oklch(
+      --calendar-card-today-indicator-wash: oklab(
         from
           color-mix(
             in oklab,
             var(--calendar-card-today-indicator-color) 25%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
-          l calc(c * 1.8) h
+          l calc(a * 1.8) calc(b * 1.8)
       );
-      --calendar-card-today-indicator-ink: oklch(
+      --calendar-card-today-indicator-ink: oklab(
         from
           color-mix(
             in oklab,
-            var(--calendar-card-today-indicator-color) 45%,
+            oklab(from var(--calendar-card-today-indicator-color) l a b / 1) 45%,
             var(--primary-text-color)
           )
-          l calc(c * 2.2) h / 1
+          l calc(a * 2.2) calc(b * 2.2) / 1
+      );
+    }
+
+    /* The number of a set pill background, by the tile's rule: the background's own color at
+       full opacity, mixed as the tile's digits are. The card writes the source only while the
+       background is a light wash, at most about a third opaque (ColorMix.isLightWash); behind a
+       stronger one the shade fails as text, so there this is invalid and the number is the text
+       color exactly, as it is with no background set, where the pill takes the tile's ink. */
+    ha-card {
+      --calendar-card-week-number-fill-ink: oklab(
+        from
+          color-mix(
+            in oklab,
+            oklab(from var(--calendar-card-week-number-fill-source) l a b / 1) 45%,
+            var(--primary-text-color)
+          )
+          l calc(a * 2.2) calc(b * 2.2) / 1
       );
     }
   }

@@ -21,6 +21,7 @@ export const FOLLOWS: Readonly<Record<string, string>> = {
   today_day_color: 'day_color',
   today_month_color: 'month_color',
   month_separator_label_color: 'month_separator_color',
+  week_separator_color: 'week_number_background_color',
 };
 
 /**
@@ -41,6 +42,17 @@ export function unsetWord(
 ): string | undefined {
   const { scope, name } = parseFieldId(id);
   if (name === 'today_day_color' && tile) return t('value.tile_ink');
+  // The pill is today's tile until it is given colors of its own; without a tile it is still a
+  // wash of the indicator color. Its number is a deeper shade of its background, or the text
+  // color behind a strong one, which these words cannot see, so they name what decides it.
+  if (name === 'week_number_background_color') {
+    return tile
+      ? t('value.tile_ink')
+      : t('value.depends_on', { label: label('today_indicator_color') });
+  }
+  if (name === 'week_number_color') {
+    return t('value.depends_on', { label: label('week_number_background_color') });
+  }
   const follows = FOLLOWS[name];
   if (follows !== undefined) return t('value.same_as', { label: label(follows) });
   if (scope === 'calendar') {

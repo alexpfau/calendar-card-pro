@@ -266,6 +266,48 @@ export function renderDayWeekNumber(
 }
 
 /**
+ * The color a week separator is drawn in while `week_separator_color` is unset: the week-number
+ * pill's background, so a separator and the pill beside it are one color in every view.
+ *
+ * That background is the one set for the pill or, unset, today's tile's wash, which the
+ * stylesheet declares on `ha-card` as `--calendar-card-today-indicator-wash` wherever it can mix
+ * one. Without color-mix() neither is there, and the separator takes the pill's gray floor.
+ */
+export const WEEK_MARK_COLOR =
+  'var(--calendar-card-week-number-bg-color, var(--calendar-card-today-indicator-wash, rgba(128, 128, 128, 0.31)))';
+
+/**
+ * The week-number pill's number color, the chain `.week-number` reads in the stylesheet, given
+ * to a separator drawn in {@link WEEK_MARK_COLOR} as its own color. A background written with
+ * currentColor resolves it where it is drawn, so without this a separator would mix the text
+ * color where the pill beside it mixes its number's. A separator has no text of its own.
+ */
+export const WEEK_MARK_INK =
+  'var(--calendar-card-week-number-color, var(--calendar-card-week-number-fill-ink, var(--calendar-card-week-number-ink-floor, var(--calendar-card-today-indicator-ink, var(--primary-text-color)))))';
+
+/**
+ * The color to draw a week separator in.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns `week_separator_color`, or the pill's background where that is unset or not text
+ */
+export function weekSeparatorColor(config: Types.Config): string {
+  return Config.weekMarkColor(config.week_separator_color) ?? WEEK_MARK_COLOR;
+}
+
+/**
+ * The color property a week separator takes, so that it resolves currentColor as the pill does.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns {@link WEEK_MARK_INK} while `week_separator_color` is unset, otherwise `undefined`
+ */
+export function weekSeparatorInk(config: Types.Config): string | undefined {
+  return Config.weekMarkColor(config.week_separator_color) === undefined
+    ? WEEK_MARK_INK
+    : undefined;
+}
+
+/**
  * Whether today's indicator is the tile drawn behind the day number itself.
  *
  * The tile is the one style that is not an element of its own: it restyles the day number,

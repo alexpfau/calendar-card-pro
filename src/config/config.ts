@@ -41,8 +41,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   title_color: undefined,
 
   background_color: 'var(--ha-card-background)',
-  // The theme's primary color, so a calendar nobody colored, the today tile, the week-number
-  // pills and the week separators take a custom theme's accent instead of a fixed blue. The
+  // The theme's primary color, so a calendar nobody colored and the today tile, and through it
+  // the week-number pills and the week separators, take a custom theme's accent instead of a
+  // fixed blue. The
   // fallback is the card's former default, for a host that defines no --primary-color. Kept
   // as literals rather than a shared constant: check:docs reads these defaults as source text.
   accent_color: 'var(--primary-color, #03a9f4)',
@@ -60,14 +61,15 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_week_numbers: null,
   show_current_week_number: true,
   week_number_font_size: '12px',
-  week_number_color: 'var(--primary-text-color)',
-  // 31% is the former '#03a9f450' (0x50 / 255), carried over to the theme's color.
-  week_number_background_color:
-    'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  // Unset, the pill is drawn as today's tile is, in the stylesheet: a wash of
+  // today_indicator_color with its number in a deeper shade. A recipe with browser tiers
+  // cannot live in a default string. See `.week-number` in styles.ts.
+  week_number_color: undefined, // Inherit from the tile's ink, or a shade of a set background
+  week_number_background_color: undefined, // Inherit from the tile's wash
   day_separator_width: '0px',
   day_separator_color: 'var(--secondary-text-color)',
   week_separator_width: '0px',
-  week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  week_separator_color: undefined, // Inherit from week_number_background_color
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
   month_separator_label: false,
@@ -334,6 +336,56 @@ export function validatePastEventOpacity(value: unknown, path = 'past_event_opac
     return;
   }
   Logger.warn(`Ignoring "${path}": expected a finite percentage from 0 to 100.`);
+}
+
+/**
+ * The week-number pill's colors and the week separator's, unset by default so that they follow
+ * today's tile. Only text can be a color: unquoted in YAML, `333333` arrives as a number and
+ * `yes` as a boolean.
+ */
+export const WEEK_MARK_COLOR_OPTIONS = [
+  'week_number_color',
+  'week_number_background_color',
+  'week_separator_color',
+] as const;
+
+/**
+ * A week mark's color as it is drawn: the text written, or `undefined`, drawn as unset, where
+ * nothing is written or what is written is not text. {@link validateWeekMarkColor} reports the
+ * second.
+ *
+ * @param value - The option's value as written
+ * @returns The color, or `undefined`
+ */
+export function weekMarkColor(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/**
+ * Reports a week mark's color that is not text, which the card draws as unset.
+ *
+ * @param value - Raw value; missing and null values mean unset
+ * @param path - Option path used in the diagnostic, `column.week_separator_color` in a view block
+ */
+export function validateWeekMarkColor(value: unknown, path: string): void {
+  if (value === undefined || value === null || typeof value === 'string') {
+    return;
+  }
+  Logger.warn(
+    `Invalid ${path} ${JSON.stringify(value)}: expected a CSS color as text, such as ` +
+      '"#e67c7350"; in YAML, quote a hex color. Ignoring it.',
+  );
+}
+
+/**
+ * Reports every top-level week mark color that is not text.
+ *
+ * @param config - Merged configuration, as written
+ */
+export function validateWeekMarkColors(config: Types.Config): void {
+  for (const key of WEEK_MARK_COLOR_OPTIONS) {
+    validateWeekMarkColor(config[key], key);
+  }
 }
 
 // Also read by the editor's upgrade path.

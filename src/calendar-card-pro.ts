@@ -6746,6 +6746,7 @@ class CalendarCardPro extends LitElement {
     Config.normalizeNumericOptions(this.config);
     // Reported here, on the value as written, because normalizing is what replaces it.
     Config.validateFoldedLengths(this.config);
+    Config.validateWeekMarkColors(this.config);
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);

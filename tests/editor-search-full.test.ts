@@ -773,12 +773,11 @@ describe('the controls the stack below added', () => {
       /^Home Assistant's primary color( · |$)/,
     );
     // A color a gate holds back, and another layout's, are worded the same way, never as CSS.
-    expect(row(editor, 'day_header:week_number_background_color').meta).toMatch(
-      /^Home Assistant's primary color, 31%( · |$)/,
-    );
     expect(row(editor, 'layout:time_grid.weekend_background_color').meta).toMatch(
       /^Primary Text, 4%( · |$)/,
     );
+    await searchFor(editor, 'progress bar color');
+    expect(row(editor, 'events:progress_bar_color').meta).toMatch(/^Secondary Text( · |$)/);
   });
 
   // A color whose source a mode chooses is one control on its page, so one result, worded as the

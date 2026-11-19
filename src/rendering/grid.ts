@@ -62,6 +62,8 @@ interface GridSeparator {
   kind: SeparatorKind;
   width: string;
   color: string;
+  /** The pill's number color, for a week separator that takes the pill's background. */
+  ink?: string;
 }
 
 /**
@@ -145,7 +147,8 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
     return {
       kind: 'week',
       width: config.week_separator_width,
-      color: config.week_separator_color,
+      color: Leaves.weekSeparatorColor(config),
+      ink: Leaves.weekSeparatorInk(config),
     };
   }
 
@@ -192,6 +195,7 @@ function renderGridSeparator(
         gridRow: '3 / span 2',
         width: separator.width,
         '--calendar-card-grid-rule-paint': ColorMix.floorColor(separator.color),
+        color: separator.ink,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>

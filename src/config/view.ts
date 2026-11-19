@@ -7,6 +7,7 @@
 import {
   DEFAULT_CONFIG,
   FOLDED_OPTIONS,
+  WEEK_MARK_COLOR_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
   normalizeEntities,
@@ -17,6 +18,7 @@ import {
   toValidPercentage,
   validateFoldedLength,
   validatePastEventOpacity,
+  validateWeekMarkColor,
 } from './config';
 import { HA_CARD_KEYS } from './constants';
 import * as Types from './types';
@@ -1938,6 +1940,15 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
     if (ownKeys.has(key)) {
       validateFoldedLength(
         key,
+        (overrides as Record<string, unknown>)[key],
+        `${block.blockKey}.${key}`,
+      );
+    }
+  }
+
+  for (const key of WEEK_MARK_COLOR_OPTIONS) {
+    if (ownKeys.has(key)) {
+      validateWeekMarkColor(
         (overrides as Record<string, unknown>)[key],
         `${block.blockKey}.${key}`,
       );
