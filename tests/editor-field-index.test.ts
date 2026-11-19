@@ -277,10 +277,10 @@ describe('field ids', () => {
         `${EVERY_FIELD.size} ids in all.`,
     );
     // 222 without Month or the name on List's month separator, Arrow & Chip Size among them.
-    // Month adds its own eleven: its four card heights, Minimum Day Width, its two shadings, the
-    // two font sizes of its days, Week Scrolling and Minimum Card Width, and Layouts in Switcher.
-    // List's month separator adds three: Month Name on Rule, its color and its size.
-    expect(EVERY_FIELD.size).toBe(237);
+    // Month adds its own ten: its four card heights, Minimum Day Width, its two shadings, the two
+    // font sizes of its days, and Layouts in Switcher. List's month separator adds three: Month
+    // Name on Rule, its color and its size.
+    expect(EVERY_FIELD.size).toBe(235);
   });
 
   it('do not depend on the editor language', () => {

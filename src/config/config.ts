@@ -581,6 +581,36 @@ export function switcherOffers(
 }
 
 /**
+ * Whether the configuration asks for a toolbar that holds a control: `show` on, with any control
+ * on, a switcher that offers two layouts, or a button of its own. Search is not counted: the card
+ * draws it only beside the date navigation, which it opens a match's day with, so it never makes
+ * a toolbar of its own. The month's default height makes room for the toolbar where this holds
+ * (`Sections.cardGridOptions`, `MonthRender.monthCardStyle`).
+ *
+ * Read from the configuration alone, so a Sections dashboard, which asks again only when the
+ * configuration changes, gets the same answer as the card. What one device then draws can be
+ * less: an add button needs a calendar it can write to, a switched layout has to fit, and a
+ * filter needs a calendar to filter. The room is kept all the same, so the height does not move
+ * with any of them.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns `true` while the configuration asks for a toolbar with a control in it
+ */
+export function asksForToolbar(config: Readonly<Pick<Types.Config, 'toolbar' | 'view'>>): boolean {
+  const toolbar = resolveToolbar(config);
+  if (!toolbar.show) return false;
+  return (
+    toolbar.navigation ||
+    toolbar.addEvent ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.legend !== false ||
+    toolbar.buttons.length > 0 ||
+    switcherOffers(config).length > 0
+  );
+}
+
+/**
  * The `toolbar.view_switcher_layouts` members the card leaves out, as written: each that names
  * no layout.
  *

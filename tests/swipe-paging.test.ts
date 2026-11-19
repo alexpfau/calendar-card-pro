@@ -645,10 +645,8 @@ describe('what a card that swipes declares to the browser', () => {
   const CSS = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('hands it vertical panning and pinch zoom where a swipe starts, only with the class', () => {
-    // A month's weeks that scroll take the vertical pan as well, under rules of their own, which
-    // `month-keyboard.test.ts` pins.
-    const rules = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(
-      ([, prelude, body]) => body.includes('touch-action') && !prelude.includes('.week-scroll'),
+    const rules = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, , body]) =>
+      body.includes('touch-action'),
     );
     expect(rules).toHaveLength(1);
 

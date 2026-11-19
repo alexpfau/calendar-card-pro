@@ -890,7 +890,7 @@ describe('the list fitted to its room', () => {
     ]);
     // One height, whatever the day holds: the card's, and a list whose rows take the room.
     expect([...heights].map((each) => JSON.parse(each))).toEqual([
-      { card: '36rem', list: 'month-day-list', rows: '<div class="month-day-list-rows">' },
+      { card: '760px', list: 'month-day-list', rows: '<div class="month-day-list-rows">' },
     ]);
 
     // Another month's day, fitted the same way.

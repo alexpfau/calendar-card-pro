@@ -235,6 +235,40 @@ describe('ambiguous legacy configurations', () => {
 
 describe('automatic adoption paths', () => {
   it.each(['list', 'grid'] as const)(
+    'keeps on a versionless %s card the root values only Month starts from a default of its own',
+    async (view) => {
+      // Month postdates the format a versionless card was written in, so these stay shared, and
+      // every layout that reads them keeps the card's own values.
+      const roots = {
+        day_font_size: '20px',
+        weekday_font_size: '18px',
+        week_number_font_size: '15px',
+        vertical_line_width: '4px',
+        event_gap: '2px',
+      };
+      const { editor, reports } = await mount({ view, ...roots });
+
+      expect(blocker(editor)).toBeNull();
+      expect(receipt(editor)).toBeNull();
+      expect(reports).toEqual([]);
+      await changeField(editor, 'card:title', 'Adopted');
+      const stored = reports.slice(-1)[0]!;
+
+      expect(stored).toMatchObject(roots);
+      expect(stored).not.toHaveProperty('list');
+      for (const shown of ['list', 'column', 'grid'] as const) {
+        const resolved = View.resolveEffectiveConfig(merged(stored), shown);
+        expect(
+          Object.fromEntries(
+            Object.keys(roots).map((key) => [key, resolved[key as keyof Types.Config]]),
+          ),
+        ).toEqual(shown === 'grid' ? { ...roots, event_gap: resolved.event_gap } : roots);
+      }
+      editor.remove();
+    },
+  );
+
+  it.each(['list', 'grid'] as const)(
     'does not prompt a versionless %s card with no divergent root key',
     async (view) => {
       const { editor, reports } = await mount({

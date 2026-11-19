@@ -775,7 +775,7 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /**
    * `card_height` for the compact form, which takes `card_height` while this is unset; `auto` is
-   * the compact form's own default.
+   * the month's own default, the same in both forms.
    */
   compact_card_height?: string;
 
@@ -787,12 +787,6 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /** Day-cell width in pixels below which the month draws its compact form. */
   min_day_width?: number;
-
-  /** Whether a vertical swipe, the mouse wheel or a trackpad moves the rows by whole weeks. */
-  week_scroll?: boolean;
-
-  /** Card width in pixels from which `week_scroll` applies; `0` for any width. */
-  week_scroll_min_width?: number;
 
   /**
    * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
@@ -812,14 +806,14 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   today_background_color?: string;
 
   /**
-   * Font size of what the wide month draws in its days: a line's title and its calendar label, and
-   * a bar's title. A day's list and the panel take `event_font_size`.
+   * Font size of what the wide month draws in its days: a line's title and its calendar label, a
+   * bar's title, and a day's "+N more". A day's list and the panel take `event_font_size`.
    */
   cell_event_font_size?: string;
 
   /**
-   * Font size of a line's time, a bar's times and length, and a day's "+N more" in the wide month.
-   * A day's list and the panel take `time_font_size`.
+   * Font size of a line's time, and a bar's times and length, in the wide month. A day's list and
+   * the panel take `time_font_size`.
    */
   cell_time_font_size?: string;
 }

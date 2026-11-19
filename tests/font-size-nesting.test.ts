@@ -1205,8 +1205,8 @@ describe('every piece of text is sized by its own option', () => {
       // the month's cell sizes, which the wide month writes on itself.
       'month-line-time in event': ['month.cell_time_font_size'],
       'month-line-title in event': ['month.cell_event_font_size'],
-      // "+N more" in the cells' time size, as the secondary text beside a title is.
-      'month-more in month-week': ['month.cell_time_font_size'],
+      // "+N more" in the cells' title size and the secondary ink, so it reads as a line of the day.
+      'month-more in month-week': ['month.cell_event_font_size'],
       // The month's name on List's month separator: on the plain rule, and in the week row beside
       // the pill.
       'month-separator-label in month-separator': ['month_separator_label_font_size'],

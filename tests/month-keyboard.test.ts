@@ -9,8 +9,7 @@
  * and out of the Tab order, since the panel lists them. A pick from search pages to its month and
  * rings the event where the month discloses it: in the weeks, in a compact day's list, or in its
  * day's panel behind "+N more". And an event that ends dims, or goes, with no `hass` traffic at
- * all. Zones that move the arithmetic are in `month-keyboard.dst.test.ts`; the wheel and the
- * finger in `month-week-scroll.test.ts`.
+ * all. Zones that move the arithmetic are in `month-keyboard.dst.test.ts`.
  *
  * Wednesday, November 18, 2026, 10:00 UTC; Mondays first, so home's six weeks run from Monday,
  * October 26 to Sunday, December 6. Names are invented.

@@ -36,13 +36,13 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 Each layout's page lists five topics, and Layout Defaults the first four, since no forecast
 setting has a value for every layout:
 
-| Topic                | What it holds                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Grid's hours, Month's wheel and swipe, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
-| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                              |
-| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                                                   |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules                      |
-| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares                          |
+| Topic                | What it holds                                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode     |
+| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading         |
+| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                              |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules |
+| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares     |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -194,9 +194,8 @@ back to on a narrow screen. **Layouts**, on the overview, gives each layout a ro
   `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
   layout. Grid's hours are on its Which Events, its hour labels and hour height on Size &
   Spacing, its shading on Days and its now line and overlapping events on Event Appearance.
-  Month's heights sit on its Size & Spacing, its shading on Days, the text sizes of its days on
-  Event Appearance, beside the sizes a day's list takes, and its wheel and swipe paging on its
-  Which Events, under **Wheel & Swipe**.
+  Month's heights sit on its Size & Spacing, its shading on Days, and the text sizes of its days
+  on Event Appearance, beside the sizes a day's list takes.
 - **A topic page names its layout** under its title. **Also for: List · Columns · Month · Layout
   Defaults** opens the same topic in another layout, and **Continue with**, at its foot, opens the
   next topic, then the next layout's Which Events, through List, Columns, Grid and Month in turn.

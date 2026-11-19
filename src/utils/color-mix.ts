@@ -54,9 +54,10 @@ export function resetColorMixSupport(): void {
 /**
  * Each mix the card ships, and what it writes in its place without color-mix().
  *
- * - The grid's rules and separators are Home Assistant's divider at half strength. The divider
- *   is a text color at 12%, so half of it is about a 6% mix of the text, and gray takes twice
- *   that.
+ * - The card's rules are Home Assistant's divider at 75%. The divider is a text color at 12%, so
+ *   75% of it is about a 9% mix of the text, and gray takes twice that. The grid shipped the
+ *   divider at half strength before, which keeps its floor for a YAML that still holds it.
+ * - The rule under a header is the text color at 18%, and gray takes twice that.
  * - The grid's weekend shading is the text color at 4%, and gray takes twice that.
  * - The week number's pill and the week separator shipped the theme's accent at 31% until they
  *   took today's tile's colors, which the stylesheet floors itself. The floor stays for a YAML
@@ -70,7 +71,9 @@ export function resetColorMixSupport(): void {
  * there (TAPPABLE EVENTS in `styles.ts`).
  */
 export const COLOR_MIX_FLOORS: ReadonlyMap<string, string> = new Map([
+  ['color-mix(in srgb, var(--divider-color) 75%, transparent)', 'rgba(128, 128, 128, 0.18)'],
   ['color-mix(in srgb, var(--divider-color) 50%, transparent)', 'rgba(128, 128, 128, 0.12)'],
+  ['color-mix(in srgb, var(--primary-text-color) 18%, transparent)', 'rgba(128, 128, 128, 0.36)'],
   ['color-mix(in srgb, var(--primary-text-color) 4%, transparent)', 'rgba(128, 128, 128, 0.08)'],
   [
     'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
