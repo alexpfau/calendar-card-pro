@@ -81,6 +81,13 @@ describe('the entity every layout draws from', () => {
     await changeField(editor, 'weather:weather_entity', undefined);
     expect(lastConfig(editor)).toEqual({ ...CARD, list: { weather: { position: 'both' } } });
   });
+
+  it('writes no line for a picker cleared to an empty string', async () => {
+    const editor = await mountEditor({ ...CARD, weather_entity: 'weather.home' });
+
+    await changeField(editor, 'weather:weather_entity', '');
+    expect(lastConfig(editor)).toEqual(CARD);
+  });
 });
 
 describe('a layout’s own weather', () => {

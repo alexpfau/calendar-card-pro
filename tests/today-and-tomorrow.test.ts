@@ -182,9 +182,11 @@ const placed = (card: StoryCard) => blocks(card).map((b) => `${b.day} ${b.title}
 const withTimeGrid = (patch: Record<string, unknown>) =>
   withOptions(CARD, { time_grid: { ...(CARD.time_grid as object), ...patch } });
 
-/** The card with its weather placed elsewhere. */
+/** The card with Grid's weather placed elsewhere. */
 const withWeatherAt = (position: string) =>
-  withOptions(CARD, { weather: { ...(CARD.weather as object), position } });
+  withTimeGrid({
+    weather: { ...((CARD.time_grid as Record<string, unknown>).weather as object), position },
+  });
 
 describe('the Today & Tomorrow card behaves as its page describes', () => {
   let popovers: ReturnType<typeof spyOnPopovers>;
@@ -219,10 +221,18 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
       show_progress_bar: true,
-      weather: { entity: 'weather.home', position: 'both', event: { show_conditions: false } },
+      weather_entity: 'weather.home',
       event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
-      time_grid: { start_time: '07:00', end_time: '21:00', hour_height: '56px', slot_minutes: 30 },
+      time_grid: {
+        start_time: '07:00',
+        end_time: '21:00',
+        hour_height: '56px',
+        slot_minutes: 30,
+        weather: { position: 'both', event: { show_conditions: false } },
+      },
+      // A phone shows the list in the grid's place, with the same forecast.
+      list: { weather: { position: 'both', event: { show_conditions: false } } },
     });
   });
 
@@ -324,7 +334,10 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
 
     // Control: without `event.show_conditions: false` every block with weather names its
     // condition.
-    const worded = await mountStory(dropOption(CARD, 'weather.event.show_conditions'), DAYS);
+    const worded = await mountStory(
+      dropOption(CARD, 'time_grid.weather.event.show_conditions'),
+      DAYS,
+    );
     expect(blocks(worded).map((b) => b.weather?.condition ?? null)).toEqual([
       'Partly cloudy',
       null,
