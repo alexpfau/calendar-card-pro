@@ -29,10 +29,15 @@ const LIST_ONLY = Object.keys(ViewConfig.VIEW_SCOPE).filter((key) => {
   return scope !== undefined && scope.size === 1 && scope.has('list');
 });
 
-/** Keys a registered view gives a different default from the top level. */
+/**
+ * Keys a registered view gives a different default from the top level, among the views a
+ * versionless card could have been written for: Month came after the v5 format.
+ */
 const DIVERGENT = [
   ...new Set(
-    Object.values(ViewConfig.VIEW_BLOCKS).flatMap((block) => Object.keys(block.defaultOverrides)),
+    Object.entries(ViewConfig.VIEW_BLOCKS)
+      .filter(([view]) => view !== 'month')
+      .flatMap(([, block]) => Object.keys(block.defaultOverrides)),
   ),
 ];
 
@@ -263,6 +268,31 @@ describe('the migration relocates an old configuration', () => {
     const migrated = migrate({}, 'keep-list', authored);
 
     expect(migrated.list).toEqual(authored);
+  });
+
+  it('counts the defaults of the layouts a versionless card could have been written for', () => {
+    // A card without config_version predates Month, so Month's own defaults say nothing about
+    // what its root values meant; counted, they would move a root value Column and Grid still
+    // read into list:, out of their reach.
+    const earlier = [
+      ...Object.keys(ViewConfig.COLUMN_DEFAULT_OVERRIDES),
+      ...Object.keys(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES),
+    ];
+    expect(Value.listRelocationKeys().divergent).toEqual([...new Set(earlier)].sort());
+    const monthOnly = Object.keys(ViewConfig.MONTH_DEFAULT_OVERRIDES).filter(
+      (key) => !earlier.includes(key),
+    );
+    expect(monthOnly).toEqual(
+      expect.arrayContaining([
+        'day_font_size',
+        'weekday_font_size',
+        'week_number_font_size',
+        'vertical_line_width',
+      ]),
+    );
+    expect(Value.ambiguousRootKeys(Object.fromEntries(monthOnly.map((key) => [key, 'x'])))).toEqual(
+      [],
+    );
   });
 
   it('derives ambiguity from authored divergent root presence only', () => {

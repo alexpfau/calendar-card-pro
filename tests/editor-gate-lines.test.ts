@@ -92,7 +92,6 @@ describe('the gate lines’ clauses', () => {
       // Layouts in Switcher waits on the bar, then on its View Switcher chip.
       'switcher_layouts card:toolbar.show': 'gate.when.on',
       'switcher_layouts card:toolbar.view_switcher': 'gate.when.pressed',
-      'week_scroll layout:month.week_scroll': 'gate.when.on',
       'forecast weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.position': 'gate.when.forecast_by_day',
@@ -152,10 +151,10 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Six: three since the event parts became chips, Show Month, Show Toolbar and Show
-    // Conditions Beside Events, then Month's Week Scrolling, Show Toolbar again for Layouts in
-    // Switcher, and Month Name on Rule for the name's color and size on List's month separator.
-    expect(switches.length).toBe(6);
+    // Five: three since the event parts became chips, Show Month, Show Toolbar and Show
+    // Conditions Beside Events, then Show Toolbar again for Layouts in Switcher, and Month Name on
+    // Rule for the name's color and size on List's month separator.
+    expect(switches.length).toBe(5);
     expect(unclaused(ALL)).toEqual([]);
   });
 

@@ -30,6 +30,28 @@ type Case = readonly [
 
 const AUTO = { height: 'auto', max: 'none' };
 
+/** A toolbar with every control off, which draws nothing. */
+const NO_CONTROLS = {
+  navigation: false,
+  add_event: false,
+  view_switcher: false,
+  reset: false,
+  refresh: false,
+  search: false,
+  legend: false,
+} as const;
+
+/** Each control a toolbar can hold, alone. */
+const ONE_CONTROL: ReadonlyArray<readonly [string, Types.ToolbarConfig]> = [
+  ['navigation', { navigation: true }],
+  ['add', { add_event: true }],
+  ['reset', { reset: true }],
+  ['refresh', { refresh: true }],
+  ['the filter', { legend: 'chips' }],
+  ['a button of its own', { buttons: [{ icon: 'mdi:home' }] }],
+  ['a switcher of two layouts', { view_switcher: true, view_switcher_layouts: ['list'] }],
+];
+
 describe('the card size a month resolves', () => {
   it.each<Case>([
     ['nothing set', undefined, AUTO, AUTO],
@@ -258,7 +280,7 @@ describe('the rows a card asks a Sections dashboard for', () => {
   it.each<readonly [string, Partial<Types.Config>, number | 'auto']>([
     ['a month', { view: 'month' }, 10],
     ['a month with an empty block', { view: 'month', month: {} }, 10],
-    ['a month with other options', { view: 'month', month: { week_scroll: true } }, 10],
+    ['a month with other options', { view: 'month', month: { min_day_width: 90 } }, 10],
     // A key sizes the card only where it sets a height or a maximum, in either form.
     ['a month with card_height', { view: 'month', month: { card_height: '50rem' } }, 'auto'],
     [
@@ -327,7 +349,45 @@ describe('the rows a card asks a Sections dashboard for', () => {
       },
       10,
     ],
+    // Two rows more where the configuration asks for a toolbar holding a control, whichever.
+    ['a month with the toolbar', { view: 'month', toolbar: { show: true } }, 12],
+    ['a month with its toolbar hidden', { view: 'month', toolbar: { show: false } }, 10],
+    [
+      'a month with a toolbar of no control',
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS } },
+      10,
+    ],
+    ...ONE_CONTROL.map(([control, on]): readonly [string, Partial<Types.Config>, number] => [
+      `a month with a toolbar of ${control} alone`,
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS, ...on } },
+      12,
+    ]),
+    // Search is drawn only beside the date navigation, which it opens a match's day with.
+    [
+      'a month with a toolbar of search alone',
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS, search: true } },
+      10,
+    ],
+    [
+      'a month with a toolbar of search and navigation',
+      { view: 'month', toolbar: { show: true, ...NO_CONTROLS, search: true, navigation: true } },
+      12,
+    ],
+    [
+      'a month whose switcher offers only itself',
+      {
+        view: 'month',
+        toolbar: { show: true, ...NO_CONTROLS, view_switcher: true, view_switcher_layouts: [] },
+      },
+      10,
+    ],
+    [
+      'a month with the toolbar and a height',
+      { view: 'month', toolbar: { show: true }, month: { card_height: '50rem' } },
+      'auto',
+    ],
     ['a list', { view: 'list' }, 'auto'],
+    ['a list with the toolbar', { view: 'list', toolbar: { show: true } }, 'auto'],
     ['a grid with a month block', { view: 'grid', month: {} }, 'auto'],
     ['a column', { view: 'column' }, 'auto'],
   ])('%s', (_name, config, rows) => {
@@ -482,9 +542,31 @@ describe('the height a month writes on its card', () => {
   });
 
   it.each<readonly [string, Record<string, unknown>, number, [string, string]]>([
-    // The forms' own defaults.
-    ['wide, by default', {}, 900, ['44rem', 'none']],
-    ['compact, by default', {}, 375, ['36rem', 'none']],
+    // The month's own default, one in both forms, and a taller one where the configuration asks
+    // for a toolbar: a Sections slot's ten rows, or twelve.
+    ['wide, by default', {}, 900, ['632px', 'none']],
+    ['compact, by default', {}, 375, ['632px', 'none']],
+    ['wide, with the toolbar', { toolbar: { show: true } }, 900, ['760px', 'none']],
+    ['compact, with the toolbar', { toolbar: { show: true } }, 375, ['760px', 'none']],
+    [
+      'with a toolbar of one control',
+      { toolbar: { show: true, ...NO_CONTROLS, refresh: true } },
+      900,
+      ['760px', 'none'],
+    ],
+    // A toolbar holding no control draws nothing, and keeps no room.
+    [
+      'with a toolbar of no control',
+      { toolbar: { show: true, ...NO_CONTROLS } },
+      900,
+      ['632px', 'none'],
+    ],
+    [
+      'with the toolbar hidden',
+      { toolbar: { ...NO_CONTROLS, refresh: true } },
+      900,
+      ['632px', 'none'],
+    ],
     // Each form's keys, the compact one following the wide one where unset.
     [
       'wide, set',
@@ -513,7 +595,7 @@ describe('the height a month writes on its card', () => {
       375,
       ['auto', '40rem'],
     ],
-    ['wide, capped', { month: { card_max_height: '40rem' } }, 900, ['44rem', '40rem']],
+    ['wide, capped', { month: { card_max_height: '40rem' } }, 900, ['632px', '40rem']],
     [
       'compact, a height under a cap',
       { month: { compact_card_height: '30rem', compact_card_max_height: '40rem' } },
@@ -524,7 +606,7 @@ describe('the height a month writes on its card', () => {
       'compact, its cap taken off',
       { month: { card_max_height: '40rem', compact_card_max_height: 'none' } },
       375,
-      ['36rem', 'none'],
+      ['632px', 'none'],
     ],
     [
       'a panel’s height',
@@ -533,7 +615,7 @@ describe('the height a month writes on its card', () => {
       ['calc(100dvh - var(--header-height, 56px))', 'none'],
     ],
     // The shared options size the content area of the other views, and nothing here.
-    ['the shared options', { height: '300px', max_height: '200px' }, 900, ['44rem', 'none']],
+    ['the shared options', { height: '300px', max_height: '200px' }, 900, ['632px', 'none']],
     // Any other view writes none.
     ['a list', { view: 'list', month: { card_height: '50rem' } }, 900, ['', '']],
   ])('%s', async (_name, config, width, expected) => {
@@ -564,9 +646,13 @@ describe('the height a month writes on its card', () => {
     ).toEqual(['', '']);
   });
 
-  it('writes none in a Sections slot, which it fills, and asks for ten rows', async () => {
+  it('writes none in a Sections slot, which it fills, and asks for ten rows, or twelve', async () => {
     const card = await mount({ grid_options: { rows: 10 } }, { layout: 'grid' });
     expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 10 });
+    expect(written(card)).toEqual(['', '']);
+    const withToolbar = await mount({ toolbar: { show: true } }, { layout: 'grid' });
+    expect(withToolbar.getGridOptions()).toEqual({ columns: 'full', rows: 12 });
+    expect(written(withToolbar)).toEqual(['', '']);
     expect(written(card)).toEqual(['', '']);
 
     // A compact month fills it too.
@@ -579,7 +665,7 @@ describe('the height a month writes on its card', () => {
     expect(written(card)).toEqual(['', '']);
     card.layout = 'panel';
     await card.updateComplete;
-    expect(written(card)).toEqual(['44rem', 'none']);
+    expect(written(card)).toEqual(['632px', 'none']);
 
     card.layout = 'grid';
     card.setConfig({ view: 'month', entities: ['calendar.anna'], month: { card_height: '40rem' } });

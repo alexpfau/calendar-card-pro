@@ -124,17 +124,24 @@ const RESOLVED_ELSEWHERE = new Set([
  */
 const RETIRED_DEFAULTS = new Set([
   'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  // Grid's four rules shipped the divider at half strength until v6.0 took them to 75%, and the
+  // reference printed it as each one's default.
+  'color-mix(in srgb, var(--divider-color) 50%, transparent)',
 ]);
 
 /** The shipped mix written into each color option below, and the floor it must draw as. */
-const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 50%, transparent)';
+const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 75%, transparent)';
+
+/** The shipped mix of the rule under a header. */
+const HEADER_MIX = 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)';
 
 /**
  * What each mix the scenarios below write draws as without color-mix(), or `undefined` where the
  * card leaves it unwritten there. The tint is the one at the scenarios' 20%.
  */
 const FLOORS: Readonly<Record<string, string | undefined>> = {
-  [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.12)',
+  [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.18)',
+  [HEADER_MIX]: 'rgba(128, 128, 128, 0.36)',
   'color-mix(in srgb, var(--primary-text-color) 4%, transparent)': 'rgba(128, 128, 128, 0.08)',
   'color-mix(in srgb, var(--primary-text-color) 60%, transparent)': 'var(--secondary-text-color)',
   'color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent)': 'rgba(128, 128, 128, 0.2)',
@@ -167,6 +174,7 @@ function mixedDefaults(): Map<string, string> {
 
 /** The options whose default is a mix, pinned by value. */
 const MIXED_OPTIONS = [
+  'column:day_header_separator_color',
   'grid:allday_band_line_color',
   'grid:day_header_separator_color',
   'grid:day_separator_color',
@@ -190,7 +198,6 @@ const COLOR_OPTIONS = [
   'card:month_separator_color',
   'card:week_number_background_color',
   'card:week_separator_color',
-  'column:day_header_separator_color',
   'grid:today_background_color',
   'month:today_background_color',
 ].sort();
@@ -412,17 +419,20 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
 
   it('lists every one in the source by value', () => {
     expect(scriptMixes()).toEqual([
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       'config/view.ts: color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, currentColor 10%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, currentColor 6%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, var(--primary-text-color) 60%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, red, blue)',
       'utils/color-mix.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      'utils/color-mix.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+      'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 60%, transparent)',
       'utils/helpers.ts: color-mix(in srgb, ${color} ${opacity}%, transparent)',

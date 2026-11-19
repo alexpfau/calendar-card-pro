@@ -445,7 +445,7 @@ describe('resolveEffectiveConfig', () => {
       // so this pin owns the VALUES and that gate owns which options are in the table.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
         day_separator_width: '1px',
-        day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        day_separator_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
         day_spacing: '1px',
         description_color: 'accent',
         event_background_opacity: 20,
@@ -884,7 +884,9 @@ describe('column view config surface', () => {
 
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
-    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
+    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+    );
   });
 
   it('prefers a configured column-only value over its default', () => {

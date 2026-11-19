@@ -39,7 +39,7 @@ import * as Presentation from './presentation';
 import { generateCustomPropertiesObject } from './styles';
 import * as TextScale from './text-scale';
 import { stopCardGesture } from './toolbar';
-import { DEFAULT_CONFIG } from '../config/config';
+import { DEFAULT_CONFIG, asksForToolbar } from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -85,12 +85,6 @@ export interface MonthOptions {
    * decides (`_monthTabStop`). The header month's 1st where none is handed.
    */
   readonly focusDay?: Date;
-  /**
-   * The wheel's listener while `week_scroll` applies, bound to the weeks, which are then marked
-   * `week-scroll` so they claim a vertical pan as well. Not passive, as it takes the wheel from
-   * the page; bound only then, so a month without it costs a scroll nothing.
-   */
-  readonly weekScroll?: EventListenerObject & AddEventListenerOptions;
 }
 
 /** What a compact month draws besides its weeks. */
@@ -962,8 +956,8 @@ function tintProperties(config: Types.Config): Record<string, string> {
  * @param capacity - Lines that fit under a date, as the card last measured them
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each bar, line and row is a tap target of its own
- * @param options - What "+N more" opens, the compact form's selected day and lists, the day the
- *   keyboard's tab stop is on, and the wheel's listener while weeks scroll
+ * @param options - What "+N more" opens, the compact form's selected day and lists, and the day
+ *   the keyboard's tab stop is on
  * @returns The month
  */
 export function renderMonthGroupedEvents(
@@ -997,10 +991,9 @@ export function renderMonthGroupedEvents(
   // cells' sizes (`MONTH_FLOOR_PROPERTIES`), where no render binds them.
   return html`
     <div
-      class=${classMap({ 'month-container': true, 'week-scroll': options.weekScroll !== undefined })}
+      class="month-container"
       role="grid"
       aria-label=${Paging.monthHeading(headerMonth, language)}
-      @wheel=${options.weekScroll ?? nothing}
       style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
@@ -1698,9 +1691,10 @@ export function monthCompactGrows(config: Types.Config): boolean {
 
 /**
  * The height and the cap a month writes on its card where no Sections slot sizes it, from its
- * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the form's own
- * default (`UI.MONTH_CARD_HEIGHT`); a length is handed to CSS as written, so `rem`, `dvh` and a
- * `calc()` with a `var()` survive.
+ * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the month's own
+ * default, one height in both forms and a taller one where the configuration asks for a toolbar
+ * (`UI.MONTH_CARD_HEIGHT`, `Config.asksForToolbar`); a length is handed to CSS as written, so
+ * `rem`, `dvh` and a `calc()` with a `var()` survive.
  *
  * The whole card's, its title, toolbar and notices included, so the weeks share what those leave
  * and never take their height from their events. The one exception is a compact month whose
@@ -1727,7 +1721,10 @@ export function monthCardStyle(
     };
   }
   return {
-    height: height === 'auto' ? Constants.UI.MONTH_CARD_HEIGHT[form] : height,
+    height:
+      height === 'auto'
+        ? Constants.UI.MONTH_CARD_HEIGHT[asksForToolbar(config) ? 'toolbar' : 'plain']
+        : height,
     'max-height': max,
   };
 }
@@ -1753,7 +1750,7 @@ export interface MonthFloors {
  *
  * A week holds its date line and one line, the taller of a title and a time, under its rule, so
  * a day the card is too short for still shows its date and "+N more"; the month holds the weekday
- * names, six such weeks and its own closing rule. Below them the card's content scrolls rather
+ * names, six such weeks and a closing rule where one is drawn. Below them the card's content scrolls rather
  * than any text shrinking.
  *
  * Read from what fonts alone decide: the three probes (`measureMonthCapacity`), the weekday row
@@ -1797,17 +1794,4 @@ export function measureMonthFloors(container: HTMLElement): MonthFloors | null {
   const up = (pixels: number) => Math.ceil(pixels - 0.01);
   const week = up((date + pitch + rule) / scale);
   return { week, month: up(names / scale + ViewConfig.MONTH_ROWS * week + closing) };
-}
-
-/**
- * Whether the card's content scrolls: a month the card is too short for, below its floors. More
- * than a pixel over, as `gridContentOverflows` forgives one, since fractional layout puts content
- * that fits a pixel over its box. False where nothing is laid out.
- *
- * @param root - The card's render root
- * @returns `true` while the content scrolls
- */
-export function monthContentScrolls(root: ParentNode): boolean {
-  const content = root.querySelector<HTMLElement>('.content-container');
-  return content !== null && content.scrollHeight > content.clientHeight + 1;
 }

@@ -56,11 +56,7 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 
 ### Movement & Drags
 
-- **Pans.** Vertical pans are the browser's, except on a month's weeks while `month → week_scroll`
-  applies (`_weekScrollApplies`: the wide form, the card at least `week_scroll_min_width` wide, not
-  edited), which declare `touch-action: pinch-zoom` and step a week per row's height a finger moves
-  (`_followWeekScroll`), and take the wheel through a listener bound only then
-  (`_wheelWeeks`, a week per `WEEK_SCROLL_WHEEL_STEP`). Sideways pans are the card's while it swipes,
+- **Pans.** Vertical pans are the browser's. Sideways pans are the card's while it swipes,
   declared by `touch-action: pan-y pinch-zoom` on the card and again on its body and everything in
   it, since a scroll container does not honor a restriction it only inherits. A crammed grid
   scrolls sideways itself. The swipe's motion runs through the Web Animations API, so the grid's

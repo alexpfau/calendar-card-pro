@@ -516,8 +516,8 @@ describe('theming.md card-mod selectors', () => {
     // Month, in both forms, on June's six weeks from June 1, with week numbers and a labeled
     // calendar so every part of a day, a line and the gutter is drawn. Wide twice: with room for
     // four lines, so lines show, and for one, so "+N more" does, the trips crossing a week as
-    // bars that continue; with week scrolling, whose class is on the month. Compact with a busy
-    // day chosen, whose list draws tappable rows, and with an empty one, whose list says so.
+    // bars that continue. Compact with a busy day chosen, whose list draws tappable rows, and
+    // with an empty one, whose list says so.
     {
       const config = ViewConfig.resolveEffectiveConfig(
         buildConfig({
@@ -535,7 +535,7 @@ describe('theming.md card-mod selectors', () => {
       const days = EventUtils.groupEventsByDay(events, drawn, false, 'en', 'month');
       const dayLists = MonthDay.monthDayLists(events, config, rowsStart, 42, 'en');
       for (const [capacity, options] of [
-        [4, { more: noop, weekScroll: { handleEvent: noop, passive: false } }],
+        [4, { more: noop }],
         [1, { more: noop }],
         // None of a busy day's events fitted, so its list draws "+N more" alone.
         [4, { compact: { selected: new Date(2026, 5, 17), dayLists, shown: 0 } }],
