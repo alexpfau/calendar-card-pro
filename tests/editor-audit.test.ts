@@ -627,6 +627,22 @@ describe('Stored Settings, its actions', () => {
     expect(lastConfig(editor)!.time_grid).toEqual(WALL.time_grid);
   });
 
+  it('says where Undo came from when it opens Stored Settings from another page', async () => {
+    const editor = await mountEditor(WALL);
+    await openAudit(editor);
+    await click(editor, '[data-focus="reset-all:grid"]');
+    await goOverview(editor);
+    await click(editor, '[data-focus="nav:events_weather_language"]');
+
+    await click(editor, '[data-focus="undo"]');
+    expect($(editor, '.page')!.dataset.page).toBe('audit');
+    expect($(editor, '[data-focus="return"]')?.textContent?.trim()).toBe(
+      'Back to Events, Weather & Language',
+    );
+    await click(editor, '[data-focus="return"]');
+    expect($(editor, '.page')!.dataset.page).toBe('events_weather_language');
+  });
+
   it('resets one line where it lives, and a calendar line on its entry', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
@@ -700,12 +716,17 @@ describe('Stored Settings, its actions', () => {
 
     expect($(editor, '.page')!.dataset.page).toBe('which_events');
     expect($(editor, '[data-field="layout:time_grid.end_time"]')).not.toBeNull();
-    // Back returns to the line it left.
-    await click(editor, '[data-focus="back-top"]');
+    // The line under the header returns to the line it left.
+    expect($(editor, '[data-focus="return"]')?.textContent?.trim()).toBe('Back to Stored Settings');
+    await click(editor, '[data-focus="return"]');
     expect($(editor, '.page')!.dataset.page).toBe('audit');
     expect(editor.shadowRoot!.activeElement?.getAttribute('data-focus')).toBe(
       'more:audit:time_grid.end_time',
     );
+    // Back goes up from the page, to the layout it is Grid's topic in.
+    await act(editor, 'time_grid.end_time', 'open');
+    await click(editor, '[data-focus="back-top"]');
+    expect($(editor, '.layout-page')?.getAttribute('data-layout')).toBe('grid');
   });
 
   it('opens at Grid from the notice under Card Displays', async () => {

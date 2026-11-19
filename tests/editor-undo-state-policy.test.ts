@@ -137,6 +137,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_mintEntryKey',
     '_localizeValue',
     '_back',
+    '_returnBack',
     '_onKeydown',
     '_openSwitcher',
     '_previewConfig',

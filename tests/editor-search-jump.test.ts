@@ -356,9 +356,9 @@ describe('Return to Results', () => {
 
   it.each([
     ['Return to Results', 'events:time_font_size', undefined],
-    ['Back', 'events:time_font_size', undefined],
-    ['Escape', 'events:time_font_size', undefined],
     ['Return to Results', 'calendar:blocklist', 1],
+    // A calendar's page belongs to the overview, so Back and Escape land on its results.
+    ['Back', 'calendar:blocklist', 1],
     ['Escape', 'calendar:blocklist', 1],
     ['Return to Results', 'content:days_to_show', undefined],
   ] as const)(
@@ -387,6 +387,39 @@ describe('Return to Results', () => {
       expect(editor.shadowRoot!.activeElement).toBe($(editor, `[data-focus="${key}"]`));
       expect(scroller().scrollTop).toBe(240);
       expect($(editor, '[data-focus="return"]')).toBeNull();
+    },
+  );
+
+  it.each(['Back', 'Escape'] as const)(
+    '(%s, from a layout’s topic) goes up to the layout, which returns to the results',
+    async (how) => {
+      const editor = await mount();
+      await searchFor(editor, 'time');
+      scroller().scrollTop = 240;
+      const key = await jump(editor, 'time', 'events:time_font_size', undefined);
+      const up = async (): Promise<void> => {
+        if (how === 'Escape') {
+          editor.shadowRoot!.activeElement!.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+          );
+        } else {
+          $(editor, '[data-focus="back-top"]')!.click();
+        }
+        await editor.updateComplete;
+        await editor.updateComplete;
+      };
+
+      await up();
+      expect($(editor, '.layout-page')?.getAttribute('data-layout')).toBe('list');
+      expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-focus="nav:events"]'));
+      expect($(editor, '[data-focus="return"]')?.textContent?.trim()).toBe('Return to Results');
+
+      scroller().scrollTop = 0;
+      await up();
+      expect(valueOf(editor, 'filter:search')).toBe('time');
+      expect(resultRows(editor).some((each) => each.key === key)).toBe(true);
+      expect(editor.shadowRoot!.activeElement).toBe($(editor, `[data-focus="${key}"]`));
+      expect(scroller().scrollTop).toBe(240);
     },
   );
 

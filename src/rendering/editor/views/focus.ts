@@ -232,6 +232,25 @@ export function scrollPosition(editor: Element): number {
 }
 
 /**
+ * Brings an element into what scrolls the editor where it lies outside it, by the least scroll
+ * that shows its top, and scrolls nothing else.
+ *
+ * @param editor - The editor element
+ * @param element - What to show
+ */
+export function keepInView(editor: Element, element: Element): void {
+  const container = scrollContainer(editor);
+  if (container === undefined || !element.isConnected) return;
+  // The document's own scroller measures from the viewport, which its rectangle does not.
+  const top =
+    container === editor.ownerDocument.scrollingElement ? 0 : container.getBoundingClientRect().top;
+  const bottom = top + container.clientHeight;
+  const box = element.getBoundingClientRect();
+  if (box.top < top) container.scrollTop += box.top - top;
+  else if (box.bottom > bottom) container.scrollTop += Math.min(box.bottom - bottom, box.top - top);
+}
+
+/**
  * Restores the editor's scroll container to a position.
  *
  * @param editor - The editor element
