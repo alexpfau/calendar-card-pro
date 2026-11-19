@@ -15,7 +15,7 @@ import {
   type IndexedField,
   buildFieldIndex,
   entityFieldIndex,
-  entrySchema,
+  entrySchemaAcross,
   schemaCtx,
   universeIndex,
 } from '../src/rendering/editor/field-index';
@@ -98,8 +98,9 @@ function entryCtx(
   const entry = ctx.config.entities![at];
   return {
     ...ctx,
+    // As the calendar's page builds it: across the card's layouts and the one being edited.
     present: entityFieldIndex(
-      entrySchema(entry, schemaCtx(ctx.config as Types.Config, workspace, 'en')),
+      entrySchemaAcross(entry, schemaCtx(ctx.config as Types.Config, workspace, 'en')).schema,
     ),
     entry: ctx.entryKeys![at],
   };
@@ -372,13 +373,22 @@ describe('inherited and different', () => {
     expect(byDay.present.fields.has('calendar:show_weather')).toBe(false);
     const both = entryCtx(at('both'), 'list');
     expect(stateIn(both, 'calendar:show_weather')).toEqual({ kind: 'live', why: 'inherited' });
-    // Read in the layout the page is open in: Grid draws no forecast here, and Layout Defaults
-    // draws none of its own.
+    // Read across the card's layouts, whichever is being edited: List draws the forecast beside
+    // events here, Grid draws none, so with Grid edited too the option says it is only List's.
     for (const workspace of ['grid', 'shared'] as const) {
-      expect(entryCtx(at('both'), workspace).present.fields.has('calendar:show_weather')).toBe(
-        false,
+      const ctx = entryCtx(at('both'), workspace);
+      expect(ctx.present.fields.has('calendar:show_weather'), workspace).toBe(true);
+      expect(stateOf(fieldIn(ctx, 'calendar:show_weather'), ctx)?.onlyIn, workspace).toEqual(
+        workspace === 'grid' ? ['list'] : undefined,
       );
     }
+    // A card whose only layout draws no forecast beside events offers no calendar weather.
+    const gridAlone = {
+      ...at('both'),
+      view: 'grid',
+      time_grid: { min_days_fallback: 'cramp', weather: { position: 'date' } },
+    };
+    expect(entryCtx(gridAlone, 'grid').present.fields.has('calendar:show_weather')).toBe(false);
   });
 });
 
@@ -535,29 +545,35 @@ describe('state words: every row of the stateOf table', () => {
     expect(stateOf(fieldIn(plain, 'calendar:show_time'), plain)).toBeUndefined();
   });
 
-  it('reads the card’s value for a calendar in the layout the preview draws, not the scope', () => {
-    // The card hides times in List alone, and the preview draws Grid. A calendar's page has no
-    // Settings For, so what it says the card gives must be what the preview draws, whatever scope
-    // the card's own pages are left in.
+  it('reads the card’s value for a calendar in each of the card’s layouts, whatever the preview', () => {
+    // The card hides times in List alone. A Grid card falls back to List on a narrow screen, so
+    // both are its layouts, and a calendar following the card follows each one's value: the page
+    // says so, and Reset goes back to following rather than to one layout's value.
     const raw = {
       view: 'grid',
       list: { show_time: false },
       entities: [ANNA, { entity: 'calendar.ben', show_time: true }],
     };
-    const anna = (previewed: EditorWorkspace) => ({ ...entryCtx(raw, 'list'), previewed });
-    const ben = (previewed: EditorWorkspace) => ({ ...entryCtx(raw, 'list', {}, 1), previewed });
-    expect(stateOf(fieldIn(anna('grid'), 'calendar:show_time'), anna('grid'))).toBeUndefined();
-    expect(resetOutcome(fieldIn(ben('grid'), 'calendar:show_time'), ben('grid'))).toEqual({
+    for (const previewed of ['grid', 'list'] as const) {
+      const anna = { ...entryCtx(raw, 'grid'), previewed };
+      const ben = { ...entryCtx(raw, 'grid', {}, 1), previewed };
+      expect(stateOf(fieldIn(anna, 'calendar:show_time'), anna), previewed).toEqual({
+        words: { kind: 'follows-card', value: false },
+      });
+      expect(resetOutcome(fieldIn(ben, 'calendar:show_time'), ben), previewed).toEqual({
+        kind: 'card',
+        value: false,
+        differs: true,
+      });
+    }
+    // The control: Grid alone, with no fallback to List, gives one value, which Reset names.
+    const alone = { ...raw, time_grid: { min_days_fallback: 'cramp' } };
+    const anna = entryCtx(alone, 'grid');
+    const ben = entryCtx(alone, 'grid', {}, 1);
+    expect(stateOf(fieldIn(anna, 'calendar:show_time'), anna)).toBeUndefined();
+    expect(resetOutcome(fieldIn(ben, 'calendar:show_time'), ben)).toEqual({
       kind: 'card',
       value: true,
-    });
-    // With the preview drawing List, List's value is the one drawn.
-    expect(stateOf(fieldIn(anna('list'), 'calendar:show_time'), anna('list'))).toEqual({
-      words: { kind: 'follows-card', value: false },
-    });
-    expect(resetOutcome(fieldIn(ben('list'), 'calendar:show_time'), ben('list'))).toEqual({
-      kind: 'card',
-      value: false,
     });
   });
 

@@ -33,6 +33,7 @@ import {
   buttonFieldIndex,
   entityFieldIndex,
   entrySchema,
+  entrySchemaAcross,
   fieldHelper,
   fieldId,
   fieldLabel,
@@ -728,9 +729,10 @@ describe('the index builds what the editor draws today', () => {
       const ctx = schemaCtx(config, workspace, 'en');
       const sharedCtx = schemaCtx(config, 'shared', 'en');
       const card = inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields);
+      // A calendar's page is built for the card's layouts and the one being edited.
       const entries = new Map(
         (config.entities ?? []).flatMap((entry) => [
-          ...entityFieldIndex(entrySchema(entry, ctx)).fields,
+          ...entityFieldIndex(entrySchemaAcross(entry, ctx).schema).fields,
         ]),
       );
       if (state) {
@@ -919,7 +921,20 @@ describe('the index builds what the editor draws today', () => {
         `expandable differ.`,
     );
     expect(labels.differ).toEqual([]);
-    expect([...labels.reached].sort()).toEqual(expected.sort());
+    expect(expected.filter((each) => !labels.reached.has(each)).sort()).toEqual([]);
+    // Beyond them only calendar fields another layout builds: a calendar's page is built for the
+    // card's layouts, whichever is being edited (`field-index.ts` › `entryViews`).
+    const beyond = [...labels.reached].filter((each) => !expected.includes(each));
+    expect(
+      beyond.filter((each) => {
+        const id = each.slice(each.indexOf(' ') + 1) as FieldId;
+        return (
+          !id.startsWith('calendar:') ||
+          !WORKSPACES.some((workspace) => universeIndex('en', workspace).fields.has(id))
+        );
+      }),
+    ).toEqual([]);
+    expect(beyond.length).toBeGreaterThan(0);
     expect(labels.nestedDiffer).toBeGreaterThan(0);
     // Reads what the check above drew, or draws it where run alone; the limit is the check
     // above's.

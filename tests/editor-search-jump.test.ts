@@ -509,8 +509,8 @@ describe('Search Settings in a page header', () => {
     expect($(editor, '[data-focus="search-back"]')).toBeNull();
   });
 
-  it('searches the layout of the page it was opened from; a calendar’s result opens there', async () => {
-    // Grid draws no split multi-day events, so a calendar's split option is List's and Columns'.
+  it('opens a calendar’s result from a layout page’s search on the calendar’s own page', async () => {
+    // Grid draws no split multi-day events; List, which a Grid card falls back to, does.
     const editor = await mountEditor(
       { config_version: Config.CURRENT_CONFIG_VERSION, view: 'grid', entities: ['calendar.anna'] },
       { hass: fakeHass({ states: STATES }) },
@@ -527,13 +527,150 @@ describe('Search Settings in a page header', () => {
       (each) => each.ownerKey === key && each.id.endsWith(':split_multiday_events'),
     );
     expect(hit, 'the calendar’s split option is a result').toBeDefined();
-    // Searched in List, which draws it, the result is not another layout's.
-    expect(hit!.tag ?? '').toBe('');
+    // Not another layout's: tagged with the one of the card's layouts that applies it, as the
+    // calendar's page marks it.
+    expect(hit!.tag).toBe('Only in List');
     await chooseResult(editor, hit!.key);
     await editor.updateComplete;
     expect($(editor, '.entry-page')).not.toBeNull();
-    expect((editor as unknown as { _workspace: string })._workspace).toBe('list');
+    // The calendar's own page, with no layout added: the card's layouts already apply it.
+    const route = (editor as unknown as { _nav: { route: Record<string, unknown> } })._nav.route;
+    expect(route).toEqual({ kind: 'entry', key });
     expect($(editor, `[data-field="${hit!.id}"]`)).not.toBeNull();
+  });
+
+  it('builds a calendar’s page for the card’s layouts, whatever page the search began on', async () => {
+    // A List card: Grid's page exists, but the card never shows Grid.
+    const editor = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        view: 'list',
+        entities: [{ entity: 'calendar.anna', show_location: false }],
+      },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    const [key] = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    for (const row of ['layout:grid', 'nav:events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    await searchFromHeader(editor);
+    await searchFor(editor, 'event locations');
+    const hit = resultRows(editor).find(
+      (each) => each.ownerKey === key && each.id === 'calendar:show_location',
+    )!;
+    expect(hit.tag).toBeUndefined();
+    await chooseResult(editor, hit.key);
+    await editor.updateComplete;
+    // List's page alone: Grid's In the Time Grid is not drawn, and Reset names List's value.
+    const route = (editor as unknown as { _nav: { route: Record<string, unknown> } })._nav.route;
+    expect(route).toEqual({ kind: 'entry', key });
+    expect($(editor, '[data-setting="calendar:multiday_banners"]')).toBeNull();
+    expect(
+      $(editor, '[data-focus="reset:calendar:show_location"] .line-text')?.textContent?.trim(),
+    ).toBe('Reset (Always show)');
+  });
+
+  it('opens what a calendar’s option waits on in the calendar page’s layout, not the search’s', async () => {
+    // A List card that hides locations; Grid, which it never shows, shows them.
+    const editor = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        view: 'list',
+        show_location: false,
+        time_grid: { show_location: true },
+        entities: ['calendar.anna'],
+      },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    const [key] = (editor as unknown as { _entryKeys: number[] })._entryKeys;
+    for (const row of ['layout:grid', 'nav:events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    await searchFromHeader(editor);
+    await searchFor(editor, 'location icon');
+    const hit = resultRows(editor).find(
+      (each) => each.ownerKey === key && each.id === 'calendar:location_icon',
+    )!;
+    await chooseResult(editor, hit.key);
+    await editor.updateComplete;
+    // List's Event Appearance, where turning locations on lets Anna's icon apply.
+    expect(text($(editor, '.page-title'))).toBe('Event Appearance');
+    expect(text($(editor, '.page-sub'))).toBe('List');
+  });
+
+  it('says what a calendar’s option waits on as its page reads it, from any layout’s search', async () => {
+    // A List card that hides locations, whose Columns block shows them.
+    const editor = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        view: 'list',
+        show_location: false,
+        column: { show_location: true },
+        entities: ['calendar.anna'],
+      },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    const needs = async (): Promise<string | undefined> => {
+      await searchFor(editor, 'location icon');
+      const entries = (
+        editor as unknown as {
+          _searchIndex(ctx: unknown, present: unknown): ReadonlyArray<Record<string, unknown>>;
+          _ctx: unknown;
+          _drawing: { present: unknown };
+        }
+      )._searchIndex(
+        (editor as unknown as { _ctx: unknown })._ctx,
+        (editor as unknown as { _drawing: { present: unknown } })._drawing.present,
+      );
+      const anna = entries.find(
+        (each) => (each.target as { id?: string }).id === 'calendar:location_icon',
+      );
+      return anna?.needs as string | undefined;
+    };
+    for (const row of ['layout:column', 'nav:events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    await searchFromHeader(editor);
+    const fromColumns = await needs();
+    expect(fromColumns).toBeTruthy();
+    $(editor, '[data-focus="search-back"]')!.click();
+    await editor.updateComplete;
+    await goOverview(editor);
+    expect(await needs()).toBe(fromColumns);
+  });
+
+  it('finds from Layout Defaults a calendar option none of the card’s layouts applies', async () => {
+    // Grid alone, with no narrow fallback: Split Across Days is List's and Columns'.
+    const editor = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        view: 'grid',
+        time_grid: { min_days_fallback: 'cramp' },
+        entities: ['calendar.anna'],
+      },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    for (const row of ['layout:shared', 'nav:which_events']) {
+      $(editor, `[data-focus="${row}"]`)!.click();
+      await editor.updateComplete;
+    }
+    await searchFromHeader(editor);
+    await searchFor(editor, 'split multi');
+    const hit = resultRows(editor).find((each) => each.id === 'calendar:split_multiday_events');
+    expect(hit?.tag).toBe('Only in List and Columns');
+    await chooseResult(editor, hit!.key);
+    await editor.updateComplete;
+    expect($(editor, `[data-field="${hit!.id}"]`)).not.toBeNull();
+    expect(
+      [
+        ...editor.shadowRoot!.querySelectorAll(
+          '[data-setting="calendar:split_multiday_events"] > .setting-head .fact',
+        ),
+      ].map((fact) => fact.textContent?.trim()),
+    ).toContain('Only in List');
   });
 
   it('opens a calendar’s result from Layout Defaults’ search with what Layout Defaults offers', async () => {
@@ -551,7 +688,7 @@ describe('Search Settings in a page header', () => {
     const hit = resultRows(editor).find(
       (each) => each.ownerKey === key && each.id.endsWith(':split_multiday_events'),
     )!;
-    expect(hit.tag ?? '').toBe('');
+    expect(hit.tag).toBe('Only in List');
     await chooseResult(editor, hit.key);
     await editor.updateComplete;
     expect($(editor, '.entry-page')).not.toBeNull();

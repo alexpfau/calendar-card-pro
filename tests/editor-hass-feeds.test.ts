@@ -300,8 +300,10 @@ describe('the feeds in the rendered editor', () => {
     const live = fed(editor, 'live');
     const steady = fed(editor, 'steady');
     const before = new Map([...live, ...steady].map((element) => [element, element.hass]));
-    // Event Color and Accent Color are color controls, which draw no form while closed.
-    expect([live.length, steady.length]).toEqual([4, 20]);
+    // Event Color and Accent Color are color controls, which draw no form while closed. The
+    // toolbar's switcher offers every layout, so the calendar's page draws Grid's and Month's
+    // In the Time Grid too.
+    expect([live.length, steady.length]).toEqual([4, 21]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;

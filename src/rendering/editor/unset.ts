@@ -59,6 +59,8 @@ export function unsetWord(
     switch (name) {
       case 'color':
       case 'text_scale':
+      // Left empty, the card's limit applies.
+      case 'compact_events_to_show':
         return t('value.follow_card');
       case 'allday_expires_at':
         return t('value.end_of_day');
