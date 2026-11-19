@@ -8,7 +8,15 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { goOverview, goPage, lastConfig, mountEditor, reportsOf } from './helpers/editor-host';
+import {
+  goOverview,
+  goPage,
+  lastConfig,
+  mountEditor,
+  reportsOf,
+  resultRows,
+  searchFor,
+} from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION } from '../src/config/config';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
@@ -119,6 +127,54 @@ describe("Start Date on Month's page", () => {
     expect(written.start_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(written).not.toHaveProperty('month');
     expect(startDate(editor)).toMatchObject({ chosen: 'fixed', expression: false });
+  });
+});
+
+describe("Start Date on Month's page, reached another way", () => {
+  it('reads Relative to Today held on another page as Today, and writes nothing for it', async () => {
+    const editor = await mountEditor({ ...CARD, start_date: 'today+1' });
+    await openStartDate(editor, 'list');
+    // Relative to Today over Tomorrow writes nothing, and holds the choice instead.
+    $(editor, '[data-focus="start_date_mode:offset"]')!.click();
+    await editor.updateComplete;
+    expect(startDate(editor)).toMatchObject({ chosen: 'offset', expression: true });
+    const before = reportsOf(editor).length;
+
+    await openStartDate(editor, 'month');
+    expect(startDate(editor)).toMatchObject({
+      choices: ['Today', 'A Fixed Date'],
+      chosen: 'default',
+      facts: ['Whole Card', 'Tomorrow in List, Columns, and Grid'],
+      expression: false,
+    });
+    $(editor, '[data-focus="start_date_mode:default"]')!.click();
+    await editor.updateComplete;
+    expect(reportsOf(editor)).toHaveLength(before);
+  });
+
+  it('is found from Month’s page with its home value, and edited there as Month’s page draws it', async () => {
+    const editor = await mountEditor({ ...CARD, start_date: 'today+1' });
+    await openStartDate(editor, 'month');
+    await press(editor, 'search-open');
+    await searchFor(editor, 'tomorrow');
+    expect(resultRows(editor).find(({ id }) => id === 'content:start_date_mode')?.meta).toMatch(
+      /^Tomorrow( · |$)/,
+    );
+    $(editor, '[data-focus="edit-here"]')!.click();
+    await editor.updateComplete;
+    const group = $(
+      editor,
+      '.result--edit [data-field="content:start_date_mode"][data-composed="chips"]',
+    )!;
+    expect(
+      [...group.querySelectorAll('input[type="radio"]')].map((input) =>
+        text(input.closest('label')),
+      ),
+    ).toEqual(['Today', 'A Fixed Date']);
+    expect([...group.querySelectorAll('.fact, .line-button')].map(text)).toEqual([
+      'Whole Card',
+      'Tomorrow in List, Columns, and Grid',
+    ]);
   });
 });
 

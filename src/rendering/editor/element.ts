@@ -5711,7 +5711,8 @@ export class CalendarCardProEditor extends LitElement {
             field: this._renderField(
               field,
               ctx,
-              this._fieldShow(field, appearance, pctx, ctx, CARD),
+              this._monthStartDateShow(field, ctx) ??
+                this._fieldShow(field, appearance, pctx, ctx, CARD),
             ),
           };
         }
@@ -6399,6 +6400,7 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The line, or `undefined` for the usual one
    */
   private _monthStartDateShow(field: IndexedField, ctx: SchemaCtx): FieldShow | undefined {
+    if (field.id !== START_DATE_FIELD) return undefined;
     if (Workspace.viewForWorkspace(ctx.workspace ?? ctx.view) !== 'month') return undefined;
     const stored = this._rawConfig.start_date;
     const mode = Synthetic.startDateMode({ start_date: stored } as Types.Config);

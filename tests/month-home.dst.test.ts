@@ -355,8 +355,12 @@ describe('the two homes of a card that switches between List and Month', () => {
     expect(month(card).heading).toBe('November 2026');
     await press(card, 'next');
     expect(month(card).heading).toBe('December 2026');
+    const fetched = asked.length;
     await switchTo(card, 'list');
     expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
+    // Home's events are still fresh, so arriving there draws them and fetches nothing. Once they
+    // are due, arriving home refetches them, as the home button does.
+    expect(asked).toHaveLength(fetched);
     await press(card, 'home');
     expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
   });

@@ -122,8 +122,9 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
   const month = viewForWorkspace(workspace) === 'month';
   return contentSchema(
     ctx.language,
-    Synthetic.modeFor(ctx, 'start_date_mode', (config) =>
-      Synthetic.startDateModeIn(config, month ? 'month' : undefined),
+    Synthetic.startDateModeShown(
+      Synthetic.modeFor(ctx, 'start_date_mode', Synthetic.startDateMode),
+      month ? 'month' : undefined,
     ),
     month ? Synthetic.MONTH_START_DATE_MODES : Synthetic.START_DATE_MODES,
     hasCompactEventLimit(ctx.config),

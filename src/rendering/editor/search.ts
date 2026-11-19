@@ -44,6 +44,7 @@ import {
   type PageDef,
   type PageId,
   isBorrowed,
+  keepsNoLayoutCopy,
 } from './pages';
 import type { SchemaCtx } from './panels';
 import * as Plan from './plan';
@@ -504,6 +505,24 @@ function stateWords(
   return Shown.stateText(state, ctx.t);
 }
 
+/** The Whole Card pages' form data, made once per index. */
+const sharedForms = new WeakMap<SearchCtx, Readonly<Record<string, unknown>>>();
+
+/**
+ * The form data of the Whole Card pages, where whole-card settings are at home.
+ *
+ * @param ctx - The index's context
+ * @returns The data
+ */
+function sharedData(ctx: SearchCtx): Readonly<Record<string, unknown>> {
+  let data = sharedForms.get(ctx);
+  if (data === undefined) {
+    data = Routing.workspaceFormData(ctx.config, 'shared', ctx.plan.pending);
+    sharedForms.set(ctx, data);
+  }
+  return data;
+}
+
 /** A card field placed by the registry, where it is placed. */
 interface Placed {
   readonly id: FieldId;
@@ -536,10 +555,13 @@ function standing(
   const state = Plan.fieldState(place.id, place.appearance, plan);
   const own = present.get(place.id);
   if (own) {
+    // A whole-card setting is worded as its home holds and draws it, where its result opens:
+    // Month's page reads a start date that follows today as Today, and offers two of its choices.
+    const home = keepsNoLayoutCopy(place.id);
     return {
-      field: own,
+      field: (home ? universeIndex(ctx.language, 'shared').fields.get(place.id) : undefined) ?? own,
       status: { kind: state.kind === 'add' ? 'add' : 'live' },
-      data: ctx.data,
+      data: home ? sharedData(ctx) : ctx.data,
     };
   }
   const t = ctx.t;

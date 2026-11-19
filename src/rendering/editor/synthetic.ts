@@ -40,6 +40,15 @@ interface SyntheticField {
    */
   derive(config: Readonly<Types.Config>, view?: Types.EffectiveView): unknown;
   /**
+   * How a layout's page reads a presentation choice held for the field, where it reads one
+   * otherwise than as held: Month's page reads a held Relative to Today as Today.
+   *
+   * @param held - The choice held
+   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
+   * @returns The value to show in the form
+   */
+  heldIn?(held: string, view?: Types.EffectiveView): string;
+  /**
    * Turns a user edit into configuration changes.
    *
    * @param value - Value the form produced
@@ -178,9 +187,21 @@ export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
 }
 
 /**
- * The start-date choice a layout's page shows: Month reads every start date that follows today as
- * Today, which is what it draws for them, and offers nothing else but A Fixed Date
- * (`MONTH_START_DATE_MODES`).
+ * A start-date choice as a layout's page shows it: Month reads every start date that follows today
+ * as Today, which is what it draws for them, and offers nothing else but A Fixed Date
+ * (`MONTH_START_DATE_MODES`). Applied to the stored value's choice and to one held for it alike,
+ * so Relative to Today held on another page never reaches Month's.
+ *
+ * @param mode - The choice as stored or held
+ * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
+ * @returns Which of the start-date choices applies
+ */
+export function startDateModeShown(mode: string, view?: Types.EffectiveView): string {
+  return view === 'month' && mode !== 'fixed' ? 'default' : mode;
+}
+
+/**
+ * The start-date choice a layout's page shows for the stored value (`startDateModeShown`).
  *
  * @param config - Current configuration
  * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
@@ -190,8 +211,7 @@ export function startDateModeIn(
   config: Readonly<Types.Config>,
   view?: Types.EffectiveView,
 ): StartDateMode {
-  const mode = startDateMode(config);
-  return view === 'month' && mode !== 'fixed' ? 'default' : mode;
+  return startDateModeShown(startDateMode(config), view) as StartDateMode;
 }
 
 /**
@@ -502,6 +522,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   start_date_mode: {
     configKeys: ['start_date'],
     derive: (config, view) => startDateModeIn(config, view),
+    heldIn: (held, view) => startDateModeShown(held, view),
     apply: (value, config) => {
       const discardDates = {
         start_date_offset: null,
@@ -895,7 +916,10 @@ export function deriveSyntheticData(
   const data: Record<string, unknown> = {};
 
   for (const [name, field] of Object.entries(SYNTHETIC_FIELDS)) {
-    data[name] = name in pending ? pending[name] : field.derive(config, view);
+    data[name] =
+      name in pending
+        ? (field.heldIn?.(pending[name], view) ?? pending[name])
+        : field.derive(config, view);
   }
 
   return data;
