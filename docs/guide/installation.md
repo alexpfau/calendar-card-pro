@@ -60,7 +60,7 @@ For a smaller transfer, create the `.gz` files beside the originals:
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 198 KB and the editor to 272 KB. Delete or regenerate the `.gz`
+That brings the card to 200 KB and the editor to 272 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 

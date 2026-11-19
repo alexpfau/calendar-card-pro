@@ -531,6 +531,36 @@ describe('the capacity the card measures', () => {
       ['div', 'month-probe', 'time', 'true', 0, true],
     ]);
   });
+
+  it('marks the date probe to leave the month out where no 1st draws it', async () => {
+    /** Whether a 1st draws its month, and each probe's kind, mark and children. */
+    const drawn = async (config: Record<string, unknown>) => {
+      document.body.replaceChildren();
+      const card = await mount(config);
+      return [
+        month(card).querySelector('.month-date-month') !== null,
+        ...[...month(card).querySelectorAll('.month-probe')].map((probe) => [
+          probe.getAttribute('data-probe'),
+          probe.getAttribute('data-month'),
+          probe.childNodes.length,
+        ]),
+      ];
+    };
+    const unmarked = [
+      ['date', null, 0],
+      ['title', null, 0],
+      ['time', null, 0],
+    ];
+    const marked = [['date', 'none', 0], ...unmarked.slice(1)];
+    // The month's own show_month decides, as it decides whether a 1st draws its month.
+    expect(await drawn({})).toEqual([true, ...unmarked]);
+    expect(await drawn({ show_month: false })).toEqual([false, ...marked]);
+    expect(await drawn({ month: { show_month: false } })).toEqual([false, ...marked]);
+    expect(await drawn({ show_month: false, month: { show_month: true } })).toEqual([
+      true,
+      ...unmarked,
+    ]);
+  });
 });
 
 describe('the line pitch and the date line the card measures', () => {
@@ -610,6 +640,11 @@ describe('the line pitch and the date line the card measures', () => {
       content: "''",
       height: '1em',
       'font-size': 'var(--calendar-card-font-size-month)',
+    });
+    // Where no 1st draws its month, show_month off, the probe drops that strut, so the month's
+    // size costs the weeks nothing.
+    expect(rule(".month-probe[data-probe='date'][data-month='none']::after")).toEqual({
+      content: 'none',
     });
   });
 });
