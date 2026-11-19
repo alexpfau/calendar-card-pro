@@ -36,7 +36,15 @@ import {
 import { type GateData, needsText } from './gates';
 import * as EditorLocalize from './localize';
 import { CALENDARS_BLOCK, STARTING_LAYOUT_BLOCK } from './pages';
-import { type Appearance, ENTRY_GROUPS, FAMILIES, PAGES, type PageDef, type PageId } from './pages';
+import {
+  type Appearance,
+  ENTRY_GROUPS,
+  FAMILIES,
+  PAGES,
+  type PageDef,
+  type PageId,
+  isBorrowed,
+} from './pages';
 import type { SchemaCtx } from './panels';
 import * as Plan from './plan';
 import * as Routing from './routing';
@@ -988,7 +996,10 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
   for (const page of PAGES) {
     rows.push(pageRow(page, ctx));
     for (const heading of page.headings) {
-      for (const [id, appearance] of heading.fields) take({ id, appearance, page, heading });
+      // A copy or a reference is found once, where its home is.
+      for (const [id, appearance] of heading.fields) {
+        if (!isBorrowed(appearance)) take({ id, appearance, page, heading });
+      }
       if (!heading.extras?.includes('own-buttons')) continue;
       for (const button of ctx.buttons) {
         const name = Buttons.buttonTitle(

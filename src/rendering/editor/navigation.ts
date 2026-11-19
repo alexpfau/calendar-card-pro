@@ -1,6 +1,6 @@
 /**
  * Where the editor is, and the way back: the overview, a section page, a calendar entry's page,
- * What This Card Changes or the notices page, and the trail of at most three places a Back
+ * Stored Settings or the notices page, and the trail of at most three places a Back
  * returns to. Data only; the element saves scroll and focus into the trail as it leaves a place
  * and restores them as Back returns there.
  *
@@ -22,7 +22,6 @@ export type Route =
   | { readonly kind: 'overview' }
   | { readonly kind: 'page'; readonly page: PageId; readonly scope?: EditorWorkspace }
   | { readonly kind: 'layout'; readonly layout: EditorWorkspace }
-  | { readonly kind: 'shared' }
   | { readonly kind: 'entry'; readonly key: number; readonly scope?: EditorWorkspace }
   | { readonly kind: 'audit'; readonly group?: string }
   | { readonly kind: 'notices' };

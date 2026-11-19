@@ -1,5 +1,5 @@
 /**
- * What This Card Changes (backlog item 307): every line the YAML
+ * Stored Settings (backlog item 307): every line the YAML
  * stores, grouped as Whole Card, All Layouts, each layout, each calendar and the lines kept as
  * written, worded as the editor words them, with the YAML path only on request; each owned line
  * one button opening a strip, whose Change Here mounts the line's own control and writes where
@@ -163,7 +163,7 @@ function storedLeaves(raw: Readonly<Record<string, unknown>>): string[] {
   return out;
 }
 
-describe('What This Card Changes, its groups', () => {
+describe('Stored Settings, its groups', () => {
   it('groups every stored line, the calendars and the lines kept as written included', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
@@ -425,14 +425,26 @@ describe('What This Card Changes, its groups', () => {
     expect(names.filter((name, at) => names.indexOf(name) !== at)).toEqual([]);
   });
 
-  it('names on the overview where the card stores values, and what is not in use', async () => {
+  it('says on the overview what the page holds, whatever the card stores', async () => {
     const editor = await mountEditor(WALL);
-
+    expect(text($(editor, '[data-focus="more:audit"] .nav-title'))).toBe('Stored Settings');
     expect(text($(editor, '[data-focus="more:audit"] .nav-summary'))).toBe(
-      'Whole Card · Layout Defaults · List · Grid · calendar.anna · calendar.bin_day · Not in Use: 1',
+      'What is set, grouped by where it lives',
     );
     const fresh = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
-    expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe('Nothing Changed');
+    expect(text($(fresh, '[data-focus="more:audit"] .nav-summary'))).toBe(
+      'What is set, grouped by where it lives',
+    );
+  });
+
+  it('says so on a card that stores nothing', async () => {
+    const editor = await mountEditor({ config_version: VERSION, entities: ['calendar.anna'] });
+    await openAudit(editor);
+    expect(editor.shadowRoot!.querySelectorAll('.audit-group')).toHaveLength(0);
+    expect(text(editor.shadowRoot!.querySelector('.audit .page-line'))).toBe('No Stored Settings');
+    const stored = await mountEditor(WALL);
+    await openAudit(stored);
+    expect(stored.shadowRoot!.querySelector('.audit .page-line')).toBeNull();
   });
 
   it('tags as Home Assistant’s only keys Home Assistant takes on every card', () => {
@@ -440,7 +452,7 @@ describe('What This Card Changes, its groups', () => {
   });
 });
 
-describe('What This Card Changes, its actions', () => {
+describe('Stored Settings, its actions', () => {
   it('edits a line in place and writes where it lives, whatever the scope', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
@@ -644,6 +656,27 @@ describe('What This Card Changes, its actions', () => {
     expect($(editor, '[data-status-bar]')).toBeNull();
   });
 
+  it('keeps the line a reset leaves when it took its group’s last line', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      title: 'Family',
+    });
+    await openAudit(editor);
+    await act(editor, 'title', 'reset');
+
+    expect(lastConfig(editor)!.title).toBeUndefined();
+    expect(editor.shadowRoot!.querySelectorAll('.audit-group')).toHaveLength(0);
+    const bar = $(editor, '.audit [data-status-bar]')!;
+    expect(text(bar)).toMatch(/^Reset .+ Undo$/);
+    expect(editor.shadowRoot!.activeElement).toBe(bar.querySelector('[data-focus="status-undo"]'));
+    expect(text($(editor, '.audit .page-line'))).toBe('No Stored Settings');
+    await click(editor, '[data-focus="status-undo"]');
+    expect(lastConfig(editor)!.title).toBe('Family');
+    expect($(editor, '[data-audit="title"]')).not.toBeNull();
+    expect($(editor, '[data-status-bar]')).toBeNull();
+  });
+
   it('words the line Remove leaves as the strip did', async () => {
     const editor = await mountEditor(WALL);
     await openAudit(editor);
@@ -726,7 +759,7 @@ describe('values from YAML', () => {
   });
 });
 
-describe('What This Card Changes, the review’s findings', () => {
+describe('Stored Settings, the review’s findings', () => {
   async function editLine(
     editor: Editor,
     path: string,
@@ -857,7 +890,7 @@ describe('What This Card Changes, the review’s findings', () => {
   });
 });
 
-describe('What This Card Changes, list and nested values', () => {
+describe('Stored Settings, list and nested values', () => {
   it('names the toolbar’s own buttons as their rows on the toolbar page do', async () => {
     const editor = await mountEditor({
       config_version: VERSION,

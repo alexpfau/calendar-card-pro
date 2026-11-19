@@ -275,8 +275,12 @@ describe('the feeds in the rendered editor', () => {
       'calendar:location_icon live',
     ]);
 
-    // Pages: a field takes the live feed by its own selector, one form apiece.
+    // Pages: a field takes the live feed by its own selector, one form apiece, on a layout's
+    // Weather as on the entity's home.
     await openPageOf(editor, 'weather:weather_entity');
+    await unfoldAll(editor);
+    expect(field('weather:weather_entity')).toBe('live');
+    await openPageOf(editor, 'weather:weather.position');
     await unfoldAll(editor);
     expect(field('weather:weather_entity')).toBe('live');
     expect(field('weather:weather.position')).toBe('steady');

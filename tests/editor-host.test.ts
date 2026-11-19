@@ -303,8 +303,11 @@ describe('opening a page', () => {
     const editor = await mount([ANNA]);
     expect(formOf(editor, 'content:time_format')).toBeUndefined();
 
+    // Time Format is the whole card's, at home on Events, Weather & Language.
     await openPageOf(editor, 'content:time_format');
-    expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe('events');
+    expect(editor.shadowRoot!.querySelector('.page')!.getAttribute('data-page')).toBe(
+      'events_weather_language',
+    );
     expect(formOf(editor, 'content:time_format')).toBeDefined();
 
     await openPageOf(editor, 'content:days_to_show');

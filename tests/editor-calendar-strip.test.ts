@@ -72,9 +72,9 @@ function titles(editor: Editor): Array<string | undefined> {
 function rows(editor: Editor): string[] {
   return [...editor.shadowRoot!.querySelectorAll('.cal-row')].map(
     (row) =>
-      `${row.querySelector('.cal-title')?.textContent} / ${row
-        .querySelector('.cal-summary')
-        ?.textContent?.trim()}`,
+      `${row.querySelector('.cal-title')?.textContent} / ${
+        row.querySelector('.cal-summary')?.textContent?.trim() ?? ''
+      }`,
   );
 }
 
@@ -134,7 +134,7 @@ describe('row titles', () => {
 
     expect(titles(editor)).toEqual(['calendar.deleted_last_week']);
     expect(rows(editor)).toEqual([
-      'calendar.deleted_last_week / Not found in Home Assistant · All events · Set: 0',
+      'calendar.deleted_last_week / Not found in Home Assistant · All events',
     ]);
   });
 
@@ -159,10 +159,7 @@ describe('rows of a calendar listed more than once', () => {
       known('calendar.a', 'calendar.b'),
     );
 
-    expect(rows(editor)).toEqual([
-      'calendar.a / All events · Set: 0',
-      'calendar.b / All events · Set: 1',
-    ]);
+    expect(rows(editor)).toEqual(['calendar.a / All events', 'calendar.b / All events']);
     expect(editor.shadowRoot!.querySelectorAll('.cal-row-head')).toHaveLength(0);
   });
 
@@ -180,9 +177,9 @@ describe('rows of a calendar listed more than once', () => {
     // together, where the calendar first appears, as everything downstream reads it.
     expect(rows(editor)).toEqual([
       'calendar.family / Entries: 2',
-      '1 · All-day events / Set: 1',
-      '2 · Events with a time / Set: 1',
-      'calendar.other / All events · Set: 0',
+      '1 · All-day events / ',
+      '2 · Events with a time / ',
+      'calendar.other / All events',
     ]);
   });
 });
@@ -332,17 +329,17 @@ describe('the strip', () => {
 
     expect(rows(editor)).toEqual([
       'Family / Entries: 2',
-      '1 · All-day events / Set: 1',
+      '1 · All-day events / ',
       // The copy keeps the very events the original does, and its row says so.
-      '2 · All-day events / Same events as entry 1 · Set: 1',
+      '2 · All-day events / Same events as entry 1',
     ]);
     expect(
       [...editor.shadowRoot!.querySelectorAll('.cal-body')].map((row) =>
         row.getAttribute('aria-label'),
       ),
     ).toEqual([
-      'Edit Family, entry 1 of 2, All-day events, Set: 1',
-      'Edit Family, entry 2 of 2, All-day events, Same events as entry 1, Set: 1',
+      'Edit Family, entry 1 of 2, All-day events',
+      'Edit Family, entry 2 of 2, All-day events, Same events as entry 1',
     ]);
   });
 

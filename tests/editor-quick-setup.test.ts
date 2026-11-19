@@ -409,7 +409,7 @@ describe('Quick Setup', () => {
       item.textContent!.trim(),
     );
 
-    // Whole-card settings first, then those every layout shares, as What This Card Changes groups.
+    // Whole-card settings first, then those every layout shares, as Stored Settings groups.
     expect(items).toEqual([
       'Starting Layout: Grid → Default',
       'Day Tap Action: Add Event → Default',

@@ -1340,7 +1340,7 @@ export default css`
     min-width: 0;
   }
 
-  /* What This Card Changes: a row per stored line, its label, value and the lines under them as
+  /* Stored Settings: a row per stored line, its label, value and the lines under them as
      one button, and its strip under it while open. */
   .audit-head,
   .audit-row,
