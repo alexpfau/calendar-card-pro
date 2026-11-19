@@ -833,6 +833,31 @@ describe('the list fitted to its room', () => {
       .querySelector(':scope > .month-day-list-rows')
       ?.outerHTML.match(/^<[^>]*>/)?.[0],
   });
+  /** Puts the browser's computed style back after a test that set the card's cap. */
+  let restoreCap: (() => void) | null = null;
+  afterEach(() => {
+    restoreCap?.();
+    restoreCap = null;
+  });
+  /**
+   * Answers the card's computed `max-height` as a browser computes it, whatever happy-dom makes
+   * of the value written, until the test ends; every other style as happy-dom computes it.
+   */
+  const capComputesAs = (cap: () => string): void => {
+    const computed = window.getComputedStyle;
+    const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const declared = computed.call(window, element, pseudo);
+      if (element.localName !== 'ha-card') return declared;
+      return new Proxy(declared, {
+        get: (target, key) => {
+          if (key === 'maxHeight') return cap();
+          const value = Reflect.get(target, key) as unknown;
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+    restoreCap = () => spy.mockRestore();
+  };
   /** The list's resize observer: the one watching the staged rows. */
   const listWatch = () =>
     RecordingResizeObserver.instances.find((observer) =>
@@ -915,6 +940,19 @@ describe('the list fitted to its room', () => {
     await tap(card, day(card, 18));
     expect(rowsOf(card)).toEqual([]);
     expect(text(moreOf(card))).toBe('+4 more');
+  });
+
+  it('lists every row while it grows under a cap that computes to none', async () => {
+    extraEvents = NINE;
+    // A cap a theme can take off: unset, the variable's fallback leaves the card none.
+    const card = await mount({ month: { compact_card_max_height: 'var(--unset-cap, none)' } }, 375);
+    const style = root(card).querySelector<HTMLElement>('ha-card')!.style;
+    expect([style.height, style.maxHeight]).toEqual(['auto', 'var(--unset-cap, none)']);
+    capComputesAs(() => 'none');
+    await tap(card, day(card, 28));
+    // No room to run out of: the card grows with every row, none left for "+N more".
+    expect(rowsOf(card)).toHaveLength(9);
+    expect(moreOf(card)).toBeNull();
   });
 
   it('fits again when its room changes size, heard by its resize observer', async () => {

@@ -25,7 +25,7 @@ export interface MonthListGeometry {
   readonly more: number;
   /** The gap between the last row listed and "+N more". */
   readonly gap: number;
-  /** The room the rows have. */
+  /** The room the rows have: `Infinity` where nothing caps a list that grows. */
   readonly room: number;
 }
 
@@ -78,7 +78,9 @@ export function fitMonthList(geometry: MonthListGeometry): number {
  * grows under a cap (`monthCompactGrows` in `rendering/month.ts`) has no such box: its room is the
  * cap less everything else the card holds, the card as drawn less the rows' box. Where the card is
  * drawn at its cap, whose content then runs past it, that content's overflow is added back, so a
- * list fitted to a room that has since shrunk is fitted again rather than kept.
+ * list fitted to a room that has since shrunk is fitted again rather than kept. A cap the card's
+ * computed style does not give as a length, `none` where a variable's fallback takes it off, caps
+ * nothing: the room is unbounded and every row is listed.
  *
  * @param root - The card's render root
  * @param grows - Whether the list grows under a cap rather than taking a fixed room
@@ -108,27 +110,21 @@ export function measureMonthList(root: ParentNode, grows: boolean): MonthListGeo
     ...cells.map((cell) => cell.getBoundingClientRect().bottom - tableBox.top + foot),
   ];
 
-  let room = roomBox.height;
-  if (grows) {
-    const card = root.querySelector<HTMLElement>('ha-card');
-    const cap = card ? Number.parseFloat(getComputedStyle(card).maxHeight) : Number.NaN;
-    if (!card || !Number.isFinite(cap)) return null;
-    const cardBox = card.getBoundingClientRect();
-    const scale =
-      card.offsetWidth > 0 && Math.abs(cardBox.width - card.offsetWidth) >= 1
-        ? cardBox.width / card.offsetWidth
-        : 1;
-    const content = root.querySelector<HTMLElement>('.content-container');
-    const others =
-      cardBox.height - roomBox.height + (content ? contentOverflow(content, scale) : 0);
-    room = cap * scale - others;
-  }
-  return {
-    rows,
-    more: buttonBox.height,
-    gap: buttonBox.top - tableBox.bottom,
-    room,
-  };
+  const measured = { rows, more: buttonBox.height, gap: buttonBox.top - tableBox.bottom };
+  if (!grows) return { ...measured, room: roomBox.height };
+
+  const card = root.querySelector<HTMLElement>('ha-card');
+  if (!card) return null;
+  const cap = Number.parseFloat(getComputedStyle(card).maxHeight);
+  if (!Number.isFinite(cap)) return { ...measured, room: Infinity };
+  const cardBox = card.getBoundingClientRect();
+  const scale =
+    card.offsetWidth > 0 && Math.abs(cardBox.width - card.offsetWidth) >= 1
+      ? cardBox.width / card.offsetWidth
+      : 1;
+  const content = root.querySelector<HTMLElement>('.content-container');
+  const others = cardBox.height - roomBox.height + (content ? contentOverflow(content, scale) : 0);
+  return { ...measured, room: cap * scale - others };
 }
 
 /**
