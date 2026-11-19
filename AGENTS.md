@@ -2237,6 +2237,15 @@ invisible to the reader, who cannot tell which options are resolved at fetch tim
 render time, and should not have to. `days_of_week` is resolved last of the per-calendar filters
 and belongs first, because it is the broadest question a reader asks.
 
+**Month's pages draw one exception, and it is a rule rather than a placement.** Under each heading
+a Month page draws the settings its weeks read first, then those it reads only in a day's list and
+the panel, the ones marked Day List & Panel, each group in the registry's order
+(`plan.ts` › `fieldsInDrawOrder`): the wide month is what most Month cards draw. The registry holds
+one order for every layout, so moving a shared field there for Month would move it in List and
+Columns too. Place a field by the rule above and let Month's split follow;
+`tests/editor-month-day-list.test.ts` holds Month's drawn order and every other scope's to the
+registry's.
+
 Treat a new option's position as needing a stated reason, the same way its name and its default
 do. Say in the PR body which page, heading and appearance it took, and why. The approved map in
 `tests/editor-page-registry.test.ts` pins every placement by value, so the move shows up there as

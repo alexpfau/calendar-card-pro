@@ -3735,9 +3735,9 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Draws the headings of a page or of a calendar entry's page from their plans: each heading's
-   * title and line, and in registry order every setting under its head row and every setting a
-   * gate withholds in its place, then the values stored for settings that are not in use (section
-   * 5.2). A heading with none of these, and nothing else to draw, is left out.
+   * title and line, and in drawing order (`Plan.fieldsInDrawOrder`) every setting under its head
+   * row and every setting a gate withholds in its place, then the values stored for settings that
+   * are not in use (section 5.2). A heading with none of these, and nothing else to draw, is left out.
    *
    * @param plans - The headings' plans
    * @param pctx - Plan context, the entry's on an entry page
@@ -3781,10 +3781,13 @@ export class CalendarCardProEditor extends LitElement {
           typeof appearance === 'object' && ('chips' in appearance || 'qualifies' in appearance)
         );
       };
-      // Every setting in registry order: the chips of one kind together where the first of them
-      // is placed, with their qualifier lines, Start Date as its radio group, every other setting
-      // under its head row, and a setting a gate withholds in its place, saying when it appears.
-      const order = new Map(heading.fields.map(([id], at) => [id, at]));
+      // Every setting in drawing order, the registry's but on Month's pages (Plan.fieldsInDrawOrder):
+      // the chips of one kind together where the first of them is placed, with their qualifier
+      // lines, Start Date as its radio group, every other setting under its head row, and a setting
+      // a gate withholds in its place, saying when it appears.
+      const order = new Map(
+        Plan.fieldsInDrawOrder(heading, pctx.workspace, present).map(([id], at) => [id, at]),
+      );
       const prefix = owner.kind === 'entry' ? owner.key : '';
       const grouped = new Set<string>();
       type Item =
@@ -6177,7 +6180,7 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._formData();
     const layout = this._layoutName(ctx);
     const label = (id: FieldId): string => this._string(ctx, Chips.CHIP_LABELS[id]);
-    const placed = heading.fields.filter(
+    const placed = Plan.fieldsInDrawOrder(heading, workspace, present).filter(
       ([, appearance]) =>
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
