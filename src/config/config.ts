@@ -1924,8 +1924,9 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
  * come first, because Home Assistant shows a card's suggestions in the order returned and these
  * are the ones a new card is best started from. When the home has exactly one weather entity
- * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
- * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather_entity` and each
+ * layout's `weather:` are fetch-time, but not part of the event-cache key: they cost each of those
+ * two previews a forecast
  * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach

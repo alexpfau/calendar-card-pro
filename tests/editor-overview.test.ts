@@ -71,11 +71,11 @@ describe('Layouts and the preview', () => {
     ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
     expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
     expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
-    // Whole Card's rows: its pages, Weather until it is set per layout, then the shared settings.
+    // Whole Card's rows: its pages, then the shared settings. Weather is each layout's topic.
     const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
     expect(
       [...whole.querySelectorAll('.nav-row')].map((row) => row.getAttribute('data-focus')),
-    ).toEqual(['nav:card_header', 'nav:taps_refresh', 'nav:weather', 'nav:shared']);
+    ).toEqual(['nav:card_header', 'nav:taps_refresh', 'nav:shared']);
     // Card & Header names the layout switcher, the thing a layout's status no longer says.
     expect(text($(editor, '[data-focus="nav:card_header"] .nav-summary'))).toMatch(
       /Layout Switcher: List, Grid, Month$/,
@@ -146,7 +146,13 @@ describe('Layouts and the preview', () => {
       [...editor.shadowRoot!.querySelectorAll('.layout-page .nav-row')].map((row) =>
         row.getAttribute('data-focus'),
       ),
-    ).toEqual(['nav:which_events', 'nav:day_header', 'nav:events', 'nav:size_spacing']);
+    ).toEqual([
+      'nav:which_events',
+      'nav:day_header',
+      'nav:events',
+      'nav:size_spacing',
+      'nav:weather',
+    ]);
     // Which Events counts Grid's own hours here, and nothing of Grid's under another layout.
     const hours = await mountEditor({ ...THREE, time_grid: { start_time: '07:00' } });
     await press(hours, 'layout:grid');
@@ -175,6 +181,9 @@ describe('Layouts and the preview', () => {
     // The last topic of a layout walks on to the next layout's first.
     await press(editor, 'continue');
     expect(text($(editor, '.page-title'))).toBe('Size & Spacing');
+    await press(editor, 'continue');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    expect(text($(editor, '.page-title'))).toBe('Weather');
     await press(editor, 'continue');
     expect(text($(editor, '.page-sub'))).toBe('Grid');
     expect(text($(editor, '.page-title'))).toBe('Which Events');
@@ -419,10 +428,18 @@ describe('section row summaries', () => {
       'Location · Now · Time Format: Follow Home Assistant · Set: 1',
     );
     // Without a weather entity, Show The Forecast is not built, and an empty entity says nothing.
-    expect(summaryOf(page('weather'), LIST_CARD, 'shared')).toBe('');
+    expect(summaryOf(page('weather'), LIST_CARD, 'list')).toBe('');
+    // The entity is the whole card's; Layout Defaults offers no forecast of its own.
+    const weather = { ...LIST_CARD, weather_entity: 'weather.home' };
+    expect(summaryOf(page('weather'), weather, 'shared')).toBe(
+      'Weather Entity: weather.home · Set: 1',
+    );
+    expect(summaryOf(page('weather'), weather, 'list')).toBe(
+      'Weather Entity: weather.home · Show The Forecast: Nowhere · Set: 1',
+    );
     expect(
-      summaryOf(page('weather'), { ...LIST_CARD, weather: { entity: 'weather.home' } }, 'shared'),
-    ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 1');
+      summaryOf(page('weather'), { ...weather, list: { weather: { position: 'date' } } }, 'list'),
+    ).toBe('Weather Entity: weather.home · Show The Forecast: In the Day Header · Set: 2');
   });
 
   // A chip stands for its group, named by the chips pressed: label-value pairs under-reported

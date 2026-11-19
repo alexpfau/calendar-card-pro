@@ -544,20 +544,20 @@ const APPROVED_MAP: ReadonlyArray<
       'separators:time_grid.allday_band_line_color A G',
     ],
   ],
-  ['Weather', 'Forecast', '', ['weather:weather.entity E', 'weather:weather.position E']],
+  ['Weather', 'Forecast', '', ['weather:weather_entity E', 'weather:weather.position E LCGM']],
   [
     'Weather',
     'In the Day Header',
     '',
     [
-      'weather:weather.date.show_conditions E',
-      'weather:weather.date.show_high_temp E',
-      'weather:weather.date.show_low_temp E',
-      'weather:weather.date.show_uv_index E',
-      'weather:weather.date.uv_index_threshold W',
-      'weather:weather.date.icon_size A',
-      'weather:weather.date.font_size A',
-      'weather:weather.date.color A',
+      'weather:weather.date.show_conditions E LCG',
+      'weather:weather.date.show_high_temp E LCG',
+      'weather:weather.date.show_low_temp E LCG',
+      'weather:weather.date.show_uv_index E LCG',
+      'weather:weather.date.uv_index_threshold W LCG',
+      'weather:weather.date.icon_size A LCG',
+      'weather:weather.date.font_size A LCG',
+      'weather:weather.date.color A LCG',
     ],
   ],
   [
@@ -565,15 +565,15 @@ const APPROVED_MAP: ReadonlyArray<
     'Beside Each Event',
     '',
     [
-      'weather:weather.event.show_conditions E',
-      'weather:weather.event.show_temp E',
-      'weather:weather.event.show_uv_index E',
-      'weather:weather.event.uv_index_threshold W',
-      'weather:weather.event.daily_forecast_fallback E',
-      'weather:weather.event.icon_size A',
-      'weather:weather.event.font_size A',
-      'weather:weather.event.color A',
-      'weather:weather.event.max_lines A',
+      'weather:weather.event.show_conditions E LCGM',
+      'weather:weather.event.show_temp E LCGM',
+      'weather:weather.event.show_uv_index E LCGM',
+      'weather:weather.event.uv_index_threshold W LCGM',
+      'weather:weather.event.daily_forecast_fallback E LCGM',
+      'weather:weather.event.icon_size A LCGM',
+      'weather:weather.event.font_size A LCGM',
+      'weather:weather.event.color A LCGM',
+      'weather:weather.event.max_lines A LCGM',
     ],
   ],
   [
@@ -651,7 +651,7 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:show_location A',
       'calendar:location_icon A',
       'calendar:show_description A',
-      'calendar:show_weather A',
+      'calendar:show_weather A LCGM',
     ],
   ],
 ];
@@ -903,9 +903,9 @@ describe('the page registry is consistent with itself', () => {
   });
 
   it('derives which pages apply to the whole card', () => {
+    // Weather is each layout's own, with the entity they share.
     expect(PAGES.filter((page) => isWholeCard(page)).map((page) => page.id)).toEqual([
       'card_header',
-      'weather',
     ]);
     expect(isWholeCard({ headings: ENTRY_GROUPS })).toBe(false);
   });

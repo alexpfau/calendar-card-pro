@@ -31,10 +31,9 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Card & Header**         | The title, the card's background and language, the toolbar and your own toolbar buttons; its row names the layout switcher, as in **Layout Switcher: List, Grid, Month** |
 | **Taps & Refresh**        | What a tap or a hold on the card, a day or an event does, editing and deleting events, and how often the card reads its calendars again                                  |
-| **Weather**               | The weather entity, and the forecast in the day header and beside each event                                                                                             |
 | **Shared Across Layouts** | The whole-card settings the layouts' pages also hold, such as Start Date, First Day of Week, Event Type, the day colors, Time Format and Accent Color                    |
 
-Each layout's page, and Layout Defaults, lists the same four topics:
+Each layout's page, and Layout Defaults, lists the same five topics:
 
 | Topic                | What it holds                                                                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -42,11 +41,19 @@ Each layout's page, and Layout Defaults, lists the same four topics:
 | **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                                |
 | **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks, Month's day text included                                              |
 | **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules                                  |
+| **Weather**          | The weather entity every layout shares, and this layout's forecast in the day header and beside each event; Month's beside its events only                                      |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. To open an event's
 details on a tap, choose Show Event Details under **Event Tap Action** on Taps & Refresh.
+
+**Weather** opens with **Weather Entity**, shared by every layout. Choosing one turns the forecast
+on in the layout you are editing, beside its days, or in Month beside its events, and leaves the
+other layouts as they are; clearing it removes the forecast from every layout. Everything else on
+the page is that layout's own, so List can show the forecast beside events while Grid shows it in
+the day header. Layout Defaults holds the entity alone; see
+[Weather Per Layout](/features/weather#weather-per-layout).
 
 The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
 browser for every card, with a box that is checked while it is on. It shows each setting's YAML
@@ -256,6 +263,14 @@ is unchanged.
 
 Column cards are not upgraded on opening, and their columns do not change: the first editor
 edit keeps the top-level values shared, as Column read them before v5.
+
+A card whose top-level `weather:` names an entity is converted to
+[weather per layout](/features/weather#weather-per-layout) on opening too, and looks the same: the
+entity becomes `weather_entity`, and List, Columns and Grid each take the old block's options as
+their own `weather:`. Month, which drew no forecast from it, stays off. The receipt says so and
+names any line the card ignored that the conversion removes, such as a layout's own `weather:`
+beside the old block. **Undo** puts the old block back, and your next change converts it again. A
+top-level `weather:` that names no entity drew nothing, and your first change removes it.
 
 The upgrade is a change to the card like any other: it is kept only when you press **Save**, so
 **Cancel** leaves the card as it was, and a card you never open in the editor keeps working as it

@@ -38,7 +38,7 @@ import * as Synthetic from './synthetic';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { entityScopeFor, showsEventWeatherAnywhere } from '../../config/view';
+import { entityScopeFor, showsEventWeatherIn } from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -429,7 +429,7 @@ export function entrySchema(entry: string | Types.EntityConfig, ctx: SchemaCtx):
     Entities.showsLocation(entry, ctx.config, destination),
     labelImageSourceOf(own.label),
     toolbar.show && toolbar.legend !== false,
-    showsEventWeatherAnywhere(ctx.config),
+    showsEventWeatherIn(ctx.config, destination),
   );
   return Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
 }

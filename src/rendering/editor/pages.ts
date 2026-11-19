@@ -21,13 +21,8 @@ import { type FieldId, parseFieldId } from './field-index';
 import { destination } from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField } from './synthetic';
-import {
-  MONTH_WEATHER_BLOCK,
-  WEATHER_BLOCKS,
-  WEATHER_ENTITY,
-  weatherField,
-} from './weather-fields';
-import { BLOCK_KEYS } from './workspace';
+import { WEATHER_ENTITY } from './weather-fields';
+import { isLayoutCopyPath } from './workspace';
 import type * as Types from '../../config/types';
 import { VIEWS, appliesToView, entityScopeFor } from '../../config/view';
 
@@ -137,6 +132,8 @@ function withMode(mode: FieldId | ReadonlyArray<FieldId>): Appearance {
 function member(family: FamilyId): Appearance {
   return { family };
 }
+
+const W = 'weather:weather.';
 
 export const PAGES: ReadonlyArray<PageDef> = [
   {
@@ -581,56 +578,44 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
-    summary: [WEATHER_ENTITY, ...WEATHER_BLOCKS.map((block) => weatherField(block, 'position'))],
+    summary: [WEATHER_ENTITY, `${W}position`],
     headings: [
       {
         key: 'heading.forecast',
         fields: [
           [WEATHER_ENTITY, E],
-          ...WEATHER_BLOCKS.map((block): readonly [FieldId, Appearance] => [
-            weatherField(block, 'position'),
-            E,
-          ]),
+          [`${W}position`, E],
         ],
       },
       {
         key: 'weather.date',
         helperKey: 'weather.date.helper',
-        // Month has no day header, so no layout's but Month's block is listed here.
-        fields: WEATHER_BLOCKS.filter((block) => block !== MONTH_WEATHER_BLOCK).flatMap(
-          (block): ReadonlyArray<readonly [FieldId, Appearance]> => [
-            [weatherField(block, 'date.show_conditions'), E],
-            [weatherField(block, 'date.show_high_temp'), E],
-            [weatherField(block, 'date.show_low_temp'), E],
-            [weatherField(block, 'date.show_uv_index'), E],
-            [
-              weatherField(block, 'date.uv_index_threshold'),
-              withMode(weatherField(block, 'date.show_uv_index')),
-            ],
-            [weatherField(block, 'date.icon_size'), A],
-            [weatherField(block, 'date.font_size'), A],
-            [weatherField(block, 'date.color'), A],
-          ],
-        ),
+        fields: [
+          [`${W}date.show_conditions`, E],
+          [`${W}date.show_high_temp`, E],
+          [`${W}date.show_low_temp`, E],
+          [`${W}date.show_uv_index`, E],
+          [`${W}date.uv_index_threshold`, withMode(`${W}date.show_uv_index`)],
+          [`${W}date.icon_size`, A],
+          [`${W}date.font_size`, A],
+          [`${W}date.color`, A],
+        ],
       },
       {
         key: 'weather.event',
         helperKey: 'weather.event.helper',
         extras: ['weather-calendar-links'],
-        fields: WEATHER_BLOCKS.flatMap((block): ReadonlyArray<readonly [FieldId, Appearance]> => [
-          [weatherField(block, 'event.show_conditions'), E],
-          [weatherField(block, 'event.show_temp'), E],
-          [weatherField(block, 'event.show_uv_index'), E],
-          [
-            weatherField(block, 'event.uv_index_threshold'),
-            withMode(weatherField(block, 'event.show_uv_index')),
-          ],
-          [weatherField(block, 'event.daily_forecast_fallback'), E],
-          [weatherField(block, 'event.icon_size'), A],
-          [weatherField(block, 'event.font_size'), A],
-          [weatherField(block, 'event.color'), A],
-          [weatherField(block, 'event.max_lines'), A],
-        ]),
+        fields: [
+          [`${W}event.show_conditions`, E],
+          [`${W}event.show_temp`, E],
+          [`${W}event.show_uv_index`, E],
+          [`${W}event.uv_index_threshold`, withMode(`${W}event.show_uv_index`)],
+          [`${W}event.daily_forecast_fallback`, E],
+          [`${W}event.icon_size`, A],
+          [`${W}event.font_size`, A],
+          [`${W}event.color`, A],
+          [`${W}event.max_lines`, A],
+        ],
       },
     ],
   },
@@ -792,8 +777,9 @@ export function placementOf(id: FieldId): Placement | undefined {
  */
 function sameInEveryScope(id: FieldId): boolean {
   const { scope, dataPath, name } = parseFieldId(id);
-  // A nested field stays where its path puts it; inside a view block it is that layout's own.
-  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  // A nested field stays where its path puts it; inside a view block, or a layout group such as
+  // `weather:`, it is that layout's own.
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
   if (scope === 'button') return true;
   if (scope === 'calendar') return entityConfigKeys(name).every((key) => !entityScopeFor(key));
 
@@ -839,7 +825,7 @@ export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
 export function keepsNoLayoutCopy(id: FieldId): boolean {
   const { scope, dataPath, name } = parseFieldId(id);
   if (scope === 'calendar' || scope === 'button') return false;
-  if (dataPath.length > 0) return !BLOCK_KEYS.has(dataPath[0]);
+  if (dataPath.length > 0) return !isLayoutCopyPath(dataPath);
   return configKeysForField(name).every((key) =>
     VIEWS.every((view) => destination(key, view) === undefined),
   );

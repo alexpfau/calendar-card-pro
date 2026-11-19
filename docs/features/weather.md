@@ -35,7 +35,7 @@ list:
 ```
 
 ::: tip Visual Editor
-On the editor's **Weather** page, choose a **Weather Entity** and **Show The Forecast** appears. Where you send the forecast decides which groups follow: **In the Day Header**, **Beside Each Event**, or both, each holding the options for its position.
+Each layout has a **Weather** page of its own. Choose a **Weather Entity**, which every layout shares, and the forecast turns on in the layout you are editing; **Show The Forecast** then decides where: **In the Day Header**, **Beside Each Event**, or both, each with the options for its position. Month offers **Off** and **Beside Events**.
 :::
 
 ## ⚙️ Weather Configuration Options
@@ -224,7 +224,7 @@ draws what the layout draws anyway.
 
 ::: tip Visual Editor
 **Event Weather** is the last setting under **Event Details** on each calendar's page. It appears
-once the card shows the forecast beside events.
+once the layout the page is open for shows the forecast beside events.
 :::
 
 ::: details Calendars Listed Twice & Merged Rows

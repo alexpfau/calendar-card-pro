@@ -123,6 +123,40 @@ const UNCOUNTED_ROOT_KEYS: ReadonlySet<string> = new Set([
 export const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
 
 /**
+ * Nested groups a layout's page edits in that layout's own block: `weather:` is drawn per layout,
+ * so its fields keep their path (`weather.position`) and are stored under the block of the layout
+ * being edited (`time_grid.weather.position`). All Layouts offers none of them.
+ */
+export const LAYOUT_GROUPS: ReadonlySet<string> = new Set(['weather']);
+
+/**
+ * Whether a nested field has a copy per layout: inside a view block, or in a layout group.
+ *
+ * @param dataPath - The field's enclosing data keys
+ * @returns `true` when its value can differ between layouts
+ */
+export function isLayoutCopyPath(dataPath: ReadonlyArray<string>): boolean {
+  return dataPath.length > 0 && (BLOCK_KEYS.has(dataPath[0]) || LAYOUT_GROUPS.has(dataPath[0]));
+}
+
+/**
+ * Where a nested field is stored in a scope: at its own path, or for a layout group under the
+ * block of the layout being edited.
+ *
+ * @param dataPath - The field's enclosing data keys
+ * @param workspace - The scope
+ * @returns The stored path, or `undefined` for a layout group in All Layouts, which stores none
+ */
+export function storedPath(
+  dataPath: ReadonlyArray<string>,
+  workspace: EditorWorkspace,
+): ReadonlyArray<string> | undefined {
+  if (dataPath.length === 0 || !LAYOUT_GROUPS.has(dataPath[0])) return dataPath;
+  const view = viewForWorkspace(workspace);
+  return view === undefined ? undefined : [OVERRIDE_BLOCK_BY_VIEW[view] as string, ...dataPath];
+}
+
+/**
  * How many values the YAML stores in a scope: a layout's own block, or for All Layouts the
  * card's own top-level settings. Read from the YAML as stored, never from the merged
  * configuration, which carries every default.

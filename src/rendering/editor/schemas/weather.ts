@@ -45,10 +45,10 @@ const ENTITY_FIELD: HaFormSchema = {
 
 /**
  * Builds the Weather panel schema for one layout: the card's entity, and with it the layout's own
- * `weather:`, stored in its block (`list.weather`, `time_grid.weather`).
+ * `weather:`, which routing stores in its block (`list.weather`, `time_grid.weather`).
  *
  * @param language - Effective language code
- * @param blockKey - Config key of the layout's block, or none for a scope without a layout
+ * @param layout - Whether a layout is being edited; All Layouts offers the entity alone
  * @param month - Whether the layout is Month, which draws the forecast beside events only
  * @param hasEntity - Whether a weather entity is configured
  * @param position - Where this layout shows the forecast
@@ -61,7 +61,7 @@ const ENTITY_FIELD: HaFormSchema = {
 const weatherSchema = Helpers.memoizeLast(
   (
     language: string,
-    blockKey: string | undefined,
+    layout: boolean,
     month: boolean,
     hasEntity: boolean,
     position: string,
@@ -69,7 +69,7 @@ const weatherSchema = Helpers.memoizeLast(
     eventUvIndex: boolean,
     eventConditions: boolean,
   ): HaFormSchema[] => {
-    if (blockKey === undefined || !hasEntity) return [ENTITY_FIELD];
+    if (!layout || !hasEntity) return [ENTITY_FIELD];
 
     const inside: HaFormSchema[] = [
       month
@@ -102,7 +102,7 @@ const weatherSchema = Helpers.memoizeLast(
       );
     }
 
-    return [ENTITY_FIELD, scope(blockKey, [scope('weather', inside)])];
+    return [ENTITY_FIELD, scope('weather', inside)];
   },
 );
 
@@ -120,7 +120,7 @@ export function buildWeatherSchema(ctx: SchemaCtx): HaFormSchema[] {
 
   return weatherSchema(
     ctx.language,
-    view === undefined ? undefined : ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view],
+    view !== undefined,
     view === 'month',
     weatherEntityOf(ctx.config) !== undefined,
     weather?.position ?? 'none',

@@ -321,9 +321,9 @@ describe('Pick From Preview', () => {
     expect(next.shadowRoot!.querySelector('.ccp-pick-layer')).not.toBeNull();
     expect(wrap.contains(card)).toBe(false);
 
-    $(editor, '[data-focus="nav:weather"]')!.click();
+    $(editor, '[data-focus="nav:taps_refresh"]')!.click();
     await settle(editor, next);
-    expect($(editor, '.page[data-page="weather"]')).not.toBeNull();
+    expect($(editor, '.page[data-page="taps_refresh"]')).not.toBeNull();
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(next.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
   });

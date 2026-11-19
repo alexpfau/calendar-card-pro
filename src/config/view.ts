@@ -2376,14 +2376,20 @@ export function layoutWeather(
 }
 
 /**
- * Whether any view the card can be set to draws a forecast beside events, which is what a
- * calendar's own `show_weather` can take away.
+ * Whether a layout shows the forecast beside its events, which is what a calendar's own
+ * `show_weather` can take away there: what the editor asks in the scope a calendar's page is open
+ * in. All Layouts, which draws no weather of its own, never does.
  *
- * @param config - Merged or authored configuration, never resolved for a view
- * @returns Whether one does
+ * @param config - Merged configuration, or one resolved for the view
+ * @param view - The layout, or none for All Layouts
+ * @returns Whether it does
  */
-export function showsEventWeatherAnywhere(config: Types.Config): boolean {
-  return VIEWS.some((view) => showsEventWeather(drawnViewWeather(config, view)));
+export function showsEventWeatherIn(
+  config: Types.Config,
+  view: Types.EffectiveView | undefined,
+): boolean {
+  if (view === undefined) return false;
+  return showsEventWeather({ ...layoutWeather(config, view), entity: weatherEntityOf(config) });
 }
 
 /**

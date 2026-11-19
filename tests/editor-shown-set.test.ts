@@ -703,7 +703,7 @@ describe('a heading with nothing to edit', () => {
     choose[1].click();
     await editor.updateComplete;
     await editor.updateComplete;
-    expect($(editor, '.jump [data-field="weather:weather.entity"]')).not.toBeNull();
+    expect($(editor, '.jump [data-field="weather:weather_entity"]')).not.toBeNull();
   });
 
   it('keeps its gate line where it waits on anything but a part or a weather entity', async () => {

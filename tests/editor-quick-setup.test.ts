@@ -205,7 +205,8 @@ describe('Quick Setup', () => {
     expect(reports[0]).toMatchObject({
       title: 'Our Week',
       view: 'grid',
-      weather: { entity: 'weather.home' },
+      weather_entity: 'weather.home',
+      time_grid: { weather: { position: 'date' } },
       grid_options: { columns: 'full', rows: 'auto' },
       entities: [
         { entity: 'calendar.anna', accent_color: '#ff6c92' },
@@ -245,7 +246,12 @@ describe('Quick Setup', () => {
 
     await click(editor, '[data-quick-setup-next]');
     await changeField(editor, 'quick_setup:weather_entity', 'weather.home');
-    expect(lastConfig(editor)!.weather).toEqual({ entity: 'weather.home' });
+    // A story without a forecast of its own shows it in the layout it starts in.
+    expect(lastConfig(editor)).toMatchObject({
+      weather_entity: 'weather.home',
+      list: { weather: { position: 'date' } },
+    });
+    expect(lastConfig(editor)).not.toHaveProperty('weather');
 
     await click(editor, '[data-quick-setup-next]');
     await changeFields(editor, {

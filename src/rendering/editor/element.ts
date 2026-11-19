@@ -2373,10 +2373,14 @@ export class CalendarCardProEditor extends LitElement {
     const keys = field.configKeys;
     const key = keys.includes(field.node.name) ? field.node.name : (keys[0] ?? field.node.name);
     const { scope } = parseFieldId(field.id);
+    const workspace = ctx.workspace ?? ctx.view;
+    if (scope !== 'calendar' && scope !== 'button' && field.dataPath.length > 0) {
+      return [...(Workspace.storedPath(field.dataPath, workspace) ?? field.dataPath), key].join(
+        '.',
+      );
+    }
     const block =
-      scope === 'calendar' || scope === 'button' || field.dataPath.length > 0
-        ? undefined
-        : Routing.destination(key, ctx.workspace ?? ctx.view);
+      scope === 'calendar' || scope === 'button' ? undefined : Routing.destination(key, workspace);
     return [...(block ? [block] : field.dataPath), key].join('.');
   }
 
@@ -6677,7 +6681,10 @@ export class CalendarCardProEditor extends LitElement {
         Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
         labelImageSourceOf(Entities.asEntityConfig(entry).label),
         hasLegend,
-        ViewConfig.showsEventWeatherAnywhere(ctx.config),
+        ViewConfig.showsEventWeatherIn(
+          ctx.config,
+          ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace),
+        ),
       );
       const schema = Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
       return { entry, index, key: keys[index], schema };

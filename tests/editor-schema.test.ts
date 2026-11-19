@@ -1985,8 +1985,9 @@ describe('editor: the panel set', () => {
     const group = (name: string) => Object.keys(weather[name] as Record<string, unknown>);
 
     const expected = [
-      // `entity` and `position` sit directly on the Weather panel, outside either group.
-      'entity',
+      // The entity sits at the top level, `position` directly on a layout's Weather panel,
+      // outside either group.
+      'weather_entity',
       'position',
       ...group('date').map((key) => `weather.date.${key}`),
       ...group('event').map((key) => `weather.event.${key}`),
@@ -2007,11 +2008,13 @@ describe('editor: the panel set', () => {
       buildConfig({ view: 'grid' }),
       // The UV threshold is held back until UV is on, in both groups.
       buildConfig({
-        weather: {
-          entity: 'weather.home',
-          position: 'both',
-          date: { show_uv_index: true },
-          event: { show_uv_index: true },
+        weather_entity: 'weather.home',
+        list: {
+          weather: {
+            position: 'both',
+            date: { show_uv_index: true },
+            event: { show_uv_index: true },
+          },
         },
       }),
     ];
@@ -2274,11 +2277,12 @@ describe('editor: the Weather panel', () => {
   }
 
   it('offers nothing but the entity until one is chosen', () => {
-    expect(namesIn(buildConfig())).toEqual(['weather', 'entity']);
+    expect(namesIn(buildConfig())).toEqual(['weather_entity']);
   });
 
-  it('nests the whole panel under the key it is stored in, without a second heading', () => {
-    const [root] = weatherSchemaFor(buildConfig());
+  it('nests the layout’s weather under the key it is stored in, without a second heading', () => {
+    const [entity, root] = weatherSchemaFor(buildConfig({ weather_entity: 'weather.home' }));
+    expect(entity.name).toBe('weather_entity');
 
     // A named grid nests the data exactly as an expandable would and draws no heading,
     // which is what keeps a "Weather" group out of the Weather panel.

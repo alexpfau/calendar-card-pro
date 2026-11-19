@@ -25,12 +25,7 @@ import { humanize, lookup } from './localize';
 import { LEGEND_OFF } from './normalize';
 import * as Routing from './routing';
 import { interpolate } from './strings';
-import {
-  MONTH_WEATHER_BLOCK,
-  WEATHER_BLOCKS,
-  WEATHER_ENTITY,
-  weatherField,
-} from './weather-fields';
+import { WEATHER_ENTITY } from './weather-fields';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -188,101 +183,23 @@ function asAction(value: unknown): Types.ActionConfig | undefined {
   return Helpers.isConfigBlock(value) ? (value as unknown as Types.ActionConfig) : undefined;
 }
 
+const W = 'weather:weather.';
+
 const HAS_WEATHER = phrased(
   filled(WEATHER_ENTITY, 'weather.home'),
   undefined,
   'gate.when.weather_entity',
 );
-
-/**
- * A layout's weather shows the forecast beside its days.
- *
- * @param block - The layout's block key
- * @returns The condition
- */
-function byDay(block: string): Prereq {
-  return phrased(
-    oneOf(weatherField(block, 'position'), 'date', 'both'),
-    'gate.needs.forecast_by_day',
-    'gate.when.forecast_by_day',
-  );
-}
-
-/**
- * A layout's weather shows the forecast beside its events.
- *
- * @param block - The layout's block key
- * @returns The condition
- */
-function byEvent(block: string): Prereq {
-  return phrased(
-    oneOf(weatherField(block, 'position'), 'event', 'both'),
-    'gate.needs.forecast_by_event',
-    'gate.when.forecast_by_event',
-  );
-}
-
-/**
- * Each layout's weather gates, keyed `<gate>.<block>`: its position waits on the entity, and each
- * part's options on the position showing that part. Month has no day header, so no day part.
- *
- * @returns The gates
- */
-function layoutWeatherGates(): Record<string, Gate> {
-  const gates: Record<string, Gate> = {};
-  for (const block of WEATHER_BLOCKS) {
-    const at = (path: string): FieldId => weatherField(block, path);
-    gates[`forecast.${block}`] = {
-      fields: [at('position')],
-      requires: [HAS_WEATHER],
-      kind: 'gate',
-    };
-    if (block !== MONTH_WEATHER_BLOCK) {
-      gates[`forecast_by_day.${block}`] = {
-        fields: [
-          at('date.show_conditions'),
-          at('date.show_high_temp'),
-          at('date.show_low_temp'),
-          at('date.show_uv_index'),
-          at('date.icon_size'),
-          at('date.font_size'),
-          at('date.color'),
-        ],
-        requires: [HAS_WEATHER, byDay(block)],
-        kind: 'gate',
-      };
-      gates[`uv_by_day.${block}`] = {
-        fields: [at('date.uv_index_threshold')],
-        requires: [HAS_WEATHER, byDay(block), on(at('date.show_uv_index'))],
-        kind: 'mode-value',
-      };
-    }
-    gates[`forecast_by_event.${block}`] = {
-      fields: [
-        at('event.show_conditions'),
-        at('event.show_temp'),
-        at('event.show_uv_index'),
-        at('event.daily_forecast_fallback'),
-        at('event.icon_size'),
-        at('event.font_size'),
-        at('event.color'),
-      ],
-      requires: [HAS_WEATHER, byEvent(block)],
-      kind: 'gate',
-    };
-    gates[`weather_lines.${block}`] = {
-      fields: [at('event.max_lines')],
-      requires: [HAS_WEATHER, byEvent(block), on(at('event.show_conditions'))],
-      kind: 'gate',
-    };
-    gates[`uv_by_event.${block}`] = {
-      fields: [at('event.uv_index_threshold')],
-      requires: [HAS_WEATHER, byEvent(block), on(at('event.show_uv_index'))],
-      kind: 'mode-value',
-    };
-  }
-  return gates;
-}
+const BY_DAY = phrased(
+  oneOf(`${W}position`, 'date', 'both'),
+  'gate.needs.forecast_by_day',
+  'gate.when.forecast_by_day',
+);
+const BY_EVENT = phrased(
+  oneOf(`${W}position`, 'event', 'both'),
+  'gate.needs.forecast_by_event',
+  'gate.when.forecast_by_event',
+);
 
 // A month rule is drawn, read as the card reads the width: unless the width is a zero length.
 const MONTH_RULE = phrased(
@@ -465,7 +382,52 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [on('card:toolbar.show'), on('card:toolbar.view_switcher')],
     kind: 'gate',
   },
-  ...layoutWeatherGates(),
+  forecast: {
+    fields: [`${W}position`],
+    requires: [HAS_WEATHER],
+    kind: 'gate',
+  },
+  forecast_by_day: {
+    fields: [
+      `${W}date.show_conditions`,
+      `${W}date.show_high_temp`,
+      `${W}date.show_low_temp`,
+      `${W}date.show_uv_index`,
+      `${W}date.icon_size`,
+      `${W}date.font_size`,
+      `${W}date.color`,
+    ],
+    requires: [HAS_WEATHER, BY_DAY],
+    kind: 'gate',
+  },
+  uv_by_day: {
+    fields: [`${W}date.uv_index_threshold`],
+    requires: [HAS_WEATHER, BY_DAY, on(`${W}date.show_uv_index`)],
+    kind: 'mode-value',
+  },
+  forecast_by_event: {
+    fields: [
+      `${W}event.show_conditions`,
+      `${W}event.show_temp`,
+      `${W}event.show_uv_index`,
+      `${W}event.daily_forecast_fallback`,
+      `${W}event.icon_size`,
+      `${W}event.font_size`,
+      `${W}event.color`,
+    ],
+    requires: [HAS_WEATHER, BY_EVENT],
+    kind: 'gate',
+  },
+  weather_lines: {
+    fields: [`${W}event.max_lines`],
+    requires: [HAS_WEATHER, BY_EVENT, on(`${W}event.show_conditions`)],
+    kind: 'gate',
+  },
+  uv_by_event: {
+    fields: [`${W}event.uv_index_threshold`],
+    requires: [HAS_WEATHER, BY_EVENT, on(`${W}event.show_uv_index`)],
+    kind: 'mode-value',
+  },
   // Either action opens the event dialog, as `synthetic.ts` › `eventOpensDetails` reads them.
   event_details: {
     fields: ['actions:allow_event_edit', 'actions:allow_event_delete'],
@@ -607,12 +569,10 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     needsKey: 'gate.needs.calendar_filter',
     whenKey: 'gate.when.calendar_filter',
   },
-  // A calendar's option reaches every layout, so it waits on any layout showing the forecast
-  // beside events.
+  // Read in the scope the calendar's page is open in: the layout's own forecast beside events.
   show_weather: {
     fields: ['calendar:show_weather'],
-    requires: [HAS_WEATHER],
-    anyOf: WEATHER_BLOCKS.map((block) => [byEvent(block)]),
+    requires: [HAS_WEATHER, BY_EVENT],
     kind: 'gate',
     needsKey: 'gate.needs.forecast_by_event',
     whenKey: 'gate.when.forecast_by_event',

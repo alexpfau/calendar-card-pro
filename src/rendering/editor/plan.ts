@@ -61,13 +61,12 @@ import {
   refinementHolds,
 } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
-import { BLOCK_KEYS, type EditorWorkspace, viewForWorkspace } from './workspace';
+import { type EditorWorkspace, isLayoutCopyPath, storedPath, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { hasOwn } from '../../utils/helpers';
-import { showsEventWeather } from '../../utils/weather-position';
 
 /** Why a field is live, or what stands in its place. */
 export type FieldState =
@@ -378,8 +377,16 @@ export function storedAt(
   workspace: EditorWorkspace,
 ): boolean {
   const { scope } = parseFieldId(field.id);
-  if (scope === 'calendar' || scope === 'button' || field.dataPath.length > 0) {
+  if (scope === 'calendar' || scope === 'button') {
     return field.configKeys.some((key) => holdsValue(Routing.atPath(raw, field.dataPath, key)));
+  }
+  if (field.dataPath.length > 0) {
+    // A layout group is stored in the block of the layout being edited, and in none for All Layouts.
+    const path = storedPath(field.dataPath, workspace);
+    return (
+      path !== undefined &&
+      field.configKeys.some((key) => holdsValue(Routing.atPath(raw, path, key)))
+    );
   }
   return field.configKeys.some((key) => {
     const block = Routing.destination(key, workspace);
@@ -500,7 +507,7 @@ function topStored(field: IndexedField, ctx: PlanCtx): boolean {
  * @returns `true` when its value can differ between layouts
  */
 export function hasLayoutCopy(field: Pick<IndexedField, 'dataPath' | 'configKeys'>): boolean {
-  if (field.dataPath.length > 0) return BLOCK_KEYS.has(field.dataPath[0]);
+  if (field.dataPath.length > 0) return isLayoutCopyPath(field.dataPath);
   return field.configKeys.some((key) =>
     ViewConfig.VIEWS.some((view) => Routing.destination(key, view) !== undefined),
   );
@@ -545,8 +552,10 @@ function cardCounterpart(
 ): unknown {
   const key = CARD_COUNTERPART[option];
   if (key === undefined) return undefined;
+  if (option === 'show_weather') {
+    return ViewConfig.showsEventWeatherIn(config as Types.Config, viewForWorkspace(workspace));
+  }
   const effective = Routing.workspaceConfig(config, workspace);
-  if (option === 'show_weather') return showsEventWeather(effective.weather);
   return normalizeRootValue(key, effective[key as keyof Types.Config]);
 }
 

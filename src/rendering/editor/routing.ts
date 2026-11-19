@@ -7,7 +7,7 @@ import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize
 import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
-import { type EditorWorkspace, WORKSPACE_FIELD, viewForWorkspace } from './workspace';
+import { type EditorWorkspace, WORKSPACE_FIELD, storedPath, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -185,8 +185,6 @@ export function workspaceFormData(
                 normalizeFieldValue(config, [block.blockKey], key, value),
               ]),
             ),
-            // The layout's own weather as it draws, every option at its effective value.
-            weather: ViewConfig.layoutWeather(config, view),
           },
         ],
       ];
@@ -200,9 +198,9 @@ export function workspaceFormData(
   let data: Record<string, unknown> = {
     ...projected,
     ...blocks,
-    weather: Value.weatherFormBlock(projected),
+    weather: workspaceWeather(config, workspace),
     // The entity every layout draws from, wherever it is written.
-    weather_entity: weatherEntityOf(config) ?? '',
+    weather_entity: weatherEntityOf(config),
     // The card's own `view`, not the layout Settings For projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
@@ -391,7 +389,9 @@ export function applyWorkspaceChange(
     }
 
     if (path.length > 0) {
-      draft = writePath(draft, path, node.name, next);
+      // A layout group is stored in the block of the layout being edited.
+      const stored = storedPath(path, frame.workspace);
+      if (stored !== undefined) draft = writePath(draft, stored, node.name, next);
       continue;
     }
 
@@ -430,6 +430,24 @@ export function applyWorkspaceChange(
     draft = Value.reconcileTimeGridValues(draft, gridResetKeys, authoredRootKeys);
   }
   return { config: draft, pending: held };
+}
+
+/**
+ * The weather a scope's Weather page edits, every option at its effective value: the layout's own,
+ * as it draws, or for All Layouts, which draws none, the layout base, off.
+ *
+ * @param config - Merged configuration
+ * @param workspace - The scope
+ * @returns The weather, without an entity
+ */
+export function workspaceWeather(
+  config: Readonly<Types.Config>,
+  workspace: EditorWorkspace,
+): Types.WeatherPresentationConfig {
+  const view = viewForWorkspace(workspace);
+  return view === undefined
+    ? structuredClone(ViewConfig.LAYOUT_WEATHER_BASE)
+    : ViewConfig.layoutWeather(config as Types.Config, view);
 }
 
 /**

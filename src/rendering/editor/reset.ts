@@ -30,7 +30,7 @@ import { ENTRY_GROUPS, type FamilyId, type HeadingDef, PAGES } from './pages';
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import * as Synthetic from './synthetic';
-import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace, storedPath } from './workspace';
 import type { WriteState } from './write-frames';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
@@ -220,7 +220,9 @@ function removeField(
   workspace: EditorWorkspace,
 ): void {
   if (dataPath.length > 0) {
-    for (const key of keys) removePath(draft, [...dataPath, key]);
+    // A layout group's lines are the layout's own, in its block; All Layouts stores none.
+    const stored = storedPath(dataPath, workspace);
+    if (stored !== undefined) for (const key of keys) removePath(draft, [...stored, key]);
     return;
   }
 

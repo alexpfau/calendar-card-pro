@@ -322,7 +322,7 @@ describe('inherited and different', () => {
     ['split_multiday_events', { split_multiday_events: true }],
     ['multiday_banners', { view: 'grid', multiday_banners: false }],
     ['event_type', { event_type: 'timed' }],
-    ['show_weather', { weather: { entity: 'weather.home', position: 'event' } }],
+    ['show_weather', { weather_entity: 'weather.home', list: { weather: { position: 'event' } } }],
     ['days_of_week', undefined],
   ];
 
@@ -341,7 +341,9 @@ describe('inherited and different', () => {
     );
     for (const [option, card] of CASES) {
       const id = `calendar:${option}`;
-      const workspace = card?.view === 'grid' ? 'grid' : 'shared';
+      // A calendar's weather follows the forecast of the layout its page is open in.
+      const workspace =
+        card?.view === 'grid' ? 'grid' : option === 'show_weather' ? 'list' : 'shared';
       const follows = entryCtx({ ...card, entities: [ANNA] }, workspace);
       if (card === undefined) {
         expect(stateIn(follows, id), option).toEqual({ kind: 'add' });
@@ -361,16 +363,22 @@ describe('inherited and different', () => {
   });
 
   it('counts show_weather against the forecast beside events, not against the day header', () => {
-    const byDay = entryCtx(
-      { weather: { entity: 'weather.home', position: 'date' }, entities: [ANNA] },
-      'shared',
-    );
+    const at = (position: string) => ({
+      weather_entity: 'weather.home',
+      list: { weather: { position } },
+      entities: [ANNA],
+    });
+    const byDay = entryCtx(at('date'), 'list');
     expect(byDay.present.fields.has('calendar:show_weather')).toBe(false);
-    const both = entryCtx(
-      { weather: { entity: 'weather.home', position: 'both' }, entities: [ANNA] },
-      'shared',
-    );
+    const both = entryCtx(at('both'), 'list');
     expect(stateIn(both, 'calendar:show_weather')).toEqual({ kind: 'live', why: 'inherited' });
+    // Read in the layout the page is open in: Grid draws no forecast here, and Layout Defaults
+    // draws none of its own.
+    for (const workspace of ['grid', 'shared'] as const) {
+      expect(entryCtx(at('both'), workspace).present.fields.has('calendar:show_weather')).toBe(
+        false,
+      );
+    }
   });
 });
 
@@ -560,10 +568,11 @@ describe('state words: every row of the stateOf table', () => {
     }
     const weather = cardCtx(
       {
-        weather: { entity: 'weather.home', position: 'event' },
+        weather_entity: 'weather.home',
+        list: { weather: { position: 'event' } },
         entities: ['calendar.ben', { entity: ANNA, show_weather: false }],
       },
-      'shared',
+      'list',
     );
     expect(stateOf(fieldIn(weather, 'weather:weather.position'), weather)).toMatchObject({
       calendars: [11],

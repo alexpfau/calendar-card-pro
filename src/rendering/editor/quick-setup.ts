@@ -24,6 +24,7 @@ import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 import { weatherEntityOf } from '../../utils/weather-position';
 
@@ -283,6 +284,21 @@ export function buildQuickSetupConfig(
       continue;
     }
     desired[key] = block;
+  }
+
+  // A story that draws no forecast of its own shows the chosen entity's in the layout it starts
+  // in, as choosing an entity on a layout's Weather page does: beside its days, or in Month,
+  // which has none, beside its events.
+  const storyWeather = Value.VIEW_BLOCK_KEYS.some(
+    (key) => Helpers.isConfigBlock(shell[key]) && Helpers.hasOwn(shell[key], 'weather'),
+  );
+  if (weather !== '' && !storyWeather) {
+    const view = ViewConfig.VIEWS.find((each) => each === shell.view) ?? 'list';
+    const key = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view] as string;
+    desired[key] = {
+      ...(Helpers.isConfigBlock(desired[key]) ? desired[key] : {}),
+      weather: { position: view === 'month' ? 'event' : 'date' },
+    };
   }
 
   for (const [key, value] of Object.entries(opening)) {

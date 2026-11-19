@@ -511,7 +511,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.weather':
     'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
   'upgrade.weather_some':
-    'Weather is now set per layout: the options above the layouts now apply to {layouts}, and Month is off.',
+    'Weather is now set per layout: {layouts} take the card’s weather options, and Month is off.',
   'upgrade.weather_none': 'Weather is now set per layout.',
   'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',

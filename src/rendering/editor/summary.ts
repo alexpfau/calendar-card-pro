@@ -17,7 +17,7 @@ import { atPath, destination } from './routing';
 import { isColorNode } from './schemas/common';
 import { interpolate } from './strings';
 import { configKeysForField, isSet } from './synthetic';
-import { BLOCK_KEYS, type EditorWorkspace } from './workspace';
+import { BLOCK_KEYS, type EditorWorkspace, storedPath } from './workspace';
 import { OVERRIDE_BLOCK_BY_VIEW } from '../../config/view';
 
 /** Joins the parts of a summary. */
@@ -253,9 +253,11 @@ export function storedPaths(
     const own = workspace === 'shared' ? undefined : OVERRIDE_BLOCK_BY_VIEW[workspace];
     if (dataPath[0] !== own) return [];
   }
+  const stored = storedPath(dataPath, workspace);
+  if (stored === undefined) return [];
   const paths: Array<readonly [ReadonlyArray<string>, string]> =
     dataPath.length > 0
-      ? [[dataPath, name]]
+      ? [[stored, name]]
       : configKeysForField(name).map((key) => {
           const block = destination(key, workspace);
           return [block === undefined ? [] : [block], key];
