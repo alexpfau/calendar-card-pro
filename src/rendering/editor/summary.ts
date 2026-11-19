@@ -62,8 +62,12 @@ export function wordValue(
   }
   if ('number' in selector) {
     if (value === undefined || value === null || value === '') return undefined;
+    const text = String(value);
     const unit = selector.number?.unit_of_measurement;
-    return unit ? withUnit(String(value), unit) : String(value);
+    // Only a bare number: the YAML may write the unit itself, `min_day_width: 120px`.
+    return unit && text.trim() !== '' && Number.isFinite(Number(text))
+      ? withUnit(text.trim(), unit)
+      : text;
   }
   if ('text' in selector || 'icon' in selector) {
     return value === undefined || value === null || value === '' ? undefined : String(value);
