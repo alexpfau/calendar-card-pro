@@ -198,7 +198,9 @@ owned by the card's `SearchSession`.
   (`searchGroupingConfig`), so filters, duplicates and replacements are the card's.
 - **A pick** pages through the date picker's path (`_pickDate`) and rings the event through a class
   render binds (`_searchRing`), never an element added in `updated()`. A month decides where once
-  it knows what it discloses: a compact month selects the day and rings the row in its list, a wide
-  one rings the bar or line where it draws one (`monthDrawsRing`), and otherwise opens the day's
-  panel, once the search panel has gone, with the row rung and focused.
+  it knows what it discloses: a compact month selects the day and rings the row in its list, once
+  the list has been fitted in a render after the pick, a wide one rings the bar or line where it
+  draws one (`monthDrawsRing`), and otherwise opens the day's panel, once the search panel has
+  gone, with the row rung and focused. A ring whose row a later fit leaves out of the list goes to
+  the panel the same way.
 - **Closing.** The panel closes before anything takes its magnifier away.

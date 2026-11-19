@@ -1628,7 +1628,9 @@ class CalendarCardPro extends LitElement {
    * The event a search pick rings: from the pick until its ring has shown for `SEARCH_RING`, or
    * the page asked for turned out not to draw it. `page` is the page the pick asked for, the only
    * one the ring is drawn on; `day` the result's own day; `until` is set once it is drawn; `focus`
-   * until focus has moved to it.
+   * until focus has moved to it. `listFitted` is set once a compact month's list has been fitted
+   * in a render that holds the pick, which is the only fit it routes against; `inPanel` once it
+   * has been routed to a day's panel, behind "+N more" (`_syncSearchRing`).
    */
   private _searchRing: {
     target: Search.RingTarget;
@@ -1636,6 +1638,8 @@ class CalendarCardPro extends LitElement {
     day: string;
     until?: number;
     focus: boolean;
+    listFitted: boolean;
+    inPanel: boolean;
   } | null = null;
 
   private _searchRingTimer?: ReturnType<typeof setTimeout>;
@@ -3771,8 +3775,16 @@ class CalendarCardPro extends LitElement {
     const geometry = MonthListFit.measureMonthList(this.renderRoot, this._monthListGrows);
     if (!geometry) return;
     const shown = MonthListFit.fitMonthList(geometry);
+    // A pick held in the list this render drew waits for this fit, the first made after it, and
+    // the next render rings its row or routes it behind "+N more" (`_syncSearchRing`).
+    const ring = this._searchRing;
+    const settlesRing = ring !== null && this._searchRingPending && !ring.listFitted;
+    if (ring && settlesRing) ring.listFitted = true;
     const fit = this._monthListFit;
-    if (fit?.day === drawn.day && fit.shown === shown) return;
+    if (fit?.day === drawn.day && fit.shown === shown) {
+      if (settlesRing) this.requestUpdate();
+      return;
+    }
     Logger.debug(`Month list ${drawn.day}: ${shown} of ${drawn.count} events fit`);
     this._monthListFit = { day: drawn.day, shown };
     this.requestUpdate();
@@ -4005,9 +4017,12 @@ class CalendarCardPro extends LitElement {
     const listed = ring ? Search.ringRows(dayLists[index] ?? [], ring) : null;
     const found = listed?.found ?? false;
     // The rows the card fitted to this day, else none until it has; a pick past them is behind
-    // "+N more", which opens the day's panel to ring it there.
+    // "+N more", which opens the day's panel to ring it there. A pick waits for a fit made after
+    // it, even on a day fitted before, since the fit its render was drawn from may be about to
+    // change (`_syncMonthListFit`).
     const shown = this._monthListFit?.day === day ? this._monthListFit.shown : undefined;
-    const pending = shown === undefined && count > 0;
+    const waits = this._searchRing?.listFitted === false;
+    const pending = (shown === undefined || waits) && count > 0;
     const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
       compact: {
@@ -9959,6 +9974,8 @@ class CalendarCardPro extends LitElement {
       page: this._pageRequested,
       day: row.day,
       focus: true,
+      listFitted: false,
+      inPanel: false,
     };
     Logger.debug(`Search: paging to ${row.day} to ring a result`);
     this.requestUpdate();
@@ -9987,13 +10004,17 @@ class CalendarCardPro extends LitElement {
    * A wide month that draws the event only in a day's "+N more" opens that day's panel, ringing
    * the event's row there and starting focus on it, once the search panel has gone and Home
    * Assistant has put focus back where it was: opened sooner, that would take focus from it.
+   *
+   * A ring already drawn in a compact month's list whose row a new fit leaves out, as after a
+   * resize, is routed the same way rather than left on nothing: to its day's panel, for the ring's
+   * whole time again, with focus on its row there where the list held focus.
    */
   private _syncSearchRing(): void {
     const ring = this._searchRing;
     if (!ring) return;
 
+    const behindMore = this._searchRingBehindMore;
     if (ring.until === undefined) {
-      const behindMore = this._searchRingBehindMore;
       // A compact month's list not fitted yet may list the pick or leave it behind "+N more";
       // the render the fit makes says which.
       if (this._searchRingPending) return;
@@ -10001,23 +10022,28 @@ class CalendarCardPro extends LitElement {
         this._startSearchRing(ring);
       } else if (behindMore) {
         if (!this._searchPanelGone) return;
-        this._startSearchRing(ring);
         const focus = ring.focus;
         ring.focus = false;
-        // A compact month's list opens it from its own "+N more", which focus comes back to.
-        const listMore = this._drawsCompactMonth
-          ? this.renderRoot.querySelector<HTMLElement>('.month-day-list .month-day-list-more')
-          : null;
-        const cell = this._monthCellFor(behindMore);
-        if (listMore) this._openDayPanel(behindMore, listMore, focus, true);
-        else if (cell) this._openDayPanel(behindMore, cell, focus);
-        Logger.debug('Search: the pick is behind "+N more"; ringing it in its day\'s panel');
+        this._ringBehindMore(ring, behindMore, focus);
         return;
       } else if (this._pageShown === ring.page && !this.isLoading && !this.isInitialLoad) {
         Logger.debug('Search: the page does not draw the result picked; nothing to ring');
         this._searchRing = null;
         return;
       }
+    } else if (
+      behindMore &&
+      !ring.inPanel &&
+      !this._searchRingDrawn &&
+      this._drawsCompactMonth &&
+      this._searchPanelGone
+    ) {
+      // Focus is owed to the ring, or was on the list, which a new fit moves to "+N more"
+      // (`_keepMonthListFocus`) when it takes the row that had it.
+      const focus = ring.focus || this._focusedMonthListPart() !== null;
+      ring.focus = false;
+      this._ringBehindMore(ring, behindMore, focus);
+      return;
     }
 
     if (ring.focus && ring.until !== undefined && this._searchPanelGone) {
@@ -10034,6 +10060,31 @@ class CalendarCardPro extends LitElement {
       target?.focus({ preventScroll: true });
       ringed?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
+  }
+
+  /**
+   * Rings a pick its month draws only behind a day's "+N more" in that day's panel, for
+   * `SEARCH_RING` from now. A compact month's list opens the panel from its own "+N more", which
+   * focus comes back to; a wide month from the day's cell.
+   *
+   * @param ring - The ring
+   * @param day - The day, at local midnight
+   * @param focus - Whether the panel starts focus on the ringed row
+   */
+  private _ringBehindMore(
+    ring: { until?: number; inPanel: boolean },
+    day: Date,
+    focus: boolean,
+  ): void {
+    this._startSearchRing(ring);
+    ring.inPanel = true;
+    const listMore = this._drawsCompactMonth
+      ? this.renderRoot.querySelector<HTMLElement>('.month-day-list .month-day-list-more')
+      : null;
+    const cell = this._monthCellFor(day);
+    if (listMore) this._openDayPanel(day, listMore, focus, true);
+    else if (cell) this._openDayPanel(day, cell, focus);
+    Logger.debug('Search: the pick is behind "+N more"; ringing it in its day\'s panel');
   }
 
   /**
