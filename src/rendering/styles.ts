@@ -8035,6 +8035,21 @@ export const cardStyles = css`
     font-weight: 500;
   }
 
+  /* The wide month fills the tile: the indicator color itself, with Home Assistant's text on the
+     primary color for the digits in the same weight, as the compact form marks today while it is
+     the selected day. Among a day's colored lines and bars the wash, at 1.2 to 1.5 to 1 against
+     the card, does not stand out; the fill, at 3.3 to 1 in Home Assistant's light theme and 5.2 to
+     1 in its dark one, does. Light digits read thinner on a fill than dark ones on a wash, hence
+     the weight. The ink is redefined rather than the color set, since the digits
+     take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
+     on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
+     week-number pill and the week separators, keeps the list's tile. */
+  .month-container:not(.month-compact) .month-date > .day.today-tile {
+    background: var(--calendar-card-today-indicator-color);
+    font-weight: 600;
+    --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
+  }
+
   /* Today without the tile, where today_indicator names another style or none: its number in
      the indicator's color, so today still reads as today. */
   .month-day.today + .month-date > .day:not(.today-tile) {

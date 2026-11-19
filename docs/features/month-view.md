@@ -32,8 +32,10 @@ unless you set one.
   exact dates the six weeks span.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
   carries its month's name, such as "1 Dec".
-- **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), which
-  `today_indicator: false` turns off; Month draws no other indicator, so its editor offers the
+- **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), filled with
+  `today_indicator_color` and its number in white by default, so it stands out among the events,
+  as a [compact month](#the-compact-month) draws it while today is the selected day.
+  `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
   tile and none. Past days are dimmed. Past events are shown
   by default in month view; see
   [Options That Start From a Different Default](#options-that-start-from-a-different-default).

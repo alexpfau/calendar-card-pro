@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(251_000);
-    // The week-number pill taking today's tile's colors moved the ceiling last, from 248,000 to
+    expect(saved).toBeLessThan(254_000);
+    // The wide month's filled today tile moved the ceiling last, from 251,000 to 254,000 (backlog
+    // item 363): the note on why the wide month fills the tile as the compact form fills a selected
+    // today, why the tile's ink is redefined rather than its color set, and why the week-number
+    // pill and the week separators keep the list's tile. The reading went from 250,441 to
+    // 251,281, taken with stripComments after the last comment was written.
+    //
+    // The week-number pill taking today's tile's colors moved the ceiling before that, from 248,000 to
     // 251,000 (backlog item 325): the notes on why the pill and the week separators read the
     // tile's wash and ink from ha-card while the tile keeps its own, why the chroma is scaled as
     // Oklab's a and b (Chromium gives a low-chroma mix no hue, and scaling OKLCH's c then paints

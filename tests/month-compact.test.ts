@@ -1720,3 +1720,56 @@ describe('the weeks’ lines and bars', () => {
     expect(rule('.month-line-time')).toContainEqual(['color', 'var(--calendar-card-color-time)']);
   });
 });
+
+describe('today’s tile in the wide month', () => {
+  const WIDE_TILE = '.month-container:not(.month-compact) .month-date > .day.today-tile';
+  const SELECTED_TODAY = '.month-compact .month-day.month-selected.today .month-date > .day';
+
+  /** A rule's declarations outside any at-rule, by property. */
+  const rule = (selector: string) =>
+    Object.fromEntries(
+      declarations(cardStyles.cssText)
+        .filter((d) => d.at.length === 0 && d.selectors.includes(selector))
+        .map((d) => [d.property, d.value]),
+    );
+
+  it('is filled in the indicator color with the light ink, as the compact form’s selected today', () => {
+    const wide = rule(WIDE_TILE);
+    const selected = rule(SELECTED_TODAY);
+    expect({
+      background: wide.background,
+      ink: wide['--calendar-card-today-indicator-ink'],
+      weight: wide['font-weight'],
+    }).toEqual({
+      background: 'var(--calendar-card-today-indicator-color)',
+      ink: 'var(--text-primary-color, #fff)',
+      weight: '600',
+    });
+    // Drawn as the compact form draws today while it is the selected day.
+    expect([
+      wide.background,
+      wide['--calendar-card-today-indicator-ink'],
+      wide['font-weight'],
+    ]).toEqual([selected.background, selected.color, selected['font-weight']]);
+  });
+
+  it('reaches the wide month’s tile alone, whose digits take the ink it redefines', async () => {
+    const card = await mount();
+    const tile = root(card).querySelector<HTMLElement>('.month-container .day.today-tile')!;
+    expect(tile.matches(WIDE_TILE)).toBe(true);
+    // The digits read the ink inline, so the ink set on the tile is what colors them.
+    expect(tile.style.color).toBe('var(--calendar-card-today-indicator-ink)');
+    // A color named for them still wins, as on every tile.
+    const named = await mount({ today_day_color: 'rgb(1, 2, 3)' });
+    expect(root(named).querySelector<HTMLElement>('.day.today-tile')!.style.color).toBe(
+      'rgb(1, 2, 3)',
+    );
+    // The control: the compact form's tile and List's are not reached.
+    const narrow = await mount({}, 375);
+    expect(day(narrow, 18).querySelector('.day.today-tile')!.matches(WIDE_TILE)).toBe(false);
+    const list = await mount({ view: 'list' });
+    const listTile = root(list).querySelector('.day.today-tile');
+    expect(listTile).not.toBeNull();
+    expect(listTile!.matches(WIDE_TILE)).toBe(false);
+  });
+});
