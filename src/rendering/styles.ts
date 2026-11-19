@@ -8080,7 +8080,8 @@ export const cardStyles = css`
     margin-inline-end: 0;
   }
 
-  /* A bar's times and length are the time's, as a line's time is, and its title the event's.
+  /* A bar's times and length are the time's, in its size and color, as a line's time is, and its
+     title the event's.
      So the timed and lasting banner, which in Grid sets the event size for its title and times
      to inherit, sets none here, and each part reads its own: none is measured against another,
      and the banner's container queries measure in the card's em. */
@@ -8097,6 +8098,7 @@ export const cardStyles = css`
   .month-bar .grid-banner-time,
   .month-bar .grid-banner-duration {
     font-size: var(--calendar-card-font-size-time);
+    color: var(--calendar-card-color-time);
   }
 
   /* A timed event: Column's row trimmed to one line. Its accent bar, a short stripe with round

@@ -38,6 +38,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
+  // Month's Event Appearance and Weather pages, over the settings marked Day List & Panel.
+  'page.month_rows.note':
+    'Month’s weeks draw each event’s title and start time. Day List & Panel settings act on a day’s list and on the panel “+N more” opens.',
   // Whole Card's page for a first setup's questions, in the order its headings ask them.
   'page.events_weather_language': 'Events, Weather & Language',
   // The line under each page's row: what to expect there, the same whatever the card holds.
@@ -181,8 +184,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Under a Grid setting while Layout Defaults stores a value Grid's own default overrides.
   'state.ignored': "Uses {layout}'s Default, Not {value} From Layout Defaults",
   'state.from_all_layouts': 'From Layout Defaults',
-  // Under a whole-card setting some layout draws nothing for: "Not in Grid".
+  // Under a setting some layout draws nothing for: "Not in Grid". A whole-card one says it on
+  // every page, a per-layout one on Layout Defaults.
   'state.not_in': 'Not in {layouts}',
+  // Under a Month setting that acts on a day's list and the panel "+N more" opens, not the weeks.
+  'state.day_list': 'Day List & Panel',
   // A calendar option the calendar's entries share, naming the other entries by number.
   'state.shared_entry': 'Also Applies to Entry {entries}',
   'state.shared_entries': 'Also Applies to Entries {entries}',
@@ -656,6 +662,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Each event shows the parts that are pressed. A pressed part's settings follow below.",
   'chip.needs': 'Needs {part}',
   'chip.not_in': 'Not in {layout}: {names}.',
+  // Month's parts that act on a day's list and the panel "+N more" opens, never on its weeks.
+  'chip.day_list': 'Day List & Panel: {names}.',
   // The chips stored where Settings For points, under the chips with where the others come from.
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".

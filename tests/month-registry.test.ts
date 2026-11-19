@@ -10,10 +10,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import { fetchEventData, groupEventsByDay } from '../src/utils/events';
 import * as Logger from '../src/utils/logger';
+import * as MonthDay from '../src/utils/month-day';
+
+/**
+ * The shared options Month keeps at their shipped values (`MONTH_PINNED`), in its order: a day's
+ * list and the panel draw an event's title, time, location and forecast, and leave the rest to the
+ * event's details.
+ */
+const PINNED = [
+  'show_description',
+  'show_description_allday',
+  'description_font_size',
+  'description_color',
+  'description_icon_size',
+  'description_max_lines',
+  'show_countdown',
+  'show_countdown_allday',
+  'countdown_max_days',
+  'countdown_exact_days',
+  'show_progress_bar',
+  'progress_bar_color',
+  'progress_bar_height',
+  'progress_bar_width',
+  'allday_badge',
+  'allday_badge_style',
+  'allday_badge_color',
+  'title_max_lines',
+  'time_max_lines',
+  'location_max_lines',
+  'event_icon_vertical_alignment',
+] as const;
 
 describe('the month block', () => {
   it('is registered as `month:`, with its own keys, defaults and divergent default', () => {
@@ -31,6 +62,7 @@ describe('the month block', () => {
         event_gap: '6px',
         show_past_events: true,
       },
+      pinned: ViewConfig.MONTH_PINNED,
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'card_height',
@@ -64,7 +96,7 @@ describe('the month block', () => {
     );
   });
 
-  it('overrides column’s shared options but the twenty-one it draws nothing for, and the bars', () => {
+  it('overrides column’s shared options but the forty-three it draws nothing for or pins, and the bars', () => {
     const ignored = [
       'height',
       'max_height',
@@ -87,6 +119,8 @@ describe('the month block', () => {
       'past_date_scale',
       'today_indicator_size',
       'time_position',
+      'time_icon_size',
+      ...PINNED,
     ];
     expect(ViewConfig.MONTH_IGNORED_SHARED_KEYS).toEqual(ignored);
     const month: ReadonlyArray<string> = ViewConfig.MONTH_OVERRIDE_KEYS;
@@ -118,42 +152,46 @@ describe('the options month reads', () => {
       .filter(([, views]) => !views.has('month'))
       .map(([key]) => key)
       .sort();
-    expect(ignored).toEqual([
-      'compact_days_to_show',
-      'compact_events_complete_days',
-      'compact_events_to_show',
-      'date_vertical_alignment',
-      'day_separator_color',
-      'day_separator_width',
-      'day_spacing',
-      'days_to_show',
-      'empty_day_color',
-      'empty_day_text',
-      'event_order',
-      'height',
-      'max_height',
-      'month_separator_color',
-      // List's month separator, which the Month layout does not draw, so it has no month's name
-      // to set.
-      'month_separator_label',
-      'month_separator_label_color',
-      'month_separator_label_font_size',
-      'month_separator_width',
-      'past_date_scale',
-      'show_empty_days',
-      'show_empty_today',
-      'show_multiday_allday_time',
-      'skip_first_events',
-      'split_multiday_events',
-      'time_position',
-      'today_date_scale',
-      'today_indicator_position',
-      'today_indicator_size',
-      'today_weekday_color',
-      'week_number_background_color',
-      'week_separator_color',
-      'week_separator_width',
-    ]);
+    expect(ignored).toEqual(
+      [
+        'compact_days_to_show',
+        'compact_events_complete_days',
+        'compact_events_to_show',
+        'date_vertical_alignment',
+        'day_separator_color',
+        'day_separator_width',
+        'day_spacing',
+        'days_to_show',
+        'empty_day_color',
+        'empty_day_text',
+        'event_order',
+        'height',
+        'max_height',
+        'month_separator_color',
+        // List's month separator, which the Month layout does not draw, so it has no month's name
+        // to set.
+        'month_separator_label',
+        'month_separator_label_color',
+        'month_separator_label_font_size',
+        'month_separator_width',
+        'past_date_scale',
+        'show_empty_days',
+        'show_empty_today',
+        'show_multiday_allday_time',
+        'skip_first_events',
+        'split_multiday_events',
+        'time_icon_size',
+        'time_position',
+        'today_date_scale',
+        'today_indicator_position',
+        'today_indicator_size',
+        'today_weekday_color',
+        'week_number_background_color',
+        'week_separator_color',
+        'week_separator_width',
+        ...PINNED,
+      ].sort(),
+    );
   });
 
   it('keeps out of its block exactly the shared options VIEW_SCOPE keeps out of it', () => {
@@ -174,19 +212,13 @@ describe('the options month reads', () => {
       .map(([key]) => key)
       .sort();
     expect(read).toEqual([
-      'allday_badge',
-      'allday_badge_color',
-      'allday_badge_style',
       'event_gap',
       'event_spacing',
       'multiday_banners',
       'open_links',
-      'show_countdown_allday',
-      'show_description_allday',
       'show_location_allday',
       'show_now_indicator',
       'show_single_allday_time',
-      'time_max_lines',
     ]);
   });
 
@@ -283,6 +315,48 @@ describe('the options month reads', () => {
       ).show_past_events,
     ).toBe(false);
     expect(ViewConfig.resolveViewOption(buildConfig({}), 'show_past_events', 'month')).toBe(true);
+  });
+});
+
+describe('what month keeps at its shipped values', () => {
+  /** A value no default holds, so a pin cannot pass by coincidence. */
+  const written = (key: string): unknown => {
+    const shipped = (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
+    if (typeof shipped === 'boolean') return !shipped;
+    if (typeof shipped === 'number' || shipped === undefined) return 3;
+    return key.endsWith('color') ? 'rgb(1, 2, 3)' : key === 'allday_badge' ? 'title' : '37px';
+  };
+  const everything = Object.fromEntries(PINNED.map((key) => [key, written(key)]));
+
+  it('is the shipped value of each, in order', () => {
+    expect(Object.keys(ViewConfig.MONTH_PINNED)).toEqual([...PINNED]);
+    for (const key of PINNED) {
+      expect([key, ViewConfig.MONTH_PINNED[key]]).toEqual([key, Config.DEFAULT_CONFIG[key]]);
+    }
+  });
+
+  it('wins over the card and the month block, in both resolvers, and nowhere but Month', () => {
+    const config = buildConfig({ ...everything, month: everything } as Partial<Types.Config>);
+    const month = ViewConfig.resolveEffectiveConfig(config, 'month');
+    const list = ViewConfig.resolveEffectiveConfig(config, 'list');
+    for (const key of PINNED) {
+      expect([key, month[key]]).toEqual([key, Config.DEFAULT_CONFIG[key]]);
+      expect([key, ViewConfig.resolveViewOption(config, key, 'month')]).toEqual([
+        key,
+        Config.DEFAULT_CONFIG[key],
+      ]);
+      // The control: the card's own value reaches List.
+      expect([key, list[key]]).toEqual([key, written(key)]);
+    }
+  });
+
+  it('reports each where a month block holds it, as an option the block does not read', () => {
+    expect(
+      ViewConfig.findMisplacedOptions({ month: { show_description: true, title_max_lines: 2 } }),
+    ).toEqual([
+      expect.objectContaining({ kind: 'wrong-view', key: 'show_description', from: 'month' }),
+      expect.objectContaining({ kind: 'wrong-view', key: 'title_max_lines', from: 'month' }),
+    ]);
   });
 });
 
@@ -516,5 +590,52 @@ describe('grouping for month', () => {
     // The control: the list does, on the days it splits the trip into.
     const list = await grouped('list', { show_progress_bar: true, split_multiday_events: true });
     expect(each(list, '_dayOfEvent').map((stamp) => stamp?.day)).toEqual([1, 1, 2, 2, 3, 3]);
+  });
+
+  it('lists and groups a day without descriptions whatever a calendar says, and keeps a calendar’s privacy', async () => {
+    const DENTIST: Types.CalendarEventData = {
+      summary: 'Dentist',
+      description: 'Bring the card',
+      start: { dateTime: '2026-09-14T10:00:00Z' },
+      end: { dateTime: '2026-09-14T11:00:00Z' },
+    };
+    const listed = async (
+      entry: Partial<Types.EntityConfig>,
+      view: Types.EffectiveView,
+      through: 'day list' | 'grouping' = 'day list',
+    ) => {
+      const config = buildConfig({
+        view,
+        entities: [{ entity: 'calendar.anna', ...entry }],
+        start_date: '2026-09-14',
+        days_to_show: 7,
+        show_past_events: true,
+      });
+      const hass: Types.Hass = {
+        states: {},
+        locale: { language: 'en' },
+        callApi: async () => [DENTIST],
+        callService: vi.fn(),
+      };
+      const { events } = await fetchEventData(hass, config, `month-description-${view}`, 'network');
+      const resolved = ViewConfig.resolveEffectiveConfig(config, view);
+      const day = new Date('2026-09-14T00:00:00Z');
+      return view === 'month' && through === 'day list'
+        ? MonthDay.monthDayEvents(events, resolved, day, 'en', hass)
+        : groupEventsByDay(events, resolved, false, 'en', view, hass).flatMap((d) => d.events);
+    };
+    const [shown] = await listed({ show_description: true }, 'month');
+    expect([shown.summary, shown.description]).toEqual(['Dentist', '']);
+    // The control: the same calendar's list draws it.
+    expect((await listed({ show_description: true }, 'list'))[0].description).toBe(
+      'Bring the card',
+    );
+    // Month's own grouping, which search reads, holds none either, so search cannot find it.
+    const [grouped] = await listed({ show_description: true }, 'month', 'grouping');
+    expect([grouped.summary, grouped.description]).toEqual(['Dentist', '']);
+    // A calendar's own `false` stays on the row, so its details keep the description private.
+    const [hidden] = await listed({ show_description: false }, 'month');
+    expect(hidden._matchedConfig?.show_description).toBe(false);
+    expect(shown._matchedConfig?.show_description).toBeUndefined();
   });
 });

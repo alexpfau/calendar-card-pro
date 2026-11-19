@@ -38,7 +38,7 @@ import * as Synthetic from './synthetic';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
-import { entityScopeFor, showsEventWeatherIn } from '../../config/view';
+import { appliesToView, entityScopeFor, showsEventWeatherIn } from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -286,7 +286,39 @@ export function builtSchema(panel: PanelDef, ctx: SchemaCtx): HaFormSchema[] {
  */
 function indexPanel(target: Map<FieldId, IndexedField>, panel: PanelDef, ctx: SchemaCtx): void {
   const built = builtSchema(panel, ctx);
-  indexLeaves(target, panel.id, built, [], cardConfigKeys);
+  const view = ctx.workspace === undefined ? undefined : Workspace.viewForWorkspace(ctx.workspace);
+  indexLeaves(
+    target,
+    panel.id,
+    built,
+    [],
+    view === undefined ? cardConfigKeys : (name, dataPath) => keysIn(name, dataPath, view),
+  );
+}
+
+/**
+ * The keys a card field writes on a layout's page: those of {@link cardConfigKeys} the layout
+ * reads. A field writing several options can reach a layout through some of them alone, as
+ * Accent Text reaches Month through its event, time and location colors; the others have no copy
+ * in the layout's block, so reading, writing or resetting them there would act on the top level,
+ * which every other layout reads. A field the layout reads through none keeps them all: it is
+ * withheld there (`filter.ts` › `withholdInertFields`), and a whole-card one is named for the
+ * layouts it does nothing in.
+ *
+ * @param name - Field name
+ * @param dataPath - Enclosing data keys
+ * @param view - The layout whose page draws the field
+ * @returns Configuration keys
+ */
+function keysIn(
+  name: string,
+  dataPath: ReadonlyArray<string>,
+  view: Types.EffectiveView,
+): ReadonlyArray<string> {
+  const keys = cardConfigKeys(name, dataPath);
+  if (dataPath.length > 0 || keys.length < 2) return keys;
+  const read = keys.filter((key) => appliesToView(key, view));
+  return read.length === 0 || read.length === keys.length ? keys : read;
 }
 
 /**

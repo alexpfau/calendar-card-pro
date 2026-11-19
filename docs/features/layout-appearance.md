@@ -692,7 +692,8 @@ A search finds only what the card would show on some page, in the words it would
 - **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
-  `show_location` or `show_description` off, is not searched.
+  `show_location` or `show_description` off, is not searched, nor is a description in
+  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none.
 - **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
   layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
   outside the hours from `start_time` to `end_time` is not found, and the grid draws no location

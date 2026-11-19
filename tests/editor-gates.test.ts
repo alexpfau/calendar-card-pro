@@ -182,6 +182,43 @@ const NOT_IN_GRID = [
 ];
 
 /**
+ * What Month's day list and panel leave to the event's details, or draw one way only
+ * (`ViewConfig.MONTH_PINNED`): the description, the countdown, the progress bar, the all-day badge,
+ * the line limits and the icons' alignment; no clock beside a time; the forecast in no words, so
+ * with no line limit; and today on the tile or not at all, so no icon or image for it.
+ */
+const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
+  'day_header:today_indicator_icon',
+  'day_header:today_indicator_custom',
+  'events:show_description',
+  'events:show_description_allday',
+  'events:description_font_size',
+  'events:description_color',
+  'events:description_icon_size',
+  'events:description_max_lines',
+  'events:show_countdown',
+  'events:show_countdown_allday',
+  'events:countdown_max_days',
+  'events:countdown_once_per_day',
+  'events:countdown_exact_days',
+  'events:show_progress_bar',
+  'events:progress_bar_color',
+  'events:progress_bar_height',
+  'events:progress_bar_width',
+  'events:allday_badge_position',
+  'events:allday_badge_style',
+  'events:allday_badge_color_mode',
+  'events:allday_badge_color',
+  'events:title_max_lines',
+  'events:time_max_lines',
+  'events:location_max_lines',
+  'events:event_icon_vertical_alignment',
+  'events:time_icon_size',
+  'weather:weather.event.max_lines',
+  'calendar:show_description',
+];
+
+/**
  * Offered everywhere but Month, which sizes its card with its own heights, draws every day of six
  * weeks, rules them itself and sets its dates at one scale. The card's Height fields read the
  * shared `height` and `max_height`; the multi-day all-day time row is one Month's day list never
@@ -207,6 +244,7 @@ const NOT_IN_MONTH = [
   'separators:week_separator_color',
   'separators:month_separator_width',
   'separators:month_separator_color',
+  ...MONTH_LEAVES_OUT,
 ];
 
 /**
@@ -873,13 +911,15 @@ describe('the universe', () => {
     // shadings and the two font sizes of its days. Then weather became each layout's own: Layout
     // Defaults lost the layout's eighteen weather settings and a calendar's Show Weather, keeping
     // the entity, and Month lost the eight of the forecast beside the days it has no header for.
-    // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped.
+    // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
+    // lost what its day list and panel leave to the event's details or draw one way only
+    // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description.
     expect(sizes).toEqual({
       shared: { card: 135, calendar: 27 },
       list: { card: 162, calendar: 28 },
       column: { card: 158, calendar: 27 },
       grid: { card: 157, calendar: 27 },
-      month: { card: 131, calendar: 27 },
+      month: { card: 104, calendar: 26 },
     });
   });
 
@@ -1100,7 +1140,7 @@ describe('the gate table', () => {
         kind: 'gate',
         fields: ['day_header:today_indicator_color'],
         requires: [
-          p('day_header:today_indicator_style', 'dot', [
+          p('day_header:today_indicator_style', 'tile', [
             'tile',
             'dot',
             'pulse',

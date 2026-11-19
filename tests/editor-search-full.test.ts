@@ -352,8 +352,8 @@ describe('what a result says it is', () => {
 
     const grid = await mount({ ...LIST, view: 'grid' });
     await searchFor(grid, 'all-day badge');
-    // Month's day list draws the badge as List does.
-    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List, Columns, and Month');
+    // Month says "All day" in a row's time and draws no badge (`MONTH_PINNED`).
+    expect(row(grid, 'events:allday_badge_position').tag).toBe('Only in List and Columns');
   });
 
   it('a page, by its title', async () => {

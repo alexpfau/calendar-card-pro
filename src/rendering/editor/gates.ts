@@ -319,7 +319,8 @@ export const GATES: Readonly<Record<string, Gate>> = {
   },
   indicator_color: {
     fields: ['day_header:today_indicator_color'],
-    requires: [noneOf('day_header:today_indicator_style', 'dot', 'none')],
+    // Opened by the tile, the one style every layout draws: Month reads any other as none.
+    requires: [noneOf('day_header:today_indicator_style', 'tile', 'none')],
     kind: 'gate',
     needsKey: 'gate.needs.indicator_shown',
     whenKey: 'gate.when.indicator_shown',

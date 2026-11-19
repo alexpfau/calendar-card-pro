@@ -239,17 +239,18 @@ by color alone. Each kind of fact has a form of its own, and none of them can be
 setting at its default shows none; a screen reader still reads **Default** with its name. The
 words are the same on every page; the page's title says which layout they are about.
 
-| Fact                                                   | Form                    | Means                                                                                   |
-| ------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
-| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar |
-| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out    |
-| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there  |
-| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links                  |
-| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                              |
-| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card               |
-| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there              |
-| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                     |
-| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from           |
+| Fact                                                   | Form                    | Means                                                                                                                                 |
+| ------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar                                               |
+| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                                  |
+| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                                |
+| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links; under Layout Defaults, any setting a layout draws nothing for |
+| **Day List & Panel**                                   | after Month's icon      | On Month's pages: a setting that acts on a day's list and the panel "+N more" opens, never on the weeks                               |
+| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                                            |
+| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                                             |
+| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there                                                            |
+| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                                                                   |
+| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from                                                         |
 
 A setting with a stored value is always open, with **Reset** in plain view right after **Set**,
 on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value

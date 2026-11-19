@@ -615,6 +615,9 @@ function readRegistryKeys(editor) {
       name(named, `${page.titleKey}.aliases`, `page ${page.id}, its search words`);
     }
     name(named, page.noteKey, `page ${page.id}, its note`);
+    for (const [view, key] of Object.entries(page.noteKeyByView ?? {})) {
+      name(named, key, `page ${page.id}, its note in ${view}`);
+    }
     name(named, page.descriptionKey, `page ${page.id}, its row's description`);
     page.headings.forEach((def, index) => heading(def, `page ${page.id}, heading ${index}`));
   }

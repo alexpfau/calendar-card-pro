@@ -52,6 +52,9 @@ export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'custom',
 ];
 
+/** The styles Month offers: it marks today with the tile alone (`Synthetic.todayIndicatorStyleIn`). */
+export const MONTH_TODAY_INDICATOR_STYLES: ReadonlyArray<string> = ['none', 'tile'];
+
 export const WEEK_NUMBER_MODES: ReadonlyArray<string> = ['none', 'iso', 'simple'];
 
 /**
@@ -59,9 +62,14 @@ export const WEEK_NUMBER_MODES: ReadonlyArray<string> = ['none', 'iso', 'simple'
  *
  * @param language - Effective language code
  * @param style - Derived indicator style
+ * @param styles - The styles offered
  * @returns The dropdown, and its value control where the style has one
  */
-export function todayIndicatorFields(language: string, style: string): HaFormSchema[] {
+export function todayIndicatorFields(
+  language: string,
+  style: string,
+  styles: ReadonlyArray<string> = TODAY_INDICATOR_STYLES,
+): HaFormSchema[] {
   const chooser: HaFormSchema[] = [];
 
   if (style === 'icon') {
@@ -70,7 +78,7 @@ export function todayIndicatorFields(language: string, style: string): HaFormSch
     chooser.push(text('today_indicator_custom'));
   }
 
-  return [select(language, 'today_indicator_style', TODAY_INDICATOR_STYLES), ...chooser];
+  return [select(language, 'today_indicator_style', styles), ...chooser];
 }
 
 /**
@@ -88,9 +96,14 @@ export function weekNumberFields(language: string): HaFormSchema[] {
  *
  * @param language - Effective language code
  * @param style - Derived indicator style
+ * @param styles - The styles offered
  * @returns The fields
  */
-function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
+function todayIndicatorRun(
+  language: string,
+  style: string,
+  styles: ReadonlyArray<string>,
+): HaFormSchema[] {
   // The tile is sized from the day number and drawn on it, so it has a color and nothing
   // else: a size or a position field would be the silent no-op this editor avoids.
   const styling: HaFormSchema[] =
@@ -104,7 +117,7 @@ function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
             text('today_indicator_position'),
           ];
 
-  return [...todayIndicatorFields(language, style), ...styling];
+  return [...todayIndicatorFields(language, style, styles), ...styling];
 }
 
 /**
@@ -175,6 +188,7 @@ function dayHeaderRuleFields(blockKey: string): HaFormSchema[] {
  * @param indicatorStyle - Derived today-indicator style
  * @param weekNumberMode - Derived week-number mode
  * @param blockKey - Config key holding this view's block, when it owns the rule keys
+ * @param indicatorStyles - The today-indicator styles offered
  * @returns The panel's schema
  */
 const dayHeaderSchema = Helpers.memoizeLast(
@@ -184,6 +198,7 @@ const dayHeaderSchema = Helpers.memoizeLast(
     indicatorStyle: string,
     weekNumberMode: string,
     blockKey: string | undefined,
+    indicatorStyles: ReadonlyArray<string>,
   ): HaFormSchema[] => [
     select(language, 'date_vertical_alignment', ['top', 'middle', 'bottom']),
     text('weekday_font_size'),
@@ -195,7 +210,7 @@ const dayHeaderSchema = Helpers.memoizeLast(
     ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
     ...weekNumberRun(language, weekNumberMode),
     ...todayRun(language, showMonth),
-    ...todayIndicatorRun(language, indicatorStyle),
+    ...todayIndicatorRun(language, indicatorStyle, indicatorStyles),
     {
       name: 'past_date_opacity',
       selector: {
@@ -222,10 +237,11 @@ export function buildDayHeaderSchema(ctx: SchemaCtx): HaFormSchema[] {
   return dayHeaderSchema(
     ctx.language,
     ctx.config.show_month,
-    Synthetic.todayIndicatorStyle(ctx.config),
+    Synthetic.todayIndicatorStyleIn(ctx.config, ctx.view),
     ctx.config.show_week_numbers ?? 'none',
     // Gated on the block owning the keys rather than on the view merely having one, the
     // same test Layout and Separators use. List has no block at all, so it gets none of them.
     block?.onlyKeys.includes('day_header_gap') === true ? block.blockKey : undefined,
+    ctx.view === 'month' ? MONTH_TODAY_INDICATOR_STYLES : TODAY_INDICATOR_STYLES,
   );
 }

@@ -323,28 +323,32 @@ describe('the folded value reaches the stylesheet by every path', () => {
   });
 
   describe.each(OVERRIDABLE)('%s inside a view block', (key) => {
-    it.each(View.VIEWS)('folds an override in the %s block', (view) => {
-      const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
+    // Each layout that reads the option: Month draws no clock and no description.
+    it.each(View.VIEWS.filter((view) => View.appliesToView(key, view)))(
+      'folds an override in the %s block',
+      (view) => {
+        const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
-      for (const [input, size] of [
-        ['14 px', '14px'],
-        ['0.75 rem', '0.75rem'],
-        ['150%', DEFAULT],
-      ]) {
-        const config = buildConfig({
-          view,
-          [key]: '10px',
-          [blockKey]: { [key]: input },
-        } as Partial<Types.Config>);
-        Config.normalizeLengthOptions(config);
-        const effective = View.resolveEffectiveConfig(config, view);
+        for (const [input, size] of [
+          ['14 px', '14px'],
+          ['0.75 rem', '0.75rem'],
+          ['150%', DEFAULT],
+        ]) {
+          const config = buildConfig({
+            view,
+            [key]: '10px',
+            [blockKey]: { [key]: input },
+          } as Partial<Types.Config>);
+          Config.normalizeLengthOptions(config);
+          const effective = View.resolveEffectiveConfig(config, view);
 
-        // Both resolvers, because they are two implementations of one rule and the bulk one
-        // is the path the card takes.
-        expect(effective[key], `${blockKey} ${input}`).toBe(size);
-        expect(View.resolveViewOption(config, key, view), `${blockKey} ${input}`).toBe(size);
-      }
-    });
+          // Both resolvers, because they are two implementations of one rule and the bulk one
+          // is the path the card takes.
+          expect(effective[key], `${blockKey} ${input}`).toBe(size);
+          expect(View.resolveViewOption(config, key, view), `${blockKey} ${input}`).toBe(size);
+        }
+      },
+    );
 
     it('leaves a usable top-level value alone when a view overrides it', () => {
       const config = buildConfig({
@@ -464,7 +468,7 @@ describe('a folded icon size is reported', () => {
   });
 
   it.each(OVERRIDABLE)('is reported for an override of %s under the block path', (key) => {
-    for (const view of View.VIEWS) {
+    for (const view of View.VIEWS.filter((each) => View.appliesToView(key, each))) {
       const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
       const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
@@ -515,7 +519,11 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
     const shown = (state: State, workspace: Workspace.EditorWorkspace) =>
       Routing.workspaceFormData(state.config, workspace, state.pending)[key];
 
-    it.each(Workspace.WORKSPACES)('in %s, writes nothing until the size parses', (workspace) => {
+    it.each(
+      Workspace.WORKSPACES.filter(
+        (workspace) => workspace === 'shared' || View.appliesToView(key, workspace),
+      ),
+    )('in %s, writes nothing until the size parses', (workspace) => {
       const start = buildConfig({ [key]: '10px' } as Partial<Types.Config>);
       let state: State = { config: start, pending: {} };
 
