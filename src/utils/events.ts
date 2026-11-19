@@ -1151,7 +1151,7 @@ function keepWellFormedEvents(
 
 /**
  * Collapse copies of one event down to the first-listed entry's, and record which
- * calendars held it.
+ * calendars held it. Under `merge_locations` the copy kept also lists every copy's location.
  *
  * The two jobs are one pass because only this function ever sees the copies it drops.
  * Everything downstream receives the survivor alone, so a row that came from three
@@ -1182,6 +1182,8 @@ function deduplicateEvents(
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
+  const mergeLocations = config.filter_duplicates === Constants.DUPLICATES_MERGE_LOCATIONS;
+  const locations = new Map<string, string[]>();
 
   for (const entityConfig of config.entities) {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1202,6 +1204,15 @@ function deduplicateEvents(
         contributing.push({ entityId, config: event._matchedConfig });
       }
 
+      // Every copy's location, the dropped ones included, for the same reason and in the
+      // same order as the calendars above.
+      const location = event.location?.trim();
+      if (mergeLocations && location) {
+        const listed = locations.get(signature);
+        if (!listed) locations.set(signature, [location]);
+        else if (!listed.includes(location)) listed.push(location);
+      }
+
       if (seen.has(signature)) continue;
 
       seen.add(signature);
@@ -1220,8 +1231,24 @@ function deduplicateEvents(
     if (!keep.has(event) && seen.has(signature)) continue;
 
     const mergedFrom = contributors.get(signature);
+    // Rewritten only where the list says more than the copy kept already does: two or more
+    // locations, or one the kept copy itself lacks. A single shared location stays as it was.
+    const mergedLocations = locations.get(signature);
+    const manyLocations =
+      mergedLocations !== undefined && (mergedLocations.length > 1 || !event.location?.trim());
     survivors.push(
-      mergedFrom && mergedFrom.length > 1 ? { ...event, _mergedFrom: mergedFrom } : event,
+      mergedFrom && mergedFrom.length > 1
+        ? {
+            ...event,
+            _mergedFrom: mergedFrom,
+            ...(manyLocations
+              ? {
+                  location: mergedLocations.join(Constants.MERGED_LOCATION_SEPARATOR),
+                  _mergedLocations: mergedLocations,
+                }
+              : {}),
+          }
+        : event,
     );
   }
 
@@ -1407,8 +1434,34 @@ function dayPassesWeekFilter(
  *   where every reader takes them from.
  * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
  *   (`Search.ringIn`), so no event reaching the copy carries one.
+ * - `_mergedLocations` is read by the copy's own `location` (`displayLocation`), which lists
+ *   the parts it holds, so no renderer needs them apart.
  */
-type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
+type LeftOffDisplayCopy =
+  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
+
+/**
+ * A row's location as the card draws it before any `replace_*` rewrite: `formatLocation` on it,
+ * or, on a row `filter_duplicates: merge_locations` merged, on each copy's location in turn.
+ * Each part is formatted on its own because the country strip reads the end of a location, so
+ * on the joined text it would reach the last part alone. Parts that format to the same text,
+ * or to nothing, are listed once, or not at all.
+ *
+ * @param event Row being copied for display
+ * @param removeCountry Configured `remove_location_country`
+ * @returns The location text, joined where it was merged
+ */
+function displayLocation(
+  event: Types.CalendarEventData,
+  removeCountry: Types.Config['remove_location_country'],
+): string {
+  if (!event._mergedLocations)
+    return FormatUtils.formatLocation(event.location || '', removeCountry);
+  const parts = event._mergedLocations
+    .map((location) => FormatUtils.formatLocation(location, removeCountry))
+    .filter((location) => location !== '');
+  return [...new Set(parts)].join(Constants.MERGED_LOCATION_SEPARATOR);
+}
 
 /**
  * Whether grid view draws this one event as a banner in its all-day band: a timed event a full
@@ -1453,7 +1506,7 @@ function resolveGridBanners(
 
   if (!config.filter_duplicates) return new Set(events.filter(wantsBanner));
 
-  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const ignoreLocation = ignoresLocation(config.filter_duplicates);
   const signatures = new Map<Types.CalendarEventData, string>();
   const presenting = new Map<string, Types.CalendarEventData>();
   for (const event of events) {
@@ -1548,7 +1601,7 @@ export function groupEventsByDay(
   // Its splitter keeps timed middle days timed and all-day banner identity intact.
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
-  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const ignoreLocation = ignoresLocation(config.filter_duplicates);
   const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
@@ -1848,7 +1901,7 @@ export function groupEventsByDay(
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)
             ? TextReplace.applyTextReplacement(
-                FormatUtils.formatLocation(event.location || '', config.remove_location_country),
+                displayLocation(event, config.remove_location_country),
                 replacement,
                 'location',
               ).text
@@ -2633,8 +2686,21 @@ function filterEventsForEntity(
 }
 
 /**
+ * Whether a `filter_duplicates` value leaves the location out of the signature: both
+ * `ignore_location` and `merge_locations` do, and differ only in what the row kept shows.
+ *
+ * @param value Configured `filter_duplicates`, resolved for the view
+ * @returns True where copies match on title, start and end alone
+ */
+function ignoresLocation(value: Types.Config['filter_duplicates'] | undefined): boolean {
+  return (
+    value === Constants.DUPLICATES_IGNORE_LOCATION || value === Constants.DUPLICATES_MERGE_LOCATIONS
+  );
+}
+
+/**
  * The identity `filter_duplicates` compares copies by: the original title, start and end, and
- * the location too unless the option is `ignore_location`.
+ * the location too unless the option is `ignore_location` or `merge_locations`.
  *
  * @param event Event to identify
  * @param ignoreLocation Whether to leave the location out of the comparison
