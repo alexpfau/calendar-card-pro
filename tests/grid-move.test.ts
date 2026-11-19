@@ -285,6 +285,13 @@ describe('moving an event in a grid by drag', () => {
     expect(bodies(card)[1].textContent).toContain('Dentist');
   });
 
+  it('moves on a card that leaves the event tap at its default, which opens the popover', async () => {
+    const { card, writes } = await mount({});
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)]);
+    await settle();
+    expect(writes()).toEqual([dentistMovedTo('2026-06-17T11:00:00Z', '2026-06-17T12:00:00Z')]);
+  });
+
   it('keeps the minute within its quarter, and the length, as it moves', async () => {
     const odd = {
       ...DENTIST,
@@ -389,7 +396,7 @@ describe('moving an event in a grid by drag', () => {
     });
 
     it('moves by hold where only the hold opens the popover', async () => {
-      const { card, writes } = await mount(ON_HOLD);
+      const { card, writes } = await mount({ ...ON_HOLD, event_tap_action: { action: 'none' } });
       drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)], 'touch');
       await settle();
       expect(writes()).toEqual([dentistMovedTo('2026-06-17T11:00:00Z', '2026-06-17T12:00:00Z')]);
@@ -525,7 +532,7 @@ describe('moving an event in a grid by drag', () => {
 
   describe('what a drag never moves', () => {
     it.each([
-      ['events that open nothing', {}, [DENTIST], 'Dentist'],
+      ['events that open nothing', { event_tap_action: { action: 'none' } }, [DENTIST], 'Dentist'],
       [
         'events opened by a Home Assistant action',
         { event_tap_action: { action: 'more-info' } },

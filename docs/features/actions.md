@@ -1,6 +1,6 @@
 # Actions & Interactions
 
-Calendar Card Pro lets you add, open and change events from the dashboard. With the toolbar shown, a button in the card's header adds an event, and so does a tap on a day with `day_tap_action: add-event`; with `event_tap_action: details`, a tap on an event opens it in the card's popover, where you can edit or delete it. Further down are links in events, your own tap and hold actions, and a compact card that expands when tapped.
+Calendar Card Pro lets you add, open and change events from the dashboard. With the toolbar shown, a button in the card's header adds an event, and so does a tap on a day with `day_tap_action: add-event`; a tap on an event opens it in the card's popover, where you can edit or delete it. Further down are links in events, your own tap and hold actions, and a compact card that expands when tapped.
 
 Whether a calendar's events can be added, changed or deleted is decided by the integration it comes from, not by the card: a Local Calendar allows all three, a subscribed holiday feed none. See [What Each Integration Allows](#what-each-integration-allows).
 
@@ -77,8 +77,8 @@ Wherever a day shows no event, in every layout:
 - **[Month view](/features/month-view):** the empty part of a day. On a compact month a tap
   selects the day instead, and the selected day's name over its list adds.
 
-A tap on an event never adds: the tap is the event's when it has an `event_tap_action`, and the
-card's otherwise. Nor do a grid's `+N` block, which stands for several events, the week numbers,
+A tap on an event never adds: the tap is the event's unless its `event_tap_action` is `none`, and
+the card's then. Nor do a grid's `+N` block, which stands for several events, the week numbers,
 the separators between days, the grid's time axis, the title or the
 [header toolbar](/features/layout-appearance#header-toolbar): a tap on the title still runs
 `tap_action`, and the toolbar's controls keep their own.
@@ -150,18 +150,20 @@ date. Tab to it and press Enter or Space to add on that day, at the hour it is n
 
 ## 🗒️ Tapping an Event
 
-A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in the card's [event popover](#the-event-popover), right beside it, with its times, its location, its full description and, for a repeating event, how it repeats:
+A tap on an event acts on that event instead of on the whole card: it opens the event in the card's [event popover](#the-event-popover), right beside it, with its times, its location, its full description and, for a repeating event, how it repeats. That is what `event_tap_action` does by default, as `details`, in every layout.
+
+`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Set to `none`, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. In the visual editor, the Event Tap Action dropdown on the **Taps & Refresh** page offers Show Event Details, Nothing and Home Assistant's actions.
+
+::: warning Changed In v6
+In v6 a tap on an event opens its details by default, in every layout. Before v6 `event_tap_action` defaulted to `none`: a tap on an event was a tap on the card and ran `tap_action`, [`open_links`](#links-in-events) drew links in event rows, and grid view [dragged events](#dragging-in-grid-view) only where you had set `details`. Nothing picked in the visual editor before v6 was not stored, so those cards open details too. To keep a card as it was, add:
 
 ```yaml
-type: custom:calendar-card-pro
-entities:
-  - calendar.anna
-  - calendar.holidays
 event_tap_action:
-  action: details
+  action: none
 ```
 
-`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. In the visual editor, the Event Tap Action dropdown on the **Taps & Refresh** page offers Show Event Details and Home Assistant's actions.
+In the visual editor, set Event Tap Action to Nothing on the **Taps & Refresh** page.
+:::
 
 ### Event Details
 
@@ -172,22 +174,22 @@ The title, location and description read as they do on the card, with the calend
 ::: warning What the Popover Reveals
 Two things go further than the card itself:
 
-- **The location and the description show**, even where the card or a view hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks.
+- **The location and the description show**, even where the card or a layout hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks. A location shows in full, with any country `remove_location_country` takes off the rows, and the times show whatever `show_time` says.
 - **Editing a field shows it as the calendar stores it**, because that is what a save writes. Tap into a masked title and the real one appears.
 
-On a card whose replacements exist to keep something private, set `allow_event_edit: false`. Where a location or description must stay hidden in the popover too, set `show_location: false` or `show_description: false` on that calendar itself; see [Narrowing What the Popover Offers](#narrowing-what-the-popover-offers).
+On a card whose replacements exist to keep something private, set `allow_event_edit: false`, or `event_tap_action: none` so that a tap opens nothing. Where a location or description must stay hidden in the popover too, set `show_location: false` or `show_description: false` on that calendar itself; see [Narrowing What the Popover Offers](#narrowing-what-the-popover-offers).
 :::
 
 ### Where You Can Tap
 
-With an event tap action set, every event is a tap target, in every layout: a list row, a column event, a grid block or all-day banner, and a month's line or bar. In list view the whole colored block answers, not only its text.
+While events open, every event is a tap target, in every layout: a list row, a column event, a grid block or all-day banner, and a month's line or bar. In list view the whole colored block answers, not only its text.
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 
 Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button, described by its day, so two events with the same title on different days can be told apart.
 
 ::: tip A Tap on an Event Is Not a Tap on the Card
-With `event_tap_action: details`, tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on a [header toolbar](/features/layout-appearance#header-toolbar) control: the space between the toolbar's controls is the card's. A hold is the card's: holding an event runs `hold_action`, exactly as holding anywhere else does, unless you [give events a hold of their own](#holding-an-event). In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
+Tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on a [header toolbar](/features/layout-appearance#header-toolbar) control: the space between the toolbar's controls is the card's. With `day_tap_action: add-event` a tap on a day adds instead, which leaves the title. A hold is the card's: holding an event runs `hold_action`, exactly as holding anywhere else does, unless you [give events a hold of their own](#holding-an-event). In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it, or set `event_tap_action: none` and [hold an event](#holding-an-event) to open it.
 :::
 
 ::: details The Card's Own Tap From the Keyboard
@@ -197,13 +199,15 @@ While its events are buttons, the card no longer announces itself as one. Its `t
 ### Holding an Event
 
 `event_hold_action` does for a hold on an event what `event_tap_action` does for a tap. Set to
-`details`, holding an event opens it, so a tap on it can keep doing what a tap does anywhere else
-on the card. On a list card that expands when tapped, a tap expands it and a hold on an event
-shows that event:
+`details`, holding an event opens it, so with `event_tap_action: none` a tap on it can keep doing
+what a tap does anywhere else on the card. On a list card that expands when tapped, a tap expands
+it and a hold on an event shows that event:
 
 ```yaml
 tap_action:
   action: expand
+event_tap_action:
+  action: none
 event_hold_action:
   action: details
 ```
@@ -215,8 +219,8 @@ an event answers a tap with `event_tap_action` and a hold with `event_hold_actio
 editor's Event Hold Action dropdown offers what its Event Tap Action dropdown does.
 
 An event that has either is a button for keyboard users and screen readers. The keyboard has no
-hold, so Enter or Space on an event runs its tap action, or its hold action when it has no tap
-action.
+hold, so Enter or Space on an event runs its tap action, or its hold action when its tap action is
+`none`.
 
 ### Using the Event's Fields in an Action
 
@@ -278,7 +282,7 @@ Event Tap Action and Event Hold Action dropdowns take field names in braces as Y
 
 ## ✏️ Editing & Deleting Events
 
-With `event_tap_action` or `event_hold_action` set to `details`, the popover that opens an event is also where you change it, wherever its calendar [allows it](#what-each-integration-allows). There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
+The popover that opens an event is also where you change it, wherever its calendar [allows it](#what-each-integration-allows). There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.mp4#t=0.001" width="740" height="744" loop muted playsinline controls preload="auto" aria-label="A tap on Grandpa visits on Saturday opens the popover beside it; a tap on its date line opens the start, the end, All day and Repeat, All day is switched on, and Save turns the event into an all-day banner"></video><br>
 
@@ -355,8 +359,6 @@ Find the calendar in **Settings → Tools → States** (**Developer Tools** befo
 `allow_event_edit` and `allow_event_delete` take editing or Delete away on one card, for a dashboard where events should be read but not changed, such as a wall tablet in the hall. With `allow_event_edit: false` every part of the popover is plain text, and with `allow_event_delete: false` it has no Delete. Both are on by default, and neither can offer what the integration does not:
 
 ```yaml
-event_tap_action:
-  action: details
 allow_event_edit: false
 allow_event_delete: false
 ```
@@ -457,13 +459,16 @@ type: custom:calendar-card-pro
 entities:
   - calendar.anna
 show_description: true
+event_tap_action:
+  action: none
 open_links: true
 ```
 
 - **Only where an event does nothing of its own.** Links are drawn while `event_tap_action` and
-  `event_hold_action` are both `none`, their default, or one of the card's own actions, which on
-  an event are nothing too. With either set to `details`, the links are in the
-  [popover](#links) instead. In the visual editor, Open Links in Events sits under Event Hold
+  `event_hold_action` are both `none`, or one of the card's own actions, which on an event are
+  nothing too. `event_hold_action` is `none` by default and `event_tap_action` is `details`, so a
+  card with links sets `event_tap_action: none`. With either set to `details`, the links are in
+  the [popover](#links) instead. In the visual editor, Open Links in Events sits under Event Hold
   Action, shown while both event actions are Nothing.
 - **In list and column view.** Grid blocks draw no links; a grid card draws them only when it
   falls back to a list. See
@@ -650,9 +655,12 @@ list:
 # Enable expand/collapse with tap
 tap_action:
   action: expand
+# Expand on a tap on an event too, instead of opening it
+event_tap_action:
+  action: none
 ```
 
-Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show.
+Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show. Without `event_tap_action: none`, a tap on an event opens it and the card expands from its title, a day's date and the space between events; [`event_hold_action: details`](#holding-an-event) still opens an event on a hold.
 
 ::: warning List View Only
 The whole compact family is inert while the card is rendering as column or grid —
