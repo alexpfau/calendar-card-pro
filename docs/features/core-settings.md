@@ -796,9 +796,27 @@ entities:
 filter_duplicates: ignore_location
 ```
 
+`filter_duplicates: merge_locations` matches the same way, and then lists every copy's location
+on the row kept instead of the first one's alone: each distinct location once, in `entities`
+order, separated by a middle dot (`·`). It suits one event held in a different place on each calendar, such
+as a call two teams join from their own rooms:
+
+```yaml
+entities:
+  - calendar.team_a # Room A
+  - calendar.team_b # Room B
+filter_duplicates: merge_locations # one row, location "Room A · Room B"
+```
+
+A copy without a location adds nothing, and a row whose copies share one location shows it once.
+`remove_location_country` applies to each location in the list, and a `replace_field: location`
+rewrite on the first-listed calendar applies to the whole list. The event's details and edit
+dialogs keep its own calendar's location.
+
 Keep `true` where the location tells events apart, such as one title booked in two rooms at
-once. In the visual editor, **Filter Duplicates** offers the three values as **Off**, **Same
-title, start, end and location** and **Same title, start and end**.
+once. In the visual editor, **Filter Duplicates** offers the four values as **Off**, **Same
+title, start, end and location**, **Same title, start and end** and **Same title, start and end
+— list all locations**.
 
 Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
 that excludes a date cannot remove another calendar's eligible copy:
@@ -821,7 +839,7 @@ calendar the event belongs to and take a color that marks it as shared; see
 Any two events that share a title, start, end and location are treated as duplicates, even if
 they are genuinely separate events and even if both live in the **same** calendar. Nothing is
 hidden merely for starting at the same time — all four fields must match, or the first three
-under `ignore_location`.
+under `ignore_location` and `merge_locations`.
 
 If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
 this option is the cause.
