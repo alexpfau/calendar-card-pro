@@ -1578,9 +1578,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'position.option.date.label': 'In the Day Header',
   'position.option.event.label': 'Beside Each Event',
   'position.option.both.label': 'In Both Places',
-  // Month has no day header: its forecast shows beside events or not at all.
-  'month_weather.option.none.label': 'Off',
-  'month_weather.option.event.label': 'Beside Events',
 
   'weather.date': 'In the Day Header',
   'weather.date.helper': "The day's forecast, shown once per day.",

@@ -128,7 +128,7 @@ describe('a layout’s own weather', () => {
     expect(valueOf(editor, 'weather:weather.position')).toBe('none');
   });
 
-  it('offers Month only Off and Beside Events, since it has no day header', () => {
+  it('offers Month only Nowhere and Beside Each Event, since it has no day header', () => {
     const position = (workspace: 'month' | 'list') => {
       const config = { ...Config.DEFAULT_CONFIG, ...CARD, weather_entity: 'weather.home' };
       const field = buildFieldIndex(schemaCtx(config, workspace, 'en')).fields.get(
@@ -139,9 +139,10 @@ describe('a layout’s own weather', () => {
       };
       return select.options.map((option) => [option.value, option.label]);
     };
+    // The same words as every other layout's, so every translation reaches Month too.
     expect(position('month')).toEqual([
-      ['none', 'Off'],
-      ['event', 'Beside Events'],
+      ['none', 'Nowhere'],
+      ['event', 'Beside Each Event'],
     ]);
     expect(position('list').map(([value]) => value)).toEqual(['none', 'date', 'event', 'both']);
   });

@@ -73,7 +73,7 @@ const weatherSchema = Helpers.memoizeLast(
 
     const inside: HaFormSchema[] = [
       month
-        ? select(language, 'position', ['none', 'event'], 'month_weather')
+        ? select(language, 'position', ['none', 'event'])
         : select(language, 'position', ['none', 'date', 'event', 'both']),
     ];
 
