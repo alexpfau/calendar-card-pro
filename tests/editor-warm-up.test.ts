@@ -359,6 +359,9 @@ const HOME = { action: 'navigate', navigation_path: '/' };
 /** What the forms show for an action the configuration leaves unset: its default. */
 const NONE = { action: 'none' };
 
+/** What the event tap's form shows where the configuration leaves it unset: its default. */
+const DETAILS = { action: 'details' };
+
 /** Calendars and toolbar buttons of every kind the editor draws a form for, and actions. */
 const KINDS = {
   config_version: Config.CURRENT_CONFIG_VERSION,
@@ -648,6 +651,7 @@ describe('the warm-up form', () => {
         [
           ['ha-selector-ui_action', HOME],
           ['ha-selector-ui_action', NONE],
+          ['ha-selector-ui_action', DETAILS],
         ].sort(byJson),
       );
       expect(warmValues(editor)).toEqual(await drawnValues(editor));
@@ -851,7 +855,12 @@ describe('once Home Assistant draws what it holds', () => {
     }
     const tags = warmed(editor);
     expect(tags.length).toBeGreaterThan(11);
-    expect(warmValues(editor)).toEqual([['ha-selector-ui_action', NONE]]);
+    expect(warmValues(editor)).toEqual(
+      [
+        ['ha-selector-ui_action', NONE],
+        ['ha-selector-ui_action', DETAILS],
+      ].sort(byJson),
+    );
     expect(undefinedIn(warmUp(editor)!)).toEqual(tags);
 
     // One at a time, as Home Assistant's modules arrive: however many arrive apart, it stays
@@ -896,6 +905,7 @@ describe('once Home Assistant draws what it holds', () => {
       [
         ['ha-selector-ui_action', assist],
         ['ha-selector-ui_action', NONE],
+        ['ha-selector-ui_action', DETAILS],
       ].sort(byJson),
     );
     await vi.waitFor(() =>
@@ -936,6 +946,7 @@ describe('once Home Assistant draws what it holds', () => {
       [
         ['ha-selector-ui_action', moreInfo],
         ['ha-selector-ui_action', NONE],
+        ['ha-selector-ui_action', DETAILS],
       ].sort(byJson),
     );
     expect(warmConditions(editor)!.conditions).toEqual([screen]);
@@ -1051,6 +1062,7 @@ describe('once Home Assistant draws what it holds', () => {
       [
         ['ha-selector-ui_action', action],
         ['ha-selector-ui_action', NONE],
+        ['ha-selector-ui_action', DETAILS],
       ].sort(byJson),
     );
     await gone(editor);
@@ -1090,6 +1102,7 @@ describe('once Home Assistant draws what it holds', () => {
       [
         ['ha-selector-ui_action', action],
         ['ha-selector-ui_action', NONE],
+        ['ha-selector-ui_action', DETAILS],
       ].sort(byJson),
     );
     await gone(editor);

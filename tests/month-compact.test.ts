@@ -645,7 +645,12 @@ describe('a compact day', () => {
   });
 
   it('matches its snapshot', async () => {
-    const card = await mount({ show_week_numbers: 'iso' }, 375);
+    // Events that open nothing, as the snapshot was taken; the default's buttons are
+    // `month-dom`'s to check.
+    const card = await mount(
+      { show_week_numbers: 'iso', event_tap_action: { action: 'none' } },
+      375,
+    );
     const markup = [compact(card)!, root(card).querySelector('.month-day-list')!]
       .map((element) =>
         element.outerHTML
@@ -1682,7 +1687,7 @@ describe('the day panel', () => {
   });
 
   it('draws plain rows, which a tap leaves open, where events run nothing', async () => {
-    const { card, panel } = await open();
+    const { card, panel } = await open({ event_tap_action: { action: 'none' } });
     expect(panel!.shadowRoot!.querySelector('.event-button')).toBeNull();
     panel!.shadowRoot!.querySelector<HTMLElement>('td.event')!.click();
     await afterClose(card);

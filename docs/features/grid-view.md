@@ -696,8 +696,8 @@ time_grid:
   banners and `+N` strips never join, and labels and pictures stay still.
 - The screen-reader text follows the card's language, describes continuations by the event's
   original times, and leaves out details you turned off. It adds no event action or keyboard
-  tab stop; [`event_tap_action`](/features/actions#tapping-an-event) adds both. All-day banners
-  and `+N` strips are outside this fallback.
+  tab stop; [`event_tap_action`](/features/actions#tapping-an-event), unless it is `none`, adds
+  both. All-day banners and `+N` strips are outside this fallback.
 
 :::
 
@@ -720,8 +720,10 @@ time_grid:
 
 In grid view you can move a timed event to another time or day by dragging its block, as in
 Calendar on macOS. It works wherever a tap or a hold opens the event in the
-[event popover](/features/actions#the-event-popover) and the popover can change it; there is
-no option of its own.
+[event popover](/features/actions#the-event-popover), as a tap does by default, and the popover
+can change it; there is no option of its own, and
+[`allow_event_edit: false`](/features/actions#narrowing-what-the-popover-offers) turns it off
+along with editing.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A family's week in grid view on a tablet: a finger holds Bike repair on Friday at 16:30 until it lifts, drags it to Saturday at 11:00, lets go, and later drags it back"></video><br>
 
@@ -732,8 +734,6 @@ type: custom:calendar-card-pro
 entities:
   - calendar.family
 view: grid
-event_tap_action:
-  action: details
 ```
 
 - **With a mouse,** press on the event and drag at once. A click that does not move still opens
@@ -927,8 +927,8 @@ already-Grid card does not rewrite its configuration.
 
 Set any of them inside `time_grid:` to change it back. Three are worth knowing:
 
-- `show_location` is off, but with [`event_tap_action: details`](/features/actions#tapping-an-event)
-  a tap on a block opens the event's details, location included.
+- `show_location` is off, but a [tap on a block](/features/actions#tapping-an-event) opens the
+  event's details, location included.
 - `day_spacing` is the gap between day columns here, rather than the space between days.
 - The five event text colors start at `accent`, so a block's text is drawn in its own
   calendar's color.

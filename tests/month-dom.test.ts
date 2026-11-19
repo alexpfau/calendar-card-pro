@@ -866,16 +866,53 @@ describe('the rows’ height', () => {
 });
 
 describe('a representative month', () => {
-  it('matches its snapshot', async () => {
-    const card = await mount({
-      entities: [{ entity: 'calendar.anna', accent_color: '#3b82f6' }],
-      show_week_numbers: 'iso',
-    });
-    const markup = month(card)
+  /** The month's markup as the snapshot holds it. */
+  const markupOf = (card: CardUnderTest) =>
+    month(card)
       .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
       .replace(/<!---->/g, '')
       .replace(/>\s+</g, '>\n<')
       .trim();
-    expect(markup).toMatchSnapshot();
+  const SHOWN = {
+    entities: [{ entity: 'calendar.anna', accent_color: '#3b82f6' }],
+    show_week_numbers: 'iso',
+  };
+
+  it('matches its snapshot', async () => {
+    // Events that open nothing, as the snapshot was taken; the default adds only what the next
+    // case names.
+    const card = await mount({ ...SHOWN, event_tap_action: { action: 'none' } });
+    expect(markupOf(card)).toMatchSnapshot();
+  });
+
+  it('adds only what makes each line a button where events open, as they do by default', async () => {
+    const plain = markupOf(await mount({ ...SHOWN, event_tap_action: { action: 'none' } }));
+    document.body.replaceChildren();
+    const card = await mount(SHOWN);
+    const lines = [...month(card).querySelectorAll<HTMLElement>('.month-line')];
+
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line.getAttribute('role')).toBe('button');
+      expect(line.getAttribute('tabindex')).toBe('-1');
+      expect(line.classList.contains('event-interactive')).toBe(true);
+      expect(line.getAttribute('aria-describedby')).toMatch(/^calendar-card-day-\d{4}-\d\d-\d\d$/);
+    }
+    // The style attribute is written as `prop:value;` on a first render and `prop: value; `
+    // after an update, and a property an update clears stays as `prop:null;` in happy-dom, where
+    // a browser drops it. Both are the DOM's spelling, not the card's.
+    const strip = (markup: string) =>
+      markup
+        .replace(/ (?:role="button"|tabindex="-1"|aria-describedby="[^"]*")/g, '')
+        .replace(/ id="calendar-card-day-[^"]*"/g, '')
+        .replace(/ event-interactive /g, ' ')
+        .replace(/ style="([^"]*)"/g, (_all, css: string) => {
+          const declarations = css
+            .split(';')
+            .map((declaration) => declaration.trim().replace(/:\s+/, ':'))
+            .filter((declaration) => declaration !== '' && !declaration.endsWith(':null'));
+          return ` style="${declarations.join(';')}"`;
+        });
+    expect(strip(markupOf(card))).toBe(strip(plain));
   });
 });

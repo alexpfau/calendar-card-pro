@@ -297,9 +297,13 @@ describe('the event action dropdowns', () => {
   });
 
   it.each([
-    ['no event action', false, {}],
+    ['no event action, where a tap shows details by default', true, {}],
     ['a tap that shows details', true, { event_tap_action: { action: 'details' } }],
-    ['a hold that shows details', true, { event_hold_action: { action: 'details' } }],
+    [
+      'a hold that shows details',
+      true,
+      { event_tap_action: { action: 'none' }, event_hold_action: { action: 'details' } },
+    ],
     ['none', false, { event_tap_action: { action: 'none' } }],
     ["one of Home Assistant's actions", false, { event_tap_action: { action: 'url' } }],
     ['a bare key', false, { event_tap_action: null }],
@@ -343,39 +347,39 @@ describe('the event tap action in the editor', () => {
 
   const last = (reported: ReadonlyArray<Record<string, unknown>>) => reported[reported.length - 1];
 
-  it('stores Show Event Details as the details action, and reveals the switches', async () => {
+  it('shows Show Event Details by default, with the switches, and stores Nothing as none', async () => {
     const { element, reported } = await mount({});
 
-    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'none' });
-    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
-    expect(formOf(element, 'actions:allow_event_delete')).toBeUndefined();
-
-    await changeField(element, 'actions:event_tap_action', { action: 'details' });
-
-    // Both on the dropdown's page, each in a form of its own, and nothing but the action written.
+    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'details' });
+    // Both on the dropdown's page, each in a form of its own.
     await openPageOf(element, 'actions:event_tap_action');
     const page = element.shadowRoot!.querySelector('.page[data-page="taps_refresh"]')!;
     for (const id of ['actions:allow_event_edit', 'actions:allow_event_delete']) {
       expect(page.contains(formOf(element, id)!), id).toBe(true);
     }
+
+    // Nothing is no longer the default, so it is written, and survives the next edit.
+    await changeField(element, 'actions:event_tap_action', { action: 'none' });
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
-      event_tap_action: { action: 'details' },
+      event_tap_action: { action: 'none' },
     });
-  });
-
-  it('stores Nothing as no key at all, and hides the switches again', async () => {
-    const { element, reported } = await mount({
-      event_tap_action: { action: 'details' },
-    });
-    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'details' });
-    expect(formOf(element, 'actions:allow_event_edit')).toBeDefined();
-
-    await changeField(element, 'actions:event_tap_action', { action: 'none' });
-
-    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
     expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
     expect(formOf(element, 'actions:allow_event_delete')).toBeUndefined();
+  });
+
+  it('stores Show Event Details as no key at all, and reveals the switches again', async () => {
+    const { element, reported } = await mount({
+      event_tap_action: { action: 'none' },
+    });
+    expect(valueOf(element, 'actions:event_tap_action')).toEqual({ action: 'none' });
+    expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
+
+    await changeField(element, 'actions:event_tap_action', { action: 'details' });
+
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
+    expect(formOf(element, 'actions:allow_event_edit')).toBeDefined();
+    expect(formOf(element, 'actions:allow_event_delete')).toBeDefined();
   });
 
   it("shows one of Home Assistant's actions as stored, without the switches, and keeps its fields", async () => {
@@ -395,10 +399,7 @@ describe('the event tap action in the editor', () => {
     expect(formOf(element, 'actions:allow_event_edit')).toBeUndefined();
 
     await changeField(element, 'actions:event_tap_action', { action: 'details' });
-    expect(last(reported)).toEqual({
-      entities: ['calendar.anna'],
-      event_tap_action: { action: 'details' },
-    });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
   });
 
   // Home Assistant's `ui_action` selector draws no helper, so the editor draws it under the form.

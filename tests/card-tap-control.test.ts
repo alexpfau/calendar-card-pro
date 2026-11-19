@@ -235,6 +235,7 @@ describe('the control, where the card needs none', () => {
     const card = await mount({
       title: 'Family',
       tap_action: { action: 'more-info' },
+      event_tap_action: { action: 'none' },
       toolbar: { show: false },
     });
 
@@ -281,7 +282,11 @@ describe("focus on the card's tap, as the card starts or stops hosting controls"
   });
 
   it('moves from the control back to the card when the controls go', async () => {
-    const config = { title: 'Family', tap_action: { action: 'more-info' } } as const;
+    const config = {
+      title: 'Family',
+      tap_action: { action: 'more-info' },
+      event_tap_action: { action: 'none' },
+    } as const;
     const card = await mount(config);
     control(card)!.focus();
     expect(card.shadowRoot!.activeElement).toBe(control(card));
