@@ -141,4 +141,8 @@ Either way, `start_date` sets the days the card opens with. The toolbar's
 [date navigation](/features/layout-appearance#paging-through-dates) can page away from them,
 and its home button always returns to them, today or not.
 
+Month shows a whole month, so it reads `start_date` only to choose which: a fixed date opens its
+own month, and every relative start date opens today's. See
+[The Six Weeks](/features/month-view#the-six-weeks).
+
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

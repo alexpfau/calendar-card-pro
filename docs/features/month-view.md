@@ -22,9 +22,13 @@ set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 ## 📅 The Six Weeks
 
 The weeks start on the first day of the week, `first_day_of_week` or your Home Assistant
-locale's, and the first row is the week holding the 1st of the month `start_date` falls in, today
-unless you set one.
+locale's, and the first row is the week holding the 1st of the month the card opens on: today's
+month, unless `start_date` is a fixed date such as `2027-01-15`, which opens its own month.
 
+- **A relative start date opens today's month.** Today, Tomorrow, Start of Week, a weekday and
+  any offset such as `today-29` all open the month holding today, while the other layouts start
+  on the day they name. So Start of Week on the 1st still opens this month, and a card that logs
+  the last 30 days opens on this month with today in it.
 - **Always six rows.** Six weeks hold any month, whichever day its 1st falls on: the 1st is
   always in the first row, and the weeks after the month's last are drawn below it. The six share
   the card's height, which paging never changes.
@@ -41,7 +45,8 @@ unless you set one.
 
 With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates), the
 arrows and a sideways swipe move a whole month, the date picker jumps to the month of the date
-you pick, and the home button returns to the month the card opens with.
+you pick, and the home button returns to the month the card opens with. It is called "Today"
+while that month is today's, and otherwise by the month it goes to, such as "January 2027".
 
 - **Switching layouts keeps your place.** Paged to another month, List, Columns and Grid start
   on the 1st of the month in the heading. Into Month, the rows start on the week holding the
@@ -357,8 +362,8 @@ toolbar:
 In the visual editor, that is **View Switcher offers** under Card & Header › Toolbar: uncheck
 Month to take it out.
 
-`hide_when_empty` counts Month's events only from the card's `start_date` on, so past events
-in the month never keep an otherwise empty card on screen.
+`hide_when_empty` counts Month's events only from today on, or from a fixed `start_date`, so past
+events in the month never keep an otherwise empty card on screen.
 
 ## 🎨 Overriding Options in Month View
 
