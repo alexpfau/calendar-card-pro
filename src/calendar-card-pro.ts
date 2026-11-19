@@ -1837,6 +1837,15 @@ class CalendarCardPro extends LitElement {
   private _monthListWatched: ReadonlyArray<Element> = [];
 
   /**
+   * Whether a compact month's list that grows under a cap listens for the viewport's resize
+   * (`_watchMonthList`), which moves a cap in a viewport unit without resizing anything else.
+   */
+  private _monthListViewportWatched = false;
+
+  /** Fits a growing compact month's list again when the viewport resizes. */
+  private readonly _onMonthListViewport = (): void => this._syncMonthListFit();
+
+  /**
    * The heights of a compact month's "+N more" and "No events" last read, in the card's own
    * pixels, for the least the list may be (`MonthListFit.measureMonthListMin`).
    */
@@ -2927,6 +2936,10 @@ class CalendarCardPro extends LitElement {
       // width threshold moving, so the grid's scale is re-read on every resize rather than
       // only after a re-render.
       this._scheduleGridScaleSync();
+
+      // A compact month's list growing under a cap watches no box of its own room, so a cap that
+      // moves is heard here, where it clamps the card or lets it grow again (`_watchMonthList`).
+      if (this._monthListGrows) this._syncMonthListFit();
     });
 
     this._resizeObserver.observe(this);
@@ -3800,6 +3813,12 @@ class CalendarCardPro extends LitElement {
    * the rows' box where it is the room. A list that grows under a cap leaves its box out, as that
    * changes with every fit and sets nothing. Re-aimed whenever those are other elements, as after a
    * day without events or a switch of form; no list, no watch.
+   *
+   * A growing list's room is its cap, which no box here follows. A cap that clamps the card, or
+   * stops clamping it, resizes the card, which the card's own resize observer hears
+   * (`_startWidthObserver`); one in a viewport unit moves with the viewport, so the list also
+   * listens for the window's resize while it grows. A cap a CSS variable moves without resizing
+   * anything is fitted again on the next render, which reads it afresh; nothing polls for it.
    */
   private _watchMonthList(): void {
     const targets: Element[] = [];
@@ -3813,9 +3832,11 @@ class CalendarCardPro extends LitElement {
       if (staged) targets.push(staged);
       if (box) targets.push(box);
     }
+    const grows = targets.length > 0 && this._monthListGrows;
     if (
       targets.length === this._monthListWatched.length &&
-      targets.every((target, index) => target === this._monthListWatched[index])
+      targets.every((target, index) => target === this._monthListWatched[index]) &&
+      grows === this._monthListViewportWatched
     ) {
       return;
     }
@@ -3824,13 +3845,21 @@ class CalendarCardPro extends LitElement {
     if (targets.length === 0 || typeof ResizeObserver === 'undefined') return;
     this._monthListWatch = new ResizeObserver(() => this._syncMonthListFit());
     for (const target of targets) this._monthListWatch.observe(target);
+    if (grows) {
+      window.addEventListener('resize', this._onMonthListViewport);
+      this._monthListViewportWatched = true;
+    }
   }
 
-  /** Stops watching a compact month's list, leaving its fit. */
+  /** Stops watching a compact month's list, and the viewport for it, leaving its fit. */
   private _stopMonthList(): void {
     this._monthListWatch?.disconnect();
     this._monthListWatch = null;
     this._monthListWatched = [];
+    if (this._monthListViewportWatched) {
+      window.removeEventListener('resize', this._onMonthListViewport);
+      this._monthListViewportWatched = false;
+    }
   }
 
   /**

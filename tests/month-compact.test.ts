@@ -955,6 +955,54 @@ describe('the list fitted to its room', () => {
     expect(moreOf(card)).toBeNull();
   });
 
+  it('fits again when the card or the viewport resizes while it grows under a cap', async () => {
+    extraEvents = NINE;
+    // The rows' box takes no room of its own while the list grows: its room is the cap less the
+    // list's 44px header, the only other box laid out, and the content's 1px bottom padding.
+    layOut({ room: 0 });
+    let cap = '250px';
+    capComputesAs(() => cap);
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    const resizes = (spy: typeof add) =>
+      spy.mock.calls.filter(([type]) => type === 'resize').map(([, listener]) => listener);
+    try {
+      // A fixed room listens for no viewport: its rows' box is watched instead.
+      const fixed = await mount({}, 375);
+      expect(resizes(add)).toEqual([]);
+      fixed.remove();
+
+      const card = await mount({ month: { compact_card_max_height: '40rem' } }, 375);
+      await tap(card, day(card, 28));
+      expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
+      const host = RecordingResizeObserver.instances.find((observer) =>
+        observer.targets.includes(card),
+      )!;
+
+      // A cap that shrinks clamps the card, which its own resize observer hears.
+      cap = '170px';
+      host.callback([{ contentRect: { width: 375 } }]);
+      await settle(card);
+      expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2']);
+      expect(text(moreOf(card))).toBe('+7 more');
+
+      // A cap in a viewport unit grows with the viewport, which resizes nothing in the card.
+      cap = '1000px';
+      window.dispatchEvent(new Event('resize'));
+      await settle(card);
+      expect(rowsOf(card)).toHaveLength(9);
+      expect(moreOf(card)).toBeNull();
+
+      // Gone with the card: every viewport listener it added is taken off again.
+      card.remove();
+      expect(resizes(add)).toHaveLength(1);
+      expect(resizes(remove)).toEqual(resizes(add));
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
   it('fits again when its room changes size, heard by its resize observer', async () => {
     extraEvents = NINE;
     const card = await mount({}, 375);
