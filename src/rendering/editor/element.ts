@@ -500,6 +500,21 @@ interface FieldShow {
   readonly switchRow?: boolean;
   /** The helper's element id: the helper sits behind ⓘ, so the form draws none of its own. */
   readonly describedBy?: string;
+  /**
+   * The ids of the facts under the setting's name, and of its "Default" (`views/shown.ts` ›
+   * `factIds`), space-separated: its open control is described by them, then by its helper.
+   */
+  readonly factIds?: string;
+}
+
+/**
+ * What a field's wrapper is described by: the facts under its name, then its helper behind ⓘ.
+ *
+ * @param show - What the field shows besides its control
+ * @returns The ids, space-separated, or nothing
+ */
+function describedBy(show: FieldShow | undefined): string | typeof nothing {
+  return [show?.factIds, show?.describedBy].filter(Boolean).join(' ') || nothing;
 }
 
 /** Whose page a heading is planned for: the card's, or one calendar entry's, by its key. */
@@ -2889,7 +2904,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${text.group}
-      aria-describedby=${show?.describedBy ?? nothing}
+      aria-describedby=${describedBy(show)}
     >
       ${keyed(
         // Keyed by scope as well: reusing a form would redirect its pending events into the
@@ -3076,6 +3091,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${owner.kind === 'card' ? text.group : label}
+      aria-describedby=${describedBy(show)}
     >
       ${keyed(
         workspace,
@@ -3560,6 +3576,7 @@ export class CalendarCardProEditor extends LitElement {
     const helper =
       helpedValue === undefined || entryValue === helpedValue ? fieldHelper(field, ctx) : undefined;
     const helpId = `help-${key.replace(/[^\w-]/g, '_')}`;
+    const factsId = `facts-${key.replace(/[^\w-]/g, '_')}`;
     const helpOpen = this._helpOpen.has(key);
     const isSwitch = isSwitchRow(field);
     const jumped =
@@ -3609,6 +3626,7 @@ export class CalendarCardProEditor extends LitElement {
       facts,
       actions: buttons,
       quiet,
+      factsId,
       help: helper
         ? {
             id: helpId,
@@ -3637,6 +3655,7 @@ export class CalendarCardProEditor extends LitElement {
       open: open && !isSwitch,
       switchRow: isSwitch,
       describedBy: helper ? helpId : undefined,
+      factIds: ShownView.factIds(factsId, facts, quiet).join(' ') || undefined,
       line: ShownView.fieldLine({ notes: [], calendars, actions: [] }),
     };
   }
@@ -4175,6 +4194,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${name}
+      aria-describedby=${describedBy(show)}
     >
       ${this._renderColor({
         owner: WriteFrames.CARD_OWNER,
@@ -8227,6 +8247,7 @@ export class CalendarCardProEditor extends LitElement {
           tabindex="-1"
           role="group"
           aria-label=${fieldLabel(field, ctx.language)}
+          aria-describedby=${describedBy(show)}
         >
           ${this._renderEntryColor(key, field.id, ctx, show?.words, show?.describedBy === undefined)}
           ${show?.line ?? nothing}
@@ -8272,7 +8293,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${fieldLabel(field, ctx.language)}
-      aria-describedby=${show?.describedBy ?? nothing}
+      aria-describedby=${describedBy(show)}
     >
       ${keyed(
         workspace,
@@ -8358,6 +8379,7 @@ export class CalendarCardProEditor extends LitElement {
       tabindex="-1"
       role="group"
       aria-label=${fieldLabel(field, ctx.language)}
+      aria-describedby=${describedBy(show)}
       @context-request=${(event: Event) => provideCalendar(event, entityId)}
     >
       ${

@@ -214,7 +214,9 @@ describe('every setting on a fresh card', () => {
     expect(info.getAttribute('aria-label')).toBe(`About ${labelOf(editor, id)}`);
     const help = $(editor, `[data-setting="${id}"] .setting-help`)!;
     expect(help.hidden).toBe(true);
-    expect($(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')).toBe(help.id);
+    // Described by its facts first, then by its helper (the test below).
+    const named = $(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')!;
+    expect(named.split(' ').pop()).toBe(help.id);
     // The form shows none of its own.
     const form = $(editor, `.field[data-field="${id}"] ha-form`) as unknown as {
       computeHelper(node: unknown): string | undefined;
@@ -224,6 +226,63 @@ describe('every setting on a fresh card', () => {
     await click(editor, `[data-setting="${id}"] .setting-info`);
     expect(help.hidden).toBe(false);
     expect(help.textContent?.trim()).toBe(helperOf(editor, id));
+  });
+
+  it('describes an open setting by the facts under its name, then its helper, never its Reset', async () => {
+    /**
+     * What a screen reader hears as a control's description: the text of each element its
+     * wrapper names, in order.
+     *
+     * @param editor - Editor element
+     * @param wrapper - The control's wrapper
+     * @returns The words, and whether any named element is or holds a button
+     */
+    const description = (editor: MountedEditor, wrapper: Element) => {
+      const named = (wrapper.getAttribute('aria-describedby') ?? '')
+        .split(' ')
+        .filter(Boolean)
+        .map((id) => editor.shadowRoot!.getElementById(id));
+      expect(named).not.toContain(null);
+      return {
+        words: named.map((each) => each!.textContent!.replace(/\s+/g, ' ').trim()),
+        pressable: named.some(
+          (each) => each!.closest('button') !== null || each!.querySelector('button'),
+        ),
+      };
+    };
+    // At its default, opened: no fact under its name, so the "Default" a screen reader hears, then
+    // its helper.
+    const fresh = await mount({ view: 'list' });
+    const opened = 'events:time_font_size';
+    await goPage(fresh, 'events');
+    await click(fresh, `[data-setting="${opened}"] .setting-toggle`);
+    const atDefault = description(fresh, $(fresh, `.field[data-field="${opened}"]`)!);
+    expect(atDefault.words[0]).toBe('Default');
+    expect(atDefault.words.slice(1)).toEqual(
+      helperOf(fresh, opened) === undefined ? [] : [helperOf(fresh, opened)],
+    );
+
+    // A Layout Defaults value on a List topic: where the value comes from.
+    const editor = await mount({ view: 'list', event_font_size: '20px' });
+    const id = 'events:event_font_size';
+    await openPageOf(editor, id);
+    const head = $(editor, `[data-setting="${id}"] .setting-toggle`);
+    if (head?.getAttribute('aria-expanded') === 'false') head.click();
+    await editor.updateComplete;
+    const inherited = description(editor, $(editor, `.field[data-field="${id}"]`)!);
+    const facts = (): string[] => factsOf(editor, id).map((fact) => fact.replace(/\s+/g, ' '));
+    expect(facts().length).toBeGreaterThan(0);
+    expect(inherited.words.slice(0, facts().length)).toEqual(facts());
+    expect(inherited.words.join(' ')).toMatch(/Layout Defaults/);
+    expect(inherited.pressable).toBe(false);
+
+    // Stored here: Set, and its Reset beside it stays out of the description.
+    await changeField(editor, id, '22px');
+    const set = description(editor, $(editor, `.field[data-field="${id}"]`)!);
+    expect(set.words[0]).toBe('Set');
+    expect(set.words.slice(0, facts().length)).toEqual(facts());
+    expect(lineOf(editor, id)!.querySelector('button')).not.toBeNull();
+    expect(set.pressable).toBe(false);
   });
 
   it('draws the editor’s tools in the head, never inside Home Assistant’s field box', async () => {

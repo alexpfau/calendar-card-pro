@@ -1622,10 +1622,12 @@ export default css`
   }
 
   /* One line, cut with an ellipsis, so a folded head is as tall open as folded and an opened
-     setting leaves no gap where a long value wrapped. It ends next to the chevron. */
+     setting leaves no gap where a long value wrapped. It ends next to the chevron. Up to 60% of
+     the row, since the name never gives up its longest word: at 45%, a value such as Home
+     Assistant's primary color was cut beside a short name that left room for it. */
   .setting-value {
     flex: 0 1 auto;
-    max-width: 45%;
+    max-width: 60%;
     margin-inline-start: auto;
     overflow: hidden;
     color: var(--secondary-text-color);
