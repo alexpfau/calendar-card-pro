@@ -588,7 +588,7 @@ describe('Split This Calendar on an entry’s page', () => {
   });
 });
 
-describe('Split This Calendar in What This Card Changes', () => {
+describe('Split This Calendar in Stored Settings', () => {
   /** The audit's rows, by YAML path, with their group. */
   async function audit(editor: Editor): Promise<Record<string, string>> {
     await goOverview(editor);

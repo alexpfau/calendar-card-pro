@@ -1879,7 +1879,7 @@ load-bearing, not tidiness: it is what lets both the test suite and `check:i18n`
 schema and read it, rather than scraping the source that produces it. Keep it that way.
 `views/` holds the overview's and pages' templates and the DOM helpers behind focus, scrolling
 and Escape; what they decide (where Back goes, what Escape does, what each scope stores,
-a section row's summary) lives in DOM-free modules beside the schemas (`navigation.ts`,
+a value in words) lives in DOM-free modules beside the schemas (`navigation.ts`,
 `announce.ts`, `summary.ts`, `workspace.ts`) and is tested there, so a template stays a template.
 
 Five things are easy to get wrong:
@@ -1926,7 +1926,7 @@ group with no head row (`'segmented'`). Each writes through `_writeFieldValue`, 
 `data-field` with its field's id, so Undo and a search's jump find it as they find a form; a jump
 to a chip focuses that chip, not its group. A chip's name carries its state words, and the line
 under the chips holds one Reset for the parts stored in the scope, after Chosen Here.
-Drawn alone, as What This Card Changes' Edit mounts a line, `_renderField` draws a chip or the
+Drawn alone, as Stored Settings' Edit mounts a line, `_renderField` draws a chip or the
 radio group rather than a switch or a dropdown. A chip whose field the scope offers but a gate
 withholds is still drawn, `aria-disabled` with its reason ("Needs Time"), and focusable, and it
 carries no `data-composed`, since no field is built for it. The test harness reaches the others
@@ -1945,7 +1945,7 @@ exist, and they are one option each, never two:
   YAML the editor adopts or in its line, else `menu` (`chips.ts` › `pressValue`, `_legendForm`,
   set in `_adopt`); its line, **Calendar Filter
   shows**, writes the form. The chip carries `data-field` and its line carries none, so
-  `[data-field]` still finds one element. Drawn alone, as What This Card Changes' Edit and a
+  `[data-field]` still finds one element. Drawn alone, as Stored Settings' Edit and a
   result's Edit Here mount it, it is the chip and, while pressed, its line
   (`_renderLegendAlone`). The harness's `changeField` takes `off`, `menu` or `chips`, pressing
   the chip and then picking in the line.

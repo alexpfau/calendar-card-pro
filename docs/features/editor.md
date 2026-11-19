@@ -23,41 +23,60 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                                                        |
 | **Whole Card**                 | The pages whose settings are the same in every layout, a row each saying in one line what the page holds                                              |
 | **Layouts**                    | List, Columns, Grid and Month, a row each with its picture, then Layout Defaults; see [Options for the Selected View](#options-for-the-selected-view) |
-| **More**                       | [What This Card Changes](#what-this-card-changes) and Start From an Example                                                                           |
+| **More**                       | [Stored Settings](#stored-settings) and Start From an Example                                                                                         |
 
-**Whole Card**'s rows open these pages:
+**Whole Card**'s rows open these pages, each row saying in a line what its page holds:
 
-| Page                      | What it holds                                                                                                                                                            |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Card & Header**         | The title, the card's background and language, the toolbar and your own toolbar buttons; its row names the layout switcher, as in **Layout Switcher: List, Grid, Month** |
-| **Taps & Refresh**        | What a tap or a hold on the card, a day or an event does, editing and deleting events, and how often the card reads its calendars again                                  |
-| **Shared Across Layouts** | The whole-card settings the layouts' pages also hold, such as Start Date, First Day of Week, Event Type, the day colors, Time Format and Accent Color                    |
+| Page                           | What it holds                                                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Card & Header**              | The title and the card's background, the toolbar and your own toolbar buttons                                                                                                                                                                |
+| **Events, Weather & Language** | The whole card's answers to a first setup's questions: Start Date, Event Type and Hide The Card When Empty, the Weather Entity, then First Day of Week, Time Format and Language; see [Events, Weather & Language](#events-weather-language) |
+| **Taps & Refresh**             | What a tap or a hold on the card, a day or an event does, editing and deleting events, and how often the card reads its calendars again                                                                                                      |
 
-Each layout's page, and Layout Defaults, lists the same five topics:
+Each layout's page lists five topics, and Layout Defaults the first four, since no forecast
+setting has a value for every layout:
 
-| Topic                | What it holds                                                                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Grid's hours, Month's wheel and swipe, Event Type, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
-| **Days**             | How each day announces itself: its date, weeks and week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                                |
-| **Event Appearance** | What each event shows, the time format, Grid's now line and overlapping events, and how each part looks, Month's day text included                                              |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules                                  |
-| **Weather**          | The weather entity every layout shares, and this layout's forecast in the day header and beside each event; Month's beside its events only                                      |
+| Topic                | What it holds                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, Month's wheel and swipe, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode |
+| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                              |
+| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                                                   |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules                      |
+| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares                          |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. To open an event's
 details on a tap, choose Show Event Details under **Event Tap Action** on Taps & Refresh.
 
-**Weather** opens with **Weather Entity**, shared by every layout. Choosing one turns the forecast
-on in the layout you are editing, beside its days, or in Month beside its events, and leaves the
-other layouts as they are; clearing it removes the forecast from every layout. Everything else on
-the page is that layout's own, so List can show the forecast beside events while Grid shows it in
-the day header. Layout Defaults holds the entity alone; see
-[Weather Per Layout](/features/weather#weather-per-layout).
+**Weather** opens with **Weather Entity**, shared by every layout. Choosing one here turns the
+forecast on in the layout you are editing, beside its days, or in Month beside its events, and
+leaves the other layouts as they are; clearing it removes the forecast from every layout.
+Everything else on the page is that layout's own, so List can show the forecast beside events while
+Grid shows it in the day header; see [Weather Per Layout](/features/weather#weather-per-layout).
+
+### Events, Weather & Language
+
+**Events, Weather & Language**, under **Whole Card**, holds the settings a first setup asks about
+that have one value for the whole card: **Start Date**, **Event Type** and **Hide The Card When
+Empty** under Which Events, the **Weather Entity** under Forecast, and **First Day of Week**,
+**Time Format** and **Language** under Format & Language.
+
+The layouts' topics name all but Language too, each in its place. Start Date sits editable beside
+Days to Show, and the Weather Entity on each layout's Weather, where choosing it turns that
+layout's forecast on. Event Type and Hide The Card When Empty on Which Events, First Day of Week on
+Days and Time Format on Event Appearance show as a row with their value and **Whole Card · Events,
+Weather & Language**, which opens the setting here; Back returns to the row.
+
+Under Start Date, **Days to show, per layout** links to Days to Show in each layout the card can
+show that counts days, since each layout keeps a count of its own. **Show the forecast in** links
+to each layout's Weather, where the forecast is turned on, since choosing the entity here turns
+none on. With no entity chosen yet, each link opens that layout's Weather Entity, where choosing
+one turns that layout's forecast on.
 
 The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
 browser for every card, with a box that is checked while it is on. It shows each setting's YAML
-option name beside its label, and the YAML path in search results and in What This Card Changes,
+option name beside its label, and the YAML path in search results and in Stored Settings,
 which helps when you move between the editor and YAML. The **⋯** button opens and closes the
 menu, Down Arrow opens it from the button, and Escape closes it.
 
@@ -185,17 +204,19 @@ back to on a narrow screen. **Layouts**, on the overview, gives each layout a ro
   top level of the YAML. It offers only the options with a shared meaning. A layout with no value
   of its own uses its own default where it has one, otherwise Layout Defaults, so editing Layout
   Defaults changes only the layouts that inherit that option, never their own choices or
-  built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
-- **Whole-card settings** keep one value for every layout. Most sit on Whole Card's pages; the
-  rest stay on the topic pages, marked **Whole Card**, and Shared Across Layouts gathers them in
-  one place, so a change on either page is a change on both.
+  built-in defaults ([YAML & View Defaults](#yaml-view-defaults)). It has no Weather topic: each
+  layout's forecast is its own.
+- **Whole-card settings** keep one value for every layout. Those a first setup asks about live on
+  Whole Card's pages, and a topic that also concerns one names it by a row that opens it there.
+  The detailed ones, such as the day colors and the card's Accent Color, stay on the topics,
+  marked **Whole Card**, so a change in one layout is a change in every layout.
 
 The preview shows the layout you are editing, whatever its width would make it fall back to. When
 that is not the layout the card opens in, a line says so, as in **Preview shows Grid · The card
 opens in Month**, and for a layout the switcher does not offer the preview draws no switcher.
 Layout Defaults and Whole Card's pages preview the card as it opens. Quick Setup and Split This
 Calendar show their own previews while they are open, and a line edited in place under
-[What This Card Changes](#what-this-card-changes) previews its own layout. To edit a List-only
+[Stored Settings](#stored-settings) previews its own layout. To edit a List-only
 option used by a responsive fallback, open List. [Search](#search) finds the settings only
 another layout offers.
 
@@ -223,6 +244,7 @@ words are the same on every page; the page's title says which layout they are ab
 | ------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
 | **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar |
 | **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out    |
+| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there  |
 | **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links                  |
 | **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                              |
 | **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card               |
@@ -690,13 +712,14 @@ and says so, as in **Undid: Change Description. Showing Events.**
 The history lasts while the editor is open. A change made outside it, such as an edit in Home
 Assistant's code editor, ends what Undo can reach.
 
-## 📋 What This Card Changes
+## 📋 Stored Settings
 
-**What This Card Changes**, under **More** on the overview, lists every value this card stores,
-in words, grouped by where it lives: **Whole Card** for settings with one value for every layout,
+**Stored Settings**, under **More** on the overview, lists every value this card stores, in
+words, grouped by where it lives: **Whole Card** for settings with one value for every layout,
 **Layout Defaults** for the values every layout uses unless it has its own, then each layout,
-and each calendar entry. Anything not listed uses its default. Its row on
-the overview names where values are stored, as in **Layout Defaults · Grid · Anna · Not in Use: 1**.
+and each calendar entry. It lists a value written equal to its default, and one stored but not in
+use, too. Anything not listed uses its default; a card that stores nothing says **No Stored
+Settings**.
 
 Each line shows its setting and its value; with Show YAML Option Names on, its YAML path too.
 Pressing a line opens its actions under it:
@@ -708,8 +731,9 @@ Pressing a line opens its actions under it:
   left in its place says what was reset, with **Undo**.
 
 A layout's group adds **Reset All in Grid**. A line written at its default says **Same as the
-Default**, one stored but not in use says when it would apply, and a line under Layout Defaults that a
-layout overrides says so, a line per layout. Lines the editor does not own, such as options it
+Default**, one stored but not in use says when it would apply, and a line under Layout Defaults
+says, a line per layout, which layouts keep a value of their own (**Grid Has Its Own**) or a
+default of their own (**Grid Default**). Lines the editor does not own, such as options it
 does not know, are listed under **Kept as Written**, and the editor keeps them exactly as written.
 
 ## ⚖️ View Exceptions
@@ -731,7 +755,7 @@ time_grid:
 A value set for the layout carries a **Reset**, which removes it and restores what the layout
 would use without it, as its words say beforehand. It does not clear other layouts. Where one
 mode control governs several options, its reset clears those options together, and
-[What This Card Changes](#what-this-card-changes) resets a whole layout at once.
+[Stored Settings](#stored-settings) resets a whole layout at once.
 
 ::: details What Each Layout's Block Keeps
 
@@ -823,8 +847,8 @@ Each deprecated option found in your configuration is reported in the browser co
 
 ## 🌐 Editor Languages
 
-The editor follows Home Assistant's language, or the card's own **Language** under Card &
-Header, and keeps its layout when the words run long: labels wrap rather than being cut off.
+The editor follows Home Assistant's language, or the card's own **Language** on
+[Events, Weather & Language](#events-weather-language), and keeps its layout when the words run long: labels wrap rather than being cut off.
 
 ::: info Editor Language Support
 The editor is available in **12 languages**, and the calendar itself in **39**. Besides English, nine are translated in full (German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), Korean in part, and British English carries only the strings where it differs from US English.
@@ -837,18 +861,18 @@ A string not yet translated appears in English, so a partial translation is usef
 Before v6 the editor was nine collapsible panels, with switches that narrowed them. Each of
 those controls has a new home, and searching for its old name still finds it.
 
-| Before v6                | Now                                                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| **Calendars**            | The overview's calendar list, and a page per entry                                               |
-| **Layout**               | The layouts' rows under Layouts; Size & Spacing; Grid's settings on Grid's topic pages           |
-| **Time Range & Content** | Which Events, with Days to Show and Start Date; Language on Card & Header; Time Format on Events |
-| **Card & Header**        | Card & Header                                                                                    |
-| **Day Header**           | Days, now with First Day of Week                                                                 |
-| **Events**               | Event Appearance, with what each event shows as a row of parts to press                          |
-| **Separators**           | Size & Spacing                                                                                   |
-| **Weather**              | Weather                                                                                          |
-| **Actions & Refresh**    | Taps & Refresh                                                                                   |
-| **Editing Settings For** | A page per layout, opened from its row under Layouts, and Layout Defaults                        |
+| Before v6                | Now                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Calendars**            | The overview's calendar list, and a page per entry                                                  |
+| **Layout**               | The layouts' rows under Layouts; Size & Spacing; Grid's settings on Grid's topic pages              |
+| **Time Range & Content** | Which Events, with Days to Show; Start Date, Time Format and Language on Events, Weather & Language |
+| **Card & Header**        | Card & Header                                                                                       |
+| **Day Header**           | Days; First Day of Week on Events, Weather & Language                                               |
+| **Events**               | Event Appearance, with what each event shows as a row of parts to press                             |
+| **Separators**           | Size & Spacing                                                                                      |
+| **Weather**              | Weather; the Weather Entity on Events, Weather & Language too                                       |
+| **Actions & Refresh**    | Taps & Refresh                                                                                      |
+| **Editing Settings For** | A page per layout, opened from its row under Layouts, and Layout Defaults                           |
 
 ### Essentials Only
 
@@ -860,7 +884,7 @@ single row.
 
 [Search](#search) is still at the top of the overview, now as a list of results that open each
 setting where it lives. The **Customized Only** switch is gone: pages show what the card sets
-anyway, and [What This Card Changes](#what-this-card-changes) lists every stored value in one
+anyway, and [Stored Settings](#stored-settings) lists every stored value in one
 place, each with Change Here and Reset.
 
 ### Per-Calendar Panels & Actions

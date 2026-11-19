@@ -11,6 +11,7 @@ import {
   mdiCalendarMultiple,
   mdiCardTextOutline,
   mdiChevronDown,
+  mdiChevronRight,
   mdiChevronUp,
   mdiClose,
   mdiFormatListBulleted,
@@ -284,6 +285,53 @@ export function settingHead(head: SettingHead): TemplateResult {
         ? nothing
         : html`<span class="setting-state visually-hidden">${head.quiet}</span>`
     }
+  </div>`;
+}
+
+/** A whole-card setting a topic names, and the page it is at home on. */
+export interface ReferenceRow {
+  readonly id: string;
+  readonly label: string;
+  /** The editor's language, so a long label breaks where that language puts spaces. */
+  readonly lang?: string;
+  /** Its value in words. */
+  readonly value?: string;
+  /** Whole Card and the page: "Whole Card · Events, Weather & Language". */
+  readonly facts: ReadonlyArray<Fact>;
+  /** "First Day Of Week: Monday. Whole Card. Opens Events, Weather & Language." */
+  readonly name: string;
+  readonly onOpen: () => void;
+}
+
+/**
+ * A whole-card setting named on a topic whose home is a Whole Card page: drawn as its folded head
+ * row would be, its name, value and facts, with a chevron pointing on rather than down, since the
+ * whole row opens the setting at home. It carries no `data-field`, so what finds a setting by its
+ * field, search's landing and Pick From Preview among them, finds it at home alone.
+ *
+ * @param row - What it shows
+ * @returns The row
+ */
+export function referenceRow(row: ReferenceRow): TemplateResult {
+  return html`<div class="setting reference" data-reference=${row.id}>
+    <div class="setting-head folds${row.facts.length > 0 ? ' has-facts' : ''}">
+      <button
+        type="button"
+        class="setting-text setting-toggle"
+        data-focus=${`reference:${row.id}`}
+        aria-label=${row.name}
+        @click=${row.onOpen}
+      >
+        <span class="setting-name"
+          ><span class="setting-label" lang=${row.lang ?? nothing}>${row.label}</span></span
+        >${row.value === undefined ? nothing : html`<bdi class="setting-value">${row.value}</bdi>`}
+      </button>
+      <span class="setting-tools">
+        <span class="setting-end" aria-hidden="true">${icon(mdiChevronRight)}</span>
+        <span class="setting-slot" aria-hidden="true"></span>
+      </span>
+      ${row.facts.length > 0 ? factLine(row.facts) : nothing}
+    </div>
   </div>`;
 }
 

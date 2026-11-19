@@ -12,6 +12,7 @@ import {
   entry,
   formOf,
   goEntry,
+  goPage,
   keysOf,
   lastConfig,
   lineOf,
@@ -165,7 +166,12 @@ describe('Start Date on Which Events', () => {
     const group = root(editor).querySelector('[data-field="content:start_date_mode"]')!;
     expect(group.getAttribute('aria-label')).toBe('Start Date');
     expect(group.querySelector('legend')!.textContent).toBe('Start Date');
-    expect(group.querySelector('.field-line .fact')!.textContent!.trim()).toBe('Whole Card');
+    // At home on a Whole Card page it says nothing at its default; its copy beside Days To Show
+    // says it is the whole card's.
+    expect(group.querySelector('.field-line .fact')).toBeNull();
+    await goPage(editor, 'which_events');
+    const copy = root(editor).querySelector('[data-field="content:start_date_mode"]')!;
+    expect(copy.querySelector('.field-line .fact')!.textContent!.trim()).toBe('Whole Card');
   });
 
   it('keeps Relative to Today pressed over Tomorrow’s expression until another is chosen', async () => {
@@ -455,7 +461,7 @@ describe('a word list', () => {
   });
 });
 
-describe('with the shown set and What This Card Changes', () => {
+describe('with the shown set and Stored Settings', () => {
   /**
    * The buttons a field's wrapper draws, by their names.
    *
@@ -507,7 +513,7 @@ describe('with the shown set and What This Card Changes', () => {
     expect(formOf(editor, 'content:start_date_offset')).toBeUndefined();
   });
 
-  it('edits a Start Date shortcut in What This Card Changes, the field a choice reveals in place', async () => {
+  it('edits a Start Date shortcut in Stored Settings, the field a choice reveals in place', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
       entities: ['calendar.anna'],
@@ -545,7 +551,7 @@ describe('with the shown set and What This Card Changes', () => {
     expect(lastConfig(editor)!.start_date).toBe('start_of_week');
   });
 
-  it('edits a word list in What This Card Changes as words, written where the line lives', async () => {
+  it('edits a word list in Stored Settings as words, written where the line lives', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
       entities: [{ entity: 'calendar.anna', blocklist: 'Soccer' }],

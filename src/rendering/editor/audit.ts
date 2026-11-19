@@ -1,5 +1,5 @@
 /**
- * What This Card Changes: every line the YAML stores, grouped by where it
+ * Stored Settings: every line the YAML stores, grouped by where it
  * lives (the whole card, All Layouts, each layout, each calendar, then the lines kept as written),
  * each with the field that writes it where the editor has one. DOM-free, so the tests read the
  * groups the page draws.

@@ -230,6 +230,23 @@ describe('Pick From Preview', () => {
     expect(said).toContain('Showing Days › Date.');
   });
 
+  it('opens Weeks at its first setting of its own, past First Day Of Week’s row', async () => {
+    const weeks = { ...CONFIG, show_week_numbers: 'iso', first_day_of_week: 'monday' };
+    const { editor, card } = await dialog({ card: weeks, editor: weeks });
+    pickButton(editor)!.click();
+    await settle(editor, card);
+    fire(card.shadowRoot!.querySelector('.week-number')!, 'click');
+    await settle(editor, card);
+    expect($(editor, '.page[data-page="day_header"]')).not.toBeNull();
+    const heading = '.page-group[data-heading="heading.weeks"]';
+    // The heading opens with the whole card's First Day Of Week, a row that opens it at home.
+    expect($(editor, `${heading} [data-reference="content:first_day_of_week"]`)).not.toBeNull();
+    const jump = $(editor, `${heading} .jump [data-field]`);
+    expect(jump?.getAttribute('data-field')).toBe('day_header:week_number_mode');
+    expect(editor.shadowRoot!.activeElement?.closest('[data-reference]')).toBeNull();
+    expect(editor.shadowRoot!.activeElement?.closest('.jump')).not.toBeNull();
+  });
+
   it('opens a heading whose settings are all folded at its first, opened', async () => {
     const { editor, card } = await dialog();
     pickButton(editor)!.click();

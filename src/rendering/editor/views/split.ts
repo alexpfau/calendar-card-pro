@@ -296,7 +296,7 @@ export function done(
           ${row.badge ? html`<span class="cal-badge" aria-hidden="true">${row.badge}</span>` : nothing}
           <span class="cal-text">
             <span class="cal-title">${row.title} <span class="tag">${row.tag}</span></span>
-            <span class="cal-summary">${row.summary}</span>
+            ${row.summary === '' ? nothing : html`<span class="cal-summary">${row.summary}</span>`}
           </span>
           ${icon(mdiChevronRight, 'nav-chevron')}
         </button>`,

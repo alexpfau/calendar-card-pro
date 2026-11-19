@@ -236,7 +236,8 @@ describe('announcements', () => {
 
     await press(editor, 'undo');
 
-    expect(said(editor)).toMatch(/^Undid: .+\. Showing Event Appearance\.$/);
+    // A topic is a layout's, so the place names the layout too.
+    expect(said(editor)).toMatch(/^Undid: .+\. Showing Event Appearance in List\.$/);
   });
 });
 

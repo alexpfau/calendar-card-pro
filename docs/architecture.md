@@ -76,11 +76,11 @@ src/
 │   │   ├── filter.ts             # Withholds the fields a layout ignores
 │   │   ├── search.ts             # The search's index, matching and ranking
 │   │   ├── navigation.ts         # The overview, the pages and the way back
-│   │   ├── summary.ts            # The line under each section row on the overview
+│   │   ├── summary.ts            # A value in words, for search, Stored Settings and rows
 │   │   ├── announce.ts           # The editor's one live region
 │   │   ├── history.ts            # Undo and Redo snapshots
 │   │   ├── reset.ts              # One reset path for every destination
-│   │   ├── audit.ts              # What This Card Changes
+│   │   ├── audit.ts              # Stored Settings
 │   │   ├── misplaced.ts          # Moves an option the card ignores to where it works
 │   │   ├── deprecated.ts         # Removed options a card still holds, and their replacements
 │   │   ├── prefs.ts              # Show YAML Option Names
@@ -229,8 +229,12 @@ renders through the second. A change to the rule changes both.
   the layout in their route (`navigation.ts` › `Route`, `routeScope`), and `_workspace` derives
   from the route. **Layout Defaults** (`shared`) writes roots; **List**, **Columns**, **Grid** and
   **Month** write their blocks (`workspace.ts`). Whole Card's pages (`pages.ts` ›
-  `WHOLE_CARD_PAGES`) and Shared Across Layouts edit in the shared scope, and a place with no
-  layout, such as a calendar's page, edits in the layout the card opens in. `routing.ts` captures
+  `WHOLE_CARD_PAGES`) edit in the shared scope, and a place with no layout, such as a calendar's
+  page, edits in the layout the card opens in. A whole-card setting a topic also names is drawn
+  there as a `copy` or a `reference` (`pages.ts` › `Appearance`), never placed there, so search
+  and every walk of where a setting lives read its home alone. A copy carries the field's
+  `data-field` and a reference does not, so Pick From Preview, landing on the page a part opens,
+  finds a copy there and passes over a reference. `routing.ts` captures
   the destination with each rendered form, so a delayed event cannot write into another scope.
 - **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts

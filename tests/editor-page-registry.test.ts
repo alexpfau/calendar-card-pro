@@ -25,7 +25,10 @@ import {
   type FamilyId,
   type HeadingDef,
   PAGES,
+  WHOLE_CARD_PAGES,
+  isBorrowed,
   isWholeCard,
+  keepsNoLayoutCopy,
   placementOf,
 } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
@@ -87,8 +90,8 @@ const BUILT = (() => {
   return built;
 })();
 
-/** Every placement in the registry, in order, with where it sits. */
-const PLACED: ReadonlyArray<{
+/** Every entry in the registry, in order, with where it sits: placements, copies and references. */
+const ENTRIES: ReadonlyArray<{
   id: FieldId;
   appearance: Appearance;
   page: string;
@@ -103,6 +106,12 @@ const PLACED: ReadonlyArray<{
     heading.fields.map(([id, appearance]) => ({ id, appearance, page: 'entry', heading })),
   ),
 ];
+
+/** Every placement in the registry: where a setting lives, never a copy or a reference. */
+const PLACED = ENTRIES.filter(({ appearance }) => !isBorrowed(appearance));
+
+/** Every copy and reference: a whole-card setting drawn on a topic, at home elsewhere. */
+const BORROWED = ENTRIES.filter(({ appearance }) => isBorrowed(appearance));
 
 /**
  * The controls a mode value waits on.
@@ -141,13 +150,8 @@ const APPROVED_MAP: ReadonlyArray<
     'Which Events',
     'Date Range',
     '',
-    [
-      'content:days_to_show E SLCG',
-      // Start Date's chips, drawn as Calendar Filter is, with no head row.
-      'content:start_date_mode R',
-      'content:start_date_fixed W',
-      'content:start_date_offset W',
-    ],
+    // Start Date's home is Events, Weather & Language; its copy here is in BORROWED_MAP.
+    ['content:days_to_show E SLCG'],
   ],
   // Grid's hours bound which events it draws, as the dates do.
   [
@@ -169,7 +173,6 @@ const APPROVED_MAP: ReadonlyArray<
     'Selection & Order',
     '',
     [
-      'content:event_type A',
       'content:filter_duplicates_mode A',
       'content:duplicate_accent_color A',
       'content:event_order A L',
@@ -201,7 +204,6 @@ const APPROVED_MAP: ReadonlyArray<
       'content:show_empty_today E SLCG',
       'content:empty_day_text E SLC',
       'content:empty_day_color A SLC',
-      'content:hide_when_empty A',
     ],
   ],
   [
@@ -218,13 +220,7 @@ const APPROVED_MAP: ReadonlyArray<
     'Card & Header',
     'General',
     '',
-    [
-      'card:title E',
-      'card:title_font_size A',
-      'card:title_color A',
-      'card:background_color A',
-      'content:language_mode A',
-    ],
+    ['card:title E', 'card:title_font_size A', 'card:title_color A', 'card:background_color A'],
   ],
   [
     'Card & Header',
@@ -249,6 +245,27 @@ const APPROVED_MAP: ReadonlyArray<
     'Your Own Buttons',
     '',
     ['button:icon B', 'button:name B', 'button:entity B', 'button:tap_action B'],
+  ],
+  // The whole card's answers to a first setup's questions, in the order of the page's name, the
+  // card's conventions and its language last.
+  [
+    'Events, Weather & Language',
+    'Which Events',
+    '',
+    [
+      'content:start_date_mode R',
+      'content:start_date_fixed W',
+      'content:start_date_offset W',
+      'content:event_type A',
+      'content:hide_when_empty A',
+    ],
+  ],
+  ['Events, Weather & Language', 'Forecast', '', ['weather:weather_entity E']],
+  [
+    'Events, Weather & Language',
+    'Format & Language',
+    '',
+    ['content:first_day_of_week E', 'content:time_format E', 'content:language_mode A'],
   ],
   [
     'Days',
@@ -283,7 +300,6 @@ const APPROVED_MAP: ReadonlyArray<
     'Weeks',
     '',
     [
-      'content:first_day_of_week E',
       'day_header:week_number_mode E',
       'day_header:show_current_week_number E',
       'day_header:week_number_font_size A',
@@ -354,7 +370,6 @@ const APPROVED_MAP: ReadonlyArray<
       'events:show_progress_bar P',
       'events:show_duration P',
       'events:show_now_indicator P SLCM',
-      'content:time_format E',
       'events:time_position A SLC',
     ],
   ],
@@ -544,7 +559,7 @@ const APPROVED_MAP: ReadonlyArray<
       'separators:time_grid.allday_band_line_color A G',
     ],
   ],
-  ['Weather', 'Forecast', '', ['weather:weather_entity E', 'weather:weather.position E LCGM']],
+  ['Weather', 'Forecast', '', ['weather:weather.position E LCGM']],
   [
     'Weather',
     'In the Day Header',
@@ -721,6 +736,8 @@ describe('the page registry places every built field exactly once', () => {
       if (appearance === 'button-rows') return 'B';
       // Start Date's chips.
       if (appearance === 'segmented') return 'R';
+      // Never reached: copies and references are pinned by BORROWED_MAP.
+      if (isBorrowed(appearance)) return appearance;
       if ('with' in appearance) return 'W';
       if ('family' in appearance) return 'F';
       // A toolbar control's qualifier line, under the chips.
@@ -730,12 +747,15 @@ describe('the page registry places every built field exactly once', () => {
     };
     const words = (key: string | undefined): string =>
       key === undefined ? '' : (EDITOR_STRINGS[key] ?? key);
-    const row = (page: string, heading: string, fields: HeadingDef['fields']) => [
-      page,
-      heading,
-      [...new Set(fields.flatMap(([, appearance]) => familyOf(appearance) ?? []))].join(','),
-      fields.map(([id, appearance]) => `${id} ${marker(appearance)}${offered(id)}`),
-    ];
+    const row = (page: string, heading: string, all: HeadingDef['fields']) => {
+      const fields = all.filter(([, appearance]) => !isBorrowed(appearance));
+      return [
+        page,
+        heading,
+        [...new Set(fields.flatMap(([, appearance]) => familyOf(appearance) ?? []))].join(','),
+        fields.map(([id, appearance]) => `${id} ${marker(appearance)}${offered(id)}`),
+      ];
+    };
 
     const registry = [
       ...PAGES.flatMap((page) =>
@@ -754,7 +774,56 @@ describe('the page registry places every built field exactly once', () => {
         `${APPROVED_MAP.flatMap(([, , , fields]) => fields).length} fields; markers ` +
         `${JSON.stringify(Object.fromEntries(markers))}.`,
     );
-    expect(registry).toEqual(APPROVED_MAP);
+    // A heading made only of copies and references would be an empty row of the map.
+    expect(registry.filter(([, , , fields]) => fields.length > 0)).toEqual(APPROVED_MAP);
+  });
+});
+
+/**
+ * Where a whole-card setting is drawn though its home is a Whole Card page: on a topic, by a row
+ * that opens it at home (`reference`), or as a control of its own (`copy`), set together with the
+ * layout's setting beside it. Typed out, as the approved map is.
+ */
+const BORROWED_MAP: ReadonlyArray<string> = [
+  'Which Events › Date Range: content:start_date_mode copy',
+  'Which Events › Date Range: content:start_date_fixed copy',
+  'Which Events › Date Range: content:start_date_offset copy',
+  'Which Events › Selection & Order: content:event_type reference',
+  'Which Events › Empty Days: content:hide_when_empty reference',
+  'Days › Weeks: content:first_day_of_week reference',
+  'Event Appearance › Event Details: content:time_format reference',
+  'Weather › Forecast: weather:weather_entity copy',
+];
+
+describe('a whole-card setting drawn on a topic', () => {
+  const words = (key: string | undefined): string =>
+    key === undefined ? '' : (EDITOR_STRINGS[key] ?? key);
+
+  it('is drawn where the approved list says, and only there', () => {
+    const at = BORROWED.map(({ id, appearance, page, heading }) => {
+      const title = words(PAGES.find((each) => each.id === page)?.titleKey);
+      return `${title} › ${words(heading?.key)}: ${id} ${String(appearance)}`;
+    });
+    expect(at).toEqual(BORROWED_MAP);
+  });
+
+  it('is at home on a Whole Card page and drawn on a topic', () => {
+    for (const { id, page } of BORROWED) {
+      expect(WHOLE_CARD_PAGES.has(placementOf(id)?.page as never), id).toBe(true);
+      expect(WHOLE_CARD_PAGES.has(page as never), id).toBe(false);
+    }
+  });
+
+  it('has one value for every layout', () => {
+    // A setting a layout can store a value of its own for belongs on that layout's topic.
+    expect(BORROWED.map(({ id }) => id).filter((id) => !keepsNoLayoutCopy(id))).toEqual([]);
+  });
+
+  it('is drawn once on a page, as a copy or a reference', () => {
+    for (const page of PAGES) {
+      const ids = page.headings.flatMap((heading) => heading.fields.map(([id]) => id));
+      expect(ids.length, page.id).toBe(new Set(ids).size);
+    }
   });
 });
 
@@ -776,6 +845,7 @@ describe('the page registry is consistent with itself', () => {
     expect(PAGES.map((page) => page.id)).toEqual([
       'which_events',
       'card_header',
+      'events_weather_language',
       'day_header',
       'events',
       'size_spacing',
@@ -903,9 +973,10 @@ describe('the page registry is consistent with itself', () => {
   });
 
   it('derives which pages apply to the whole card', () => {
-    // Weather is each layout's own, with the entity they share.
+    // Weather is each layout's own, with the entity they share copied onto it.
     expect(PAGES.filter((page) => isWholeCard(page)).map((page) => page.id)).toEqual([
       'card_header',
+      'events_weather_language',
     ]);
     expect(isWholeCard({ headings: ENTRY_GROUPS })).toBe(false);
   });

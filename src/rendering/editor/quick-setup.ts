@@ -389,7 +389,7 @@ export interface Replacement {
  *
  * @param opening - The configuration as Quick Setup found it, as the YAML holds it
  * @param built - What Apply writes
- * @returns The replacements, in the order What This Card Changes lists them
+ * @returns The replacements, in the order Stored Settings lists them
  */
 export function replacements(
   opening: Readonly<Record<string, unknown>>,

@@ -398,13 +398,22 @@ describe('state words: every row of the stateOf table', () => {
     // On a layout's topic: "Whole Card", or "Whole Card · Set", in every scope: never "Set for
     // Layout Defaults".
     for (const workspace of ['shared', 'grid'] as const) {
-      expect(words({}, workspace, 'content:first_day_of_week'), workspace).toEqual({
+      expect(words({}, workspace, 'day_header:weekday_color'), workspace).toEqual({
         words: { kind: 'whole-card', stored: false },
       });
-      expect(
-        words({ first_day_of_week: 'monday' }, workspace, 'content:first_day_of_week'),
-      ).toEqual({ words: { kind: 'whole-card', stored: true } });
+      expect(words({ weekday_color: 'red' }, workspace, 'day_header:weekday_color')).toEqual({
+        words: { kind: 'whole-card', stored: true },
+      });
     }
+    // At home on a Whole Card page, a setting says "Set"; its copy on a topic, drawn there, says
+    // "Whole Card", as Start Date's beside Days To Show does.
+    const start = { start_date: 'start_of_week' };
+    const startCtx = cardCtx(start, 'grid');
+    const startField = fieldIn(startCtx, 'content:start_date_mode');
+    expect(stateOf(startField, startCtx)).toEqual({ words: { kind: 'set' } });
+    expect(stateOf(startField, { ...startCtx, page: 'which_events' })).toEqual({
+      words: { kind: 'whole-card', stored: true },
+    });
     // A whole-card setting some layout draws nothing for says where it does not apply.
     expect(words({}, 'shared', 'actions:open_links')).toEqual({ notIn: ['grid'] });
   });

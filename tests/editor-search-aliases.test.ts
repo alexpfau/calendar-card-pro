@@ -73,6 +73,11 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     queries: ['max events', 'limit events'],
   },
   'show_past_events.aliases': { field: 'show_past_events', scope: 'card', queries: ['hide past'] },
+  'first_day_of_week.aliases': {
+    field: 'first_day_of_week',
+    scope: 'card',
+    queries: ['week start'],
+  },
   'time_format.aliases': { field: 'time_format', scope: 'card', queries: ['12h', 'AM/PM'] },
   'event_type.aliases': { field: 'event_type', scope: 'card', queries: ['all-day events'] },
   'event_tap_action.aliases': {
