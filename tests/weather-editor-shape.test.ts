@@ -233,8 +233,8 @@ describe('a card written before v6', () => {
     });
     // Columns and Grid show what they did not before, and Month is not mentioned.
     expect(receipt(editor)).toBe(
-      'Upgraded. Weather is now set per layout: Columns and Grid now use the top-level weather ' +
-        'options. Undo',
+      'Upgraded. Weather is now set per layout: the top-level weather options now apply to ' +
+        'Columns and Grid. Undo',
     );
   });
 
@@ -247,8 +247,8 @@ describe('a card written before v6', () => {
     });
     expect(lastConfig(editor)).toMatchObject({ month: { weather: { position: 'event' } } });
     expect(receipt(editor)).toBe(
-      'Upgraded. Weather is now set per layout: List, Columns, and Grid now use the top-level ' +
-        'weather options. Undo',
+      'Upgraded. Weather is now set per layout: the top-level weather options now apply to ' +
+        'List, Columns, and Grid. Undo',
     );
   });
 });
