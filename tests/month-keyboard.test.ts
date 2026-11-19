@@ -866,6 +866,107 @@ describe('a search pick on a month', () => {
     expect(dialogs).toEqual([]);
   });
 
+  /** Ten on Monday the 16th, 40px rows in the list as laid out here. */
+  const TEN = Array.from({ length: 10 }, (_, index) =>
+    timed(
+      index % 2 ? BEN : ANNA,
+      `Errand ${index + 1}`,
+      '2026-11-16',
+      `${String(8 + index).padStart(2, '0')}:00`,
+      `${String(8 + index).padStart(2, '0')}:30`,
+    ),
+  );
+
+  /** Lays the list out again at another room, nothing told of it yet. */
+  const room = (height: number) => {
+    unlayOut();
+    unlayOut = layOutMonthList({ room: height });
+  };
+
+  /** Where the ring is: rows ringed in the card's list, and the day panel's title and rows. */
+  const where = (card: CardUnderTest) => ({
+    list: ringed(root(card).querySelector('.month-day-list-rows')!),
+    more: text(root(card).querySelector('.month-day-list-rows .month-day-list-more')),
+    panels: dialogs
+      .filter(({ dialogTag }) => dialogTag === DAY_PANEL_TAG)
+      .map(({ dialogParams }) => (dialogParams as DayPanelParams).title),
+    panel: panel ? ringed(panel.shadowRoot!) : [],
+  });
+
+  it('routes a running ring behind "+N more" when a new fit leaves its row out', async () => {
+    EVENTS.push(...TEN);
+    room(1000);
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    await pick(card, 'Errand 8');
+    // All ten fit, and the eighth is ringed in the list, with focus.
+    expect(where(card)).toEqual({
+      list: [expect.stringContaining('Errand 8')],
+      more: '',
+      panels: [],
+      panel: [],
+    });
+    expect(deepActive()?.closest('.search-ring')).not.toBeNull();
+
+    // The room shrinks to one row while the ring shows: its row goes behind "+9 more", and the
+    // ring goes with it to the day's panel, focus on its row there.
+    room(80);
+    for (const observer of RecordingResizeObserver.instances) observer.callback([]);
+    await settle(card);
+    await vi.advanceTimersByTimeAsync(0);
+    await settle(card);
+    expect(where(card)).toEqual({
+      list: [],
+      more: '+9 more',
+      panels: ['Monday, November 16, 2026'],
+      panel: [expect.stringContaining('Errand 8')],
+    });
+    expect(deepActive()?.closest('.search-ring')).not.toBeNull();
+
+    // It shows its full time there, and then settles.
+    vi.advanceTimersByTime(Constants.TIMING.SEARCH_RING);
+    await settle(card);
+    expect(where(card).panel).toEqual([]);
+  });
+
+  it('waits for the fit after a pick on the day already fitted before it rings', async () => {
+    EVENTS.push(...TEN);
+    room(1000);
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    await pick(card, 'Errand 1');
+    vi.advanceTimersByTime(Constants.TIMING.SEARCH_RING);
+    await settle(card);
+    expect(where(card).list).toEqual([]);
+
+    // The room shrinks, and the pick on the same day comes before anything has fitted the list
+    // again: the fit drawn before it lists all ten, the next lists one.
+    room(80);
+    const focused: HTMLElement[] = [];
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+      focused.push(this);
+      focus.call(this, options);
+    };
+    try {
+      await pick(card, 'Errand 8');
+    } finally {
+      HTMLElement.prototype.focus = focus;
+    }
+    expect(where(card)).toEqual({
+      list: [],
+      more: '+9 more',
+      panels: ['Monday, November 16, 2026'],
+      panel: [expect.stringContaining('Errand 8')],
+    });
+    expect(deepActive()?.closest('.search-ring')).not.toBeNull();
+    // Never rung in the list on the way: nothing in its rows took focus but "+N more", the
+    // panel's anchor.
+    expect(
+      focused
+        .filter((element) => element.closest('.month-day-list-rows'))
+        .map((element) => element.className),
+    ).toEqual(['month-day-list-more']);
+  });
+
   it('selects and rings on another month’s page', async () => {
     const card = await mount({}, 375);
     await pick(card, 'Concert');

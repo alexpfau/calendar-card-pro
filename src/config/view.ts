@@ -1313,28 +1313,24 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
   };
 }
 
-/** The four `month:` keys that size the whole card, wide and compact. */
-export const MONTH_CARD_SIZE_KEYS = [
-  'card_height',
-  'card_max_height',
-  'compact_card_height',
-  'compact_card_max_height',
-] as const;
-
 /**
- * Whether the `month:` block names any of the four keys that size the whole card, whatever it
- * names them as. While none is written a month asks a Sections dashboard for rows of its own
- * (`Sections.cardGridOptions`); once one is, it sizes itself.
+ * Whether the `month:` block sizes the card: a height other than `auto`, or a maximum other than
+ * `none`, in either form, as {@link resolveMonthCardSize} resolves them. While neither form is
+ * sized a month asks a Sections dashboard for rows of its own (`Sections.cardGridOptions`); once
+ * one is, it sizes itself.
+ *
+ * Read from what the keys resolve to rather than whether they are written, so a key at its
+ * default, written or left out, and a value folded to the default as unusable, size nothing. The
+ * visual editor leaves out a line set back to its default, which must not change the rows.
  *
  * @param config - Merged configuration
- * @returns `true` when one of {@link MONTH_CARD_SIZE_KEYS} is written in the block
+ * @returns `true` when either form resolves to a height or a maximum
  */
-export function monthCardSizeAuthored(config: Types.Config): boolean {
-  const overrides = blockValues(config, 'month');
-  return (
-    overrides !== undefined &&
-    MONTH_CARD_SIZE_KEYS.some((key) => hasOverride(overrides, key as keyof Types.ColumnOverrides))
-  );
+export function monthSetsCardSize(config: Types.Config): boolean {
+  return (['wide', 'compact'] as const).some((form) => {
+    const { height, max } = resolveMonthCardSize(config, form);
+    return height !== 'auto' || max !== 'none';
+  });
 }
 
 /**

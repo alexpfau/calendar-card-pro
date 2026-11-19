@@ -833,6 +833,31 @@ describe('the list fitted to its room', () => {
       .querySelector(':scope > .month-day-list-rows')
       ?.outerHTML.match(/^<[^>]*>/)?.[0],
   });
+  /** Puts the browser's computed style back after a test that set the card's cap. */
+  let restoreCap: (() => void) | null = null;
+  afterEach(() => {
+    restoreCap?.();
+    restoreCap = null;
+  });
+  /**
+   * Answers the card's computed `max-height` as a browser computes it, whatever happy-dom makes
+   * of the value written, until the test ends; every other style as happy-dom computes it.
+   */
+  const capComputesAs = (cap: () => string): void => {
+    const computed = window.getComputedStyle;
+    const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const declared = computed.call(window, element, pseudo);
+      if (element.localName !== 'ha-card') return declared;
+      return new Proxy(declared, {
+        get: (target, key) => {
+          if (key === 'maxHeight') return cap();
+          const value = Reflect.get(target, key) as unknown;
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+    restoreCap = () => spy.mockRestore();
+  };
   /** The list's resize observer: the one watching the staged rows. */
   const listWatch = () =>
     RecordingResizeObserver.instances.find((observer) =>
@@ -915,6 +940,67 @@ describe('the list fitted to its room', () => {
     await tap(card, day(card, 18));
     expect(rowsOf(card)).toEqual([]);
     expect(text(moreOf(card))).toBe('+4 more');
+  });
+
+  it('lists every row while it grows under a cap that computes to none', async () => {
+    extraEvents = NINE;
+    // A cap a theme can take off: unset, the variable's fallback leaves the card none.
+    const card = await mount({ month: { compact_card_max_height: 'var(--unset-cap, none)' } }, 375);
+    const style = root(card).querySelector<HTMLElement>('ha-card')!.style;
+    expect([style.height, style.maxHeight]).toEqual(['auto', 'var(--unset-cap, none)']);
+    capComputesAs(() => 'none');
+    await tap(card, day(card, 28));
+    // No room to run out of: the card grows with every row, none left for "+N more".
+    expect(rowsOf(card)).toHaveLength(9);
+    expect(moreOf(card)).toBeNull();
+  });
+
+  it('fits again when the card or the viewport resizes while it grows under a cap', async () => {
+    extraEvents = NINE;
+    // The rows' box takes no room of its own while the list grows: its room is the cap less the
+    // list's 44px header, the only other box laid out, and the content's 1px bottom padding.
+    layOut({ room: 0 });
+    let cap = '250px';
+    capComputesAs(() => cap);
+    const add = vi.spyOn(window, 'addEventListener');
+    const remove = vi.spyOn(window, 'removeEventListener');
+    const resizes = (spy: typeof add) =>
+      spy.mock.calls.filter(([type]) => type === 'resize').map(([, listener]) => listener);
+    try {
+      // A fixed room listens for no viewport: its rows' box is watched instead.
+      const fixed = await mount({}, 375);
+      expect(resizes(add)).toEqual([]);
+      fixed.remove();
+
+      const card = await mount({ month: { compact_card_max_height: '40rem' } }, 375);
+      await tap(card, day(card, 28));
+      expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
+      const host = RecordingResizeObserver.instances.find((observer) =>
+        observer.targets.includes(card),
+      )!;
+
+      // A cap that shrinks clamps the card, which its own resize observer hears.
+      cap = '170px';
+      host.callback([{ contentRect: { width: 375 } }]);
+      await settle(card);
+      expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2']);
+      expect(text(moreOf(card))).toBe('+7 more');
+
+      // A cap in a viewport unit grows with the viewport, which resizes nothing in the card.
+      cap = '1000px';
+      window.dispatchEvent(new Event('resize'));
+      await settle(card);
+      expect(rowsOf(card)).toHaveLength(9);
+      expect(moreOf(card)).toBeNull();
+
+      // Gone with the card: every viewport listener it added is taken off again.
+      card.remove();
+      expect(resizes(add)).toHaveLength(1);
+      expect(resizes(remove)).toEqual(resizes(add));
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
   });
 
   it('fits again when its room changes size, heard by its resize observer', async () => {

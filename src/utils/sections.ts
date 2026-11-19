@@ -19,8 +19,8 @@ export interface CardGridOptions {
 
 /**
  * The size the card asks a Sections dashboard for: the whole width, and for a month that opens
- * as one `UI.MONTH_SECTIONS_ROWS` rows while none of its four height keys is written, which
- * every other card sizes itself.
+ * as one `UI.MONTH_SECTIONS_ROWS` rows while its `month:` block sets no height and no maximum
+ * (`ViewConfig.monthSetsCardSize`), which every other card sizes itself.
  *
  * Read from the configuration alone, never from a layout this device picked, because Home
  * Assistant asks again only when the configuration changes. A row count the dashboard's Layout
@@ -33,7 +33,7 @@ export function cardGridOptions(config: Types.Config): CardGridOptions {
   return {
     columns: 'full',
     rows:
-      config.view === 'month' && !ViewConfig.monthCardSizeAuthored(config)
+      config.view === 'month' && !ViewConfig.monthSetsCardSize(config)
         ? Constants.UI.MONTH_SECTIONS_ROWS
         : 'auto',
   };

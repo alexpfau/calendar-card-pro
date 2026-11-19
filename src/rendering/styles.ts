@@ -7739,12 +7739,17 @@ export const cardStyles = css`
 
   /* What the card measures the line capacity from (measureMonthCapacity), drawn nowhere: three
      empty boxes, each as tall as what it stands for, in the font that is set in. The date line is
-     the today tile's 1.2em with 4px above it and 2px below, in the day's size the dates are set
-     in. A line is its 1.2em line box with 1px of padding and 1px of margin above and below, which
-     a bar takes as well (Grid's banner pads 1px), and is as tall as the taller of its title and
-     its time, so one box is set in each one's font and the card takes the taller. Boxes rather
-     than layout heights, so a scale an ancestor applies reaches all of them and the week alike.
-     tests/month-dom.test.ts pins them against what they stand for. */
+     laid out as a 1st's is, its month beside its number: 4px above and 2px below the taller of
+     the today tile's 1.2em in the day's size and the month's 1em line box in its own, two struts
+     centered across it as the parts are. Every week is counted as holding a month, so one
+     capacity holds for all six, and a large month_font_size costs every week the room it costs
+     the 1st's. Each strut sets its own size, as the part it stands for does, and the box none, so
+     a keyword or a percentage resolves as the date line's does. A line is its 1.2em line box with
+     1px of padding and 1px of margin above and below, which a bar takes as well (Grid's banner
+     pads 1px), and is as tall as the taller of its title and its time, so one box is set in each
+     one's font and the card takes the taller. Boxes rather than layout heights, so a scale an
+     ancestor applies reaches all of them and the week alike. tests/month-dom.test.ts pins them
+     against what they stand for. */
   .month-probe {
     position: absolute;
     top: 0;
@@ -7754,8 +7759,21 @@ export const cardStyles = css`
   }
 
   .month-probe[data-probe='date'] {
-    height: calc(1.2em + 6px);
+    display: flex;
+    align-items: center;
+    padding-block: 4px 2px;
+  }
+
+  .month-probe[data-probe='date']::before {
+    content: '';
+    height: 1.2em;
     font-size: var(--calendar-card-font-size-day);
+  }
+
+  .month-probe[data-probe='date']::after {
+    content: '';
+    height: 1em;
+    font-size: var(--calendar-card-font-size-month);
   }
 
   .month-probe[data-probe='title'] {
@@ -7884,8 +7902,8 @@ export const cardStyles = css`
 
      The number takes day_font_size and the month month_font_size, each on its own part, so
      neither is measured against the other, as in a list's date column. The line itself sets no
-     size: its height is an empty strut's, the tile's 1.2em in the day's size, which is the date
-     line the card measures its capacity from. */
+     size: its height is an empty strut's, the tile's 1.2em in the day's size, or on a 1st the
+     month's line box where that is taller, and the date probe stands for the taller of the two. */
   .month-date {
     display: flex;
     grid-row: 1;

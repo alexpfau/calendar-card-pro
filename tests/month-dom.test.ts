@@ -160,6 +160,9 @@ function linesIn(week: Element, gridColumn: string): HTMLElement[] {
 interface Layout {
   /** The scale an ancestor draws the card at, by a transform or a zoom. */
   readonly scale?: number;
+  /** The scale across and down, where a transform sets them apart; each defaults to `scale`. */
+  readonly scaleX?: number;
+  readonly scaleY?: number;
   /** The first week's height, its rule included. */
   readonly week?: number;
   /** The rule along the week's top. */
@@ -180,12 +183,13 @@ interface Layout {
  */
 function layOut(card: CardUnderTest, layout: Layout = {}): void {
   const { scale = 1, week = 64, rule = 1, date = 22, title = 20, time = 16 } = layout;
+  const { scaleX = scale, scaleY = scale } = layout;
   const box = (top: number, height: number, width = 0) =>
     ({
-      top: top * scale,
-      bottom: (top + height) * scale,
-      height: height * scale,
-      width: width * scale,
+      top: top * scaleY,
+      bottom: (top + height) * scaleY,
+      height: height * scaleY,
+      width: width * scaleX,
     }) as DOMRect;
   const container = month(card);
   const height = 40 + 6 * week + 1;
@@ -539,12 +543,14 @@ describe('the line pitch and the date line the card measures', () => {
     });
     // The date: the tile's 1.2em with 4px above and 2px below, in the day's size dates are set
     // in. The line sets no size of its own; an empty strut in the day's size makes it 1.2em tall,
-    // and the number and the 1st's month each take their own option.
-    expect(probe('date')).toEqual({
-      height: 'calc(1.2em + 6px)',
-      'font-size': 'var(--calendar-card-font-size-day)',
+    // and the number and the 1st's month each take their own option, the month's line box 1em
+    // tall in its size, which a large month makes the taller of the two.
+    expect(rule('.month-date')).toMatchObject({
+      display: 'flex',
+      'align-items': 'center',
+      padding: '4px 6px 2px',
+      'line-height': '1',
     });
-    expect(rule('.month-date')).toMatchObject({ padding: '4px 6px 2px', 'line-height': '1' });
     expect(rule('.month-date')).not.toHaveProperty('font-size');
     expect(rule('.month-date')).not.toHaveProperty('height');
     expect(rule('.month-date::before')).toEqual({
@@ -554,6 +560,22 @@ describe('the line pitch and the date line the card measures', () => {
     });
     expect(rule('.month-date > .day')['font-size']).toBe('var(--calendar-card-font-size-day)');
     expect(rule('.month-date-month')['font-size']).toBe('var(--calendar-card-font-size-month)');
+    // Its probe is laid out as a 1st's date line is, the same padding above and below and two
+    // struts centered across it: the day's, and one as tall as the month's line box. Every week
+    // is counted as holding the month, so one capacity holds for all six. Each strut sets its
+    // own size, as the parts it stands for do, so a keyword or a percentage resolves against what
+    // theirs does, and the probe sets none.
+    expect(probe('date')).toEqual({
+      display: 'flex',
+      'align-items': 'center',
+      'padding-block': '4px 2px',
+    });
+    expect(rule(".month-probe[data-probe='date']::before")).toEqual(rule('.month-date::before'));
+    expect(rule(".month-probe[data-probe='date']::after")).toEqual({
+      content: "''",
+      height: '1em',
+      'font-size': 'var(--calendar-card-font-size-month)',
+    });
   });
 });
 
@@ -683,6 +705,10 @@ describe('the rows’ height', () => {
     expect(await at({ scale: 1 })).toEqual(['43px', '299px']);
     expect(await at({ scale: 0.5 })).toEqual(['43px', '299px']);
     expect(await at({ scale: 0.8 })).toEqual(['43px', '299px']);
+    // A transform that scales one way alone: the heights are read against the month's height.
+    expect(await at({ scaleX: 1, scaleY: 0.75 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 0.75, scaleY: 1 })).toEqual(['43px', '299px']);
+    expect(await at({ scaleX: 1, scaleY: 1.5 })).toEqual(['43px', '299px']);
     // A time set taller than the title is the line, as the capacity takes it.
     expect(await at({ time: 24 })).toEqual(['47px', '323px']);
   });

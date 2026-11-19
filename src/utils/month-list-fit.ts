@@ -25,7 +25,7 @@ export interface MonthListGeometry {
   readonly more: number;
   /** The gap between the last row listed and "+N more". */
   readonly gap: number;
-  /** The room the rows have. */
+  /** The room the rows have: `Infinity` where nothing caps a list that grows. */
   readonly room: number;
 }
 
@@ -69,7 +69,8 @@ export function fitMonthList(geometry: MonthListGeometry): number {
  *
  * Every length is a box in the page's pixels, read with `getBoundingClientRect`, so a scale an
  * ancestor draws the card at scales them all alike and the fit does not change; only the cap, read
- * from the card's computed style in its own pixels, is scaled to match. The rows end where each
+ * from the card's computed style in its own pixels, is scaled to match, by the card's box against
+ * its layout height, since a transform may scale one way alone. The rows end where each
  * staged event's cell ends, below the table's top, with the gaps between them; a row is as tall
  * staged as listed, each part of it on one line in both. The gap before "+N more" runs from the
  * table's foot to the button's top, as the list draws it after its rows.
@@ -78,7 +79,9 @@ export function fitMonthList(geometry: MonthListGeometry): number {
  * grows under a cap (`monthCompactGrows` in `rendering/month.ts`) has no such box: its room is the
  * cap less everything else the card holds, the card as drawn less the rows' box. Where the card is
  * drawn at its cap, whose content then runs past it, that content's overflow is added back, so a
- * list fitted to a room that has since shrunk is fitted again rather than kept.
+ * list fitted to a room that has since shrunk is fitted again rather than kept. A cap the card's
+ * computed style does not give as a length, `none` where a variable's fallback takes it off, caps
+ * nothing: the room is unbounded and every row is listed.
  *
  * @param root - The card's render root
  * @param grows - Whether the list grows under a cap rather than taking a fixed room
@@ -108,27 +111,34 @@ export function measureMonthList(root: ParentNode, grows: boolean): MonthListGeo
     ...cells.map((cell) => cell.getBoundingClientRect().bottom - tableBox.top + foot),
   ];
 
-  let room = roomBox.height;
-  if (grows) {
-    const card = root.querySelector<HTMLElement>('ha-card');
-    const cap = card ? Number.parseFloat(getComputedStyle(card).maxHeight) : Number.NaN;
-    if (!card || !Number.isFinite(cap)) return null;
-    const cardBox = card.getBoundingClientRect();
-    const scale =
-      card.offsetWidth > 0 && Math.abs(cardBox.width - card.offsetWidth) >= 1
-        ? cardBox.width / card.offsetWidth
-        : 1;
-    const content = root.querySelector<HTMLElement>('.content-container');
-    const others =
-      cardBox.height - roomBox.height + (content ? contentOverflow(content, scale) : 0);
-    room = cap * scale - others;
-  }
-  return {
-    rows,
-    more: buttonBox.height,
-    gap: buttonBox.top - tableBox.bottom,
-    room,
-  };
+  const measured = { rows, more: buttonBox.height, gap: buttonBox.top - tableBox.bottom };
+  if (!grows) return { ...measured, room: roomBox.height };
+
+  const card = root.querySelector<HTMLElement>('ha-card');
+  if (!card) return null;
+  const cap = Number.parseFloat(getComputedStyle(card).maxHeight);
+  if (!Number.isFinite(cap)) return { ...measured, room: Infinity };
+  const cardBox = card.getBoundingClientRect();
+  const scale = verticalScale(card, cardBox);
+  const content = root.querySelector<HTMLElement>('.content-container');
+  const others = cardBox.height - roomBox.height + (content ? contentOverflow(content, scale) : 0);
+  return { ...measured, room: cap * scale - others };
+}
+
+/**
+ * The scale an ancestor draws an element at down the page: its box's height against its layout
+ * height, or 1 within a pixel of it, as `offsetHeight` rounds the layout height to a whole one. Read
+ * down rather than across, so a transform that scales one way alone converts heights by the right
+ * one.
+ *
+ * @param element - The element whose heights are converted
+ * @param box - Its box, as `getBoundingClientRect` reads it
+ * @returns The scale, 1 where there is none
+ */
+function verticalScale(element: HTMLElement, box: DOMRect): number {
+  return element.offsetHeight > 0 && Math.abs(box.height - element.offsetHeight) >= 1
+    ? box.height / element.offsetHeight
+    : 1;
 }
 
 /**
@@ -164,7 +174,8 @@ function contentOverflow(content: HTMLElement, scale: number): number {
  * "No events" off the list on a day without, so each is kept from the last day that drew it
  * (`known`) and the least is the taller of the two known. Rounded up to whole pixels, past the
  * hundredth a scale's division leaves, as the wide month's floors are (`measureMonthFloors` in
- * `rendering/month.ts`).
+ * `rendering/month.ts`). Every length here is a height, so the scale is the list's box against its
+ * layout height.
  *
  * @param root - The card's render root
  * @param known - The heights of "+N more" and "No events" last read, which this updates
@@ -179,10 +190,7 @@ export function measureMonthListMin(
   if (!list || !box) return null;
   const listBox = list.getBoundingClientRect();
   if (!(listBox.width > 0) || !(listBox.height > 0)) return null;
-  const scale =
-    list.offsetWidth > 0 && Math.abs(listBox.width - list.offsetWidth) >= 1
-      ? listBox.width / list.offsetWidth
-      : 1;
+  const scale = verticalScale(list, listBox);
   const height = (element: Element | null | undefined) => {
     const pixels = element?.getBoundingClientRect().height ?? 0;
     return pixels > 0 ? pixels / scale : null;
