@@ -44,5 +44,6 @@
   "loadFailed": "Lataus epäonnistui:",
   "newEvent": "Uusi tapahtuma",
   "showAll": "Näytä kaikki",
-  "hideAll": "Piilota kaikki"
+  "hideAll": "Piilota kaikki",
+  "private": "Yksityinen"
 }

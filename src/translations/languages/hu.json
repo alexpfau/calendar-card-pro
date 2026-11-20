@@ -23,5 +23,6 @@
   "loadFailed": "Nem sikerült betölteni:",
   "newEvent": "Új esemény",
   "showAll": "Összes megjelenítése",
-  "hideAll": "Összes elrejtése"
+  "hideAll": "Összes elrejtése",
+  "private": "Privát"
 }

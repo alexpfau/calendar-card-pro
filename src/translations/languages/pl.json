@@ -31,5 +31,6 @@
   "loadFailed": "Nie udało się wczytać:",
   "newEvent": "Nowe wydarzenie",
   "showAll": "Pokaż wszystkie",
-  "hideAll": "Ukryj wszystkie"
+  "hideAll": "Ukryj wszystkie",
+  "private": "Prywatne"
 }

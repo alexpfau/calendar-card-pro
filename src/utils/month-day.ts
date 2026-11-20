@@ -114,8 +114,9 @@ export function dayListConfig(config: Types.Config, start: Date, days: number): 
  * description whatever its calendar says, since a month leaves descriptions to the event's details
  * (`ViewConfig.MONTH_PINNED`). The list groups as List does, which pins nothing, so the month's
  * rule is applied here, as `groupEventsByDay` applies it for Month's own grouping
- * (`ViewConfig.isPinned`). A calendar's own `show_description: false` stays, so the details
- * keep that calendar's descriptions private. Only an event whose entry says otherwise is copied.
+ * (`ViewConfig.isPinned`). A calendar's own `show_description: false` stays as it is, since it
+ * draws nothing either way; the details show every description whatever it says. Only an event
+ * whose entry says otherwise is copied.
  *
  * @param event - A source event, matched to its entry
  * @returns The event, or a copy whose entry splits it and draws no description

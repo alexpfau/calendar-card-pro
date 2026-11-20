@@ -169,15 +169,15 @@ In the visual editor, set Event Tap Action to Nothing on the **Taps & Refresh** 
 
 The popover shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, you can also change the event right there and delete it; [Editing & Deleting Events](#editing-deleting-events) covers how, and when.
 
-The title, location and description read as they do on the card, with the calendar's [text replacement](/features/core-settings#text-replacement) applied, so a title you masked or reworded stays that way. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
+The title, location and description read as they do on the card, with the calendar's [text replacement](/features/core-settings#text-replacement) applied, so a title you masked or reworded stays that way, and a [private calendar's](/features/core-settings#keeping-a-calendar-private) read Private. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
 
 ::: warning What the Popover Reveals
 Two things go further than the card itself:
 
-- **The location and the description show**, even where the card or a layout hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks. A location shows in full, with any country `remove_location_country` takes off the rows, and the times show whatever `show_time` says.
+- **The location and the description show**, even where `show_location: false` or `show_description: false` hides them from the rows, set on the card, a layout or the calendar itself, and in grid view, which leaves locations off its blocks. A location shows in full, with any country `remove_location_country` takes off the rows, and the times show whatever `show_time` says.
 - **Editing a field shows it as the calendar stores it**, because that is what a save writes. Tap into a masked title and the real one appears.
 
-On a card whose replacements exist to keep something private, set `allow_event_edit: false`, or `event_tap_action: none` so that a tap opens nothing. Where a location or description must stay hidden in the popover too, set `show_location: false` or `show_description: false` on that calendar itself; see [Narrowing What the Popover Offers](#narrowing-what-the-popover-offers).
+Where a calendar's events must stay private, set [`private: true`](/features/core-settings#keeping-a-calendar-private) on that calendar: its events read Private in the popover too, and cannot be edited there. To open no popover at all, set `event_tap_action: none`.
 :::
 
 ### Where You Can Tap
@@ -246,8 +246,10 @@ event_tap_action:
 
 The fields describe the whole event, whichever day of a multi-day event you pressed, and they are
 filled even where the card does not show them: a grid that leaves locations out, or a card with
-`show_description` off, still fills `{location}` and `{description}`. A name in braces that is
-not one of these stays as you wrote it.
+`show_description` off, still fills `{location}` and `{description}`. A
+[private calendar's](/features/core-settings#keeping-a-calendar-private) event fills `{title}`,
+`{location}` and `{description}` as its popover shows them, with Private. A name in braces that
+is not one of these stays as you wrote it.
 
 ::: warning An Event's Text Is Not Yours
 Whoever writes an event writes its title, location and description, and on a shared calendar, a
@@ -365,13 +367,12 @@ allow_event_delete: false
 
 The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no popover for them to narrow.
 
-A calendar can keep its locations or descriptions out of the popover too. Set to `false` on the calendar itself, Never show in the visual editor, `show_location` and `show_description` hide them from that calendar's events everywhere: the rows leave them out, and so does the popover, which draws no map for them and looks nothing up. Saving a change to such an event keeps them as they are stored. Set on the card or a view instead, the two options only tidy the rows, and the popover still shows what they leave out, since it is where you go to read it. A new event shows every field, because you are the one writing it.
+One calendar's events can be kept out of the popover too: [`private: true`](/features/core-settings#keeping-a-calendar-private) on the calendar shows each of its events as Private, in the popover as on the card, with no map, no editing and no Delete. `show_location` and `show_description` only tidy the rows, wherever they are set, and the popover still shows what they leave out, since it is where you go to read it.
 
 ```yaml
 entities:
   - entity: calendar.work
-    show_location: false # no meeting rooms, in rows or in the popover
-    show_description: false
+    private: true # Private on the card and in the popover, and read-only
 ```
 
 ### When the Card Leaves Them Out
@@ -382,6 +383,7 @@ The details still open, but the card makes the event read-only and leaves out De
 - **An event from a calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load).** The card is drawing it from its cache, which can be up to a day old, and saving an edit would write those old values over the calendar's current ones.
 - **An event without an identifier.** Home Assistant finds the event to change by its unique ID, and some calendars do not send one.
 - **Editing only, an event its calendar stores without an end.** The popover shows it ending where it starts, and saving a change would write that end into the calendar.
+- **An event of a [private calendar](/features/core-settings#keeping-a-calendar-private).** Editing a field would show what the calendar stores, and Delete would act on an event nobody can read.
 
 ## 💬 The Event Popover
 
@@ -415,7 +417,7 @@ The card places two kinds of location:
 The map needs Home Assistant 2026.10 or later; on an older version the popover shows the pin.
 
 ::: info What Leaves Your Home
-Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for a calendar that keeps its locations out of it; event rows, the card editor and typing a location never send anything. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The map tiles come through Home Assistant, so your browser asks no map server for them.
+Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for an event of a [private calendar](/features/core-settings#keeping-a-calendar-private); event rows, the card editor and typing a location never send anything. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The map tiles come through Home Assistant, so your browser asks no map server for them.
 :::
 
 ::: details Which Places Are Found

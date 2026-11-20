@@ -23,5 +23,6 @@
   "loadFailed": "Nu s-a putut încărca:",
   "newEvent": "Eveniment nou",
   "showAll": "Arată toate",
-  "hideAll": "Ascunde toate"
+  "hideAll": "Ascunde toate",
+  "private": "Privat"
 }

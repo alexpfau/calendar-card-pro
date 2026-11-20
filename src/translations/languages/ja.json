@@ -23,5 +23,6 @@
   "loadFailed": "読み込めませんでした:",
   "newEvent": "新しい予定",
   "showAll": "すべて表示",
-  "hideAll": "すべて非表示"
+  "hideAll": "すべて非表示",
+  "private": "非公開"
 }

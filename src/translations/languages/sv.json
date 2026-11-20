@@ -23,5 +23,6 @@
   "loadFailed": "Kunde inte läsas in:",
   "newEvent": "Ny händelse",
   "showAll": "Visa alla",
-  "hideAll": "Göm alla"
+  "hideAll": "Göm alla",
+  "private": "Privat"
 }

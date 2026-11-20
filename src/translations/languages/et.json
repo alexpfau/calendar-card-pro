@@ -44,5 +44,6 @@
   "loadFailed": "Laadimine ebaõnnestus:",
   "newEvent": "Uus sündmus",
   "showAll": "Näita kõiki",
-  "hideAll": "Peida kõik"
+  "hideAll": "Peida kõik",
+  "private": "Privaatne"
 }

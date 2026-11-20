@@ -31,5 +31,6 @@
   "loadFailed": "Laden mislukt:",
   "newEvent": "Nieuwe afspraak",
   "showAll": "Alles weergeven",
-  "hideAll": "Alles verbergen"
+  "hideAll": "Alles verbergen",
+  "private": "Privé"
 }

@@ -23,5 +23,6 @@
   "loadFailed": "Échec du chargement:",
   "newEvent": "Nouvel événement",
   "showAll": "Tout afficher",
-  "hideAll": "Tout masquer"
+  "hideAll": "Tout masquer",
+  "private": "Privé"
 }

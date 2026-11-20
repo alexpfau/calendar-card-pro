@@ -82,6 +82,7 @@ import * as Logger from './utils/logger';
 import * as MonthDay from './utils/month-day';
 import * as MonthListFit from './utils/month-list-fit';
 import * as Paging from './utils/paging';
+import * as PrivateEvents from './utils/private-events';
 import * as Search from './utils/search';
 import * as Sections from './utils/sections';
 import * as StartDate from './utils/start-date';
@@ -1169,9 +1170,14 @@ class CalendarCardPro extends LitElement {
     origin?: Feedback.PressOrigin,
   ): Omit<PopoverModel.PopoverParams, 'language' | 'hour24' | 'dark'> | undefined {
     const calendarId = event._entityId;
-    const entry = EventDetails.buildDetailEntry(event);
-    if (!calendarId || !entry) return undefined;
+    const stored = EventDetails.buildDetailEntry(event);
+    if (!calendarId || !stored) return undefined;
 
+    const language = this.effectiveLanguage;
+    const display = EventDetails.displayText(event, language);
+    const locked = EventDetails.privateFields(event, language);
+    // A private event's own words never reach the popover; see `privateEntry`.
+    const entry = locked ? EventDetails.privateEntry(stored, display) : stored;
     const calendar = this._popoverCalendar(calendarId, color);
     const permissions = this._eventPermissions(event, entry);
     // Moving an event writes it to another calendar and deletes it from its own, so it is
@@ -1184,8 +1190,8 @@ class CalendarCardPro extends LitElement {
       mode: 'event',
       calendarId,
       entry,
-      display: EventDetails.displayText(event),
-      hidden: EventDetails.hiddenFields(event),
+      display,
+      ...(locked && { private: { ...locked } }),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
       ...permissions,
@@ -1358,7 +1364,10 @@ class CalendarCardPro extends LitElement {
     }
     if (kind !== 'forward' || !action || this._isBeingEdited) return;
 
-    const filled = EventActions.fillEventAction(action, EventActions.eventFields(event));
+    const filled = EventActions.fillEventAction(
+      action,
+      EventActions.eventFields(event, this.effectiveLanguage),
+    );
     if (!filled) {
       Logger.warn(
         `Not running event ${gesture} action: it puts an event's text outside its data or URL query, or its URL would not open over http or https`,
@@ -6710,7 +6719,8 @@ class CalendarCardPro extends LitElement {
    * (`groupEventsByDay`), so that entry's options, its text replacements and every rule about
    * which days show what apply as they will. Where the card would not show it at all, as a
    * title an entry's filter turns away or a time a hidden past covers, it is split into days as
-   * it stands, with its calendar's first entry, so a press drawing it still sees where it goes.
+   * it stands, with the entry it matched, else its calendar's first entry, so a press drawing it
+   * still sees where it goes.
    *
    * @param shown - The new event
    * @param dayStarts - The days the grid shows, as the start of each
@@ -6740,13 +6750,28 @@ class CalendarCardPro extends LitElement {
       if (byDay.size) return byDay;
     }
     if (!dayStarts.length) return byDay;
-    const entry = config.entities.find(
-      (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
-    );
+    // The entry it matched where one admits it, a private one included, which the first may not be.
+    const entry =
+      matched?._matchedConfig ??
+      config.entities.find(
+        (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
+      );
     const asItStands: Types.CalendarEventData = {
       ...source,
       ...(typeof entry === 'object' && { _matchedConfig: entry }),
     };
+    // A private entry keeps its words off the card even here, as `groupEventsByDay` does.
+    if (PrivateEvents.isPrivate(asItStands)) {
+      const shown = PrivateEvents.privateText(
+        source,
+        asItStands._matchedConfig,
+        this.effectiveLanguage,
+      );
+      asItStands.summary = shown.title;
+      asItStands.location = '';
+      asItStands.description = '';
+      asItStands._privateTitle = shown.locked.title || undefined;
+    }
     asItStands._entityLabel = EventUtils.getEntityLabel(source._entityId, config, asItStands);
     const first = new Date(Math.min(...dayStarts));
     const last = new Date(Math.max(...dayStarts));

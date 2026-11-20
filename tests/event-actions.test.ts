@@ -274,6 +274,7 @@ describe('eventFields', () => {
             description: '<p>Ferry&nbsp;<b>at nine</b></p>',
           } as Types.CalendarEventData['_source'],
         }),
+        'en',
       ),
     ).toEqual({
       title: 'Trip',
@@ -290,6 +291,7 @@ describe('eventFields', () => {
     expect(
       eventFields(
         event({ summary: 'Holiday', start: { date: '2026-06-18' }, end: { date: '2026-06-19' } }),
+        'en',
       ),
     ).toMatchObject({ title: 'Holiday', start: '2026-06-18', end: '2026-06-19', all_day: 'true' });
   });
@@ -305,6 +307,7 @@ describe('eventFields', () => {
 
     const masked = eventFields(
       event({ _source: source, _matchedConfig: { entity: 'calendar.ben', replace_with: 'Busy' } }),
+      'en',
     );
     expect(masked).toMatchObject({
       title: 'Busy',
@@ -321,6 +324,7 @@ describe('eventFields', () => {
           replace_pattern: 'Dr\\. Example, ',
         },
       }),
+      'en',
     );
     expect(location).toMatchObject({ title: 'Dentist', location: '12 High Street' });
   });

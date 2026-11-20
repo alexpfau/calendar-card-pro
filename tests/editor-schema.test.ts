@@ -3748,6 +3748,7 @@ describe('editor: per-calendar settings', () => {
         'label_type',
         'location_icon',
         'name',
+        'private',
         'replace_field',
         'replace_pattern',
         'replace_with',

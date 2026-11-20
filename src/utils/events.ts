@@ -12,6 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
+import * as PrivateEvents from './private-events';
 import { getTimeWindow, startDateFollowsToday } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
@@ -1860,27 +1861,39 @@ export function groupEventsByDay(
         replacedSummary.replacedWholeField ||
         (summary.trim() !== '' && replacedSummary.text.trim() === '');
 
+      // A private entry's events show none of their words (`private-events.ts`): the title is the
+      // placeholder, or a whole-field replacement, and no location or description is drawn, a
+      // replacement for one included, which the popover shows instead: a row's location and
+      // description find their links in the event's own text (`Links.rowLinks`). No age either,
+      // which would say it is a birthday.
+      const privateText = PrivateEvents.isPrivate(event)
+        ? PrivateEvents.privateText(event, event._matchedConfig, language)
+        : null;
+      const showLocation =
+        getEntitySetting(event._entityId, 'show_location', config, event) ?? config.show_location;
+
       eventsByDay[eventDateKey].events.push({
-        summary:
-          ageCount === null || titleWithheld
+        summary: privateText
+          ? privateText.title
+          : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
         location:
-          (getEntitySetting(event._entityId, 'show_location', config, event) ??
-          config.show_location)
-            ? TextReplace.applyTextReplacement(
+          !showLocation || privateText
+            ? ''
+            : TextReplace.applyTextReplacement(
                 FormatUtils.formatLocation(event.location || '', config.remove_location_country),
                 replacement,
                 'location',
-              ).text
-            : '',
-        description: showDescription
-          ? TextReplace.applyTextReplacement(
-              markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
-              replacement,
-              'description',
-            ).text
-          : '',
+              ).text,
+        description:
+          !showDescription || privateText
+            ? ''
+            : TextReplace.applyTextReplacement(
+                markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
+                replacement,
+                'description',
+              ).text,
         start: event.start,
         end: event.end,
         _entityId: event._entityId,
@@ -1906,6 +1919,7 @@ export function groupEventsByDay(
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
         _gridBanner: event._gridBanner,
+        _privateTitle: privateText?.locked.title || undefined,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }
@@ -2674,8 +2688,14 @@ function filterEventsForEntity(
 }
 
 /**
- * The identity `filter_duplicates` compares copies by: the original title, start and end, and
- * the location too unless the option is `ignore_location`.
+ * The identity `filter_duplicates` compares copies by: the original title, start and end, the
+ * location too unless the option is `ignore_location`, and whether the copy is private.
+ *
+ * A private entry's copy (`EntityConfig.private`) is the same event only to another private
+ * entry's. Merged with a copy that is not private, a row would put the private calendar's label
+ * beside the other calendar's title; and since every step that picks one copy of an event reads
+ * this identity (the banner choice, the first eligible copy, the merge), apart they each follow
+ * their own calendar's options.
  *
  * @param event Event to identify
  * @param ignoreLocation Whether to leave the location out of the comparison
@@ -2697,7 +2717,8 @@ function generateEventSignature(event: Types.CalendarEventData, ignoreLocation =
     timeSignature = `${event.start.date || ''}|${event.end.date || ''}`;
   }
 
-  return `${summary}|${timeSignature}|${location}`;
+  // A tuple, so no title or location can read as another field or as the privacy flag.
+  return JSON.stringify([summary, timeSignature, location, PrivateEvents.isPrivate(event)]);
 }
 
 //-----------------------------------------------------------------------------

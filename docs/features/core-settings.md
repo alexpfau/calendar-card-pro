@@ -32,9 +32,9 @@ entities:
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                                                              |
 | `text_scale`             | number  | `1`                      | Draws this calendar's event text, and the icons beside it, at this multiple of the card's sizes: `0.75` at three quarters; see [Scaling One Calendar's Text](#scaling-one-calendars-text)                                                                                                                                                                                                                |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                                                      |
-| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                                                                     |
+| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option). The [event popover](/features/actions#event-details) shows them whatever this says; [`private`](#keeping-a-calendar-private) keeps them out of it                                                                                                                                                           |
 | `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                                                                                                                               |
-| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                                                               |
+| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option). The [event popover](/features/actions#event-details) shows them whatever this says; [`private`](#keeping-a-calendar-private) keeps them out of it                                                                                                                                                     |
 | `show_weather`           | boolean | `true`                   | `false` leaves the weather out beside this calendar's events. The forecast in the day header stays; see [Turning Weather Off for One Calendar](/features/weather#turning-weather-off-for-one-calendar)                                                                                                                                                                                                   |
 | `compact_events_to_show` | number  | `-`                      | Most events this calendar shows while the card is compact. Its events still count toward the card-wide `compact_events_to_show`; see [Entity-Level vs. Global Event Limits](#entity-level-vs-global-event-limits)                                                                                                                                                                                        |
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                                                                                                                                                                                                                |
@@ -49,6 +49,7 @@ entities:
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                                                    |
 | `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                                                               |
 | `visibility`             | list    | `-`                      | Home Assistant visibility conditions, as a card's own Visibility tab takes them. This entry's events show only while all of them hold; unset, they always show. See [Showing a Calendar Under Conditions](#showing-a-calendar-under-conditions)                                                                                                                                                          |
+| `private`                | boolean | `false`                  | `true` shows when this entry's events are and whose they are, and nothing they say: each reads Private behind a lock, in its event popover too, and the card cannot change or delete it. See [Keeping a Calendar Private](#keeping-a-calendar-private)                                                                                                                                                   |
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
@@ -184,6 +185,65 @@ the dashboard can read its configuration, conditions included.
   back.
 - An event's popover or a new event's form that is already open when a condition changes keeps
   the calendars it opened with until it closes.
+
+:::
+
+### Keeping a Calendar Private
+
+`private: true` shows when a calendar's events are and whose they are, and nothing they say: each
+event's title reads Private behind a lock, and its location and description are left out. It is
+for a screen everyone walks past, such as a hallway tablet that shows Ben is busy on Thursday
+afternoon but not with what.
+
+```yaml
+entities:
+  - entity: calendar.work
+    label: person.ben
+    private: true
+```
+
+In the visual editor, switch on **Private** on the calendar's page, under **Who Sees It**.
+
+A private event keeps everything that comes from its time and its calendar: its date and times,
+how it repeats, a countdown or progress bar, the weather for its hour, and the calendar's color,
+label and name. Everything the event says for itself goes:
+
+- **On the card**, its title reads Private in every layout, and its location and description are
+  not drawn. A [birthday age](/features/event-content#birthday-ages-anniversary-counts), which
+  would say what the event is, is left off too.
+- **In the [event popover](/features/actions#event-details)**, the title reads Private, and so do
+  the location and the description where the event has one. There is no map, and nothing is
+  looked up.
+- **Nothing can be changed.** The popover offers no editing and no Delete, grid view does not drag
+  the event, and it cannot be moved to another calendar. Change it on a card where the calendar is
+  not private. Adding a new event to the calendar still works.
+- **Search** finds the event as Private, never by its own words.
+- **An [event action](/features/actions#using-the-events-fields-in-an-action)** gets Private in
+  `{title}`, `{location}` and `{description}`.
+
+To show a word of your own instead, add [`replace_with`](#hiding-what-an-event-is-about) without a
+`replace_pattern`: it takes the place of Private for its field, without the lock, so
+`replace_with: Busy` makes every title read Busy. A replaced location or description shows in the
+popover only, since the rows draw neither. A `replace_pattern` does nothing on a private calendar,
+since it would show the rest of the text.
+
+::: details Splitting a Calendar Into Private & Shared Events
+
+- `private` belongs to one entry, so a calendar listed twice can keep one entry private and not
+  the other, as the [Family Agenda's Busy block](/guide/one-calendar-many-purposes#busy-nothing-else)
+  does.
+- The entries' `allowlist` and `blocklist` still read the events' own words, since they decide
+  which entry an event belongs to. An entry that picks events by their words and gives them a
+  label of their own, such as a tooth for the dentist, says that much about them.
+- With [`filter_duplicates`](#filtering-duplicate-events) on, an event in a private calendar and in
+  one that is not stays two rows: the other calendar's, with its title, and the private
+  calendar's, reading Private. Merged, the row would put the private calendar's label beside the
+  other calendar's title.
+- Private hides what the card shows, not the calendar. Anyone who can open the calendar in Home
+  Assistant still reads its events in full, and so does Home Assistant's own more-info dialog,
+  which an [event action](/features/actions#using-the-events-fields-in-an-action) of `more-info`
+  opens. The card receives each event in full and keeps a copy in the browser's storage for its
+  next visit, like every event it shows.
 
 :::
 
@@ -1041,6 +1101,10 @@ entities:
 Every event from that calendar now reads `Busy`, keeping its time, its color and its place in
 the day. The calendar itself is untouched — this is a display setting, so the same calendar on
 your own card still shows real titles.
+
+It replaces the title alone: the location and the description still show where the card shows
+them, and in the event popover. To keep all of it off the card, add
+[`private: true`](#keeping-a-calendar-private) beside it, and the titles still read `Busy`.
 
 ::: tip Ages Are Suppressed Automatically
 If those events carry a [`YEAR=` marker](/features/event-content#birthday-ages-anniversary-counts),

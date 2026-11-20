@@ -1668,6 +1668,8 @@ export function normalizeEntities(
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
           visibility: normalizeVisibility(item.visibility),
+          // Only `true` makes an entry private; anything else shows its events as usual.
+          private: item.private === true ? true : undefined,
         } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;

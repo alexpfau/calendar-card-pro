@@ -913,13 +913,14 @@ describe('the universe', () => {
     // the entity, and Month lost the eight of the forecast beside the days it has no header for.
     // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
     // lost what its day list and panel leave to the event's details or draw one way only
-    // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description.
+    // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then a
+    // calendar gained Private, in every workspace.
     expect(sizes).toEqual({
-      shared: { card: 135, calendar: 27 },
-      list: { card: 162, calendar: 28 },
-      column: { card: 158, calendar: 27 },
-      grid: { card: 157, calendar: 27 },
-      month: { card: 104, calendar: 26 },
+      shared: { card: 135, calendar: 28 },
+      list: { card: 162, calendar: 29 },
+      column: { card: 158, calendar: 28 },
+      grid: { card: 157, calendar: 28 },
+      month: { card: 104, calendar: 27 },
     });
   });
 
