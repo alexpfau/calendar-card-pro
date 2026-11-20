@@ -350,7 +350,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   ],
   allday_badge: [true, false, 'off', 'title', 'time'],
   allday_badge_color: ['accent', 'text', '#b5651d'],
-  filter_duplicates: [true, false, 'ignore_location'],
+  filter_duplicates: [true, false, 'ignore_location', 'merge_locations'],
   'toolbar.show': [true, false],
   'toolbar.view_switcher': [true, false],
   'toolbar.legend': [false, 'menu', 'chips'],
@@ -1182,7 +1182,13 @@ describe('the gate table', () => {
       duplicates: {
         kind: 'gate',
         fields: ['content:duplicate_accent_color'],
-        requires: [p('content:filter_duplicates_mode', 'exact', ['exact', 'ignore_location'])],
+        requires: [
+          p('content:filter_duplicates_mode', 'exact', [
+            'exact',
+            'ignore_location',
+            'merge_locations',
+          ]),
+        ],
       },
       toolbar: {
         kind: 'gate',
