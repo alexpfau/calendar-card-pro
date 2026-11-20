@@ -49,7 +49,7 @@ features:
     details: Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
   - icon: 🌍
     title: 39 Languages
-    details: The card in 39 languages and its visual editor in 12, with community contributions welcome.
+    details: The card in 39 languages and its visual editor in 13, with community contributions welcome.
 ---
 
 ## 🔍 About
@@ -70,7 +70,7 @@ This motivated me to create a **dedicated calendar card**.
 - 🌦️ **Weather** – [Forecasts](/features/weather) in the date column or beside each event.
 - 🎨 **Fits Your Theme** – Follows your Home Assistant theme and its primary color, with [custom properties](/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, every calendar loaded in parallel, and the visual editor downloaded only when you open it.
-- 🌍 **Multi-Language Support** – [Available in 39 languages](/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 39 languages](/contributing#adding-translations), with the visual editor in 13. Community contributions welcome!
 
 ## 🔗 Requirements
 
