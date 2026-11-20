@@ -434,7 +434,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     configKeys: ['height', 'max_height'],
     derive: (config) => heightMode(config),
     apply: (value, config) => {
-      const discardHeights = { card_height: null, card_max_height: null };
+      const discardHeights = { fixed_height: null, maximum_height: null };
 
       if (value === 'fixed') {
         return {
@@ -469,25 +469,25 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
-  card_height: {
+  fixed_height: {
     configKeys: ['height'],
     derive: (config) => (heightMode(config) === 'fixed' ? String(config.height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
       return text === ''
-        ? { changes: {}, pending: { card_height: text } }
-        : { changes: { height: text }, pending: { card_height: null } };
+        ? { changes: {}, pending: { fixed_height: text } }
+        : { changes: { height: text }, pending: { fixed_height: null } };
     },
   },
 
-  card_max_height: {
+  maximum_height: {
     configKeys: ['max_height'],
     derive: (config) => (heightMode(config) === 'maximum' ? String(config.max_height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
       return text === ''
-        ? { changes: {}, pending: { card_max_height: text } }
-        : { changes: { max_height: text }, pending: { card_max_height: null } };
+        ? { changes: {}, pending: { maximum_height: text } }
+        : { changes: { max_height: text }, pending: { maximum_height: null } };
     },
   },
 

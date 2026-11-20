@@ -566,8 +566,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
         key: 'heading_card_size',
         fields: [
           ['layout:height_mode', E],
-          ['layout:card_height', withMode('layout:height_mode')],
-          ['layout:card_max_height', withMode('layout:height_mode')],
+          ['layout:fixed_height', withMode('layout:height_mode')],
+          ['layout:maximum_height', withMode('layout:height_mode')],
           // Grid's height, set per hour, beside the Height a fixed one replaces.
           ['layout:time_grid.hour_height', A],
           ['layout:additional_card_spacing', A],

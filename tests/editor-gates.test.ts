@@ -227,8 +227,8 @@ const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
 const NOT_IN_MONTH = [
   ...NOT_IN_GRID_OR_MONTH,
   'layout:height_mode',
-  'layout:card_height',
-  'layout:card_max_height',
+  'layout:fixed_height',
+  'layout:maximum_height',
   'events:show_multiday_allday_time',
   'content:days_to_show',
   'content:show_empty_days',
@@ -1273,12 +1273,12 @@ describe('the gate table', () => {
       },
       fixed_height: {
         kind: 'mode-value',
-        fields: ['layout:card_height'],
+        fields: ['layout:fixed_height'],
         requires: [p('layout:height_mode', 'fixed', ['fixed'])],
       },
       maximum_height: {
         kind: 'mode-value',
-        fields: ['layout:card_max_height'],
+        fields: ['layout:maximum_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
       },
       accent: {

@@ -555,7 +555,7 @@ describe('editor: start_date_offset survives being typed', () => {
  * the user can transiently empty.
  *
  * Two of the six candidates were live. `today_indicator_icon`, `today_indicator_custom`,
- * `card_height` and `card_max_height` were already held; `location_country_pattern`
+ * `fixed_height` and `maximum_height` were already held; `location_country_pattern`
  * stores `''` deliberately so its mode still reads *custom*; and the empty-day fields are
  * gated on a switch rather than on a value, so they cannot reach this state at all.
  *
@@ -796,7 +796,7 @@ describe('editor: change detection', () => {
 
   /**
    * Walking `SYNTHETIC_FIELDS` to assert something about each entry cannot notice a
-   * deleted entry — the loop simply runs one fewer time. Deleting `card_max_height`
+   * deleted entry — the loop simply runs one fewer time. Deleting `maximum_height`
    * left the whole suite green even though the field then stopped deriving its value,
    * silently discarded every edit, and wrote its own name into the stored YAML. Pin
    * the membership instead, so both a removal and an unreviewed addition fail here.
@@ -807,15 +807,15 @@ describe('editor: change detection', () => {
       'accent_event_text',
       'allday_badge_color_mode',
       'allday_badge_position',
-      'card_height',
-      'card_max_height',
       'countdown_once_per_day',
       'day_tap_action_mode',
       'filter_duplicates_mode',
+      'fixed_height',
       'height_mode',
       'language_mode',
       'location_country_mode',
       'location_country_pattern',
+      'maximum_height',
       'start_date_fixed',
       'start_date_mode',
       'start_date_offset',
@@ -1422,10 +1422,10 @@ describe('editor: displayed view and the Layout panel', () => {
     // The two measurements are bound to synthetic fields rather than to `height` and
     // `max_height`, so that clearing one to retype it does not delete the value and
     // take the field with it. See the typing tests below.
-    expect(names(buildConfig({ height: '400px' }))).toContain('card_height');
-    expect(names(buildConfig({ height: '400px' }))).not.toContain('card_max_height');
-    expect(names(buildConfig({ max_height: '400px' }))).toContain('card_max_height');
-    expect(names(buildConfig())).not.toContain('card_height');
+    expect(names(buildConfig({ height: '400px' }))).toContain('fixed_height');
+    expect(names(buildConfig({ height: '400px' }))).not.toContain('maximum_height');
+    expect(names(buildConfig({ max_height: '400px' }))).toContain('maximum_height');
+    expect(names(buildConfig())).not.toContain('fixed_height');
   });
 });
 
@@ -3313,26 +3313,26 @@ describe('editor: fields that must survive being typed into', () => {
    */
   it('keeps the height field standing while its measurement is retyped', () => {
     const start = buildConfig({ height: '500px' });
-    const cleared = type(start, 'card_height', ['']);
+    const cleared = type(start, 'fixed_height', ['']);
 
     expect(cleared.config.height).toBe('500px');
-    expect(cleared.pending.card_height).toBe('');
+    expect(cleared.pending.fixed_height).toBe('');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_height');
+    ).toContain('fixed_height');
 
-    const retyped = type(start, 'card_height', ['', '4', '40', '400px']);
+    const retyped = type(start, 'fixed_height', ['', '4', '40', '400px']);
     expect(retyped.config.height).toBe('400px');
   });
 
   it('keeps the maximum-height field standing on the same terms', () => {
     const start = buildConfig({ height: 'auto', max_height: '600px' });
-    const cleared = type(start, 'card_max_height', ['']);
+    const cleared = type(start, 'maximum_height', ['']);
 
     expect(cleared.config.max_height).toBe('600px');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_max_height');
+    ).toContain('maximum_height');
   });
 
   /**
@@ -3345,21 +3345,21 @@ describe('editor: fields that must survive being typed into', () => {
   it('derives, commits and hides the maximum-height measurement', () => {
     const config = buildConfig({ height: 'auto', max_height: '600px' });
     const before = { ...config, ...deriveSyntheticData(config) } as Record<string, unknown>;
-    expect(before.card_max_height).toBe('600px');
+    expect(before.maximum_height).toBe('600px');
 
-    const applied = applyFormChange(config, before, { ...before, card_max_height: '900px' }, {});
+    const applied = applyFormChange(config, before, { ...before, maximum_height: '900px' }, {});
     const stored = toStoredConfig(applied.config);
 
     expect(stored.max_height).toBe('900px');
-    expect(stored).not.toHaveProperty('card_max_height');
+    expect(stored).not.toHaveProperty('maximum_height');
   });
 
   it('never lets a held measurement reach the stored configuration', () => {
-    const { config, pending } = type(buildConfig({ height: '500px' }), 'card_height', ['']);
+    const { config, pending } = type(buildConfig({ height: '500px' }), 'fixed_height', ['']);
 
     expect(toStoredConfig(config).height).toBe('500px');
-    expect(toStoredConfig(config)).not.toHaveProperty('card_height');
-    expect(pending.card_height).toBe('');
+    expect(toStoredConfig(config)).not.toHaveProperty('fixed_height');
+    expect(pending.fixed_height).toBe('');
   });
 });
 

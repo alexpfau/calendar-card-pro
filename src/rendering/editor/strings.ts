@@ -567,11 +567,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.auto.label': 'Fit content',
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
-  card_height: 'Height',
-  'card_height.helper':
+  fixed_height: 'Height',
+  'fixed_height.helper':
     'List and Columns scroll when the events do not fit; Grid compresses its hours, and Month its weeks.',
-  card_max_height: 'Maximum Height',
-  'card_max_height.helper': 'Grows with its content up to this height, then scrolls.',
+  maximum_height: 'Maximum Height',
+  'maximum_height.helper': 'Grows with its content up to this height, then scrolls.',
 
   // --- Column density -------------------------------------------------------
   'column.density': 'Column Density',

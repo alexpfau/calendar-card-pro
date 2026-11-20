@@ -229,7 +229,7 @@ describe('the shown set: each state', () => {
   });
 
   it('keeps a mode value live with its mode, and nowhere without it', () => {
-    expect(stateIn(cardCtx({ height: '300px' }, 'shared'), 'layout:card_height')).toEqual({
+    expect(stateIn(cardCtx({ height: '300px' }, 'shared'), 'layout:fixed_height')).toEqual({
       kind: 'live',
       why: 'stored',
     });

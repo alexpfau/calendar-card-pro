@@ -382,18 +382,18 @@ describe('synthetic edits are routed as real options', () => {
       column: { height: '400px' },
       time_grid: { height: '500px' },
     });
-    const current = frame(config, 'grid', 'card_height');
+    const current = frame(config, 'grid', 'fixed_height');
     const result = Routing.applyWorkspaceChange(
       config,
       current,
-      { ...current.data, card_height: '' },
+      { ...current.data, fixed_height: '' },
       {},
     );
     expect(result.config).toEqual(config);
-    expect(result.pending).toEqual({ 'time_grid.card_height': '' });
-    expect(Routing.workspaceFormData(config, 'grid', result.pending).card_height).toBe('');
-    expect(Routing.workspaceFormData(config, 'column', result.pending).card_height).toBe('400px');
-    expect(Routing.workspaceFormData(config, 'list', result.pending).card_height).toBe('300px');
+    expect(result.pending).toEqual({ 'time_grid.fixed_height': '' });
+    expect(Routing.workspaceFormData(config, 'grid', result.pending).fixed_height).toBe('');
+    expect(Routing.workspaceFormData(config, 'column', result.pending).fixed_height).toBe('400px');
+    expect(Routing.workspaceFormData(config, 'list', result.pending).fixed_height).toBe('300px');
   });
 
   it('reconciles every synthetic target against Config and actual writes', () => {
@@ -597,8 +597,8 @@ describe('rendered form frames preserve edit intent', () => {
     const { editor, seen } = await mount();
     await changeField(editor, 'layout:height_mode', 'fixed');
     for (const text of ['2', '24', '24e', '24em']) {
-      await changeField(editor, 'layout:card_height', text);
-      expect(valueOf(editor, 'layout:card_height')).toBe(text);
+      await changeField(editor, 'layout:fixed_height', text);
+      expect(valueOf(editor, 'layout:fixed_height')).toBe(text);
     }
     expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('height', '24em');
     // Over a second in a full local run; the limit is set for CI's slower runner under load

@@ -257,7 +257,7 @@ describe('a field', () => {
         field: fieldOf(s, 'shared', 'layout:height_mode'),
         workspace: 'shared',
       }),
-      { pending: { card_height: '30', card_max_height: '5', title: 'Fam' } },
+      { pending: { fixed_height: '30', maximum_height: '5', title: 'Fam' } },
     );
     expect(stored).toEqual({ title: 'Family' });
     expect(state.pending).toEqual({ title: 'Fam' });
@@ -408,14 +408,14 @@ describe('a path and a whole block', () => {
     const { state, stored } = run(
       { height: '400px', list: { height: '300px' } },
       () => ({ kind: 'path', path: ['list', 'height'] }),
-      { pending: { 'list.card_height': '', card_height: '4' } },
+      { pending: { 'list.fixed_height': '', fixed_height: '4' } },
     );
     expect(stored).toEqual({ height: '400px' });
-    expect(state.pending).toEqual({ card_height: '4' });
+    expect(state.pending).toEqual({ fixed_height: '4' });
     const root = run({ height: '400px' }, () => ({ kind: 'path', path: ['height'] }), {
-      pending: { card_height: '', 'list.card_height': '3' },
+      pending: { fixed_height: '', 'list.fixed_height': '3' },
     });
-    expect(root.state.pending).toEqual({ 'list.card_height': '3' });
+    expect(root.state.pending).toEqual({ 'list.fixed_height': '3' });
   });
 
   it('Reset All in Grid: the block, its held text, and every divergent key it held', () => {

@@ -223,18 +223,18 @@ describe('a kept helper', () => {
   });
 
   it('answers for the fields drawn now, where the notes line up with the fields drawn before', async () => {
-    // A fixed height draws `card_height` where a maximum draws `card_max_height`, and both are
+    // A fixed height draws `fixed_height` where a maximum draws `maximum_height`, and both are
     // set for this layout: the Layout form's notes read the same, place by place, before and after
     // the switch, while the field in the last place is another one.
     const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
     await editLayout(editor, 'list');
-    await openPageOf(editor, 'layout:card_height');
+    await openPageOf(editor, 'layout:fixed_height');
     const own = EDITOR_STRINGS['state.set'];
-    expect(stateWordOf(editor, 'layout:card_height')).toBe(own);
+    expect(stateWordOf(editor, 'layout:fixed_height')).toBe(own);
 
     await changeField(editor, 'layout:height_mode', 'maximum');
 
-    await openPageOf(editor, 'layout:card_max_height');
-    expect(stateWordOf(editor, 'layout:card_max_height')).toBe(own);
+    await openPageOf(editor, 'layout:maximum_height');
+    expect(stateWordOf(editor, 'layout:maximum_height')).toBe(own);
   });
 });

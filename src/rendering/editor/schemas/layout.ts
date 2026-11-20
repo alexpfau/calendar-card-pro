@@ -136,12 +136,6 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
  * its cap in each form, the day width below which the narrow form draws, the weekend's and today's
  * shading, and the font sizes of the wide month's days.
  *
- * 🚨 Two of the names, `card_height` and `card_max_height`, are also the names of the card's
- * synthetic Height fields, which write the shared `height` and `max_height`. The field ids differ
- * (`layout:month.card_height` against `layout:card_height`), and so does every string key, since
- * `blockScope` labels these under `month.`; what treats a name as synthetic has to ask about the
- * top level (`value.ts` › `stripBlockDefaults`, `routing.ts` › `workspaceFormData`).
- *
  * @param blockKey - Config key holding this view's override block
  * @returns The fields, in the view's own block
  */
@@ -194,9 +188,9 @@ const layoutSchema = Helpers.memoizeLast(
     ];
 
     if (heightMode === 'fixed') {
-      cardBox.push(text('card_height'));
+      cardBox.push(text('fixed_height'));
     } else if (heightMode === 'maximum') {
-      cardBox.push(text('card_max_height'));
+      cardBox.push(text('maximum_height'));
     }
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];

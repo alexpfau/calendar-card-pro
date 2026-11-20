@@ -152,7 +152,7 @@ function expectedFields(
           : undefined;
     if (owner === undefined) return true;
 
-    // A block's field is its own option, whatever its name: Month's `card_height` is no Height.
+    // A block's field is its own option, whatever its name.
     const keys = entity
       ? entityConfigKeys(node.name)
       : path.length === 0

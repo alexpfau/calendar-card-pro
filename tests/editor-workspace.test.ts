@@ -69,7 +69,7 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
 
 /**
  * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
- * block field's own name, which may share a synthetic field's (Month's `card_height`).
+ * block field's own name, which may share a synthetic field's.
  */
 function optionKeys(schema: ReadonlyArray<HaFormSchema>, workspace: EditorWorkspace): string[] {
   const view = workspace === 'shared' ? undefined : workspace;

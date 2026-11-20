@@ -223,7 +223,7 @@ export function workspaceFormData(
       path = path.slice(1);
     }
     // A synthetic field's text, which the derived data above took. Asked of the key, not the
-    // name alone: Month's own `card_height` shares its name with the card's Height.
+    // name alone, since a block's own option may share a synthetic field's name.
     if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;
     const block = destination(name, workspace);
     if (path.length === 0 && block !== undefined) continue;

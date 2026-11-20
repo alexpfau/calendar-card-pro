@@ -77,8 +77,8 @@ const SHARED: Readonly<Record<string, ReadonlyArray<ReadonlyArray<FieldId>>>> = 
   // A mode and the value it calls for.
   accent_color: [['events:accent_color', 'events:accent_color_mode']],
   allday_badge_color: [['events:allday_badge_color', 'events:allday_badge_color_mode']],
-  height: [['layout:card_height', 'layout:height_mode']],
-  max_height: [['layout:card_max_height', 'layout:height_mode']],
+  height: [['layout:fixed_height', 'layout:height_mode']],
+  max_height: [['layout:maximum_height', 'layout:height_mode']],
   remove_location_country: [['events:location_country_mode', 'events:location_country_pattern']],
   start_date: [
     ['content:start_date_fixed', 'content:start_date_mode'],

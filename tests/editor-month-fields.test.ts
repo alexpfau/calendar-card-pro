@@ -2,12 +2,6 @@
  * Month's own settings in the visual editor: the card's four heights, its two shadings and the font
  * sizes of its days. Each is drawn on its topic's page under Month, and writes into `month:`, never
  * the top level.
- *
- * 🚨 Two of them share their names with the card's synthetic Height fields, `card_height` and
- * `card_max_height`, which write the shared `height` and `max_height`. A check that asks a name
- * alone whether it is synthetic takes Month's for the card's: the block serializer then dropped a
- * height written fresh, and the held text of one being typed was not shown back. Both are pinned
- * here by what the editor writes and shows.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -103,8 +103,8 @@ describe('editor strings resolve in the requested language', () => {
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
     // `height` applies to `.content-container`; the header and card padding sit outside it.
     // Grid compresses that content area's axis while the other views scroll it.
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('Grid compresses its hours');
-    expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
+    expect(EDITOR_STRINGS['fixed_height.helper']).toContain('Grid compresses its hours');
+    expect(EDITOR_STRINGS['fixed_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
     // There were three sites; there are two. `time_grid.axis.helper` was the Time Axis

@@ -474,8 +474,8 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     [
       'layout:height_mode E SLCG',
-      'layout:card_height W SLCG',
-      'layout:card_max_height W SLCG',
+      'layout:fixed_height W SLCG',
+      'layout:maximum_height W SLCG',
       // Grid's own height, beside the Height it yields to.
       'layout:time_grid.hour_height A G',
       'layout:additional_card_spacing A',
@@ -1090,7 +1090,7 @@ describe('the registry heads what the builders used to', () => {
     );
     const size = under('size_spacing', 'heading_card_size');
     expect(size.indexOf('layout:time_grid.hour_height')).toBe(
-      size.indexOf('layout:card_max_height') + 1,
+      size.indexOf('layout:maximum_height') + 1,
     );
     expect(under('size_spacing', 'heading_hour_labels')).toEqual([
       'layout:time_grid.axis_width',
