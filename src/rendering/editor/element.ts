@@ -1882,7 +1882,10 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _haWord(ctx: SchemaCtx, haKey: string, key: 'history.undo' | 'history.redo'): string {
     const word = this.hass?.localize?.(haKey);
-    const own = this._string(ctx, key);
+    const own =
+      key === 'history.undo'
+        ? this._string(ctx, 'history.undo')
+        : this._string(ctx, 'history.redo');
     // Home Assistant's table can carry the English word untranslated, as its Latvian Redo does;
     // a translation of the editor's own reads better than that.
     const untranslated = word === EDITOR_STRINGS[key] && own !== word;
