@@ -51,6 +51,8 @@
 
 import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:timers';
 
+import { afterAll } from 'vitest';
+
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
@@ -2380,6 +2382,13 @@ function nextRender(): Promise<void> {
 
 /** What each editor `mountEditor` mounted has reported, oldest first. */
 const reports = new WeakMap<EditorElement, Array<Record<string, unknown>>>();
+
+// An editor left open can still be waiting to look for its preview (`_syncPick`), and Node's timers
+// outlive the DOM globals happy-dom removes once a file ends; closing it first cancels the wait.
+// Found in the page rather than held, so an editor a test removed is never kept from collection.
+afterAll(() => {
+  for (const editor of document.querySelectorAll(HOST_TAG)) editor.remove();
+});
 
 /**
  * The configuration an editor last reported to Home Assistant, as `config-changed` carried it.

@@ -265,7 +265,7 @@ describe('the ink an accent-colored surface is painted in', () => {
     expect(declarations[0]).toContain('in srgb');
     expect(declarations[1]).toBe('var(--primary-text-color)');
     expect(declarations[2]).toContain('in oklab');
-    expect(declarations[3]).toContain('calc(c * 2.2)');
+    expect(declarations[3]).toContain('calc(a * 2.2) calc(b * 2.2)');
     expect(css).toContain('@supports not (color: color-mix(in srgb, red, blue))');
     expect(css).toContain('@supports (color: color-mix(in oklab, red, blue))');
     expect(css).toContain('@supports (color: oklch(from red l c h))');

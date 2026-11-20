@@ -1311,6 +1311,41 @@ describe('the list fitted to its room', () => {
     await afterClose(card);
     expect(deepActive()).toBe(more);
   });
+
+  it('opens its panel, and a row’s popover, beside its words, as a wide day’s does', async () => {
+    extraEvents = NINE;
+    layOut({ room: 200 });
+    const manager = playDialogManager();
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    await tap(card, day(card, 28));
+    // happy-dom lays nothing out: the button is given the list's width, its words a box ending
+    // at 90, as Chrome lays them out on a 375px card.
+    const more = moreOf(card)!;
+    more.getBoundingClientRect = () => new DOMRect(24, 472, 343, 29);
+    const words = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function (
+      this: Range,
+    ) {
+      const inMore = this.startContainer.parentElement?.closest('.month-day-list-more');
+      return (inMore ? [new DOMRect(39, 479, 51, 14)] : []) as unknown as DOMRectList;
+    });
+    try {
+      more.click();
+      await settle(card);
+      const panel = manager.panel()!;
+      await panel.updateComplete;
+      const anchor = (dialogs[0].dialogParams as DayPanelParams).anchor!;
+      expect(anchor.rect).toEqual({ left: 24, top: 472, right: 90, bottom: 501 });
+
+      [...panel.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')]
+        .find((button) => text(button).startsWith('Errand 5'))!
+        .click();
+      await afterClose(card);
+      const opened = dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+      expect((opened[0].dialogParams as PopoverParams).anchor?.rect).toEqual(anchor.rect);
+    } finally {
+      words.mockRestore();
+    }
+  });
 });
 
 describe('the gap between a day’s events', () => {
@@ -1596,6 +1631,52 @@ describe('the day panel', () => {
       y: anchor.y,
       rect: anchor.rect,
     });
+  });
+
+  it('adds on its day from its title where day_tap_action adds, opened by a key on the day', async () => {
+    // The keys open the day's panel whatever a press on the day runs, as that is how they reach
+    // the day's events; where that press adds, the panel's title adds, as a narrow day's name does.
+    const manager = playDialogManager();
+    const card = await mount({ day_tap_action: { action: 'add-event' } });
+    const cell = root(card).querySelector<HTMLElement>(
+      '.month-day[aria-label^="Tuesday, November 10, 2026"]',
+    )!;
+    cell.focus();
+    cell.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+    await settle(card);
+    const panel = manager.panel()!;
+    await panel.updateComplete;
+    expect(isOpen(panel)).toBe(true);
+    const dialog = panel.shadowRoot!.querySelector('dialog')!;
+    expect(text(panel.shadowRoot!.getElementById(dialog.getAttribute('aria-labelledby')!))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    const add = panel.shadowRoot!.querySelector<HTMLButtonElement>('.day-panel-title button')!;
+    expect(add.getAttribute('aria-label')).toBe('Add event');
+    expect(text(panel.shadowRoot!.getElementById(add.getAttribute('aria-describedby')!))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    const anchor = (dialogs[0].dialogParams as DayPanelParams).anchor!;
+
+    add.click();
+    await afterClose(card);
+    expect(isOpen(panel)).toBe(false);
+    const opened = dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+    expect(opened).toHaveLength(1);
+    const params = opened[0].dialogParams as PopoverParams;
+    expect(params.entry).toBeUndefined();
+    expect(params.times?.start).toEqual(new Date(2026, 10, 10, 10));
+    expect(params.anchor?.rect).toEqual(anchor.rect);
+  });
+
+  it('keeps its title plain where a tap on a day adds nothing', async () => {
+    const { panel } = await open({ tap_action: { action: 'more-info' } });
+    expect(panel!.shadowRoot!.querySelector('.day-panel-title button')).toBeNull();
+    expect(text(panel!.shadowRoot!.querySelector('.day-panel-title'))).toBe(
+      'Tuesday, November 10, 2026',
+    );
   });
 
   it('runs Home Assistant’s action for a row where event_tap_action names one', async () => {

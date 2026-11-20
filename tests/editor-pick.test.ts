@@ -398,6 +398,45 @@ describe('Pick From Preview', () => {
     expect($(editor, '[data-pick-banner]')).toBeNull();
     expect(next.shadowRoot!.querySelector('.ccp-pick-layer')).toBeNull();
   });
+
+  it('looks again for a preview drawn late, and stops looking as the dialog closes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const open = async () => {
+        const host = document.createElement('div');
+        const root = host.attachShadow({ mode: 'open' });
+        const editor = document.createElement(EDITOR_TAG) as Editor;
+        editor.hass = fakeHass() as Types.Hass;
+        editor.setConfig(CONFIG as unknown as Types.Config);
+        root.append(editor);
+        document.body.append(host);
+        await editor.updateComplete;
+        return { host, root, editor };
+      };
+      const late = await open();
+      expect(pickButton(late.editor)).toBeNull();
+      const card = await makeCard(CONFIG);
+      late.root.append(card);
+      await card.updateComplete;
+      await vi.advanceTimersByTimeAsync(500);
+      await late.editor.updateComplete;
+      expect(pickButton(late.editor)).not.toBeNull();
+      late.host.remove();
+      await vi.advanceTimersByTimeAsync(5000);
+
+      // Closing the dialog cancels the look that was waiting, and a closed editor waits for none,
+      // so none outlives it: one that did would hold the editor, and in a test outlive the DOM.
+      const closed = await open();
+      const waiting = vi.getTimerCount();
+      closed.host.remove();
+      expect(vi.getTimerCount()).toBe(waiting - 1);
+      closed.editor.requestUpdate();
+      await closed.editor.updateComplete;
+      expect(vi.getTimerCount()).toBe(waiting - 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 // The preview follows the layout being edited through the card Home Assistant's dialog previews, found as

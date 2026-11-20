@@ -4272,7 +4272,10 @@ class CalendarCardPro extends LitElement {
     }
     this.requestUpdate();
     const language = this.effectiveLanguage;
-    const at = originOf(anchor);
+    const origin = originOf(anchor);
+    // A narrow month list's "+N more" spans the list, so the panel, and the popover of a row
+    // pressed in it, open beside its words, as they do beside a wide day's.
+    const at = origin && returnToAnchor ? { ...origin, rect: Feedback.wordsBox(anchor) } : origin;
     const params: DayPanel.DayPanelParams = {
       source: {
         rows: () => {
@@ -4317,6 +4320,8 @@ class CalendarCardPro extends LitElement {
           };
         },
         activate: (target, origin) => this._activate({ event: target }, origin),
+        addLabel: () => this._dayAddButtons?.label,
+        add: (origin) => this._activate({ day: day.getTime() }, origin),
       },
       title: MonthRender.monthDayTitle(day, language),
       anchor: at && { ...at, rect: at.rect ?? anchor.getBoundingClientRect() },
@@ -9918,15 +9923,18 @@ class CalendarCardPro extends LitElement {
       visibility: this._visibility,
       held: this.events,
       today: this._haString('ui.components.calendar.today'),
+      // A row merged from two or more calendars takes their accent where the card sets one, as
+      // the card's own rows do (`presentation.ts`).
       colorOf: (event) =>
         this._resolvedColor(
-          EventUtils.getEntityAccentColorWithOpacity(
-            event._entityId,
-            this.config,
-            undefined,
-            event,
-            EntityColors.entityColors(),
-          ),
+          ((event._mergedFrom?.length ?? 0) > 1 && this.effectiveConfig.duplicate_accent_color) ||
+            EventUtils.getEntityAccentColorWithOpacity(
+              event._entityId,
+              this.config,
+              undefined,
+              event,
+              EntityColors.entityColors(),
+            ),
         ),
       nameOf: (entityId) => this._calendarName(entityId),
       failedNameOf: (entityId) =>
