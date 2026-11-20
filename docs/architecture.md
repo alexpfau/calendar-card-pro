@@ -206,9 +206,13 @@ resolution and its hysteresis, so resizing does not flip layouts back and forth.
 back: below `month → min_day_width` a day, it draws its compact form, with a hysteresis of its own
 (`utils/month-day.ts`).
 
-Switching layouts never fetches, because the load spans every view the card can show: the longest
-`days_to_show` from the shared start, and Month's six weeks where it is reachable, which can start
-before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)). The editor's
+Switching layouts at home never fetches, because the load spans every view the card can show: the
+longest `days_to_show` from the shared start, and Month's six weeks where it is reachable, which
+can start before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)).
+A switch away from home carries the date in view, and a page's load holds the weeks of the month
+its day falls in, so that switch lands on the same load wherever the next layout's days lie in
+those weeks. A day picked on a compact month at home, or days running past the weeks, are loaded
+as any page is. The editor's
 scope is separate again: opening List's page exposes its controls without changing the layout.
 
 ## 🧱 Configuration Layers & Editor Adoption

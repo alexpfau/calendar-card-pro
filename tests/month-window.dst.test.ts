@@ -168,10 +168,13 @@ describe('the load where month is reachable', () => {
     ['home, Sundays first', null, SUNDAY, 14, ['2026-03-01', '2026-04-11'], 42],
     // A longer view runs past the month's weeks, and the load runs with it.
     ['home, with a longer list', null, MONDAY, 60, ['2026-02-23', '2026-05-16'], 83],
-    // A page is a row's first day: the weeks from it, which hold the list's days.
-    ['a page', '2026-03-30', MONDAY, 14, ['2026-03-30', '2026-05-10'], 42],
-    // Another view's page key snaps to its week, Sundays first.
-    ['a page that starts mid-week', '2026-03-25', SUNDAY, 14, ['2026-03-22', '2026-05-02'], 42],
+    // A page's day opens the weeks of the month holding it, joined by the list's days from it:
+    // a month's own page, keyed by its 1st.
+    ['a month page', '2026-04-01', MONDAY, 14, ['2026-03-30', '2026-05-10'], 42],
+    // Another layout's page in the middle of a month, Sundays first: March's weeks hold it.
+    ['a page that starts mid-month', '2026-03-25', SUNDAY, 14, ['2026-03-01', '2026-04-11'], 42],
+    // A page whose list runs past its month's weeks, and the load with it.
+    ['a page late in a month', '2026-03-30', MONDAY, 14, ['2026-02-23', '2026-04-12'], 49],
   ] as const)('covers %s', (_name, page, firstDayOfWeek, days, expected, length) => {
     const config = buildConfig({
       days_to_show: days,

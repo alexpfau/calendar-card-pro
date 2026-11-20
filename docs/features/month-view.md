@@ -51,9 +51,11 @@ arrows and a sideways swipe move a whole month, the date picker jumps to the mon
 you pick, and the home button returns to the month the card opens with. It is called "Today"
 while that month is today's, and otherwise by the month it goes to, such as "January 2027".
 
-- **Switching layouts keeps your place.** Paged to another month, List, Columns and Grid start
-  on the 1st of the month in the heading. Into Month, the rows start on the week holding the
-  other layout's first day.
+- **Switching layouts keeps your place.** The date in view goes along. Into Month, the month
+  holding the other layout's first day opens with that day selected. Out of Month, List, Columns
+  and Grid start on the day selected on a [compact month](#the-compact-month), else on today
+  where the month shows it, else on the month's 1st. From home, with no day selected, each layout
+  opens on its own home, and the home button returns each one there.
 - **Search** pages to the month of the event you pick, and opens the day's list where the
   event is behind "+N more", or selects its day on a [compact month](#the-compact-month).
 

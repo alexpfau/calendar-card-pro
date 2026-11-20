@@ -18,7 +18,9 @@ they draw what is stored first and when they ask Home Assistant.
    view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
    start (`loadedDaysToShow`), and where Month is reachable its six weeks: today's month, or a
    fixed `start_date`'s (`ViewConfig.monthHomeDay`), as one span with the other views' days. So
-   switching views at home never fetches. The key names the window as configured
+   switching views at home never fetches. A page's load holds the weeks of the month its first day
+   falls in, the month Month draws for it, so a switch that carries a page's day draws from the
+   same load wherever the next view's days lie in those weeks. The key names the window as configured
    (`ViewConfig.loadIdentity`), so home's stays put while Month's weeks move with the months; an
    entry stored for a window that has since moved is refetched into the same key (`isEntryDue`).
 2. **Stored window.** `readEventSnapshot` reads and processes the stored payload synchronously, so

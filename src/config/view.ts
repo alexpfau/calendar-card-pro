@@ -3510,10 +3510,11 @@ export function reachesMonth(config: Types.Config): boolean {
  * is what makes them load for every view at once, without any of them learning about views.
  *
  * Where month is reachable, the load also covers the month's six weeks: at home the weeks of
- * Month's home month (`monthHomeDay`: today's, or a fixed date's), on a page the weeks from
- * the row holding the page's first day, since a page key is already a row's first day and
- * another view's key snaps to its week. The other reachable views keep their window from the
- * resolved start. The result names the union of the two by a concrete date and its length,
+ * Month's home month (`monthHomeDay`: today's, or a fixed date's), on a page the weeks of the
+ * month holding the page's first day, which is the month Month draws for that page, whichever
+ * layout asked for it. So a layout switch that carries a page's day lands on this same load. The
+ * other reachable views keep their window from the resolved start. The result names the union of
+ * the two by a concrete date and its length,
  * `start_date` as `YYYY-MM-DD`, so the request holds the weeks exactly. A page's identity and
  * cache key follow from it; home's are named by the window as configured (`loadIdentity`), so
  * they stay put while the union moves with the month and the other views' end. All of it is
@@ -3543,12 +3544,12 @@ export function loadConfig(
   }
 
   const window = getTimeWindow(days, config.start_date, firstDayOfWeek, now);
-  const rows = home
-    ? monthHomeRowsStart(
-        monthHomeDay(window.start, startDateFollowsToday(config.start_date, now), now),
-        firstDayOfWeek,
-      )
-    : monthRowsStart(window.start, firstDayOfWeek);
+  const rows = monthHomeRowsStart(
+    home
+      ? monthHomeDay(window.start, startDateFollowsToday(config.start_date, now), now)
+      : window.start,
+    firstDayOfWeek,
+  );
   const others = views.some((view) => view !== 'month');
 
   const rowsEnd = addDays(rows, MONTH_DAYS);
