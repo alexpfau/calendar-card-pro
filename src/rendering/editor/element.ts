@@ -604,6 +604,8 @@ export class CalendarCardProEditor extends LitElement {
     awaitingConditionsEditor.delete(this);
     this._drag?.cancel();
     this._endPick(false);
+    clearTimeout(this._pickRetry);
+    this._pickRetry = undefined;
     // The code editor keeps the preview, which goes back to the layout the card opens in.
     this._scopePreview.sync(undefined);
     // The last editor or card out closes the registry subscription (`entity-colors.ts`).
@@ -1006,6 +1008,9 @@ export class CalendarCardProEditor extends LitElement {
 
   /** How many more times a missing preview is looked for (`_syncPick`). */
   private _pickLooks = 4;
+
+  /** The next look for a missing preview, while one is waiting; cleared as the editor closes. */
+  private _pickRetry?: ReturnType<typeof setTimeout>;
 
   /** Pick From Preview in the preview (`views/pick.ts`). */
   private _picker = new PickView.PreviewPicker({
@@ -2048,9 +2053,18 @@ export class CalendarCardProEditor extends LitElement {
   private _syncPick(): void {
     const card = PickView.findPreviewCard(this);
     if ((card !== undefined) !== this._canPick) this._canPick = card !== undefined;
-    if (card === undefined && this._pickLooks > 0) {
+    // One look waits at a time, and none while the editor is closed, so none outlives it.
+    if (
+      card === undefined &&
+      this._pickLooks > 0 &&
+      this._pickRetry === undefined &&
+      this.isConnected
+    ) {
       this._pickLooks--;
-      setTimeout(() => this.isConnected && this._syncPick(), 500);
+      this._pickRetry = setTimeout(() => {
+        this._pickRetry = undefined;
+        if (this.isConnected) this._syncPick();
+      }, 500);
     }
     if (this._pickingAt === undefined) return;
     if (

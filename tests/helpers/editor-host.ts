@@ -51,6 +51,8 @@
 
 import { setImmediate as nodeImmediate, setTimeout as nodeTimeout } from 'node:timers';
 
+import { afterAll } from 'vitest';
+
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
@@ -2381,6 +2383,16 @@ function nextRender(): Promise<void> {
 /** What each editor `mountEditor` mounted has reported, oldest first. */
 const reports = new WeakMap<EditorElement, Array<Record<string, unknown>>>();
 
+/** Every editor `mountEditor` attached, closed as its test file ends. */
+const mounted = new Set<EditorElement>();
+
+// An editor left open can still be waiting to look for its preview (`_syncPick`), and Node's timers
+// outlive the DOM globals happy-dom removes once a file ends; closing it first cancels the wait.
+afterAll(() => {
+  for (const editor of mounted) editor.remove();
+  mounted.clear();
+});
+
 /**
  * The configuration an editor last reported to Home Assistant, as `config-changed` carried it.
  *
@@ -2504,6 +2516,7 @@ export async function mountEditor(
   editor.hass = (options.hass ?? fakeHass()) as Types.Hass;
   editor.setConfig(config);
   document.body.appendChild(editor);
+  mounted.add(editor);
   await editor.updateComplete;
   for (const key of ['every', 'yaml'] as const) {
     if (options[key] !== true) continue;
