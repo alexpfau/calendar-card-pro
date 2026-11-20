@@ -451,13 +451,14 @@ function buttonTexts(entry: unknown): Texts {
 }
 
 /**
- * Names a layout as Settings For does: "Grid", "All Layouts".
+ * Names a layout as its row under Layouts does: "Grid", "Layout Defaults".
  *
  * @param ctx - The index's context
  * @returns The namer
  */
 function layoutNamer(ctx: SearchCtx): Shown.LayoutName {
-  return (view) => ctx.t(`editing_workspace.option.${view}.label`);
+  return (view) =>
+    view === 'shared' ? ctx.t('layouts.defaults') : ctx.t(`view.option.${view}.label`);
 }
 
 /**

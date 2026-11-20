@@ -24,6 +24,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import {
   type MountedEditor,
   changeField,
+  editLayout,
   entry,
   fakeHass,
   keysOf,
@@ -502,7 +503,7 @@ describe('a draft is kept where its value would be stored', () => {
     const id = 'weather:weather.date.color';
     const typed = (at: HTMLElement) =>
       (textField(at)?.data.weather as { date?: { color?: unknown } } | undefined)?.date?.color;
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     let at = await openColor(editor, id);
     expect(at.querySelector('.color-yaml code')?.textContent).toBe('color: #111111');
     const form = textField(at)!;
@@ -517,7 +518,7 @@ describe('a draft is kept where its value would be stored', () => {
     expect(typed(control(editor, id))).toBe('hot pink');
 
     // Columns stores no color of its own, and List's draft is not its.
-    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await editLayout(editor, 'column');
     at = await openColor(editor, id);
     expect(at.querySelector('.color-yaml code')).toBeNull();
     expect(typed(at)).not.toBe('hot pink');
@@ -538,13 +539,13 @@ describe('a draft is kept where its value would be stored', () => {
         (config.time_grid as Record<string, unknown> | undefined)?.event_color,
       ];
     };
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     let at = await openColor(editor, 'events:event_color');
     expect(textField(at)!.data.event_color).toBe('#222222');
     await type(editor, at, 'event_color', 'hot pink');
     expect(textField(control(editor, 'events:event_color'))!.data.event_color).toBe('hot pink');
 
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     at = await openColor(editor, 'events:event_color');
     expect(textField(at)!.data.event_color).toBe('#111111');
     expect(at.querySelector('.color-invalid')).toBeNull();
@@ -552,7 +553,7 @@ describe('a draft is kept where its value would be stored', () => {
     await pick(editor, at, '[data-swatch="teal"]');
     expect(stored()).toEqual(['var(--teal-color)', '#222222']);
 
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     at = await openColor(editor, 'events:event_color');
     expect(textField(at)!.data.event_color).toBe('hot pink');
     expect(at.querySelector('.color-invalid')).not.toBeNull();
@@ -570,9 +571,9 @@ describe('a change that arrives late, or a word typed', () => {
       list: { event_color: '#111111' },
       time_grid: { event_color: '#222222' },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     const grid = textField(await openColor(editor, 'events:event_color'))!;
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     const list = textField(await openColor(editor, 'events:event_color'))!;
     expect(list).not.toBe(grid);
 

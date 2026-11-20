@@ -19,6 +19,7 @@ import {
   type MountedEditor,
   changeField,
   chooseResult,
+  editLayout,
   emitChange,
   fakeHass,
   formOf,
@@ -312,7 +313,7 @@ describe('what a result says it is', () => {
       weather_entity: 'weather.home',
       time_grid: { weather: { position: 'date' } },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     await searchFor(editor, 'time_grid.weather.position');
     expect(row(editor, 'weather:weather.position')).toBeDefined();
     await searchFor(editor, '');
@@ -434,7 +435,7 @@ describe('choosing a result', () => {
     ['list', 'inactive:events:description_color'],
   ])('stored but not in use, in %s: opens its gate line, at %s', async (scope, focus) => {
     const editor = await mount({ ...LIST, description_color: 'red' });
-    await changeField(editor, 'workspace:editing_workspace', scope);
+    await editLayout(editor, scope);
     await searchFor(editor, 'description color');
     await chooseResult(editor, 'result:events:description_color');
 

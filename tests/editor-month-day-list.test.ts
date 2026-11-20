@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  editLayout,
   factsOf,
   lastConfig,
   mountEditor,
@@ -317,7 +318,7 @@ describe('Accent Text on Month’s page', () => {
       );
     for (const workspace of ['month', 'list'] as const) {
       const editor = await mountEditor({ entities: ['calendar.anna'], view: workspace });
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       await openPageOf(editor, 'events:event_font_size');
       const month = workspace === 'month';
       expect(
@@ -378,7 +379,7 @@ describe('Accent Text on Month’s page', () => {
 
   it('writes the colors Month draws into its block, and none at the top level', async () => {
     const editor = await mountEditor({ entities: ['calendar.anna'], view: 'month' });
-    await changeField(editor, 'workspace:editing_workspace', 'month');
+    await editLayout(editor, 'month');
     await changeField(editor, 'events:accent_event_text', true);
     const sentinel = EntityColors.ACCENT_TEXT_SENTINEL;
     const stored = lastConfig(editor)!;
@@ -399,7 +400,7 @@ describe('Accent Text on Month’s page', () => {
 
   it('writes all five at the top level from Layout Defaults', async () => {
     const editor = await mountEditor({ entities: ['calendar.anna'], view: 'month' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await changeField(editor, 'events:accent_event_text', true);
     const stored = lastConfig(editor)!;
     for (const key of [
@@ -469,7 +470,7 @@ describe('the order of Month’s pages', () => {
   it('puts the weeks’ settings first on Month’s Event Appearance, and leaves List’s as it was', async () => {
     const drawn = async (workspace: 'month' | 'list'): Promise<string[]> => {
       const editor = await mountEditor({ entities: ['calendar.anna'], view: workspace });
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       await openPageOf(editor, 'events:event_font_size');
       return [...editor.shadowRoot!.querySelectorAll('[data-field]')].map(
         (each) => each.getAttribute('data-field') ?? '',

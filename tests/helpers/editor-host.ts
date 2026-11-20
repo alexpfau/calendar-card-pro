@@ -29,10 +29,10 @@
  * | `entry-calendar-form`             | chassis | `entry_calendar` (an entry page's Calendar)    |
  * | `split-form`                      | chassis | `split` (Split This Calendar's own fields)     |
  *
- * Card Displays and Settings For are the editor's own radio groups rather than forms. The ids
- * `display:view` and `workspace:editing_workspace` still name them, for `changeField` and
- * `valueOf`, which choose and read them as a user does. A toolbar button's fields sit in its row,
- * which a helper opens as a user does.
+ * Starting Layout is the editor's own radio group rather than a form. The id `display:view` still
+ * names it, for `changeField` and `valueOf`, which choose and read it as a user does. Which layout
+ * a test edits is chosen with `editLayout`, which opens that layout as a user does, and read with
+ * `layoutOf`. A toolbar button's fields sit in its row, which a helper opens as a user does.
  *
  * A color field is the editor's own control too (`colors.ts`), drawn for the color, or for the
  * mode it absorbs (`events:accent_color_mode`), with the color's value inside. It stands in as a
@@ -98,7 +98,11 @@ import {
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
 import * as Value from '../../src/rendering/editor/value';
 import * as WordLists from '../../src/rendering/editor/word-lists';
-import { type EditorWorkspace, WORKSPACES } from '../../src/rendering/editor/workspace';
+import {
+  type EditorWorkspace,
+  WORKSPACES,
+  isWorkspace,
+} from '../../src/rendering/editor/workspace';
 import * as Helpers from '../../src/utils/helpers';
 
 /** An `ha-form` as the editor hands it its properties. */
@@ -173,14 +177,12 @@ const CHASSIS_FORMS: Readonly<Record<string, string>> = {
 /** The editor's own radio groups, by the id a test names them with, with each input's name. */
 const RADIO_GROUPS: Readonly<Record<string, string>> = {
   'display:view': 'view',
-  'workspace:editing_workspace': 'scope',
 };
 
-const CHASSIS_SCOPES: ReadonlySet<string> = new Set([
-  ...Object.values(CHASSIS_FORMS),
-  'display',
-  'workspace',
-]);
+const CHASSIS_SCOPES: ReadonlySet<string> = new Set([...Object.values(CHASSIS_FORMS), 'display']);
+
+/** The overview's search field. */
+const SEARCH_FIELD = 'filter:search';
 
 /** One form the editor draws, with who draws it and the scope of its ids. */
 interface Drawn {
@@ -940,16 +942,9 @@ const visited = new WeakMap<EditorElement, Kept>();
  */
 function stampOf(editor: EditorElement): unknown[] {
   const state = editor as unknown as Record<string, unknown>;
-  return [
-    '_config',
-    '_pending',
-    '_filter',
-    '_workspace',
-    '_rawConfig',
-    'hass',
-    '_added',
-    '_prefs',
-  ].map((member) => state[member]);
+  return ['_config', '_pending', '_filter', '_workspace', '_rawConfig', 'hass', '_added', '_prefs']
+    .map((member) => state[member])
+    .concat(chosenScope(editor));
 }
 
 /**
@@ -987,8 +982,13 @@ function keptForms(editor: EditorElement): Drawn[] {
   const saved = element._nav;
   const added = element._added;
   const forms: Drawn[] = [];
+  // A topic is drawn in the layout its pages were visited in, as `goPage` opens it.
+  const scope = scopeFor(editor) as EditorWorkspace;
   for (const { id: page } of PAGES) {
-    element._nav = { route: { kind: 'page', page }, trail: [], fromResults: false };
+    const route = WHOLE_CARD_PAGES.has(page)
+      ? { kind: 'page', page }
+      : { kind: 'page', page, scope };
+    element._nav = { route, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
     // Every toolbar button's row open, as a user opens each one.
@@ -1049,8 +1049,13 @@ function pagesToVisit(editor: EditorElement): string[] {
   ];
 }
 
-/** The layout each editor's topic pages are opened under, once a test has chosen one. */
-const scopes = new WeakMap<EditorElement, string>();
+/**
+ * The layout each editor's topic pages are opened under, once a test has chosen one with
+ * `editLayout`. It is the helpers' own: which layout's row they press, where a user would press
+ * it. The editor holds no such choice; its overview and calendar pages follow the layout the
+ * card opens in.
+ */
+const scopes = new WeakMap<EditorElement, EditorWorkspace>();
 
 /** The editor's internals the helpers read for the layout being edited. */
 interface ScopeReads {
@@ -1060,15 +1065,12 @@ interface ScopeReads {
 }
 
 /**
- * The layout a test chose, while the editor still edits it: a configuration Home Assistant hands
- * in from outside clears the choice in the editor (`setConfig`), and here with it.
+ * The layout a test chose with `editLayout`.
  *
  * @param editor - Editor element
  * @returns The layout, or undefined where none is chosen
  */
-function chosenScope(editor: EditorElement): string | undefined {
-  const held = (editor as unknown as { _selectedWorkspace?: string })._selectedWorkspace;
-  if (scopes.get(editor) !== held) scopes.delete(editor);
+function chosenScope(editor: EditorElement): EditorWorkspace | undefined {
   return scopes.get(editor);
 }
 
@@ -1094,6 +1096,85 @@ function scopeFor(editor: EditorElement): string {
  */
 function isTopic(page: string): boolean {
   return TOPIC_PAGES.some((each) => each.id === page);
+}
+
+/**
+ * The layout whose settings the place open edits, as the editor reads it: a layout's page and its
+ * topics are that layout's (`shared` for Layout Defaults), Whole Card's pages are `shared`, the
+ * overview after Search Settings is the page the search began on, and anywhere else, the overview,
+ * a calendar's page, Stored Settings, it is the layout the card opens in.
+ *
+ * @param editor - Editor element
+ * @returns The layout
+ */
+export function layoutOf(editor: EditorElement): EditorWorkspace {
+  return (editor as unknown as ScopeReads)._workspace as EditorWorkspace;
+}
+
+/**
+ * The layout the helpers open topics in: the one `editLayout` chose last, else the layout the card
+ * opens in. It can differ from `layoutOf` once a helper has gone to a Whole Card page or the
+ * overview since.
+ *
+ * @param editor - Editor element
+ * @returns The layout
+ */
+export function editingLayout(editor: EditorElement): EditorWorkspace {
+  return scopeFor(editor) as EditorWorkspace;
+}
+
+/**
+ * Opens a layout to edit its settings, as a user does: a topic page open in another layout moves to
+ * the same topic there, by its Also For line, and anywhere else the layout's page opens from its
+ * row under Layouts. The topics a helper opens after it, and the searches it types, are this
+ * layout's (`goPage`, `openSearch`) until another is chosen. Choosing the layout the place already
+ * edits, before any other, chooses nothing, so the helpers go on following the layout the card
+ * opens in.
+ *
+ * @param editor - Editor element
+ * @param layout - The layout, `shared` for Layout Defaults
+ */
+export async function editLayout(editor: EditorElement, layout: string): Promise<void> {
+  if (!isWorkspace(layout)) throw new Error(`'${layout}' is no layout the editor has a page for.`);
+  if (chosenScope(editor) === undefined && layoutOf(editor) === layout) return;
+  scopes.set(editor, layout);
+  const open = openPage(editor);
+  if (open !== undefined && isTopic(open) && layoutOf(editor) !== layout) {
+    // Layout Defaults has no Weather, so its Also For line names no Layout Defaults there.
+    const also = editor.shadowRoot?.querySelector(`[data-focus="also:${layout}"]`);
+    if (also !== null) {
+      await press(editor, `[data-focus="also:${layout}"]`, `Also for ${layout}`);
+      return;
+    }
+  }
+  if (
+    open === `layout:${layout}` ||
+    (open !== undefined && isTopic(open) && layoutOf(editor) === layout)
+  ) {
+    return;
+  }
+  await goOverview(editor);
+  await press(editor, `[data-focus="layout:${layout}"]`, `row for the ${layout} layout`);
+}
+
+/**
+ * Opens the overview's search where a query typed now searches the layout a test chose, as a user
+ * reaches it: the overview itself where it already searches that layout, else Search Settings on
+ * that layout's page. With no layout chosen, the overview's own search, in the layout the card
+ * opens in.
+ *
+ * @param editor - Editor element
+ */
+async function openSearch(editor: EditorElement): Promise<void> {
+  const chosen = chosenScope(editor);
+  const searching = editor.shadowRoot?.querySelector('ha-form.filter-form') !== null;
+  if (chosen === undefined || (searching && layoutOf(editor) === chosen)) {
+    if (!searching) await goOverview(editor);
+    return;
+  }
+  await goOverview(editor);
+  await press(editor, `[data-focus="layout:${chosen}"]`, `row for the ${chosen} layout`);
+  await press(editor, '[data-focus="search-open"]', `Search Settings on ${chosen}'s page`);
 }
 
 /**
@@ -1242,7 +1323,6 @@ function knownIds(): ReadonlySet<FieldId> {
   const ctx: SchemaCtx = { view: 'list', config: Config.DEFAULT_CONFIG, language: 'en' };
   const declared: ReadonlyArray<readonly [string, ReadonlyArray<HaFormSchema>]> = [
     ['display', chassis.displayView],
-    ['workspace', chassis.workspace],
     ['filter', chassis.filter],
     ['quick_setup', QUICK_SETUP_CALENDARS_SCHEMA],
     ['quick_setup', QUICK_SETUP_WEATHER_SCHEMA],
@@ -1664,7 +1744,8 @@ export async function changeField(
  * Changes several fields of one form in a single `value-changed`, as a test means a form to
  * have reported them together, then awaits the editor's update. A field not drawn where the editor
  * is, or kept from a page `openPanels` visited, is first gone to, as a user would (`openPageOf`).
- * Card Displays and Settings For are chosen as a user chooses them.
+ * Starting Layout is chosen as a user chooses it, and a query is typed where it searches the layout
+ * a test chose (`openSearch`).
  *
  * @param editor - Editor element
  * @param values - New values, by field id, every one drawn by the same form
@@ -1682,6 +1763,7 @@ export async function changeFields(
     if (ids.length > 1) throw new Error(`${radio} is a radio group: change it on its own.`);
     await choose(editor, radio, values[radio]);
   } else {
+    if (ids.includes(SEARCH_FIELD)) await openSearch(editor);
     for (const id of ids) {
       const found = find(editor, id, owner);
       if (found === undefined || found.page !== undefined) await openPageOf(editor, id, owner);
@@ -1696,17 +1778,13 @@ export async function changeFields(
 }
 
 /**
- * The option a radio group of the editor's own has chosen. Settings For drawn as its compact line
- * names the scope the editor follows.
+ * The option a radio group of the editor's own has chosen.
  *
  * @param editor - Editor element
- * @param id - `display:view` or `workspace:editing_workspace`
+ * @param id - `display:view`
  * @returns The chosen option's value
  */
 function chosen(editor: EditorElement, id: FieldId): unknown {
-  if (id === 'workspace:editing_workspace') {
-    return chosenScope(editor) ?? (editor as unknown as ScopeReads)._workspace;
-  }
   const input = editor.shadowRoot?.querySelector<HTMLInputElement>(
     `input[name="${RADIO_GROUPS[id]}"]:checked`,
   );
@@ -1733,53 +1811,17 @@ function mergeDeep(a: unknown, b: unknown): unknown {
 
 /**
  * Chooses an option of a radio group of the editor's own, as a user does: where the open place
- * draws it, else on the overview, which draws Starting Layout and Settings For; after Change where
- * Settings For's choices are closed.
+ * draws it, else on the overview, which draws Starting Layout.
  *
  * @param editor - Editor element
- * @param id - `display:view` or `workspace:editing_workspace`
+ * @param id - `display:view`
  * @param value - The option
  */
 async function choose(editor: EditorElement, id: FieldId, value: unknown): Promise<void> {
-  if (id === 'workspace:editing_workspace') {
-    // Choosing the layout already edited, before any other, chooses nothing: the editor goes on
-    // following the layout the card opens in.
-    if (
-      chosenScope(editor) === undefined &&
-      (editor as unknown as ScopeReads)._workspace === value
-    ) {
-      return;
-    }
-    // The layout is the place's: a topic page open in another moves to the same topic there, by
-    // its Also For line, and a layout's page to that layout's.
-    scopes.set(editor, String(value));
-    // The editor reads the places that carry no layout of their own (the overview, a calendar's
-    // page) in the layout last chosen, as a step it undoes or a line of Stored Settings
-    // sets it; forms the helpers keep from a layout's topics are read in that layout too.
-    (editor as unknown as { _selectedWorkspace?: string })._selectedWorkspace = String(value);
-    (editor as unknown as { requestUpdate(): void }).requestUpdate();
-    await editor.updateComplete;
-    const open = openPage(editor);
-    const reads = editor as unknown as ScopeReads;
-    if (open !== undefined && isTopic(open) && reads._workspace !== value) {
-      await press(editor, `[data-focus="also:${String(value)}"]`, `Also for ${String(value)}`);
-    } else if (open?.startsWith('layout:') && open !== `layout:${String(value)}`) {
-      await goOverview(editor);
-      await press(editor, `[data-focus="layout:${String(value)}"]`, `row for ${String(value)}`);
-    }
-    return;
-  }
   const name = RADIO_GROUPS[id];
   const root = editor.shadowRoot;
-  const drawn = (): boolean =>
-    root?.querySelector(`input[name="${name}"]`) !== null ||
-    (name === 'scope' && root?.querySelector('[data-focus="scope-change"]') !== null);
-  // Starting Layout is the overview's; Settings For is the overview's too, and every page's the
-  // scope matters to.
-  if (!drawn()) await goOverview(editor);
-  if (name === 'scope' && root?.querySelector('input[name="scope"]') === null) {
-    await press(editor, '[data-focus="scope-change"]', 'Change for Settings For');
-  }
+  // Starting Layout is the overview's.
+  if (root?.querySelector(`input[name="${name}"]`) === null) await goOverview(editor);
   const input = root?.querySelector<HTMLInputElement>(
     `input[name="${name}"][value="${String(value)}"]`,
   );
@@ -1925,13 +1967,14 @@ export async function openResultGroup(editor: EditorElement, id: FieldId): Promi
 }
 
 /**
- * Types a query into the overview's search field, as a user does, from wherever the editor is.
+ * Types a query into the overview's search field, as a user does, from wherever the editor is: in
+ * the layout a test chose, from Search Settings on that layout's page (`openSearch`).
  *
  * @param editor - Editor element
  * @param query - The query
  */
 export async function searchFor(editor: EditorElement, query: string): Promise<void> {
-  await changeField(editor, 'filter:search', query);
+  await changeField(editor, SEARCH_FIELD, query);
 }
 
 /**
@@ -2221,6 +2264,22 @@ export function lineOf(editor: EditorElement, id: FieldId): HTMLElement | null {
       `[data-setting="${CSS.escape(id)}"] > .setting-head > .setting-facts.has-actions`,
     ) ?? null
   );
+}
+
+/**
+ * Presses a card setting's Reset or Remove where a user presses it: on its page, in the layout the
+ * place edits or a test chose (`openPageOf`), in the line under its name. A button kept from a page
+ * no longer open resets where the editor is when it is pressed, which is why this goes there first.
+ *
+ * @param editor - Editor element
+ * @param id - Field id
+ */
+export async function pressReset(editor: EditorElement, id: FieldId): Promise<void> {
+  await openPageOf(editor, id);
+  const button = lineOf(editor, id)?.querySelector<HTMLButtonElement>('[data-reset-keys]');
+  if (button === null || button === undefined) outOfStep(`The editor offers ${id} no Reset here`);
+  button.click();
+  await editor.updateComplete;
 }
 
 /**

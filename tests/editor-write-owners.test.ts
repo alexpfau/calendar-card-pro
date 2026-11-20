@@ -28,6 +28,7 @@ import {
   type FormElement,
   button,
   changeField,
+  editLayout,
   emitChange,
   entry,
   formOf,
@@ -170,11 +171,11 @@ afterEach(() => {
 describe("a card form's change", () => {
   it('lands in the workspace the form was drawn for, however late it arrives', async () => {
     const { editor, reports } = await mount({ entities: [ANNA], view: 'grid' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await openPageOf(editor, 'events:event_font_size');
     const shared = formOf(editor, 'events:event_font_size')!;
 
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     expect(formOf(editor, 'events:event_font_size')).not.toBe(shared);
     emitChange(shared, { 'events:event_font_size': '31px' });
     await editor.updateComplete;

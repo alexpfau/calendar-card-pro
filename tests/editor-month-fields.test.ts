@@ -1,7 +1,7 @@
 /**
  * Month's own settings in the visual editor: the card's four heights, its two shadings and the font
- * sizes of its days. Each is drawn on its topic's page while Settings For is Month, and writes into
- * `month:`, never the top level.
+ * sizes of its days. Each is drawn on its topic's page under Month, and writes into `month:`, never
+ * the top level.
  *
  * 🚨 Two of them share their names with the card's synthetic Height fields, `card_height` and
  * `card_max_height`, which write the shared `height` and `max_height`. A check that asks a name
@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  editLayout,
   formOf,
   helperOf,
   labelOf,
@@ -95,9 +96,52 @@ function stored(editor: Parameters<typeof lastConfig>[0]): Record<string, unknow
 
 async function monthEditor(config: Record<string, unknown> = CARD) {
   const editor = await mountEditor(config);
-  await changeField(editor, 'workspace:editing_workspace', 'month');
+  await editLayout(editor, 'month');
   return editor;
 }
+
+/**
+ * Month has no hours and no Days To Show, so nothing on its pages may describe either: the banner
+ * switch and a calendar's banner choice are shared with Grid, and the Which Events row with every
+ * layout.
+ */
+describe('words Month shares with other layouts', () => {
+  const HOURS = /hour|time grid/i;
+
+  it('names the banner switch and its helper by what Month draws too', async () => {
+    const editor = await monthEditor();
+    await openPageOf(editor, 'content:multiday_banners');
+    expect(labelOf(editor, 'content:multiday_banners')).not.toMatch(HOURS);
+    expect(helperOf(editor, 'content:multiday_banners')).not.toMatch(HOURS);
+    editor.remove();
+  });
+
+  it('names a calendar’s banner choice and its options by what Month draws too', async () => {
+    const editor = await monthEditor();
+    const id = 'calendar:multiday_banners';
+    await openPageOf(editor, id);
+    expect(labelOf(editor, id)).not.toMatch(HOURS);
+    const form = formOf(editor, id) as unknown as {
+      schema: Array<{ selector: { select: { options: Array<{ label: string }> } } }>;
+    };
+    const options = form.schema[0].selector.select.options.map((option) => option.label);
+    expect(options.length).toBeGreaterThan(1);
+    for (const option of options) expect(option).not.toMatch(HOURS);
+    editor.remove();
+  });
+
+  it('describes Which Events on Month’s page without a Days To Show it lacks', async () => {
+    const editor = await mountEditor(CARD);
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="layout:month"]')!.click();
+    await editor.updateComplete;
+    const row = editor.shadowRoot!.querySelector('[data-focus="nav:which_events"]');
+    expect(row?.textContent).toMatch(/\S/);
+    expect(row?.textContent).not.toMatch(/days to show/i);
+    await openPageOf(editor, 'content:filter_duplicates_mode');
+    expect(formOf(editor, 'content:days_to_show')).toBeUndefined();
+    editor.remove();
+  });
+});
 
 describe('Month’s own settings in the editor', () => {
   it.each(FIELDS)(

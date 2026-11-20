@@ -32,6 +32,7 @@ import {
   type FormElement,
   changeField,
   changeFields,
+  editLayout,
   fakeHass,
   formsOf,
   mountEditor,
@@ -42,7 +43,6 @@ import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import { EDITOR_HASS_MEMBERS, editorEntityIds } from '../src/rendering/editor/hass-key';
 import { walkSchema } from '../src/rendering/editor/panels';
-import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 const recorder = vi.hoisted(() => {
   const feeds = new WeakMap<object, object>();
@@ -311,7 +311,7 @@ describe('what the editor reads of hass while it renders', () => {
       await changeField(editor, 'card:title', 'Family');
       await settle();
       for (const workspace of ['shared', 'grid', 'column']) {
-        await changeField(editor, `workspace:${WORKSPACE_FIELD}`, workspace);
+        await editLayout(editor, workspace);
         await settle();
       }
       for (const criteria of [

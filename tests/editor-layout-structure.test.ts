@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { changeField, goEntry, keysOf, mountEditor } from './helpers/editor-host';
+import { editLayout, goEntry, keysOf, mountEditor } from './helpers/editor-host';
 import type * as Types from '../src/config/types';
 import { schemaCtx } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
@@ -553,7 +553,7 @@ describe('No entry page heading is left captioning nothing', () => {
         type: 'custom:calendar-card-pro',
         entities: ['calendar.anna'],
       });
-      await changeField(editor, 'workspace:editing_workspace', workspace);
+      await editLayout(editor, workspace);
       await goEntry(editor, keysOf(editor, 'entry')[0]);
       const page = editor.shadowRoot!.querySelector('.entry-page');
       const headings = [...(page?.querySelectorAll('[data-heading]') ?? [])];

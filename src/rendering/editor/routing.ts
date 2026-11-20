@@ -11,7 +11,6 @@ import {
   BLOCK_KEYS,
   type EditorWorkspace,
   LAYOUT_GROUPS,
-  WORKSPACE_FIELD,
   storedPath,
   viewForWorkspace,
 } from './workspace';
@@ -88,7 +87,7 @@ export function valueSource(
   if (view === undefined) return undefined;
 
   const block = ViewConfig.viewBlockFor(view);
-  if (!block || name === 'view' || name === WORKSPACE_FIELD) return undefined;
+  if (!block || name === 'view') return undefined;
   const keys = Synthetic.configKeysForField(name);
   if (!keys.some((key) => destination(key, workspace) === block.blockKey)) return 'card';
   const stored = storedBlocks(config)[block.blockKey];
@@ -209,7 +208,7 @@ export function workspaceFormData(
     weather: workspaceWeather(config, workspace),
     // The entity every layout draws from, wherever it is written.
     weather_entity: weatherEntityOf(config),
-    // The card's own `view`, not the layout Settings For projects: the switcher always offers the
+    // The card's own `view`, not the layout the page projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
     ...Synthetic.deriveSyntheticData(projected, held, viewForWorkspace(workspace)),
@@ -367,7 +366,6 @@ export function applyWorkspaceChange(
   let draft: Types.Config = { ...config };
   const held = { ...pending };
   for (const { node, path } of workspaceFields(frame.schema)) {
-    if (node.name === WORKSPACE_FIELD) continue;
     const synthetic = path.length === 0 && Synthetic.isSyntheticKey(node.name);
     const comparisonKey = synthetic ? Synthetic.configKeysForField(node.name)[0] : node.name;
     const previousRaw = atPath(frame.data, path, node.name);

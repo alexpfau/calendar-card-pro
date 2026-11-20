@@ -10,12 +10,15 @@ import { describe, expect, it } from 'vitest';
 import { declarations } from './helpers/css-declarations';
 import {
   chooseResult,
+  editLayout,
   goEntry,
   goOverview,
   goPage,
+  helperOf,
   keysOf,
   lastConfig,
   mountEditor,
+  openPageOf,
   resultRows,
   searchFor,
 } from './helpers/editor-host';
@@ -144,12 +147,12 @@ describe('Layouts and the preview', () => {
     const hours = await mountEditor({ ...THREE, time_grid: { start_time: '07:00' } });
     await press(hours, 'layout:grid');
     expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toBe(
-      'Days to show, filters and empty days',
+      'Date range, filters and empty days',
     );
     await press(hours, 'back-top');
     await press(hours, 'layout:column');
     expect(text($(hours, '[data-focus="nav:which_events"] .nav-summary'))).toBe(
-      'Days to show, filters and empty days',
+      'Date range, filters and empty days',
     );
     // Layout Defaults lists four: no forecast setting has a top level.
     await press(hours, 'back-top');
@@ -368,7 +371,7 @@ describe('Layouts and the preview', () => {
       .flatMap(({ selectors }) => selectors)
       .filter((selector) => / input$/.test(selector))
       .map((selector) => selector.replace(/ input$/, ''));
-    expect(hidden.sort()).toEqual(['.chip-choice', '.color-row', '.color-swatch', '.segment']);
+    expect(hidden.sort()).toEqual(['.chip-choice', '.color-row', '.color-swatch']);
     for (const box of hidden) {
       const positioned = rules.some(
         ({ selectors, body }) =>
@@ -376,13 +379,6 @@ describe('Layouts and the preview', () => {
       );
       expect(positioned, box).toBe(true);
     }
-  });
-
-  it('lays All Layouts across the top of the frame and the four layouts under it', () => {
-    const css = styles.cssText.replace(/\s+/g, ' ');
-    expect(css).toMatch(/\.scope \.segments \{ flex-wrap: wrap; \}/);
-    expect(css).toMatch(/\.scope \.segment-all \{ flex-basis: 100%; border-bottom: [^}]*\}/);
-    expect(css).toMatch(/\.scope \.segment-all \+ \.segment \{ border-inline-start: none; \}/);
   });
 
   it('counts what each scope stores, as the YAML holds it', () => {
@@ -402,6 +398,37 @@ describe('Layouts and the preview', () => {
       WORKSPACES.map((workspace) => [workspace, storedCount(raw, workspace)]),
     );
     expect(counts).toEqual({ shared: 2, list: 1, column: 0, grid: 2, month: 1 });
+  });
+});
+
+/**
+ * Columns and Grid fall back to List on a narrow screen, and the list they draw then is List's,
+ * with List's settings rather than theirs. Where the fallback is chosen, and above the layouts'
+ * rows, the editor says so.
+ */
+describe('the list a side-by-side layout falls back to', () => {
+  const OWN = /List’s own settings/;
+
+  it('says above the layouts that it uses List’s own settings', async () => {
+    const editor = await mountEditor({ ...LIST_CARD, view: 'grid' });
+    const hints = [...editor.shadowRoot!.querySelectorAll('.hint')].map(
+      (hint) => hint.textContent ?? '',
+    );
+    expect(hints.filter((hint) => /fall back to List/.test(hint) && OWN.test(hint))).toHaveLength(
+      1,
+    );
+    editor.remove();
+  });
+
+  it.each([
+    ['column', 'layout:column.min_days_fallback'],
+    ['grid', 'layout:time_grid.min_days_fallback'],
+  ])('says so under %s’s When Too Narrow', async (layout, id) => {
+    const editor = await mountEditor({ ...LIST_CARD, view: layout });
+    await editLayout(editor, layout);
+    await openPageOf(editor, id);
+    expect(helperOf(editor, id)).toMatch(OWN);
+    editor.remove();
   });
 });
 

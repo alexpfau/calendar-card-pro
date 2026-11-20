@@ -610,7 +610,8 @@ same spot again to fold it. Nothing is written until you change a value.
   **ⓘ** and the chevron stay where they were, and a second press always lands on the same row.
 - **Settings you set stay open.** So do the few every card needs, such as Time Format. Leaving a
   page folds again what you opened there without changing it.
-- **ⓘ** shows the setting's help under it. A screen reader reads the help as the setting's
+- **ⓘ** shows the setting's help under it. A screen reader reads the words under the setting's
+  name, such as **Set** or **From Layout Defaults**, then the help, as an open setting's
   description.
 - **A switch** is Home Assistant's own switch row. A switch never opens, so it sits where the
   chevron sits on other rows, at the end of the row before its **ⓘ**; its pill, where it has one,

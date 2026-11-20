@@ -17,6 +17,7 @@ import {
   type MountedEditor,
   changeField,
   chooseResult,
+  editLayout,
   entry,
   fakeHass,
   goOverview,
@@ -96,7 +97,7 @@ describe('the results', () => {
 
   it('name no layout in Shared, whose values are every layout’s', async () => {
     const editor = await mount();
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await searchFor(editor, 'time');
     expect(text($(editor, '.result-status'))).toBe(
       `Results for “time”: ${resultRows(editor).length}`,
@@ -135,11 +136,10 @@ describe('the results', () => {
     // The same everywhere: no layout.
     await searchFor(editor, 'days to show');
     expect(row(editor, 'content:days_to_show').meta).toBe('3');
-    // Chosen on a page, the scope is what the next result names and opens in.
+    // Begun from Columns' page, a search names Columns' value, and its result opens there.
     await changeField(editor, 'filter:search', '');
     await goPage(editor, 'events');
-    await changeField(editor, 'workspace:editing_workspace', 'column');
-    await goOverview(editor);
+    await editLayout(editor, 'column');
     await searchFor(editor, 'event font size');
     expect(row(editor, 'events:event_font_size').meta).toMatch(/^Columns: 13px/);
   });

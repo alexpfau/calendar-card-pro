@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  changeField,
+  editLayout,
   fakeHass,
   goEntry,
   goOverview,
@@ -43,6 +43,38 @@ function emptyRows(root: ShadowRoot, where: string): string[] {
     .map((head) => `${where} ${head.parentElement?.getAttribute('data-setting')}`);
 }
 
+describe('a folded value', () => {
+  /**
+   * The value column of a folded row on the open page.
+   *
+   * @param root - The editor's shadow root
+   * @param id - Field id
+   * @returns The words, or undefined where the row draws none
+   */
+  const folded = (root: ShadowRoot, id: string): string | undefined =>
+    root
+      .querySelector(`[data-setting="${id}"] > .setting-head.folds .setting-value`)
+      ?.textContent?.trim();
+
+  it('carries the unit its control shows, and names a transparent color as none', async () => {
+    const editor = await mountEditor(
+      { type: 'custom:calendar-card-pro', config_version: 5, entities: ['calendar.anna'] },
+      { hass: HASS },
+    );
+    const root = editor.shadowRoot!;
+    await goPage(editor, 'taps_refresh');
+    expect(folded(root, 'actions:refresh_interval')).toBe('30 min');
+    await goPage(editor, 'which_events');
+    expect(folded(root, 'events:past_event_opacity')).toBe('60%');
+    await editLayout(editor, 'grid');
+    await goPage(editor, 'size_spacing');
+    expect(folded(root, 'layout:time_grid.min_day_width')).toBe('100px');
+    await editLayout(editor, 'month');
+    await goPage(editor, 'day_header');
+    expect(folded(root, 'layout:month.today_background_color')).toBe('None');
+  });
+});
+
 describe('folded rows', () => {
   it('name the value that applies on every page, in every scope, and on every entry', async () => {
     const editor = await mountEditor(
@@ -57,7 +89,7 @@ describe('folded rows', () => {
     const empty: string[] = [];
     let folded = 0;
     for (const scope of WORKSPACES) {
-      await changeField(editor, 'workspace:editing_workspace', scope);
+      await editLayout(editor, scope);
       await goOverview(editor);
       // Whole Card's pages, and the topics the scope has (Layout Defaults has no Weather).
       const pages = [

@@ -340,6 +340,21 @@ describe('Stored Settings, its groups', () => {
     expect(all.day_tap_action.value).toBe('Add Event');
   });
 
+  it('words a number with its box’s unit once, whether the YAML writes the unit or not', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      refresh_interval: 15,
+      column: { min_day_width: '120px' },
+      time_grid: { min_day_width: 90 },
+    });
+    await openAudit(editor);
+    const all = rows(editor);
+    expect(all.refresh_interval.value).toBe('15 min');
+    expect(all['column.min_day_width'].value).toBe('120px');
+    expect(all['time_grid.min_day_width'].value).toBe('90px');
+  });
+
   it('says under All Layouts which layouts have their own value, a line each', async () => {
     const editor = await mountEditor({
       config_version: VERSION,

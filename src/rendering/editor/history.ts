@@ -9,7 +9,6 @@
 
 import type { Route } from './navigation';
 import { equalConfigs } from './value';
-import type { EditorWorkspace } from './workspace';
 
 /** Whether and how the editor may write a card authored before the layout blocks. */
 export type MigrationState =
@@ -40,8 +39,6 @@ export interface Snapshot {
 /** Where a change was made, which Undo and Redo return to. */
 export interface Where {
   readonly route: Route;
-  /** The scope the edit was made in; undefined while it follows what the card displays. */
-  readonly workspace: EditorWorkspace | undefined;
   /** What to focus once it is back: `field:<id>`, `entry:<key>` or `button:<key>`. */
   readonly focusKey?: string;
 }

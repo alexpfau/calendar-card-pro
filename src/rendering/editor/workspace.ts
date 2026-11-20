@@ -2,8 +2,6 @@
  * Editor-local workspaces, independent of the card's displayed view.
  */
 
-import type { HaFormSchema } from './ha-form';
-import { select } from './schemas/common';
 import { isSet as holdsValue } from './synthetic';
 import { DEFAULT_CONFIG } from '../../config/config';
 import type * as Types from '../../config/types';
@@ -20,8 +18,6 @@ import { hasOwn, isConfigBlock } from '../../utils/helpers';
  * list's keys lived at the top level. `list:` is what gives it a job.
  */
 export type EditorWorkspace = Types.EffectiveView | 'shared';
-
-export const WORKSPACE_FIELD = 'editing_workspace';
 
 export const WORKSPACES: ReadonlyArray<EditorWorkspace> = ['shared', ...VIEWS];
 
@@ -79,33 +75,13 @@ export function baseViewForWorkspace(workspace: EditorWorkspace): Types.Effectiv
 }
 
 /**
- * Whether a form value names an editor workspace.
+ * Whether a value names an editor workspace.
  *
- * @param value - Value returned by the workspace form
+ * @param value - Value to test
  * @returns Whether the value is a supported workspace
  */
 export function isWorkspace(value: unknown): value is EditorWorkspace {
   return WORKSPACES.some((workspace) => workspace === value);
-}
-
-/**
- * Names the storage-destination note shown for a workspace.
- *
- * @param workspace - Editing workspace
- * @returns A note key when its values can also be used by other layouts
- */
-export function workspaceNote(workspace: EditorWorkspace): string | undefined {
-  return workspace === 'shared' ? 'editing_workspace.shared_note' : undefined;
-}
-
-/**
- * Builds the editor-only workspace selector.
- *
- * @param language - Editor language
- * @returns A required selector, separate from every configuration-writing form
- */
-export function buildWorkspaceSchema(language: string): HaFormSchema[] {
-  return [{ ...select(language, WORKSPACE_FIELD, WORKSPACES), required: true }];
 }
 
 /**

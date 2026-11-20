@@ -136,29 +136,53 @@ const LAYOUT_ICONS: Readonly<Record<string, string>> = {
  * as the words after that layout's icon, on a line of its own.
  *
  * @param fact - The fact
+ * @param id - Its id, where an open control names it as its description
  * @returns The fact
  */
-function factView(fact: Fact): TemplateResult {
+function factView(fact: Fact, id?: string): TemplateResult {
   switch (fact.kind) {
     case 'set':
-      return html`<span class="fact fact-set setting-state">${fact.text}</span>`;
+      return html`<span class="fact fact-set setting-state" id=${id ?? nothing}
+        >${fact.text}</span
+      >`;
     case 'scope':
-      return html`<span class="fact fact-scope"
+      return html`<span class="fact fact-scope" id=${id ?? nothing}
         >${icon(fact.entries ? mdiCalendarMultiple : mdiCardTextOutline)}<span
           >${fact.text}</span
         ></span
       >`;
     case 'source':
-      return html`<span class="fact fact-source setting-state"
+      return html`<span class="fact fact-source setting-state" id=${id ?? nothing}
         >${icon(mdiSubdirectoryArrowRight)}<span>${fact.text}</span></span
       >`;
     case 'layout':
-      return html`<span class="fact fact-layout"
+      return html`<span class="fact fact-layout" id=${id ?? nothing}
         >${icon(LAYOUT_ICONS[fact.view ?? ''] ?? mdiTimelineClockOutline)}<span
           >${fact.text}</span
         ></span
       >`;
   }
+}
+
+/**
+ * The ids of a setting's facts under its name, in order, then of the "Default" a screen reader
+ * hears where no fact says Set: what an open control names as its description, so its facts are
+ * read with it as a folded row's name reads them. Reset and Remove carry none, so they stay out.
+ *
+ * @param base - The setting's base id
+ * @param facts - The facts
+ * @param quiet - The "Default" where it is drawn
+ * @returns The ids
+ */
+export function factIds(
+  base: string,
+  facts: ReadonlyArray<Fact>,
+  quiet: string | undefined,
+): string[] {
+  return [
+    ...facts.map((_, at) => `${base}-${at}`),
+    ...(quiet === undefined ? [] : [`${base}-quiet`]),
+  ];
 }
 
 /**
@@ -168,16 +192,22 @@ function factView(fact: Fact): TemplateResult {
  *
  * @param facts - The facts
  * @param actions - Reset or Remove
+ * @param base - The setting's base id, where its facts carry ids (`factIds`)
  * @returns The block
  */
 export function factLine(
   facts: ReadonlyArray<Fact>,
   actions: ReadonlyArray<LineButton> = [],
+  base?: string,
 ): TemplateResult {
   const set = facts.findIndex((fact) => fact.kind === 'set');
   const at = set < 0 ? 0 : set + 1;
+  const ids = base === undefined ? [] : factIds(base, facts, undefined);
+  const view = (fact: Fact, place: number): TemplateResult => factView(fact, ids[place]);
   return html`<div class="setting-facts${actions.length > 0 ? ' has-actions' : ''}">
-    ${facts.slice(0, at).map(factView)}${actions.map(lineButton)}${facts.slice(at).map(factView)}
+    ${facts.slice(0, at).map((fact, place) => view(fact, place))}${actions.map(lineButton)}${facts
+      .slice(at)
+      .map((fact, place) => view(fact, at + place))}
   </div>`;
 }
 
@@ -195,6 +225,8 @@ export interface SettingHead {
   readonly actions?: ReadonlyArray<LineButton>;
   /** "Default", read by a screen reader where no fact says Set or where a value comes from. */
   readonly quiet?: string;
+  /** The base of the ids its facts carry (`factIds`), which its open control is described by. */
+  readonly factsId?: string;
   /** The helper behind ⓘ, its button named "About {label}". */
   readonly help?: {
     readonly id: string;
@@ -279,11 +311,15 @@ export function settingHead(head: SettingHead): TemplateResult {
             html`<span class="setting-slot" aria-hidden="true"></span>`
       }
     </span>
-    ${facts.length > 0 || actions.length > 0 ? factLine(facts, actions) : nothing}
+    ${facts.length > 0 || actions.length > 0 ? factLine(facts, actions, head.factsId) : nothing}
     ${
       head.quiet === undefined
         ? nothing
-        : html`<span class="setting-state visually-hidden">${head.quiet}</span>`
+        : html`<span
+            class="setting-state visually-hidden"
+            id=${head.factsId === undefined ? nothing : `${head.factsId}-quiet`}
+            >${head.quiet}</span
+          >`
     }
   </div>`;
 }
