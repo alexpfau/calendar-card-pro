@@ -159,6 +159,21 @@ describe("which editor a calendar entry's page shows", () => {
         }
         return found;
       },
+      /**
+       * Who Sees It's group on the open page as a screen reader hears it: its name, and the text of
+       * what it is described by.
+       */
+      spoken: () => {
+        const group = root.querySelector<HTMLElement>(
+          '.entry-page .setting > [role="group"][data-field="calendar:visibility"]',
+        );
+        if (group === null) throw new Error('the open page draws no Who Sees It group');
+        const described = (group.getAttribute('aria-describedby') ?? '')
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => root.getElementById(id)?.textContent?.trim());
+        return { name: group.getAttribute('aria-label'), described };
+      },
       /** The helpers the page open draws for the conditions, shown or behind ⓘ. */
       helpers: () =>
         Array.from(
@@ -193,6 +208,11 @@ describe("which editor a calendar entry's page shows", () => {
     expect(await editor.editors()).toEqual([null]);
     expect(editor.yaml()).toEqual([true]);
     expect(valueOf(editor.element, 'calendar:visibility', entry(0))).toEqual(CONDITIONS);
+    // Named with the fact under its name, described by its helper alone.
+    expect(editor.spoken()).toEqual({
+      name: 'Conditions, Set',
+      described: [EDITOR_STRINGS['entity.visibility.helper']],
+    });
   });
 
   it('shows the YAML box where an element of that name lacks the conditions property', async () => {
@@ -265,6 +285,11 @@ describe("which editor a calendar entry's page shows", () => {
       sections(section.nextElementSibling),
     ]).toEqual(['heading.name_and_look', 'heading.who_sees_it', 'page.which_events']);
     expect(editor.helpers()).toEqual([EDITOR_STRINGS['entity.visibility.helper']]);
+    // Named with the "Default" under its name, described by its helper alone.
+    expect(editor.spoken()).toEqual({
+      name: 'Conditions, Default',
+      described: [EDITOR_STRINGS['entity.visibility.helper']],
+    });
   });
 
   it('reads one condition written without a list as a list of one', async () => {

@@ -2174,6 +2174,15 @@ test suite cannot see an overlap.
 draws its own helper only where `show.describedBy` is undefined, i.e. where no head row carries the
 ⓘ; a new composed control follows the same rule, or its helper shows twice.
 
+**An open setting's facts go in its name, its helper alone in its description.** Its wrapper is
+named through `groupName` (the setting's name, then its facts and "Default", joined as a folded
+row's name is) and described through `describedBy` (the helper's id, nothing else). Accessible-name
+computation joins the elements an `aria-describedby` names with a bare space, so facts and helper
+described together read as one sentence: "Default Large makes them bigger…", as though Large were
+the default. A new wrapper uses both; `tests/editor-shown-set.test.ts` checks every open setting
+on two pages in each of the 13 editor languages, and on a calendar's page, and
+`tests/editor-visibility.test.ts` both of Who Sees It's editors.
+
 **Only what can be pressed looks pressable.** A setting's facts (Set, Whole Card, From All
 Layouts, a layout's own value) are words in a form of their kind, never a pill, a link color or a
 button; at a default the state is a `visually-hidden` "Default", read but not seen. Reset and

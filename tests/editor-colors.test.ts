@@ -644,7 +644,8 @@ describe('what each owner’s control writes', () => {
     for (const accent of ['#123456', 'home-assistant']) {
       const editor = await mountEditor({ ...BASE, accent_color: accent });
       const at = await openColor(editor, 'events:accent_color_mode');
-      expect(at.getAttribute('aria-label')).toBe('Accent Color');
+      // Named for its mode, then the facts under its name.
+      expect(at.getAttribute('aria-label')).toBe('Accent Color, Set, Whole Card');
       expect(editor.shadowRoot!.querySelector('[data-field="events:accent_color"]')).toBeNull();
       await pick(editor, at, '[data-color-row="default"]');
       expect(lastConfig(editor)).not.toHaveProperty('accent_color');
