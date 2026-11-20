@@ -570,13 +570,36 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:card_max_height', withMode('layout:height_mode')],
           // Grid's height, set per hour, beside the Height a fixed one replaces.
           ['layout:time_grid.hour_height', A],
-          // Month's own, in the Height's place, which it does not read: the whole card, wide then
-          // narrow, each height before its cap.
+          ['layout:additional_card_spacing', A],
+          // How narrow Month's days may get before it draws its narrow form, ahead of the heights
+          // each form takes. One field rather than Columns' and Grid's density family: Month keeps
+          // its days and changes its form instead.
+          ['layout:month.min_day_width', A],
+        ],
+      },
+      {
+        // Month's own heights, in the Height's place, which it does not read: the whole card in
+        // the wide form, each height before its cap.
+        key: 'heading_wide_month',
+        fields: [
           ['layout:month.card_height', A],
           ['layout:month.card_max_height', A],
+        ],
+      },
+      {
+        // The same for the narrow form, which follows the wide one's while unset.
+        key: 'heading_narrow_month',
+        fields: [
           ['layout:month.narrow_card_height', A],
           ['layout:month.narrow_card_max_height', A],
-          ['layout:additional_card_spacing', A],
+        ],
+      },
+      {
+        // The room between and inside a day's events. Month draws them only in a narrow month's
+        // day list and in the panel "+N more" opens, never in its weeks, so its heading says so.
+        key: 'heading_event_rows',
+        keyByView: { month: 'heading_day_list_panel' },
+        fields: [
           ['layout:event_gap', A],
           ['layout:event_spacing', A],
         ],
@@ -605,13 +628,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:time_grid.min_days_to_show', member('grid_density')],
           ['layout:time_grid.min_days_fallback', member('grid_density')],
         ],
-      },
-      {
-        // How narrow Month's days may get, beside the same question for Columns and Grid. One
-        // field rather than a family: Month keeps its days and changes its form instead.
-        key: 'month.density',
-        helperKey: 'month.density.helper',
-        fields: [['layout:month.min_day_width', A]],
       },
       {
         key: 'heading_between_days',

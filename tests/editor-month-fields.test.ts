@@ -31,25 +31,25 @@ const CARD = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'], vi
 
 /** Each new field, the page and heading it is placed under, its label and a value to write. */
 const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> = [
-  ['layout:month.card_height', 'size_spacing', 'heading_card_size', 'Month Card Height', '50rem'],
+  ['layout:month.card_height', 'size_spacing', 'heading_wide_month', 'Wide Card Height', '50rem'],
   [
     'layout:month.card_max_height',
     'size_spacing',
-    'heading_card_size',
-    'Month Maximum Height',
+    'heading_wide_month',
+    'Wide Maximum Height',
     '60rem',
   ],
   [
     'layout:month.narrow_card_height',
     'size_spacing',
-    'heading_card_size',
+    'heading_narrow_month',
     'Narrow Card Height',
     '30rem',
   ],
   [
     'layout:month.narrow_card_max_height',
     'size_spacing',
-    'heading_card_size',
+    'heading_narrow_month',
     'Narrow Maximum Height',
     '40rem',
   ],

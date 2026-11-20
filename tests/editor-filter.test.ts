@@ -353,9 +353,9 @@ describe('editor filter: the chassis', () => {
     // here: it is found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
     expect(panels().map(({ id }) => id)).toEqual([
+      'layout:month.min_day_width',
       'layout:column.min_day_width',
       'layout:time_grid.min_day_width',
-      'layout:month.min_day_width',
     ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 

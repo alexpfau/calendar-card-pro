@@ -148,7 +148,7 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     },
   ],
   ['.event', { page: 'events', heading: 'heading_details' }],
-  ['.event-gap-row', { page: 'size_spacing', heading: 'heading_card_size' }],
+  ['.event-gap-row', { page: 'size_spacing', heading: 'heading_event_rows' }],
   ['.grid-axis', { page: 'size_spacing', heading: 'heading_hour_labels', scope: 'grid' }],
   ['.grid-rules', { page: 'size_spacing', heading: 'heading_across_the_grid', scope: 'grid' }],
   ['.grid-container', { page: 'which_events', heading: 'heading_hours', scope: 'grid' }],
@@ -156,7 +156,12 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   // of the weeks, open the card's size, which sets how many lines a day holds before "+N more".
   [
     '.month-narrow-marks, .month-narrow .month-day',
-    { page: 'size_spacing', heading: 'month.density', scope: 'month' },
+    {
+      page: 'size_spacing',
+      heading: 'heading_card_size',
+      scope: 'month',
+      field: 'layout:month.min_day_width',
+    },
   ],
   // A narrow month's list, its room and its "+N more" open Narrow Card Height, whose room the
   // list fits its rows to: its events and its day's name keep the parts above.
@@ -164,14 +169,14 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.month-day-list-more, .month-day-list-rows, .month-day-list',
     {
       page: 'size_spacing',
-      heading: 'heading_card_size',
+      heading: 'heading_narrow_month',
       scope: 'month',
       field: 'layout:month.narrow_card_height',
     },
   ],
   [
     '.month-more, .month-day, .month-container',
-    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
+    { page: 'size_spacing', heading: 'heading_wide_month', scope: 'month' },
   ],
   ['.day-column', { page: 'size_spacing', heading: 'column.density', scope: 'column' }],
   ['.content-container', { page: 'size_spacing', heading: 'heading_card_size' }],

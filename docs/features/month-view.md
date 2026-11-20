@@ -134,8 +134,9 @@ month:
 | `month → narrow_card_height`     | string | `card_height`     | The same for the [narrow month](#the-narrow-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's |
 | `month → narrow_card_max_height` | string | `card_max_height` | The same cap for the narrow month; with its height `auto`, the card grows with the day's list up to it                                         |
 
-In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Narrow Card
-Height** and **Narrow Maximum Height** on Month's Size & Spacing.
+In the visual editor these are **Wide Card Height** and **Wide Maximum Height** under **Wide
+Month**, and **Narrow Card Height** and **Narrow Maximum Height** under **Narrow Month**, on
+Month's Size & Spacing.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks. The default makes room for the toolbar, so a day keeps its four lines with
@@ -250,7 +251,7 @@ See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maxi
 - **A row holds a title, a time, a location and a forecast.** The weeks draw an event as its
   title and start time, and a bar as its title and length, so `show_location`, its styling and
   the [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone;
-  the editor marks those settings **Day List & Panel** on Month's pages and lists them after the
+  the editor marks those settings **Narrow Day List & +N Panel** on Month's pages and lists them after the
   settings the weeks read, under each heading. The description, the
   countdown, the progress bar and the all-day badge are left to the
   [event details](/features/actions#event-details) a tap on an event opens, whatever the card
