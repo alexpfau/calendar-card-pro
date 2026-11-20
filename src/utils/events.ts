@@ -1172,7 +1172,8 @@ function keepWellFormedEvents(
  * @param config Card configuration, already resolved for the view being rendered
  * @param enabled Whether `filter_duplicates` is on for this view
  * @param signatureFor Original event identity and the eligible display occurrence to compare
- * @returns The surviving events, with merged rows carrying `_mergedFrom`
+ * @returns The surviving events, with merged rows carrying `_mergedFrom` and, under
+ *   `merge_locations`, `_mergedLocations`
  */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
@@ -1188,7 +1189,7 @@ function deduplicateEvents(
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
   const mergeLocations = config.filter_duplicates === Constants.DUPLICATES_MERGE_LOCATIONS;
-  const locations = new Map<string, string[]>();
+  const locations = new Map<string, Types.MergedLocation[]>();
   // The earliest arrival among each calendar's copies, which the kept copy is drawn at.
   const arrived = new Map<string, number>();
 
@@ -1214,12 +1215,18 @@ function deduplicateEvents(
       }
 
       // Every copy's location, the dropped ones included, for the same reason and in the
-      // same order as the calendars above.
+      // same order as the calendars above: one entry per calendar and location, from the block
+      // whose copy carried it first, as `_mergedFrom` takes one per calendar. Two calendars
+      // sharing a location each keep theirs, since each draws it by its own options.
       const location = event.location?.trim();
       if (mergeLocations && location) {
+        const part = { entityId, config: event._matchedConfig, location };
         const listed = locations.get(signature);
-        if (!listed) locations.set(signature, [location]);
-        else if (!listed.includes(location)) listed.push(location);
+        if (!listed) locations.set(signature, [part]);
+        else if (
+          !listed.some((known) => known.entityId === entityId && known.location === location)
+        )
+          listed.push(part);
       }
 
       if (seen.has(signature)) continue;
@@ -1240,28 +1247,21 @@ function deduplicateEvents(
     if (!keep.has(event) && seen.has(signature)) continue;
 
     const mergedFrom = contributors.get(signature);
-    // Rewritten only where the list says more than the copy kept already does: two or more
-    // locations, or one the kept copy itself lacks. A single shared location stays as it was.
-    const mergedLocations = locations.get(signature);
-    const manyLocations =
-      mergedLocations !== undefined && (mergedLocations.length > 1 || !event.location?.trim());
-    const merged =
-      mergedFrom && mergedFrom.length > 1
-        ? {
-            _mergedFrom: mergedFrom,
-            ...(manyLocations
-              ? {
-                  location: mergedLocations.join(Constants.MERGED_LOCATION_SEPARATOR),
-                  _mergedLocations: mergedLocations,
-                }
-              : {}),
-          }
-        : undefined;
+    const merged = mergedFrom && mergedFrom.length > 1 ? { _mergedFrom: mergedFrom } : undefined;
+    // Stamped only where the list says more than the copy kept already does: two or more
+    // locations, or one the kept copy itself lacks. Not gated on `_mergedFrom`, so two events
+    // of one calendar, one per room, list both rooms too.
+    const listed = locations.get(signature);
+    const listsMore =
+      listed !== undefined && (listed.length > 1 || listed[0].location !== event.location?.trim());
+    const places = listsMore ? { _mergedLocations: listed } : undefined;
     // A later copy kept over an earlier one of its own calendar, as a calendar listed twice can
     // keep, is drawn where the earlier one arrived (`groupEventsByDay`).
     const first = arrived.get(`${signature}\n${event._entityId}`) ?? Infinity;
     const earlier = first < (event._arrival ?? Infinity) ? { _arrival: first } : undefined;
-    survivors.push(merged || earlier ? { ...event, ...merged, ...earlier } : event);
+    survivors.push(
+      merged || places || earlier ? { ...event, ...merged, ...places, ...earlier } : event,
+    );
   }
 
   return survivors;
@@ -1446,33 +1446,53 @@ function dayPassesWeekFilter(
  *   where every reader takes them from.
  * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
  *   (`Search.ringIn`), so no event reaching the copy carries one.
- * - `_mergedLocations` is read by the copy's own `location` (`displayLocation`), which lists
- *   the parts it holds, so no renderer needs them apart.
+ * - `_mergedLocations` is drawn into the copy's own `location` (`mergedLocationText`), so no
+ *   renderer needs the parts apart.
  */
 type LeftOffDisplayCopy =
   'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
 
 /**
- * A row's location as the card draws it before any `replace_*` rewrite: `formatLocation` on it,
- * or, on a row `filter_duplicates: merge_locations` merged, on each copy's location in turn.
- * Each part is formatted on its own because the country strip reads the end of a location, so
- * on the joined text it would reach the last part alone. Parts that format to the same text,
- * or to nothing, are listed once, or not at all.
+ * The location a row `filter_duplicates: merge_locations` merged draws: each listed location as
+ * its own calendar would draw it on a row of its own, in `entities` order, joined by
+ * `MERGED_LOCATION_SEPARATOR`.
+ *
+ * Each part answers to the block whose copy carried it, as a merged row's labels do
+ * (`resolveMergedLabels`): its `show_location` decides whether it is listed, and its location
+ * replacement rewrites it. So a calendar that hides or masks its locations keeps them hidden or
+ * masked on another calendar's row. The country strip runs on each part, because it reads the
+ * end of a location and on the joined text would reach the last one alone. Parts that come out
+ * the same are listed once, and empty ones not at all.
  *
  * @param event Row being copied for display
- * @param removeCountry Configured `remove_location_country`
- * @returns The location text, joined where it was merged
+ * @param parts Its `_mergedLocations`
+ * @param config Card configuration, already resolved for the view
+ * @returns The location text to draw
  */
-function displayLocation(
+function mergedLocationText(
   event: Types.CalendarEventData,
-  removeCountry: Types.Config['remove_location_country'],
+  parts: ReadonlyArray<Types.MergedLocation>,
+  config: Types.Config,
 ): string {
-  if (!event._mergedLocations)
-    return FormatUtils.formatLocation(event.location || '', removeCountry);
-  const parts = event._mergedLocations
-    .map((location) => FormatUtils.formatLocation(location, removeCountry))
-    .filter((location) => location !== '');
-  return [...new Set(parts)].join(Constants.MERGED_LOCATION_SEPARATOR);
+  const drawn = new Set<string>();
+  for (const part of parts) {
+    const asPart = { ...event, _entityId: part.entityId, _matchedConfig: part.config };
+    const shown =
+      getEntitySetting(part.entityId, 'show_location', config, asPart) ?? config.show_location;
+    if (!shown) continue;
+    const replacement = TextReplace.resolveTextReplacement(
+      getEntitySetting(part.entityId, 'replace_field', config, asPart),
+      getEntitySetting(part.entityId, 'replace_pattern', config, asPart),
+      getEntitySetting(part.entityId, 'replace_with', config, asPart),
+    );
+    const text = TextReplace.applyTextReplacement(
+      FormatUtils.formatLocation(part.location, config.remove_location_country),
+      replacement,
+      'location',
+    ).text.trim();
+    if (text) drawn.add(text);
+  }
+  return [...drawn].join(Constants.MERGED_LOCATION_SEPARATOR);
 }
 
 /**
@@ -1931,14 +1951,17 @@ export function groupEventsByDay(
           : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
-        location:
-          !showLocation || privateText
-            ? ''
-            : TextReplace.applyTextReplacement(
-                displayLocation(event, config.remove_location_country),
-                replacement,
-                'location',
-              ).text,
+        location: privateText
+          ? ''
+          : event._mergedLocations
+            ? mergedLocationText(event, event._mergedLocations, config)
+            : !showLocation
+              ? ''
+              : TextReplace.applyTextReplacement(
+                  FormatUtils.formatLocation(event.location || '', config.remove_location_country),
+                  replacement,
+                  'location',
+                ).text,
         description:
           !showDescription || privateText
             ? ''

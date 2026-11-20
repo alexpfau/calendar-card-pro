@@ -1329,13 +1329,16 @@ export interface CalendarEventData {
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
   /**
-   * The distinct locations of every copy `filter_duplicates: merge_locations` collapsed into
-   * this row, trimmed and in `entities` order, set when there are two or more, or one the copy
-   * kept lacks. `location`
-   * then holds them joined; this keeps them apart so `remove_location_country`, which reads
-   * the end of a location, can strip each one rather than only the last.
+   * The locations of every copy `filter_duplicates: merge_locations` collapsed into this row,
+   * trimmed and in `entities` order, one per calendar and location. Set when they say more than
+   * the copy kept: two or more, or one it lacks. Unlike `_mergedFrom`, a merge within one
+   * calendar sets it too.
+   *
+   * `location` stays the kept copy's own. The display copy draws the list in its place, each
+   * location through its own calendar's options, a text two calendars draw alike once
+   * (`mergedLocationText`).
    */
-  _mergedLocations?: ReadonlyArray<string>;
+  _mergedLocations?: ReadonlyArray<MergedLocation>;
   /**
    * Set on the copy of a row the search panel picked, while the card rings it
    * (`Search.ringIn`): every view's renderer binds its ring class from it, so the ring is drawn
@@ -1382,6 +1385,15 @@ export type SourceEvent = Pick<
 export interface MergedCalendar {
   entityId: string;
   config?: EntityConfig;
+}
+
+/**
+ * One location `filter_duplicates: merge_locations` lists on a merged row: the text as a
+ * calendar delivered it, trimmed, with that calendar and the block whose copy carried it first.
+ * That block's `show_location` and location replacement decide how it is drawn.
+ */
+export interface MergedLocation extends MergedCalendar {
+  location: string;
 }
 
 /**

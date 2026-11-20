@@ -8,6 +8,11 @@
  * in location alone, and most assert the `ignore_location` answer beside the new one, so a
  * change that leaked the merge into the default fails here as well as there.
  *
+ * Each listed location is drawn as its own calendar draws it: its `show_location`, its location
+ * replacement and its privacy, never the kept calendar's. The cases for those set them on the
+ * calendar whose copy is dropped, where an implementation reading the kept row's options alone
+ * would still pass a case that set them on the kept one.
+ *
  * The suite is built from default config, where `filter_duplicates` is `false`, so nothing here
  * is reachable unless a test sets it.
  */
@@ -32,6 +37,7 @@ import {
 import { applyFormChange, toStoredConfig } from '../src/rendering/editor/value';
 import { renderGridGroupedEvents } from '../src/rendering/grid';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -59,7 +65,7 @@ function allDay(entityId: string, location: string | undefined): Types.CalendarE
   return { ...raw, _source: raw, _entityId: entityId };
 }
 
-/** The rows a configuration draws, grouped as the card groups them, in the given view. */
+/** The rows a configuration draws, matched and grouped as the card does, in the given view. */
 function drawn(
   events: Types.CalendarEventData[],
   filterDuplicates: unknown,
@@ -72,10 +78,12 @@ function drawn(
     filter_duplicates: filterDuplicates,
     ...extra,
   } as Partial<Types.Config>);
-  config.entities = Config.normalizeEntities(config.entities);
 
+  // Matched as the card matches them, so each copy carries its entry (`_matchedConfig`), whose
+  // options and privacy decide its location.
+  const matched = EventUtils.processEvents(events, config);
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
-  return EventUtils.groupEventsByDay(events, effective, false, 'en', view)
+  return EventUtils.groupEventsByDay(matched, effective, false, 'en', view)
     .flatMap((day) => day.events)
     .filter((event) => !event._isEmptyDay);
 }
@@ -271,15 +279,108 @@ describe('filter_duplicates: merge_locations', () => {
     ).toEqual(['Munich']);
   });
 
-  it('applies a replace_field: location rewrite to the merged list', () => {
-    const rows = drawn([timed(ANNA, 'Room A'), timed(BEN, 'Room B')], 'merge_locations', {
-      entities: [
-        { entity: ANNA, replace_field: 'location', replace_pattern: 'Room ', replace_with: '' },
-        BEN,
-      ],
-    } as Partial<Types.Config>);
+  it('rewrites each location with its own calendar’s replacement', () => {
+    const pair = [timed(ANNA, 'Room A'), timed(BEN, 'Room B')];
+    const strip = { replace_field: 'location', replace_pattern: 'Room ', replace_with: '' };
+    const mask = { replace_field: 'location', replace_with: 'Home' };
 
-    expect(rows.map((event) => event.location)).toEqual(['A · B']);
+    expect(
+      locations(pair, 'merge_locations', { entities: [{ entity: ANNA, ...strip }, BEN] } as never),
+    ).toEqual(['A · Room B']);
+    expect(
+      locations(pair, 'merge_locations', { entities: [ANNA, { entity: BEN, ...strip }] } as never),
+    ).toEqual(['Room A · B']);
+    // A calendar that masks its location keeps it masked on another calendar's row.
+    expect(
+      locations(pair, 'merge_locations', { entities: [ANNA, { entity: BEN, ...mask }] } as never),
+    ).toEqual(['Room A · Home']);
+  });
+
+  it('lists each location only where its own calendar shows locations', () => {
+    const pair = [timed(ANNA, 'Room A'), timed(BEN, 'Room B')];
+    const hidden = (entity: string) => ({ entity, show_location: false });
+
+    // A calendar that hides its location keeps it hidden on another calendar's row.
+    expect(locations(pair, 'merge_locations', { entities: [ANNA, hidden(BEN)] } as never)).toEqual([
+      'Room A',
+    ]);
+    // The calendar whose copy is kept hiding its own still lists the other's.
+    expect(locations(pair, 'merge_locations', { entities: [hidden(ANNA), BEN] } as never)).toEqual([
+      'Room B',
+    ]);
+    // A room both calendars carry is listed once, by the calendar that shows it.
+    expect(
+      locations([timed(ANNA, 'Room A'), timed(BEN, 'Room A')], 'merge_locations', {
+        entities: [hidden(ANNA), BEN],
+      } as never),
+    ).toEqual(['Room A']);
+    // Off card-wide, a calendar turning it on lists its own alone.
+    expect(
+      locations(pair, 'merge_locations', {
+        show_location: false,
+        entities: [ANNA, { entity: BEN, show_location: true }],
+      } as never),
+    ).toEqual(['Room B']);
+    expect(locations(pair, 'merge_locations', { show_location: false })).toEqual(['']);
+  });
+
+  it('lists the locations of two events from one calendar it merged', () => {
+    const same = [timed(ANNA, 'Room A'), timed(ANNA, 'Room B')];
+
+    const rows = drawn(same, DUPLICATES_MERGE_LOCATIONS);
+    expect(rows.map((event) => event.location)).toEqual(['Room A · Room B']);
+    // Merged within one calendar, so no calendars are listed.
+    expect(rows[0]._mergedFrom).toBeUndefined();
+    expect(locations(same, DUPLICATES_IGNORE_LOCATION)).toEqual(['Room A']);
+  });
+
+  it('never lists a private calendar’s location on another calendar’s row', () => {
+    const pair = [timed(ANNA, 'Room A'), timed(BEN, 'Room B')];
+
+    // A private copy is never merged with one that is not, so each keeps its own row.
+    const apart = drawn(pair, DUPLICATES_MERGE_LOCATIONS, {
+      entities: [ANNA, { entity: BEN, private: true }],
+    } as never);
+    expect(apart.map((event) => [event._entityId, event.location])).toEqual([
+      [ANNA, 'Room A'],
+      [BEN, ''],
+    ]);
+    // Two private copies merge, and draw no location at all.
+    const together = drawn(pair, DUPLICATES_MERGE_LOCATIONS, {
+      entities: [
+        { entity: ANNA, private: true },
+        { entity: BEN, private: true },
+      ],
+    } as never);
+    expect(together.map((event) => event.location)).toEqual(['']);
+  });
+
+  it('lists every location in Month’s day list, from the card and from its month: block', () => {
+    const day = new Date(2026, 5, 18);
+    const listedOn = (overrides: Partial<Types.Config>) => {
+      const config = ViewConfig.resolveEffectiveConfig(
+        buildConfig({ view: 'month', entities: [ANNA, BEN], ...overrides }),
+        'month',
+      );
+      const events = EventUtils.processEvents(
+        [timed(ANNA, 'Room A'), timed(BEN, 'Room B')],
+        config,
+      );
+      return MonthDay.monthDayEvents(events, config, day, 'en').map((event) => event.location);
+    };
+
+    expect(listedOn({ filter_duplicates: DUPLICATES_MERGE_LOCATIONS } as never)).toEqual([
+      'Room A · Room B',
+    ]);
+    expect(
+      listedOn({
+        filter_duplicates: true,
+        month: { filter_duplicates: DUPLICATES_MERGE_LOCATIONS },
+      } as never),
+    ).toEqual(['Room A · Room B']);
+    expect(listedOn({ filter_duplicates: DUPLICATES_IGNORE_LOCATION } as never)).toEqual([
+      'Room A',
+    ]);
   });
 
   it('keeps the calendar’s own location in _source, for the details and edit dialogs', () => {
@@ -311,11 +412,11 @@ describe('a card set to merge_locations', () => {
     location,
   });
 
-  async function rows(filterDuplicates: unknown) {
+  async function rows(filterDuplicates: unknown, entities: unknown[] = [ANNA, BEN]) {
     const card = await mountStory(
       {
         type: 'custom:calendar-card-pro-dev',
-        entities: [ANNA, BEN],
+        entities,
         days_to_show: 7,
         filter_duplicates: filterDuplicates,
       },
@@ -326,6 +427,12 @@ describe('a card set to merge_locations', () => {
 
   it('draws one row listing both locations, through setConfig and the renderer', async () => {
     expect(await rows(DUPLICATES_MERGE_LOCATIONS)).toEqual([['Review', 'Room A · Room B']]);
+  });
+
+  it('leaves out the location of a calendar that hides its own', async () => {
+    expect(
+      await rows(DUPLICATES_MERGE_LOCATIONS, [ANNA, { entity: BEN, show_location: false }]),
+    ).toEqual([['Review', 'Room A']]);
   });
 
   it('control: ignore_location draws the first calendar’s location alone', async () => {
@@ -367,6 +474,7 @@ describe('the editor’s duplicate dropdown, for merge_locations', () => {
     ['list', 'list'],
     ['column', 'column'],
     ['grid', 'time_grid'],
+    ['month', 'month'],
   ] as const)('writes from the %s workspace into %s:', (workspace, block) => {
     const config = buildConfig({ filter_duplicates: true });
     const frame: Routing.FormFrame = {
