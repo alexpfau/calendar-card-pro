@@ -308,16 +308,21 @@ describe('Pick From Preview', () => {
     const month = { ...CONFIG, view: 'month' };
     const pickTime = async (from: string) => {
       const { editor, card } = await dialog({ card: month, editor: month });
+      // The preview is configured, not redrawn: it keeps drawing Month's time on another
+      // layout's page, where happy-dom trips over focus in a redraw.
+      vi.spyOn(card, 'setConfig').mockImplementation(() => undefined);
       $(editor, `[data-focus="${from}"]`)!.click();
       await settle(editor, card);
-      const on = text($(editor, '.page-sub'));
+      const start = {
+        page: $(editor, '.page')?.getAttribute('data-page') ?? null,
+        sub: text($(editor, '.page-sub')),
+      };
       pickButton(editor)!.click();
       await settle(editor, card);
       const said = listen(editor);
       fire(card.shadowRoot!.querySelector('.month-line-time')!, 'click');
       await settle(editor, card);
       const landed = {
-        on,
         page: $(editor, '.page')?.getAttribute('data-page'),
         sub: text($(editor, '.page-sub')),
         field: $(editor, '.page-group[data-heading="time"] .jump [data-field]')?.getAttribute(
@@ -326,14 +331,25 @@ describe('Pick From Preview', () => {
         said,
       };
       document.body.replaceChildren();
-      return landed;
+      vi.restoreAllMocks();
+      return { start, landed };
     };
+    // From Month's own page, under Month, at Time's first setting in Month's order.
     const control = await pickTime('layout:month');
-    expect(control).toMatchObject({ on: 'Layout', page: 'events', sub: 'Month' });
-    expect(control.field).toMatch(/^events:/);
-    expect(control.said).toEqual(['Showing Event Appearance › Time.']);
+    expect(control.start).toEqual({ page: null, sub: 'Layout' });
+    expect(control.landed).toEqual({
+      page: 'events',
+      sub: 'Month',
+      field: 'events:time_two_digit_hours',
+      said: ['Showing Event Appearance › Time.'],
+    });
+    // From a layout the card does not open in, under that layout, so "the layout the preview
+    // draws" is not simply the one the card opens in.
+    expect((await pickTime('layout:grid')).landed).toMatchObject({ page: 'events', sub: 'Grid' });
     for (const page of ['card_header', 'events_weather_language', 'taps_refresh']) {
-      expect(await pickTime(`nav:${page}`), page).toEqual({ ...control, on: 'Whole Card' });
+      const from = await pickTime(`nav:${page}`);
+      expect(from.start, page).toEqual({ page, sub: 'Whole Card' });
+      expect(from.landed, page).toEqual(control.landed);
     }
   });
 

@@ -467,13 +467,19 @@ describe('the stylesheet', () => {
   // each (列, 月): 12px wide side by side, so their 24px circles overlapped and the pair missed
   // WCAG's 24px target. A link is that tall already; it is that wide too.
   it('gives a link a 24px target across as well as down', () => {
-    const all = declarations(styles.cssText);
-    const on = (property: string) =>
-      all
-        .filter((each) => each.selectors.includes('.link') && each.property === property)
-        .map(({ value }) => value);
-    expect(on('min-height')).toEqual(['24px']);
-    expect(on('min-width')).toEqual(['24px']);
+    // Every rule that sizes a link, so one under a condition, or another selector shrinking it
+    // again, fails as surely as a missing one.
+    const sizing = declarations(styles.cssText)
+      .filter(
+        ({ selectors, property }) =>
+          /^min-(width|height)$/.test(property) &&
+          selectors.some((each) => /\.link(?![\w-])[^\s>+~]*$/.test(each)),
+      )
+      .map(({ at, selectors, property, value }) => ({ at, selectors, property, value }));
+    expect(sizing).toEqual([
+      { at: [], selectors: ['.link'], property: 'min-height', value: '24px' },
+      { at: [], selectors: ['.link'], property: 'min-width', value: '24px' },
+    ]);
   });
 });
 
