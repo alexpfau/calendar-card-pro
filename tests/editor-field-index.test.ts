@@ -279,8 +279,9 @@ describe('field ids', () => {
     // Private among them.
     // Month adds its own ten: its four card heights, Minimum Day Width, its two shadings, the two
     // font sizes of its days, and Layouts in Switcher. List's month separator adds three: Month
-    // Name on Rule, its color and its size.
-    expect(EVERY_FIELD.size).toBe(236);
+    // Name on Rule, its color and its size. A calendar's start hours add two: Starts At or After
+    // and Starts Before.
+    expect(EVERY_FIELD.size).toBe(238);
   });
 
   it('do not depend on the editor language', () => {

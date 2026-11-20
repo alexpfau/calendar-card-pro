@@ -64,6 +64,10 @@ export function unsetWord(
         return t('value.follow_card');
       case 'allday_expires_at':
         return t('value.end_of_day');
+      // Unset, the hours run from or to midnight: no limit on that side.
+      case 'starts_after':
+      case 'starts_before':
+        return t('value.no_limit');
       // The marker the location row draws while the calendar names no icon of its own.
       case 'location_icon':
         return t('value.map_marker');

@@ -3776,6 +3776,8 @@ describe('editor: per-calendar settings', () => {
         'show_time',
         'show_weather',
         'split_multiday_events',
+        'starts_after',
+        'starts_before',
         'text_scale',
         'multiday_banners',
         'visibility',
