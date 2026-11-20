@@ -36,13 +36,13 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 Each layout's page lists five topics, and Layout Defaults the first four, since no forecast
 setting has a value for every layout:
 
-| Topic                | What it holds                                                                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode     |
-| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading         |
-| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                              |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules |
-| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares     |
+| Topic                | What it holds                                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode            |
+| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                |
+| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                                     |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, the narrow month's heights, what each layout draws on a narrow card, and the rules |
+| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares            |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
@@ -238,6 +238,42 @@ empty_day_color: '#607d8b'
 
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
 **[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
+
+### Card Height
+
+**Card Height**, first on every layout's Size & Spacing, sets how tall the whole card is: **Fit
+content**, **Fixed height** with its **Height**, or **Maximum height** with its **Maximum Height**.
+On a layout's page it writes `card_height` or `card_max_height` in that layout's block, and on
+Layout Defaults at the top level, for every layout without a height of its own. Month's first
+choice reads **Default height**, its own `632px`.
+
+Choosing **Fixed height** or **Maximum height** clears that layout's `height` and `max_height`,
+which size the events area alone. The editor shows those two, as **Events Area Height** and
+**Events Area Maximum Height**, only on a card that already holds one. See
+[Card Dimensions & Scrolling](/features/layout-appearance#card-dimensions-scrolling).
+
+### Narrow Cards
+
+**Narrow Cards**, on Size & Spacing, decides what the card draws where it is too narrow for its
+days: **When Too Narrow** for Columns and Grid, with **Down To** and **Below That** where a choice
+needs them, and each layout's **Minimum Day Width**, Month's included. The choices, and the YAML
+each writes, are under
+[Setting It in the Visual Editor](/features/column-view#setting-it-in-the-visual-editor).
+
+Under the headings, **At Common Card Widths** lists what each layout the card can show draws at
+390 px, a phone; 480 px, a Sections column; 768 px and 1,280 px. That is the layout it opens in
+and those the layout switcher offers, each drawing for example **3 days**, **List, 7 days**,
+**7 days, narrower**, or for Month **Wide** or **Narrow**. It is left out where the card draws the
+same at every width, as a List-only card does.
+
+Under it, on Columns', Grid's and Month's own pages, **This card renders** gives that layout's
+widths themselves: for Columns and Grid the width each
+number of days needs and where the card turns into a list, and for Month the width it draws wide
+from and the width a narrow month turns wide again from.
+
+**At Common Card Widths** shows the first draw, when a dashboard opens at that width. A card
+already on screen keeps its layout a little past each width, as **This card renders** notes, so it
+does not flicker on the line.
 
 ### State in Words
 

@@ -107,6 +107,26 @@ on a phone-width card, for example, where two cramped columns still beat a long 
 produce a card too cramped to read; that is the trade. With `cramp` and no `min_days_to_show`,
 the card keeps every day and narrows them all.
 
+### Setting It in the Visual Editor
+
+On Columns' Size & Spacing, under **Narrow Cards**, **When Too Narrow** sets both options as one
+choice:
+
+- **Show fewer days, then a list**, the default, writes nothing, or a `min_days_to_show` below the
+  number of days shown, which **Down To** sets.
+- **Show a list** writes `min_days_to_show` at the number of days shown, so the card keeps every
+  day as columns or turns into a list.
+- **Keep the days, narrower** writes `min_days_fallback: cramp`.
+- **Custom** writes `min_days_fallback: cramp` with a `min_days_to_show` below the number of days
+  shown, which **Below That** and **Down To** set: the card drops columns down to that number,
+  then keeps those narrower.
+
+**Minimum Day Width**, beside it, is `min_day_width`. Opening the editor rewrites nothing: any
+combination of the two options reads as one of the four choices. Under the headings,
+**At Common Card Widths** shows what each layout the card can show draws on a phone, in a
+Sections column and on wider cards, and **This card renders** gives the width each number of
+columns needs; see [Narrow Cards](/features/editor#narrow-cards).
+
 **→ [Column-Only Options in the configuration reference](/reference/configuration#column-only-options)** — full option table.
 
 ## 🎛️ Overriding Options in Column View
@@ -131,7 +151,7 @@ column:
 
 What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
 
-The block covers the card's dimensions too: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
+The block covers the card's dimensions too: the same events laid out side by side are far shorter than they are stacked, so a `card_height` or `card_max_height` tuned for one layout is usually wrong for the other. See [A Height Per Layout](/features/layout-appearance#a-height-per-layout).
 
 [`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view. In the default column width of about 140px, a time with a countdown rarely fits at the end of a title and takes a line of its own, which saves little; with `title_max_lines: 1` the title beside a time keeps room for a word or so, and the warning in [Time Beside the Title](/features/event-content#time-beside-the-title) gives the widths it needs. To leave the columns exactly as they are, set it in `list:` alone.
 

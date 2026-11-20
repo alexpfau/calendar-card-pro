@@ -115,6 +115,7 @@ src/
 │   │   ├── translations/         # The same keys per language, partial by design
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
+│   ├── card-size.ts              # The whole card's height in every layout
 │   ├── toolbar.ts                # Header toolbar and its controls
 │   ├── legend.ts                 # The calendar filter: its chips, its button and menu
 │   ├── menu.ts                   # The toolbar's menus: placed, painted, opened and closed
