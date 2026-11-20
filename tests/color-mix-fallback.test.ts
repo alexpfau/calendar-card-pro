@@ -122,7 +122,7 @@ describe('color-mix() where Safari before 16.2 has none', () => {
   // track, the spinner, and a raised grid block's edge. And the custom properties the stylesheet
   // mixes for others to read: the toolbar's three fills, the accent and Now inks, and the
   // all-day pill's ink and its two washes. Month view's seven: a pressed day's add wash, an image
-  // so it washes over a tinted day, "+N more" under the pointer, the compact day list's name under
+  // so it washes over a tinted day, "+N more" under the pointer, the narrow day list's name under
   // the pointer and pressed, its own "+N more" under the pointer, and the month's two rules, the
   // theme's divider at 75% and the stronger one under the weekday names.
   it('gives each a fallback', () => {

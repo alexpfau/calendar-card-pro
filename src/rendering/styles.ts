@@ -7761,9 +7761,9 @@ export const cardStyles = css`
      ha-card (monthCardStyle). The content area takes what the title, the toolbar and a notice
      leave of it, so the shared height and max_height, which size the content area in the other
      views, do nothing here. It scrolls only where the card is too short for the month's floors
-     below, or for a compact month's weeks and the least of its list.
+     below, or for a narrow month's weeks and the least of its list.
 
-     The one card with no height of its own is a compact month whose list grows under a cap: the
+     The one card with no height of its own is a narrow month whose list grows under a cap: the
      card writes height: auto and the cap on ha-card, and 0 1 auto here, so the content is as tall
      as what it holds, up to the cap, and scrolls past it. A basis of 0 would leave it no height at
      all in a card that takes its height from its content. */
@@ -7794,7 +7794,7 @@ export const cardStyles = css`
      it, read the card's.
 
      The rules are the theme's divider at 75%, as Grid's are, between parts of one whole: weeks,
-     days and the compact form's weeks and list. The one under the weekday names is the card's
+     days and the narrow form's weeks and list. The one under the weekday names is the card's
      stronger header rule, the theme's text color at 18%, as Grid's under its date row is.
      Without color-mix() both take the theme's divider as it is (below).
 
@@ -7955,7 +7955,7 @@ export const cardStyles = css`
      which the renderer writes on the month as --calendar-card-month-weekend and
      --calendar-card-month-today only where they paint, so the transparent fallbacks are the off
      state. Both shade the day's cell, in either form: the wide form's spans every line of its
-     column and paints first, under the date, the bars and the lines, and the compact form's is
+     column and paints first, under the date, the bars and the lines, and the narrow form's is
      the number with its capsule. A day of the months either side takes them as well, since its
      dimming acts on its date or its contents, never on the cell. The weekday names, the day list
      and the panel hold no cell, and stay clear.
@@ -7964,7 +7964,7 @@ export const cardStyles = css`
      weekday and to the weekend's tint on a weekend day, which is what each painted without it;
      set, today's replaces the weekend's rather than stacking a second translucent color on it.
 
-     The today tile and the compact form's selection mark are the date's number, inside the
+     The today tile and the narrow form's selection mark are the date's number, inside the
      cell, and the focus ring is an outline, so all three draw over the tint. A pressed day's
      wash is a background image, which paints over the cell's color whichever rule set it. */
   .month-day.weekend {
@@ -8030,7 +8030,7 @@ export const cardStyles = css`
   }
 
   /* The wide month fills the tile: the indicator color itself, with Home Assistant's text on the
-     primary color for the digits in the same weight, as the compact form marks today while it is
+     primary color for the digits in the same weight, as the narrow form marks today while it is
      the selected day. Among a day's colored lines and bars the wash, at 1.2 to 1.5 to 1 against
      the card, does not stand out; the fill, at 3.3 to 1 in Home Assistant's light theme and 5.2 to
      1 in its dark one, does. Light digits read thinner on a fill than dark ones on a wash, hence
@@ -8039,11 +8039,11 @@ export const cardStyles = css`
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
      week-number pill and the week separators, keeps the list's tile.
 
-     Its corners are the compact tile's too, short of a pill. With a squircle they are that tile's
+     Its corners are the narrow tile's too, short of a pill. With a squircle they are that tile's
      own 0.6em, 9.6px at the month's 16px dates, half this tile's height. A plain corner of 0.6em
-     would round its ends into a pill, so without one it takes 0.41em, the compact tile's 34% of
+     would round its ends into a pill, so without one it takes 0.41em, the narrow tile's 34% of
      its side, of this tile's height. The list's tile keeps 0.27em and 0.456em. */
-  .month-container:not(.month-compact) .month-date > .day.today-tile {
+  .month-container:not(.month-narrow) .month-date > .day.today-tile {
     background: var(--calendar-card-today-indicator-color);
     font-weight: 600;
     border-radius: 0.41em;
@@ -8051,7 +8051,7 @@ export const cardStyles = css`
   }
 
   @supports (corner-shape: squircle) {
-    .month-container:not(.month-compact) .month-date > .day.today-tile {
+    .month-container:not(.month-narrow) .month-date > .day.today-tile {
       border-radius: 0.6em;
     }
   }
@@ -8279,7 +8279,7 @@ export const cardStyles = css`
     }
   }
 
-  /* ===== MONTH VIEW: THE COMPACT FORM =====
+  /* ===== MONTH VIEW: THE NARROW FORM =====
    *
    * Below month -> min_day_width a day, as a phone's calendar draws its month: the weekday names
    * centered over their days, and each day its number with one capsule under it, a segment per
@@ -8288,10 +8288,10 @@ export const cardStyles = css`
    * here. Week numbers sit in a narrow gutter before the first day, UI.MONTH_WEEK_GUTTER wide,
    * which the card counts when it decides the form. The day selected is listed under the weeks
    * (.month-day-list). */
-  /* The compact form closes its weeks with a rule, which sets them off from the day's list under
+  /* The narrow form closes its weeks with a rule, which sets them off from the day's list under
      them. The wide form draws none: its last week ends at the card's own edge, a few pixels below,
      where a second line would only double it. */
-  .month-container.month-compact {
+  .month-container.month-narrow {
     flex: none;
     min-height: 0;
     grid-template-rows: auto repeat(6, auto);
@@ -8299,33 +8299,33 @@ export const cardStyles = css`
     border-block-end: 1px solid var(--calendar-card-month-rule);
   }
 
-  .month-compact.with-week-numbers > .month-weekdays,
-  .month-compact.with-week-numbers > .month-week {
+  .month-narrow.with-week-numbers > .month-weekdays,
+  .month-narrow.with-week-numbers > .month-week {
     grid-template-columns: var(--calendar-card-month-week-gutter) repeat(7, minmax(0, 1fr));
   }
 
-  .month-compact > .month-weekdays {
+  .month-narrow > .month-weekdays {
     padding-block-end: 4px;
   }
 
-  .month-compact .month-weekday {
+  .month-narrow .month-weekday {
     padding-inline: 0;
     text-align: center;
   }
 
   /* A weekend's names and numbers step back, unless the card names a color for them, which
      the renderer writes inline. */
-  .month-compact .month-weekday.weekend {
+  .month-narrow .month-weekday.weekend {
     color: var(--secondary-text-color);
   }
 
-  .month-compact > .month-week {
+  .month-narrow > .month-week {
     overflow: visible;
   }
 
   /* A day: its number, and its capsule under it. The whole day is what a tap selects, so its
      box spans its column; the rules between days are the wide form's alone. */
-  .month-compact .month-day {
+  .month-narrow .month-day {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -8337,20 +8337,20 @@ export const cardStyles = css`
     -webkit-tap-highlight-color: transparent;
   }
 
-  .month-compact .month-date {
+  .month-narrow .month-date {
     padding: 0;
     justify-content: center;
   }
 
-  /* A compact day's number box is taller than the date line, so it needs no strut. */
-  .month-compact .month-date::before {
+  /* A narrow day's number box is taller than the date line, so it needs no strut. */
+  .month-narrow .month-date::before {
     content: none;
   }
 
   /* Every number sits in the same box, so today's tile and the selected day's mark draw
      around it without moving it. The tile centers its digits its own way, on their cap height
      where the browser can, so only the other numbers are made flex boxes here. */
-  .month-compact .month-date > .day {
+  .month-narrow .month-date > .day {
     box-sizing: border-box;
     width: 1.75em;
     height: 1.75em;
@@ -8358,7 +8358,7 @@ export const cardStyles = css`
     border-radius: 0.6em;
   }
 
-  .month-compact .month-date > .day:not(.today-tile) {
+  .month-narrow .month-date > .day:not(.today-tile) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -8366,38 +8366,38 @@ export const cardStyles = css`
 
   /* The day selected, where it is not today: a neutral mark, the theme's text color with the
      card's background as its ink, as distinct from today's tile as a phone's. */
-  .month-compact .month-day.month-selected:not(.today) .month-date > .day {
+  .month-narrow .month-day.month-selected:not(.today) .month-date > .day {
     background: var(--primary-text-color);
     color: var(--calendar-card-background-color, var(--card-background-color));
     font-weight: 600;
   }
 
   /* Today selected: the tile filled, in the indicator's color, with Home Assistant's text on it. */
-  .month-compact .month-day.month-selected.today .month-date > .day {
+  .month-narrow .month-day.month-selected.today .month-date > .day {
     background: var(--calendar-card-today-indicator-color);
     color: var(--text-primary-color, #fff);
     font-weight: 600;
   }
 
-  .month-compact .month-day.other-month > * {
+  .month-narrow .month-day.other-month > * {
     opacity: 0.45;
   }
 
-  .month-compact-marks {
+  .month-narrow-marks {
     display: flex;
     height: 6px;
     border-radius: 999px;
     overflow: hidden;
   }
 
-  .month-compact-mark {
+  .month-narrow-mark {
     flex: none;
     width: 6px;
   }
 
   /* The week number, centered in its gutter beside its week, the current week's at full
      strength. */
-  .month-compact .month-week-number {
+  .month-narrow .month-week-number {
     grid-column: auto;
     grid-row: auto;
     align-self: center;
@@ -8405,14 +8405,14 @@ export const cardStyles = css`
     padding: 0;
   }
 
-  .month-compact .month-week-number.current {
+  .month-narrow .month-week-number.current {
     opacity: 1;
     font-weight: 600;
   }
 
   /* ===== MONTH VIEW: THE DAY LIST =====
    *
-   * The selected day's events under a compact month's weeks: its name in full, then List's rows
+   * The selected day's events under a narrow month's weeks: its name in full, then List's rows
    * without their date column, drawn as a list row is in every respect (td.event), or the card's
    * "no events". Its own space is the day's, for day_tap_action; where that adds, its name is a
    * button.

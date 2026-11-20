@@ -1,14 +1,14 @@
 /**
- * A month's day list, the panel "+N more" opens on it, and the compact form a narrow card draws.
+ * A month's day list, the panel "+N more" opens on it, and the narrow form a narrow card draws.
  *
  * The day model is pure (`utils/month-day.ts`) and is pinned on its own first: what a day lists,
- * in what order, which of List's rules it keeps and which it drops. The compact form's switch and
+ * in what order, which of List's rules it keeps and which it drops. The narrow form's switch and
  * the selected day are pure too, and pinned at their thresholds. Then the card itself, from a
  * fake Home Assistant: the form at the widths a resize observer reports, each day's capsule, the
  * selected day's list and every rule that moves it, adding on it, and the day panel through a
  * stand-in for Home Assistant's dialog manager. happy-dom lays nothing out, so the list is laid out
  * by `helpers/month-geometry.ts`, which a few tests change or take away. Zones that move the
- * arithmetic are in `month-compact.dst.test.ts`.
+ * arithmetic are in `month-narrow.dst.test.ts`.
  *
  * Wednesday, November 18, 2026, 10:00 UTC; Mondays first, so home's six weeks run from Monday,
  * October 26 to Sunday, December 6. Names are invented.
@@ -230,20 +230,20 @@ describe('the day model', () => {
 // THE FORM AND THE SELECTED DAY, AS NUMBERS
 //-----------------------------------------------------------------------------
 
-describe('the compact form’s threshold', () => {
-  const band = Constants.UI.MONTH_COMPACT_HYSTERESIS;
+describe('the narrow form’s threshold', () => {
+  const band = Constants.UI.MONTH_NARROW_HYSTERESIS;
 
   it('measures a day from the card’s width, less its border, padding and gutter', () => {
     expect(MonthDay.monthDayWidth(594, false)).toBe(80);
     expect(MonthDay.monthDayWidth(594 + Constants.UI.MONTH_WEEK_GUTTER, true)).toBe(80);
   });
 
-  it('turns compact below min_day_width, and wide again only past the band', () => {
-    expect(MonthDay.monthCompactAt(79.99, 80, false)).toBe(true);
-    expect(MonthDay.monthCompactAt(80, 80, false)).toBe(false);
-    expect(MonthDay.monthCompactAt(80, 80, true)).toBe(true);
-    expect(MonthDay.monthCompactAt(80 + band - 0.01, 80, true)).toBe(true);
-    expect(MonthDay.monthCompactAt(80 + band, 80, true)).toBe(false);
+  it('turns narrow below min_day_width, and wide again only past the band', () => {
+    expect(MonthDay.monthNarrowAt(79.99, 80, false)).toBe(true);
+    expect(MonthDay.monthNarrowAt(80, 80, false)).toBe(false);
+    expect(MonthDay.monthNarrowAt(80, 80, true)).toBe(true);
+    expect(MonthDay.monthNarrowAt(80 + band - 0.01, 80, true)).toBe(true);
+    expect(MonthDay.monthNarrowAt(80 + band, 80, true)).toBe(false);
   });
 
   it('keeps a band wider than a page scroll bar takes from a day', () => {
@@ -255,7 +255,7 @@ describe('the compact form’s threshold', () => {
     const gutter = declarations(cardStyles.cssText).find(
       (d) =>
         d.property === '--calendar-card-month-week-gutter' &&
-        d.selectors.includes('.month-container.month-compact'),
+        d.selectors.includes('.month-container.month-narrow'),
     );
     expect(gutter?.value).toBe(`${Constants.UI.MONTH_WEEK_GUTTER}px`);
   });
@@ -415,24 +415,24 @@ async function setWidth(card: CardUnderTest, width: number): Promise<void> {
 }
 
 const root = (card: CardUnderTest) => card.shadowRoot!;
-const compact = (card: CardUnderTest) => root(card).querySelector<HTMLElement>('.month-compact');
+const narrowForm = (card: CardUnderTest) => root(card).querySelector<HTMLElement>('.month-narrow');
 const text = (element: Element | null | undefined): string =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
-/** The compact days, first row first. */
+/** The narrow days, first row first. */
 function days(card: CardUnderTest): HTMLElement[] {
-  return [...root(card).querySelectorAll<HTMLElement>('.month-compact .month-day')];
+  return [...root(card).querySelectorAll<HTMLElement>('.month-narrow .month-day')];
 }
 
-/** A compact day of home's six weeks, by its date in November (or after, as 31 and on). */
+/** A narrow day of home's six weeks, by its date in November (or after, as 31 and on). */
 function day(card: CardUnderTest, date: number): HTMLElement {
   // October 26 is index 0, so November `date` is index date + 5.
   return days(card)[date + 5];
 }
 
-/** The day the compact form shows as selected, by its number. */
+/** The day the narrow form shows as selected, by its number. */
 const selected = (card: CardUnderTest) =>
-  [...root(card).querySelectorAll('.month-compact .month-day.month-selected')].map((element) =>
+  [...root(card).querySelectorAll('.month-narrow .month-day.month-selected')].map((element) =>
     text(element.querySelector('.month-date')),
   );
 
@@ -528,18 +528,18 @@ afterEach(() => {
 });
 
 describe('the form a card draws', () => {
-  it('is wide until the card is measured, and compact below min_day_width a day', async () => {
+  it('is wide until the card is measured, and narrow below min_day_width a day', async () => {
     const card = await mount();
-    expect(compact(card)).toBeNull();
+    expect(narrowForm(card)).toBeNull();
     expect(root(card).querySelectorAll('.month-week')).toHaveLength(6);
 
     await setWidth(card, 593);
-    expect(compact(card)).not.toBeNull();
+    expect(narrowForm(card)).not.toBeNull();
     expect(days(card)).toHaveLength(42);
-    expect(root(card).querySelectorAll('.month-compact > .month-week')).toHaveLength(6);
+    expect(root(card).querySelectorAll('.month-narrow > .month-week')).toHaveLength(6);
     // The wide form's bars, lines and "+N more" are gone, and the list is under the weeks.
     expect(root(card).querySelector('.month-bar, .month-line, .month-more')).toBeNull();
-    expect(compact(card)!.nextElementSibling!.classList.contains('month-day-list')).toBe(true);
+    expect(narrowForm(card)!.nextElementSibling!.classList.contains('month-day-list')).toBe(true);
   });
 
   it('keeps its form inside the band either side of the threshold', async () => {
@@ -547,16 +547,16 @@ describe('the form a card draws', () => {
     const forms: string[] = [];
     for (const width of [593, 600, 621, 622, 600, 594, 593.9]) {
       await setWidth(card, width);
-      forms.push(`${width}:${compact(card) ? 'compact' : 'wide'}`);
+      forms.push(`${width}:${narrowForm(card) ? 'narrow' : 'wide'}`);
     }
     expect(forms).toEqual([
-      '593:compact',
-      '600:compact',
-      '621:compact',
+      '593:narrow',
+      '600:narrow',
+      '621:narrow',
       '622:wide',
       '600:wide',
       '594:wide',
-      '593.9:compact',
+      '593.9:narrow',
     ]);
   });
 
@@ -569,21 +569,21 @@ describe('the form a card draws', () => {
 
   it('counts the week numbers’ gutter, and follows min_day_width', async () => {
     const numbered = await mount({ show_week_numbers: 'iso' }, 615);
-    expect(compact(numbered)).not.toBeNull();
+    expect(narrowForm(numbered)).not.toBeNull();
     await setWidth(numbered, 650);
-    expect(compact(numbered)).toBeNull();
+    expect(narrowForm(numbered)).toBeNull();
 
     const narrow = await mount({ month: { min_day_width: 40 } }, 375);
-    expect(compact(narrow)).toBeNull();
+    expect(narrowForm(narrow)).toBeNull();
     await setWidth(narrow, 300);
-    expect(compact(narrow)).not.toBeNull();
+    expect(narrowForm(narrow)).not.toBeNull();
   });
 });
 
-describe('a compact day', () => {
+describe('a narrow day', () => {
   /** A day's capsule, as its segments' colors. */
   const capsule = (element: HTMLElement) =>
-    [...element.querySelectorAll<HTMLElement>('.month-compact-marks > .month-compact-mark')].map(
+    [...element.querySelectorAll<HTMLElement>('.month-narrow-marks > .month-narrow-mark')].map(
       (mark) => mark.style.backgroundColor,
     );
 
@@ -597,7 +597,7 @@ describe('a compact day', () => {
     expect(capsule(day(card, 18))).toEqual([green, blue, green, blue]);
     // A day without events keeps an empty capsule, so every day is as tall.
     expect(capsule(day(card, 19))).toEqual([]);
-    expect(day(card, 19).querySelector('.month-compact-marks')).not.toBeNull();
+    expect(day(card, 19).querySelector('.month-narrow-marks')).not.toBeNull();
     // The days the trip covers, each a dot.
     expect([20, 21, 22, 23, 24, 25].map((date) => capsule(day(card, date)).length)).toEqual([
       1, 1, 1, 1, 1, 0,
@@ -613,8 +613,8 @@ describe('a compact day', () => {
           )
           .map((d) => [d.property, d.value]),
       );
-    expect(rule('.month-compact-marks')).toMatchObject({ height: '6px', 'border-radius': '999px' });
-    expect(rule('.month-compact-mark').width).toBe('6px');
+    expect(rule('.month-narrow-marks')).toMatchObject({ height: '6px', 'border-radius': '999px' });
+    expect(rule('.month-narrow-mark').width).toBe('6px');
   });
 
   it('marks today, the weekend and the other months’ days', async () => {
@@ -651,7 +651,7 @@ describe('a compact day', () => {
       { show_week_numbers: 'iso', event_tap_action: { action: 'none' } },
       375,
     );
-    const markup = [compact(card)!, root(card).querySelector('.month-day-list')!]
+    const markup = [narrowForm(card)!, root(card).querySelector('.month-day-list')!]
       .map((element) =>
         element.outerHTML
           .replace(/<!--\?lit\$[0-9]+\$-->/g, '')
@@ -746,9 +746,9 @@ describe('the selected day', () => {
     ]);
   });
 
-  it('dates the toolbar’s add on a wide month on the day the compact form would select', async () => {
+  it('dates the toolbar’s add on a wide month on the day the narrow form would select', async () => {
     const card = await mount({ toolbar: { show: true, add_event: true } });
-    expect(root(card).querySelector('.month-compact')).toBeNull();
+    expect(root(card).querySelector('.month-narrow')).toBeNull();
     const add = async () => {
       root(card).querySelector<HTMLButtonElement>('.add-event-button')!.click();
       await settle(card);
@@ -950,7 +950,7 @@ describe('the list fitted to its room', () => {
   it('lists every row while it grows under a cap that computes to none', async () => {
     extraEvents = NINE;
     // A cap a theme can take off: unset, the variable's fallback leaves the card none.
-    const card = await mount({ month: { compact_card_max_height: 'var(--unset-cap, none)' } }, 375);
+    const card = await mount({ month: { narrow_card_max_height: 'var(--unset-cap, none)' } }, 375);
     const style = root(card).querySelector<HTMLElement>('ha-card')!.style;
     expect([style.height, style.maxHeight]).toEqual(['auto', 'var(--unset-cap, none)']);
     capComputesAs(() => 'none');
@@ -977,7 +977,7 @@ describe('the list fitted to its room', () => {
       expect(resizes(add)).toEqual([]);
       fixed.remove();
 
-      const card = await mount({ month: { compact_card_max_height: '40rem' } }, 375);
+      const card = await mount({ month: { narrow_card_max_height: '40rem' } }, 375);
       await tap(card, day(card, 28));
       expect(rowsOf(card)).toEqual(['Errand 1', 'Errand 2', 'Errand 3']);
       const host = RecordingResizeObserver.instances.find((observer) =>
@@ -1281,9 +1281,9 @@ describe('the list fitted to its room', () => {
     expect(more.hasAttribute('tabindex')).toBe(false);
     expect(more.getAttribute('aria-label')).toBe('+6 more, Saturday, November 28');
     expect(text(more)).toBe('+6 more');
-    // The compact grid is still one stop, and Enter there selects.
+    // The narrow grid is still one stop, and Enter there selects.
     expect(
-      [...root(card).querySelectorAll('.month-compact .month-day')].filter(
+      [...root(card).querySelectorAll('.month-narrow .month-day')].filter(
         (cell) => cell.getAttribute('tabindex') === '0',
       ),
     ).toHaveLength(1);
@@ -1727,9 +1727,9 @@ describe('the weeks’ lines and bars', () => {
 });
 
 describe('today’s tile in the wide month', () => {
-  const WIDE_TILE = '.month-container:not(.month-compact) .month-date > .day.today-tile';
-  const SELECTED_TODAY = '.month-compact .month-day.month-selected.today .month-date > .day';
-  const COMPACT_DAY = '.month-compact .month-date > .day';
+  const WIDE_TILE = '.month-container:not(.month-narrow) .month-date > .day.today-tile';
+  const SELECTED_TODAY = '.month-narrow .month-day.month-selected.today .month-date > .day';
+  const NARROW_DAY = '.month-narrow .month-date > .day';
 
   /** A rule's declarations outside any at-rule, by property. */
   const rule = (selector: string) =>
@@ -1739,7 +1739,7 @@ describe('today’s tile in the wide month', () => {
         .map((d) => [d.property, d.value]),
     );
 
-  it('is filled in the indicator color with the light ink, as the compact form’s selected today', () => {
+  it('is filled in the indicator color with the light ink, as the narrow form’s selected today', () => {
     const wide = rule(WIDE_TILE);
     const selected = rule(SELECTED_TODAY);
     expect({
@@ -1751,7 +1751,7 @@ describe('today’s tile in the wide month', () => {
       ink: 'var(--text-primary-color, #fff)',
       weight: '600',
     });
-    // Drawn as the compact form draws today while it is the selected day.
+    // Drawn as the narrow form draws today while it is the selected day.
     expect([
       wide.background,
       wide['--calendar-card-today-indicator-ink'],
@@ -1759,7 +1759,7 @@ describe('today’s tile in the wide month', () => {
     ]).toEqual([selected.background, selected.color, selected['font-weight']]);
   });
 
-  it('rounds its corners as the compact tile does, short of a pill, and leaves the list’s', () => {
+  it('rounds its corners as the narrow tile does, short of a pill, and leaves the list’s', () => {
     const SQUIRCLE = '@supports (corner-shape: squircle)';
     const radius = (selector: string, at: readonly string[]) =>
       declarations(cardStyles.cssText)
@@ -1770,11 +1770,11 @@ describe('today’s tile in the wide month', () => {
             d.at.join() === at.join(),
         )
         .map((d) => d.value);
-    // With a squircle, the compact tile's own corner; without one, its share of the side, since
+    // With a squircle, the narrow tile's own corner; without one, its share of the side, since
     // its 0.6em would round a 1.2em tile's ends into a pill.
-    const compact = rule(COMPACT_DAY)['border-radius'];
-    expect(compact).toBe('0.6em');
-    expect(radius(WIDE_TILE, [SQUIRCLE])).toEqual([compact]);
+    const narrow = rule(NARROW_DAY)['border-radius'];
+    expect(narrow).toBe('0.6em');
+    expect(radius(WIDE_TILE, [SQUIRCLE])).toEqual([narrow]);
     expect(radius(WIDE_TILE, [])).toEqual(['0.41em']);
     // The control: the list's and the columns' tile keeps its corners.
     expect(radius('.day.today-tile', [])).toEqual(['0.27em']);
@@ -1792,7 +1792,7 @@ describe('today’s tile in the wide month', () => {
     expect(root(named).querySelector<HTMLElement>('.day.today-tile')!.style.color).toBe(
       'rgb(1, 2, 3)',
     );
-    // The control: the compact form's tile and List's are not reached.
+    // The control: the narrow form's tile and List's are not reached.
     const narrow = await mount({}, 375);
     expect(day(narrow, 18).querySelector('.day.today-tile')!.matches(WIDE_TILE)).toBe(false);
     const list = await mount({ view: 'list' });

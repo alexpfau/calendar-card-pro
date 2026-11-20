@@ -202,11 +202,11 @@ const COLOR_OPTIONS = [
   'month:today_background_color',
 ].sort();
 
-/** A view rendered as the card renders it; a month in its compact form where `compact` is set. */
+/** A view rendered as the card renders it; a month in its narrow form where `narrow` is set. */
 type Scenario = {
   view: Types.EffectiveView;
   overrides: Partial<Types.Config>;
-  compact?: boolean;
+  narrow?: boolean;
 };
 
 /**
@@ -261,14 +261,14 @@ const SCENARIOS: Record<string, Scenario> = {
       time_grid: { slot_minutes: 30 },
     } as Partial<Types.Config>,
   },
-  // The six weeks holding FROZEN_NOW, wide and compact: the two forms write the tints apart.
+  // The six weeks holding FROZEN_NOW, wide and narrow: the two forms write the tints apart.
   month: {
     view: 'month',
     overrides: { view: 'month', show_week_numbers: 'iso' },
   },
-  'month-compact': {
+  'month-narrow': {
     view: 'month',
-    compact: true,
+    narrow: true,
     overrides: { view: 'month', show_week_numbers: 'iso' },
   },
 };
@@ -300,20 +300,20 @@ function withOption(overrides: Partial<Types.Config>, option: string, value: str
 type Declaration = { at: string; property: string; value: string };
 
 /**
- * The month holding FROZEN_NOW as the card hands it over, Mondays first, wide or compact with
+ * The month holding FROZEN_NOW as the card hands it over, Mondays first, wide or narrow with
  * today selected.
  *
  * @param days - Grouped days of the page
  * @param effective - Configuration resolved for month
- * @param compact - Whether to draw the compact form
+ * @param narrow - Whether to draw the narrow form
  * @returns The month
  */
-function renderMonth(days: Types.EventsByDay[], effective: Types.Config, compact: boolean) {
+function renderMonth(days: Types.EventsByDay[], effective: Types.Config, narrow: boolean) {
   const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
   return Month.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
-    ...(compact
+    ...(narrow
       ? {
-          compact: {
+          narrow: {
             selected: new Date(
               FROZEN_NOW.getFullYear(),
               FROZEN_NOW.getMonth(),
@@ -346,7 +346,7 @@ function inlineDeclarations(scenario: Scenario, overrides = scenario.overrides):
       : scenario.view === 'column'
         ? Column.renderColumnGroupedEvents(days, effective, 'en')
         : scenario.view === 'month'
-          ? renderMonth(days, effective, scenario.compact === true)
+          ? renderMonth(days, effective, scenario.narrow === true)
           : Render.renderGroupedEvents(days, effective, 'en');
   const container = document.createElement('div');
   litRender(template, container);
@@ -535,7 +535,7 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
         'list-separators | card | --calendar-card-week-number-bg-color',
         'list-week-numbers | card | --calendar-card-week-number-bg-color',
         'month | card | --calendar-card-week-number-bg-color',
-        'month-compact | card | --calendar-card-week-number-bg-color',
+        'month-narrow | card | --calendar-card-week-number-bg-color',
       ],
       'card:week_separator_color': [
         'column | column-separator column-separator-week | background-color',
@@ -562,11 +562,11 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       'grid:weekend_background_color': ['grid | grid-container | --calendar-card-grid-weekend'],
       'month:today_background_color': [
         'month | month-container | --calendar-card-month-today',
-        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-today',
+        'month-narrow | month-container month-narrow with-week-numbers | --calendar-card-month-today',
       ],
       'month:weekend_background_color': [
         'month | month-container | --calendar-card-month-weekend',
-        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-weekend',
+        'month-narrow | month-container month-narrow with-week-numbers | --calendar-card-month-weekend',
       ],
     });
     // Over a second in a full local run; the limit is set for CI's slower runner under load

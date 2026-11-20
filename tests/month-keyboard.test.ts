@@ -5,9 +5,9 @@
  * The month is one grid in either form: a header row of weekdays named in full, six rows of seven
  * day cells, each named for its day and its events, and one tab stop among them that the arrows,
  * Home, End and the page keys move, paging where they leave the rows drawn. Enter and Space open a
- * wide day's panel or select a compact day. The events drawn in a wide day are owned by its cell
+ * wide day's panel or select a narrow day. The events drawn in a wide day are owned by its cell
  * and out of the Tab order, since the panel lists them. A pick from search pages to its month and
- * rings the event where the month discloses it: in the weeks, in a compact day's list, or in its
+ * rings the event where the month discloses it: in the weeks, in a narrow day's list, or in its
  * day's panel behind "+N more". And an event that ends dims, or goes, with no `hass` traffic at
  * all. Zones that move the arithmetic are in `month-keyboard.dst.test.ts`.
  *
@@ -329,7 +329,7 @@ afterEach(() => {
 describe('a month as a grid', () => {
   it.each([
     ['wide', undefined],
-    ['compact', 375],
+    ['narrow', 375],
   ] as const)(
     'is one grid in its %s form: a header row and six rows of seven cells',
     async (_form, width) => {
@@ -354,7 +354,7 @@ describe('a month as a grid', () => {
         7, 7, 7, 7, 7, 7,
       ]);
       // Nothing else in a row is a thing of its own to assistive technology: the dates, the week
-      // numbers and the compact gutter are hidden, and a wide day's events are its cell's.
+      // numbers and the narrow gutter are hidden, and a wide day's events are its cell's.
       const owned = new Set(
         cells(card).flatMap((element) => (element.getAttribute('aria-owns') ?? '').split(' ')),
       );
@@ -375,7 +375,7 @@ describe('a month as a grid', () => {
 
   it.each([
     ['wide', undefined],
-    ['compact', 375],
+    ['narrow', 375],
   ] as const)(
     'names each %s cell for its day in full and the events it holds',
     async (_form, width) => {
@@ -419,7 +419,7 @@ describe('a month as a grid', () => {
     expect(tabStops(card)).toEqual(['Tuesday, December 1, 2026, No events']);
   });
 
-  it('puts a compact month’s tab stop on its selected day, which it marks selected', async () => {
+  it('puts a narrow month’s tab stop on its selected day, which it marks selected', async () => {
     const card = await mount({}, 375);
     expect(tabStops(card)).toEqual(['Wednesday, November 18, 2026, 2 events']);
     const selected = cells(card).filter(
@@ -624,7 +624,7 @@ describe('the keyboard on a month', () => {
     expect(opened()).toEqual(['Tuesday, November 10, 2026', 'Friday, November 13, 2026']);
   });
 
-  it('selects a compact day with Enter or Space, and lists it', async () => {
+  it('selects a narrow day with Enter or Space, and lists it', async () => {
     const card = await mount({}, 375);
     await focusOn(card, 'Wednesday, November 18');
     await press(card, 'ArrowLeft');
@@ -706,7 +706,7 @@ describe('the keyboard on a month', () => {
 //-----------------------------------------------------------------------------
 
 describe('a search pick on a month', () => {
-  // A compact month's list laid out with room for four 40px rows, or three and "+N more", as
+  // A narrow month's list laid out with room for four 40px rows, or three and "+N more", as
   // nothing here lays one out.
   let unlayOut: () => void = () => {};
   beforeEach(() => {
@@ -793,7 +793,7 @@ describe('a search pick on a month', () => {
     expect(ringed(panel!.shadowRoot!)).toEqual([expect.stringContaining('Gym')]);
   });
 
-  it('selects a compact month’s day, and rings the event in its list', async () => {
+  it('selects a narrow month’s day, and rings the event in its list', async () => {
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     await pick(card, 'Football');
     expect(text(root(card).querySelector('.month-day-list-name'))).toBe(
@@ -805,7 +805,7 @@ describe('a search pick on a month', () => {
     expect(dialogs).toEqual([]);
   });
 
-  it('opens a compact day’s panel from its list’s "+N more" where the list hides the event', async () => {
+  it('opens a narrow day’s panel from its list’s "+N more" where the list hides the event', async () => {
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     await pick(card, 'Gym');
     // The 10th's five do not fit its list's room: three rows and "+2 more", with Gym behind it.
@@ -836,7 +836,7 @@ describe('a search pick on a month', () => {
     expect(deepActive()).toBe(more);
   });
 
-  it('waits for a compact list to be fitted before it rings, and rings once it is', async () => {
+  it('waits for a narrow list to be fitted before it rings, and rings once it is', async () => {
     unlayOut();
     const card = await mount({ event_tap_action: { action: 'details' } }, 375);
     const picking = card as unknown as Picking & { _searchRing: unknown };
@@ -1050,7 +1050,7 @@ describe('the passes that measure titles, on a month', () => {
     expect(watched(card)).toEqual(['month-probe', 'month-probe', 'month-probe']);
   });
 
-  it('measure a compact month’s list as they measure List’s rows, and nothing in its weeks', async () => {
+  it('measure a narrow month’s list as they measure List’s rows, and nothing in its weeks', async () => {
     const card = await mount(MEASURED, 375);
     // The wide form's probes aside, which the card watched while it drew that form before it
     // knew its width (`_watchMonthProbes`).

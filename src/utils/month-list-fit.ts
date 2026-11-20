@@ -1,5 +1,5 @@
 /**
- * How many of the selected day's events a compact month lists under its weeks.
+ * How many of the selected day's events a narrow month lists under its weeks.
  *
  * The card stages the day's real rows out of sight beside the list, drawn as the list draws them,
  * and its "+N more" at the count it would show with no row listed (`renderListStaging` in
@@ -63,7 +63,7 @@ export function fitMonthList(geometry: MonthListGeometry): number {
 //-----------------------------------------------------------------------------
 
 /**
- * A compact month's list as the card fits it, read off the staged copy beside it
+ * A narrow month's list as the card fits it, read off the staged copy beside it
  * (`renderListStaging` in `rendering/month.ts`), or null where either is not drawn or not laid
  * out.
  *
@@ -76,7 +76,7 @@ export function fitMonthList(geometry: MonthListGeometry): number {
  * the table's foot to the button's top, as the list draws it after its rows.
  *
  * The room is the rows' box, which the list's flexible height sets whatever is in it. A list that
- * grows under a cap (`monthCompactGrows` in `rendering/month.ts`) has no such box: its room is the
+ * grows under a cap (`monthNarrowGrows` in `rendering/month.ts`) has no such box: its room is the
  * cap less everything else the card holds, the card as drawn less the rows' box. Where the card is
  * drawn at its cap, whose content then runs past it, that content's overflow is added back, so a
  * list fitted to a room that has since shrunk is fitted again rather than kept. A cap the card's
@@ -178,7 +178,7 @@ function contentOverflow(content: HTMLElement, scale: number): number {
 }
 
 /**
- * The least a compact month's list may be, in the card's own pixels: its header and padding, and
+ * The least a narrow month's list may be, in the card's own pixels: its header and padding, and
  * the taller of its "+N more" and its "No events", or null where it is not laid out. Below it the
  * card's content scrolls the weeks and the list as one; nothing inside the list scrolls.
  *

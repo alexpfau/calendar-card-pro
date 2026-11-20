@@ -725,7 +725,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 }
 
 /**
- * The shared options a month draws nothing for, in its grid, its compact form or its day list:
+ * The shared options a month draws nothing for, in its grid, its narrow form or its day list:
  * it sizes its whole card with its own heights; it always shows its six weeks whatever their
  * events, never cuts a list short and splits every multi-day event across its days; it rules its
  * days itself and lists one day at a time, so it has no space or rule between days, weeks or
@@ -763,7 +763,7 @@ export type MonthIgnoredSharedKeys =
  * The shared options a month keeps at their shipped values, whatever the card, its `month:` block
  * or a calendar says: a day's list and the panel "+N more" opens draw an event's title, time,
  * location and forecast, and leave its description, countdown, progress bar and all-day badge to
- * the event's details, with every part on one line under a compact month's weeks and in full in
+ * the event's details, with every part on one line under a narrow month's weeks and in full in
  * the panel (`ViewConfig.MONTH_PINNED`).
  */
 export type MonthPinnedKeys =
@@ -811,18 +811,18 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
   card_max_height?: string;
 
   /**
-   * `card_height` for the compact form, which takes `card_height` while this is unset; `auto` is
+   * `card_height` for the narrow form, which takes `card_height` while this is unset; `auto` is
    * the month's own default, the same in both forms.
    */
-  compact_card_height?: string;
+  narrow_card_height?: string;
 
   /**
-   * `card_max_height` for the compact form, which takes `card_max_height` while this is unset.
-   * Under it a compact card whose height is `auto` grows with the day's list.
+   * `card_max_height` for the narrow form, which takes `card_max_height` while this is unset.
+   * Under it a narrow card whose height is `auto` grows with the day's list.
    */
-  compact_card_max_height?: string;
+  narrow_card_max_height?: string;
 
-  /** Day-cell width in pixels below which the month draws its compact form. */
+  /** Day-cell width in pixels below which the month draws its narrow form. */
   min_day_width?: number;
 
   /**

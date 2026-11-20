@@ -497,7 +497,7 @@ describe('the stylesheet', () => {
       // The wide month's filled tile, declared on the tile as well and never on ha-card.
       [
         [],
-        ['.month-container:not(.month-compact) .month-date > .day.today-tile'],
+        ['.month-container:not(.month-narrow) .month-date > .day.today-tile'],
         'var(--text-primary-color, #fff)',
       ],
     ]);

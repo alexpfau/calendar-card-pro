@@ -1,7 +1,7 @@
 /**
- * A laid-out compact month's day list, for tests that run where nothing lays out.
+ * A laid-out narrow month's day list, for tests that run where nothing lays out.
  *
- * happy-dom measures every box at 0, so a card under test never fits a compact month's list to its
+ * happy-dom measures every box at 0, so a card under test never fits a narrow month's list to its
  * room (`MonthRender.measureMonthList`): it lists "+N more" alone, as a card does before it is on
  * screen. A test that reads the list's rows lays the list out with this first. It answers
  * `getBoundingClientRect` for the boxes the fit reads, the staged rows beside the list, their
@@ -47,7 +47,7 @@ const box = (top: number, height: number, width: number): DOMRect =>
   }) as DOMRect;
 
 /**
- * Lays out every compact month's list drawn from now on, until the returned function is called.
+ * Lays out every narrow month's list drawn from now on, until the returned function is called.
  *
  * @param boxes - The room and the rows' heights
  * @returns Puts happy-dom's own measuring back

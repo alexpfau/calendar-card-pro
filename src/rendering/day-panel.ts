@@ -1,6 +1,6 @@
 /**
  * The day panel: one day's events, as a month lists them, opened from a "+N more": a wide day's,
- * or the one that ends a compact month's day list.
+ * or the one that ends a narrow month's day list.
  *
  * It is the event popover's kind of panel (`popover-shell.ts`): opened through Home Assistant's
  * dialog manager (`show-dialog` with this element's tag), which gives it Back to close and puts
@@ -67,7 +67,7 @@ export interface DayPanelSource {
   styles(): Readonly<Record<string, string>>;
   /**
    * The color the card sets for its day names (`weekday_color`), which the panel's title takes as
-   * the compact list's does; `undefined` while the card leaves it at its default, and the title
+   * the narrow list's does; `undefined` while the card leaves it at its default, and the title
    * keeps the panel's own text color.
    */
   titleColor?(): string | undefined;

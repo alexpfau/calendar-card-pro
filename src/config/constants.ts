@@ -347,23 +347,23 @@ export const UI = {
   TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34, month: 34 },
 
   /**
-   * The gutter a compact month keeps before its first day for the week numbers, in CSS pixels,
+   * The gutter a narrow month keeps before its first day for the week numbers, in CSS pixels,
    * the stylesheet's (`--calendar-card-month-week-gutter`), which `stylesheet.test.ts`
    * reconciles. A wide month sets its numbers in the first day's corner and keeps none.
    */
   MONTH_WEEK_GUTTER: 22,
 
   /**
-   * How much wider than `month → min_day_width` a compact month's days must grow, in CSS pixels,
-   * before it draws its wide form again (`MonthDay.monthCompactAt`). The card's width is the
-   * dashboard's, but a compact month is far shorter than a wide one, and the page's scroll bar
+   * How much wider than `month → min_day_width` a narrow month's days must grow, in CSS pixels,
+   * before it draws its wide form again (`MonthDay.monthNarrowAt`). The card's width is the
+   * dashboard's, but a narrow month is far shorter than a wide one, and the page's scroll bar
    * coming or going with that height takes up to about 17px of the card's width, under 3px of a
    * day's. Four keeps a card resting at the threshold from switching back and forth.
    */
-  MONTH_COMPACT_HYSTERESIS: 4,
+  MONTH_NARROW_HYSTERESIS: 4,
 
-  /** How many events a compact month day's capsule draws a segment for, at most. */
-  MONTH_COMPACT_MARKS: 4,
+  /** How many events a narrow month day's capsule draws a segment for, at most. */
+  MONTH_NARROW_MARKS: 4,
 
   /**
    * The rows a month asks a Sections dashboard for while none of its four height keys sets a
@@ -371,7 +371,7 @@ export const UI = {
    * row and 8px gap, and twelve, 760px, where the configuration asks for a toolbar
    * (`Config.asksForToolbar`). The toolbar's two rows take about 89px, a title beside it about 17px
    * more, so two rows more keep the lines a card without one has: at the default text sizes a wide
-   * day holds four lines either way, three events and "+N more", and a compact month's day list
+   * day holds four lines either way, three events and "+N more", and a narrow month's day list
    * three events at least, also where the toolbar's buttons wrap onto a second line.
    */
   MONTH_SECTIONS_ROWS: { plain: 10, toolbar: 12 },

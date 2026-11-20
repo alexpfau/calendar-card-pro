@@ -960,7 +960,7 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 
 /**
  * A month's heights, whose unusable value is folded rather than passed through: the whole card's
- * height and its cap, in the wide form and the compact one, judged by {@link toValidCardHeight}
+ * height and its cap, in the wide form and the narrow one, judged by {@link toValidCardHeight}
  * and {@link toValidCardMaxHeight}.
  *
  * The card measures how many lines fit under a date from a week's height, so a week must never
@@ -969,8 +969,8 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
  * is the month's own default rather than its content's, and a cap takes `none`; anything else that
  * is not a length folds the same way.
  *
- * A wide key folds to the block's default, `auto` or `none`. A compact key has no default of its
- * own: unusable, it counts as unset and the compact form takes the wide value.
+ * A wide key folds to the block's default, `auto` or `none`. A narrow key has no default of its
+ * own: unusable, it counts as unset and the narrow form takes the wide value.
  *
  * Its own table, for the reason the bar width has one, and its options live in a view block only,
  * so the top-level check skips them and the block's (`validateViewOverrides`) reports them, with
@@ -979,8 +979,8 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'card_height',
   'card_max_height',
-  'compact_card_height',
-  'compact_card_max_height',
+  'narrow_card_height',
+  'narrow_card_max_height',
 ]);
 
 /**
