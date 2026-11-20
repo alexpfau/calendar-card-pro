@@ -1311,6 +1311,41 @@ describe('the list fitted to its room', () => {
     await afterClose(card);
     expect(deepActive()).toBe(more);
   });
+
+  it('opens its panel, and a row’s popover, beside its words, as a wide day’s does', async () => {
+    extraEvents = NINE;
+    layOut({ room: 200 });
+    const manager = playDialogManager();
+    const card = await mount({ event_tap_action: { action: 'details' } }, 375);
+    await tap(card, day(card, 28));
+    // happy-dom lays nothing out: the button is given the list's width, its words a box ending
+    // at 90, as Chrome lays them out on a 375px card.
+    const more = moreOf(card)!;
+    more.getBoundingClientRect = () => new DOMRect(24, 472, 343, 29);
+    const words = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function (
+      this: Range,
+    ) {
+      const inMore = this.startContainer.parentElement?.closest('.month-day-list-more');
+      return (inMore ? [new DOMRect(39, 479, 51, 14)] : []) as unknown as DOMRectList;
+    });
+    try {
+      more.click();
+      await settle(card);
+      const panel = manager.panel()!;
+      await panel.updateComplete;
+      const anchor = (dialogs[0].dialogParams as DayPanelParams).anchor!;
+      expect(anchor.rect).toEqual({ left: 24, top: 472, right: 90, bottom: 501 });
+
+      [...panel.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')]
+        .find((button) => text(button).startsWith('Errand 5'))!
+        .click();
+      await afterClose(card);
+      const opened = dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+      expect((opened[0].dialogParams as PopoverParams).anchor?.rect).toEqual(anchor.rect);
+    } finally {
+      words.mockRestore();
+    }
+  });
 });
 
 describe('the gap between a day’s events', () => {

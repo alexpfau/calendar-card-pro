@@ -4271,7 +4271,10 @@ class CalendarCardPro extends LitElement {
     }
     this.requestUpdate();
     const language = this.effectiveLanguage;
-    const at = originOf(anchor);
+    const origin = originOf(anchor);
+    // A narrow month list's "+N more" spans the list, so the panel, and the popover of a row
+    // pressed in it, open beside its words, as they do beside a wide day's.
+    const at = origin && returnToAnchor ? { ...origin, rect: Feedback.wordsBox(anchor) } : origin;
     const params: DayPanel.DayPanelParams = {
       source: {
         rows: () => {

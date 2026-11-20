@@ -151,7 +151,35 @@ export function eventBox(element: Element): NonNullable<PressOrigin['rect']> {
   // Measured from the left only: a right-to-left row keeps its box rather than be anchored at
   // the start of its words, or at a part pinned to its far edge.
   if (getComputedStyle(event).direction === 'rtl') return box;
+  return toWordsEnd(element, box);
+}
 
+/**
+ * What can be seen of a button that draws no box of its own and is wider than its words, for a
+ * panel to open beside its words, as it opens beside an untinted event's: the narrow month list's
+ * "+N more", which spans the list.
+ *
+ * @param element - The button
+ * @returns Its box, its right edge brought in to the end of its text, except right to left
+ */
+export function wordsBox(element: Element): NonNullable<PressOrigin['rect']> {
+  const rect = element.getBoundingClientRect();
+  const box = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+  if (getComputedStyle(element).direction === 'rtl') return box;
+  return toWordsEnd(element, box);
+}
+
+/**
+ * A box with its right edge brought in to the end of the text inside an element.
+ *
+ * @param element - Where the text is
+ * @param box - The element's box
+ * @returns The box, ending where the text does, or as it was where there is none to measure
+ */
+function toWordsEnd(
+  element: Element,
+  box: NonNullable<PressOrigin['rect']>,
+): NonNullable<PressOrigin['rect']> {
   const lines: Box[] = [];
   const range = document.createRange();
   if (typeof range.getClientRects !== 'function') return box;
