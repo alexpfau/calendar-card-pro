@@ -780,7 +780,7 @@ card turning to other days while you drag.
 
 When a card is too narrow for all its days, grid view sheds day columns one at a time rather
 than all at once, so the card stays useful as it narrows. It works as
-[column view's fallback](/features/column-view#showing-fewer-columns-instead) does, with options
+[column view's fallback](/features/column-view#showing-fewer-columns-on-narrow-cards) does, with options
 of its own inside `time_grid:`.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="A seven-day grid card at a narrower width, showing five of its days"><br>
@@ -798,8 +798,8 @@ time_grid:
 
 - `min_day_width`, `100` by default, is the narrowest a day column may be, in pixels, before the
   card sheds a day. Column view's default is `140`.
-- `min_days_to_show` defaults to `1`, not to `days_to_show`, so a narrow five-day grid becomes a
-  one-day view of today, with its now line.
+- `min_days_to_show` defaults to `1`, where Columns stops at two, so a narrow five-day grid
+  becomes a one-day view of today, with its now line.
 - `min_days_fallback` decides what happens when even `min_days_to_show` does not fit:
   - `list`, the default, switches to the list layout.
   - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`. At extreme

@@ -862,9 +862,26 @@ entities:
 filter_duplicates: ignore_location
 ```
 
-Keep `true` where the location tells events apart, such as one title booked in two rooms at
-once. In the visual editor, **Filter Duplicates** offers the three values as **Off**, **Same
-title, start, end and location** and **Same title, start and end**.
+`filter_duplicates: merge_locations` matches the same way and lists every copy's location on
+the row kept, in `entities` order, separated by a middle dot (`·`). It suits one event held in a
+different place on each calendar, such as a meeting Anna and Ben join from their own rooms:
+
+```yaml
+entities:
+  - calendar.anna # Room A
+  - calendar.ben # Room B
+filter_duplicates: merge_locations # One row, at "Room A · Room B"
+```
+
+Each location is shown as its own calendar shows it: a calendar with `show_location: false` adds
+nothing, and its `replace_field: location` rewrite applies to its own location alone, as
+`remove_location_country` applies to each. A location two copies share is shown once, and the
+event's details show the kept copy's own location.
+
+Keep `true` where each location should keep a row of its own, such as one title booked in two
+rooms at once. In the visual editor, **Filter Duplicates** offers the four values as **Off**,
+**Same title, start, end and location**, **Same title, start and end** and **Same title, start
+and end, listing every location**.
 
 Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
 that excludes a date cannot remove another calendar's eligible copy:
@@ -887,7 +904,7 @@ calendar the event belongs to and take a color that marks it as shared; see
 Any two events that share a title, start, end and location are treated as duplicates, even if
 they are genuinely separate events and even if both live in the **same** calendar. Nothing is
 hidden merely for starting at the same time — all four fields must match, or the first three
-under `ignore_location`.
+under `ignore_location` and `merge_locations`.
 
 If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
 this option is the cause.
@@ -897,6 +914,13 @@ this option is the cause.
 Daily occurrences are compared on their displayed dates, so a split multi-day event can have
 different contributing calendars on different days. In List and Column, a first-listed copy
 that is not split keeps its single row; lower-priority copies do not force it to split.
+:::
+
+::: details Merging Locations Within One Calendar or From a Private Calendar
+Under `merge_locations`, two events of one calendar that match merge as two calendars' copies
+do, so one booking per room lists every room. A [private calendar](#keeping-a-calendar-private)'s
+copy never merges with one that is not private, so its location never reaches another
+calendar's row.
 :::
 
 ### Labeling & Coloring Shared Events
@@ -1197,7 +1221,7 @@ They need not be removed: a card set to `view: column` or `view: grid` renders a
 whenever it is too narrow for even `min_days_to_show` under the default
 `min_days_fallback: list`, and they all apply again the moment it does. To control how much
 a side-by-side view shows while it stays side-by-side, use
-[`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
+[`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-on-narrow-cards)
 for column view, or the matching
 [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid.
 :::
@@ -1481,10 +1505,10 @@ never loads anything. The rest of the card follows the layout on screen:
   count from it.
 - When Columns or Grid falls back to List on a narrow card, it shows List's own count:
   `list.days_to_show` when it is set, otherwise the top-level value. So a Columns card set to
-  5 days in `column:` shows List's count when it turns into a list on a phone. Leave the
+  5 days in `column:` shows List's count when it turns into a list. Leave the
   column's own count unset if both should match.
-- Columns and Grid shed days on a narrow card from their own count, and Columns'
-  `min_days_to_show` defaults to its own count.
+- Columns and Grid shed days on a narrow card from their own count, Columns down to two and
+  Grid down to one unless `min_days_to_show` says otherwise.
 - `hide_when_empty` hides the card only when none of the layouts it can show has an event:
   every layout with the view switcher, otherwise the one set in `view` plus List as its
   fallback. A week with nothing on the grid does not hide a card whose list has something

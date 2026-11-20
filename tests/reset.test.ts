@@ -759,43 +759,45 @@ describe('what reset undoes', () => {
     await pressView(card, 'list');
     expect(lit(card)).toBe(true);
 
-    // Too narrow for columns, the configuration draws the list picked: nothing to undo shows.
-    await measure(card, 320);
+    // Too narrow for two columns, the configuration draws the list too, but the switcher marks
+    // the list picked, so there is still something to undo: the mark.
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
-    expect(lit(card)).toBe(false);
-
-    await measure(card, 1400);
     expect(lit(card)).toBe(true);
     await pressReset(card);
 
     expect(card.requestedView).toBe('column');
+    expect(drawnView(card)).toBe('list');
+    expect(lit(card)).toBe(false);
+
+    await measure(card, 1400);
     expect(drawnView(card)).toBe('column');
     expect(lit(card)).toBe(false);
   });
 
   /**
    * A layout picked with the switcher that the card is too narrow for falls back to the list.
-   * Where the configuration draws the list as well, nothing on screen differs from it, and a lit
-   * button would undo nothing visible, as for an expansion that does not show.
+   * The switcher still marks it, so the button stays lit even where the configuration draws the
+   * list as well, and a press moves the mark back.
    */
-  it('stays dark for a picked layout that falls back to the list the configuration draws', async () => {
+  it('stays lit for a picked layout that falls back to the list the configuration draws', async () => {
     const card = await mount({ days_to_show: 7 });
     await measure(card, 1400);
     await pressView(card, 'column');
     expect(drawnView(card)).toBe('column');
     expect(lit(card)).toBe(true);
 
-    await measure(card, 320);
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
     expect(card.requestedView).toBe('column');
-    expect(lit(card)).toBe(false);
-    // Dark means inert: the pick stays for when the card is wide enough again.
+    expect(lit(card)).toBe(true);
     await pressReset(card);
-    expect(card.requestedView).toBe('column');
+    expect(card.requestedView).toBe('list');
+    expect(lit(card)).toBe(false);
 
     await measure(card, 1400);
-    expect(drawnView(card)).toBe('column');
-    expect(lit(card)).toBe(true);
+    expect(drawnView(card)).toBe('list');
+    expect(lit(card)).toBe(false);
   });
 
   it('lights up for a picked layout that falls back where the configuration draws another', async () => {
@@ -803,7 +805,7 @@ describe('what reset undoes', () => {
     const card = await mount({ view: 'grid', days_to_show: 7 });
     await measure(card, 1400);
     await pressView(card, 'column');
-    await measure(card, 320);
+    await measure(card, 300);
 
     expect(drawnView(card)).toBe('list');
     expect(card.requestedView).toBe('column');
@@ -1015,27 +1017,22 @@ describe('the reset card action', () => {
     expect(resetButton(card)!.classList.contains('reset-done')).toBe(false);
   });
 
-  it('leaves a picked layout alone while it falls back to the list the configuration draws', async () => {
-    // The action follows the button: nothing on screen differs, so it keeps the pick for when
-    // the card is wide enough for it again.
+  it('clears a picked layout even while it falls back to the list the configuration draws', async () => {
+    // The action follows the button: the switcher marks the pick, so there is something to undo.
     const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' }, days_to_show: 7 };
     const card = await mount(overrides);
     const fingerprint = configFingerprint(configFor(overrides));
     await measure(card, 1400);
     await pressView(card, 'column');
-    await measure(card, 320);
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
-
-    const writes = watchChoiceWrites();
-    await tapCard(card);
-    expect(writes()).toEqual([]);
-    expect(readViewChoice(fingerprint)).toBe('column');
     expect(card.requestedView).toBe('column');
 
-    await measure(card, 1400);
-    expect(drawnView(card)).toBe('column');
     await tapCard(card);
     expect(readViewChoice(fingerprint)).toBeUndefined();
+    expect(card.requestedView).toBe('list');
+
+    await measure(card, 1400);
     expect(drawnView(card)).toBe('list');
   });
 

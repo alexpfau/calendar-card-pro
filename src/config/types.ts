@@ -33,8 +33,11 @@ export interface Config {
   show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
-  /** `true` matches copies on title, start, end and location; `ignore_location` on the first three. */
-  filter_duplicates: boolean | 'ignore_location';
+  /**
+   * `true` matches copies on title, start, end and location; `ignore_location` on the first
+   * three; `merge_locations` as `ignore_location`, listing every copy's location on the row kept.
+   */
+  filter_duplicates: boolean | 'ignore_location' | 'merge_locations';
   /**
    * Accent color for a row that `filter_duplicates` collapsed across two or more
    * **distinct** calendars, replacing the first-listed calendar's own accent.
@@ -391,7 +394,7 @@ export interface SharedViewOverrides {
 
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
-  filter_duplicates?: boolean | 'ignore_location';
+  filter_duplicates?: boolean | 'ignore_location' | 'merge_locations';
   duplicate_accent_color?: string;
 
   // Layout and spacing
@@ -1326,6 +1329,17 @@ export interface CalendarEventData {
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
   /**
+   * The locations of every copy `filter_duplicates: merge_locations` collapsed into this row,
+   * in the order of the entries that matched them, one per calendar and location, compared
+   * trimmed. Set when they say more than the copy kept: two or more, or one it lacks. Unlike
+   * `_mergedFrom`, a merge within one calendar sets it too.
+   *
+   * `location` stays the kept copy's own. The display copy draws the list in its place, each
+   * location through its own calendar's options, a text two calendars draw alike once
+   * (`mergedLocationText`).
+   */
+  _mergedLocations?: ReadonlyArray<MergedLocation>;
+  /**
    * Set on the copy of a row the search panel picked, while the card rings it
    * (`Search.ringIn`): every view's renderer binds its ring class from it, so the ring is drawn
    * by the template and no element comes or goes for it.
@@ -1371,6 +1385,16 @@ export type SourceEvent = Pick<
 export interface MergedCalendar {
   entityId: string;
   config?: EntityConfig;
+}
+
+/**
+ * One location `filter_duplicates: merge_locations` lists on a merged row: the text exactly as a
+ * calendar delivered it, with that calendar and the block whose copy carried it first. That
+ * block's `show_location` and location replacement decide how it is drawn, the replacement
+ * against this text, as on a row of the calendar's own.
+ */
+export interface MergedLocation extends MergedCalendar {
+  location: string;
 }
 
 /**

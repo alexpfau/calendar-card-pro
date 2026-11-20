@@ -311,30 +311,36 @@ describe('editor: the column block', () => {
     expect(toStoredConfig(config).column).toEqual({ show_empty_days: false });
   });
 
-  it('drops a column floor at or above days_to_show, which cannot reduce anything', () => {
-    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+  it('drops a column floor of two, the default, which changes nothing', () => {
+    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 2 } });
 
     expect(toStoredConfig(config)).not.toHaveProperty('column');
   });
 
+  it('keeps a column floor at days_to_show, which keeps every day', () => {
+    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 3 });
+  });
+
   /**
-   * The runtime parses this with `parseFloat` and clamps the result, so `'2junk'` is a
-   * floor of 2. Re-deriving the arithmetic with `Number()` would read it as `NaN`,
+   * The runtime parses this with `parseFloat` and clamps the result, so `'3junk'` is a
+   * floor of 3. Re-deriving the arithmetic with `Number()` would read it as `NaN`,
    * delete the line and silently change the rendered column count.
    */
   it('keeps a malformed floor the runtime still resolves to something', () => {
     const config = columnConfig({
-      days_to_show: 3,
-      column: { min_days_to_show: '2junk' as unknown as number },
+      days_to_show: 5,
+      column: { min_days_to_show: '3junk' as unknown as number },
     });
 
-    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: '2junk' });
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: '3junk' });
   });
 
-  it('keeps a column floor that genuinely reduces', () => {
-    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 2 } });
+  it('keeps a column floor that differs from the default', () => {
+    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 3 } });
 
-    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 2 });
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 3 });
   });
 
   /**
@@ -631,12 +637,17 @@ describe('editor: the column block as the form shows it', () => {
       day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       min_day_width: 140,
       min_days_fallback: 'list',
-      min_days_to_show: 3,
+      min_days_to_show: 2,
     });
   });
 
   it('resolves the dynamic default of the column floor', () => {
-    expect(columnFormBlock(columnConfig({ days_to_show: 5 })).min_days_to_show).toBe(5);
+    expect(columnFormBlock(columnConfig({ days_to_show: 5 })).min_days_to_show).toBe(2);
+    expect(columnFormBlock(columnConfig({ days_to_show: 1 })).min_days_to_show).toBe(1);
+    expect(
+      columnFormBlock(columnConfig({ days_to_show: 5, column: { min_days_fallback: 'cramp' } }))
+        .min_days_to_show,
+    ).toBe(5);
   });
 
   it('lets a configured override win over the projected default', () => {
@@ -1428,8 +1439,15 @@ describe('editor: the width table', () => {
     expect(widthTableRows(ctx(config))).toHaveLength(4);
   });
 
-  it('reduces to one band and a fallback at the default floor', () => {
+  it('describes the default floor of two, then the list', () => {
     const rows = widthTableRows(ctx(columnConfig({ days_to_show: 3 })));
+
+    expect(rows.map((row) => row.layout)).toEqual(['3 columns', '2 columns', 'as a list']);
+  });
+
+  it('reduces to one band and a fallback where every day is kept', () => {
+    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+    const rows = widthTableRows(ctx(config));
 
     expect(rows).toHaveLength(2);
     expect(rows[1].layout).toBe('as a list');
@@ -5010,6 +5028,10 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // A list option whose dropdown is exactly the union: `earliest_first` is the shipped
     // order rather than an absent value.
     event_order: { field: 'event_order' },
+    // Discovered once `merge_locations` gave the union a second string literal. Its two
+    // boolean members are the dropdown's `off` and `exact`, which a union of literals
+    // cannot spell, the way `show_week_numbers` spells `null` as `none`.
+    filter_duplicates: { field: 'filter_duplicates_mode', editorOnly: ['off', 'exact'] },
   };
 
   /**

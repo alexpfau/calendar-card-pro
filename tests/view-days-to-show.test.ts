@@ -278,8 +278,12 @@ describe('the layout fits each view by its own count', () => {
     });
   });
 
-  it('defaults column’s floor to column’s own count', () => {
-    expect(ViewConfig.resolveMinDaysToShow(config(), 'column')).toBe(5);
+  it('defaults column’s floor to two, and under cramp to column’s own count', () => {
+    expect(ViewConfig.resolveMinDaysToShow(config(), 'column')).toBe(2);
+
+    const cramped = config();
+    cramped.column = { ...cramped.column, min_days_fallback: 'cramp' };
+    expect(ViewConfig.resolveMinDaysToShow(cramped, 'column')).toBe(5);
   });
 
   it('measures the room a view needs from its own count', () => {

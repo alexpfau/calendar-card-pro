@@ -108,7 +108,7 @@ On Home Assistant 2026.5 or later, every screen shows a change as soon as Home A
 
 Grid sheds days one at a time as the card narrows, always keeping today, so the same card fits a narrow dashboard section. See [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
-The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `min_days_to_show: 3` lets Columns drop days on a narrower screen, down to three, before it turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-instead).
+The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `min_days_to_show: 3` lets Columns drop days on a narrower screen, down to three, before it turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
 `event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 

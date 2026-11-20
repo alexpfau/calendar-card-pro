@@ -1091,12 +1091,6 @@ export const cardStyles = css`
     background-color: var(--primary-background-color);
   }
 
-  /* Too narrow to draw: still there, so the bar keeps its shape, but plainly not on offer. */
-  .view-switcher-segment.unavailable {
-    opacity: 0.38;
-    cursor: default;
-  }
-
   /* The pictogram is drawn in a 48 by 32 frame; this keeps its proportions at icon size. */
   .view-switcher-icon {
     flex: none;
@@ -1574,7 +1568,7 @@ export const cardStyles = css`
      tap. Pressed applies everywhere, and only for as long as the press lasts. */
   @media (hover: hover) {
     .toolbar-button:hover,
-    .view-switcher-segment:not(.selected):not(.unavailable):hover,
+    .view-switcher-segment:not(.selected):hover,
     .date-navigation-segment:hover,
     .custom-menu-row:hover,
     .legend-menu-action:not(.unavailable):hover,
@@ -1584,7 +1578,7 @@ export const cardStyles = css`
   }
 
   .toolbar-button:active,
-  .view-switcher-segment:not(.selected):not(.unavailable):active,
+  .view-switcher-segment:not(.selected):active,
   .date-navigation-segment:active,
   .custom-menu-row:active,
   .legend-menu-action:not(.unavailable):active,

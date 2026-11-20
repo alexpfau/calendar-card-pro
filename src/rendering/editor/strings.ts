@@ -580,7 +580,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_day_width': 'Minimum Day Width',
   'column.min_days_to_show': 'Fewest Day Columns',
   'column.min_days_to_show.helper':
-    'Defaults to the number of days shown, so the card never drops a column.',
+    'Defaults to 2, or every day when the columns are kept narrower. At the number of days shown, the card never drops a column.',
   'column.min_days_fallback': 'When Too Narrow',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
@@ -1206,6 +1206,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'filter_duplicates_mode.option.off.label': 'Off',
   'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
   'filter_duplicates_mode.option.ignore_location.label': 'Same title, start and end',
+  'filter_duplicates_mode.option.merge_locations.label':
+    'Same title, start and end, listing every location',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.
@@ -1703,8 +1705,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Applicability --------------------------------------------------------
   //
   // Phrased as what the option *does* apply to, never as "this does nothing".
-  // A column card renders as a list on a narrow screen, so a list-only option on a
-  // column card is still the live control for what that card shows on a phone.
+  // A column card renders as a list on a card too narrow for its fewest columns, so a
+  // list-only option on a column card is still the live control for what that card shows there.
   'scope.column_list_only':
     'Applies to the list and column layouts, not to the time grid or the month.',
   'scope.column_list_only.split_multiday_events':

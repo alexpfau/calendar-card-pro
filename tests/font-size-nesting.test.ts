@@ -858,7 +858,7 @@ function headerToolbar(view: (typeof VIEWS)[number], config: Types.Config): Tool
         }
       : undefined,
     viewSwitcher: {
-      views: VIEWS.map((option) => ({ view: option, label: option, available: true })),
+      views: VIEWS.map((option) => ({ view: option, label: option })),
       selected: view,
       onSelect: () => undefined,
     },
