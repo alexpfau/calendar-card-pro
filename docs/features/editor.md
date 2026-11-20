@@ -870,9 +870,9 @@ The editor follows Home Assistant's language, or the card's own **Language** on
 [Events, Weather & Language](#events-weather-language), and keeps its layout when the words run long: labels wrap rather than being cut off.
 
 ::: info Editor Language Support
-The editor is available in **12 languages**, and the calendar itself in **39**. Besides English, nine are translated in full (German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), Korean in part, and British English carries only the strings where it differs from US English.
+The editor is available in **13 languages**, and the calendar itself in **39**. Besides English, eleven are translated in full (German, Estonian, Italian, Japanese, Korean, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), and British English carries only the strings where it differs from US English.
 
-A string not yet translated appears in English, so a partial translation is useful from its first string. If your language is not among the 12 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 39 supported languages, and contributions of further editor translations are very welcome; see [Translating the Editor](/contributing#translating-the-editor).
+A string not yet translated appears in English, so a partial translation is useful from its first string. If your language is not among the 13 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 39 supported languages, and contributions of further editor translations are very welcome; see [Translating the Editor](/contributing#translating-the-editor).
 :::
 
 ## 🗃️ Where Earlier Controls Went

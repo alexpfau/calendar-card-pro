@@ -270,6 +270,12 @@ describe('ranking', () => {
     expect(search([entry('At Home', 0)], 'at').length).toBe(1);
   });
 
+  it('finds a short Japanese word inside a label, which Japanese writes without spaces', () => {
+    expect(search([entry('日付の天気', 0)], '天気').length).toBe(1);
+    expect(search([entry('予定の色', 0)], '色').length).toBe(1);
+    expect(search([entry('リストの高さ', 0)], 'リスト').length).toBe(1);
+  });
+
   it('falls back to a label’s letters in order when no row holds the words', () => {
     expect(search(INDEX, 'tmfmt').map(({ entry: e }) => e.label)).toContain('Time Format');
     // Not for a word too short to mean anything as letters.
