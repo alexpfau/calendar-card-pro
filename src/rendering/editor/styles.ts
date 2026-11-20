@@ -5,6 +5,33 @@
 import { css } from 'lit';
 
 export default css`
+  /* Every ring the editor draws, focus first, in one color: the theme's primary mixed half and
+     half with its text color in oklab. The primary alone measures 3.26:1 on Home Assistant's light
+     card, 2.59:1 on the gray of a calendar's strip or the status bar and 2.98:1 on the chosen
+     layout row's tint. On the default theme the mix measures 6.7:1 on the gray and 7.7:1 on the
+     tint, and 5.4:1 or more against every background and divider this sheet paints, in light and
+     dark. It moves toward the color the theme sets its text in, so other primaries clear 3:1 on
+     the default themes as well: each of Material's nineteen hues does. A custom theme can still
+     fall below it, with a mid-gray text color and a light primary; no fixed mix clears every
+     theme, the text color alone included. With a gray text color, as every default theme has, the
+     ring keeps the primary's hue. Without color-mix(), Safari before 16.2, the ring is the text
+     color itself. A ring must not touch a color it does not clear, such as the primary of a frame
+     or the text color of a tooltip: tests/editor-focus-ring.test.ts holds the rings, the surfaces,
+     the frames the rings reach and the tooltips. */
+  :host {
+    --calendar-card-editor-focus-ring: var(--primary-text-color);
+  }
+
+  @supports (color: color-mix(in oklab, red, blue)) {
+    :host {
+      --calendar-card-editor-focus-ring: color-mix(
+        in oklab,
+        var(--primary-color) 50%,
+        var(--primary-text-color)
+      );
+    }
+  }
+
   .card-config {
     display: flex;
     flex-direction: column;
@@ -127,7 +154,7 @@ export default css`
   }
 
   .quick-setup-banner:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -2px;
   }
 
@@ -198,7 +225,7 @@ export default css`
   }
 
   .story-tile:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -2px;
   }
 
@@ -517,7 +544,7 @@ export default css`
 
   .text-button:not(.filled, .add-action):focus-visible::before,
   .strip-button:focus-visible::before {
-    box-shadow: 0 0 0 2px var(--primary-color);
+    box-shadow: 0 0 0 2px var(--calendar-card-editor-focus-ring);
   }
 
   /* A filled button keeps its color under the pointer, a shade darker. */
@@ -597,7 +624,7 @@ export default css`
   .wizard-title:focus-visible,
   .display-choice:has(input:focus-visible),
   .chip-choice:has(input:focus-visible) {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 2px;
   }
 
@@ -848,9 +875,11 @@ export default css`
     background: var(--secondary-background-color);
   }
 
+  /* Drawn 4px in, so the row's own fill lies on both sides of the ring: at 2px it touched the
+     chosen row's frame, which is the primary color itself. */
   .layout-open:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
+    outline-offset: -4px;
   }
 
   .layout-open > .display-text {
@@ -1080,7 +1109,7 @@ export default css`
   }
 
   .menu-item:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -2px;
   }
 
@@ -1608,7 +1637,7 @@ export default css`
   }
 
   .setting-toggle:focus-visible::after {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 2px;
   }
 
@@ -1699,7 +1728,7 @@ export default css`
   }
 
   .setting-target:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -2px;
   }
 
@@ -1912,7 +1941,7 @@ export default css`
 
   .cal-block .cal-group.grabbed {
     border-radius: 8px;
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -2px;
   }
 
@@ -1941,7 +1970,7 @@ export default css`
   .drag-handle:hover,
   .cal-body:focus-visible,
   .cal-filter:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 2px;
   }
 
@@ -1972,7 +2001,7 @@ export default css`
   }
 
   .drag-handle:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: -4px;
   }
 
@@ -2038,7 +2067,7 @@ export default css`
   .chip:focus-visible,
   .chip-group:focus-visible,
   .qualifier:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 2px;
   }
 
@@ -2143,9 +2172,11 @@ export default css`
     border: none;
   }
 
+  /* The border and the shadow beside it draw one 2px ring, so both take the ring's color: a
+     primary border beside it would touch the ring with a color it does not clear. */
   .button-row.grabbed {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 1px var(--primary-color);
+    border-color: var(--calendar-card-editor-focus-ring);
+    box-shadow: 0 0 0 1px var(--calendar-card-editor-focus-ring);
   }
 
   .button-body {
@@ -2715,7 +2746,7 @@ export default css`
   }
 
   .jumped {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 4px;
   }
 
@@ -2750,7 +2781,7 @@ export default css`
   .color-toggle:focus-visible,
   .color-row:has(input:focus-visible),
   .color-swatch:has(input:focus-visible) {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
     outline-offset: 2px;
   }
 
@@ -2876,9 +2907,11 @@ export default css`
     outline-offset: 2px;
   }
 
+  /* Clear of a focused swatch's ring, which reaches 4px past it: the tip is the text color, which
+     the ring does not clear. */
   .color-tip {
     position: absolute;
-    bottom: calc(100% + 2px);
+    bottom: calc(100% + 6px);
     z-index: 1;
     display: none;
     padding: 2px 8px;
@@ -2889,8 +2922,12 @@ export default css`
     white-space: nowrap;
   }
 
-  .color-swatch:hover .color-tip,
-  .color-swatch:active .color-tip,
+  /* A swatch under the pointer names itself only while the keyboard is neither in the color control
+     nor on what holds it: the tip of a hovered swatch would lie over the ring of a focused
+     neighbor, of the row above the swatches or of the field around them, which Undo focuses, in
+     the text color the ring does not clear. */
+  .color-control:not(:has(:focus-visible), :focus-visible *) .color-swatch:hover .color-tip,
+  .color-control:not(:has(:focus-visible), :focus-visible *) .color-swatch:active .color-tip,
   .color-swatch:has(input:focus-visible) .color-tip {
     display: block;
   }
