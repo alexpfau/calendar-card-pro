@@ -147,7 +147,9 @@ export const GLOSSARY_TERMS = [
       sk: 'Entita',
       sv: 'Entitet',
     },
-    rejected: {},
+    rejected: {
+      nb: ['Værenhet'],
+    },
   },
   {
     name: 'weather',
@@ -292,7 +294,9 @@ export const GLOSSARY_TERMS = [
       sk: 'Rozloženie',
       sv: 'Layout',
     },
-    rejected: {},
+    rejected: {
+      nb: ['oppsett'],
+    },
   },
   {
     name: 'columns',
