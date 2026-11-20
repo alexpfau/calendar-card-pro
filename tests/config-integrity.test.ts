@@ -110,6 +110,8 @@ describe('a measured column fit survives an unrelated config edit', () => {
     entities: [{ entity: 'calendar.one' }],
     view: 'column',
     days_to_show: 7,
+    // Every day kept, so the band is the one between seven columns and the list.
+    column: { min_days_to_show: 7 },
   };
 
   /** A card that has measured a width inside the hysteresis band. */

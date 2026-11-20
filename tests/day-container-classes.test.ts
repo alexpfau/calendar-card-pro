@@ -599,9 +599,9 @@ describe('theming.md card-mod selectors', () => {
             },
             viewSwitcher: {
               views: [
-                { view: 'list', label: 'List', available: true },
-                { view: 'column', label: 'Columns', available: false },
-                { view: 'grid', label: 'Grid', available: true },
+                { view: 'list', label: 'List' },
+                { view: 'column', label: 'Columns' },
+                { view: 'grid', label: 'Grid' },
               ],
               selected: view,
               onSelect: noop,

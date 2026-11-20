@@ -3139,7 +3139,9 @@ describe('the toolbar controls', () => {
 
   it('paint hover and press from those properties, and never tint the selected view', () => {
     const hover = atRuleBlock('@media (hover: hover)');
-    expect(hover).toMatch(/\.view-switcher-segment:not\(\.selected\):not\(\.unavailable\):hover/);
+    expect(hover).toMatch(/\.view-switcher-segment:not\(\.selected\):hover/);
+    // Every segment is pressable at any width, so none is ever drawn as unavailable.
+    expect(cardStyles.cssText).not.toMatch(/\.view-switcher-segment[^,{]*\.unavailable/);
     expect(bodyIn(hover, '.toolbar-month-button:hover')).toBe(
       'background: var(--calendar-card-toolbar-fill-hover);',
     );

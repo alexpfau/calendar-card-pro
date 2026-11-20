@@ -846,10 +846,10 @@ describe('column view config surface', () => {
     // and an undefined reaching the stylesheet.
     //
     // One key is exempt, and the exemption is named rather than implied:
-    // `min_days_to_show` defaults to `days_to_show`, which is not a constant and so
-    // cannot live in a static table. It is covered by its own assertion below, so the
-    // invariant "every column-only key has a default" still holds end to end -- what
-    // is relaxed is only *where* that default is written down.
+    // `min_days_to_show` defaults to two, or to `days_to_show` under cramp, which is not a
+    // constant and so cannot live in a static table. It is covered by its own assertion
+    // below, so the invariant "every column-only key has a default" still holds end to end
+    // -- what is relaxed is only *where* that default is written down.
     const DYNAMIC_DEFAULT_KEYS = ['min_days_to_show'];
 
     for (const key of COLUMN_ONLY_KEYS) {
@@ -858,12 +858,19 @@ describe('column view config surface', () => {
     }
   });
 
-  it('defaults min_days_to_show to days_to_show', () => {
+  it('defaults min_days_to_show to two, or to days_to_show under cramp', () => {
     // The other half of the exemption above. Without this the dynamic default would
     // be unasserted, and the loop's `continue` would be a hole rather than a
     // redirection.
-    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(7);
-    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 3 })).toBe(3);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(2);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 1 })).toBe(1);
+    expect(
+      resolveMinDaysToShow({
+        ...DEFAULT_CONFIG,
+        days_to_show: 7,
+        column: { min_days_fallback: 'cramp' },
+      }),
+    ).toBe(7);
   });
 
   it('pins each column-only default to its literal value', () => {
@@ -1357,11 +1364,53 @@ describe('computeColumnThresholdPxFor', () => {
 });
 
 describe('resolveMinDaysToShow', () => {
-  it('defaults to days_to_show, collapsing the reduction range to a point', () => {
+  it('defaults Columns to two columns, never more than its own days', () => {
+    const config = buildConfig();
+
+    for (const [days, floor] of [
+      [7, 2],
+      [3, 2],
+      [2, 2],
+      [1, 1],
+    ]) {
+      config.days_to_show = days;
+      expect(resolveMinDaysToShow(config), `days_to_show: ${days}`).toBe(floor);
+    }
+  });
+
+  it('reads the two against the layout’s own days, not the card’s', () => {
+    const config = buildConfig();
+    config.days_to_show = 1;
+    config.column = { days_to_show: 7 };
+
+    expect(resolveMinDaysToShow(config)).toBe(2);
+  });
+
+  it('keeps every day by default where the card squeezes rather than falls back', () => {
+    // "Keep the columns, narrower" kept every configured day before the default changed, and
+    // still does: under cramp an unset floor is the layout's own count.
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_fallback: 'cramp' };
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('keeps a floor written as the day count, the old default', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 7 };
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('leaves Grid’s default at one, squeezing or not', () => {
     const config = buildConfig();
     config.days_to_show = 7;
 
-    expect(resolveMinDaysToShow(config)).toBe(7);
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
+    config.time_grid = { min_days_fallback: 'cramp' };
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
   });
 
   it('reads a configured floor out of the column block', () => {
@@ -1400,7 +1449,7 @@ describe('resolveMinDaysToShow', () => {
     expect(resolveMinDaysToShow(config)).toBe(3);
   });
 
-  it('falls back to days_to_show for a value that is not a number', () => {
+  it('falls back to the default floor for a value that is not a number', () => {
     // The column block is raw user input and never passes through normalizeConfig's
     // numeric sweep, so a string reaches this function intact.
     const config = buildConfig();
@@ -1408,7 +1457,7 @@ describe('resolveMinDaysToShow', () => {
 
     for (const value of ['banana', '', Number.NaN, Number.POSITIVE_INFINITY]) {
       config.column = { min_days_to_show: value as unknown as number };
-      expect(resolveMinDaysToShow(config)).toBe(7);
+      expect(resolveMinDaysToShow(config)).toBe(2);
     }
   });
 
@@ -1447,13 +1496,13 @@ describe('resolveMinDaysFallback', () => {
   });
 });
 
-describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults', () => {
+describe('resolveColumnFit — equivalence with resolveEffectiveView, every day kept', () => {
   // The load-bearing test of the whole density framework.
   //
-  // min_days_to_show defaults to days_to_show, at which the staircase has exactly one
-  // step and must be indistinguishable from the boundary it replaces. Anything else is
-  // a silent behavioral change shipped to every existing column-view user, none of
-  // whom asked for the feature.
+  // With min_days_to_show at days_to_show the staircase has exactly one step and must be
+  // indistinguishable from the boundary it replaces. That was the default until v6, when
+  // Columns began shedding to two; it is still how a card keeps every day, so it is still
+  // pinned.
   //
   // Swept rather than spot-checked, and swept across both hysteresis states, because
   // the two functions apply the band in structurally different places -- one adjusts
@@ -1468,6 +1517,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
     it(`agrees at every sampled width for days_to_show: ${days}`, () => {
       const config = buildConfig();
       config.days_to_show = days;
+      config.column = { min_days_to_show: days };
       const threshold = computeColumnThresholdPx(config);
 
       for (const width of widthsAround(threshold)) {
@@ -1490,6 +1540,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
   it('renders every configured column whenever it renders columns at all', () => {
     const config = buildConfig();
     config.days_to_show = 7;
+    config.column = { min_days_to_show: 7 };
     const threshold = computeColumnThresholdPx(config);
 
     for (const width of widthsAround(threshold)) {
@@ -1515,6 +1566,23 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
 });
 
 describe('resolveColumnFit — reduction', () => {
+  it('sheds down to two columns by default, then falls back to the list', () => {
+    // Two columns need 140 * 2 + 32 + 10 = 322px, entered at 322 + 16.
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    for (const [width, fit] of [
+      [2000, { view: 'column', columns: 7 }],
+      [637, { view: 'column', columns: 3 }],
+      [487, { view: 'column', columns: 2 }],
+      [390, { view: 'column', columns: 2 }],
+      [338, { view: 'column', columns: 2 }],
+      [337, { view: 'list', columns: 0 }],
+    ] as const) {
+      expect(resolveColumnFit('column', config, width, null), `${width}px`).toEqual(fit);
+    }
+  });
+
   // The worked example from the density spec: 7 configured days, floor of 3.
   //
   // Thresholds at defaults (140 wide, 10 gutter, 32 padding) are
@@ -2026,7 +2094,14 @@ describe('resolveColumnFitIfPicked', () => {
       days: 7,
       floor: 7,
     },
-    { name: 'seven columns', view: 'column', overrides: {}, days: 7, floor: 7 },
+    {
+      name: 'seven columns, every day kept',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 7 } },
+      days: 7,
+      floor: 7,
+    },
+    { name: 'seven columns by default', view: 'column', overrides: {}, days: 7, floor: 2 },
     {
       name: 'seven columns down to three',
       view: 'column',
