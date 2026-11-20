@@ -65,13 +65,13 @@ function allDay(entityId: string, location: string | undefined): Types.CalendarE
   return { ...raw, _source: raw, _entityId: entityId };
 }
 
-/** The rows a configuration draws, matched and grouped as the card does, in the given view. */
-function drawn(
+/** The days a configuration draws, matched and grouped as the card does, in the given view. */
+function grouped(
   events: Types.CalendarEventData[],
   filterDuplicates: unknown,
   extra: Partial<Types.Config> = {},
   view: Types.EffectiveView = 'list',
-): Types.CalendarEventData[] {
+): { days: Types.EventsByDay[]; effective: Types.Config } {
   const config = buildConfig({
     entities: [ANNA, BEN, LEO],
     days_to_show: 7,
@@ -83,8 +83,13 @@ function drawn(
   // options and privacy decide its location.
   const matched = EventUtils.processEvents(events, config);
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
-  return EventUtils.groupEventsByDay(matched, effective, false, 'en', view)
-    .flatMap((day) => day.events)
+  return { days: EventUtils.groupEventsByDay(matched, effective, false, 'en', view), effective };
+}
+
+/** The rows a configuration draws, in the given view. */
+function drawn(...args: Parameters<typeof grouped>): Types.CalendarEventData[] {
+  return grouped(...args)
+    .days.flatMap((day) => day.events)
     .filter((event) => !event._isEmptyDay);
 }
 
@@ -204,25 +209,47 @@ describe('filter_duplicates: merge_locations', () => {
     }
   });
 
-  it('merges a multi-day banner in grid view the way it merges a row', () => {
-    const banner = (entityId: string, location: string): Types.CalendarEventData => ({
-      summary: 'Conference',
-      start: { dateTime: '2026-06-17T08:00:00.000Z' },
-      end: { dateTime: '2026-06-19T18:00:00.000Z' },
-      location,
-      _entityId: entityId,
-    });
-    const rows = drawn(
-      [banner(ANNA, 'Hall 1'), banner(BEN, 'Hall 2')],
-      DUPLICATES_MERGE_LOCATIONS,
-      { multiday_banners: true, time_grid: { show_location: true } } as Partial<Types.Config>,
-      'grid',
-    );
+  it.each([
+    ['both calendars', {}],
+    // The banner is settled per event before the merge (`resolveGridBanners`), so a calendar
+    // that draws no banners of its own still adds its location on every day. A banner draws no
+    // location, but its rows carry it to search.
+    ['the kept calendar not', { entities: [{ entity: ANNA, multiday_banners: false }, BEN] }],
+    ['the dropped calendar not', { entities: [ANNA, { entity: BEN, multiday_banners: false }] }],
+  ] as const)(
+    'merges a multi-day banner in grid view on every day, banners from %s',
+    (_, extra) => {
+      const banner = (entityId: string, location: string): Types.CalendarEventData => ({
+        summary: 'Conference',
+        start: { dateTime: '2026-06-17T08:00:00.000Z' },
+        end: { dateTime: '2026-06-19T18:00:00.000Z' },
+        location,
+        _entityId: entityId,
+      });
+      const { days } = grouped(
+        [banner(ANNA, 'Hall 1'), banner(BEN, 'Hall 2')],
+        DUPLICATES_MERGE_LOCATIONS,
+        {
+          multiday_banners: true,
+          time_grid: { show_location: true },
+          ...extra,
+        } as Partial<Types.Config>,
+        'grid',
+      );
 
-    expect(rows.length).toBeGreaterThan(0);
-    expect(new Set(rows.map((event) => event.location))).toEqual(new Set(['Hall 1 · Hall 2']));
-    expect(rows.every((event) => event._gridBanner)).toBe(true);
-  });
+      const byDay = days
+        .map((day) => [
+          new Date(day.timestamp).toISOString().slice(0, 10),
+          day.events.filter((event) => !event._isEmptyDay).map((event) => event.location),
+        ])
+        .filter(([, locations]) => locations.length > 0);
+      expect(byDay).toEqual([
+        ['2026-06-17', ['Hall 1 · Hall 2']],
+        ['2026-06-18', ['Hall 1 · Hall 2']],
+        ['2026-06-19', ['Hall 1 · Hall 2']],
+      ]);
+    },
+  );
 
   it('draws the merged location on a grid block', () => {
     const config = buildConfig({
@@ -294,6 +321,46 @@ describe('filter_duplicates: merge_locations', () => {
     expect(
       locations(pair, 'merge_locations', { entities: [ANNA, { entity: BEN, ...mask }] } as never),
     ).toEqual(['Room A · Home']);
+  });
+
+  it('rewrites each location as its calendar wrote it, spaces included', () => {
+    const pair = [timed(ANNA, 'Room A'), timed(BEN, ' Secret Hall ')];
+    const mask = {
+      replace_field: 'location',
+      replace_pattern: '^ Secret Hall $',
+      replace_with: 'Home',
+    };
+    const entities = [ANNA, { entity: BEN, ...mask }];
+
+    // Ben's own row masks it, so the merged row must too.
+    expect(locations(pair, false, { entities } as never)).toEqual(['Room A', 'Home']);
+    expect(locations(pair, 'merge_locations', { entities } as never)).toEqual(['Room A · Home']);
+  });
+
+  it('lists the locations in the order of the entries that matched them', () => {
+    const atRoom = (room: string) => ({ entity: ANNA, filter_field: 'location', allowlist: room });
+    const three = [timed(ANNA, 'Room A'), timed(BEN, 'Room B'), timed(ANNA, 'Room C')];
+
+    expect(
+      locations(three, 'merge_locations', {
+        entities: [atRoom('Room A'), BEN, atRoom('Room C')],
+      } as never),
+    ).toEqual(['Room A · Room B · Room C']);
+
+    // A card-level edit rebuilds the entries (`normalizeEntities`) and leaves the events matched
+    // to the old ones, so the order is found by value as well.
+    const options = {
+      entities: [atRoom('Room A'), BEN, atRoom('Room C')],
+      days_to_show: 7,
+      filter_duplicates: DUPLICATES_MERGE_LOCATIONS,
+    } as Partial<Types.Config>;
+    const matched = EventUtils.processEvents(three, buildConfig(options));
+    const edited = buildConfig({ ...options, title: 'Edited' });
+    expect(
+      EventUtils.groupEventsByDay(matched, edited, false, 'en', 'list')
+        .flatMap((day) => day.events)
+        .map((event) => event.location),
+    ).toEqual(['Room A · Room B · Room C']);
   });
 
   it('lists each location only where its own calendar shows locations', () => {

@@ -1330,9 +1330,9 @@ export interface CalendarEventData {
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
   /**
    * The locations of every copy `filter_duplicates: merge_locations` collapsed into this row,
-   * trimmed and in `entities` order, one per calendar and location. Set when they say more than
-   * the copy kept: two or more, or one it lacks. Unlike `_mergedFrom`, a merge within one
-   * calendar sets it too.
+   * in the order of the entries that matched them, one per calendar and location, compared
+   * trimmed. Set when they say more than the copy kept: two or more, or one it lacks. Unlike
+   * `_mergedFrom`, a merge within one calendar sets it too.
    *
    * `location` stays the kept copy's own. The display copy draws the list in its place, each
    * location through its own calendar's options, a text two calendars draw alike once
@@ -1388,9 +1388,10 @@ export interface MergedCalendar {
 }
 
 /**
- * One location `filter_duplicates: merge_locations` lists on a merged row: the text as a
- * calendar delivered it, trimmed, with that calendar and the block whose copy carried it first.
- * That block's `show_location` and location replacement decide how it is drawn.
+ * One location `filter_duplicates: merge_locations` lists on a merged row: the text exactly as a
+ * calendar delivered it, with that calendar and the block whose copy carried it first. That
+ * block's `show_location` and location replacement decide how it is drawn, the replacement
+ * against this text, as on a row of the calendar's own.
  */
 export interface MergedLocation extends MergedCalendar {
   location: string;

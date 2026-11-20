@@ -1214,17 +1214,19 @@ function deduplicateEvents(
         contributing.push({ entityId, config: event._matchedConfig });
       }
 
-      // Every copy's location, the dropped ones included, for the same reason and in the
-      // same order as the calendars above: one entry per calendar and location, from the block
-      // whose copy carried it first, as `_mergedFrom` takes one per calendar. Two calendars
-      // sharing a location each keep theirs, since each draws it by its own options.
-      const location = event.location?.trim();
-      if (mergeLocations && location) {
+      // Every copy's location, the dropped ones included, for the same reason as the calendars
+      // above: one entry per calendar and location, from the block whose copy carried it first,
+      // as `_mergedFrom` takes one per calendar. Two calendars sharing a location each keep
+      // theirs, since each draws it by its own options. Compared trimmed, and kept as the
+      // calendar wrote it, since its replacement pattern is written against that text.
+      const location = event.location ?? '';
+      const key = location.trim();
+      if (mergeLocations && key) {
         const part = { entityId, config: event._matchedConfig, location };
         const listed = locations.get(signature);
         if (!listed) locations.set(signature, [part]);
         else if (
-          !listed.some((known) => known.entityId === entityId && known.location === location)
+          !listed.some((known) => known.entityId === entityId && known.location.trim() === key)
         )
           listed.push(part);
       }
@@ -1234,6 +1236,15 @@ function deduplicateEvents(
       seen.add(signature);
       keep.add(event);
     }
+  }
+
+  // In the order of the entries that matched them. The loop above takes every block of a
+  // calendar at its first entry, so a block listed after another calendar's would otherwise
+  // jump ahead of it. A stable sort, so a block's own locations keep their order.
+  for (const listed of locations.values()) {
+    if (listed.length < 2) continue;
+    const at = new Map(listed.map((part) => [part, entryPosition(part, config)]));
+    listed.sort((a, b) => at.get(a)! - at.get(b)!);
   }
 
   const survivors: Types.CalendarEventData[] = [];
@@ -1253,7 +1264,8 @@ function deduplicateEvents(
     // of one calendar, one per room, list both rooms too.
     const listed = locations.get(signature);
     const listsMore =
-      listed !== undefined && (listed.length > 1 || listed[0].location !== event.location?.trim());
+      listed !== undefined &&
+      (listed.length > 1 || listed[0].location.trim() !== (event.location ?? '').trim());
     const places = listsMore ? { _mergedLocations: listed } : undefined;
     // A later copy kept over an earlier one of its own calendar, as a calendar listed twice can
     // keep, is drawn where the earlier one arrived (`groupEventsByDay`).
@@ -1265,6 +1277,27 @@ function deduplicateEvents(
   }
 
   return survivors;
+}
+
+/**
+ * Where the entry a merged location came from sits in `entities`: the block it matched, found as
+ * `groupEventsByDay`'s compact limits find it, by reference, else by value, since a card-level
+ * edit can rebuild the entries without reprocessing the events, else its calendar's first entry.
+ *
+ * @param part A location `deduplicateEvents` collected
+ * @param config Card configuration
+ * @returns The entry's index
+ */
+function entryPosition(part: Types.MergedLocation, config: Types.Config): number {
+  const byReference = part.config ? config.entities.indexOf(part.config) : -1;
+  if (byReference !== -1) return byReference;
+  const written = part.config && JSON.stringify(part.config);
+  const byValue = written
+    ? config.entities.findIndex(
+        (entry) => typeof entry === 'object' && JSON.stringify(entry) === written,
+      )
+    : -1;
+  return byValue !== -1 ? byValue : getEntityIndex(part.entityId, config);
 }
 
 //-----------------------------------------------------------------------------
