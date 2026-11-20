@@ -1516,9 +1516,23 @@ function readColumnRows() {
  * therefore have no `COLUMN_DEFAULTS` entry to reconcile against.
  *
  * Listing dynamic rows here keeps every documented row either checked against code or
- * named as an exception.
+ * named as an exception. `min_days_to_show` is documented as its usual value,
+ * `COLUMN_MIN_DAYS_DEFAULT`, read from the source so the two cannot drift; the row's
+ * description says what changes it.
  */
-const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', '`days_to_show`']]);
+function readColumnMinDaysDefault() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const m = src.match(/^export const COLUMN_MIN_DAYS_DEFAULT = (\d+);$/m);
+  if (!m) {
+    console.error(
+      `\n✗ FATAL: could not locate COLUMN_MIN_DAYS_DEFAULT in ${relative(ROOT, VIEW_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+  return `\`${m[1]}\``;
+}
+
+const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', readColumnMinDaysDefault()]]);
 
 function checkColumnDefaults(columnDefaults, columnRows) {
   for (const [key, expected] of DYNAMIC_COLUMN_DEFAULTS) {

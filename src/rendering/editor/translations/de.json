@@ -376,7 +376,7 @@
   "column.density.helper": "Wie schmal eine Spalte werden darf, bevor die Karte eine Spalte aufgibt, und was sie tut, wenn keine mehr übrig ist.",
   "column.min_day_width": "Minimale Tagesbreite",
   "column.min_days_to_show": "Minimale Spaltenanzahl",
-  "column.min_days_to_show.helper": "Standardmäßig entspricht der Wert der Anzahl angezeigter Tage, sodass die Karte nie eine Spalte weglässt.",
+  "column.min_days_to_show.helper": "Standard ist 2, oder alle Tage, wenn die Spalten schmaler behalten werden. Entspricht der Wert der Anzahl angezeigter Tage, lässt die Karte nie eine Spalte weg.",
   "column.min_days_fallback": "Wenn es zu schmal wird",
   "column.min_days_fallback.option.list.label": "Auf Liste zurückfallen",
   "column.min_days_fallback.option.cramp.label": "Spalten behalten, schmaler",

@@ -253,8 +253,9 @@ const COLUMN_BLOCK: StrippedBlock = {
   overrideKeys: ViewConfig.COLUMN_OVERRIDE_KEYS,
   defaultOverrides: ViewConfig.COLUMN_DEFAULT_OVERRIDES,
   keepsDivergentOverrides: false,
-  // Decided by asking the resolver: the floor's default is dynamic, `days_to_show`, and it
-  // parses, floors and clamps, so a line is redundant only where removing it resolves the same.
+  // Decided by asking the resolver: the floor's default is dynamic (two, or every day under
+  // cramp, never more than `days_to_show`), and it parses, floors and clamps, so a line is
+  // redundant only where removing it resolves the same.
   special: (config, key, value, held) => {
     if (key !== 'min_days_to_show') return undefined;
     const kept = held && readsAsWritten(value, ViewConfig.resolveMinDaysToShow(config));

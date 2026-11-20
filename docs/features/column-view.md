@@ -20,45 +20,16 @@ In the [visual editor](/features/editor#options-for-the-selected-view), the circ
 row under **Layouts** chooses the layout the card opens with. Select the **Columns** row itself to
 edit column view's own values, including its column-only options, without changing the card.
 
-Column view is responsive by design: a card too narrow to give every configured day a readable
-column falls back to the list layout. **A card configured `view: column` therefore renders as a
-list on a narrow dashboard or a phone** — both layouts are live for the same card, and both are
-worth configuring. A card can instead
-[drop columns one at a time](#showing-fewer-columns-instead).
+Column view is responsive by design: on a card too narrow for every configured day it draws
+fewer columns, down to two, keeping today, and only a card too narrow for two falls back to the
+list layout. A seven-day card therefore shows the whole week on a wide tablet and two days at a
+time on a phone; see [Showing Fewer Columns on Narrow Cards](#showing-fewer-columns-on-narrow-cards).
 
-## 📱 Falling Back to the List Layout
+## 📱 Showing Fewer Columns on Narrow Cards
 
-Columns stop being readable below a certain width. `min_day_width` sets that floor in
-pixels, `140` by default. When the card is too narrow to give every day that much room, it
-renders as a list instead.
-
-```yaml
-type: custom:calendar-card-pro
-entities:
-  - calendar.family
-view: column
-days_to_show: 5
-column:
-  min_day_width: 170
-```
-
-Raising it makes the card give up the column layout sooner, which is what you want when
-your events have long titles. Lowering it keeps columns on narrower cards, at the cost of
-more wrapping.
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_list.png" alt="A seven-day column card on a phone, rendered as a list"><br>
-
-That is a seven-day column card on a phone, too narrow for its columns, so it renders as a list. Its `column:` block hides locations and tightens the type for narrow columns. Three things change with the layout, all of them defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
-
-By default the number of columns follows the column layout's `days_to_show` exactly — the
-top-level value, or its own in `column:` — and a card too narrow for all of them switches to
-the list layout. That list shows List's own `days_to_show`; see
-[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
-
-## 🔢 Showing Fewer Columns Instead
-
-`min_days_to_show` lets a narrow card drop days one at a time instead of abandoning the column
-layout outright. It is the fewest columns the card may shrink to.
+A card too narrow for all its days drops columns one at a time, down to `min_days_to_show`, which
+is two unless you set it, so a week stays side by side on a tablet and still reads as columns on a
+phone.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
 
@@ -76,7 +47,9 @@ column:
 ```
 
 That card shows seven columns when there is room, then six, five, four and three as it
-narrows, and only falls back to the list layout once even three columns will not fit.
+narrows, and only falls back to the list layout once even three columns will not fit. Set
+`min_days_to_show` to the number of days shown to keep every day: the card then draws all of
+them as columns, or as a list where they do not fit.
 
 The columns that stay always include today. They start at today and run forward, reaching
 back to earlier days only when the range ends before the columns are full. So a week that
@@ -84,12 +57,38 @@ starts on Monday, three columns wide on a Wednesday, shows Wednesday to Friday; 
 it shows Friday to Sunday. A range that lies entirely ahead keeps its first days, and one
 that lies entirely behind keeps its last. The columns move on at midnight.
 
-::: warning Days You Configured Can Disappear
-A card showing four of seven days looks exactly like a card configured for four days — there
-is no marker saying days were dropped. So `min_days_to_show` defaults to `days_to_show`, which
-switches the behavior off: reducing columns is opt-in, not something that happens to a config
-you already had.
+::: warning Dropped Days Are Not Marked
+A card showing two of seven days looks exactly like a card configured for two days: nothing
+says days were dropped. With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates),
+the arrows and a swipe page through them by the days drawn; without it, the dropped days cannot
+be reached in Columns. To see every day, set `min_days_to_show` to the number of days shown.
 :::
+
+## 📋 Falling Back to the List Layout
+
+Below `min_days_to_show` columns the card renders as a list instead. `min_day_width` sets how
+narrow a column may get, in pixels, `140` by default.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_list.png" alt="A seven-day column card on a phone, rendered as a list"><br>
+
+That is a seven-day column card that keeps every day (`min_days_to_show: 7`), on a phone too narrow for seven columns, so it renders as a list. Its `column:` block hides locations and tightens the type for narrow columns. Three things change with the layout, all of them defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: column
+days_to_show: 5
+column:
+  min_day_width: 170
+```
+
+Raising `min_day_width` makes the card drop columns, and give up the column layout, sooner,
+which is what you want when your events have long titles. Lowering it keeps more columns on
+narrower cards, at the cost of more wrapping.
+
+The list shows List's own `days_to_show`, not the column layout's; see
+[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 
 ## ⚠️ When Even the Fewest Columns Will Not Fit
 
@@ -105,7 +104,8 @@ column:
 
 Use `cramp` when the column layout matters more to you than legibility at extreme widths —
 on a phone-width card, for example, where two cramped columns still beat a long list. It can
-produce a card too cramped to read; that is the trade.
+produce a card too cramped to read; that is the trade. With `cramp` and no `min_days_to_show`,
+the card keeps every day and narrows them all.
 
 **→ [Column-Only Options in the configuration reference](/reference/configuration#column-only-options)** — full option table.
 
@@ -229,7 +229,7 @@ column's date keeps the tile's height so the headers stay level.
 
 **`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
 belong to compact mode, which caps the whole card rather than each column. Column density is
-controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-instead)
+controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-on-narrow-cards)
 instead.
 
 **`event_order`** turns a list upside down for a calendar used as a log. Columns keep time

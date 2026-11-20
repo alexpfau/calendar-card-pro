@@ -163,15 +163,13 @@ export interface ViewOption {
   view: Types.EffectiveView;
   /** The view's name in the card's language. */
   label: string;
-  /** False when the card is too narrow to draw it; the segment is shown but inert. */
-  available: boolean;
 }
 
 /** What the card hands the wrapper when it should draw the view switcher. */
 export interface ViewSwitcher {
   /** Every view, in the switcher's order. */
   views: ReadonlyArray<ViewOption>;
-  /** The view marked as current. */
+  /** The view marked as current: the one asked for, which a narrow card may draw as a list. */
   selected: Types.EffectiveView;
   onSelect: (view: Types.EffectiveView) => void;
 }
@@ -857,10 +855,9 @@ function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
  * Render the view switcher: one segment per view, the current one raised.
  *
  * Native buttons in a group, each a toggle with `aria-pressed`, so every segment is its own
- * tab stop and Enter and Space work without any key handling of ours. A view the card is
- * too narrow to draw stays in place, dimmed and `aria-disabled`, rather than disappearing:
- * the bar keeps its shape as a tablet turns, and a screen reader still learns the view
- * exists. Pressing it does nothing.
+ * tab stop and Enter and Space work without any key handling of ours. Every view stays
+ * pressable at any width: one the card is too narrow for is drawn as a list while it stays
+ * marked, so the bar keeps its shape as a tablet turns and never strands a view.
  *
  * Each view is its word, which says what a pictogram cannot, wherever the card is wide enough for
  * all three; narrower, each is its pictogram, named by its word for assistive technology and as
@@ -883,14 +880,13 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
       const className = [
         'view-switcher-segment',
         pressed ? 'selected' : '',
-        option.available ? '' : 'unavailable',
         labeled ? '' : 'icon-only',
       ]
         .filter((cls) => cls !== '')
         .join(' ');
       const onClick = (ev: Event) => {
         ev.stopPropagation();
-        if (option.available) switcher.onSelect(option.view);
+        switcher.onSelect(option.view);
       };
 
       return html`<button
@@ -898,7 +894,6 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
         class=${className}
         data-view=${option.view}
         aria-pressed=${pressed ? 'true' : 'false'}
-        aria-disabled=${option.available ? nothing : 'true'}
         aria-label=${labeled ? nothing : option.label}
         title=${labeled ? nothing : option.label}
         @pointerdown=${stopCardGesture}

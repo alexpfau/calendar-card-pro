@@ -373,7 +373,7 @@
   "column.density.helper": "Quanto può stringersi una colonna prima che la scheda ne rinunci a una, e cosa fa quando non ne restano più.",
   "column.min_day_width": "Larghezza minima giorno",
   "column.min_days_to_show": "Numero minimo di colonne",
-  "column.min_days_to_show.helper": "Per impostazione predefinita corrisponde al numero di giorni mostrati, quindi la scheda non elimina mai una colonna.",
+  "column.min_days_to_show.helper": "Il valore predefinito è 2, oppure tutti i giorni se le colonne vengono mantenute più strette. Se corrisponde al numero di giorni mostrati, la scheda non elimina mai una colonna.",
   "column.min_days_fallback": "Quando è troppo stretta",
   "column.min_days_fallback.option.list.label": "Passa alla lista",
   "column.min_days_fallback.option.cramp.label": "Mantieni le colonne, più strette",
