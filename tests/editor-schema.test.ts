@@ -3255,6 +3255,7 @@ describe('editor: fields that must survive being typed into', () => {
       'de',
       'et',
       'it',
+      'ja',
       'ko',
       'lt',
       'lv',

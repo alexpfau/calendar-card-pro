@@ -1385,6 +1385,7 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'sk:today_indicator_icon',
   // Same collision; the sibling fields are already qualified.
   'et:today_indicator_icon',
+  'ko:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
 
@@ -1392,9 +1393,13 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   // Calendars heading; the picker and the entry's own field say which calendar they mean.
   'de:calendars.pick',
   'de:entry.calendar',
+  // Korean qualifies them as choosing a calendar for the same reason.
+  'ko:calendars.pick',
+  'ko:entry.calendar',
 
   // A toolbar button's icon, qualified as the button's own for the same collision.
   'et:toolbar.buttons.icon',
+  'ko:toolbar.buttons.icon',
   'lt:toolbar.buttons.icon',
   'lv:toolbar.buttons.icon',
   'pl:toolbar.buttons.icon',
