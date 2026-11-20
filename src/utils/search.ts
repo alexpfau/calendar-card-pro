@@ -255,6 +255,11 @@ export function drawnIn(
 export interface Occurrence {
   /** Its row's display copy: the first day's, where it is split into days. */
   event: Types.CalendarEventData;
+  /**
+   * The local midnight of the day this copy is first drawn on, where the event's days are drawn
+   * more than one way and this is not the first (`occurrencesIn`); undefined otherwise.
+   */
+  from?: Date;
   /** When it starts and ends, as Home Assistant wrote them, and as instants. */
   startPoint: Types.CalendarEventData['start'];
   endPoint: Types.CalendarEventData['end'];
@@ -278,7 +283,11 @@ function instantOf(point: Types.CalendarEventData['start'] | undefined): Date | 
 
 /**
  * Every event a grouping draws, once each: a multi-day event the view splits into a row a day
- * is one event, found at its first day's row, with the start and end it really has.
+ * is one event, found at its first day's row, with the start and end it really has. Once for each
+ * way its days are drawn, rather: where duplicates merge (`filter_duplicates`), a per-day filter
+ * such as `days_of_week` can change which calendars a day's copy stands for, and so the locations
+ * and calendars it draws, while the event stays the same. Each way is found where it is first
+ * drawn, so a location one day alone lists is found too, as Grid and Month break a banner there.
  *
  * One event's days are told from another's by the object they were split from, which each day
  * carries: the stamp `processEvents` takes of every event (`_source`), else the grid's own
@@ -290,7 +299,7 @@ function instantOf(point: Types.CalendarEventData['start'] | undefined): Date | 
  * @returns The events, in the grouping's order
  */
 export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrence[] {
-  const seen = new WeakMap<object, Set<unknown>>();
+  const seen = new WeakMap<object, Map<unknown, Set<string>>>();
   const signatures = new Set<string>();
   const occurrences: Occurrence[] = [];
   for (const day of days) {
@@ -304,10 +313,24 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
       if (event._isMultiDaySegment || event._gridSource) {
         const identity = event._source ?? event._gridSource;
         if (identity) {
-          const blocks = seen.get(identity) ?? new Set<unknown>();
-          if (blocks.has(event._matchedConfig)) continue;
-          blocks.add(event._matchedConfig);
+          const blocks = seen.get(identity) ?? new Map<unknown, Set<string>>();
           seen.set(identity, blocks);
+          const drawn = blocks.get(event._matchedConfig);
+          const way = drawnAs(event);
+          if (drawn?.has(way)) continue;
+          if (drawn) {
+            drawn.add(way);
+            occurrences.push({
+              event,
+              from: new Date(day.timestamp),
+              startPoint,
+              endPoint,
+              start,
+              end,
+            });
+            continue;
+          }
+          blocks.set(event._matchedConfig, new Set([way]));
         } else {
           const signature = JSON.stringify([
             event._entityId,
@@ -316,6 +339,7 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
             event.summary,
             event.location,
             event.description,
+            event._mergedFrom?.map((calendar) => calendar.entityId) ?? [],
           ]);
           if (signatures.has(signature)) continue;
           signatures.add(signature);
@@ -325,6 +349,20 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
     }
   }
   return occurrences;
+}
+
+/**
+ * How a day's copy of an event is drawn, as far as it can differ from another day's: the calendars
+ * a merged copy stands for, and the location it lists.
+ *
+ * @param event - A day's copy
+ * @returns A key two copies drawn alike share
+ */
+export function drawnAs(event: Types.CalendarEventData): string {
+  return JSON.stringify([
+    event._mergedFrom?.map((calendar) => calendar.entityId) ?? [],
+    event.location ?? '',
+  ]);
 }
 
 //-----------------------------------------------------------------------------

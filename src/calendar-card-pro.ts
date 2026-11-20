@@ -9918,15 +9918,18 @@ class CalendarCardPro extends LitElement {
       visibility: this._visibility,
       held: this.events,
       today: this._haString('ui.components.calendar.today'),
+      // A row merged from two or more calendars takes their accent where the card sets one, as
+      // the card's own rows do (`presentation.ts`).
       colorOf: (event) =>
         this._resolvedColor(
-          EventUtils.getEntityAccentColorWithOpacity(
-            event._entityId,
-            this.config,
-            undefined,
-            event,
-            EntityColors.entityColors(),
-          ),
+          ((event._mergedFrom?.length ?? 0) > 1 && this.effectiveConfig.duplicate_accent_color) ||
+            EventUtils.getEntityAccentColorWithOpacity(
+              event._entityId,
+              this.config,
+              undefined,
+              event,
+              EntityColors.entityColors(),
+            ),
         ),
       nameOf: (entityId) => this._calendarName(entityId),
       failedNameOf: (entityId) =>
