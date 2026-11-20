@@ -1207,9 +1207,17 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 ### Beta releases
 
 A beta is a GitHub prerelease, cut from an integration branch before the release PR exists so
-users can test the next version early. HACS offers it only to users who turn on pre-releases
-for this repository, in its three-dot menu or with the switch entity HACS creates; anyone who
-does gets it, invited or not.
+users can test the next version early. Only users who ask for it get it, but anyone who asks
+does, invited or not:
+
+- **Home Assistant 2026.11 and later** ship the Marketplace, the successor to HACS, built in.
+  On the card's page (Settings → Marketplace → Calendar Card Pro), the ⋮ menu has **Include
+  pre-releases**, which makes betas arrive as updates, and **Install another version**, which
+  lists every release with betas marked Pre-release. Read on 2026.11.2.
+- **Older installs with the HACS integration** do the same through **Redownload → Need a
+  different version?**, or through a Pre-release switch entity HACS creates per repository,
+  disabled until enabled. That path is read from the HACS source and was not tried in a running
+  Home Assistant.
 
 1. Leave `package.json` at the last stable version. Nothing is bumped or committed for a beta.
 2. Tag a commit on `dev` or a `feature/*` branch `vX.Y.Z-beta.N`, N counting from 1, and push
@@ -1226,18 +1234,21 @@ does gets it, invited or not.
 Any other tag shape fails the job at its first step; delete such a tag with
 `git push origin :refs/tags/<tag>`. Stable tags take the path described above, unchanged.
 
-What HACS does with a beta is decided in `custom_components/hacs/repositories/base.py` and
-`utils/version.py`, read at hacs/integration 8a543828:
+Both decide what to offer the same way: the Marketplace in Home Assistant core
+(`homeassistant/components/marketplace/repositories/base.py` and `utils/version.py`, read at
+2026.11.2, with frontend 20261028.6) and the HACS integration (`repositories/base.py`, read at
+hacs/integration 8a543828).
 
-- It walks releases newest first, takes the first prerelease it meets, and stops at the first
+- They walk releases newest first, take the first prerelease they meet, and stop at the first
   stable one. **A stable release published after a beta hides that beta**, so while a beta
   cycle runs, follow any stable patch with a new beta.
 - Versions compare with AwesomeVersion: `6.0.0-beta.1` < `6.0.0-beta.2` < `6.0.0`, and
   `-beta.10` sorts above `-beta.9`. Testers get the stable release as an ordinary update when it
   ships.
-- HACS offers only a higher version as an update, so turning pre-releases off on a beta offers
-  nothing. Going back to stable is **Redownload** with the stable version picked, and the beta
-  notes have to say so.
+- Only a higher version is offered as an update, so turning pre-releases off on a beta offers
+  nothing; the Marketplace's own confirmation says an installed pre-release stays until a newer
+  stable version is out. Going back is **Install another version** (or Redownload) with the
+  stable version picked, and the beta notes have to say so.
 - `releases/latest` ignores prereleases, so the installation docs keep pointing at the stable
   release.
 

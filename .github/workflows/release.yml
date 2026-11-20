@@ -25,11 +25,12 @@ jobs:
 
       # Two kinds of tag reach this job, and everything below branches on which one it is.
       # A stable tag (`v6.0.0`) is a release cut from main, exactly as it always was. A beta
-      # tag (`v6.0.0-beta.1`) is a GitHub prerelease that HACS offers only to users who turn
-      # on pre-releases for this repository; it is built from an integration branch before
-      # the release PR exists. Anything else is refused here, so a typo such as `v6.0.0beta1`,
-      # `v6.0.0-rc.1` or `v6.0` can never fall through to either path. Leading zeros are
-      # refused too, because `v6.0.01` and `v6.0.1` would name one version twice.
+      # tag (`v6.0.0-beta.1`) is a GitHub prerelease that Home Assistant's Marketplace (HACS
+      # before 2026.11) offers only to users who include pre-releases for this repository; it
+      # is built from an integration branch before the release PR exists. Anything else is
+      # refused here, so a typo such as `v6.0.0beta1`, `v6.0.0-rc.1` or `v6.0` can never
+      # fall through to either path. Leading zeros are refused too, because `v6.0.01` and
+      # `v6.0.1` would name one version twice.
       - name: Classify tag
         id: tag
         run: |
@@ -76,9 +77,9 @@ jobs:
       # cycle. A personal working branch does not qualify, and neither does a fork's branch,
       # which never exists as origin/feature/*.
       #
-      # Two version checks follow, both against facts HACS acts on. The beta must be newer
-      # than the version package.json ships, or HACS would treat it as a downgrade and offer
-      # it to nobody. And its stable version must not have shipped yet: HACS offers the
+      # Two version checks follow, both against facts the Marketplace acts on. The beta must
+      # be newer than the version package.json ships, or it would read as a downgrade and be
+      # offered to nobody. And its stable version must not have shipped yet: it offers the
       # newest prerelease only when it was published after the latest stable release, so a
       # beta of a version already out is dead on arrival.
       - name: Verify beta tag is on an integration branch
@@ -262,10 +263,10 @@ jobs:
           files: |
             dist/*.js
 
-      # The same two assets, named rather than globbed, as a draft marked prerelease. HACS
-      # never shows a draft, and shows a published prerelease only to users who turned on
-      # pre-releases for this repository; `make_latest: false` keeps releases/latest, which
-      # the installation docs link, on the stable release.
+      # The same two assets, named rather than globbed, as a draft marked prerelease. The
+      # Marketplace never shows a draft, and shows a published prerelease only to users who
+      # included pre-releases for this repository; `make_latest: false` keeps
+      # releases/latest, which the installation docs link, on the stable release.
       - name: Release (beta)
         if: steps.tag.outputs.kind == 'beta'
         uses: softprops/action-gh-release@v3
