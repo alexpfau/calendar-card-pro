@@ -1024,8 +1024,9 @@ export interface EntityConfig {
    *
    * Read at render time from the event's matched block, as the text replacement is, so a calendar
    * listed twice can keep one block private and not the other. A whole-field `replace_with` takes
-   * the place of Private for its field; a replacement with a pattern is not applied, since it
-   * would show the rest of the text. The card neither changes nor deletes a private event
+   * the place of Private for its field, a location or description in the popover only; a
+   * replacement with a pattern is not applied, since it would show the rest of the text. With
+   * `filter_duplicates`, its copy of an event is never merged with one that is not private. The card neither changes nor deletes a private event
    * (`detailPermissions`), and search finds it only as it is drawn.
    *
    * The entry's filters still read the event's own words, since they decide which entry an event

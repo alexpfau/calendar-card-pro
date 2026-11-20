@@ -82,6 +82,7 @@ import * as Logger from './utils/logger';
 import * as MonthDay from './utils/month-day';
 import * as MonthListFit from './utils/month-list-fit';
 import * as Paging from './utils/paging';
+import * as PrivateEvents from './utils/private-events';
 import * as Search from './utils/search';
 import * as Sections from './utils/sections';
 import * as StartDate from './utils/start-date';
@@ -6751,6 +6752,18 @@ class CalendarCardPro extends LitElement {
       ...source,
       ...(typeof entry === 'object' && { _matchedConfig: entry }),
     };
+    // A private entry keeps its words off the card even here, as `groupEventsByDay` does.
+    if (PrivateEvents.isPrivate(asItStands)) {
+      const shown = PrivateEvents.privateText(
+        source,
+        asItStands._matchedConfig,
+        this.effectiveLanguage,
+      );
+      asItStands.summary = shown.title;
+      asItStands.location = '';
+      asItStands.description = '';
+      asItStands._privateTitle = shown.locked.title || undefined;
+    }
     asItStands._entityLabel = EventUtils.getEntityLabel(source._entityId, config, asItStands);
     const first = new Date(Math.min(...dayStarts));
     const last = new Date(Math.max(...dayStarts));

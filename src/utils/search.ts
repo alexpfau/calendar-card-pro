@@ -11,6 +11,7 @@
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
 import * as Grid from './grid';
 import { addDays, startOfDay } from './paging';
+import { isPrivate } from './private-events';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 
@@ -76,7 +77,10 @@ export interface RingTarget {
   recurrenceId?: string;
   /** When it starts, as an instant in UTC or a date (`startKey`). */
   start: string;
-  /** Its title as Home Assistant returned it, which tells it apart where it has no uid. */
+  /**
+   * Its title as Home Assistant returned it, or as the card draws it for a private event, which
+   * tells it apart where it has no uid.
+   */
   summary: string;
 }
 
@@ -504,8 +508,19 @@ function startKey(event: Types.CalendarEventData): string {
 }
 
 /**
+ * The title an event is found again by where it has no uid: as Home Assistant returned it, or as
+ * the card draws it for a private entry's event, whose own words a search never holds.
+ *
+ * @param event - A display copy
+ * @returns The title
+ */
+function targetSummary(event: Types.CalendarEventData): string {
+  return isPrivate(event) ? (event.summary ?? '') : (event._source?.summary ?? event.summary ?? '');
+}
+
+/**
  * What finds an event again on the card: its calendar and when it starts, with its uid and
- * recurrence id where Home Assistant gives them, else its title as Home Assistant returned it.
+ * recurrence id where Home Assistant gives them, else its title (`targetSummary`).
  *
  * @param event - The event's display copy
  * @returns The target
@@ -517,7 +532,7 @@ export function ringTargetOf(event: Types.CalendarEventData): RingTarget {
     uid: source?.uid || undefined,
     recurrenceId: source?.recurrence_id || undefined,
     start: startKey(event),
-    summary: source?.summary ?? event.summary ?? '',
+    summary: targetSummary(event),
   };
 }
 
@@ -540,7 +555,7 @@ export function isRingTarget(event: Types.CalendarEventData, target: RingTarget)
       source?.uid === target.uid && (source?.recurrence_id || undefined) === target.recurrenceId
     );
   }
-  return !source?.uid && (source?.summary ?? event.summary ?? '') === target.summary;
+  return !source?.uid && targetSummary(event) === target.summary;
 }
 
 /**

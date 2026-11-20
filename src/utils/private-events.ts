@@ -51,9 +51,9 @@ export function placeholder(language: string): string {
 /**
  * A private event's fields as the card shows them.
  *
- * The title is always shown, so an event without one reads Private too and does not say that it
- * has none. A location or description shows only where the event has one, as any event's does in
- * the popover.
+ * The title is always shown, so an event without one reads Private, or its replacement, too, and
+ * does not say that it has none. A location or description shows only where the event has one, as
+ * any event's does in the popover. The rows draw neither (`groupEventsByDay`).
  *
  * @param source - The event's own text, as its calendar returned it
  * @param entry - The private entry it was matched to
@@ -73,8 +73,9 @@ export function privateText(
   const whole = rule && rule.pattern === undefined ? rule : null;
   const word = placeholder(language);
   const shown = (field: PrivateField, raw: string, always: boolean) => {
-    if (whole?.field === field) {
-      return { text: TextReplace.applyTextReplacement(raw, whole, field).text, locked: false };
+    // The title is always shown, so its replacement stands in where the event has none.
+    if (whole?.field === field && (always || raw !== '')) {
+      return { text: whole.replacement ?? '', locked: false };
     }
     if (!always && raw.trim() === '') return { text: '', locked: false };
     return { text: word, locked: true };

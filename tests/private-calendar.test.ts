@@ -11,6 +11,7 @@ import { SearchSession } from '../src/interaction/search-session';
 import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 import * as EventUtils from '../src/utils/events';
 import * as MonthDay from '../src/utils/month-day';
+import { privateText } from '../src/utils/private-events';
 
 /**
  * `private: true` on a calendar entry: its events show when they are and whose they are, and
@@ -88,7 +89,7 @@ interface Card extends HTMLElement {
 
 const PRIVATE_BEN = { entity: BEN, private: true };
 
-function makeHass(): Types.Hass {
+function makeHass(anna = ANNA_EVENTS, ben = BEN_EVENTS): Types.Hass {
   const calendar = (id: string, name: string) => ({
     entity_id: id,
     state: 'off',
@@ -99,16 +100,20 @@ function makeHass(): Types.Hass {
     locale: { language: 'en', time_format: '24' },
     callApi: vi.fn(async (_method: string, path: string) =>
       path.startsWith(`calendars/${BEN}?`)
-        ? BEN_EVENTS
+        ? ben
         : path.startsWith(`calendars/${ANNA}?`)
-          ? ANNA_EVENTS
+          ? anna
           : [],
     ),
     callService: vi.fn(),
   } as unknown as Types.Hass;
 }
 
-async function mount(config: Record<string, unknown>, shows = 'Dentist') {
+async function mount(
+  config: Record<string, unknown>,
+  shows = 'Dentist',
+  events: { anna?: RawEvent[]; ben?: RawEvent[] } = {},
+) {
   const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
   card.setConfig({
     entities: [ANNA, PRIVATE_BEN],
@@ -118,7 +123,7 @@ async function mount(config: Record<string, unknown>, shows = 'Dentist') {
     event_tap_action: { action: 'details' },
     ...config,
   });
-  card.hass = makeHass();
+  card.hass = makeHass(events.anna, events.ben);
   const dialogs: PopoverRequest[] = [];
   card.addEventListener('show-dialog', (ev) =>
     dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
@@ -256,6 +261,85 @@ describe('a private calendar on the card', () => {
     }
   });
 
+  it('keeps a replaced location or description off the rows, and its link with it', async () => {
+    const linked: RawEvent = {
+      summary: 'SECRET-TITLE Vendor call',
+      start: { dateTime: '2026-06-17T15:00:00Z' },
+      end: { dateTime: '2026-06-17T15:30:00Z' },
+      description: '<a href="https://example.com/SECRET-HREF">Office</a>',
+      uid: 'uid-linked',
+    };
+    const { card, dialogs } = await mount(
+      {
+        open_links: true,
+        entities: [ANNA, { ...PRIVATE_BEN, replace_field: 'description', replace_with: 'Office' }],
+      },
+      'Dentist',
+      { ben: [linked] },
+    );
+    expect(card.shadowRoot!.innerHTML).not.toContain(SECRET);
+    expect(eventsShowing(card, 'Office')).toEqual([]);
+
+    // The popover shows the replacement, as it shows what it replaces.
+    buttonsShowing(card, 'Private')[0].click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dialogs[0].dialogParams.display?.description).toBe('Office');
+    expect(JSON.stringify(dialogs[0].dialogParams)).not.toContain(SECRET);
+  });
+
+  describe('beside a copy of its event from a calendar that is not private', () => {
+    const retreat = (start: RawEvent['start'], end: RawEvent['end']): RawEvent => ({
+      summary: 'Team retreat',
+      start,
+      end,
+    });
+
+    it.each([
+      ['listed first', 'anna-first'],
+      ['listed last', 'ben-first'],
+    ])('keeps every day of the private copy, the other calendar %s', async (_name, order) => {
+      const event = retreat({ date: '2026-06-17' }, { date: '2026-06-20' });
+      const anna = { entity: ANNA, split_multiday_events: false };
+      const ben = { ...PRIVATE_BEN, split_multiday_events: true };
+      const { card } = await mount(
+        {
+          filter_duplicates: true,
+          entities: order === 'anna-first' ? [anna, ben] : [ben, anna],
+        },
+        'Team retreat',
+        { anna: [event], ben: [event] },
+      );
+      expect(eventsShowing(card, 'Team retreat')).toHaveLength(1);
+      expect(eventsShowing(card, 'Private')).toHaveLength(3);
+    });
+
+    it.each([
+      ['listed first', 'anna-first'],
+      ['listed last', 'ben-first'],
+    ])('draws each copy as its own calendar says in grid, the other %s', async (_name, order) => {
+      const event = retreat(
+        { dateTime: '2026-06-17T06:00:00Z' },
+        { dateTime: '2026-06-18T18:00:00Z' },
+      );
+      const anna = { entity: ANNA, multiday_banners: true };
+      const ben = { ...PRIVATE_BEN, multiday_banners: false };
+      const { card } = await mount(
+        {
+          view: 'grid',
+          filter_duplicates: true,
+          entities: order === 'anna-first' ? [anna, ben] : [ben, anna],
+        },
+        'Team retreat',
+        { anna: [event], ben: [event] },
+      );
+      const banners = (text: string) =>
+        eventsShowing(card, text).filter((el) => el.classList.contains('grid-banner'));
+      expect(banners('Team retreat').length).toBeGreaterThan(0);
+      expect(banners('Private')).toEqual([]);
+      expect(eventsShowing(card, 'Private').length).toBeGreaterThan(0);
+    });
+  });
+
   it('is found by search as Private, never by its own words', async () => {
     const { card } = await mount({});
     const session = new SearchSession(() => card._searchHost(), {
@@ -272,6 +356,8 @@ describe('a private calendar on the card', () => {
     for (const term of ['SECRET', 'Roadmap', 'Meeting Room', 'agenda', 'Offsite']) {
       expect(session.find(term).total).toBe(0);
     }
+    // Nor does what a pick hands the card, which finds the event again by what it draws.
+    expect(JSON.stringify(found.groups)).not.toContain(SECRET);
   });
 
   it('lists the day for a month’s panel as Private', () => {
@@ -394,6 +480,18 @@ describe('what a private event leaves the card', () => {
     expect(
       detailPermissions(hass, { ...event, _matchedConfig: { entity: BEN } }, entry, context),
     ).toEqual({ canEdit: true, canDelete: true });
+  });
+
+  it('still reads its replacement where the event has no title', () => {
+    const entry = { entity: BEN, private: true, replace_with: 'Busy' };
+    expect(privateText({ summary: '' }, entry, 'en')).toMatchObject({
+      title: 'Busy',
+      location: '',
+      description: '',
+      locked: { title: false, location: false, description: false },
+    });
+    // Without one, it reads Private, so it does not say it has none.
+    expect(privateText({}, { entity: BEN, private: true }, 'en').title).toBe('Private');
   });
 
   it('fills an action with what the popover shows', () => {

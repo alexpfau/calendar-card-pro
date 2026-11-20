@@ -1184,12 +1184,6 @@ function deduplicateEvents(
     return events;
   }
 
-  // A private entry's copy is the same event only to another private entry's: merged with a copy
-  // that is not private, the row would show its title with the private calendar's label beside
-  // it, and say whose the private event is and what it is.
-  const keyOf = (event: Types.CalendarEventData) =>
-    PrivateEvents.isPrivate(event) ? `${signatureFor(event)}\nprivate` : signatureFor(event);
-
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
@@ -1202,7 +1196,7 @@ function deduplicateEvents(
     for (const event of events) {
       if (event._entityId !== entityId) continue;
 
-      const signature = keyOf(event);
+      const signature = signatureFor(event);
       const own = `${signature}\n${entityId}`;
       arrived.set(own, Math.min(arrived.get(own) ?? Infinity, event._arrival ?? Infinity));
 
@@ -1227,7 +1221,7 @@ function deduplicateEvents(
   const survivors: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    const signature = keyOf(event);
+    const signature = signatureFor(event);
 
     // The same test the previous `filter` made, negated: drop a copy only when some other
     // copy of its signature was kept. An event whose calendar is not in `entities` reaches
@@ -1868,8 +1862,10 @@ export function groupEventsByDay(
         (summary.trim() !== '' && replacedSummary.text.trim() === '');
 
       // A private entry's events show none of their words (`private-events.ts`): the title is the
-      // placeholder, or a whole-field replacement, and a location or description is drawn only
-      // where a whole-field replacement wrote it. No age either, which would say it is a birthday.
+      // placeholder, or a whole-field replacement, and no location or description is drawn, a
+      // replacement for one included, which the popover shows instead: a row's location and
+      // description find their links in the event's own text (`Links.rowLinks`). No age either,
+      // which would say it is a birthday.
       const privateText = PrivateEvents.isPrivate(event)
         ? PrivateEvents.privateText(event, event._matchedConfig, language)
         : null;
@@ -1882,23 +1878,17 @@ export function groupEventsByDay(
           : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
-        location: !showLocation
-          ? ''
-          : privateText
-            ? privateText.locked.location
-              ? ''
-              : privateText.location
+        location:
+          !showLocation || privateText
+            ? ''
             : TextReplace.applyTextReplacement(
                 FormatUtils.formatLocation(event.location || '', config.remove_location_country),
                 replacement,
                 'location',
               ).text,
-        description: !showDescription
-          ? ''
-          : privateText
-            ? privateText.locked.description
-              ? ''
-              : privateText.description
+        description:
+          !showDescription || privateText
+            ? ''
             : TextReplace.applyTextReplacement(
                 markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
                 replacement,
@@ -2701,6 +2691,12 @@ function filterEventsForEntity(
  * The identity `filter_duplicates` compares copies by: the original title, start and end, and
  * the location too unless the option is `ignore_location`.
  *
+ * A private entry's copy (`EntityConfig.private`) is the same event only to another private
+ * entry's. Merged with a copy that is not private, a row would put the private calendar's label
+ * beside the other calendar's title; and since every step that picks one copy of an event reads
+ * this identity (the banner choice, the first eligible copy, the merge), apart they each follow
+ * their own calendar's options.
+ *
  * @param event Event to identify
  * @param ignoreLocation Whether to leave the location out of the comparison
  * @returns The event's signature
@@ -2721,7 +2717,7 @@ function generateEventSignature(event: Types.CalendarEventData, ignoreLocation =
     timeSignature = `${event.start.date || ''}|${event.end.date || ''}`;
   }
 
-  return `${summary}|${timeSignature}|${location}`;
+  return `${summary}|${timeSignature}|${location}${PrivateEvents.isPrivate(event) ? '|private' : ''}`;
 }
 
 //-----------------------------------------------------------------------------

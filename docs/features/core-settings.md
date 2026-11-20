@@ -223,8 +223,9 @@ label and name. Everything the event says for itself goes:
 
 To show a word of your own instead, add [`replace_with`](#hiding-what-an-event-is-about) without a
 `replace_pattern`: it takes the place of Private for its field, without the lock, so
-`replace_with: Busy` makes every title read Busy. A `replace_pattern` does nothing on a private
-calendar, since it would show the rest of the text.
+`replace_with: Busy` makes every title read Busy. A replaced location or description shows in the
+popover only, since the rows draw neither. A `replace_pattern` does nothing on a private calendar,
+since it would show the rest of the text.
 
 ::: details Splitting a Calendar Into Private & Shared Events
 
@@ -238,8 +239,11 @@ calendar, since it would show the rest of the text.
   one that is not stays two rows: the other calendar's, with its title, and the private
   calendar's, reading Private. Merged, the row would put the private calendar's label beside the
   other calendar's title.
-- Private hides what the card shows, not the calendar: anyone who can open the calendar in Home
-  Assistant still reads its events in full.
+- Private hides what the card shows, not the calendar. Anyone who can open the calendar in Home
+  Assistant still reads its events in full, and so does Home Assistant's own more-info dialog,
+  which an [event action](/features/actions#using-the-events-fields-in-an-action) of `more-info`
+  opens. The card receives each event in full and keeps a copy in the browser's storage for its
+  next visit, like every event it shows.
 
 :::
 
