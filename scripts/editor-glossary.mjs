@@ -408,7 +408,9 @@ export const GLOSSARY_TERMS = [
       sk: 'Lišta priebehu',
       sv: 'Förloppsindikator',
     },
-    rejected: {},
+    rejected: {
+      lt: ['eigos juost'],
+    },
   },
   {
     name: 'countdown',

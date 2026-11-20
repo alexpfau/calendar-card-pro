@@ -147,7 +147,7 @@
   "history.undone_on": "Vrátené späť: {action}. Zobrazuje sa: {place}.",
   "history.redone_on": "Znova vykonané: {action}. Zobrazuje sa: {place}.",
   "history.change": "Zmeniť „{setting}“",
-  "history.change_for": "Zmeniť „{setting}“ v kalendári {name}",
+  "history.change_for": "Zmeniť „{setting}“ ({name})",
   "history.reset": "Resetovať „{setting}“",
   "history.remove": "Odstrániť „{name}“",
   "history.duplicate": "Duplikovať „{name}“",
