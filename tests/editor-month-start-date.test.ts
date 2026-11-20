@@ -1,14 +1,15 @@
 /**
- * Start Date on Month's page: Month opens today's month for every start date that follows today
- * and a fixed date's own month otherwise (`ViewConfig.monthHomeDay`), so its page offers Today and
- * A Fixed Date alone and reads every other stored start date as Today. A start date Month reads as
- * Today has no Reset there, which would change the other layouts alone, and the line under the
- * chips names what those layouts start on instead. Start Date's home and the other layouts' pages
- * keep all five choices. Names are invented.
+ * Start Date on Month's page: Month opens the month holding the start date, fixed or relative to
+ * today, except Tomorrow and Start of Week, which open today's month (`ViewConfig.monthHomeDay`).
+ * So its page offers Today, A Fixed Date and Relative to Today, and reads a stored Tomorrow or
+ * Start of Week as Today. Those have no Reset there, which would change the other layouts alone,
+ * and the line under the chips names what those layouts start on instead. Start Date's home and
+ * the other layouts' pages keep all five choices. Names are invented.
  */
 import { describe, expect, it } from 'vitest';
 
 import {
+  changeField,
   goOverview,
   goPage,
   lastConfig,
@@ -16,8 +17,12 @@ import {
   reportsOf,
   resultRows,
   searchFor,
+  valueOf,
 } from './helpers/editor-host';
 import { CURRENT_CONFIG_VERSION } from '../src/config/config';
+import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
+import * as Synthetic from '../src/rendering/editor/synthetic';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
 
@@ -69,16 +74,22 @@ function startDate(editor: Editor): {
   };
 }
 
-const HELPER = "Month opens on today's month, or on a fixed date's own month.";
+/** The buttons on the Expression's own line, such as Remove Setting. */
+const expressionActions = (editor: Editor): string[] =>
+  [
+    ...(editor
+      .shadowRoot!.querySelector('[data-setting="content:start_date_offset"]')
+      ?.querySelectorAll('.line-button') ?? []),
+  ].map(text);
 
 describe("Start Date on Month's page", () => {
-  it('offers Today and A Fixed Date, with the helper, as Whole Card', async () => {
+  it('offers Today, A Fixed Date and Relative to Today, as Whole Card', async () => {
     const editor = await mountEditor(CARD);
     await openStartDate(editor, 'month');
     expect(startDate(editor)).toEqual({
-      choices: ['Today', 'A Fixed Date'],
+      choices: ['Today', 'A Fixed Date', 'Relative to Today'],
       chosen: 'default',
-      helper: HELPER,
+      helper: '',
       facts: ['Whole Card'],
       expression: false,
     });
@@ -86,17 +97,17 @@ describe("Start Date on Month's page", () => {
 
   it.each([
     ['Tomorrow', 'today+1', 'Tomorrow'],
+    ['Tomorrow written +1', '+1', 'Tomorrow'],
     ['Start of Week', 'start_of_week', 'Start of Week'],
-    ['an expression', 'today-29', 'today-29'],
   ])(
     'reads %s as Today, with no Reset, naming what the other layouts start on',
     async (_name, start_date, value) => {
       const editor = await mountEditor({ ...CARD, start_date });
       await openStartDate(editor, 'month');
       expect(startDate(editor)).toEqual({
-        choices: ['Today', 'A Fixed Date'],
+        choices: ['Today', 'A Fixed Date', 'Relative to Today'],
         chosen: 'default',
-        helper: HELPER,
+        helper: '',
         facts: ['Whole Card', `${value} in List, Columns, and Grid`],
         expression: false,
       });
@@ -105,6 +116,22 @@ describe("Start Date on Month's page", () => {
       $(editor, '[data-focus="start_date_mode:default"]')!.click();
       await editor.updateComplete;
       expect(reportsOf(editor)).toEqual([]);
+    },
+  );
+
+  it.each(['today+30', 'today-29', 'friday'])(
+    'shows %s as Relative to Today, with its Expression and the usual line',
+    async (start_date) => {
+      const editor = await mountEditor({ ...CARD, start_date });
+      await openStartDate(editor, 'month');
+      expect(startDate(editor)).toEqual({
+        choices: ['Today', 'A Fixed Date', 'Relative to Today'],
+        chosen: 'offset',
+        helper: '',
+        facts: ['Set', 'Reset (Today)', 'Whole Card'],
+        expression: true,
+      });
+      expect(valueOf(editor, 'content:start_date_offset')).toBe(start_date);
     },
   );
 
@@ -128,28 +155,83 @@ describe("Start Date on Month's page", () => {
     expect(written).not.toHaveProperty('month');
     expect(startDate(editor)).toMatchObject({ chosen: 'fixed', expression: false });
   });
+
+  it('writes an expression for the whole card from Relative to Today', async () => {
+    const editor = await mountEditor(CARD);
+    await openStartDate(editor, 'month');
+    $(editor, '[data-focus="start_date_mode:offset"]')!.click();
+    await editor.updateComplete;
+    expect(startDate(editor)).toMatchObject({ chosen: 'offset', expression: true });
+    await changeField(editor, 'content:start_date_offset', 'today+30');
+    const written = lastConfig(editor)!;
+    expect(written.start_date).toBe('today+30');
+    expect(written).not.toHaveProperty('month');
+    expect(startDate(editor)).toMatchObject({
+      chosen: 'offset',
+      facts: ['Set', 'Reset (Today)', 'Whole Card'],
+    });
+  });
+
+  it('turns Tomorrow into another expression from Relative to Today', async () => {
+    const editor = await mountEditor({ ...CARD, start_date: 'today+1' });
+    await openStartDate(editor, 'month');
+    // Relative to Today over Tomorrow writes nothing, and holds the choice, so the Expression
+    // opens on Tomorrow's own. Month still opens today's month for it, so the line stays.
+    $(editor, '[data-focus="start_date_mode:offset"]')!.click();
+    await editor.updateComplete;
+    expect(startDate(editor)).toMatchObject({
+      chosen: 'offset',
+      facts: ['Whole Card', 'Tomorrow in List, Columns, and Grid'],
+      expression: true,
+    });
+    expect($(editor, '[data-focus="reset:content:start_date_mode"]')).toBeNull();
+    // Nor does the Expression offer to reset or remove it.
+    expect(expressionActions(editor)).toEqual([]);
+    expect(valueOf(editor, 'content:start_date_offset')).toBe('today+1');
+    await changeField(editor, 'content:start_date_offset', 'today+30');
+    expect(lastConfig(editor)!.start_date).toBe('today+30');
+    expect(startDate(editor)).toMatchObject({
+      chosen: 'offset',
+      facts: ['Set', 'Reset (Today)', 'Whole Card'],
+      expression: true,
+    });
+    expect(expressionActions(editor)).toEqual(['Remove Setting']);
+  });
+
+  it('keeps Tomorrow when Today is pressed after Relative to Today', async () => {
+    const editor = await mountEditor({ ...CARD, start_date: 'today+1' });
+    await openStartDate(editor, 'month');
+    $(editor, '[data-focus="start_date_mode:offset"]')!.click();
+    await editor.updateComplete;
+    $(editor, '[data-focus="start_date_mode:default"]')!.click();
+    await editor.updateComplete;
+    // Today on Month's page is what Month draws for Tomorrow: nothing is written.
+    expect(reportsOf(editor)).toEqual([]);
+    expect(startDate(editor)).toMatchObject({
+      chosen: 'default',
+      facts: ['Whole Card', 'Tomorrow in List, Columns, and Grid'],
+      expression: false,
+    });
+  });
 });
 
 describe("Start Date on Month's page, reached another way", () => {
-  it('reads Relative to Today held on another page as Today, and writes nothing for it', async () => {
+  it('shows Relative to Today held on another page as held, Expression and all', async () => {
     const editor = await mountEditor({ ...CARD, start_date: 'today+1' });
     await openStartDate(editor, 'list');
     // Relative to Today over Tomorrow writes nothing, and holds the choice instead.
     $(editor, '[data-focus="start_date_mode:offset"]')!.click();
     await editor.updateComplete;
     expect(startDate(editor)).toMatchObject({ chosen: 'offset', expression: true });
-    const before = reportsOf(editor).length;
 
     await openStartDate(editor, 'month');
     expect(startDate(editor)).toMatchObject({
-      choices: ['Today', 'A Fixed Date'],
-      chosen: 'default',
+      choices: ['Today', 'A Fixed Date', 'Relative to Today'],
+      chosen: 'offset',
       facts: ['Whole Card', 'Tomorrow in List, Columns, and Grid'],
-      expression: false,
+      expression: true,
     });
-    $(editor, '[data-focus="start_date_mode:default"]')!.click();
-    await editor.updateComplete;
-    expect(reportsOf(editor)).toHaveLength(before);
+    expect(valueOf(editor, 'content:start_date_offset')).toBe('today+1');
   });
 
   it('is found from Month’s page with its home value, and edited there as Month’s page draws it', async () => {
@@ -170,11 +252,33 @@ describe("Start Date on Month's page, reached another way", () => {
       [...group.querySelectorAll('input[type="radio"]')].map((input) =>
         text(input.closest('label')),
       ),
-    ).toEqual(['Today', 'A Fixed Date']);
+    ).toEqual(['Today', 'A Fixed Date', 'Relative to Today']);
     expect([...group.querySelectorAll('.fact, .line-button')].map(text)).toEqual([
       'Whole Card',
       'Tomorrow in List, Columns, and Grid',
     ]);
+
+    // Relative to Today brings its Expression into the result, where the page would draw it.
+    const expression = () =>
+      $(editor, '.result--edit [data-field="content:start_date_offset"]') !== null;
+    expect(expression()).toBe(false);
+    group.querySelector<HTMLElement>('[data-focus="start_date_mode:offset"]')!.click();
+    await editor.updateComplete;
+    expect(expression()).toBe(true);
+    // Typed into the result's own form, which reports its whole data as Home Assistant's does.
+    const form = $(editor, '.result--edit [data-field="content:start_date_offset"] ha-form') as
+      (HTMLElement & { data: Record<string, unknown> }) | null;
+    expect(form).not.toBeNull();
+    form!.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: { ...form!.data, start_date_offset: 'today+30' } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await editor.updateComplete;
+    expect(lastConfig(editor)!.start_date).toBe('today+30');
+    expect(expression()).toBe(true);
   });
 });
 
@@ -188,10 +292,40 @@ describe('Start Date everywhere else', () => {
       expect(drawn).toMatchObject({
         choices: ['Today', 'Tomorrow', 'Start of Week', 'A Fixed Date', 'Relative to Today'],
         chosen: 'offset',
-        helper: HELPER,
+        helper: '',
         expression: true,
       });
       expect(drawn.facts.slice(0, 2)).toEqual(['Set', 'Reset (Today)']);
     },
   );
+});
+
+describe('the card and the editor', () => {
+  // The card opens today's month for exactly the start dates Month's page reads as Today, and the
+  // month holding the resolved date for every other: Tomorrow and Start of Week, in the forms the
+  // editor reads as those choices, are the only relative ones it does not follow.
+  it.each([
+    [undefined, true],
+    ['', true],
+    // Blank text resolves to today, as no start date does.
+    [' ', true],
+    ['today+1', true],
+    [' today+1 ', true],
+    ['+1', true],
+    ['start_of_week', true],
+    [' start_of_week', true],
+    ['today', false],
+    ['today+2', false],
+    ['today + 1', false],
+    ['Today+1', false],
+    ['start_of_week+1', false],
+    ['friday', false],
+    ['today-29', false],
+    ['2027-01-15', false],
+  ] as const)('agree on %j', (start_date, today) => {
+    expect(ViewConfig.monthOpensToday(start_date)).toBe(today);
+    expect(Synthetic.startDateModeIn({ start_date } as Types.Config, 'month') === 'default').toBe(
+      today,
+    );
+  });
 });

@@ -23,5 +23,6 @@
   "loadFailed": "Không tải được:",
   "newEvent": "Sự kiện mới",
   "showAll": "Hiện tất cả",
-  "hideAll": "Ẩn tất cả"
+  "hideAll": "Ẩn tất cả",
+  "private": "Riêng tư"
 }

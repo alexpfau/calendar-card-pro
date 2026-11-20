@@ -247,8 +247,7 @@ const APPROVED_MAP: ReadonlyArray<
     [
       'content:start_date_mode R',
       'content:start_date_fixed W',
-      // Month's page offers Today and A Fixed Date alone, so every scope but Month offers this.
-      'content:start_date_offset W SLCG',
+      'content:start_date_offset W',
       'content:event_type A',
       'content:hide_when_empty A',
     ],
@@ -623,7 +622,7 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:text_scale A',
     ],
   ],
-  ['Calendar Entry', 'Who Sees It', '', ['calendar:visibility A']],
+  ['Calendar Entry', 'Who Sees It', '', ['calendar:visibility A', 'calendar:private A']],
   [
     'Calendar Entry',
     'Which Events',
@@ -673,7 +672,7 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 235 ids, Month's own nine, Layouts in Switcher and the three of the month's name
+    // map places 236 ids, Month's own nine, Layouts in Switcher and the three of the month's name
     // on List's month separator among them, and every one of them is built under some workspace
     // and state.
     console.info(
@@ -681,8 +680,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(235);
-    expect(PLACED).toHaveLength(235);
+    expect(BUILT.size).toBe(236);
+    expect(PLACED).toHaveLength(236);
   });
 
   it('has no field built but unplaced', () => {

@@ -569,7 +569,7 @@ function standing(
   const own = present.get(place.id);
   if (own) {
     // A whole-card setting is worded as its home holds and draws it, where its result opens:
-    // Month's page reads a start date that follows today as Today, and offers two of its choices.
+    // Month's page reads Tomorrow and Start of Week as Today, and offers neither.
     const home = keepsNoLayoutCopy(place.id);
     return {
       field: (home ? universeIndex(ctx.language, 'shared').fields.get(place.id) : undefined) ?? own,

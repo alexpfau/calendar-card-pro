@@ -504,6 +504,7 @@ describe('editor: the order of the two panels', () => {
       'text_scale',
       '# heading.who_sees_it',
       'visibility',
+      'private',
       '# page.which_events',
       'days_of_week',
       'event_type',

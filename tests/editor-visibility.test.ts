@@ -58,7 +58,7 @@ describe('the visibility field', () => {
       ENTRY_GROUPS.filter((group) => group.fields.some(([id]) => id === 'calendar:visibility')).map(
         (group) => [group.key, group.fields.map(([id]) => id)],
       ),
-    ).toEqual([['heading.who_sees_it', ['calendar:visibility']]]);
+    ).toEqual([['heading.who_sees_it', ['calendar:visibility', 'calendar:private']]]);
   });
 
   it("is named in Home Assistant's words, and explained", () => {
@@ -262,7 +262,7 @@ describe("which editor a calendar entry's page shows", () => {
     expect(redrawn).not.toHaveBeenCalled();
   });
 
-  it('sits alone under Who Sees It, between Name & Look and Which Events, its helper behind ⓘ', async () => {
+  it('leads Who Sees It, before Private, between Name & Look and Which Events, its helper behind ⓘ', async () => {
     const editor = await render([ANNA]);
     const conditions = drawn(await editor.editorOn(0));
     const container = conditions.parentElement!;
@@ -277,7 +277,12 @@ describe("which editor a calendar entry's page shows", () => {
     // Its helper is behind its head's ⓘ alone, never shown a second time above the editor.
     expect(container.querySelector('.entity-visibility-helper')).toBeNull();
     expect(conditions).toBe(container.firstElementChild);
-    expect([...section.querySelectorAll('[data-field]')]).toEqual([container]);
+    expect(
+      [...section.querySelectorAll('[data-field]')].map((field) =>
+        field.getAttribute('data-field'),
+      ),
+    ).toEqual(['calendar:visibility', 'calendar:private']);
+    expect(section.querySelector('[data-field]')).toBe(container);
     expect(section.querySelector('h3')?.textContent?.trim()).toBe('Who Sees It');
     expect([
       sections(section.previousElementSibling),

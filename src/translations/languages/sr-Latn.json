@@ -23,5 +23,6 @@
   "loadFailed": "Neuspešno učitavanje:",
   "newEvent": "Novi događaj",
   "showAll": "Prikaži sve",
-  "hideAll": "Sakrij sve"
+  "hideAll": "Sakrij sve",
+  "private": "Privatno"
 }

@@ -47,9 +47,10 @@ setting has a value for every layout:
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. Month's page offers
-Today and A Fixed Date alone, since Month opens today's month for every other choice, and names
-what the other layouts start on when one of those is set. A tap on an event opens its details; to
-change that, choose another action under **Event Tap Action** on Taps & Refresh.
+Today, A Fixed Date and Relative to Today. It shows Tomorrow and Start of Week as Today, since
+Month opens today's month for them, and names what the other layouts start on instead. A tap on
+an event opens its details; to change that, choose another action under **Event Tap Action** on
+Taps & Refresh.
 
 **Weather** opens with **Weather Entity**, shared by every layout. Choosing one here turns the
 forecast on in the layout you are editing, beside its days, or in Month beside its events, and
@@ -446,14 +447,14 @@ that entry's page. Its heading names the calendar; where there are several, the 
 says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Calendar** and
 **Next Calendar** step through the list without going Back. The page holds these headings:
 
-| Heading              | What it holds                                                                                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                             |
-| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor                                                     |
-| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
-| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                         |
-| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                      |
-| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                   |
+| Heading              | What it holds                                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                                             |
+| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor, then [Private](/features/core-settings#keeping-a-calendar-private) |
+| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show                 |
+| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                                         |
+| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                                      |
+| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                                   |
 
 To show a calendar only on some days of the week, use **Days of the Week** under **Which
 Events**; the line under **Who Sees It** leads there.

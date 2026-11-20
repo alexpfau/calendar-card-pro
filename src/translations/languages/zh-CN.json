@@ -36,5 +36,6 @@
   "loadFailed": "无法加载：",
   "newEvent": "新活动",
   "showAll": "全部显示",
-  "hideAll": "全部隐藏"
+  "hideAll": "全部隐藏",
+  "private": "私人"
 }

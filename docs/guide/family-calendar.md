@@ -231,17 +231,12 @@ entities:
     name: Work
     label: person.ben
     accent_color: '#90a4ae'
-    replace_with: Work # says Ben is at work, not what the meeting is
-    show_location: false # and not where it is
-    show_description: false
+    private: true # when Ben is at work, not what the meeting is or where
+    replace_with: Work # and Work in place of Private
   # calendar.family and calendar.trash_pickup as above
 ```
 
-::: warning Editing Shows the Real Title
-A tap opens a work event in the [event popover](/features/actions#event-details), which says _Work_ too. Where the calendar [allows editing](/features/actions#what-each-integration-allows), though, the real title appears as soon as someone starts editing it. Where that matters, add `allow_event_edit: false` to the card.
-:::
-
-[`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) replaces every title with _Work_, and Ben's face says whose it is. Grid hides locations already, but List and Columns show them, so `show_location: false` keeps a meeting room off the phone, and `show_description: false` keeps an agenda off even if descriptions are turned on for the whole card. Set on the calendar itself, both also keep their field out of the popover.
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
 
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 

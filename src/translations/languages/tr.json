@@ -23,5 +23,6 @@
   "loadFailed": "Yüklenemedi:",
   "newEvent": "Yeni etkinlik",
   "showAll": "Tümünü göster",
-  "hideAll": "Tümünü gizle"
+  "hideAll": "Tümünü gizle",
+  "private": "Özel"
 }

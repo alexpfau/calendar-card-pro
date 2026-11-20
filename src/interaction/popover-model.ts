@@ -75,10 +75,10 @@ export interface PopoverParams {
    */
   display?: { title: string; location: string; description: string };
   /**
-   * Fields the event's calendar keeps out of view (`hiddenFields`): not drawn, never looked up
-   * for a map, and saved as they are stored. Only for an existing event; a new one shows all.
+   * Set for a private entry's event (`EntityConfig.private`): which fields `display` shows as
+   * Private, after a lock. Such an event is drawn as text, with no map and nothing to change.
    */
-  hidden?: { location: boolean; description: boolean };
+  private?: { title: boolean; location: boolean; description: boolean };
   /** Whether the event may be changed here, and deleted. */
   canEdit: boolean;
   canDelete: boolean;

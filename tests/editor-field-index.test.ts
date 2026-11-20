@@ -135,8 +135,8 @@ const HOLDS: ReadonlyArray<string> = [
   'column day_header:today_indicator_custom',
   'grid content:start_date_offset',
   'grid day_header:today_indicator_custom',
-  // Month draws today on the tile or not at all, so it offers no image for it, and it offers no
-  // start-date expression, since every start date that follows today opens today's month there.
+  'month content:start_date_offset',
+  // Month draws today on the tile or not at all, so it offers no image for it.
 ];
 
 /**
@@ -275,11 +275,12 @@ describe('field ids', () => {
       `Field ids: ${leaves} leaves over ${DISTINCT.length} distinct corpus states, ` +
         `${EVERY_FIELD.size} ids in all.`,
     );
-    // 222 without Month or the name on List's month separator, Arrow & Chip Size among them.
+    // 223 without Month or the name on List's month separator, Arrow & Chip Size and a calendar's
+    // Private among them.
     // Month adds its own ten: its four card heights, Minimum Day Width, its two shadings, the two
     // font sizes of its days, and Layouts in Switcher. List's month separator adds three: Month
     // Name on Rule, its color and its size.
-    expect(EVERY_FIELD.size).toBe(235);
+    expect(EVERY_FIELD.size).toBe(236);
   });
 
   it('do not depend on the editor language', () => {

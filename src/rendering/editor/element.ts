@@ -382,6 +382,9 @@ type ColorWrite = Colors.ColorSpec['sources'][number]['write'];
 /** Start Date's mode, drawn as the overview's chips. */
 const START_DATE_FIELD: FieldId = 'content:start_date_mode';
 
+/** Start Date's Expression, which Relative to Today reveals. */
+const START_DATE_EXPRESSION: FieldId = 'content:start_date_offset';
+
 /** Tapping an Event Opens It, which gives way to a line while another action is stored. */
 
 /** Calendar Filter: a toolbar chip, whose form is its qualifier line under the chips. */
@@ -500,6 +503,11 @@ interface FieldShow {
   readonly switchRow?: boolean;
   /** The helper's element id: the helper sits behind ⓘ, so the form draws none of its own. */
   readonly describedBy?: string;
+  /**
+   * Whether it is drawn without its page, as search's Edit Here draws it, so a control that
+   * reveals another (Start Date's A Fixed Date and Relative to Today) brings it along.
+   */
+  readonly alone?: boolean;
   /**
    * The words read with the setting's name (`views/shown.ts` › `spokenFacts`): the facts under it,
    * then its "Default".
@@ -2990,16 +2998,16 @@ export class CalendarCardProEditor extends LitElement {
     const options = 'select' in selector ? (selector.select?.options ?? []) : [];
     const label = fieldLabel(field, ctx.language);
     const text = this._fieldText(`field.${workspace}.${field.id}`, field, ctx, show?.words);
-    // Drawn alone (Stored Settings' Edit), the chips bring the field their choice reveals,
-    // which a page draws beside them.
+    // Drawn alone (Stored Settings' Edit, search's Edit Here), the chips bring the field their
+    // choice reveals, which a page draws beside them.
     const revealed =
       value === 'fixed'
         ? 'content:start_date_fixed'
         : value === 'offset'
-          ? 'content:start_date_offset'
+          ? START_DATE_EXPRESSION
           : undefined;
     const reveal =
-      show === undefined && revealed !== undefined
+      (show === undefined || show.alone === true) && revealed !== undefined
         ? buildFieldIndex(ctx).fields.get(revealed)
         : undefined;
     return Overview.radioChips(
@@ -3010,7 +3018,9 @@ export class CalendarCardProEditor extends LitElement {
         typeof option === 'string' ? { value: option, label: option } : option,
       ),
       value,
-      reveal === undefined ? (show?.line ?? nothing) : this._renderField(reveal, ctx),
+      reveal === undefined
+        ? (show?.line ?? nothing)
+        : html`${show?.line ?? nothing}${this._renderField(reveal, ctx)}`,
       (mode) =>
         this._commit(
           this._string(ctx, 'history.change', { setting: label }),
@@ -3470,7 +3480,11 @@ export class CalendarCardProEditor extends LitElement {
           ? 'reset'
           : undefined
         : this._resetActionOf(field.id, appearance, pctx, owner);
-    if (action !== undefined) {
+    // Month's page reads a stored Tomorrow or Start of Week as Today, so the Expression shown for
+    // one offers no Reset or Remove, which would change the other layouts alone.
+    const keepsShortcut =
+      field.id === START_DATE_EXPRESSION && this._monthStartDateShortcut(ctx) !== undefined;
+    if (action !== undefined && !keepsShortcut) {
       const text = Shown.resetText(action, Plan.resetOutcome(field, pctx), label, t, word);
       actions.push({
         label: text.label,
@@ -5780,12 +5794,11 @@ export class CalendarCardProEditor extends LitElement {
             kind: 'field',
             key: `edit:${target.id}`,
             crumbs: layout === undefined ? entry.crumbs : [...entry.crumbs, layout],
-            field: this._renderField(
-              field,
-              ctx,
-              this._monthStartDateShow(field, ctx) ??
-                this._fieldShow(field, appearance, pctx, ctx, CARD),
-            ),
+            field: this._renderField(field, ctx, {
+              ...(this._monthStartDateShow(field, ctx) ??
+                this._fieldShow(field, appearance, pctx, ctx, CARD)),
+              alone: true,
+            }),
           };
         }
       }
@@ -5835,8 +5848,8 @@ export class CalendarCardProEditor extends LitElement {
         return undefined;
       }
       const field = present.get(target.id);
-      // A whole-card setting holds one value, however a layout reads it: Month reads a start date
-      // that follows today as Today.
+      // A whole-card setting holds one value, however a layout reads it: Month reads Tomorrow and
+      // Start of Week as Today.
       if (field === undefined || keepsNoLayoutCopy(field.id)) return undefined;
       const here = read(workspace, field);
       const differs = ViewConfig.VIEWS.some((view) => !Value.deepEqual(read(view, field), here));
@@ -6472,11 +6485,26 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The line under Start Date on Month's page while the card stores a start date that follows
-   * today: Whole Card, and what the other layouts start on ("Start of Week in List, Columns, and
-   * Grid"). Month reads such a value as Today (`Synthetic.startDateModeIn`), so the line has no
-   * Set and no Reset, which would change those layouts alone. A fixed date, or none, takes the
-   * usual line.
+   * The shortcut the card stores for Start Date, Tomorrow or Start of Week, where Month's page
+   * draws it, which reads it as Today.
+   *
+   * @param ctx - Schema context
+   * @returns The shortcut, or `undefined` on another page or for any other start date
+   */
+  private _monthStartDateShortcut(ctx: SchemaCtx): 'tomorrow' | 'start_of_week' | undefined {
+    if (Workspace.viewForWorkspace(ctx.workspace ?? ctx.view) !== 'month') return undefined;
+    const mode = Synthetic.startDateMode({
+      start_date: this._rawConfig.start_date,
+    } as Types.Config);
+    return mode === 'tomorrow' || mode === 'start_of_week' ? mode : undefined;
+  }
+
+  /**
+   * The line under Start Date on Month's page while the card stores Tomorrow or Start of Week:
+   * Whole Card, and what the other layouts start on ("Start of Week in List, Columns, and Grid").
+   * Month reads those as Today (`Synthetic.startDateModeIn`), so the line has no Set and no Reset,
+   * which would change those layouts alone. It stays while Relative to Today is held over one,
+   * whose Expression then shows that shortcut. Any other start date takes the usual line.
    *
    * @param field - Start Date's mode field
    * @param ctx - Schema context
@@ -6484,14 +6512,9 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _monthStartDateShow(field: IndexedField, ctx: SchemaCtx): FieldShow | undefined {
     if (field.id !== START_DATE_FIELD) return undefined;
-    if (Workspace.viewForWorkspace(ctx.workspace ?? ctx.view) !== 'month') return undefined;
-    const stored = this._rawConfig.start_date;
-    const mode = Synthetic.startDateMode({ start_date: stored } as Types.Config);
-    if (mode === 'default' || mode === 'fixed') return undefined;
-    const value =
-      mode === 'offset'
-        ? String(stored).trim()
-        : this._string(ctx, `${field.node.name}.option.${mode}.label`);
+    const mode = this._monthStartDateShortcut(ctx);
+    if (mode === undefined) return undefined;
+    const value = this._string(ctx, `${field.node.name}.option.${mode}.label`);
     const layout = this._layoutName(ctx);
     const layouts = EditorLocalize.formatList(
       ctx.language,

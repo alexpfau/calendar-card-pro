@@ -36,5 +36,6 @@
   "loadFailed": "無法載入：",
   "newEvent": "新活動",
   "showAll": "顯示全部",
-  "hideAll": "隱藏全部"
+  "hideAll": "隱藏全部",
+  "private": "私人"
 }

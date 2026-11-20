@@ -23,5 +23,6 @@
   "loadFailed": "Nepodařilo se načíst:",
   "newEvent": "Nová událost",
   "showAll": "Zobrazit všechny",
-  "hideAll": "Skrýt všechny"
+  "hideAll": "Skrýt všechny",
+  "private": "Soukromé"
 }

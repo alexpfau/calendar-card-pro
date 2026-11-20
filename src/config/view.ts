@@ -36,7 +36,7 @@ import {
   calendarDayDiff,
   getTimeWindow,
   localDateKey,
-  startDateFollowsToday,
+  startDateShortcut,
 } from '../utils/start-date';
 import {
   getRequiredForecastTypes,
@@ -3486,24 +3486,41 @@ export function monthHomeRowsStart(day: Date, firstDayOfWeek: number): Date {
 }
 
 /**
- * The day Month's home is the month of: today, unless `start_date` is a fixed date, which opens
- * its own month.
+ * Whether Month opens today's month whatever day `start_date` resolves to: for no start date, and
+ * for Tomorrow and Start of Week, as the editor reads them (`startDateShortcut`).
  *
- * The other layouts start on the resolved start date itself. Taking the month that date falls
- * in would make every relative start date (Tomorrow, Start of Week, a weekday, an offset) draw
- * today's month on most days and another near a month's ends: Start of Week last month on a
- * month's first days, Tomorrow next month on its last day, and a `today-29` log last month nearly
- * every day, without today. A day offset cannot name another month exactly anyway (`today+30`
- * skips February from January 31). The other layouts' windows are untouched; a card that can
- * show Month loads both as one span (`loadConfig`), so switching never fetches.
+ * Those two always fall in today's six weeks, but taking their month would draw another month
+ * near a month's ends, without today in it on a few: Start of Week last month on a month's first
+ * days, Tomorrow next month on its last day. Measured over 2026 to 2028, Start of Week resolves to
+ * another month on about 36 days a year and Tomorrow on 12, and either way the date is still on
+ * today's grid. Every other relative start date, `today+30`, `today-29` or `friday`, opens the
+ * month holding the day it names (`monthHomeDay`).
+ *
+ * @param startDate - The configured `start_date`
+ * @returns True where Month opens today's month
+ */
+export function monthOpensToday(startDate: string | undefined): boolean {
+  const text = startDate === undefined || startDate === null ? '' : String(startDate);
+  return text.trim() === '' || startDateShortcut(text) !== undefined;
+}
+
+/**
+ * The day Month's home is the month of: the resolved start date, a fixed date or one relative to
+ * today alike, so on November 20 `today+30` opens December and `today-29` October, as the other
+ * layouts start on that day. Today, where `start_date` is unset, Tomorrow or Start of Week
+ * (`monthOpensToday`).
+ *
+ * The day is also what a compact month selects at home, where `hide_when_empty` starts counting,
+ * and what the add button suggests. The other layouts' windows are untouched; a card that can
+ * show Month loads both as one span (`loadConfig`), so switching at home never fetches.
  *
  * @param start - The card's first day, its resolved `start_date`
- * @param followsToday - Whether `start_date` follows today (`startDateFollowsToday`)
+ * @param opensToday - Whether Month opens today's month (`monthOpensToday`)
  * @param now - The current moment
  * @returns The day, at local midnight
  */
-export function monthHomeDay(start: Date, followsToday: boolean, now: Date): Date {
-  return followsToday ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : start;
+export function monthHomeDay(start: Date, opensToday: boolean, now: Date): Date {
+  return opensToday ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : start;
 }
 
 /**
@@ -3527,7 +3544,7 @@ export function reachesMonth(config: Types.Config): boolean {
  * is what makes them load for every view at once, without any of them learning about views.
  *
  * Where month is reachable, the load also covers the month's six weeks: at home the weeks of
- * Month's home month (`monthHomeDay`: today's, or a fixed date's), on a page the weeks of the
+ * Month's home month (`monthHomeDay`: the start date's, or today's), on a page the weeks of the
  * month holding the page's first day, which is the month Month draws for that page, whichever
  * layout asked for it. So a layout switch that carries a page's day lands on this same load. The
  * other reachable views keep their window from the resolved start. The result names the union of
@@ -3562,9 +3579,7 @@ export function loadConfig(
 
   const window = getTimeWindow(days, config.start_date, firstDayOfWeek, now);
   const rows = monthHomeRowsStart(
-    home
-      ? monthHomeDay(window.start, startDateFollowsToday(config.start_date, now), now)
-      : window.start,
+    home ? monthHomeDay(window.start, monthOpensToday(config.start_date), now) : window.start,
     firstDayOfWeek,
   );
   const others = views.some((view) => view !== 'month');

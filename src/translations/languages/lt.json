@@ -31,5 +31,6 @@
   "loadFailed": "Nepavyko įkelti:",
   "newEvent": "Naujas įvykis",
   "showAll": "Rodyti visus",
-  "hideAll": "Slėpti visus"
+  "hideAll": "Slėpti visus",
+  "private": "Privatus"
 }

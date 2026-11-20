@@ -36,6 +36,7 @@ import * as Activation from './activation';
 import { renderBanner } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as PrivateLock from './private-lock';
 import { generateCustomPropertiesObject } from './styles';
 import * as TextScale from './text-scale';
 import { stopCardGesture } from './toolbar';
@@ -617,6 +618,11 @@ function renderLine(
   const ownColor = event._matchedConfig?.color;
   const titleColor =
     ownColor && !EntityColors.isAccentTextSentinel(ownColor) ? { color: ownColor } : undefined;
+  // A private event's Private follows a lock, last in the label run, in the title's color.
+  const lock = event._privateTitle
+    ? PrivateLock.renderRowLock(titleColor?.color ?? 'var(--calendar-card-color-event)')
+    : nothing;
+  const labels = lock === nothing ? label : label === nothing ? lock : [label, lock];
 
   return html`
     <div
@@ -647,7 +653,7 @@ function renderLine(
       .calendarCardDaySlot=${Activation.COVERED}
     >
       ${Leaves.renderAccentBar()}
-      ${label === nothing ? nothing : html`<span class="month-line-label">${label}</span>`}
+      ${labels === nothing ? nothing : html`<span class="month-line-label">${labels}</span>`}
       <span class="month-line-title" style=${titleColor ? styleMap(titleColor) : nothing}
         >${event.summary ?? ''}</span
       >

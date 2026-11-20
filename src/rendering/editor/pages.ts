@@ -754,7 +754,11 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
     key: 'heading.who_sees_it',
     // Hiding a calendar on weekends is asked here, and answered under Which Events.
     pointer: { field: 'calendar:days_of_week', textKey: 'nav.cross_link.days_of_week' },
-    fields: [['calendar:visibility', A]],
+    // Whether the events show at all, then what everyone who sees them reads of them.
+    fields: [
+      ['calendar:visibility', A],
+      ['calendar:private', A],
+    ],
   },
   {
     // The page title's own words, so one key serves both.

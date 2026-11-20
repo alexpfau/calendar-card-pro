@@ -307,7 +307,8 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   [reset button](#resetting-the-card) returns one; see
   [What the Card Keeps](/features/performance#what-the-card-keeps).
 - **The same days, nothing reloaded.** List, Columns and Grid start on the same date, since
-  `start_date` is shared, and Month opens today's month unless `start_date` is a fixed date. The
+  `start_date` is shared, and Month opens the month holding it, or today's month for Tomorrow
+  and Start of Week. The
   card does not reload its events to switch, except to carry you to days it has not loaded yet,
   such as from a day picked on a compact month, which it loads as paging does. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see

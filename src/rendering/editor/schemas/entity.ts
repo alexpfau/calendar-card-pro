@@ -382,6 +382,9 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // `_renderVisibility`), and as YAML where it is not: its conditions nest where no form here
     // can follow.
     { name: VISIBILITY, selector: { object: {} } },
+    // With the conditions, as the other half of who sees what: whether the events show, then
+    // what everyone who sees them reads of them.
+    bool('private'),
     choice(ctx.language, 'days_of_week'),
     choice(ctx.language, 'event_type'),
     { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
