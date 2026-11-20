@@ -1758,6 +1758,15 @@ class CalendarCardPro extends LitElement {
   private _pageShown: string | null = null;
 
   /**
+   * The day, `YYYY-MM-DD`, a view switch carried to List, Columns or Grid where it opened their
+   * home (`_openOnDate`): a Grid that draws fewer columns than its days starts home on today, so a
+   * page starting today lands there. Kept while the card stays home, so the next switch carries it
+   * on and a round trip comes back to it; gone with a page, Home, Reset, a configuration change
+   * and the start of editing. A month keeps its carried day as its selection instead.
+   */
+  private _carriedDay: string | null = null;
+
+  /**
    * The window the events in `events` were loaded for, or null before any load has put events
    * there.
    *
@@ -5016,6 +5025,9 @@ class CalendarCardPro extends LitElement {
       this._requestPage(null);
       this._loadPage();
     }
+    if ((changedProps.has('editMode') || changedProps.has('preview')) && this._isBeingEdited) {
+      this._carriedDay = null;
+    }
 
     // Reconciled after every update rather than acquired once: the view can change after
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
@@ -7948,6 +7960,7 @@ class CalendarCardPro extends LitElement {
     // home's events are committed, so nothing is drawn under the wrong dates meanwhile.
     const leftPage = replaced && this._pageRequested !== null;
     if (leftPage) this._requestPage(null);
+    if (replaced) this._carriedDay = null;
     const seededFit = ViewConfig.resolveColumnFit(
       this.requestedView,
       this.config,
@@ -9507,7 +9520,9 @@ class CalendarCardPro extends LitElement {
   private _pressHome(): void {
     const away = this._pageRequested !== null;
     // Home lists today on a compact month, whichever day was selected, on home's page or not,
-    // and puts a month's tab stop back on its own day.
+    // and puts a month's tab stop back on its own day. Nor does a day a switch carried here
+    // carry on from it.
+    if (!this._isBeingEdited) this._carriedDay = null;
     if ((this._monthSelection !== null || this._monthFocusDay !== null) && !this._isBeingEdited) {
       this._monthSelection = null;
       this._monthFocusDay = null;
@@ -9613,6 +9628,7 @@ class CalendarCardPro extends LitElement {
    */
   private _requestPage(page: string | null): void {
     this._pageRequested = page;
+    this._carriedDay = null;
     // Another page lists its own day, and keeps a month's tab stop on it. A key or a pick that
     // moves a month's focus onto it says so once this returns (`_moveMonthFocus`,
     // `_pickSearchResult`); a page asked for any other way does not.
@@ -10844,9 +10860,10 @@ class CalendarCardPro extends LitElement {
   /**
    * The date in view, which a view switch carries to the next view: on a month the day selected
    * on the page asked for, else that page's own (`_monthOwnDay`: today where its month holds it,
-   * else its 1st; at home today or a fixed start date); on any other view its page's first day,
-   * in time order whichever way a list reads, so List, Columns and Grid switch among themselves on
-   * the same days. Null at home with nothing selected, where the next view opens on its own home.
+   * else its 1st); on any other view its page's first day, in time order whichever way a list
+   * reads, so List, Columns and Grid switch among themselves on the same days. At home it is the
+   * day selected, or the day a switch carried there (`_carriedDay`), and otherwise null, where the
+   * next view opens on its own home.
    *
    * @param now - The current moment
    * @returns The day, at local midnight, or null
@@ -10854,17 +10871,17 @@ class CalendarCardPro extends LitElement {
   private _dateInView(now: Date = new Date()): Date | null {
     const page = this._pageRequested;
     if (this.effectiveView === 'month') {
-      const own = this._monthOwnDay(page, now);
-      const day = MonthDay.selectedMonthDay(
+      const selected = MonthDay.selectionOnPage(
         this._monthSelection,
         page,
         this._monthRowsStart(page, now),
         now,
-        own,
       );
-      return page === null && day.getTime() === own.getTime() ? null : day;
+      if (selected !== null) return selected;
+      return page === null ? null : this._monthOwnDay(page, now);
     }
-    return page === null ? null : Paging.pageStart(page);
+    if (page !== null) return Paging.pageStart(page);
+    return this._carriedDay === null ? null : Paging.pageStart(this._carriedDay);
   }
 
   /**
@@ -10872,18 +10889,26 @@ class CalendarCardPro extends LitElement {
    * for none. A month opens on the weeks of the month holding the day, with the day selected,
    * listed where the month is compact and kept where it is wide, and its cell the tab stop either
    * way. Any other view opens on the page starting that day. A page that draws what home does is
-   * home (`_goToPage`).
+   * home (`_goToPage`), which keeps the day for the next switch (`_carriedDay`).
+   *
+   * The day is kept as a date, never as today's token, since the page it came from stays on its
+   * dates at midnight.
    *
    * @param day - The day carried, or null
    */
   private _openOnDate(day: Date | null): void {
     this._monthSelection = null;
     this._monthFocusDay = null;
+    this._carriedDay = null;
     this._goToPage(day);
-    if (day !== null && this.effectiveView === 'month') {
+    if (day === null) return;
+    const key = FormatUtils.getLocalDateKey(day);
+    if (this.effectiveView === 'month') {
       // After the page, which lets go of a selection made on another.
-      this._monthSelection = MonthDay.monthSelectionOf(day, this._pageRequested);
-      this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+      this._monthSelection = { page: this._pageRequested, day: key };
+      this._monthFocusDay = key;
+    } else if (this._pageRequested === null) {
+      this._carriedDay = key;
     }
   }
 
@@ -11065,6 +11090,7 @@ class CalendarCardPro extends LitElement {
     this.isExpanded = false;
     this._monthSelection = null;
     this._monthFocusDay = null;
+    this._carriedDay = null;
     this._goToPage(null);
     // The check belongs to the button; a card reset by its action alone has none to show it.
     if (this._wantsReset) this._confirmReset();

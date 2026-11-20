@@ -85,9 +85,12 @@ the configuration.
   views' page's first day, in time order even for a list read latest first, so those three switch
   among themselves on the same days. Month opens that day's month with the day selected and as
   its tab stop; the others open the page starting that day. From home with nothing selected the
-  next view opens on its own home. A page's load holds the weeks of the month its day falls in
-  (`loadConfig`), so carrying a page's day lands on that same load wherever the next view's days
-  lie in those weeks.
+  next view opens on its own home; a carry that lands on a view's home is kept for the next
+  switch (`_carriedDay`), as Month keeps it as its selection, so a round trip comes back to it,
+  and any page, Home or Reset lets go of it. A carried day is a date, never today's token, so it
+  stays put at midnight as the page it came from does. A page's load holds the weeks of the
+  month its day falls in (`loadConfig`), so carrying a page's day lands on that same load
+  wherever the next view's days lie in those weeks.
 - **Nothing remembers a page.** A reload, a configuration change and the start of editing bring the
   card home.
 - **Hiding leaves a way back.** `hide_when_empty` acts only at home and only while the legend hides

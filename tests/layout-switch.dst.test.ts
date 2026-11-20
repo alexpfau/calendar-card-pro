@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { layOutMonthList } from './helpers/month-geometry';
 import { memoryStorage } from './memory-storage';
+import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import '../src/calendar-card-pro';
 
@@ -169,6 +170,8 @@ async function mount(config: Record<string, unknown>, width = 1100): Promise<Car
   for (const observer of RecordingResizeObserver.instances) {
     observer.callback([{ target: card, contentRect: { width, height: 0 } }]);
   }
+  // The layout follows a width once it has held still.
+  vi.advanceTimersByTime(Constants.TIMING.WIDTH_SETTLE_DELAY);
   await settle(card);
   return card;
 }
@@ -428,6 +431,74 @@ describe('home', () => {
     });
     await switchTo(card, 'list');
     expect(shown(card).days).toEqual(['2026-11-19', '2026-11-25']);
+  });
+});
+
+describe('a carry that lands on a layout’s home', () => {
+  it('keeps the day for the way back where a Grid drawing fewer columns starts home on it', async () => {
+    // A week back as List's seven days, a fortnight in Grid, which draws a few of them from
+    // today. A page forward starts today, which is Grid's home.
+    const card = await mount(
+      { view: 'list', start_date: 'today-7', time_grid: { days_to_show: 14 } },
+      400,
+    );
+    expect(shown(card).days).toEqual(['2026-11-11', '2026-11-17']);
+    await press(card, 'next');
+    await switchTo(card, 'grid');
+    expect(shown(card).days[0]).toBe('2026-11-18');
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+    // Home lets go of it.
+    await switchTo(card, 'grid');
+    await press(card, 'home');
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-11', '2026-11-17']);
+  });
+
+  it('keeps the day for the way back where it is List’s home', async () => {
+    // Monday 30 November, Tomorrow: List's home starts on 1 December, Month's is November.
+    vi.setSystemTime(new Date(2026, 10, 30, 10));
+    const card = await mount({ view: 'month', start_date: 'today+1' });
+    await press(card, 'next');
+    expect(shown(card).heading).toBe('December 2026');
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-12-01', '2026-12-07']);
+    await switchTo(card, 'month');
+    expect(shown(card).heading).toBe('December 2026');
+  });
+
+  it('comes back to a page starting today, which is the day Month selects by itself', async () => {
+    // A week ahead: List's home is 25 November – 1 December, a page back starts today.
+    const card = await mount({ view: 'list', start_date: 'today+7' }, 360);
+    await press(card, 'previous');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+    await switchTo(card, 'month');
+    expect(shown(card)).toMatchObject({
+      heading: 'November 2026',
+      listed: expect.stringContaining('November 18'),
+    });
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+  });
+
+  it('carries a day tapped on a compact month, even the one it selects by itself', async () => {
+    const card = await mount({ view: 'month', start_date: 'today+7' }, 360);
+    await select(card, '2026-11-18');
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+  });
+
+  it('keeps a carried day a date past midnight, as the page it came from is', async () => {
+    // A fixed start on Wednesday 4 November: two pages forward start today.
+    const card = await mount({ view: 'list', start_date: '2026-11-04' }, 360);
+    await press(card, 'next');
+    await press(card, 'next');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+    await switchTo(card, 'month');
+    vi.setSystemTime(new Date(2026, 10, 19, 0, 30));
+    await settle(card);
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
   });
 });
 

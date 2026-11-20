@@ -271,6 +271,28 @@ export function defaultMonthDay(rowsStart: Date, now: Date = new Date()): Date {
 }
 
 /**
+ * The day selected on a page, while the selection is that page's and one of its days.
+ *
+ * @param selection - The day selected, if any
+ * @param page - The page shown, or null for home
+ * @param rowsStart - Its first row's first day
+ * @param now - The current moment
+ * @returns The day, at local midnight, or null where nothing on the page is selected
+ */
+export function selectionOnPage(
+  selection: MonthSelection | null,
+  page: string | null,
+  rowsStart: Date,
+  now: Date = new Date(),
+): Date | null {
+  if (!selection || selection.page !== page) return null;
+  const day =
+    selection.day === SELECTED_TODAY ? Paging.startOfDay(now) : Paging.pageStart(selection.day);
+  const index = FormatUtils.getCalendarDayDiff(rowsStart, day);
+  return index >= 0 && index < ViewConfig.MONTH_DAYS ? day : null;
+}
+
+/**
  * The day a compact month shows the list of: the one selected on this page while it is one of
  * the page's days, else the page's own, `defaultMonthDay` unless the card names another.
  *
@@ -288,13 +310,7 @@ export function selectedMonthDay(
   now: Date = new Date(),
   own: Date = defaultMonthDay(rowsStart, now),
 ): Date {
-  if (selection && selection.page === page) {
-    const day =
-      selection.day === SELECTED_TODAY ? Paging.startOfDay(now) : Paging.pageStart(selection.day);
-    const index = FormatUtils.getCalendarDayDiff(rowsStart, day);
-    if (index >= 0 && index < ViewConfig.MONTH_DAYS) return day;
-  }
-  return own;
+  return selectionOnPage(selection, page, rowsStart, now) ?? own;
 }
 
 /**
