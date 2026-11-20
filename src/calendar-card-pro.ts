@@ -1169,9 +1169,14 @@ class CalendarCardPro extends LitElement {
     origin?: Feedback.PressOrigin,
   ): Omit<PopoverModel.PopoverParams, 'language' | 'hour24' | 'dark'> | undefined {
     const calendarId = event._entityId;
-    const entry = EventDetails.buildDetailEntry(event);
-    if (!calendarId || !entry) return undefined;
+    const stored = EventDetails.buildDetailEntry(event);
+    if (!calendarId || !stored) return undefined;
 
+    const language = this.effectiveLanguage;
+    const display = EventDetails.displayText(event, language);
+    const locked = EventDetails.privateFields(event, language);
+    // A private event's own words never reach the popover; see `privateEntry`.
+    const entry = locked ? EventDetails.privateEntry(stored, display) : stored;
     const calendar = this._popoverCalendar(calendarId, color);
     const permissions = this._eventPermissions(event, entry);
     // Moving an event writes it to another calendar and deletes it from its own, so it is
@@ -1184,8 +1189,8 @@ class CalendarCardPro extends LitElement {
       mode: 'event',
       calendarId,
       entry,
-      display: EventDetails.displayText(event),
-      hidden: EventDetails.hiddenFields(event),
+      display,
+      ...(locked && { private: { ...locked } }),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
       ...permissions,
@@ -1358,7 +1363,10 @@ class CalendarCardPro extends LitElement {
     }
     if (kind !== 'forward' || !action || this._isBeingEdited) return;
 
-    const filled = EventActions.fillEventAction(action, EventActions.eventFields(event));
+    const filled = EventActions.fillEventAction(
+      action,
+      EventActions.eventFields(event, this.effectiveLanguage),
+    );
     if (!filled) {
       Logger.warn(
         `Not running event ${gesture} action: it puts an event's text outside its data or URL query, or its URL would not open over http or https`,

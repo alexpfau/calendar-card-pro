@@ -220,7 +220,7 @@ describe('the Family Agenda card behaves as the page describes', () => {
       blocklist: '#family',
       replace_with: 'Busy',
       label: 'person.ben',
-      show_location: false,
+      private: true,
     });
     expect(blocksOf('calendar.family')[0]).toMatchObject({
       allowlist: 'birthday',

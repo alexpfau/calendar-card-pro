@@ -58,6 +58,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'calendar',
     queries: ['who sees', 'specific users'],
   },
+  // The words for what the switch does, which its label, one adjective, leaves out.
+  'entity.private.aliases': {
+    field: 'private',
+    scope: 'calendar',
+    queries: ['privacy', 'hide titles', 'confidential'],
+  },
   'entity.blocklist.aliases': { field: 'blocklist', scope: 'calendar', queries: ['exclude'] },
   'entity.allowlist.aliases': { field: 'allowlist', scope: 'calendar', queries: ['include only'] },
   'days_to_show.aliases': {

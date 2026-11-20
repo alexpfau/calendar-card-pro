@@ -23,5 +23,6 @@
   "loadFailed": "Couldn't load:",
   "newEvent": "New event",
   "showAll": "Show all",
-  "hideAll": "Hide all"
+  "hideAll": "Hide all",
+  "private": "Private"
 }

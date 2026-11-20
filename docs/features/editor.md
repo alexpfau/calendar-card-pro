@@ -446,14 +446,14 @@ that entry's page. Its heading names the calendar; where there are several, the 
 says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Calendar** and
 **Next Calendar** step through the list without going Back. The page holds these headings:
 
-| Heading              | What it holds                                                                                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                             |
-| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor                                                     |
-| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
-| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                         |
-| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                      |
-| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                   |
+| Heading              | What it holds                                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                                             |
+| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor, then [Private](/features/core-settings#keeping-a-calendar-private) |
+| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show                 |
+| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                                         |
+| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                                      |
+| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                                   |
 
 To show a calendar only on some days of the week, use **Days of the Week** under **Which
 Events**; the line under **Who Sees It** leads there.

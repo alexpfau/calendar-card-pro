@@ -23,5 +23,6 @@
   "loadFailed": "불러오지 못함:",
   "newEvent": "새 일정",
   "showAll": "모두 표시",
-  "hideAll": "모두 숨기기"
+  "hideAll": "모두 숨기기",
+  "private": "비공개"
 }

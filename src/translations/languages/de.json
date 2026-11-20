@@ -31,5 +31,6 @@
   "loadFailed": "Laden fehlgeschlagen:",
   "newEvent": "Neuer Termin",
   "showAll": "Alle anzeigen",
-  "hideAll": "Alle ausblenden"
+  "hideAll": "Alle ausblenden",
+  "private": "Privat"
 }

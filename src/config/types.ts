@@ -1015,6 +1015,23 @@ export interface EntityConfig {
    * entry and hide the other.
    */
   visibility?: VisibilityCondition[];
+  /**
+   * `true` keeps this entry's events private on the card: each shows when it is, in its
+   * calendar's color, label and name, and nothing it says. Its title reads Private behind a lock,
+   * and its location and description are not drawn; in the event popover, a field the event has
+   * reads Private behind a lock too (`utils/private-events.ts`). Unset or `false`, the events
+   * show as usual.
+   *
+   * Read at render time from the event's matched block, as the text replacement is, so a calendar
+   * listed twice can keep one block private and not the other. A whole-field `replace_with` takes
+   * the place of Private for its field; a replacement with a pattern is not applied, since it
+   * would show the rest of the text. The card neither changes nor deletes a private event
+   * (`detailPermissions`), and search finds it only as it is drawn.
+   *
+   * The entry's filters still read the event's own words, since they decide which entry an event
+   * belongs to rather than what it shows.
+   */
+  private?: boolean;
 }
 
 /** Weather position-specific styling configuration. */
@@ -1313,6 +1330,13 @@ export interface CalendarEventData {
    * by the template and no element comes or goes for it.
    */
   _searchRing?: boolean;
+  /**
+   * Set on a row whose title is the Private placeholder of a private entry
+   * (`EntityConfig.private`), by `groupEventsByDay`: every renderer draws a lock before the title
+   * from it (`PrivateLock.renderRowLock`). Not set where a whole-field `replace_with` names the
+   * title instead.
+   */
+  _privateTitle?: boolean;
 }
 
 /**
@@ -1785,6 +1809,12 @@ export interface Translations {
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;
+  /**
+   * What a private calendar's event says in place of its title, and in its event popover in place
+   * of its location and description, after a lock (`EntityConfig.private`). The adjective a
+   * calendar app marks a private event with, not the noun for privacy.
+   */
+  private: string;
 }
 
 // -----------------------------------------------------------------------------

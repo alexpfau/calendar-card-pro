@@ -16,6 +16,7 @@ import { PropertyValues, TemplateResult, css, html, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 
 import * as Shell from './popover-shell';
+import * as PrivateLock from './private-lock';
 import * as Types from '../config/types';
 import * as Writes from '../interaction/calendar-writes';
 import * as EventMap from '../interaction/event-map';
@@ -669,11 +670,14 @@ export class EventPopover extends Shell.PopoverShell {
   // MAP
   //---------------------------------------------------------------------------
 
-  /** Draws the map under the location, when the location is a place Home Assistant knows. */
+  /**
+   * Draws the map under the location, when the location is a place Home Assistant knows. Not for
+   * a private event, whose place is neither shown nor looked up.
+   */
   private async _loadMap(): Promise<void> {
     const params = this._params;
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
-    if (!params || params.mode !== 'event' || !location || params.hidden?.location) return;
+    if (!params || params.mode !== 'event' || !location || params.private) return;
 
     const place = await EventMap.resolveLocation(location, this.hass, MAP_WIDTH);
     if (!place || this._params !== params) return;
@@ -802,10 +806,20 @@ export class EventPopover extends Shell.PopoverShell {
     return this._params?.calendars.find((calendar) => calendar.id === id);
   }
 
+  /**
+   * A private event's lock before a field that shows Private (`PopoverParams.private`).
+   *
+   * @param field - Which field
+   * @returns The lock, or nothing
+   */
+  private _lock(field: 'title' | 'location' | 'description'): TemplateResult | typeof nothing {
+    return this._params?.private?.[field] ? PrivateLock.renderInlineLock() : nothing;
+  }
+
   private _renderTitle(): TemplateResult {
     const text = this._displayed('title');
     if (!this._editable) {
-      return html`<div class="cell title">${text}</div>
+      return html`<div class="cell title">${this._lock('title')}${text}</div>
         ${
           this._params?.entry?.status === 'tentative'
             ? html`<span class="badge">${this._t('tentative')}</span>`
@@ -1079,10 +1093,10 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   private _renderLocation(): TemplateResult | typeof nothing {
-    if (this._params?.hidden?.location) return nothing;
     const text = this._displayed('location');
+    // A private event's place is not looked up on a map either.
     const pin =
-      text && !this._map
+      text && !this._map && !this._params?.private
         ? html`<a
             class="pin"
             href=${EventMap.mapsSearchUrl(text)}
@@ -1096,7 +1110,7 @@ export class EventPopover extends Shell.PopoverShell {
     if (!this._editable) {
       return text
         ? html`<div class="cell with-pin">
-            <span class="text">${this._linked(text)}</span>${pin}
+            <span class="text">${this._lock('location')}${this._linked(text)}</span>${pin}
           </div>`
         : nothing;
     }
@@ -1142,7 +1156,6 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   private _renderDescription(): TemplateResult | typeof nothing {
-    if (this._params?.hidden?.description) return nothing;
     const text = this._displayed('description');
     if (!this._editable || this._editing !== 'description') {
       if (!text && !this._editable) return nothing;
@@ -1166,7 +1179,9 @@ export class EventPopover extends Shell.PopoverShell {
             </button>
             <span class="lines">${text ? this._pieces(pieces) : this._t('description')}</span>
           </div>`
-        : html`<div class="cell notes"><span class="lines">${this._pieces(pieces)}</span></div>`;
+        : html`<div class="cell notes">
+            <span class="lines">${this._lock('description')}${this._pieces(pieces)}</span>
+          </div>`;
     }
     return html`<textarea
       class="cell notes"
@@ -1496,6 +1511,14 @@ export class EventPopover extends Shell.PopoverShell {
     .pin svg {
       width: 16px;
       height: 16px;
+      fill: currentColor;
+    }
+    /* A private event's lock, at the size of the word it leads. */
+    .private-lock {
+      width: 1em;
+      height: 1em;
+      margin-inline-end: 0.3em;
+      vertical-align: -0.125em;
       fill: currentColor;
     }
     .calendar {

@@ -12,6 +12,7 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
+import * as PrivateEvents from './private-events';
 import { getTimeWindow, startDateFollowsToday } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
@@ -1183,6 +1184,12 @@ function deduplicateEvents(
     return events;
   }
 
+  // A private entry's copy is the same event only to another private entry's: merged with a copy
+  // that is not private, the row would show its title with the private calendar's label beside
+  // it, and say whose the private event is and what it is.
+  const keyOf = (event: Types.CalendarEventData) =>
+    PrivateEvents.isPrivate(event) ? `${signatureFor(event)}\nprivate` : signatureFor(event);
+
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
@@ -1195,7 +1202,7 @@ function deduplicateEvents(
     for (const event of events) {
       if (event._entityId !== entityId) continue;
 
-      const signature = signatureFor(event);
+      const signature = keyOf(event);
       const own = `${signature}\n${entityId}`;
       arrived.set(own, Math.min(arrived.get(own) ?? Infinity, event._arrival ?? Infinity));
 
@@ -1220,7 +1227,7 @@ function deduplicateEvents(
   const survivors: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    const signature = signatureFor(event);
+    const signature = keyOf(event);
 
     // The same test the previous `filter` made, negated: drop a copy only when some other
     // copy of its signature was kept. An event whose calendar is not in `entities` reaches
@@ -1860,27 +1867,43 @@ export function groupEventsByDay(
         replacedSummary.replacedWholeField ||
         (summary.trim() !== '' && replacedSummary.text.trim() === '');
 
+      // A private entry's events show none of their words (`private-events.ts`): the title is the
+      // placeholder, or a whole-field replacement, and a location or description is drawn only
+      // where a whole-field replacement wrote it. No age either, which would say it is a birthday.
+      const privateText = PrivateEvents.isPrivate(event)
+        ? PrivateEvents.privateText(event, event._matchedConfig, language)
+        : null;
+      const showLocation =
+        getEntitySetting(event._entityId, 'show_location', config, event) ?? config.show_location;
+
       eventsByDay[eventDateKey].events.push({
-        summary:
-          ageCount === null || titleWithheld
+        summary: privateText
+          ? privateText.title
+          : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
-        location:
-          (getEntitySetting(event._entityId, 'show_location', config, event) ??
-          config.show_location)
-            ? TextReplace.applyTextReplacement(
+        location: !showLocation
+          ? ''
+          : privateText
+            ? privateText.locked.location
+              ? ''
+              : privateText.location
+            : TextReplace.applyTextReplacement(
                 FormatUtils.formatLocation(event.location || '', config.remove_location_country),
                 replacement,
                 'location',
-              ).text
-            : '',
-        description: showDescription
-          ? TextReplace.applyTextReplacement(
-              markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
-              replacement,
-              'description',
-            ).text
-          : '',
+              ).text,
+        description: !showDescription
+          ? ''
+          : privateText
+            ? privateText.locked.description
+              ? ''
+              : privateText.description
+            : TextReplace.applyTextReplacement(
+                markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
+                replacement,
+                'description',
+              ).text,
         start: event.start,
         end: event.end,
         _entityId: event._entityId,
@@ -1906,6 +1929,7 @@ export function groupEventsByDay(
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
         _gridBanner: event._gridBanner,
+        _privateTitle: privateText?.locked.title || undefined,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }

@@ -23,5 +23,6 @@
   "loadFailed": "Kunne ikke lastes:",
   "newEvent": "Ny hendelse",
   "showAll": "Vis alle",
-  "hideAll": "Skjul alle"
+  "hideAll": "Skjul alle",
+  "private": "Privat"
 }

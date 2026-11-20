@@ -880,10 +880,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_location.option.inherit.label': 'Follow the card',
   'entity.show_location.option.show.label': 'Always show',
   'entity.show_location.option.hide.label': 'Never show',
-  // The card's other two choices leave the popover showing the field, so only Never show is
-  // named: a calendar set to it is kept private, rows and popover alike.
+  // An event's details show every field it has whatever this says, so the helper names the one
+  // setting that keeps a location out of them too.
   'entity.show_location.helper':
-    'Never show also leaves them out when you open one of this calendar\u2019s events.',
+    'An event\u2019s details still show them. Private hides them there too.',
   'entity.location_icon': 'Location Icon',
   'entity.location_icon.helper':
     'In place of the map marker. Left empty, Microsoft Teams meetings get the Teams icon.',
@@ -892,7 +892,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.show.label': 'Always show',
   'entity.show_description.option.hide.label': 'Never show',
   'entity.show_description.helper':
-    'Never show also leaves them out when you open one of this calendar\u2019s events.',
+    'An event\u2019s details still show them. Private hides them there too.',
   // Only two choices: the card's weather position decides whether events get weather at all,
   // so this can only take it away. The day header's forecast belongs to every calendar.
   'entity.show_weather': 'Event Weather',
@@ -958,6 +958,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.visibility.aliases': 'who sees it, specific users, per user, person',
   'entity.visibility.helper':
     'Shows this calendar’s events only while all of these conditions hold. Not applied while you edit the card.',
+  // Under Who Sees It, after the conditions: whether the events show at all, then what everyone
+  // who sees them reads. The word is the one the card draws on the events (`private` in the
+  // card's translations), so the switch and what it does read the same.
+  'entity.private': 'Private',
+  'entity.private.aliases': 'privacy, hide titles, hide details, confidential',
+  'entity.private.helper':
+    'Its events show Private in place of their title, location and description, in their details too, and can’t be changed or deleted here.',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',

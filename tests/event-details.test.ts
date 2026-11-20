@@ -315,40 +315,44 @@ describe('event_tap_action details', () => {
     });
   });
 
+  // The rows leave a field out where an option says so; the popover is where it is read, so it
+  // shows every field the event has whatever the card, a layout or the calendar hides.
   it.each([
-    ['nothing hidden', {}, { location: false, description: false }],
-    // The card and its views leave a field out of their rows; the popover is where it is read.
-    ['the card hiding both', { show_location: false }, { location: false, description: false }],
-    [
-      'the calendar showing both',
-      { entities: [{ entity: 'calendar.anna', show_location: true, show_description: true }] },
-      { location: false, description: false },
-    ],
+    ['nothing hidden', {}],
+    ['the card hiding all three', { show_location: false, show_time: false }],
+    ['the country taken off the rows', { remove_location_country: 'Germany' }],
+    ['Month hiding the location', { view: 'month', month: { show_location: false } }],
     [
       'the calendar set to Never show',
-      { entities: [{ entity: 'calendar.anna', show_location: false, show_description: false }] },
-      { location: true, description: true },
+      {
+        entities: [
+          {
+            entity: 'calendar.anna',
+            show_time: false,
+            show_location: false,
+            show_description: false,
+          },
+        ],
+      },
     ],
-    [
-      'the calendar hiding its location alone',
-      { entities: [{ entity: 'calendar.anna', show_location: false }] },
-      { location: true, description: false },
-    ],
-  ])(
-    'keeps a field out of the popover only for its calendar: %s',
-    async (_name, config, hidden) => {
-      const { card, dialogs } = await mount({ ...DETAILS, ...config });
+  ])('shows every field in the popover: %s', async (_name, config) => {
+    const events = [
+      { ...RAW_EVENTS[0], location: '12 High Street, Germany' },
+      ...RAW_EVENTS.slice(1),
+    ];
+    const { card, dialogs } = await mount({ ...DETAILS, ...config }, { events });
 
-      buttonsShowing(card, 'Dentist')[0].click();
-      await settle();
-      expect(dialogs[0].dialogParams.hidden).toEqual(hidden);
-      // What is hidden still goes to the popover, to be saved as it is stored.
-      expect(dialogs[0].dialogParams.entry).toMatchObject({
-        location: '12 High Street',
-        description: 'Bring the referral',
-      });
-    },
-  );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    const params = dialogs[0].dialogParams as unknown as Record<string, unknown>;
+    expect(params).not.toHaveProperty('hidden');
+    expect(params.private).toBeUndefined();
+    expect(params.display).toEqual({
+      title: 'Dentist',
+      location: '12 High Street, Germany',
+      description: 'Bring the referral',
+    });
+  });
 
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({

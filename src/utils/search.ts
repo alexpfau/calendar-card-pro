@@ -89,6 +89,8 @@ export interface SearchRow {
   /** Its title and location as the card draws them. */
   title: string;
   location: string;
+  /** Whether its title is a private event's Private, which the panel draws after a lock. */
+  privateTitle?: boolean;
   /** Its words folded for matching: the title, the location, and the description as drawn. */
   folded: { title: FoldedText; location: FoldedText; description: string };
   /** When it starts and ends, in epoch milliseconds; an all-day event at local midnights. */

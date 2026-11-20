@@ -22,6 +22,7 @@ import * as Activation from './activation';
 import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as PrivateLock from './private-lock';
 import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -1286,11 +1287,23 @@ export function renderBanner(
               duration,
             )
           : lasts
-            ? html`<span class="grid-banner-title">${event.summary ?? ''}</span>${duration}`
-            : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+            ? html`<span class="grid-banner-title">${bannerTitle(event)}</span>${duration}`
+            : html`<span class="grid-banner-title">${bannerTitle(event)}</span>`
       }
     </div>
   `;
+}
+
+/**
+ * A banner's title: the event's, after a lock where it is a private event's Private.
+ *
+ * @param event - The banner's event
+ * @returns The title
+ */
+function bannerTitle(event: Types.CalendarEventData): TemplateResult | string {
+  return event._privateTitle
+    ? html`${PrivateLock.renderRowLock()}${event.summary ?? ''}`
+    : (event.summary ?? '');
 }
 
 /**
@@ -1403,7 +1416,7 @@ function renderTimedBannerContent(
       aria-hidden="true"
     >
       ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
-      <span class="grid-banner-title">${event.summary ?? ''}</span>${duration}
+      <span class="grid-banner-title">${bannerTitle(event)}</span>${duration}
       ${
         times.end === null
           ? nothing

@@ -31,5 +31,6 @@
   "loadFailed": "Neizdevās ielādēt:",
   "newEvent": "Jauns notikums",
   "showAll": "Rādīt visus",
-  "hideAll": "Paslēpt visus"
+  "hideAll": "Paslēpt visus",
+  "private": "Privāts"
 }

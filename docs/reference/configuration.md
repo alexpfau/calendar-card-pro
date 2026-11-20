@@ -217,7 +217,8 @@ the card-wide options for that one calendar:
 `show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
-`split_multiday_events` · `multiday_banners` · `event_type` · `allday_expires_at` · `days_of_week` · `visibility`
+`split_multiday_events` · `multiday_banners` · `event_type` · `allday_expires_at` · `days_of_week` · `visibility` ·
+`private`
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
@@ -225,6 +226,7 @@ the card-wide options for that one calendar:
 **→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and why the day header keeps its forecast.
 **→ [Leaving a calendar out of the filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
 **→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, place, state, screen, time or template.
+**→ [Keeping a calendar private](/features/core-settings#keeping-a-calendar-private)** — `private`, what a private calendar's events still show, and how `replace_with` words them.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
 **→ [Using a picture Home Assistant already serves](/features/core-settings#using-a-picture-home-assistant-already-serves)** — a person's photo as a label by its address, where to find it, and which pictures do not work.

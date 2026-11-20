@@ -415,6 +415,7 @@ export class SearchSession implements SearchSource {
         entityId,
         title,
         location,
+        ...(event._privateTitle && { privateTitle: true }),
         folded: {
           title: Search.foldText(title, language),
           location: Search.foldText(location, language),

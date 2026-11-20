@@ -9,6 +9,7 @@ import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as PrivateLock from './private-lock';
 import * as Config from '../config/config';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -678,9 +679,16 @@ function renderEventTitle(
       : nothing;
   // Asked of what renders rather than of the configuration: a label whose type resolves to
   // `none` draws nothing, and its title takes the unlabeled markup below.
-  const hasLabel = Array.isArray(labels)
+  const hasCalendarLabel = Array.isArray(labels)
     ? labels.some((label) => label !== nothing)
     : labels !== nothing;
+  // A private event's Private follows a lock, drawn last in the label run, beside the title, so
+  // every view lays it out as it does an icon label. In the title's color, which the label run
+  // around it does not take.
+  const lock = event._privateTitle
+    ? PrivateLock.renderRowLock(entityColor ?? 'var(--calendar-card-color-event)')
+    : nothing;
+  const hasLabel = hasCalendarLabel || lock !== nothing;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
   // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —
@@ -762,7 +770,7 @@ function renderEventTitle(
   // with; delete it, run npm run format and then npm test to see it.
   // prettier-ignore
   const title = hasLabel
-    ? html`${labels}<span class=${titleClass} style=${titleStyle} dir=${titleDir}>${titleInner}</span>`
+    ? html`${lock === nothing ? labels : [labels, lock]}<span class=${titleClass} style=${titleStyle} dir=${titleDir}>${titleInner}</span>`
     : html`<span
           class=${titleClass}
           style=${titleStyle}
