@@ -105,7 +105,7 @@ import * as Shown from './shown';
 import * as Split from './split';
 import * as SplitReview from './split-review';
 import { DOCS_SITE, STORIES, type StoryId } from './stories';
-import { interpolate } from './strings';
+import { EDITOR_STRINGS, interpolate } from './strings';
 import styles from './styles';
 import * as Subforms from './subforms';
 import * as Summary from './summary';
@@ -1882,10 +1882,12 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _haWord(ctx: SchemaCtx, haKey: string, key: 'history.undo' | 'history.redo'): string {
     const word = this.hass?.localize?.(haKey);
-    if (typeof word === 'string' && word !== '' && word !== haKey) return word;
-    return key === 'history.undo'
-      ? this._string(ctx, 'history.undo')
-      : this._string(ctx, 'history.redo');
+    const own = this._string(ctx, key);
+    // Home Assistant's table can carry the English word untranslated, as its Latvian Redo does;
+    // a translation of the editor's own reads better than that.
+    const untranslated = word === EDITOR_STRINGS[key] && own !== word;
+    if (typeof word === 'string' && word !== '' && word !== haKey && !untranslated) return word;
+    return own;
   }
 
   /**
