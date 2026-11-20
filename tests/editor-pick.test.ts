@@ -107,6 +107,8 @@ async function settle(editor: Editor, card?: Card): Promise<void> {
 
 const $ = (editor: Editor, selector: string) =>
   editor.shadowRoot!.querySelector<HTMLElement>(selector);
+const text = (element: Element | null): string =>
+  element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 const pickButton = (editor: Editor) => $(editor, '[data-focus="pick"]');
 
 /** Every sentence the live region says from now on. */
@@ -297,6 +299,58 @@ describe('Pick From Preview', () => {
     fire(chip, 'click');
     await settle(editor, card);
     expect($(editor, '.entry-page')?.getAttribute('data-entry-key')).toBe('1');
+  });
+
+  // A Whole Card page edits the shared scope, which is Layout Defaults' too, so a part that names
+  // no layout of its own has to open under the layout the preview draws there, the one the card
+  // opens in: where the same pick lands from that layout's own page.
+  it('opens a part picked from a Whole Card page under the layout the preview draws', async () => {
+    const month = { ...CONFIG, view: 'month' };
+    const pickTime = async (from: string) => {
+      const { editor, card } = await dialog({ card: month, editor: month });
+      // The preview is configured, not redrawn: it keeps drawing Month's time on another
+      // layout's page, where happy-dom trips over focus in a redraw.
+      vi.spyOn(card, 'setConfig').mockImplementation(() => undefined);
+      $(editor, `[data-focus="${from}"]`)!.click();
+      await settle(editor, card);
+      const start = {
+        page: $(editor, '.page')?.getAttribute('data-page') ?? null,
+        sub: text($(editor, '.page-sub')),
+      };
+      pickButton(editor)!.click();
+      await settle(editor, card);
+      const said = listen(editor);
+      fire(card.shadowRoot!.querySelector('.month-line-time')!, 'click');
+      await settle(editor, card);
+      const landed = {
+        page: $(editor, '.page')?.getAttribute('data-page'),
+        sub: text($(editor, '.page-sub')),
+        field: $(editor, '.page-group[data-heading="time"] .jump [data-field]')?.getAttribute(
+          'data-field',
+        ),
+        said,
+      };
+      document.body.replaceChildren();
+      vi.restoreAllMocks();
+      return { start, landed };
+    };
+    // From Month's own page, under Month, at Time's first setting in Month's order.
+    const control = await pickTime('layout:month');
+    expect(control.start).toEqual({ page: null, sub: 'Layout' });
+    expect(control.landed).toEqual({
+      page: 'events',
+      sub: 'Month',
+      field: 'events:time_two_digit_hours',
+      said: ['Showing Event Appearance › Time.'],
+    });
+    // From a layout the card does not open in, under that layout, so "the layout the preview
+    // draws" is not simply the one the card opens in.
+    expect((await pickTime('layout:grid')).landed).toMatchObject({ page: 'events', sub: 'Grid' });
+    for (const page of ['card_header', 'events_weather_language', 'taps_refresh']) {
+      const from = await pickTime(`nav:${page}`);
+      expect(from.start, page).toEqual({ page, sub: 'Whole Card' });
+      expect(from.landed, page).toEqual(control.landed);
+    }
   });
 
   it('switches to Grid for a part only Grid’s scope holds, and says so', async () => {

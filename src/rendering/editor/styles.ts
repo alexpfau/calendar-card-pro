@@ -1257,8 +1257,12 @@ export default css`
     min-height: 44px;
   }
 
+  /* A link is a 24px target both ways, WCAG's least: a layout named by one character, as Japanese
+     names Columns and Month (列, 月), is half that wide, and two side by side came closer than
+     their targets allow. Its words are centered in the room this leaves. */
   .link {
     min-height: 24px;
+    min-width: 24px;
     padding: 0;
     border: none;
     background: none;

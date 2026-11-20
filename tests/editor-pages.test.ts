@@ -462,6 +462,25 @@ describe('the stylesheet', () => {
     expect(on(`${inline}:focus-visible`, 'outline').map(({ value }) => value)).toEqual(['none']);
     expect(on(`${inline}:focus-visible::before`, 'box-shadow')).toHaveLength(1);
   });
+
+  // An "Also for" line names each layout by a link, and in Japanese two of them are one character
+  // each (列, 月): 12px wide side by side, so their 24px circles overlapped and the pair missed
+  // WCAG's 24px target. A link is that tall already; it is that wide too.
+  it('gives a link a 24px target across as well as down', () => {
+    // Every rule that sizes a link, so one under a condition, or another selector shrinking it
+    // again, fails as surely as a missing one.
+    const sizing = declarations(styles.cssText)
+      .filter(
+        ({ selectors, property }) =>
+          /^min-(width|height)$/.test(property) &&
+          selectors.some((each) => /\.link(?![\w-])[^\s>+~]*$/.test(each)),
+      )
+      .map(({ at, selectors, property, value }) => ({ at, selectors, property, value }));
+    expect(sizing).toEqual([
+      { at: [], selectors: ['.link'], property: 'min-height', value: '24px' },
+      { at: [], selectors: ['.link'], property: 'min-width', value: '24px' },
+    ]);
+  });
 });
 
 describe('the search row', () => {
