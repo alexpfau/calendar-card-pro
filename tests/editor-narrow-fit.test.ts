@@ -89,11 +89,13 @@ describe.each(LAYOUTS)('When Too Narrow on %s', (view, blockKey) => {
       for (const to of NARROW_FIT_CHOICES) {
         const moved = pick(entered, view, to);
         expect(shown(moved, view), `${from} → ${to}`).toBe(to);
-        const { [blockKey]: _block, ...rest } = toStoredConfig(moved) as Record<string, unknown>;
-        const { [blockKey]: _start, ...before } = toStoredConfig(card(view)) as Record<
-          string,
-          unknown
-        >;
+        const without = (config: Types.Config): Record<string, unknown> => {
+          const stored = { ...(toStoredConfig(config) as Record<string, unknown>) };
+          delete stored[blockKey];
+          return stored;
+        };
+        const rest = without(moved);
+        const before = without(card(view));
         expect(rest, `${from} → ${to}`).toEqual(before);
       }
     }
