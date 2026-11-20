@@ -722,7 +722,6 @@
   "days_to_show.helper": "Katram izkārtojumam var būt savs skaits. Karte vienreiz ielādē garāko periodu, tāpēc, pārslēdzot izkārtojumu, nekas netiek ielādēts no jauna.",
   "start_date_mode": "Sākuma datums",
   "start_date_mode.aliases": "rīt, vakar, sākt no, pirmā rādītā diena, sākuma diena",
-  "start_date_mode.helper": "Mēneša izkārtojums atveras pašreizējā mēnesī vai konkrētā datuma mēnesī.",
   "start_date_mode.option.default.label": "Šodien",
   "start_date_mode.option.tomorrow.label": "Rītdien",
   "start_date_mode.option.start_of_week.label": "Nedēļas sākums",

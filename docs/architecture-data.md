@@ -16,8 +16,9 @@ they draw what is stored first and when they ask Home Assistant.
 1. **Request.** `resolveRequest` fixes the cache key, the first weekday and the window, half-open
    from local midnight on the first day to local midnight after the last. The window spans every
    view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
-   start (`loadedDaysToShow`), and where Month is reachable its six weeks: today's month, or a
-   fixed `start_date`'s (`ViewConfig.monthHomeDay`), as one span with the other views' days. So
+   start (`loadedDaysToShow`), and where Month is reachable its six weeks: the month holding
+   `start_date`, or today's for Tomorrow and Start of Week (`ViewConfig.monthHomeDay`), as one
+   span with the other views' days. So
    switching views at home never fetches. A page's load holds the weeks of the month its first day
    falls in, the month Month draws for it, so a switch that carries a page's day draws from the
    same load wherever the next view's days lie in those weeks. The key names the window as configured

@@ -231,9 +231,6 @@ const NOT_IN_MONTH = [
   'layout:card_max_height',
   'events:show_multiday_allday_time',
   'content:days_to_show',
-  // Month's page offers Today and A Fixed Date alone, all Month draws for a start date, so it never
-  // asks for an expression.
-  'content:start_date_offset',
   'content:show_empty_days',
   'content:show_empty_today',
   'day_header:week_number_background_color',
@@ -916,15 +913,14 @@ describe('the universe', () => {
     // the entity, and Month lost the eight of the forecast beside the days it has no header for.
     // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
     // lost what its day list and panel leave to the event's details or draw one way only
-    // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then Month
-    // lost Relative to Today's Expression, since it opens today's month for every start date that
-    // follows today. Then a calendar gained Private, in every workspace.
+    // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then a
+    // calendar gained Private, in every workspace.
     expect(sizes).toEqual({
       shared: { card: 135, calendar: 28 },
       list: { card: 162, calendar: 29 },
       column: { card: 158, calendar: 28 },
       grid: { card: 157, calendar: 28 },
-      month: { card: 103, calendar: 27 },
+      month: { card: 104, calendar: 27 },
     });
   });
 

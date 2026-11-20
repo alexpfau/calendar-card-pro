@@ -448,6 +448,17 @@ describe('the stylesheet', () => {
     expect(sticky).toEqual([]);
   });
 
+  // A folded value takes at most 45% of its row, so a setting's name keeps the rest to wrap in.
+  it('caps a folded value at 45% of its row', () => {
+    const caps = declarations(styles.cssText)
+      .filter(
+        ({ selectors, property }) =>
+          property === 'max-width' && selectors.some((each) => /\.setting-value\b/.test(each)),
+      )
+      .map(({ at, selectors, value }) => ({ at, selectors, value }));
+    expect(caps).toEqual([{ at: [], selectors: ['.setting-value'], value: '45%' }]);
+  });
+
   it('draws an inline text action’s fill as a pill inside its 44px target', () => {
     const all = declarations(styles.cssText);
     const inline = '.text-button:not(.filled, .add-action)';

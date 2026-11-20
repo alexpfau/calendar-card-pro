@@ -728,7 +728,6 @@
   "days_to_show.helper": "レイアウトごとに個別に設定できます。カードは最も長い日数を一度だけ読み込むため、レイアウトを切り替えても再読み込みしません。",
   "start_date_mode": "開始日",
   "start_date_mode.aliases": "明日, 昨日, 開始, 始まる日, 最初の日, 表示開始日",
-  "start_date_mode.helper": "月レイアウトは今月、または固定日の月から始まります。",
   "start_date_mode.option.default.label": "今日",
   "start_date_mode.option.tomorrow.label": "明日",
   "start_date_mode.option.start_of_week.label": "週の始め",

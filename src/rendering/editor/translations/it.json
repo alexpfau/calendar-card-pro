@@ -720,7 +720,6 @@
   "days_to_show.helper": "Ogni layout può averne un numero proprio. La scheda carica una sola volta l’intervallo più lungo, quindi cambiare layout non ricarica mai nulla.",
   "start_date_mode": "Data di inizio",
   "start_date_mode.aliases": "domani, ieri, inizia da, primo giorno mostrato, data di partenza",
-  "start_date_mode.helper": "Il layout a mese si apre sul mese corrente o sul mese di una data fissa.",
   "start_date_mode.option.default.label": "Oggi",
   "start_date_mode.option.tomorrow.label": "Domani",
   "start_date_mode.option.start_of_week.label": "Inizio della settimana",

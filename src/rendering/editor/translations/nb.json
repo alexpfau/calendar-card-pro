@@ -724,7 +724,6 @@
   "days_to_show.helper": "Hver layout kan ha sitt eget antall. Kortet laster inn den lengste perioden én gang, så det laster aldri inn på nytt når du bytter layout.",
   "start_date_mode": "Startdato",
   "start_date_mode.aliases": "i morgen, i går, begynn på, første dag som vises, startdag",
-  "start_date_mode.helper": "Månedslayouten åpner på inneværende måned eller på måneden til en fast dato.",
   "start_date_mode.option.default.label": "I dag",
   "start_date_mode.option.tomorrow.label": "I morgen",
   "start_date_mode.option.start_of_week.label": "Starten av uken",

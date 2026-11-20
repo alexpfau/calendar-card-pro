@@ -2390,14 +2390,19 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The day Month's home is the month of (`ViewConfig.monthHomeDay`): today, or a fixed
-   * `start_date`. Only Month reads it; every other view's home starts on `_homeWindowStart`.
+   * The day Month's home is the month of (`ViewConfig.monthHomeDay`): the resolved `start_date`,
+   * or today where it is unset, Tomorrow or Start of Week. Only Month reads it; every other view's
+   * home starts on `_homeWindowStart`.
    *
    * @param now - The current moment
    * @returns The day, at local midnight
    */
   private _monthHomeDay(now: Date): Date {
-    return ViewConfig.monthHomeDay(this._homeWindowStart(now), this._windowFollowsToday, now);
+    return ViewConfig.monthHomeDay(
+      this._homeWindowStart(now),
+      ViewConfig.monthOpensToday(this.config.start_date),
+      now,
+    );
   }
 
   /** The first day of the week, 0 for Sunday, from the configuration or the profile as it is now. */
@@ -2621,7 +2626,7 @@ class CalendarCardPro extends LitElement {
   /**
    * The page the card opens with, as drawn now: the configured window, or the slice of it the
    * card draws while the layout drops columns. For month, the six weeks of Month's home month:
-   * today's, or a fixed start date's (`_monthHomeDay`).
+   * the start date's, or today's (`_monthHomeDay`).
    *
    * @param now - The current moment
    * @returns Home
@@ -2744,9 +2749,9 @@ class CalendarCardPro extends LitElement {
    * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
    * its one caller is, so the raw configuration is home's.
    *
-   * Month counts only from today on, or from a fixed start date (`_monthCountConfig`), so the
-   * weeks of the month before it never keep an otherwise empty card visible. So it never answers
-   * from the view on screen, whose count covers those weeks.
+   * Month counts only from the day its home is the month of on (`_monthCountConfig`), so the weeks
+   * of the month before it never keep an otherwise empty card visible. So it never answers from
+   * the view on screen, whose count covers those weeks.
    *
    * @returns True when some reachable view has an event to draw
    */
@@ -2775,9 +2780,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Home's month, as `hide_when_empty` counts it: Month's own options, from the day its home is
-   * the month of (`_monthHomeDay`: today, or a fixed start date) to the end of its six weeks, so
-   * an event in the weeks before that day does not count. Not from the configured start, which a
-   * relative start date can put outside the six weeks altogether.
+   * the month of (`_monthHomeDay`: the start date, or today for Tomorrow and Start of Week) to the
+   * end of its six weeks, so an event in the weeks before that day does not count.
    *
    * @returns The configuration to count Month's events with
    */
@@ -3970,9 +3974,9 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The day a month page lists by itself on a compact month, with nothing selected: at home,
-   * Month's home day (`_monthHomeDay`), which is today or a fixed `start_date`, so the card opens,
-   * and Home returns, on the day it is configured to start; on any other page, today where it falls
-   * in the month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
+   * Month's home day (`_monthHomeDay`), the start date or today, so the card opens, and Home
+   * returns, on the day it is configured to start; on any other page, today where it falls in the
+   * month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -9185,8 +9189,8 @@ class CalendarCardPro extends LitElement {
    * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
    * outside it. Within the page, rows are not consulted: a collapsed compact card, or an empty
    * day the card leaves out, still suggests today, the day an event is most often added for.
-   * A month suggests the day its compact form selects by itself (`_monthOwnDay`): at home, today
-   * or a fixed start date; elsewhere today where it falls in the month the heading names, else that
+   * A month suggests the day its compact form selects by itself (`_monthOwnDay`): at home, the
+   * start date or today; elsewhere today where it falls in the month the heading names, else that
    * month's 1st, never a dimmed day of the month before that its first row opens on.
    *
    * @returns The dialog's `selectedDate`
@@ -9562,8 +9566,8 @@ class CalendarCardPro extends LitElement {
    */
   private _pressHome(): void {
     const away = this._pageRequested !== null;
-    // Home lists today on a compact month, whichever day was selected, on home's page or not,
-    // and puts a month's tab stop back on its own day. Nor does a day a switch carried here
+    // Home lists Month's home day on a compact month, whichever day was selected, on home's page
+    // or not, and puts a month's tab stop back on its own day. Nor does a day a switch carried here
     // carry on from it.
     if (!this._isBeingEdited) this._carriedDay = null;
     if ((this._monthSelection !== null || this._monthFocusDay !== null) && !this._isBeingEdited) {

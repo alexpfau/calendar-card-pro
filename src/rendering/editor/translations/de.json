@@ -724,7 +724,6 @@
   "days_to_show.helper": "Jedes Layout kann eine eigene Anzahl haben. Die Karte lädt den längsten Zeitraum einmal, daher lädt ein Wechsel des Layouts nie nach.",
   "start_date_mode": "Startdatum",
   "start_date_mode.aliases": "morgen, gestern, beginnt am, erster angezeigter Tag, Anfangsdatum",
-  "start_date_mode.helper": "Das Monatslayout startet im aktuellen Monat oder im Monat eines festen Datums.",
   "start_date_mode.option.default.label": "Heute",
   "start_date_mode.option.tomorrow.label": "Morgen",
   "start_date_mode.option.start_of_week.label": "Wochenbeginn",
