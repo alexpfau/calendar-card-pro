@@ -17,6 +17,10 @@
   "viewList": "Lijst",
   "viewColumns": "Kolommen",
   "viewGrid": "Rooster",
+  "viewMonth": "Maand",
+  "moreEvents": "+{count} meer",
+  "eventCount": "{count} afspraken",
+  "eventCountOne": "{count} afspraak",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
   "dayOfEvent": "Dag {day} van {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Laden mislukt:",
   "newEvent": "Nieuwe afspraak",
   "showAll": "Alles weergeven",
-  "hideAll": "Alles verbergen"
+  "hideAll": "Alles verbergen",
+  "private": "Privé"
 }

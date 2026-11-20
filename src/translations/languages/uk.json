@@ -9,6 +9,10 @@
   "viewList": "Список",
   "viewColumns": "Стовпці",
   "viewGrid": "Сітка",
+  "viewMonth": "Місяць",
+  "moreEvents": "+{count} ще",
+  "eventCount": "Подій: {count}",
+  "eventCountOne": "{count} подія",
   "endsToday": "закінчується сьогодні",
   "endsTomorrow": "закінчується завтра",
   "dayOfEvent": "День {day} з {days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Не вдалося завантажити:",
   "newEvent": "Нова подія",
   "showAll": "Показати всі",
-  "hideAll": "Сховати всі"
+  "hideAll": "Сховати всі",
+  "private": "Приватне"
 }

@@ -22,6 +22,10 @@
   "viewList": "列表",
   "viewColumns": "欄",
   "viewGrid": "網格",
+  "viewMonth": "月",
+  "moreEvents": "還有 {count} 項",
+  "eventCount": "{count} 項活動",
+  "eventCountOne": "{count} 項活動",
   "endsToday": "今天 {at} 結束",
   "endsTomorrow": "明天 {at} 結束",
   "dayOfEvent": "第{day}天，共{days}天",
@@ -32,5 +36,6 @@
   "loadFailed": "無法載入：",
   "newEvent": "新活動",
   "showAll": "顯示全部",
-  "hideAll": "隱藏全部"
+  "hideAll": "隱藏全部",
+  "private": "私人"
 }

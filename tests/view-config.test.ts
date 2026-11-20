@@ -445,7 +445,7 @@ describe('resolveEffectiveConfig', () => {
       // so this pin owns the VALUES and that gate owns which options are in the table.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
         day_separator_width: '1px',
-        day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        day_separator_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
         day_spacing: '1px',
         description_color: 'accent',
         event_background_opacity: 20,
@@ -689,7 +689,7 @@ describe('validateColumnOverrides', () => {
     'entities',
     'start_date',
     'first_day_of_week',
-    'weather',
+    'weather_entity',
     'refresh_interval',
     'refresh_on_navigate',
   ])('warns that %s cannot be overridden because it is loaded from Home Assistant', (key) => {
@@ -701,6 +701,22 @@ describe('validateColumnOverrides', () => {
     expect(warnMock).toHaveBeenCalledTimes(1);
     expect(warnMock.mock.calls[0][0]).toContain(`column.${key}`);
     expect(warnMock.mock.calls[0][0]).toContain('loaded from Home Assistant');
+  });
+
+  // A layout's own `weather:` is its weather, except beside the block written before v6, which
+  // decides every layout's weather while it names an entity.
+  it('warns about a layout’s weather only beside the weather written before v6', () => {
+    const perLayout = buildConfig({ weather_entity: 'weather.home' });
+    perLayout.column = { weather: { position: 'event' } } as Types.ColumnOverrides;
+    validateColumnOverrides(perLayout);
+    expect(warnMock).not.toHaveBeenCalled();
+
+    const asBefore = buildConfig({ weather: { entity: 'weather.home' } });
+    asBefore.column = { weather: { position: 'event' } } as Types.ColumnOverrides;
+    validateColumnOverrides(asBefore);
+    expect(warnMock).toHaveBeenCalledTimes(1);
+    expect(warnMock.mock.calls[0][0]).toContain('"column.weather"');
+    expect(warnMock.mock.calls[0][0]).toContain('weather_entity');
   });
 
   it('accepts the column-only options now that the column view implements them', () => {
@@ -868,7 +884,9 @@ describe('column view config surface', () => {
 
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
-    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
+    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+    );
   });
 
   it('prefers a configured column-only value over its default', () => {
@@ -976,6 +994,7 @@ describe('column view config surface', () => {
       'refresh_on_navigate',
       'start_date',
       'weather',
+      'weather_entity',
     ]);
 
     for (const key of FETCH_TIME_KEYS) {

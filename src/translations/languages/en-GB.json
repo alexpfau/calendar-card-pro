@@ -9,6 +9,10 @@
   "viewList": "List",
   "viewColumns": "Columns",
   "viewGrid": "Grid",
+  "viewMonth": "Month",
+  "moreEvents": "+{count} more",
+  "eventCount": "{count} events",
+  "eventCountOne": "{count} event",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
   "dayOfEvent": "Day {day} of {days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Couldn't load:",
   "newEvent": "New event",
   "showAll": "Show all",
-  "hideAll": "Hide all"
+  "hideAll": "Hide all",
+  "private": "Private"
 }

@@ -1,7 +1,7 @@
 # Grid View
 
 Grid view places the days side by side on an hour axis, so an event sits at the time it
-starts and is as tall as it is long. It is the same agenda the other two layouts show,
+starts and is as tall as it is long. It is the same agenda the other layouts show,
 measured against a clock instead of listed.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A family's week in grid view on a wall tablet, under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours and a forecast in each date header"><br>
@@ -15,10 +15,12 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor), **Card Displays**, above the search controls,
-chooses the layout the card opens with. Select **Grid** under **Editing Settings For** to
-configure its time axis in **Layout** and its line styles in **Rules**, without changing
-**Card Displays**.
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Grid** row itself to
+configure Grid's own settings on its topic pages, without changing the card: its hours under
+**Which Events → Hours**, its hour height, hour labels and lines on **Size & Spacing**, its
+weekend and today shading on **Days**, and its now line and overlapping events on **Event
+Appearance**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -217,8 +219,10 @@ the foot of the window ends against it.
 
 ### Grid Lines
 
-A grid draws four kinds of line, each with its own options. All four start in the same light
-gray, `var(--divider-color)` at half strength; a color you set is drawn exactly as written.
+A grid draws four kinds of line, each with its own options. Three start in a light gray,
+`var(--divider-color)` at 75%. The one under the date row, like Month's under its weekday names,
+is drawn stronger, in the theme's text color at 18%. A color you set is drawn exactly as
+written.
 
 | Rule                                                  | Option                                                      | Default |
 | ----------------------------------------------------- | ----------------------------------------------------------- | ------- |
@@ -321,8 +325,9 @@ time_grid:
 ```
 
 - Keep it faint, since event text sits on top of it. `transparent` turns it off.
-- It is a grid-only option, so it lives in `time_grid:` rather than beside the card-level
-  `weekend_*` text colors.
+- It lives in `time_grid:` rather than beside the card-level `weekend_*` text colors. Month view
+  takes the same option in `month:`; see
+  [Shading the Weekend & Today](/features/month-view#shading-the-weekend-today).
 - The tint runs from just under the date row, through the all-day band and down the hours, as
   one continuous column. The date row itself stays clear.
 - Which days are shaded comes from the
@@ -361,7 +366,7 @@ time_grid:
   next day's column.
 - When today falls on the weekend, today's color replaces the weekend shading on that column
   rather than mixing with it. The rest of the weekend keeps its own shade.
-- It is a grid-only option, so it lives in `time_grid:`.
+- It lives in `time_grid:`. Month view takes the same option in `month:`.
 
 ::: details Today Beside a Weekend Day
 The weekend shading fills the gap between two weekend days. With today's tint on and today a
@@ -426,9 +431,9 @@ time_grid:
   multiday_banners: false
 ```
 
-| Option             | Type    | Default | Description                                                                                                                                                              |
-| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid view only, so it belongs in `time_grid:`; a calendar's own value wins |
+| Option             | Type    | Default | Description                                                                                                                                                                                    |
+| ------------------ | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `multiday_banners` | boolean | `true`  | Draw a timed event a full day or longer as one banner above the hours, its times at its ends. Grid and month view only, so it belongs in `time_grid:` or `month:`; a calendar's own value wins |
 
 - **A full day or longer** means the event ends at least two dates after it starts, or on the
   next date at or after the clock time it started at: Monday 10:00 to Tuesday 10:00 is a banner,
@@ -691,8 +696,8 @@ time_grid:
   banners and `+N` strips never join, and labels and pictures stay still.
 - The screen-reader text follows the card's language, describes continuations by the event's
   original times, and leaves out details you turned off. It adds no event action or keyboard
-  tab stop; [`event_tap_action`](/features/actions#tapping-an-event) adds both. All-day banners
-  and `+N` strips are outside this fallback.
+  tab stop; [`event_tap_action`](/features/actions#tapping-an-event), unless it is `none`, adds
+  both. All-day banners and `+N` strips are outside this fallback.
 
 :::
 
@@ -715,8 +720,10 @@ time_grid:
 
 In grid view you can move a timed event to another time or day by dragging its block, as in
 Calendar on macOS. It works wherever a tap or a hold opens the event in the
-[event popover](/features/actions#the-event-popover) and the popover can change it; there is
-no option of its own.
+[event popover](/features/actions#the-event-popover), as a tap does by default, and the popover
+can change it; there is no option of its own, and
+[`allow_event_edit: false`](/features/actions#narrowing-what-the-popover-offers) turns it off
+along with editing.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A family's week in grid view on a tablet: a finger holds Bike repair on Friday at 16:30 until it lifts, drags it to Saturday at 11:00, lets go, and later drags it back"></video><br>
 
@@ -727,16 +734,16 @@ type: custom:calendar-card-pro
 entities:
   - calendar.family
 view: grid
-event_tap_action:
-  action: details
 ```
 
 - **With a mouse,** press on the event and drag at once. A click that does not move still opens
   the popover.
 - **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
-  does not scroll while you do. Held and let go without moving, the hold does what it always did,
-  such as opening the popover under `event_hold_action: details`. Only a finger on the event
-  lifts it, not one held just beside it.
+  does not scroll while you do. Only a finger on the event lifts it, not one held just beside it.
+
+A long press let go before the event has moved, by mouse or finger, does what it does in the other
+layouts: the event's hold action, such as opening the popover under `event_hold_action: details`,
+else the card's `hold_action`, and with neither, what a tap does.
 
 The event follows the pointer in quarter hours, keeping its length and the minute it starts at
 within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another
@@ -835,8 +842,8 @@ time_grid:
 ```
 
 Anything the block does not mention keeps its top-level value, except for the fourteen
-options listed below. In the visual editor, choose the Grid workspace to edit these
-values directly without changing Card Displays.
+options listed below. In the visual editor, open Grid under **Layouts** to edit these values
+directly without changing the card.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
 card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
@@ -884,22 +891,22 @@ switch.
 Fourteen shared options do not inherit their top-level value in grid view. **Default** is
 the top-level default, and **Grid Default** is what grid view uses instead:
 
-| Option                     | Type    | Default                       | Grid Default                         |
-| -------------------------- | ------- | ----------------------------- | ------------------------------------ |
-| `event_background_opacity` | number  | `0`                           | `20`                                 |
-| `show_empty_days`          | boolean | `false`                       | `true`                               |
-| `show_location`            | boolean | `true`                        | `false`                              |
-| `show_past_events`         | boolean | `false`                       | `true`                               |
-| `day_separator_width`      | string  | `0px`                         | `1px`                                |
-| `day_separator_color`      | string  | `var(--secondary-text-color)` | Half-strength `var(--divider-color)` |
-| `day_spacing`              | string  | `10px`                        | `1px`                                |
-| `event_font_size`          | string  | `14px`                        | `12px`                               |
-| `event_color`              | string  | `var(--primary-text-color)`   | `accent`                             |
-| `time_color`               | string  | `var(--secondary-text-color)` | `accent`                             |
-| `location_color`           | string  | `var(--secondary-text-color)` | `accent`                             |
-| `description_color`        | string  | `var(--secondary-text-color)` | `accent`                             |
-| `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                             |
-| `progress_bar_width`       | string  | _per placement_               | `100%`                               |
+| Option                     | Type    | Default                       | Grid Default                  |
+| -------------------------- | ------- | ----------------------------- | ----------------------------- |
+| `event_background_opacity` | number  | `0`                           | `20`                          |
+| `show_empty_days`          | boolean | `false`                       | `true`                        |
+| `show_location`            | boolean | `true`                        | `false`                       |
+| `show_past_events`         | boolean | `false`                       | `true`                        |
+| `day_separator_width`      | string  | `0px`                         | `1px`                         |
+| `day_separator_color`      | string  | `var(--secondary-text-color)` | `var(--divider-color)` at 75% |
+| `day_spacing`              | string  | `10px`                        | `1px`                         |
+| `event_font_size`          | string  | `14px`                        | `12px`                        |
+| `event_color`              | string  | `var(--primary-text-color)`   | `accent`                      |
+| `time_color`               | string  | `var(--secondary-text-color)` | `accent`                      |
+| `location_color`           | string  | `var(--secondary-text-color)` | `accent`                      |
+| `description_color`        | string  | `var(--secondary-text-color)` | `accent`                      |
+| `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                      |
+| `progress_bar_width`       | string  | _per placement_               | `100%`                        |
 
 These defaults take precedence even when you explicitly set a different top-level value.
 For example, `event_background_opacity: 5` at the top level does not change Grid's tint,
@@ -922,8 +929,8 @@ already-Grid card does not rewrite its configuration.
 
 Set any of them inside `time_grid:` to change it back. Three are worth knowing:
 
-- `show_location` is off, but with [`event_tap_action: details`](/features/actions#tapping-an-event)
-  a tap on a block opens the event's details, location included.
+- `show_location` is off, but a [tap on a block](/features/actions#tapping-an-event) opens the
+  event's details, location included.
 - `day_spacing` is the gap between day columns here, rather than the space between days.
 - The five event text colors start at `accent`, so a block's text is drawn in its own
   calendar's color.
@@ -944,7 +951,8 @@ column view; see [Grid Lines](#grid-lines) above.
 ## 🚫 Options That Do Nothing in Grid View
 
 These options have no effect while the card renders as a grid, and the visual editor leaves
-them out of its **Grid** workspace. Stored values are kept for the layouts they apply to.
+them out of Grid's pages; Open Links, a whole-card setting on Taps & Refresh, says **Not in
+Grid** instead. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                            | In Grid View                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -954,6 +962,7 @@ them out of its **Grid** workspace. Stored values are kept for the layouts they 
 | `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`                                                   | List-only, so they do nothing in column view either. They apply again if `min_days_fallback: list` drops the card to the list layout                                                  |
 | `date_vertical_alignment`, `today_indicator_position`                                                                              | List-only: they describe the list layout's date cell                                                                                                                                  |
 | `event_order`, `skip_first_events`                                                                                                 | List-only: the grid keeps time running forward and draws every day whatever its events                                                                                                |
+| `month_separator_label`, `month_separator_label_color`, `month_separator_label_font_size`                                          | List-only: a month rule between two day columns is a vertical line in a gap with no room for words                                                                                    |
 | `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                         | All-day events are banners with their own shape, and timed blocks never draw an all-day badge                                                                                         |
 | `show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`, `show_description_allday`, `show_countdown_allday` | All-day events are [title-only banners](#all-day-events), with no time, location, description or countdown to switch                                                                  |
 | `time_position`                                                                                                                    | A block lays out its own rows, so there is no title row for the time to join; list and column view move it [beside the title](/features/event-content#time-beside-the-title)          |
@@ -962,12 +971,12 @@ them out of its **Grid** workspace. Stored values are kept for the layouts they 
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
 The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, choose a layout they apply to under **Editing Settings For**, without changing
-**Card Displays** (the all-day badge controls are in **All Layouts** too); see
+of these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is
+(the all-day badge controls are in **Layout Defaults** too); see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
-`show_progress_bar`, `weather.position: event`, per-calendar `label`, `label_type`,
+`show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,
 `label_icon_color` and the title and weather line limits. `show_time` reaches it only to decide
 whether a [timed banner](#long-timed-events-as-banners) draws its times.
 

@@ -7,29 +7,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import {
+  changeField,
+  editLayout,
+  emitChange,
+  entry,
+  formOf,
+  formsOf,
+  mountEditor,
+  openPanels,
+  reportsOf,
+  resetButton,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { parseFieldId } from '../src/rendering/editor/field-index';
 import { workspaceFields } from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations/index';
 import { listRelocationKeys } from '../src/rendering/editor/value';
 import { groupEventsByDay } from '../src/utils/events';
 
-const TAG = 'editor-config-migration-test';
-customElements.define(TAG, CalendarCardProEditor);
-
 interface EditorHost extends HTMLElement {
   hass: unknown;
   setConfig(config: Record<string, unknown>): void;
   readonly updateComplete: Promise<unknown>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
 }
 
 interface ExpandableCard extends HTMLElement {
@@ -40,55 +44,36 @@ interface ExpandableCard extends HTMLElement {
 }
 
 async function mount(config: Record<string, unknown>) {
-  const editor = document.createElement(TAG) as EditorHost;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({ entities: ['calendar.anna'], ...config });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  const reports: Record<string, unknown>[] = [];
-  editor.addEventListener('config-changed', (event) => {
-    reports.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
-    );
-  });
-  return { editor, reports };
+  const editor = await mountEditor({ entities: ['calendar.anna'], ...config });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  // What it reported since it was created: an upgrade on opening is the first.
+  return { editor, reports: reportsOf(editor) };
 }
 
+/** The message a configuration version the editor cannot edit puts in its place. */
 function blocker(editor: EditorHost): HTMLElement | null {
   return editor.shadowRoot!.querySelector('[data-config-migration]');
 }
 
-function forms(editor: EditorHost): Form[] {
-  return [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')];
+/** The receipt the upgrade on opening leaves. */
+function receipt(editor: EditorHost): HTMLElement | null {
+  return editor.shadowRoot!.querySelector('[data-upgrade-receipt]');
 }
 
-function formFor(editor: EditorHost, key: string): Form {
-  const matches = forms(editor).filter(
-    (form) =>
-      !form.classList.contains('entity-form') &&
-      [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
-  );
-  expect(matches, `form for ${key}`).toHaveLength(1);
-  return matches[0];
-}
-
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = formFor(editor, key);
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
+/**
+ * The upgrade's answer: List, as the editor writes on opening, or every layout, through the
+ * receipt's Use Them for Every Layout.
+ *
+ * @param editor - Editor
+ * @param choice - The answer
+ */
 async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): Promise<void> {
-  const buttons = [...blocker(editor)!.querySelectorAll<HTMLButtonElement>('button')];
-  expect(buttons).toHaveLength(2);
-  buttons[choice === 'keep-list' ? 0 : 1].click();
-  await editor.updateComplete;
+  if (choice === 'shared-root') {
+    receipt(editor)!.querySelector<HTMLButtonElement>('[data-focus="upgrade-share"]')!.click();
+    await editor.updateComplete;
+  }
+  await openPanels(editor);
 }
 
 function merged(config: Record<string, unknown>): Types.Config {
@@ -101,19 +86,32 @@ afterEach(() => {
 });
 
 describe('ambiguous legacy configurations', () => {
-  it('blocks List edits only when authored divergent root keys exist', async () => {
+  it('keeps authored divergent roots for List on opening, and says so', async () => {
     const { editor, reports } = await mount({
       view: 'list',
       event_font_size: '18px',
       show_past_events: false,
     });
 
-    expect(blocker(editor)).not.toBeNull();
-    expect(forms(editor)).toHaveLength(0);
-    expect(blocker(editor)!.textContent).toContain('Event Font Size');
-    expect(blocker(editor)!.textContent).toContain('Show Past Events');
-    expect(blocker(editor)!.textContent).toContain('Keep my existing List appearance');
-    expect(blocker(editor)!.textContent).toContain('Use these settings for all layouts');
+    expect(blocker(editor)).toBeNull();
+    expect(formsOf(editor).length).toBeGreaterThan(0);
+    expect(receipt(editor)!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Upgraded. Event Font Size and Show Past Events now apply to List, as before. The card ' +
+        'looks the same. Use Them for Every Layout Undo',
+    );
+    expect(reports).toEqual([
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: ['calendar.anna'],
+        view: 'list',
+        list: { event_font_size: '18px', show_past_events: false },
+      },
+    ]);
+  });
+
+  it('upgrades nothing when the card has no divergent root', async () => {
+    const { editor, reports } = await mount({ view: 'list', title: 'Family' });
+    expect(receipt(editor)).toBeNull();
     expect(reports).toEqual([]);
   });
 
@@ -142,8 +140,10 @@ describe('ambiguous legacy configurations', () => {
       },
     ]);
     expect(blocker(editor)).toBeNull();
-    expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('18px');
-  });
+    expect(valueOf(editor, 'events:event_font_size')).toBe('18px');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('updates local state before an immediate form edit and before any echo', async () => {
     const { editor, reports } = await mount({
@@ -152,7 +152,7 @@ describe('ambiguous legacy configurations', () => {
     });
 
     await choose(editor, 'keep-list');
-    await change(editor, 'title', 'Migrated');
+    await changeField(editor, 'card:title', 'Migrated');
 
     expect(reports).toHaveLength(2);
     expect(reports[1]).toEqual({
@@ -170,7 +170,7 @@ describe('ambiguous legacy configurations', () => {
     const { editor, reports } = await mount({ event_font_size: '18px' });
 
     await choose(editor, 'shared-root');
-    await change(editor, 'title', 'Shared');
+    await changeField(editor, 'card:title', 'Shared');
 
     expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
@@ -189,7 +189,7 @@ describe('ambiguous legacy configurations', () => {
     });
 
     await choose(editor, 'keep-list');
-    await change(editor, 'view', 'grid');
+    await changeField(editor, 'display:view', 'grid');
 
     expect(reports.slice(-1)[0]).not.toHaveProperty('time_grid');
     expect(editor.shadowRoot!.querySelector('[data-grid-reconciliation]')).toBeNull();
@@ -204,7 +204,7 @@ describe('ambiguous legacy configurations', () => {
     const { editor, reports } = await mount({ event_font_size: '18px' });
 
     await choose(editor, 'shared-root');
-    await change(editor, 'view', 'grid');
+    await changeField(editor, 'display:view', 'grid');
 
     expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '18px');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '18px');
@@ -223,7 +223,7 @@ describe('ambiguous legacy configurations', () => {
         'grid',
       );
 
-      expect(blocker(editor)!.textContent).toContain('Either choice keeps Grid looking the same');
+      expect(receipt(editor)!.textContent).toContain('The card looks the same.');
       await choose(editor, choice);
       const after = View.resolveEffectiveConfig(merged(reports.slice(-1)[0]!), 'grid');
 
@@ -236,6 +236,40 @@ describe('ambiguous legacy configurations', () => {
 
 describe('automatic adoption paths', () => {
   it.each(['list', 'grid'] as const)(
+    'keeps on a versionless %s card the root values only Month starts from a default of its own',
+    async (view) => {
+      // Month postdates the format a versionless card was written in, so these stay shared, and
+      // every layout that reads them keeps the card's own values.
+      const roots = {
+        day_font_size: '20px',
+        weekday_font_size: '18px',
+        week_number_font_size: '15px',
+        vertical_line_width: '4px',
+        event_gap: '2px',
+      };
+      const { editor, reports } = await mount({ view, ...roots });
+
+      expect(blocker(editor)).toBeNull();
+      expect(receipt(editor)).toBeNull();
+      expect(reports).toEqual([]);
+      await changeField(editor, 'card:title', 'Adopted');
+      const stored = reports.slice(-1)[0]!;
+
+      expect(stored).toMatchObject(roots);
+      expect(stored).not.toHaveProperty('list');
+      for (const shown of ['list', 'column', 'grid'] as const) {
+        const resolved = View.resolveEffectiveConfig(merged(stored), shown);
+        expect(
+          Object.fromEntries(
+            Object.keys(roots).map((key) => [key, resolved[key as keyof Types.Config]]),
+          ),
+        ).toEqual(shown === 'grid' ? { ...roots, event_gap: resolved.event_gap } : roots);
+      }
+      editor.remove();
+    },
+  );
+
+  it.each(['list', 'grid'] as const)(
     'does not prompt a versionless %s card with no divergent root key',
     async (view) => {
       const { editor, reports } = await mount({
@@ -244,9 +278,9 @@ describe('automatic adoption paths', () => {
       });
 
       expect(blocker(editor)).toBeNull();
-      expect(forms(editor).length).toBeGreaterThan(0);
+      expect(formsOf(editor).length).toBeGreaterThan(0);
       expect(reports).toEqual([]);
-      await change(editor, 'title', 'Adopted');
+      await changeField(editor, 'card:title', 'Adopted');
 
       expect(reports).toEqual([
         {
@@ -265,7 +299,7 @@ describe('automatic adoption paths', () => {
       date_vertical_alignment: 'top',
     });
 
-    await change(editor, 'date_vertical_alignment', undefined);
+    await changeField(editor, 'day_header:date_vertical_alignment', undefined);
 
     expect(reports).toEqual([
       {
@@ -283,7 +317,7 @@ describe('automatic adoption paths', () => {
     });
 
     expect(blocker(editor)).toBeNull();
-    await change(editor, 'title', 'Column');
+    await changeField(editor, 'card:title', 'Column');
 
     expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
@@ -298,21 +332,22 @@ describe('automatic adoption paths', () => {
     ).toBe('18px');
   });
 
-  it.each([{ list: { event_font_size: '20px' } }, { time_grid: { event_font_size: '12px' } }])(
-    'adopts an already-layered unversioned config without reinterpreting roots',
-    async (block) => {
-      const { editor, reports } = await mount({ event_font_size: '18px', ...block });
+  it.each([
+    { list: { event_font_size: '20px' } },
+    { time_grid: { event_font_size: '12px' } },
+    { month: { event_font_size: '12px' } },
+  ])('adopts an already-layered unversioned config without reinterpreting roots', async (block) => {
+    const { editor, reports } = await mount({ event_font_size: '18px', ...block });
 
-      expect(blocker(editor)).toBeNull();
-      await change(editor, 'title', 'Layered');
+    expect(blocker(editor)).toBeNull();
+    await changeField(editor, 'card:title', 'Layered');
 
-      expect(reports.slice(-1)[0]).toMatchObject({
-        config_version: Config.CURRENT_CONFIG_VERSION,
-        event_font_size: '18px',
-        ...block,
-      });
-    },
-  );
+    expect(reports.slice(-1)[0]).toMatchObject({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      event_font_size: '18px',
+      ...block,
+    });
+  });
 });
 
 describe('configuration version states', () => {
@@ -325,12 +360,11 @@ describe('configuration version states', () => {
         language,
         event_font_size: '18px',
       });
-      const panel = blocker(editor)!;
-      expect(panel.textContent).toContain(expected('config_migration.title'));
-      expect(
-        [...panel.querySelectorAll('button')].map((button) => button.textContent?.trim()),
-      ).toEqual([expected('config_migration.keep_list'), expected('config_migration.use_shared')]);
-      await choose(editor, 'keep-list');
+      const panel = receipt(editor)!;
+      expect(panel.textContent).toContain(expected('upgrade.title'));
+      expect(panel.querySelector('[data-focus="upgrade-share"]')!.textContent!.trim()).toBe(
+        expected('upgrade.share_one'),
+      );
       expect(reports[0]).toMatchObject({
         language,
         list: { event_font_size: '18px' },
@@ -340,18 +374,17 @@ describe('configuration version states', () => {
       editor.setConfig({ language, config_version: 6 });
       await editor.updateComplete;
       expect(blocker(editor)!.textContent).toContain(expected('config_migration.future_title'));
-      expect(forms(editor)).toHaveLength(0);
+      expect(formsOf(editor)).toHaveLength(0);
 
       editor.setConfig({ language, config_version: '5' });
       await editor.updateComplete;
       expect(blocker(editor)!.textContent).toContain(expected('config_migration.invalid_title'));
-      expect(forms(editor)).toHaveLength(0);
+      expect(formsOf(editor)).toHaveLength(0);
       expect(reports).toHaveLength(1);
     },
   );
 
   it.each([
-    { event_font_size: '18px' },
     { config_version: 6, list: { event_font_size: '18px' } },
     { config_version: '5', list: { event_font_size: '18px' } },
   ])('rejects stale form events and reset clicks while blocked by %j', async (blockedConfig) => {
@@ -359,28 +392,18 @@ describe('configuration version states', () => {
       config_version: Config.CURRENT_CONFIG_VERSION,
       list: { event_font_size: '18px' },
     });
-    const titleForm = formFor(editor, 'title');
-    const entityForm = editor.shadowRoot!.querySelector<Form>('ha-form.entity-form')!;
-    const reset = editor.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    )!;
-    expect(entityForm).not.toBeNull();
+    const titleForm = formOf(editor, 'card:title')!;
+    const entityForm = formOf(editor, 'calendar:name', entry(0));
+    const reset = (await resetButton(editor, 'event_font_size'))!;
+    expect(entityForm).toBeDefined();
     expect(reset).not.toBeNull();
 
     editor.setConfig({ entities: ['calendar.anna'], ...blockedConfig });
     await editor.updateComplete;
     expect(blocker(editor)).not.toBeNull();
 
-    titleForm.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...titleForm.data, title: 'Delayed edit' } },
-      }),
-    );
-    entityForm.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...entityForm.data, name: 'Delayed calendar edit' } },
-      }),
-    );
+    emitChange(titleForm, { 'card:title': 'Delayed edit' });
+    emitChange(entityForm!, { 'calendar:name': 'Delayed calendar edit' });
     reset.click();
     await editor.updateComplete;
 
@@ -394,19 +417,26 @@ describe('configuration version states', () => {
 
     const { editor } = await mount({ config_version: Config.CURRENT_CONFIG_VERSION });
     expect(blocker(editor)).toBeNull();
-    expect(forms(editor).length).toBeGreaterThan(0);
+    expect(formsOf(editor).length).toBeGreaterThan(0);
   });
 
   it('sends an older integer marker through the legacy ambiguity path', async () => {
-    const { editor } = await mount({ config_version: 4, event_font_size: '18px' });
-    expect(blocker(editor)).not.toBeNull();
-    expect(blocker(editor)!.textContent).toContain('Choose How to Upgrade This Card');
+    const { editor, reports } = await mount({ config_version: 4, event_font_size: '18px' });
+    expect(blocker(editor)).toBeNull();
+    expect(receipt(editor)).not.toBeNull();
+    expect(reports).toEqual([
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: ['calendar.anna'],
+        list: { event_font_size: '18px' },
+      },
+    ]);
   });
 
   it('blocks a newer integer marker without rewriting it', async () => {
     const { editor, reports } = await mount({ config_version: 6 });
     expect(blocker(editor)!.textContent).toContain('Newer Configuration');
-    expect(forms(editor)).toHaveLength(0);
+    expect(formsOf(editor)).toHaveLength(0);
     expect(reports).toEqual([]);
   });
 
@@ -415,13 +445,13 @@ describe('configuration version states', () => {
     async (value) => {
       const { editor, reports } = await mount({ config_version: value });
       expect(blocker(editor)!.textContent).toContain('invalid configuration version');
-      expect(forms(editor)).toHaveLength(0);
+      expect(formsOf(editor)).toHaveLength(0);
       expect(reports).toEqual([]);
       editor.remove();
     },
   );
 
-  it('does not rerun migration after the choice is echoed', async () => {
+  it('does not rerun migration after the upgrade is echoed', async () => {
     const { editor, reports } = await mount({ event_font_size: '18px' });
     await choose(editor, 'keep-list');
     const migrated = reports[0];
@@ -430,7 +460,8 @@ describe('configuration version states', () => {
     await editor.updateComplete;
 
     expect(blocker(editor)).toBeNull();
-    await change(editor, 'title', 'Echoed');
+    expect(reports).toHaveLength(1);
+    await changeField(editor, 'card:title', 'Echoed');
     expect(reports.slice(-1)[0]).toMatchObject({
       config_version: Config.CURRENT_CONFIG_VERSION,
       title: 'Echoed',
@@ -446,17 +477,17 @@ describe('adoption waits for a real edit', () => {
       event_font_size: '18px',
       today_indicator_position: 'left',
     });
-    const titleForm = formFor(editor, 'title');
-    const entityForm = editor.shadowRoot!.querySelector<Form>('ha-form.entity-form')!;
-    expect(entityForm).not.toBeNull();
+    const titleForm = formOf(editor, 'card:title')!;
+    const entityForm = formOf(editor, 'calendar:name', entry(0));
+    expect(entityForm).toBeDefined();
 
-    for (const form of [titleForm, entityForm]) {
-      form.dispatchEvent(new CustomEvent('value-changed', { detail: { value: form.data } }));
+    for (const form of [titleForm, entityForm!]) {
+      emitChange(form, {});
       await editor.updateComplete;
     }
     expect(reports).toEqual([]);
 
-    await change(editor, 'title', 'First real edit');
+    await changeField(editor, 'card:title', 'First real edit');
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({
       config_version: Config.CURRENT_CONFIG_VERSION,
@@ -467,73 +498,83 @@ describe('adoption waits for a real edit', () => {
 });
 
 describe('All Layouts follows shared values rather than List', () => {
-  it.each([true, false])('gates dependent controls on root switches set to %s', async (enabled) => {
-    const switches = (on: boolean) => ({
-      show_time: on,
-      show_location: on,
-      show_description: on,
-      show_countdown: on,
-      show_progress_bar: on,
-      show_empty_days: on,
-      filter_duplicates: on,
-      allday_badge: on ? 'title' : false,
-    });
-    const children = [
-      'time_font_size',
-      'location_font_size',
-      'description_font_size',
-      'show_countdown_allday',
-      'progress_bar_height',
-      'empty_day_text',
-      'duplicate_accent_color',
-      'allday_badge_style',
-    ];
-    const { editor, reports } = await mount({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      ...switches(enabled),
-      list: switches(!enabled),
-    });
+  it.each([true, false])(
+    'gates dependent controls on root switches set to %s',
+    async (enabled) => {
+      const switches = (on: boolean) => ({
+        show_time: on,
+        show_location: on,
+        show_description: on,
+        show_countdown: on,
+        show_progress_bar: on,
+        show_empty_days: on,
+        filter_duplicates: on,
+        allday_badge: on ? 'title' : false,
+      });
+      const children = [
+        'time_font_size',
+        'location_font_size',
+        'description_font_size',
+        'show_countdown_allday',
+        'progress_bar_height',
+        'empty_day_text',
+        'duplicate_accent_color',
+        'allday_badge_style',
+      ];
+      const { editor, reports } = await mount({
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        ...switches(enabled),
+        list: switches(!enabled),
+      });
 
-    const visible = () =>
-      new Set(
-        forms(editor)
-          .filter((form) => !form.classList.contains('entity-form'))
-          .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
-      );
-    await change(editor, 'editing_workspace', 'shared');
-    expect(formFor(editor, 'show_location').data.show_location).toBe(enabled);
-    for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
+      const visible = () => {
+        const calendars = formsOf(editor, entry());
+        return new Set(
+          formsOf(editor)
+            .filter((form) => !calendars.includes(form))
+            .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
+        );
+      };
+      await editLayout(editor, 'shared');
+      expect(valueOf(editor, 'events:show_location')).toBe(enabled);
+      for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
 
-    await change(editor, 'editing_workspace', 'list');
-    for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
-    expect(reports).toEqual([]);
-  });
+      await editLayout(editor, 'list');
+      for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
+      expect(reports).toEqual([]);
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
+    },
+    30_000,
+  );
 
   it('preserves default-valued Shared intent after closing and reopening', async () => {
     const { editor, reports } = await mount({ config_version: Config.CURRENT_CONFIG_VERSION });
-    await change(editor, 'editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     const values = {
-      event_font_size: ['18px', '14px'],
-      day_spacing: ['18px', '10px'],
-      event_background_opacity: [5, 0],
-      show_past_events: [true, false],
+      'events:event_font_size': ['18px', '14px'],
+      'layout:day_spacing': ['18px', '10px'],
+      'events:event_background_opacity': [5, 0],
+      'content:show_past_events': [true, false],
     };
-    for (const [key, [other, chosen]] of Object.entries(values)) {
-      await change(editor, key, other);
-      await change(editor, key, chosen);
+    for (const [id, [other, chosen]] of Object.entries(values)) {
+      await changeField(editor, id, other);
+      await changeField(editor, id, chosen);
     }
     const saved = reports.slice(-1)[0]!;
     const chosen = Object.fromEntries(
-      Object.entries(values).map(([key, [, value]]) => [key, value]),
+      Object.entries(values).map(([id, [, value]]) => [parseFieldId(id).name, value]),
     );
     expect(saved).toMatchObject(chosen);
 
     const reopened = await mount(saved);
-    await change(reopened.editor, 'view', 'grid');
-    await change(editor, 'view', 'grid');
+    await changeField(reopened.editor, 'display:view', 'grid');
+    await changeField(editor, 'display:view', 'grid');
     expect(reopened.reports.slice(-1)[0]?.time_grid).toMatchObject(chosen);
     expect(reopened.reports.slice(-1)[0]?.time_grid).toEqual(reports.slice(-1)[0]?.time_grid);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps default-valued roots when migration explicitly chooses shared storage', async () => {
     const chosen = {
@@ -550,7 +591,7 @@ describe('All Layouts follows shared values rather than List', () => {
     });
 
     const reopened = await mount(reports.slice(-1)[0]!);
-    await change(reopened.editor, 'view', 'grid');
+    await changeField(reopened.editor, 'display:view', 'grid');
     expect(reopened.reports.slice(-1)[0]?.time_grid).toMatchObject(chosen);
   });
 
@@ -563,7 +604,7 @@ describe('All Layouts follows shared values rather than List', () => {
       config_version: Config.CURRENT_CONFIG_VERSION,
       ...authored,
     });
-    await change(editor, 'title', 'Shared choices');
+    await changeField(editor, 'card:title', 'Shared choices');
     expect(reports.slice(-1)[0]).toEqual({
       entities: ['calendar.anna'],
       config_version: Config.CURRENT_CONFIG_VERSION,
@@ -587,10 +628,14 @@ describe('compact expansion after editor migration', () => {
       tap_action: { action: 'expand' },
     };
     const { editor, reports } = await mount(raw);
-    await change(editor, 'title', 'Compact calendar');
+    await changeField(editor, 'card:title', 'Compact calendar');
     const migrated = reports.slice(-1)[0]!;
     expect(migrated).toHaveProperty(`list.${key}`, limit);
     expect(migrated).not.toHaveProperty(key);
+    // The edit opened a page, which focuses its heading. happy-dom's `ShadowRoot.activeElement`
+    // throws while focus sits in another shadow root, as the card's update asks it, so focus
+    // leaves the editor before the cards mount, as it would once a user moved to the dashboard.
+    (editor.shadowRoot!.activeElement as HTMLElement | null)?.blur();
 
     const events: Types.CalendarEventData[] = [
       ['2026-06-17', '2026-06-18'],

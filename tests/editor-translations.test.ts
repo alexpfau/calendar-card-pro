@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeHelper, computeLabel, lookup } from '../src/rendering/editor/localize';
-import { PANELS } from '../src/rendering/editor/panels';
+import { CALENDARS_BLOCK, PAGES } from '../src/rendering/editor/pages';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import deEditor from '../src/rendering/editor/translations/de.json';
 import enGbEditor from '../src/rendering/editor/translations/en-GB.json';
@@ -50,13 +50,13 @@ describe('editor strings resolve in the requested language', () => {
   it('translates the first-screen German editor chrome', () => {
     const chromeKeys = [
       'search',
-      'customized_only',
-      'customized_only.helper',
-      ...PANELS.flatMap((panel) => [panel.titleKey, `${panel.titleKey}.helper`]),
-      'calendars',
-      'calendars.helper',
-      'entity.customised',
-      'entity.unconfigured',
+      // The overview's titles that carry today's panel titles over; the `page.*` ones are new
+      // English until the editor's translation pass.
+      CALENDARS_BLOCK.titleKey,
+      ...PAGES.map((page) => page.titleKey).filter((key) => key.startsWith('panel.')),
+      'entity.occurrence',
+      'entity.duplicate',
+      'entity.remove',
       'entity.copy',
       'entity.paste',
     ];
@@ -98,15 +98,12 @@ describe('editor strings resolve in the requested language', () => {
     // per-key fallback those deletions rely on is already pinned above.
     expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
     expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).toContain('side-by-side layouts');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).not.toContain('column view');
   });
 
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
     // `height` applies to `.content-container`; the header and card padding sit outside it.
     // Grid compresses that content area's axis while the other views scroll it.
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('grid view compresses the time axis');
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('calendar content area');
+    expect(EDITOR_STRINGS['card_height.helper']).toContain('Grid compresses its hours');
     expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
@@ -117,7 +114,7 @@ describe('editor strings resolve in the requested language', () => {
     // and it is still told on both fields they actually manipulate.
     expect(EDITOR_STRINGS['time_grid.axis.helper']).toBeUndefined();
     expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
-      "calendar content area's natural height",
+      'Ignored when a fixed Height is set',
     );
   });
 
@@ -166,24 +163,6 @@ describe('editor strings resolve in the requested language', () => {
     expect(lookup('en-GB', 'weekend_colors.helper')).toBe(EDITOR_STRINGS['weekend_colors.helper']);
   });
 
-  it('states compact-mode scope only when the active view needs it', () => {
-    const compactGroup = {
-      type: 'expandable' as const,
-      name: 'compact_mode',
-      titleKey: 'compact_mode',
-      schema: [],
-    };
-
-    expect(computeHelper('en', 'list', compactGroup)).toBe(EDITOR_STRINGS['compact_mode.helper']);
-    expect(computeHelper('en', 'column', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'grid', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');
-  });
-
   it('returns undefined for a key nothing defines', () => {
     // `computeLabel` humanizes on undefined, so this is what keeps a missing string a
     // cosmetic shortfall rather than a rendered `undefined`.
@@ -202,13 +181,12 @@ describe('the mined translations carry meaning, not just key names', () => {
     expect(lookup('de', 'entity')).toBe('Wetter-Entität');
   });
 
-  it('does not swap the two language options', () => {
-    // The pair that proves name-matching is unsafe rather than merely imprecise. Across
-    // the namespaces these two keys exchanged meanings: old `language` is new
-    // `language_mode`, and old `language_code` is new `language`. Mined by name, both
-    // labels would be wrong, and wrong in a way that reads as plausible.
+  it('does not swap the language options', () => {
+    // The pair that proved name-matching unsafe rather than merely imprecise: old `language`
+    // was new `language_mode`, and old `language_code` new `language`. Language is now one
+    // dropdown, and its label is still the mode's.
     expect(lookup('de', 'language_mode')).toBe('Sprache');
-    expect(lookup('de', 'language')).toBe('Sprachcode');
+    expect(lookup('de', 'language')).toBeUndefined();
   });
 
   it('translates no key the editor cannot look up', () => {

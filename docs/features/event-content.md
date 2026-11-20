@@ -436,6 +436,9 @@ column:
   time_position: below # the columns stay as they are
 ```
 
+[Month view](/features/month-view#the-days-list) always lists a day this way, whatever
+`time_position` says.
+
 ::: warning One Line Needs a Wide Event Row
 With `title_max_lines: 1` or `scroll_long_titles`, the time takes its width from the title's
 line and never gives it back. With the default fonts, English text, 24-hour times and
@@ -824,7 +827,7 @@ show_past_events: true # Keep finished events on the card
   rather than counting up.
 - For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
   and the [House Log](/guide/house-log) story for a complete card.
-- In the visual editor it comes with **Show Countdown**.
+- In the visual editor it comes with the **Countdown** part on the **Event Appearance** page.
 
 ### Countdown Range
 
@@ -967,8 +970,8 @@ in the relevant view instead. Dimming does not restore filtered events, countdow
 progress bars.
 :::
 
-In the [editor](/features/editor), find **Past Event Opacity** under **Events → Event
-State**, in any workspace.
+In the [editor](/features/editor), find **Past Event Opacity** under **Which Events → Past
+Events**, in every layout.
 
 ::: details More About Past Events
 
@@ -1076,7 +1079,7 @@ thing and leaves the rest alone. The five are everything inside the event box:
 - Grid view starts all five at `accent`; list and column view accept it when you set it. See
   [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 - The event weather badge follows the title: left unset, it takes the accent wherever
-  `event_color` is `accent`. See [`weather.event.color`](/features/weather#weather-configuration-options).
+  `event_color` is `accent`. See [`weather → event → color`](/features/weather#weather-configuration-options).
 - Three things never follow a calendar. An **empty day's** _No events_ notice keeps
   `empty_day_color`, the grid's **`+N` overflow block** stays in the theme's secondary text
   color, and the badge in the **day header** belongs to the day, not to any calendar on it.
@@ -1094,7 +1097,7 @@ before.
 - Nothing else about the text changes. The secondary rows are not dimmed further, and the title
   keeps its weight, `font-weight: 500` against normal. Finished events still use the shared
   [past-content opacity](#past-events-display), applied after their colors resolve.
-- Give `weather.event.color` a color of its own and that color wins; write `accent` into it and
+- Give `weather → event → color` a color of its own and that color wins; write `accent` into it and
   the weather badge follows the calendar in any view, whatever the title does.
 - The mix lifts contrast more in light themes than in dark ones.
 

@@ -515,6 +515,52 @@ export function findDayAdd(
 }
 
 /**
+ * A compact month's day, which a tap selects rather than adds on: the recognizer reads the day
+ * off it as it reads an event's tap target, so a swipe that starts on it still pages. The
+ * property names its day.
+ */
+export interface MonthPickElement extends Element {
+  calendarCardMonthPick?: number;
+}
+
+/**
+ * The compact month day an input event started on: the element, and its day.
+ *
+ * @param path - The input event's composed path, innermost first
+ * @param boundary - Where the walk ends, exclusive
+ * @returns The day's element and its local midnight, or undefined
+ */
+export function findMonthPick(
+  path: ReadonlyArray<EventTarget>,
+  boundary: EventTarget | null,
+): { element: EventTarget; timestamp: number } | undefined {
+  for (const node of path) {
+    if (node === boundary) return undefined;
+    const timestamp = (node as MonthPickElement | null)?.calendarCardMonthPick;
+    if (timestamp !== undefined) return { element: node, timestamp };
+  }
+  return undefined;
+}
+
+/**
+ * A month's day cell, in either form: the grid cell the keyboard moves between. The property
+ * names its day, so a key on it is read without parsing its name.
+ */
+export interface MonthCellElement extends Element {
+  calendarCardMonthCell?: number;
+}
+
+/**
+ * The day a month's cell stands for, if a node is one.
+ *
+ * @param node - Any event target
+ * @returns The day's local midnight, or undefined
+ */
+export function monthCellOn(node: EventTarget | null | undefined): number | undefined {
+  return (node as MonthCellElement | null | undefined)?.calendarCardMonthCell;
+}
+
+/**
  * What a render needs to draw each day as a button that adds an event on it, or undefined
  * while a tap on a day adds nothing.
  */

@@ -17,6 +17,10 @@
   "viewList": "Llista",
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
+  "viewMonth": "Mes",
+  "moreEvents": "+{count} més",
+  "eventCount": "{count} esdeveniments",
+  "eventCountOne": "{count} esdeveniment",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
   "dayOfEvent": "Dia {day} de {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "No s'ha pogut carregar:",
   "newEvent": "Esdeveniment nou",
   "showAll": "Mostra-ho tot",
-  "hideAll": "Amaga-ho tot"
+  "hideAll": "Amaga-ho tot",
+  "private": "Privat"
 }

@@ -9,6 +9,10 @@
   "viewList": "목록",
   "viewColumns": "열",
   "viewGrid": "그리드",
+  "viewMonth": "월",
+  "moreEvents": "+{count}개 더",
+  "eventCount": "일정 {count}개",
+  "eventCountOne": "일정 {count}개",
   "endsToday": "오늘 {at}에 종료",
   "endsTomorrow": "내일 {at}에 종료",
   "dayOfEvent": "{days}일 중 {day}일째",
@@ -19,5 +23,6 @@
   "loadFailed": "불러오지 못함:",
   "newEvent": "새 일정",
   "showAll": "모두 표시",
-  "hideAll": "모두 숨기기"
+  "hideAll": "모두 숨기기",
+  "private": "비공개"
 }

@@ -9,6 +9,10 @@
   "viewList": "Liste",
   "viewColumns": "Sütunlar",
   "viewGrid": "Izgara",
+  "viewMonth": "Ay",
+  "moreEvents": "+{count} daha",
+  "eventCount": "{count} etkinlik",
+  "eventCountOne": "{count} etkinlik",
   "endsToday": "bitiş: bugün",
   "endsTomorrow": "bitiş: yarın",
   "dayOfEvent": "{days} günün {day}. günü",
@@ -19,5 +23,6 @@
   "loadFailed": "Yüklenemedi:",
   "newEvent": "Yeni etkinlik",
   "showAll": "Tümünü göster",
-  "hideAll": "Tümünü gizle"
+  "hideAll": "Tümünü gizle",
+  "private": "Özel"
 }

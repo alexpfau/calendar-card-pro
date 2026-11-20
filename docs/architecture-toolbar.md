@@ -40,6 +40,10 @@ it.
 - **44px targets.** Each control answers a 44px-tall press through an invisible `::before` box that
   never overlaps a neighbor's. The month is the exception: its target reaches only 2px up and 10px
   down, about 41px at the default title size, so the title keeps its line for the card's tap.
+- **Large controls.** `toolbar.size: large` puts `large-controls` on the heading row, which draws
+  the arrows, home and the chips 32px, with the action row's 8px gaps and 20px icons, each
+  reaching 4px across as the action row's do and 6px up and down to keep the 44px height. Nothing reads the size but the stylesheet and the fit signatures, so the month's
+  form and the chips' fold are measured again after a change of size.
 - **The card stops being a button.** While the render draws a control or a tappable event
   (`_hostsControls`), `ha-card` drops `role="button"`, because a button may not contain another, and
   `tap_action` moves to an invisible native button drawn first (`TapControl`).
@@ -69,10 +73,24 @@ the configuration.
 - **The date picker.** The month button focuses a hidden date input, because Safari closes a picker
   only on blur, and the card tracks an open picker so the press that closes Chrome's opens nothing.
 - **The page.** A page is a fixed first day (`_pageRequested`, null at home), fetched with
-  `start_date` replaced by it and `show_past_events` forced on. Arrows and swipes step by the days
-  on screen (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
+  `start_date` replaced by it and `show_past_events` forced on. List, Columns and Grid start on
+  it; Month draws the weeks of the month holding it. Arrows and swipes step by the days on screen
+  (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
   until the new page's events land, and the request generation discards the responses of pages
   passed by. Storage is under [What the Browser Stores](/architecture-data#what-the-browser-stores).
+- **A month's pages.** Arrows, swipes, the picker and Page Up and Page Down step whole months, from
+  the month the heading names, each keyed by its 1st.
+- **A view switch carries the date in view** (`_dateInView`, `_openOnDate` in `_chooseView`): a
+  month's selected day, else its own (today where it holds today, else its 1st), or the other
+  views' page's first day, in time order even for a list read latest first, so those three switch
+  among themselves on the same days. Month opens that day's month with the day selected and as
+  its tab stop; the others open the page starting that day. From home with nothing selected the
+  next view opens on its own home; a carry that lands on a view's home is kept for the next
+  switch (`_carriedDay`), as Month keeps it as its selection, so a round trip comes back to it,
+  and any page, Home or Reset lets go of it. A carried day is a date, never today's token, so it
+  stays put at midnight as the page it came from does. A page's load holds the weeks of the
+  month its day falls in (`loadConfig`), so carrying a page's day lands on that same load
+  wherever the next view's days lie in those weeks.
 - **Nothing remembers a page.** A reload, a configuration change and the start of editing bring the
   card home.
 - **Hiding leaves a way back.** `hide_when_empty` acts only at home and only while the legend hides
@@ -85,7 +103,14 @@ There are three views at once: the configured `view`, the requested view (`reque
 device's choice, else `view`) and the effective view the width fit makes of it (`_effectiveView`).
 
 - **No fetch.** The window's start is identical across views (`FETCH_TIME_KEYS`) and the load spans
-  the longest of them (`loadedDaysToShow`), so each view draws a prefix of one load.
+  the longest of them (`loadedDaysToShow`), with Month's six weeks added where it is reachable
+  (`ViewConfig.loadConfig`), so each view draws its range out of one load.
+- **Which layouts.** Two options: `toolbar → view_switcher` turns the switcher on or off, and
+  `toolbar → view_switcher_layouts` lists the layouts it offers, all four by default.
+  `resolveToolbar` reads them as `viewSwitcher` and `switcherViews`, and `switcherOffers` adds
+  `view` and answers none where that comes to fewer than two, as one layout draws no switcher. A
+  layout left off the list leaves the load too, which is how a card avoids Month's six weeks.
+  Neither option ever writes the other: the list never turns the switcher off.
 - **Per configuration.** `utils/view-choice.ts` stores the choice under a fingerprint of the raw
   configuration, so any edit resets every device. Old entries are pruned past `MAX_VIEW_CHOICES`,
   never deleted on edit, since no card learns which configuration it replaced.

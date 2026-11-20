@@ -86,8 +86,7 @@ entities:
     days_of_week: weekdays
     label: person.ben
     accent_color: '#90a4ae'
-    show_location: false
-    show_description: false
+    private: true
 
   # 🎂 Birthdays — the name and the age, nothing else
   - entity: calendar.family
@@ -161,18 +160,18 @@ Ben's working hours are on the card, so everyone can see Thursday afternoon is g
 The work calendar is listed twice and split on its **description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `allowlist` and `blocklist` there, and both blocks name one marker, `#family`, which Ben types into anything the family may read.
 
 - The block that **allows** `#family` keeps the real title, so Friday's _Team offsite_ appears by name.
-- The block that **blocks** it replaces every title with _Busy_ through [`replace_with`](/features/core-settings#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
+- The block that **blocks** it is [`private`](/features/core-settings#keeping-a-calendar-private), and its titles read _Busy_ through [`replace_with`](/features/core-settings#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
 - An event with no description counts as **not matching**, so it lands in the _Busy_ block: the safe default.
 
-Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, unless the block itself sets `show_description: false`, as the _Busy_ block does. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
+Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, on an event the family may read. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
 
 ::: warning A Title Is Not the Only Thing That Leaks
-Locations show by default, and _Meeting Room 2_ gives the game away. `show_location: false` and `show_description: false`, set on the _Busy_ block itself, keep both fields off the card and out of the [event popover](/features/actions#event-details) a tap opens. The popover says _Busy_ too, but where the calendar allows editing, the real title appears as soon as someone starts editing it; `allow_event_edit: false` closes that.
+Locations show by default, and _Meeting Room 2_ gives the game away, as does the agenda in a description the [event popover](/features/actions#event-details) a tap opens shows in full. `private: true` on the _Busy_ block keeps both off the card and out of the popover, where each reads Private behind a lock, and nobody can start editing the event there, which would show its real title. The title still reads _Busy_, because a `replace_with` takes the place of Private.
 :::
 
 ### Why This Works
 
-Every option in an `entities:` block applies to that block alone, so a calendar listed several times is several independent blocks; the [visual editor's](/features/editor) **Duplicate** action builds each one. The lines above `entities:` decide how the whole card reads, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the blocks predictable:
+Every option in an `entities:` block applies to that block alone, so a calendar listed several times is several independent blocks. In the [visual editor](/features/editor#split-this-calendar), **Split This Calendar** turns one block into two: open it from the ⋮ menu on a calendar's page, or from its row under that page's **Which Events**. **All-Day vs. With a Time** gives each kind of event its own block, and **By Words** gives the events whose title, location or description holds your words one block and every other event the other, as the _Busy_ block and its partner do. Before you confirm, a review shows where the calendar's upcoming events land, and Undo takes the whole split back in one step. To add a further block by hand, use **Duplicate** in the calendar's ⋮ menu. The lines above `entities:` decide how the whole card reads, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the blocks predictable:
 
 - **Make the blocks complementary.** Within one calendar, each event should match exactly one block. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), blocks that overlap draw an event once, styled by the first of them, so the later block's label and color quietly never apply.
 - **Finish with a catch-all.** A block with only a `blocklist` goes last for its calendar and catches what is left over. Without it, an event nobody wrote a rule for never appears, and something missing is very hard to notice.
@@ -196,7 +195,7 @@ The lines above `entities:` apply to every block at once, so a box, a color or a
 `show_single_allday_time: false` drops the _All day_ row under a one-day pill, and `show_location_allday: false` the location under every pill, once for every block. `show_multiday_allday_time` stays on, because _All day, until Sunday, Oct 18_ carries the end of the grandparents' visit, which the pill cannot.
 
 ::: warning Tidying Is Not Privacy
-`show_location_allday: false` and the _Busy_ block's `show_location: false` look identical on screen, but only the second protects anything. Work events are timed, so the all-day option never touches them, and only an option set on the calendar keeps a field out of the popover. `show_description_allday` sits on the same fault line.
+`show_location_allday: false` only tidies the rows. Work events are timed, so it never touches them, and no option that leaves a field out of the rows keeps it out of the popover, where every field an event has shows. Only the _Busy_ block's `private: true` protects anything. `show_description_allday` sits on the same fault line.
 :::
 
 ## 🔀 Variations
@@ -231,7 +230,7 @@ The position is a share of the day's height, so on a day with one event the word
 
 ### Read Only on a Shared Screen
 
-A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. On a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out.
+A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. The _Busy_ block's events never can, being private; on a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out for the rest.
 
 ## 🔀 Combining the Techniques
 

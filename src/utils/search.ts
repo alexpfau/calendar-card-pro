@@ -11,6 +11,7 @@
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
 import * as Grid from './grid';
 import { addDays, startOfDay } from './paging';
+import { isPrivate } from './private-events';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 
@@ -76,7 +77,10 @@ export interface RingTarget {
   recurrenceId?: string;
   /** When it starts, as an instant in UTC or a date (`startKey`). */
   start: string;
-  /** Its title as Home Assistant returned it, which tells it apart where it has no uid. */
+  /**
+   * Its title as Home Assistant returned it, or a fingerprint for a private event
+   * (`targetSummary`), which tells it apart where it has no uid.
+   */
   summary: string;
 }
 
@@ -89,6 +93,8 @@ export interface SearchRow {
   /** Its title and location as the card draws them. */
   title: string;
   location: string;
+  /** Whether its title is a private event's Private, which the panel draws after a lock. */
+  privateTitle?: boolean;
   /** Its words folded for matching: the title, the location, and the description as drawn. */
   folded: { title: FoldedText; location: FoldedText; description: string };
   /** When it starts and ends, in epoch milliseconds; an all-day event at local midnights. */
@@ -485,25 +491,66 @@ export function findRows(
 //-----------------------------------------------------------------------------
 
 /**
- * When an event starts, comparable however it was written: a time as its instant in UTC, so a
- * push and a request spelling one start in two zones agree, and a date as it is.
+ * A start or an end, comparable however it was written: a time as its instant in UTC, so a push
+ * and a request spelling one time in two zones agree, and a date as it is.
+ *
+ * @param point - The start or end
+ * @returns The key, or an empty string where there is none
+ */
+function pointKey(point: Types.CalendarEventData['start'] | null | undefined): string {
+  if (point?.dateTime) {
+    const instant = Date.parse(point.dateTime);
+    return isNaN(instant) ? point.dateTime : new Date(instant).toISOString();
+  }
+  return point?.date ?? '';
+}
+
+/**
+ * When an event starts, comparable however it was written (`pointKey`).
  *
  * @param event - Any copy of the event
  * @returns The start, or an empty string where it has none
  */
 function startKey(event: Types.CalendarEventData): string {
-  const start =
-    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start;
-  if (start?.dateTime) {
-    const instant = Date.parse(start.dateTime);
-    return isNaN(instant) ? start.dateTime : new Date(instant).toISOString();
+  return pointKey(
+    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start,
+  );
+}
+
+/**
+ * A short fingerprint of a text (32-bit FNV-1a), which tells two texts apart without holding
+ * either.
+ *
+ * @param text - The text
+ * @returns The fingerprint
+ */
+function fingerprint(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
   }
-  return start?.date ?? '';
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * What tells an event without a uid apart from another starting with it: its title as Home
+ * Assistant returned it, or for a private entry's event, whose own words a search never holds, a
+ * fingerprint of its title and its end.
+ *
+ * @param event - A display copy
+ * @returns The title, or the private event's fingerprint
+ */
+function targetSummary(event: Types.CalendarEventData): string {
+  const source = event._source;
+  if (!isPrivate(event)) return source?.summary ?? event.summary ?? '';
+  const end = source?.end ?? event._gridSource?.end ?? event._sourceEnd ?? event.end;
+  return `private:${fingerprint(JSON.stringify([source?.summary ?? '', pointKey(end)]))}`;
 }
 
 /**
  * What finds an event again on the card: its calendar and when it starts, with its uid and
- * recurrence id where Home Assistant gives them, else its title as Home Assistant returned it.
+ * recurrence id where Home Assistant gives them, else its title or a private event's fingerprint
+ * (`targetSummary`).
  *
  * @param event - The event's display copy
  * @returns The target
@@ -515,7 +562,7 @@ export function ringTargetOf(event: Types.CalendarEventData): RingTarget {
     uid: source?.uid || undefined,
     recurrenceId: source?.recurrence_id || undefined,
     start: startKey(event),
-    summary: source?.summary ?? event.summary ?? '',
+    summary: targetSummary(event),
   };
 }
 
@@ -538,7 +585,29 @@ export function isRingTarget(event: Types.CalendarEventData, target: RingTarget)
       source?.uid === target.uid && (source?.recurrence_id || undefined) === target.recurrenceId
     );
   }
-  return !source?.uid && (source?.summary ?? event.summary ?? '') === target.summary;
+  return !source?.uid && targetSummary(event) === target.summary;
+}
+
+/**
+ * A day's list with the picked event marked to be rung (`_searchRing`), on a copy of its row, and
+ * whether it holds it: for a month day's list, which is drawn from the day model rather than
+ * from a grouping. The list itself where it does not.
+ *
+ * @param events - The day's events
+ * @param target - The pick
+ * @returns The rows to draw, and whether the pick is among them
+ */
+export function ringRows(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  target: RingTarget,
+): { rows: ReadonlyArray<Types.CalendarEventData>; found: boolean } {
+  if (!events.some((event) => isRingTarget(event, target))) return { rows: events, found: false };
+  return {
+    rows: events.map((event) =>
+      isRingTarget(event, target) ? { ...event, _searchRing: true } : event,
+    ),
+    found: true,
+  };
 }
 
 /**

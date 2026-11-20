@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildConfig } from './fixtures';
 import { getEntitySuggestion } from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { loadedDaysToShow, resolveEffectiveConfig } from '../src/config/view';
+import { loadedDaysToShow, resolveEffectiveConfig, weatherForecastTypes } from '../src/config/view';
 import { getFirstDayOfWeek } from '../src/utils/format';
 import { generateDeterministicId } from '../src/utils/helpers';
 
@@ -66,9 +66,9 @@ describe('getEntitySuggestion', () => {
         entities: ['calendar.family'],
         days_to_show: 3,
       };
+      // A tap on an event opens it on every card, so the interactive two need not say so.
       const interactive = {
         toolbar: { show: true },
-        event_tap_action: { action: 'details' },
         day_tap_action: { action: 'add-event' },
       };
       const gridOptions = { grid_options: { columns: 'full', rows: 'auto' } };
@@ -123,7 +123,7 @@ describe('getEntitySuggestion', () => {
 
     it('shares no mutable object between the entries', () => {
       // The picker keeps whichever config the user takes, and the editor then writes into it.
-      const shared = ['grid_options', 'toolbar', 'event_tap_action', 'day_tap_action', 'weather'];
+      const shared = ['grid_options', 'toolbar', 'day_tap_action', 'list', 'column', 'time_grid'];
       const list = [
         ...(suggestions ?? []),
         ...(getEntitySuggestion(hass('calendar.family', 'weather.home'), 'calendar.family') ?? []),
@@ -163,13 +163,13 @@ describe('getEntitySuggestion', () => {
   describe('with weather in the home', () => {
     const weatherOf = (...extra: string[]) =>
       (getEntitySuggestion(hass('calendar.family', ...extra), 'calendar.family') ?? []).map(
-        (suggestion) => suggestion.config.weather,
+        (suggestion) => suggestion.config.weather_entity,
       );
 
     it('adds the only weather entity to the two interactive recipes, and nowhere else', () => {
       expect(weatherOf('weather.home')).toEqual([
-        { entity: 'weather.home' },
-        { entity: 'weather.home' },
+        'weather.home',
+        'weather.home',
         undefined,
         undefined,
         undefined,
@@ -187,15 +187,21 @@ describe('getEntitySuggestion', () => {
       ]);
     });
 
-    it('writes no position, so the card subscribes to the daily forecast alone', () => {
-      const [first] = getEntitySuggestion(
+    it('shows the forecast beside the days of every layout with a header, from the daily forecast alone', () => {
+      for (const suggestion of getEntitySuggestion(
         hass('calendar.family', 'weather.home'),
         'calendar.family',
-      )!;
-      expect(buildConfig(first.config as Partial<Types.Config>).weather?.position).toBe(
-        buildConfig({}).weather?.position,
-      );
-      expect(first.config.weather).toEqual({ entity: 'weather.home' });
+      )!.slice(0, 2)) {
+        const { config } = suggestion;
+        expect(config).not.toHaveProperty('weather');
+        expect(config).not.toHaveProperty('month');
+        for (const block of ['list', 'column', 'time_grid']) {
+          expect(config[block], block).toEqual({ weather: { position: 'date' } });
+        }
+        expect(weatherForecastTypes(buildConfig(config as Partial<Types.Config>), true)).toEqual([
+          'daily',
+        ]);
+      }
     });
   });
 

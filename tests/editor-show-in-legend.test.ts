@@ -8,7 +8,7 @@
  * toolbar shows a calendar filter, since on any other card it would control nothing.
  *
  * **That the setting belongs to the calendar.** A calendar listed twice is one chip, so each
- * panel shows the calendar's value, a change on any panel is written to every block, Remove
+ * entry's page shows the calendar's value, a change on any entry is written to every block, Remove
  * leaves it on the block that remains, Copy and Paste leave it where it is, and an edit to
  * anything else leaves each block's value exactly as written. Only `false` is stored; turning
  * the switch back on removes the key.
@@ -17,9 +17,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  changeField,
+  entry,
+  fakeHass,
+  formsOf,
+  keysOf,
+  mountEditor,
+  openPanels,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { lookup } from '../src/rendering/editor/localize';
@@ -27,8 +36,6 @@ import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
-
-customElements.define('editor-show-in-legend-probe', CalendarCardProEditor);
 
 const ANNA = 'calendar.anna';
 const BEN = 'calendar.ben';
@@ -51,7 +58,9 @@ describe('the filter switch', () => {
     const schema = entitySchema();
     const names = fieldNames(schema);
 
-    expect(names.slice(0, 3)).toEqual(['name', 'show_in_legend', 'label_type']);
+    // After the accent color, which leads the page.
+    const at = names.indexOf('name');
+    expect(names.slice(at, at + 3)).toEqual(['name', 'show_in_legend', 'label_type']);
     expect(schema.find((node) => node.name === 'show_in_legend')).toEqual({
       name: 'show_in_legend',
       selector: { boolean: {} },
@@ -77,8 +86,8 @@ describe('the filter switch', () => {
     }).toEqual({
       label: 'Show in Calendar Filter',
       helper:
-        'Off leaves this calendar out of the calendar filter, as a chip and in the menu, so ' +
-        'its events always show. Every entry for this calendar shares it.',
+        'Off leaves this calendar out of the calendar filter, so its events always show. ' +
+        'Every entry for it shares this.',
     });
   });
 
@@ -257,17 +266,6 @@ describe('copying and pasting a calendar’s settings', () => {
 });
 
 describe('the filter switch in the rendered editor', () => {
-  interface EditorHost extends HTMLElement {
-    hass: unknown;
-    setConfig(config: unknown): void;
-    updateComplete: Promise<unknown>;
-  }
-
-  interface Form extends HTMLElement {
-    data: Record<string, unknown>;
-    schema: HaFormSchema[];
-  }
-
   /**
    * Builds a rendered editor over the given calendars and toolbar.
    *
@@ -276,28 +274,36 @@ describe('the filter switch in the rendered editor', () => {
    * @returns The editor and every configuration it reports
    */
   async function render(entities: ReadonlyArray<unknown>, toolbar?: Types.ToolbarConfig) {
-    const element = document.createElement('editor-show-in-legend-probe') as EditorHost;
-    element.hass = { states: {}, locale: { language: 'en' } };
-    document.body.appendChild(element);
-    element.setConfig({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      entities,
-      ...(toolbar ? { toolbar } : {}),
-    });
-    await element.updateComplete;
+    // Home Assistant has both calendars, so no row is marked as one it no longer finds.
+    const states = Object.fromEntries(
+      [ANNA, BEN].map((id) => [id, { entity_id: id, state: 'off', attributes: {} }]),
+    );
+    const element = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities,
+        ...(toolbar ? { toolbar } : {}),
+      },
+      { hass: fakeHass({ states }) },
+    );
+    // Only the open page draws its forms: visit every entry's page, as these tests read them.
+    await openPanels(element);
 
     const emitted: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
       emitted.push((event as CustomEvent).detail.config as Record<string, unknown>);
     });
 
-    const forms = () =>
-      Array.from(element.shadowRoot!.querySelectorAll<Form>('ha-form.entity-form'));
     return {
       element,
       emitted,
-      forms,
-      offers: () => forms().map((form) => fieldNames(form.schema).includes('show_in_legend')),
+      /** Per entry, whether any of the forms its page draws holds the switch. */
+      offers: () =>
+        keysOf(element, 'entry').map((_, index) =>
+          formsOf(element, entry(index))
+            .flatMap((form) => fieldNames(form.schema))
+            .includes('show_in_legend'),
+        ),
     };
   }
 
@@ -326,10 +332,13 @@ describe('the filter switch in the rendered editor', () => {
       menu: [true],
       chips: [true],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
-  it('summarizes a calendar holding its name and the switch as configured', async () => {
-    // The name alone says nothing more under the heading; the switch is a setting of its own.
+  it("heads a calendar's row with its name", async () => {
+    // The name heads the row in place of Home Assistant's; the row names the events the entry
+    // keeps, never how many settings it stores.
     const editor = await render(
       [
         { entity: ANNA, name: 'Anna at work', show_in_legend: false },
@@ -337,13 +346,15 @@ describe('the filter switch in the rendered editor', () => {
       ],
       { show: true, legend: 'chips' },
     );
-    const secondary = Array.from(
-      editor.element.shadowRoot!.querySelectorAll<HTMLElement & { secondary?: string }>(
-        'ha-expansion-panel.entity-panel',
-      ),
-    ).map((panel) => panel.secondary);
+    const rows = Array.from(editor.element.shadowRoot!.querySelectorAll('.cal-row')).map((row) => [
+      row.querySelector('.cal-title')?.textContent?.trim(),
+      row.querySelector('.cal-summary')?.textContent?.trim(),
+    ]);
 
-    expect(secondary).toEqual(['Anna at work · Configured', 'Ben at school']);
+    expect(rows).toEqual([
+      ['Anna at work', 'All events'],
+      ['Ben at school', 'All events'],
+    ]);
   });
 
   it('shows the second block the calendar left out, and writes the switch to both', async () => {
@@ -351,15 +362,11 @@ describe('the filter switch in the rendered editor', () => {
       [{ entity: ANNA, show_in_legend: false }, { entity: ANNA, event_type: 'all_day' }, BEN],
       { show: true, legend: 'chips' },
     );
-    const second = editor.forms()[1];
-    expect(editor.forms().map((form) => form.data.show_in_legend)).toEqual([false, false, true]);
+    expect(
+      [0, 1, 2].map((index) => valueOf(editor.element, 'calendar:show_in_legend', entry(index))),
+    ).toEqual([false, false, true]);
 
-    second.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...second.data, show_in_legend: true } },
-      }),
-    );
-    await editor.element.updateComplete;
+    await changeField(editor.element, 'calendar:show_in_legend', true, entry(1));
 
     expect(editor.emitted).toHaveLength(1);
     expect(editor.emitted[0].entities).toEqual([

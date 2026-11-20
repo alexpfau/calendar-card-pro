@@ -17,6 +17,10 @@
   "viewList": "Sąrašas",
   "viewColumns": "Stulpeliai",
   "viewGrid": "Laiko tinklelis",
+  "viewMonth": "Mėnuo",
+  "moreEvents": "+{count} daugiau",
+  "eventCount": "Įvykių: {count}",
+  "eventCountOne": "{count} įvykis",
   "endsToday": "baigiasi šiandien",
   "endsTomorrow": "baigiasi rytoj",
   "dayOfEvent": "Diena {day} iš {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Nepavyko įkelti:",
   "newEvent": "Naujas įvykis",
   "showAll": "Rodyti visus",
-  "hideAll": "Slėpti visus"
+  "hideAll": "Slėpti visus",
+  "private": "Privatus"
 }

@@ -27,27 +27,33 @@ In the card picker, switch to the **By entity** tab and pick any `calendar.*` en
 - **Calendar Card Pro - Columns**: the same days [side by side](/features/column-view)
 - **Calendar Card Pro - Time Grid**: the days on [an hour axis](/features/grid-view)
 
-The two interactive ones add three options to the plain card:
+The two interactive ones add two options to the plain card:
 
 ```yaml
 toolbar:
   show: true
-event_tap_action:
-  action: details
 day_tap_action:
   action: add-event
 ```
 
-They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [open an event](/features/actions#tapping-an-event) in the card's popover or [add one on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view) and drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows the toolbar, and the forecast where there is one, but nothing a tap does.
+They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [add an event on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view). On every card a tap [opens an event](/features/actions#tapping-an-event) in the card's popover, and in the grid you can drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows the toolbar, and the forecast where there is one, but nothing a tap does.
 
-When your Home Assistant has exactly one weather entity, the two interactive ones also show its [forecast](/features/weather) beside each day:
+When your Home Assistant has exactly one weather entity, the two interactive ones also show its [forecast](/features/weather) beside each day, in each layout with a day header:
 
 ```yaml
-weather:
-  entity: weather.home
+weather_entity: weather.home
+list:
+  weather:
+    position: date
+column:
+  weather:
+    position: date
+time_grid:
+  weather:
+    position: date
 ```
 
-With several weather entities they leave weather out, rather than guess which one you mean; choose one under **Weather** in the editor.
+With several weather entities they leave weather out, rather than guess which one you mean; choose one on a layout's **Weather** page in the editor.
 
 The other three differ only in `view`, so you can switch layouts later. The grid hides locations by default; `time_grid: { show_location: true }` brings them back.
 :::
@@ -78,7 +84,7 @@ Configuration snippets on the feature pages usually show **only the options bein
 Calendar Card Pro offers two ways to customize your card, and both edit the same configuration:
 
 1. **[Visual Editor](/features/editor) (Recommended)**
-   - Organized panels guide you through all available options, and a search box finds any of them by name or YAML key
+   - An overview holds the essentials and opens a page for each part of the card, and a search box finds any setting by name or YAML key
    - Changes are previewed in real time
    - Smart validation prevents configuration errors
 

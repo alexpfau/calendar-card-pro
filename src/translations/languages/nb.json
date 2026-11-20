@@ -9,6 +9,10 @@
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Tidsrutenett",
+  "viewMonth": "Måned",
+  "moreEvents": "+{count} til",
+  "eventCount": "{count} hendelser",
+  "eventCountOne": "{count} hendelse",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} av {days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Kunne ikke lastes:",
   "newEvent": "Ny hendelse",
   "showAll": "Vis alle",
-  "hideAll": "Skjul alle"
+  "hideAll": "Skjul alle",
+  "private": "Privat"
 }

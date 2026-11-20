@@ -33,17 +33,19 @@
  * measured in Chromium, are in the pull request that added this file.
  */
 
-import { render as litRender } from 'lit';
+import { html, render as litRender } from 'lit';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
 //-----------------------------------------------------------------------------
@@ -267,14 +269,57 @@ const OPTION_OF_PROPERTY = (() => {
   return found;
 })();
 
+/**
+ * Options a view writes again on an element of its own, over the card's value of a property: the
+ * wide month's cell sizes, which the month writes on itself for its lines and bars to read
+ * (`cellConfig`). Found by planting, as the card's are: each of the month's own font sizes at a
+ * sentinel, and whichever property its cells' configuration then writes with it. Keyed by
+ * property, and named by option path in the block.
+ */
+const REWRITTEN_OPTION_OF_PROPERTY = (() => {
+  const sentinel = '7302px';
+  const found = new Map<string, string>();
+  const keys = ViewConfig.MONTH_ONLY_KEYS.filter((key) => /_font_size$/.test(key));
+  for (const key of keys) {
+    const cells = MonthRender.cellConfig(
+      buildConfig({ month: { [key]: sentinel } } as Partial<Types.Config>),
+    );
+    for (const [property, value] of Object.entries(generateCustomPropertiesObject(cells))) {
+      if (value === sentinel) found.set(property, `month.${key}`);
+    }
+  }
+  return found;
+})();
+
 /** The options whose value some declaration in the family reads as a font size. */
 const FAMILY_OPTIONS = [...new Set(FAMILY.flatMap(({ value }) => reads(value)))]
-  .filter((property) => OPTION_OF_PROPERTY.has(property))
-  .map((property) => OPTION_OF_PROPERTY.get(property)!)
+  .flatMap((property) =>
+    [OPTION_OF_PROPERTY.get(property), REWRITTEN_OPTION_OF_PROPERTY.get(property)].filter(
+      (path): path is string => path !== undefined,
+    ),
+  )
   .sort();
 
 /** A sentinel per family option, so an inline font size can be traced back to its option. */
 const SENTINELS = new Map(FAMILY_OPTIONS.map((path, index) => [path, `${7311 + index}px`]));
+
+/** The option each sentinel stands for. */
+const OPTION_OF_SENTINEL = new Map([...SENTINELS].map(([path, sentinel]) => [sentinel, path]));
+
+/**
+ * The option a custom property carries at an element: the one whose sentinel the nearest element
+ * declaring the property wrote there. That is `ha-card` for every property but the ones a view
+ * writes again inside the card, which take the option that wrote them there.
+ */
+function optionAt(element: Element, property: string, root: Element): string {
+  const declared = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`);
+  for (let node: Element | null = element; node && node !== root; node = node.parentElement) {
+    const value = declared.exec(node.getAttribute('style') ?? '')?.[1].trim();
+    if (value !== undefined)
+      return OPTION_OF_SENTINEL.get(value) ?? OPTION_OF_PROPERTY.get(property)!;
+  }
+  return OPTION_OF_PROPERTY.get(property)!;
+}
 
 /** The scales the corpus draws today's and past days' dates at; see its variants. */
 const TODAY_DATE_SCALE = 1.25;
@@ -565,7 +610,7 @@ const BASE: Record<string, unknown> = {
   ],
 };
 
-const VIEWS = ['list', 'column', 'grid'] as const;
+const VIEWS = ['list', 'column', 'grid', 'month'] as const;
 
 /** Options that change what is drawn, each on top of the base. */
 const VARIANTS: Array<[string, Record<string, unknown>]> = [
@@ -598,6 +643,16 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
   ['header toolbar', { toolbar: { show: true, navigation: false, legend: false } }],
+  // The month's name on its rule, on the plain rule (July begins mid-week) and in the week row
+  // (June 1 begins an ISO week too). List view only; the other views repeat the base.
+  [
+    'month name on its rule',
+    { start_date: '2026-06-29', month_separator_width: '2px', month_separator_label: true },
+  ],
+  [
+    'month name in the week row',
+    { start_date: '2026-05-30', month_separator_width: '2px', month_separator_label: true },
+  ],
   // With the date navigation the month is a button of its own, beside the arrows.
   ['date navigation', { toolbar: { show: true, navigation: true, legend: false } }],
   // The legend's chips at the end of the heading row, at the control size.
@@ -704,15 +759,24 @@ function corpusConfig(view: (typeof VIEWS)[number], variant: Record<string, unkn
 
 /** Render one view of the card, title included, the way the host does. */
 function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLElement {
-  const effective = ViewConfig.resolveEffectiveConfig(config, view);
+  // Month draws the six weeks of the month the card starts in, Mondays first, as the card hands
+  // it them (`_drawnConfig`).
+  const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+  const drawn =
+    view === 'month'
+      ? { ...config, start_date: Paging.pageKey(rowsStart), days_to_show: ViewConfig.MONTH_DAYS }
+      : config;
+  const effective = ViewConfig.resolveEffectiveConfig(drawn, view);
   const toolbar = config.toolbar?.show ? headerToolbar(view, config) : undefined;
-  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
+  const days = EventUtils.groupEventsByDay(EVENTS, drawn, false, 'en', view);
   const content =
     view === 'grid'
       ? Render.renderGridGroupedEvents(days, effective, 'en', WEATHER, null, FROZEN_NOW)
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, 'en', WEATHER, null)
-        : Render.renderGroupedEvents(days, effective, 'en', WEATHER, null);
+        : view === 'month'
+          ? monthForms(days, rowsStart, effective)
+          : Render.renderGroupedEvents(days, effective, 'en', WEATHER, null);
   const container = document.createElement('div');
   litRender(
     Render.renderMainCardStructure(
@@ -731,6 +795,37 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
     container,
   );
   return container;
+}
+
+/**
+ * A month in both its forms: wide, then compact with the list of a day that has events under
+ * it, keeping room for fewer than that day holds so it ends in "+N more" beside its hidden probe,
+ * then the list of a day with none, so the compact form's and the day list's sizes are reached in
+ * every pass a month draws.
+ */
+function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
+  const dayLists = MonthDay.monthDayLists(
+    EVENTS,
+    effective,
+    rowsStart,
+    ViewConfig.MONTH_DAYS,
+    'en',
+  );
+  const busiest = dayLists.reduce(
+    (best, list, index) => (list.length > dayLists[best].length ? index : best),
+    0,
+  );
+  return html`${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)}
+  ${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
+    compact: {
+      selected: Paging.addDays(rowsStart, busiest),
+      dayLists,
+      weatherForecasts: WEATHER,
+      // Fewer fitted than the busiest day holds, so its list ends in "+N more".
+      shown: 1,
+    },
+  })}
+  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
 }
 
 /**
@@ -885,7 +980,7 @@ function sizedText(runs: ReturnType<typeof analyzeAll>['runs']): Record<string, 
         if (!winner) continue;
         if (winner.reads.length > 0) {
           const options = optionsOf(winner.reads).map((property) =>
-            OPTION_OF_PROPERTY.get(property)!,
+            optionAt(node!, property, pass.root),
           );
           sizedBy = (options.length > 0 ? options : winner.reads).join(' + ');
           break;
@@ -933,13 +1028,19 @@ describe('the matcher', () => {
     expect(OPTION_OF_PROPERTY.size).toBeGreaterThan(30);
 
     // Every font-size option reaches CSS through a declaration in the family, so the family
-    // is complete on the option side. Derived from the shipped defaults' own key names
-    // rather than listed, so a new font-size option is covered the day it is added.
-    const fontOptions = stringPaths(
-      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
-    ).filter((path) => /(^|\.|_)font_size$/.test(path));
-    expect(fontOptions.length).toBeGreaterThanOrEqual(11);
+    // is complete on the option side. Derived from the shipped defaults' own key names, and the
+    // month block's, rather than listed, so a new font-size option is covered the day it is
+    // added.
+    const fontOptions = [
+      ...stringPaths(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>),
+      ...ViewConfig.MONTH_ONLY_KEYS.map((key) => `month.${key}`),
+    ].filter((path) => /(^|\.|_)font_size$/.test(path));
+    expect(fontOptions.length).toBeGreaterThanOrEqual(13);
     expect(FAMILY_OPTIONS).toEqual(expect.arrayContaining(fontOptions));
+    expect([...REWRITTEN_OPTION_OF_PROPERTY]).toEqual([
+      ['--calendar-card-font-size-event', 'month.cell_event_font_size'],
+      ['--calendar-card-font-size-time', 'month.cell_time_font_size'],
+    ]);
   });
 
   it('draws a corpus large enough to mean something', () => {
@@ -950,7 +1051,9 @@ describe('the matcher', () => {
         .reduce((total, run) => total + run.boxes.length, 0);
       expect(boxes, view).toBeGreaterThan(100);
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('puts every family option at its sentinel in every pass', () => {
     // Otherwise an inline font size could not be traced to its option and would be judged as
@@ -961,6 +1064,8 @@ describe('the matcher', () => {
         unknown
       >;
       for (const [path, sentinel] of SENTINELS) {
+        // Month keeps the description's size at its shipped value, and draws no description.
+        if (!ViewConfig.appliesToView(path, view)) continue;
         const value = path
           .split('.')
           .reduce<unknown>(
@@ -1058,17 +1163,25 @@ describe('every piece of text is sized by its own option', () => {
       'card-header in toolbar-identity': ['--ha-font-size-m'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
+      // A month cell's date takes the day's size, as a list's date does, and so does the strut
+      // the date line is as tall as and the probe the card reads that line from.
+      'day in month-date': ['day_font_size'],
       'event-title in summary': ['event_font_size'],
       'event-title-scroll in event-title': ['event_font_size'],
       'grid-axis-label in grid-axis': ['time_font_size'],
       // A timed banner (multiday_banners) takes the event size itself, and its times and title
       // inherit it, so its container queries measure in the size its text is set in. So does a
-      // banner with its length after the title (show_duration).
-      'grid-banner-duration in event': ['event_font_size'],
-      'grid-banner-duration in grid-banner-content': ['event_font_size'],
-      'grid-banner-time in grid-banner-content': ['event_font_size'],
-      'grid-banner-title in event': ['event_font_size'],
-      'grid-banner-title in grid-banner-content': ['event_font_size'],
+      // banner with its length after the title (show_duration). A month's bar is the banner in
+      // the cells' sizes, its times and length in the time's and its title in the event's, each
+      // read on its own part.
+      'grid-banner-duration in event': ['event_font_size', 'month.cell_time_font_size'],
+      'grid-banner-duration in grid-banner-content': [
+        'event_font_size',
+        'month.cell_time_font_size',
+      ],
+      'grid-banner-time in grid-banner-content': ['event_font_size', 'month.cell_time_font_size'],
+      'grid-banner-title in event': ['event_font_size', 'month.cell_event_font_size'],
+      'grid-banner-title in grid-banner-content': ['event_font_size', 'month.cell_event_font_size'],
       'grid-event-overflow-label in event': ['time_font_size'],
       // The legend's chips and the rows of the menu it folds into: controls, at Home
       // Assistant's control size like the rest of the toolbar. The menu sets its own size, so
@@ -1079,6 +1192,29 @@ describe('every piece of text is sized by its own option', () => {
       'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],
+      // The month named on a month's first day, beside its number, in the month's size.
+      'month-date-month in month-date': ['month_font_size'],
+      // A month day's list: the day named as the weekday names are, in the form shown and in
+      // the full name read out, and its "no events" in the event font, as the list's rows set
+      // their titles, in the box its rows take. Its "+N more" in the time's size, listed and in
+      // the copy the card stages beside the list to fit it from.
+      'month-day-list-form in month-day-list-fit': ['weekday_font_size'],
+      'month-day-list-name in month-day-list-date': ['weekday_font_size'],
+      'month-day-list-empty in month-day-list-rows': ['event_font_size'],
+      'month-day-list-more in month-day-list-probe': ['time_font_size'],
+      'month-day-list-more in month-day-list-rows': ['time_font_size'],
+      // A month line's title and its time, each in its own option, side by side as a list row's:
+      // the month's cell sizes, which the wide month writes on itself.
+      'month-line-time in event': ['month.cell_time_font_size'],
+      'month-line-title in event': ['month.cell_event_font_size'],
+      // "+N more" in the cells' title size and the secondary ink, so it reads as a line of the day.
+      'month-more in month-week': ['month.cell_event_font_size'],
+      // The month's name on List's month separator: on the plain rule, and in the week row beside
+      // the pill.
+      'month-separator-label in month-separator': ['month_separator_label_font_size'],
+      'month-separator-label in month-separator-labeled': ['month_separator_label_font_size'],
+      'month-week-number in month-week': ['week_number_font_size'],
+      'month-weekday in month-weekdays': ['weekday_font_size'],
       'now-indicator in now-time': ['time_font_size'],
       'span in description': ['description_font_size'],
       'span in event-weather-text': ['weather.event.font_size'],
@@ -1145,17 +1281,30 @@ describe('the check can fail', () => {
     );
   }
 
-  it('catches the event size declared again on the title, in every view', () => {
-    // The v4.2.0 shape, planted back.
+  it('catches the event size declared again on the title, in every view that draws one', () => {
+    // The v4.2.0 shape, planted back. A month cell's line draws a title of its own, which the
+    // next case plants against.
     const { repeated } = analyzeAll([...DECLARATIONS, planted('.event-title', EVENT)]);
     const title = repeated.filter((entry) => entry.includes('span.event-title inside'));
 
-    for (const view of VIEWS) {
+    for (const view of VIEWS.filter((view) => view !== 'month')) {
       expect(
         title.some((entry) => entry.startsWith(`${view},`)),
         view,
       ).toBe(true);
     }
+  });
+
+  it('catches the event size set on a month row, around the lines that set it again', () => {
+    // The tempting shape: the rows set in the event font, so the line pitch is in its em. The
+    // titles inside would then apply it a second time, and the times, "+N" and the dates be
+    // measured against it.
+    const declared = [...DECLARATIONS, planted('.month-week', EVENT)];
+    const { repeated, crossed } = analyzeAll(declared);
+
+    expect(repeated.some((entry) => entry.includes('span.month-line-title inside'))).toBe(true);
+    expect(crossed.some((entry) => entry.includes('span.month-line-time'))).toBe(true);
+    expect(crossed.some((entry) => entry.includes('span.day inside div.month-week'))).toBe(true);
   });
 
   it('catches a size declared on a pseudo-element inside its own element', () => {
@@ -1206,7 +1355,9 @@ describe('the check can fail', () => {
         (entry) => entry.includes('span.event-title inside'),
       ),
     ).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('notices text an option no longer reaches', () => {
     // The axis label's own declaration, outranked by a plant that sizes it from nothing,
@@ -1229,5 +1380,7 @@ describe('the check can fail', () => {
       'time-countdown in time': ['fixed 12px'],
       'time-countdown in time-text': ['fixed 12px'],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });

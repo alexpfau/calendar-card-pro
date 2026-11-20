@@ -23,18 +23,25 @@
  * fails on a file that is not, or that exists but is never imported below.
  */
 
-// Imports (sorted alphabetically by language code, mirroring localize.ts)
-import deEditor from './de.json';
+// Imports in the order the bundle carries the vectors, which is not alphabetical: module
+// order is emission order, and gzip compresses the editor better with British English first
+// and the rest side by side by language family. Keep the map below in the same order, or
+// terser stops inlining the vectors into it and the gain goes. The lint rule would re-sort
+// them alphabetically, so it is off for this block.
+/* eslint-disable import-x/order */
 import enGBEditor from './en-GB.json';
-import etEditor from './et.json';
-import itEditor from './it.json';
 import koEditor from './ko.json';
+import jaEditor from './ja.json';
+import skEditor from './sk.json';
+import plEditor from './pl.json';
 import ltEditor from './lt.json';
 import lvEditor from './lv.json';
-import nbEditor from './nb.json';
-import plEditor from './pl.json';
-import skEditor from './sk.json';
+import etEditor from './et.json';
+import deEditor from './de.json';
 import svEditor from './sv.json';
+import nbEditor from './nb.json';
+import itEditor from './it.json';
+/* eslint-enable import-x/order */
 
 /**
  * Editor strings by language code.
@@ -45,15 +52,16 @@ import svEditor from './sv.json';
  * end, so it would be a poor way to reintroduce it.
  */
 export const EDITOR_LANGUAGE_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  de: deEditor,
   'en-gb': enGBEditor,
-  et: etEditor,
-  it: itEditor,
   ko: koEditor,
+  ja: jaEditor,
+  sk: skEditor,
+  pl: plEditor,
   lt: ltEditor,
   lv: lvEditor,
-  nb: nbEditor,
-  pl: plEditor,
-  sk: skEditor,
+  et: etEditor,
+  de: deEditor,
   sv: svEditor,
+  nb: nbEditor,
+  it: itEditor,
 };

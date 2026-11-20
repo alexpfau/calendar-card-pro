@@ -18,6 +18,11 @@ export const LEGEND_OFF = 'off';
 /** The legend's dropdown, in the order it lists them: off, then the two forms. */
 export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 'chips'];
 
+/** Whether a value is a string holding nothing but whitespace. */
+function isBlank(value: unknown): boolean {
+  return typeof value === 'string' && value.trim() === '';
+}
+
 /**
  * Normalizes one root option without turning an explicit clear into a default.
  *
@@ -28,11 +33,30 @@ export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 
 export function normalizeRootValue(key: string, value: unknown): unknown {
   if (key === 'past_event_opacity') return Config.toValidPercentage(value);
   if (value === undefined || value === null) return value;
+  // A cleared entity picker hands back an empty string, which names no entity.
+  if (key === 'weather_entity' && isBlank(value)) return undefined;
   const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
   return typeof defaults[key] === 'number'
     ? (Config.toValidNumber(value) ?? value)
     : Config.coercePixelLength(key, value);
 }
+
+/**
+ * How each layout resolves the options only its own block holds, by layout; `undefined` for one
+ * that has none. A whole record, so a layout registered without an answer fails to compile
+ * rather than borrowing another layout's, as Month's would have borrowed Column's.
+ */
+const ONLY_KEY_NORMALIZERS: Readonly<
+  Record<Types.EffectiveView, ((key: string, value: unknown) => unknown) | undefined>
+> = {
+  list: undefined,
+  column: (key, value) =>
+    ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value),
+  grid: (key, value) =>
+    ViewConfig.normalizeTimeGridValue(key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS, value),
+  month: (key, value) =>
+    ViewConfig.normalizeMonthValue(key as keyof typeof ViewConfig.MONTH_DEFAULTS, value),
+};
 
 /**
  * Normalizes a field at its real data path, not its translated group path.
@@ -69,13 +93,9 @@ export function normalizeFieldValue(
         view,
       );
     }
-    if (Object.prototype.hasOwnProperty.call(block.onlyDefaults, key)) {
-      return view === 'grid'
-        ? ViewConfig.normalizeTimeGridValue(
-            key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
-            value,
-          )
-        : ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value);
+    const normalizeOnly = ONLY_KEY_NORMALIZERS[view];
+    if (normalizeOnly !== undefined && Helpers.hasOwn(block.onlyDefaults, key)) {
+      return normalizeOnly(key, value);
     }
     return normalizeRootValue(key, value);
   }

@@ -534,78 +534,84 @@ describe('layoutCascade over generated days', () => {
   it.each([
     ['an infinite threshold', Infinity],
     ['a threshold past the band', BAND.endMin - BAND.startMin + 1],
-  ])('reproduces the side-by-side lanes exactly at %s', (_case, threshold) => {
-    // Compared in plain code and asserted once. An expect() per placement came to about a
-    // million calls, which cost several times the layouts they checked and timed out on CI.
-    const mismatches: string[] = [];
-    let compared = 0;
-    let besideAnother = 0;
-    let withHidden = 0;
-    let splitClusters = 0;
+  ])(
+    'reproduces the side-by-side lanes exactly at %s',
+    (_case, threshold) => {
+      // Compared in plain code and asserted once. An expect() per placement came to about a
+      // million calls, which cost several times the layouts they checked and timed out on CI.
+      const mismatches: string[] = [];
+      let compared = 0;
+      let besideAnother = 0;
+      let withHidden = 0;
+      let splitClusters = 0;
 
-    for (let seed = 1; seed <= SEEDS && mismatches.length < 10; seed++) {
-      const day = randomDay(seed);
-      for (const cap of [1, 2, 3, 5]) {
-        const where = `seed ${seed} cap ${cap}`;
-        const lanes = layoutLanes(day, cap, stripFor(seed));
-        const cascade = layoutCascade(day, BAND, options(threshold, cap, stripFor(seed)));
-        if (cascade.placed.length !== lanes.placed.length) {
-          mismatches.push(
-            `${where}: ${cascade.placed.length} placed, lanes placed ${lanes.placed.length}`,
-          );
-          continue;
-        }
-        const lanesById = new Map(lanes.placed.map((p) => [p.id, p]));
-        for (const p of cascade.placed) {
-          compared++;
-          const lane = lanesById.get(p.id);
-          const x0 = lane ? laneX0(lane, cap, stripFor(seed)) : NaN;
-          if (lane && lane.laneIndex > 0) besideAnother++;
-          // The tolerance toBeCloseTo(x0, 9) applies; the negated form also fails on NaN.
-          if (p.depth !== 1 || !(Math.abs(p.x0Pct - x0) < 5e-10)) {
-            mismatches.push(`${where} ${p.id}: depth ${p.depth}, x0 ${p.x0Pct}, lanes x0 ${x0}`);
+      for (let seed = 1; seed <= SEEDS && mismatches.length < 10; seed++) {
+        const day = randomDay(seed);
+        for (const cap of [1, 2, 3, 5]) {
+          const where = `seed ${seed} cap ${cap}`;
+          const lanes = layoutLanes(day, cap, stripFor(seed));
+          const cascade = layoutCascade(day, BAND, options(threshold, cap, stripFor(seed)));
+          if (cascade.placed.length !== lanes.placed.length) {
+            mismatches.push(
+              `${where}: ${cascade.placed.length} placed, lanes placed ${lanes.placed.length}`,
+            );
+            continue;
           }
-          if (lane && !(Math.abs(lane.x0Pct - x0) < 5e-10)) {
-            mismatches.push(`${where} ${p.id}: lanes draw x0 ${lane.x0Pct}, derived ${x0}`);
+          const lanesById = new Map(lanes.placed.map((p) => [p.id, p]));
+          for (const p of cascade.placed) {
+            compared++;
+            const lane = lanesById.get(p.id);
+            const x0 = lane ? laneX0(lane, cap, stripFor(seed)) : NaN;
+            if (lane && lane.laneIndex > 0) besideAnother++;
+            // The tolerance toBeCloseTo(x0, 9) applies; the negated form also fails on NaN.
+            if (p.depth !== 1 || !(Math.abs(p.x0Pct - x0) < 5e-10)) {
+              mismatches.push(`${where} ${p.id}: depth ${p.depth}, x0 ${p.x0Pct}, lanes x0 ${x0}`);
+            }
+            if (lane && !(Math.abs(lane.x0Pct - x0) < 5e-10)) {
+              mismatches.push(`${where} ${p.id}: lanes draw x0 ${lane.x0Pct}, derived ${x0}`);
+            }
           }
-        }
-        // Every strip sits where the last lane ends, out to the column's edge, in both.
-        for (const block of [...lanes.overflows, ...cascade.overflows]) {
-          const x0 = laneX0({ laneIndex: cap, laneCount: cap + 1 }, cap, stripFor(seed));
-          if (!(Math.abs(block.x0Pct - x0) < 5e-10) || block.x1Pct !== 100) {
-            mismatches.push(`${where}: strip ${block.x0Pct}-${block.x1Pct}, derived ${x0}-100`);
+          // Every strip sits where the last lane ends, out to the column's edge, in both.
+          for (const block of [...lanes.overflows, ...cascade.overflows]) {
+            const x0 = laneX0({ laneIndex: cap, laneCount: cap + 1 }, cap, stripFor(seed));
+            if (!(Math.abs(block.x0Pct - x0) < 5e-10) || block.x1Pct !== 100) {
+              mismatches.push(`${where}: strip ${block.x0Pct}-${block.x1Pct}, derived ${x0}-100`);
+            }
           }
+          const hiddenLanes = lanes.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
+          const hiddenCascade = cascade.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
+          if (hiddenLanes.length > 0) withHidden++;
+          if (hiddenCascade.join() !== hiddenLanes.join()) {
+            mismatches.push(`${where}: hides [${hiddenCascade}], lanes hide [${hiddenLanes}]`);
+          }
+          // The blocks themselves match too, run for run, and each is one overlapping run.
+          if (blocksKey(cascade.overflows) !== blocksKey(lanes.overflows)) {
+            mismatches.push(
+              `${where}: blocks ${blocksKey(cascade.overflows)}, lanes ${blocksKey(lanes.overflows)}`,
+            );
+          }
+          for (const block of lanes.overflows) {
+            const problem = runProblem(block);
+            if (problem) mismatches.push(`${where}: lanes block at ${block.startMin} ${problem}`);
+          }
+          if (splitsACluster(day, lanes.overflows)) splitClusters++;
         }
-        const hiddenLanes = lanes.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
-        const hiddenCascade = cascade.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
-        if (hiddenLanes.length > 0) withHidden++;
-        if (hiddenCascade.join() !== hiddenLanes.join()) {
-          mismatches.push(`${where}: hides [${hiddenCascade}], lanes hide [${hiddenLanes}]`);
-        }
-        // The blocks themselves match too, run for run, and each is one overlapping run.
-        if (blocksKey(cascade.overflows) !== blocksKey(lanes.overflows)) {
-          mismatches.push(
-            `${where}: blocks ${blocksKey(cascade.overflows)}, lanes ${blocksKey(lanes.overflows)}`,
-          );
-        }
-        for (const block of lanes.overflows) {
-          const problem = runProblem(block);
-          if (problem) mismatches.push(`${where}: lanes block at ${block.startMin} ${problem}`);
-        }
-        if (splitsACluster(day, lanes.overflows)) splitClusters++;
       }
-    }
 
-    expect(mismatches).toEqual([]);
-    // Prove the corpus reached what is compared: placements, a lane other than the first,
-    // and the overflow. Equality over days that never overlapped would prove nothing.
-    expect(compared).toBeGreaterThan(SEEDS * 4);
-    expect(besideAnother).toBeGreaterThan(SEEDS);
-    expect(withHidden).toBeGreaterThan(SEEDS / 4);
-    // ...and days where one cluster's hidden events form more than one run, which is the
-    // case where one block per cluster and one per run disagree.
-    expect(splitClusters).toBeGreaterThan(SEEDS / 4);
-  });
+      expect(mismatches).toEqual([]);
+      // Prove the corpus reached what is compared: placements, a lane other than the first,
+      // and the overflow. Equality over days that never overlapped would prove nothing.
+      expect(compared).toBeGreaterThan(SEEDS * 4);
+      expect(besideAnother).toBeGreaterThan(SEEDS);
+      expect(withHidden).toBeGreaterThan(SEEDS / 4);
+      // ...and days where one cluster's hidden events form more than one run, which is the
+      // case where one block per cluster and one per run disagree.
+      expect(splitClusters).toBeGreaterThan(SEEDS / 4);
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
+    },
+    30_000,
+  );
 });
 
 /**

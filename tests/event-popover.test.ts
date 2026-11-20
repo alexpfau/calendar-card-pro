@@ -384,41 +384,6 @@ describe('saving on close', () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps out what the event's calendar hides, and saves it as stored", async () => {
-    // The control: the same event, nothing hidden, shows both and asks for the zone's map.
-    const shown = await open({}, { states: POOL_ZONE });
-    expect(shown.root.querySelector('input.plain')).not.toBeNull();
-    expect(shown.root.querySelector('.notes')).not.toBeNull();
-    await vi.waitFor(() => expect(shown.root.querySelector('a.map-link')).not.toBeNull());
-    shown.el.remove();
-
-    const { el, root, callWS, type, writes, closed } = await open(
-      { hidden: { location: true, description: true } },
-      { states: POOL_ZONE },
-    );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await el.updateComplete;
-    expect(root.querySelector('input.plain')).toBeNull();
-    expect(root.querySelector('.notes')).toBeNull();
-    expect(root.querySelector('a.pin, a.map-link')).toBeNull();
-    expect(callWS.mock.calls.map(([message]) => message.type)).not.toContain(
-      'map_tiles/access_token',
-    );
-
-    await type('input.title', 'Swim lesson');
-    expect(el.closeDialog()).toBe(false);
-    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
-    expect(writes()).toEqual([
-      expect.objectContaining({
-        event: expect.objectContaining({
-          summary: 'Swim lesson',
-          location: 'Riverside Pool',
-          description: 'Bring goggles',
-        }),
-      }),
-    ]);
-  });
-
   it('throws the changes away on Escape', async () => {
     const { root, type, writes, closed } = await open({});
     await type('input.title', 'Swim lesson');
@@ -709,6 +674,49 @@ describe('deleting', () => {
       expect(root.querySelector('[role="alert"]')?.textContent).toBe('Not found'),
     );
     expect(closed).not.toHaveBeenCalled();
+  });
+});
+
+describe('a private event', () => {
+  it('draws a private event’s placeholders as text, with no map and nothing to edit', async () => {
+    // The control: the same event, not private, is editable and asks for the zone's map.
+    const shown = await open({}, { states: POOL_ZONE });
+    expect(shown.root.querySelector('input.plain')).not.toBeNull();
+    await vi.waitFor(() => expect(shown.root.querySelector('a.map-link')).not.toBeNull());
+    shown.el.remove();
+
+    const { el, root, callWS } = await open(
+      {
+        entry: { ...SWIM, summary: 'Private', location: 'Private', description: 'Private' },
+        display: { title: 'Private', location: 'Private', description: 'Private' },
+        private: { title: true, location: true, description: true },
+        canEdit: false,
+        canDelete: false,
+      },
+      {
+        states: {
+          ...POOL_ZONE,
+          // A zone the placeholder would find: only privacy keeps the map away.
+          'zone.private': {
+            entity_id: 'zone.private',
+            state: '0',
+            attributes: { friendly_name: 'Private', latitude: 52.5, longitude: 13.45 },
+          },
+        },
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(root.querySelector('input, textarea')).toBeNull();
+    expect(root.querySelector('a.pin, a.map-link')).toBeNull();
+    expect(callWS.mock.calls.map(([message]) => message.type)).not.toContain(
+      'map_tiles/access_token',
+    );
+    for (const cell of ['.cell.title', '.cell.with-pin', '.cell.notes']) {
+      const drawn = root.querySelector(cell)!;
+      expect(drawn.querySelector('.private-lock')).not.toBeNull();
+      expect(drawn.textContent?.trim()).toBe('Private');
+    }
   });
 });
 
@@ -1012,6 +1020,51 @@ describe('placing', () => {
       const { root } = await open({ anchor: { x: 100, y: 200 } });
       expect(root.querySelector('dialog')!.classList.contains('sheet')).toBe(true);
       expect(root.querySelector('.arrow')).toBeNull();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    }
+  });
+});
+
+describe('a panel taller than the screen', () => {
+  // The panel scrolls once its rows run past its height. A row allowed to shrink was squeezed
+  // instead: a long description spilled out of its cell under the foot, and the map and the
+  // sheet's grabber, which have no automatic minimum, were squeezed to nothing. Layout is out of
+  // reach here, so this reads what the browser lays out by: every row, in each state it can be
+  // in, computes flex-shrink 0.
+  it('keeps every row at its height, so the panel scrolls instead', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    try {
+      const description = Array.from({ length: 40 }, (_, i) => `${i + 1}. Stir and wait`).join(
+        '\n',
+      );
+      const { root, press, button } = await open(
+        {
+          entry: { ...SWIM, description },
+          display: { title: 'Swim', location: SWIM.location, description },
+        },
+        { states: POOL_ZONE },
+      );
+      await vi.waitFor(() => expect(root.querySelector('.map')).not.toBeNull());
+      const rows = () => Array.from(root.querySelector('.panel')!.children);
+      const shrinking = () =>
+        rows()
+          .filter((row) => getComputedStyle(row).flexShrink !== '0')
+          .map((row) => row.className || row.tagName);
+      const holds = (selector: string) =>
+        expect(rows().some((row) => row.matches(selector))).toBe(true);
+
+      for (const selector of ['.grabber', 'div.notes', '.map', '.foot']) holds(selector);
+      expect(shrinking()).toEqual([]);
+
+      await press(root.querySelector('.notes')!);
+      holds('textarea.notes');
+      expect(shrinking()).toEqual([]);
+
+      await press(button('Delete'));
+      holds('.ask');
+      expect(shrinking()).toEqual([]);
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
     }

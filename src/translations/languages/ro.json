@@ -9,6 +9,10 @@
   "viewList": "Listă",
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",
+  "viewMonth": "Lună",
+  "moreEvents": "+{count} în plus",
+  "eventCount": "Evenimente: {count}",
+  "eventCountOne": "{count} eveniment",
   "endsToday": "se încheie astăzi",
   "endsTomorrow": "se încheie mâine",
   "dayOfEvent": "Ziua {day} din {days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Nu s-a putut încărca:",
   "newEvent": "Eveniment nou",
   "showAll": "Arată toate",
-  "hideAll": "Ascunde toate"
+  "hideAll": "Ascunde toate",
+  "private": "Privat"
 }

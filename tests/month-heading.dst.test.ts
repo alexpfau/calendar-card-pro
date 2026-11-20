@@ -64,4 +64,17 @@ describe('the month heading is the local month', () => {
     }
     expect(wrong).toEqual([]);
   });
+
+  it("names the local month on a list's month rule, which opens at local midnight", () => {
+    // A rule opens a month on its first day, at local midnight: what Berlin and Sydney catch,
+    // ahead of UTC, where that moment is still the previous month in UTC.
+    const wrong: string[] = [];
+    for (let month = 0; month < 24; month++) {
+      const first = new Date(2026, month, 1);
+      const expected = `${MONTHS[first.getMonth()].slice(0, 3)} ${first.getFullYear()}`;
+      const label = Paging.monthRuleLabel(first, 'en');
+      if (label !== expected) wrong.push(`${first.toString()}: ${label}`);
+    }
+    expect(wrong).toEqual([]);
+  });
 });

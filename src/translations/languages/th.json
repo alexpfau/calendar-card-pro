@@ -30,6 +30,10 @@
   "viewList": "รายการ",
   "viewColumns": "คอลัมน์",
   "viewGrid": "ตาราง",
+  "viewMonth": "เดือน",
+  "moreEvents": "อีก {count} รายการ",
+  "eventCount": "{count} เหตุการณ์",
+  "eventCountOne": "{count} เหตุการณ์",
   "endsToday": "สิ้นสุดวันนี้",
   "endsTomorrow": "สิ้นสุดพรุ่งนี้",
   "dayOfEvent": "วันที่ {day} จาก {days}",
@@ -40,5 +44,6 @@
   "loadFailed": "โหลดไม่สำเร็จ:",
   "newEvent": "เหตุการณ์ใหม่",
   "showAll": "แสดงทั้งหมด",
-  "hideAll": "ซ่อนทั้งหมด"
+  "hideAll": "ซ่อนทั้งหมด",
+  "private": "ส่วนตัว"
 }

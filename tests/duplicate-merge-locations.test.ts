@@ -288,7 +288,7 @@ describe('filter_duplicates: merge_locations', () => {
     expect(row.location).toBe('Room A · Room B');
     expect(row._source?.location).toBe('Room A');
     expect(buildDetailEntry(row)?.location).toBe('Room A');
-    expect(displayText(row).location).toBe('Room A');
+    expect(displayText(row, 'en').location).toBe('Room A');
   });
 });
 

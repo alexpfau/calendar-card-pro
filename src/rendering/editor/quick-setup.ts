@@ -18,6 +18,7 @@
  * Free of Lit and the DOM, like every editor module but the element and its styles.
  */
 
+import { type AuditGroup, type AuditLine, auditGroups } from './audit';
 import { type Story, type StoryId, storyById } from './stories';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
@@ -25,6 +26,7 @@ import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
+import { weatherEntityOf } from '../../utils/weather-position';
 
 /** What Quick Setup has been told. */
 export interface QuickSetupAnswers {
@@ -42,11 +44,6 @@ export interface QuickSetupAnswers {
   readonly dayAdds: boolean;
 }
 
-/** The view blocks, from the registry rather than named here. */
-const VIEW_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
-  (block) => block.blockKey as string,
-);
-
 /**
  * Whether the card owns a key, so a story replaces it rather than leaving it be.
  *
@@ -61,10 +58,69 @@ function ownedByCard(key: string): boolean {
   return (
     key.startsWith('_') ||
     key === 'config_version' ||
-    VIEW_BLOCK_KEYS.includes(key) ||
-    Object.prototype.hasOwnProperty.call(Config.DEFAULT_CONFIG, key) ||
-    Object.prototype.hasOwnProperty.call(Config.DEPRECATED_CONFIG_MAP, key)
+    Value.VIEW_BLOCK_KEYS.includes(key) ||
+    Helpers.hasOwn(Config.DEFAULT_CONFIG, key) ||
+    Helpers.hasOwn(Config.DEPRECATED_CONFIG_MAP, key)
   );
+}
+
+/** What a card fresh from Home Assistant's card picker stores, besides keys the card does not own. */
+const FRESH_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'entities',
+  'days_to_show',
+  'config_version',
+]);
+
+/**
+ * Whether a card is fresh, so the overview offers Quick Setup's banner: at most one calendar,
+ * no layout block, and nothing stored beyond what the card picker's stub writes (`type`,
+ * `entities`, `days_to_show`, `config_version`, and its `_description` note), besides keys
+ * the card does not own, which Home Assistant or the user add (`grid_options`, `visibility`).
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @returns `true` for a fresh card
+ */
+export function isFreshCard(raw: Readonly<Record<string, unknown>>): boolean {
+  const entries = raw.entities;
+  if (entries !== undefined && (!Array.isArray(entries) || entries.length > 1)) return false;
+  return Object.keys(raw).every(
+    (key) => FRESH_KEYS.has(key) || key.startsWith('_') || !ownedByCard(key),
+  );
+}
+
+/**
+ * The calendar Home Assistant's card picker started a fresh card with, while that is all the card
+ * holds: the picker's stub (`getStubConfig`) takes the first calendar Home Assistant lists, so the
+ * card's preview has something to draw, and nobody chose it. A calendar given as a bare id and
+ * equal to that first one is read as the stub's; once it is changed, another is added or the card
+ * stores anything else of its own, it is the user's.
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @param first - The first calendar Home Assistant lists (`firstCalendar`)
+ * @returns The calendar's entity id, or `undefined`
+ */
+export function startedWith(
+  raw: Readonly<Record<string, unknown>>,
+  first: string | undefined,
+): string | undefined {
+  if (!isFreshCard(raw) || !Array.isArray(raw.entities) || raw.entities.length !== 1) {
+    return undefined;
+  }
+  const [only] = raw.entities as unknown[];
+  return typeof only === 'string' && only === first ? only : undefined;
+}
+
+/**
+ * The first calendar Home Assistant lists, which its card picker starts a new card with
+ * (`getStubConfig` › `findCalendarEntity`). It walks every state, so it is read outside a render.
+ *
+ * @param states - Home Assistant's `hass.states`
+ * @returns Its entity id, or `undefined`
+ */
+export function firstCalendar(states: unknown): string | undefined {
+  if (states === null || typeof states !== 'object') return undefined;
+  return Config.findCalendarEntity({ states } as never) ?? undefined;
 }
 
 /**
@@ -84,9 +140,10 @@ export function calendarsOf(config: Readonly<Record<string, unknown>>): string[]
 /**
  * A story's starting answers for a card.
  *
- * The title and calendars come from the card. The weather entity is the card's own, else for a
- * story that shows weather the home's only one, else none. The toolbar and the taps come from
- * the story.
+ * The title and calendars come from the card, except the calendar a fresh card was started with
+ * (`startedWith`), which nobody chose and is left for the user to choose. The weather entity is
+ * the card's own, else for a story that shows weather the home's only one, else none. The
+ * toolbar and the taps come from the story.
  *
  * @param opening - The configuration as Quick Setup found it
  * @param storyId - The story picked
@@ -100,16 +157,23 @@ export function initialAnswers(
 ): QuickSetupAnswers {
   const story = storyById(storyId);
   const shell = story.shell();
-  const ownWeather = Helpers.isConfigBlock(opening.weather) ? opening.weather.entity : undefined;
-  const storyWeather = Helpers.isConfigBlock(shell.weather);
+  const ownWeather = weatherEntityOf(opening as unknown as Types.Config);
+  const storyWeather = typeof shell.weather_entity === 'string';
 
   return {
     story: storyId,
     title: textOf(opening.title) || textOf(shell.title),
-    calendars: calendarsOf(opening),
+    calendars:
+      startedWith(opening, firstCalendar(states)) === undefined ? calendarsOf(opening) : [],
     weather: textOf(ownWeather) || (storyWeather ? (Config.findWeatherEntity(states) ?? '') : ''),
     toolbar: Helpers.isConfigBlock(shell.toolbar) && shell.toolbar.show === true,
-    eventDetails: actionOf(shell.event_tap_action) === 'details',
+    // A story that names no event tap opens events, as every card does by default.
+    eventDetails:
+      actionOf(
+        Helpers.hasOwn(shell, 'event_tap_action')
+          ? shell.event_tap_action
+          : Config.DEFAULT_CONFIG.event_tap_action,
+      ) === 'details',
     dayAdds: actionOf(shell.day_tap_action) === 'add-event',
   };
 }
@@ -192,19 +256,14 @@ export function buildQuickSetupConfig(
   if (title !== '') desired.title = title;
 
   for (const [key, value] of Object.entries(shell)) {
-    if (key === 'title' || VIEW_BLOCK_KEYS.includes(key)) continue;
-    if (key === 'weather' || key === 'toolbar') continue;
+    if (key === 'title' || Value.VIEW_BLOCK_KEYS.includes(key)) continue;
+    if (key === 'weather_entity' || key === 'toolbar') continue;
     if (key === 'event_tap_action' || key === 'day_tap_action') continue;
     desired[key] = value;
   }
 
   const weather = answers.weather.trim();
-  if (weather !== '') {
-    desired.weather = {
-      ...(Helpers.isConfigBlock(shell.weather) ? shell.weather : {}),
-      entity: weather,
-    };
-  }
+  if (weather !== '') desired.weather_entity = weather;
 
   if (Helpers.isConfigBlock(shell.toolbar) || answers.toolbar) {
     // The story's other toolbar choices stay with "no", as the editor keeps them while the
@@ -215,13 +274,38 @@ export function buildQuickSetupConfig(
     };
   }
 
-  if (answers.eventDetails) desired.event_tap_action = { action: 'details' };
+  // Events open by default, so it is "no" that has to be written.
+  if (!answers.eventDetails) desired.event_tap_action = { action: 'none' };
   if (answers.dayAdds) desired.day_tap_action = { action: 'add-event' };
 
   desired.entities = entitiesFor(opening, answers);
 
-  for (const key of VIEW_BLOCK_KEYS) {
-    if (shell[key] !== undefined) desired[key] = shell[key];
+  for (const key of Value.VIEW_BLOCK_KEYS) {
+    const block = shell[key];
+    if (block === undefined) continue;
+    // A story's weather per layout, only where the card has an entity to draw it from.
+    if (weather === '' && Helpers.isConfigBlock(block) && Helpers.hasOwn(block, 'weather')) {
+      const rest: Record<string, unknown> = { ...block };
+      delete rest.weather;
+      if (Object.keys(rest).length > 0) desired[key] = rest;
+      continue;
+    }
+    desired[key] = block;
+  }
+
+  // A story that draws no forecast of its own shows the chosen entity's in the layout it starts
+  // in, as choosing an entity on a layout's Weather page does: beside its days, or in Month,
+  // which has none, beside its events.
+  const storyWeather = Value.VIEW_BLOCK_KEYS.some(
+    (key) => Helpers.isConfigBlock(shell[key]) && Helpers.hasOwn(shell[key], 'weather'),
+  );
+  if (weather !== '' && !storyWeather) {
+    const view = ViewConfig.VIEWS.find((each) => each === shell.view) ?? 'list';
+    const key = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view] as string;
+    desired[key] = {
+      ...(Helpers.isConfigBlock(desired[key]) ? desired[key] : {}),
+      weather: { position: view === 'month' ? 'event' : 'date' },
+    };
   }
 
   for (const [key, value] of Object.entries(opening)) {
@@ -293,4 +377,62 @@ function textOf(value: unknown): string {
 
 function actionOf(value: unknown): unknown {
   return Helpers.isConfigBlock(value) ? value.action : undefined;
+}
+
+/** One setting Apply replaces: the card's line as it was, and what Apply leaves there. */
+export interface Replacement {
+  readonly line: AuditLine;
+  /** Where the line lives: the card's top level or a layout's block. */
+  readonly group: AuditGroup;
+  /** The value Apply leaves at the line's path; `undefined` where it leaves none. */
+  readonly next: unknown;
+}
+
+/**
+ * The settings Apply replaces on a card that has some: each line the card stores for a control of
+ * its own, at its top level (whole-card or shared) or in a layout's block, that the built configuration holds otherwise
+ * or not at all. Calendars keep their own settings, and Home Assistant's lines stay, so neither is
+ * listed; the card's type, version and calendar list are no setting.
+ *
+ * @param opening - The configuration as Quick Setup found it, as the YAML holds it
+ * @param built - What Apply writes
+ * @returns The replacements, in the order Stored Settings lists them
+ */
+export function replacements(
+  opening: Readonly<Record<string, unknown>>,
+  built: Readonly<Record<string, unknown>>,
+): Replacement[] {
+  const groups = auditGroups({
+    raw: opening,
+    config: { ...Config.DEFAULT_CONFIG, ...opening } as unknown as Types.Config,
+    entryKeys: [],
+  });
+  const replaced: Replacement[] = [];
+  for (const group of groups) {
+    if (group.kind !== 'whole' && group.kind !== 'card' && group.kind !== 'layout') continue;
+    for (const line of group.lines) {
+      if (line.field === undefined && line.page === undefined) continue;
+      const next = valueAt(built, line.path);
+      if (!Value.equalConfigs({ value: line.value }, { value: next })) {
+        replaced.push({ line, group, next });
+      }
+    }
+  }
+  return replaced;
+}
+
+/**
+ * The value at a path of keys.
+ *
+ * @param config - Configuration
+ * @param path - Keys, outermost first
+ * @returns The value, or `undefined`
+ */
+function valueAt(config: Readonly<Record<string, unknown>>, path: ReadonlyArray<string>): unknown {
+  let at: unknown = config;
+  for (const key of path) {
+    if (!Helpers.isConfigBlock(at)) return undefined;
+    at = at[key];
+  }
+  return at;
 }

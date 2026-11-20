@@ -9,6 +9,10 @@
   "viewList": "Lista",
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",
+  "viewMonth": "Mesec",
+  "moreEvents": "+{count} još",
+  "eventCount": "{count} događaja",
+  "eventCountOne": "{count} događaj",
   "endsToday": "završava se danas",
   "endsTomorrow": "završava se sutra",
   "dayOfEvent": "Dan {day} od {days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Neuspešno učitavanje:",
   "newEvent": "Novi događaj",
   "showAll": "Prikaži sve",
-  "hideAll": "Sakrij sve"
+  "hideAll": "Sakrij sve",
+  "private": "Privatno"
 }

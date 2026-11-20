@@ -2210,10 +2210,10 @@ describe('card stylesheet', () => {
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
 
       // The dilution lives in the option's own default, so a user's color is never
-      // quietly halved. Half of the divider token, spelled as a mix rather than as an
-      // alpha, so it follows a theme that redefines the token.
+      // quietly softened. 75% of the divider token, the card's rule in every layout, spelled
+      // as a mix rather than as an alpha, so it follows a theme that redefines the token.
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
-        'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       );
 
       // ...and only then: nothing may dim one side of the pair. An element opacity is
@@ -3530,6 +3530,17 @@ describe('the toolbar layout', () => {
     // The card adds each command's width and the gaps between them to the switcher's own
     // threshold, so its numbers must be the ones the row is drawn with.
     expect(declared('.toolbar-button', 'width')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
+    // A switcher offering fewer views gives back each one's word and its segment's padding.
+    expect(declared('.view-switcher-segment', 'padding')).toBe(
+      `0 ${Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING}px`,
+    );
+    // All four views need what List, Columns and Grid needed before Month, 248px, and Month's
+    // segment as the stylesheet draws it, so leaving Month out gives back exactly the 248px.
+    expect(Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH).toBe(
+      248 +
+        Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH.month +
+        2 * Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING,
+    );
     for (const gap of [
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),
@@ -3562,7 +3573,7 @@ describe('the toolbar layout', () => {
     expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
     const list =
       border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
-    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    // Column, grid and month pad the card alike on both sides, and drop the row's own padding.
     const column =
       border +
       2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
@@ -3574,7 +3585,12 @@ describe('the toolbar layout', () => {
       border +
       2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
       px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
-    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+    // Month pads the card as column does.
+    const month =
+      border +
+      2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {
@@ -3635,6 +3651,90 @@ describe('the toolbar layout', () => {
     expect(declared('.toolbar-month-button::before', 'position')).toBe('absolute');
     expect(declared('.toolbar-month-button::before', 'inset-block')).toBe('-2px -10px');
     expect(declared('.toolbar-month-button::before', 'inset-inline')).toBe('0');
+  });
+
+  describe('under toolbar.size: large', () => {
+    const L = '.large-controls';
+    const height = (selector: string) => px(declared(selector, 'height'));
+    /** The action row's buttons, whose spacing and icons the large controls take. */
+    const button = () => height('.toolbar-button');
+
+    it('draws the arrows, home and the chips between their usual size and the action row', () => {
+      const large = height(`${L} .date-navigation-segment`);
+      expect(large).toBe(32);
+      expect(large).toBeGreaterThan(height('.date-navigation-segment'));
+      expect(large).toBeLessThan(button());
+      expect(px(declared(`${L} .date-navigation-segment`, 'width'))).toBe(large);
+      expect(height(`${L} .date-navigation`)).toBe(large);
+      expect(height(`${L} .legend-chip`)).toBe(large);
+      expect(declared(`${L} .date-navigation-segment`, 'border-radius')).toBe(`${large / 2}px`);
+      expect(declared(`${L} .legend-chip`, 'border-radius')).toBe(`${large / 2}px`);
+      // The chips keep their text size. Nothing else in either row changes size.
+      expect(declared(`${L} .legend-chip`, 'font-size')).toBe('');
+      const enlarged = RULES.flatMap((rule) => rule.selectors).filter((s) => s.includes(L));
+      expect(
+        enlarged.every((s) =>
+          /\.(date-navigation|legend-chip|toolbar-legend|toolbar-heading-end)/.test(s),
+        ),
+      ).toBe(true);
+    });
+
+    it("spaces them and draws their icons as the action row's buttons, so the bar reads as one", () => {
+      // An icon's lines grow with the icon, so the arrows and home take the action row's icon
+      // size, and their lines are as heavy as search's and refresh's.
+      const icon = declared('.toolbar-button-icon', 'width');
+      for (const selector of [
+        `${L} .date-navigation-segment .toolbar-button-icon`,
+        `${L} .date-navigation-segment .date-navigation-direction`,
+      ]) {
+        expect(declared(selector, 'width')).toBe(icon);
+        expect(declared(selector, 'height')).toBe(icon);
+      }
+      const gap = declared('.toolbar-end', 'gap');
+      expect(declared(`${L} .date-navigation`, 'gap')).toBe(gap);
+      expect(declared(`${L} .legend-chips`, 'gap')).toBe(gap);
+    });
+
+    it("centers them on the month's capitals by half their own height, as at the usual size", () => {
+      const half = (selector: string) => height(`${L} ${selector}`) / 2;
+      expect(
+        flat(declared(`.toolbar-heading${L} > .toolbar-heading-end`, 'margin-block-end')),
+      ).toBe(`calc(var(--calendar-card-heading-middle, 15px) - ${half('.date-navigation')}px)`);
+      const [padBlock, padInline] = declared(`${L} .toolbar-legend`, 'padding').split(' ');
+      expect(flat(declared(`${L} .toolbar-legend`, 'margin-block-end'))).toBe(
+        `calc(var(--calendar-card-heading-middle, 15px) - ${half('.legend-chip') + px(padBlock)}px)`,
+      );
+      expect(declared(`${L} .toolbar-legend`, 'margin')).toBe(`-${padBlock} -${padInline}`);
+    });
+
+    it("gives each a touch target 44px tall, reaching across as the action row's do", () => {
+      const across = -px(declared('.toolbar-button::before', 'inset'));
+      const reaches = [
+        `${L} .legend-chip::before`,
+        `${L} .date-navigation-segment::before`,
+        `${L} .date-navigation-segment:first-child::before`,
+        `${L} .date-navigation-segment:last-child::before`,
+      ].map((selector) => ({
+        block: -px(declared(selector, 'inset-block')),
+        inline: -px(declared(selector, 'inset-inline')),
+      }));
+      for (const reach of reaches) {
+        expect(height(`${L} .date-navigation-segment`) + 2 * reach.block).toBe(44);
+        expect(reach.inline).toBe(across);
+      }
+      // Two neighbors, each reaching across their gap, never overlap: between the arrows,
+      // between the chips, and an outer arrow beside the last chip across the row's gap.
+      for (const gap of [
+        declared(`${L} .date-navigation`, 'gap'),
+        declared(`${L} .legend-chips`, 'gap'),
+        declared('.card-toolbar.toolbar-heading', 'gap'),
+      ]) {
+        expect(px(gap)).toBeGreaterThanOrEqual(2 * across);
+      }
+      // The chips' box pads itself by as much as their targets reach, so it never clips them.
+      const [padBlock, padInline] = declared(`${L} .toolbar-legend`, 'padding').split(' ');
+      expect({ block: px(padBlock), inline: px(padInline) }).toEqual(reaches[0]);
+    });
   });
 
   it('measures the months in full in a box of no size, so the measurement widens nothing', () => {

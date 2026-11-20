@@ -252,10 +252,11 @@ describe('a date in an end phrase', () => {
   });
 
   it('writes a language the card does not have in English, words and date alike', () => {
-    // Japanese is a language the browser has and the card does not, so a date written in the
-    // requested language rather than the translations' would read "until 10月23日 Friday".
+    // Indonesian is a language the browser has and the card does not, so a date written in the
+    // requested language rather than the translations' would put an Indonesian month beside an
+    // English weekday.
     const event = timed(new Date(2026, 9, 21, 9, 0), new Date(2026, 9, 23, 17, 0));
-    for (const language of ['ja', 'qq', '']) {
+    for (const language of ['id', 'qq', '']) {
       expect(FormatUtils.formatEventTime(event, config, language), language).toBe(
         '9:00 until Friday, Oct 23 at 17:00',
       );

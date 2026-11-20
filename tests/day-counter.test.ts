@@ -60,6 +60,8 @@ const NIGHT = timed('Night shift', '2026-11-11T22:00', '2026-11-12T11:00');
 const RETREAT = timed('Retreat', '2026-11-12T08:00', '2026-11-14T12:00');
 /** Under way now and ending at tomorrow's first moment like the hackathon, but under a day. */
 const SHIFT_TO_MIDNIGHT = timed('Long shift', '2026-11-12T06:00', '2026-11-13T00:00');
+/** The same shift an hour longer, so it reaches into tomorrow: still under a day. */
+const SHIFT_PAST_MIDNIGHT = timed('Long shift', '2026-11-12T06:00', '2026-11-13T01:00');
 
 interface Row {
   date: string;
@@ -182,26 +184,32 @@ describe('the day a row stands for', () => {
     expect(row(found, 'Spanish course', '2026-11-19').dayOfEvent).toEqual({ day: 19, days: 45 });
   });
 
-  it('names nothing on a row drawn under a day the event takes up no time on', () => {
-    // Grouping draws an event ending at the window's first midnight under that day while past
-    // events are shown. Counted from its start that row would read "Day 4 of 3".
+  it('names no day for a date the event takes up no time on', () => {
+    // Grouping draws no row there, since an event ending at a window's first midnight belongs
+    // to the day before, so this is the guard alone: counted from its start such a row would
+    // read "Day 4 of 3".
     const ended = timed('Hackathon', '2026-11-09T18:00', '2026-11-12T00:00');
-    const found = rows([ended], { show_past_events: true, show_progress_bar: true });
-    expect(row(found, 'Hackathon').dayOfEvent).toEqual({ day: null, days: 3 });
-    expect(row(found, 'Hackathon').parts.dayCounter).toBeNull();
-    expect(FormatUtils.fullDaySpan(ended.start, ended.end)?.days).toBe(3);
+    expect(EventUtils.resolveDayOfEvent(ended, new Date('2026-11-12T00:00:00Z'))).toEqual({
+      day: null,
+      days: 3,
+    });
+    expect(EventUtils.resolveDayOfEvent(ended, new Date('2026-11-11T00:00:00Z'))).toEqual({
+      day: 3,
+      days: 3,
+    });
   });
 
-  it('draws no bar on such a row while its event still runs, as the clock repaint expects', () => {
-    // Under way now and ending at the first midnight of a window that starts tomorrow, so it is
-    // drawn under a date it takes up no time on. The bar's rule is the event's: no row of a
-    // counted event draws one, or this row would draw a bar the clock repaint never moves.
-    const found = rows([TRIP_TO_MIDNIGHT], { start_date: '2026-11-13' });
-    expect(row(found, 'Hackathon', '2026-11-13').dayOfEvent).toEqual({ day: null, days: 2 });
-    expect(row(found, 'Hackathon', '2026-11-13').parts.progressPercentage).toBeNull();
+  it('draws no row under a day an event running now takes up no time on', () => {
+    // Under way now and ending at the first midnight of a window that starts tomorrow, so over
+    // before that window opens: no row, and so no bar for the clock repaint to move.
+    const found = rows([TRIP_TO_MIDNIGHT, SHIFT_TO_MIDNIGHT], { start_date: '2026-11-13' });
+    expect(found.map((r) => r.summary)).not.toContain('Hackathon');
+    expect(found.map((r) => r.summary)).not.toContain('Long shift');
 
-    // The control: the same row of an event under a day keeps its bar.
-    const control = rows([SHIFT_TO_MIDNIGHT], { start_date: '2026-11-13' });
+    // The controls: running events that reach into that day are drawn under it, the one a day
+    // or more long with its counter and the one under a day with its bar.
+    const control = rows([TRIP, SHIFT_PAST_MIDNIGHT], { start_date: '2026-11-13' });
+    expect(row(control, 'Ski trip', '2026-11-13').dayOfEvent).toEqual({ day: 3, days: 3 });
     expect(row(control, 'Long shift', '2026-11-13').dayOfEvent).toBeUndefined();
     expect(row(control, 'Long shift', '2026-11-13').parts.progressPercentage).toBeGreaterThan(0);
   });
@@ -526,18 +534,22 @@ describe('the drawn card', () => {
     expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);
   });
 
-  it('leaves no bar unrepainted on a row that names no day', async () => {
-    // The row and the repaint must agree: the repaint asks the event, so the row has to as well.
-    const midnight = new Date('2026-11-13T00:00:01Z').getTime();
+  it("draws no row of an event running now that ends at the window's first moment", async () => {
+    // A load wider than the window, as Month's is, holds events Home Assistant would not return
+    // for the window alone: these end at the first midnight of a list starting tomorrow, so they
+    // belong to today, and the list draws neither, nor a bar for either.
     const bars = (card: CardUnderTest) => card.shadowRoot!.querySelectorAll('.progress-bar').length;
-    const counted = await mount({ view: 'list', start_date: '2026-11-13' }, [TRIP_TO_MIDNIGHT]);
-    expect(counted.shadowRoot!.textContent).toContain('Hackathon');
-    expect(bars(counted)).toBe(0);
-    expect(counted._clockTimerAt).toBe(midnight);
+    const card = await mount({ view: 'list', start_date: '2026-11-13' }, [
+      TRIP_TO_MIDNIGHT,
+      SHIFT_TO_MIDNIGHT,
+    ]);
+    expect(card.shadowRoot!.textContent).not.toContain('Hackathon');
+    expect(card.shadowRoot!.textContent).not.toContain('Long shift');
+    expect(bars(card)).toBe(0);
     document.body.replaceChildren();
 
-    // The control: the same row of an event under a day draws its bar, and repaints it.
-    const control = await mount({ view: 'list', start_date: '2026-11-13' }, [SHIFT_TO_MIDNIGHT]);
+    // The control: an event under a day running into the window draws its bar, and repaints it.
+    const control = await mount({ view: 'list', start_date: '2026-11-13' }, [SHIFT_PAST_MIDNIGHT]);
     expect(control.shadowRoot!.textContent).toContain('Long shift');
     expect(bars(control)).toBe(1);
     expect(control._clockTimerAt).toBe(NOW.getTime() + 60_000);

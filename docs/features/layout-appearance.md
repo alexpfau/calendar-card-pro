@@ -25,7 +25,9 @@ The card offers two distinct height control mechanisms:
 
 In list and column views, both options scroll when content exceeds the available space.
 In grid view a fixed `height` compresses the time axis instead — see
-[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view but month
+view, which takes neither and sizes the whole card from its own block; see
+[How Tall the Month Is](/features/month-view#how-tall-the-month-is).
 
 Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
 same on desktop and mobile.
@@ -134,7 +136,8 @@ calendar in its `entities` entry, to choose a color yourself.
 Before v5, `accent_color` and `today_indicator_color` were a fixed `#03a9f4`, and the
 week-number pill and week separator a fixed `#03a9f450`. To keep the old blue, add
 `accent_color: '#03a9f4'` to your card or to a calendar's entry, `today_indicator_color: '#03a9f4'`,
-and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`.
+and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`. Since v6 a pill
+background colors its own number, so add `week_number_color: 'var(--primary-text-color)'` as well.
 :::
 
 `accent_color` accepts one more value: `home-assistant`, which follows the color Home
@@ -192,9 +195,9 @@ toolbar:
 ```
 
 The commands in the top row are icons, each named in its tooltip by Home Assistant's own word,
-and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns
-and Grid, wherever the card is wide enough for them beside the commands, and shows a pictogram
-for each where it is not, with the name as its tooltip.
+and your own buttons by their `name`. The view switcher names its layouts in words, List, Columns,
+Grid and Month, wherever the card is wide enough for them beside the commands, and shows a
+pictogram for each where it is not, with the name as its tooltip.
 
 ::: details Narrow Cards & Languages
 
@@ -233,11 +236,13 @@ toolbar:
 
 - **The arrows** move by as many days as the card shows, a week here. Where Columns or Grid
   draw fewer days on a narrow card, they move by the days drawn, so no day is skipped. A layout
-  with its own `days_to_show` pages by its own count.
+  with its own `days_to_show` pages by its own count, and Month moves a whole month; see
+  [Paging Through Months](/features/month-view#paging-through-months).
 - **The house** returns to the days the card opens with, the window
   [`start_date`](/features/start-date-offset) sets. Its tooltip says "Today", or names the day
   the window starts on when that window does not include today (`start_date: today+7`, a fixed
-  date).
+  date). In Month it says "Today" while the month shown is today's, and otherwise names that
+  month.
 - **The month** names the page by its first day: the week of November 30 to December 6 reads
   "November 2026". Press it to pick a day in the browser's date picker, and the card shows the
   page that holds that day, lined up with its usual pages, so a week card still starts its week
@@ -257,8 +262,7 @@ While the card is paged away from its own days:
 
 The page is never saved. A reload, a change to the card's configuration, the dashboard entering
 edit mode and the [reset button](#resetting-the-card) all bring the card back to its own days.
-Switching layouts keeps the page's first day and shows the new layout's own number of days
-from it.
+Switching layouts keeps the date in view; see [Switching Between Layouts](#switching-between-layouts).
 
 ::: details More About Paging
 
@@ -289,9 +293,9 @@ does nothing, and the card shows the days it opens with.
 
 ### Switching Between Layouts
 
-The view switcher lets each device show the card as List, Columns or Grid without editing it, so
-a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever more
-than one layout fits the card.
+The view switcher lets each device show the card as List, Columns, Grid or Month without editing
+it, so a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever
+more than one layout fits the card.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_view_switcher.mp4#t=0.001" width="740" height="728" loop muted playsinline controls preload="auto" aria-label="Two days of a family's calendar on a tablet in Grid; a tap on Columns lays the same two days out side by side, a tap on List stacks them under their dates, and a tap on Grid brings back the time grid"></video><br>
 
@@ -302,14 +306,25 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   a sections dashboard, returns every device to `view`, and the
   [reset button](#resetting-the-card) returns one; see
   [What the Card Keeps](/features/performance#what-the-card-keeps).
-- **The same days, nothing reloaded.** Every layout starts on the same date, since `start_date`
-  is shared, and the card does not reload its events to switch. `days_to_show` is shared too,
+- **The same days, nothing reloaded.** List, Columns and Grid start on the same date, since
+  `start_date` is shared, and Month opens the month holding it, or today's month for Tomorrow
+  and Start of Week. The
+  card does not reload its events to switch, except to carry you to days it has not loaded yet,
+  such as from a day picked on a compact month, which it loads as paging does. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
-  Options set for one layout in its own `list:`, `column:` or `time_grid:` block come with it.
+  Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come
+  with it.
+- **Your place comes along.** Paged away from the card's own days, or with a day picked on a
+  [compact month](/features/month-view#the-compact-month), the next layout opens on the same
+  date: Month on the month holding it, with that day selected, and List, Columns and Grid on the
+  days starting from it. With nothing picked on the card's own days, each layout opens on its
+  own, and the home button takes each back there; see
+  [Paging Through Months](/features/month-view#paging-through-months).
 - **List draws every one of its days; Columns and Grid draw as many as fit** the card's width, as
   close to today as the range allows, or from the first day of a page the
-  [date navigation](#paging-through-dates) has moved to.
+  [date navigation](#paging-through-dates) has moved to. Month always draws six whole weeks; see
+  [Month View](/features/month-view).
 - **Columns and Grid need room.** A layout that cannot fit at the card's current width, Columns
   on a phone by default, is dimmed in the switcher, and returns when the card is wide enough
   again, as when a tablet is turned. If the layout a device remembers no longer fits, the card
@@ -318,11 +333,30 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   [Grid View](/features/grid-view) for how much room each needs.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
+- **Which layouts it offers.** All four by default. `view_switcher_layouts` offers those it
+  names, and the layout in `view` always, whether the list names it or not:
+
+  ```yaml
+  toolbar:
+    show: true
+    view_switcher_layouts: [list, grid]
+  ```
+
+  A layout left out is also left out of what the card loads: a card that can switch to Month
+  loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
+  that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
+  off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
+  chip on Card & Header turns it on and off, and while it is pressed, **View Switcher offers**,
+  under the controls, has a checkbox per layout; the starting layout's stays checked, and so does
+  the last other one. Making the one other layout the list names the one the card opens in adds
+  the layout it leaves, so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
+  under the checkboxes saying no switcher is drawn until a second layout is checked.
 
 ::: tip Nothing Switches While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
-`view` and a press on the switcher does nothing. To try another layout there, change
-**Card Displays** in the editor.
+In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
+nothing. The editor's preview shows the layout whose
+[pages you open](/features/editor#options-for-the-selected-view), so open another layout to see
+it without changing the card; on the dashboard the card shows its configured `view`.
 :::
 
 ### Refreshing the Events
@@ -382,6 +416,11 @@ toolbar:
   show: true
   legend: chips
 ```
+
+In the visual editor, the **Calendar Filter** chip under Card & Header › Toolbar turns the filter
+on and off, and while it is pressed, **Calendar Filter shows**, under the controls, picks **Menu**
+or **Chips**. Pressed on again, it comes back in the form the card had or was last given there
+while the editor is open, else as a menu.
 
 - **Each chip is a switch.** A press hides that calendar's events and turns its chip gray, and
   another press shows them again.
@@ -462,14 +501,14 @@ blue without a chip of their own.
 
 - **Its events always show,** even on a device that hid the calendar before it was left out.
 - **A card whose every calendar is left out has no filter,** exactly as with `legend: false`.
-- **In the visual editor** it is the **Show in Calendar Filter** switch under each calendar's
-  **Name**, offered while the toolbar shows a filter.
+- **In the visual editor** it is the **Show in Calendar Filter** switch on each calendar's page,
+  under **Name & Look**, offered while the toolbar shows a filter.
 
 ::: details Calendars Listed Twice
 
 The setting belongs to the calendar, not to one entry in `entities`. The
-[visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for that
-calendar, and in YAML the first entry that sets it wins.
+[visual editor](/features/editor#entry-pages) writes it to every entry for that calendar, and in
+YAML the first entry that sets it wins.
 
 :::
 
@@ -589,11 +628,13 @@ read right to left the top row is mirrored, and an icon is drawn as you chose it
 On a narrow card your buttons, and then the add button, move into a menu button, three dots, and
 come back into the row as the card widens.
 
-In the [visual editor](/features/editor#editor-organization), the buttons are under
-**Card & Header** while the toolbar is shown, a panel for each with **Move Up**, **Move Down** and
-**Remove**. **Add Button**, after the last, adds one with the `mdi:gesture-tap-button` icon for you
-to change, and **Tap Action** offers the card's own actions first, **Go Back** among them. The
-editor has no field for `back`'s `navigation_path`; write that in YAML.
+In the [visual editor](/features/editor#pages-back), the buttons are on the **Card & Header**
+page under **Your Own Buttons** while the toolbar is shown, a row for each with **Move Up**,
+**Move Down**, **Remove** and a handle to drag it into place. Each row holds **Icon**, **Name**,
+**Entity** and **Tap Action**. **Add Button**, after the last, adds one with the
+`mdi:gesture-tap-button` icon for you to change, and **Tap Action** offers the card's own actions
+first, **Go Back** among them. The editor has no field for `back`'s `navigation_path`; write that
+in YAML.
 
 ::: details Buttons on Narrow Cards
 
@@ -660,7 +701,8 @@ A search finds only what the card would show on some page, in the words it would
 - **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
-  `show_location` or `show_description` off, is not searched.
+  `show_location` or `show_description` off, is not searched, nor is a description in
+  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none.
 - **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
   layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
   outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
@@ -695,6 +737,32 @@ next time the panel opens.
 In the card editor's preview, and on a dashboard in edit mode, the magnifier is drawn and does
 nothing.
 :::
+
+### Larger Arrows & Chips
+
+For a touch screen, `size: large` draws the arrows, the home button and the calendar chips beside
+the month nearly as large as the buttons in the top row, so a finger finds them easily. They are
+spaced as those buttons are, and their icons are drawn with the same lines.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  legend: chips
+  size: large
+```
+
+- The top row, the month and the filter's menu keep their size.
+- Larger chips need more room, so on a narrower card they fold into the
+  [filter's button](#showing-hiding-calendars) sooner, and the month takes its short form sooner
+  beside the larger arrows.
+- The size belongs to the card, so a phone showing the same dashboard draws them large too.
+- In the [visual editor](/features/editor) it is **Arrow & Chip Size** under Toolbar, where the
+  usual size is called Small.
 
 ## 📏 Spacing & Alignment
 
@@ -733,7 +801,7 @@ event_background_opacity: 15
 
 Each event then becomes a block of its own, with an accent bar of its own, the way grid view draws an event. `event_gap: 1px` is the smallest way to have that: you will hardly see the gap without a background, but each event has its own bar. Each is also a tap and hover target of its own, and a press in the gap between two reaches neither event: it is a press on the day, which [adds an event there](/features/actions#where-you-can-tap-a-day) when `day_tap_action` is `add-event`.
 
-`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. A month's [day list](/features/month-view#the-days-list) starts from `6px` and takes another only from `month:`. Grid view places every event by its time and ignores it:
 
 ```yaml
 column:
@@ -784,12 +852,70 @@ month_separator_color: '#03a9f4'
 
 The separators are horizontal lines between days, weeks and months, each with its own width and color. Where more than one could appear at once, such as on a day that starts both a week and a month, only the most significant is drawn: a month line over a week line, and a week line over a day line.
 
-`week_number_font_size` takes any CSS font size, as the [date column's font sizes](#date-column-customization) do, and the pill is sized from it; a value that is not a font size falls back to `12px`. Left unset, the pill and the week separator are both your theme's primary color at 31% opacity, so they follow a custom theme the way [`accent_color`](#visual-styling-colors) does.
+`week_number_font_size` takes any CSS font size, as the [date column's font sizes](#date-column-customization) do, and the pill is sized from it; a value that is not a font size falls back to `12px`.
+
+Left unset, the pill is drawn as the [date tile](#the-date-tile) is, from `today_indicator_color`: the same light wash, with the number in the same deeper shade, so a pill above today's tile matches it, and both follow a custom theme. An unset `week_separator_color` is the pill's background, so the line and the pill beside it are one color.
+
+A `week_number_background_color` you set is drawn as given. Its number then follows the tile's rule: while the background is a light wash, written with an opacity of at most about a third, the number is a deeper shade of it, so `'#e67c7350'` (31%) gets a deep red. That opacity can be written as an 8-digit hex color, `rgba()` or another color function with an alpha, or a `color-mix()` with `transparent`, where a theme color named in it counts as opaque. Behind a stronger or solid background the number keeps the text color, and so it does where only the browser can tell the opacity: a theme variable on its own, a mix with a `calc()` percentage or a translucent fallback, a relative color without an alpha of its own, or `light-dark()`. Browsers without relative colors (Safari before 18) keep the text color too. `week_number_color` sets the number yourself, and the week separator follows a background you set too.
+
+::: warning Changed In v6
+Before v6 the pill and the week separator were your theme's primary color at 31% opacity, with the number in the text color. To keep that look, add:
+
+```yaml
+week_number_background_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)'
+week_number_color: 'var(--primary-text-color)'
+week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)'
+```
+
+:::
 
 `first_day_of_week` decides where a week begins, which in turn drives week numbers, week separators and the `start_of_week` [start date](/features/start-date-offset). Its default, `system`, follows Home Assistant rather than the card: it uses the **First day of week** setting in your Home Assistant user profile, and when that is left at _Auto_ it falls back to the convention for your Home Assistant language — Monday for most, Sunday for languages such as English, Japanese, Hebrew and Brazilian Portuguese, Saturday for Arabic and Persian. Set `monday` or `sunday` explicitly to override Home Assistant for this card alone.
 
 ::: warning Changed In v4
 Before v4, `system` always resolved to Monday and never consulted Home Assistant. If your Home Assistant profile or language implies a different week start, your week numbers and `start_of_week` anchor will shift once you upgrade. Set `first_day_of_week: 'monday'` to keep the old behavior.
+:::
+
+### Naming the Month on Its Rule
+
+`month_separator_label` writes the month's name, abbreviated, at the start of each month rule in
+the list, so a list that leaves the month out of every date with `show_month: false` still says
+which month follows the rule:
+
+```yaml
+show_month: false
+month_separator_width: 1px
+list:
+  month_separator_label: true
+```
+
+| Option                            | Type    | Default                          | Description                                                  |
+| --------------------------------- | ------- | -------------------------------- | ------------------------------------------------------------ |
+| `month_separator_label`           | boolean | `false`                          | Name the month, abbreviated, at the start of each month rule |
+| `month_separator_label_color`     | string  | inherits `month_separator_color` | Color of the month's name                                    |
+| `month_separator_label_font_size` | string  | `12px`                           | Font size of the month's name                                |
+
+All three belong inside `list:`.
+
+- The label reads "Dec 2026" in English and follows the card's language: "Dez. 2026" in German,
+  "2026年12月" in Japanese.
+- It names the month below the rule, so a list read latest first labels each block with its own
+  month.
+- It needs a rule to sit on: with `month_separator_width` at `0px`, the default, nothing is drawn.
+- The label is drawn in the rule's color unless `month_separator_label_color` gives it one of its
+  own, which keeps it readable beside a deliberately faint rule.
+  `month_separator_label_font_size` takes any CSS font size; a value that is not one, such as
+  `14pz`, falls back to `12px`.
+- The first month shown has no rule above it, so it gets no label. A
+  [toolbar](#header-toolbar), if you show one, names the month of the page's first day, or of
+  its last day in a list read latest first. That is the first month shown unless the month has
+  no days on screen.
+- With week numbers on, a month that starts a week draws its label just after the week number.
+- It applies in list view only. In column and grid view the month rule is a vertical line between
+  two days, with no room for words, and month view draws no month rule at all.
+
+::: details Languages That Abbreviate a Month to a Number
+A few languages write a month's short form as a number, such as Lithuanian's "2026-12". There the
+label names the month in full instead ("2026 m. gruodis"), so it always says which month it is.
 :::
 
 ### Week Numbers in Column View
@@ -922,8 +1048,8 @@ past_date_opacity: 55
   display can enlarge today while the list a phone falls back to does not.
 
 ::: tip Visual Editor
-Today's scale and weight are under **Day Header → Today**, and the past-day options under
-**Day Header → Past Days**.
+Today's scale and weight are under **Days → Today**, and the past-day options under
+**Days → Past Days**.
 :::
 
 ::: details Layout, Units & Card-Mod
@@ -978,10 +1104,10 @@ The dot can also be written `dot`. Text that is none of the above is drawn as it
 as a week number, a quarter or a sprint name.
 
 ::: tip Visual Editor
-Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
+Find it under **Days → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
-an **Indicator Size**, and in the List workspace an **Indicator Position**.
+an **Indicator Size**, and on List's pages an **Indicator Position**.
 :::
 
 ::: warning Changed In v5
@@ -1016,7 +1142,15 @@ It is a light wash of `today_indicator_color`, which follows your theme's primar
 you set one, over the card's background, with the day number in a deeper shade of the same
 color, and it adapts to light and dark themes on its own. A color you set therefore tints the
 tile rather than filling it. The digits take their shade from the tile, unless you name a color
-for them with `today_day_color` or, on a weekend, `weekend_day_color`.
+for them with `today_day_color` or, on a weekend, `weekend_day_color`. A see-through color
+such as `'#e67c7380'` makes a fainter tile, while its digits keep the color's full shade. The
+[week number pills](#week-numbers-visual-separators) take the tile's colors unless you set theirs.
+
+A wide [month](/features/month-view#the-six-weeks) fills the tile instead, with rounder corners,
+so today stands out among the colored events: `today_indicator_color` itself, with the digits in
+your theme's text color for the primary color, `--text-primary-color`, white by default. A compact
+month draws today the same way while it is the selected day. A color you name for the digits still wins, and
+a see-through `today_indicator_color` makes white digits harder to read there.
 
 In column and grid view every day's number keeps the tile's height, so the dates stay on one
 line across the columns and each column's first event starts at the same height.
@@ -1050,6 +1184,7 @@ closed up, so `6 px` reads as `6px`, and a `var()` is passed on as written.
 
 `today_indicator_color` tints the tile and colors the icon-based types (the dot, `pulse`, `glow`
 and any `mdi:` icon), and is also the color of the glow itself; emojis and images keep their own
-colors, and text takes the color it inherits.
+colors, and text takes the color it inherits. Whatever the style, the week number pills and the
+week separators take their colors from it unless you set theirs.
 
 The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

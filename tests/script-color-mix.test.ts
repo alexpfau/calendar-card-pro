@@ -10,10 +10,12 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
+import * as Month from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as ColorMix from '../src/utils/color-mix';
 import * as EventUtils from '../src/utils/events';
+import * as MonthDay from '../src/utils/month-day';
 
 /**
  * Safari before 16.2 has no color-mix(). Where the card writes a mix into an inline style from
@@ -114,17 +116,33 @@ const RESOLVED_ELSEWHERE = new Set([
   'color-mix(in srgb, currentColor 10%, transparent)',
 ]);
 
+/**
+ * Mixes the card shipped as a default and no longer writes, whose floors stay so that a YAML
+ * holding the old default string still draws where color-mix() is unknown. The week-number pill
+ * and the week separator shipped this one through v6.0, when they took today's tile's colors
+ * (backlog item 325); the reference documented it, so cards copied it.
+ */
+const RETIRED_DEFAULTS = new Set([
+  'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  // Grid's four rules shipped the divider at half strength until v6.0 took them to 75%, and the
+  // reference printed it as each one's default.
+  'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+]);
+
 /** The shipped mix written into each color option below, and the floor it must draw as. */
-const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 50%, transparent)';
+const DIVIDER_MIX = 'color-mix(in srgb, var(--divider-color) 75%, transparent)';
+
+/** The shipped mix of the rule under a header. */
+const HEADER_MIX = 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)';
 
 /**
  * What each mix the scenarios below write draws as without color-mix(), or `undefined` where the
  * card leaves it unwritten there. The tint is the one at the scenarios' 20%.
  */
 const FLOORS: Readonly<Record<string, string | undefined>> = {
-  [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.12)',
+  [DIVIDER_MIX]: 'rgba(128, 128, 128, 0.18)',
+  [HEADER_MIX]: 'rgba(128, 128, 128, 0.36)',
   'color-mix(in srgb, var(--primary-text-color) 4%, transparent)': 'rgba(128, 128, 128, 0.08)',
-  'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)': 'rgba(128, 128, 128, 0.31)',
   'color-mix(in srgb, var(--primary-text-color) 60%, transparent)': 'var(--secondary-text-color)',
   'color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent)': 'rgba(128, 128, 128, 0.2)',
   'color-mix(in srgb, currentColor 6%, transparent)': undefined,
@@ -139,6 +157,8 @@ function mixedDefaults(): Map<string, string> {
     ['column', ViewConfig.COLUMN_DEFAULT_OVERRIDES],
     ['grid', ViewConfig.TIME_GRID_DEFAULTS],
     ['grid', ViewConfig.TIME_GRID_DEFAULT_OVERRIDES],
+    ['month', ViewConfig.MONTH_DEFAULTS],
+    ['month', ViewConfig.MONTH_DEFAULT_OVERRIDES],
   ];
   const found = new Map<string, string>();
   const walk = (scope: string, path: string[], value: unknown): void => {
@@ -154,17 +174,18 @@ function mixedDefaults(): Map<string, string> {
 
 /** The options whose default is a mix, pinned by value. */
 const MIXED_OPTIONS = [
-  'card:week_number_background_color',
-  'card:week_separator_color',
+  'column:day_header_separator_color',
   'grid:allday_band_line_color',
   'grid:day_header_separator_color',
   'grid:day_separator_color',
   'grid:hour_line_color',
   'grid:weekend_background_color',
+  'month:weekend_background_color',
 ];
 
 /**
- * The color options the views write from script into a separator, a rule or the grid's shading:
+ * The color options the views write from script into a separator, a rule or the grid's and the
+ * month's shading:
  * the family the card's own mixes belong to, the ones whose default is a mix and the rest of
  * that family, which a user can set to one. A view's own block (`column:`, `time_grid:`) is
  * named where only it reads one. Other color options (an event's or a label's color, the all-day
@@ -175,11 +196,18 @@ const COLOR_OPTIONS = [
   ...MIXED_OPTIONS,
   'card:day_separator_color',
   'card:month_separator_color',
-  'column:day_header_separator_color',
+  'card:week_number_background_color',
+  'card:week_separator_color',
   'grid:today_background_color',
+  'month:today_background_color',
 ].sort();
 
-type Scenario = { view: Types.EffectiveView; overrides: Partial<Types.Config> };
+/** A view rendered as the card renders it; a month in its compact form where `compact` is set. */
+type Scenario = {
+  view: Types.EffectiveView;
+  overrides: Partial<Types.Config>;
+  compact?: boolean;
+};
 
 /**
  * One rendering per view, with every color option above on: week numbers, week, month and day
@@ -233,6 +261,16 @@ const SCENARIOS: Record<string, Scenario> = {
       time_grid: { slot_minutes: 30 },
     } as Partial<Types.Config>,
   },
+  // The six weeks holding FROZEN_NOW, wide and compact: the two forms write the tints apart.
+  month: {
+    view: 'month',
+    overrides: { view: 'month', show_week_numbers: 'iso' },
+  },
+  'month-compact': {
+    view: 'month',
+    compact: true,
+    overrides: { view: 'month', show_week_numbers: 'iso' },
+  },
 };
 
 /** The YAML block a scope's options are read from, or none for a card-wide one. */
@@ -240,6 +278,7 @@ const BLOCK: Readonly<Record<string, string | undefined>> = {
   card: undefined,
   column: 'column',
   grid: 'time_grid',
+  month: 'month',
 };
 
 /** An option set to `value` where its scope reads it. */
@@ -261,6 +300,39 @@ function withOption(overrides: Partial<Types.Config>, option: string, value: str
 type Declaration = { at: string; property: string; value: string };
 
 /**
+ * The month holding FROZEN_NOW as the card hands it over, Mondays first, wide or compact with
+ * today selected.
+ *
+ * @param days - Grouped days of the page
+ * @param effective - Configuration resolved for month
+ * @param compact - Whether to draw the compact form
+ * @returns The month
+ */
+function renderMonth(days: Types.EventsByDay[], effective: Types.Config, compact: boolean) {
+  const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+  return Month.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
+    ...(compact
+      ? {
+          compact: {
+            selected: new Date(
+              FROZEN_NOW.getFullYear(),
+              FROZEN_NOW.getMonth(),
+              FROZEN_NOW.getDate(),
+            ),
+            dayLists: MonthDay.monthDayLists(
+              EVENTS,
+              effective,
+              rowsStart,
+              ViewConfig.MONTH_DAYS,
+              'en',
+            ),
+          },
+        }
+      : {}),
+  });
+}
+
+/**
  * Every inline declaration a scenario writes from script, in document order: the card's own
  * custom properties, then each styled element's, each element named by its position and class.
  */
@@ -273,7 +345,9 @@ function inlineDeclarations(scenario: Scenario, overrides = scenario.overrides):
       ? Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, FROZEN_NOW)
       : scenario.view === 'column'
         ? Column.renderColumnGroupedEvents(days, effective, 'en')
-        : Render.renderGroupedEvents(days, effective, 'en');
+        : scenario.view === 'month'
+          ? renderMonth(days, effective, scenario.compact === true)
+          : Render.renderGroupedEvents(days, effective, 'en');
   const container = document.createElement('div');
   litRender(template, container);
   const found: Declaration[] = Object.entries(generateCustomPropertiesObject(effective)).map(
@@ -345,19 +419,20 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
 
   it('lists every one in the source by value', () => {
     expect(scriptMixes()).toEqual([
-      'config/config.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
-      'config/config.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
-      'config/view.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+      'config/view.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       'config/view.ts: color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, currentColor 10%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, currentColor 6%, transparent)',
       'rendering/styles.ts: color-mix(in srgb, var(--primary-text-color) 60%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, red, blue)',
       'utils/color-mix.ts: color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      'utils/color-mix.ts: color-mix(in srgb, var(--divider-color) 75%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+      'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       'utils/color-mix.ts: color-mix(in srgb, var(--primary-text-color) 60%, transparent)',
       'utils/helpers.ts: color-mix(in srgb, ${color} ${opacity}%, transparent)',
@@ -375,7 +450,14 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     expect(
       written.filter((m) => !ColorMix.COLOR_MIX_FLOORS.has(m) && !RESOLVED_ELSEWHERE.has(m)),
     ).toEqual([]);
-    expect([...ColorMix.COLOR_MIX_FLOORS.keys()].filter((m) => !written.includes(m))).toEqual([]);
+    expect(
+      [...ColorMix.COLOR_MIX_FLOORS.keys()].filter(
+        (m) => !written.includes(m) && !RETIRED_DEFAULTS.has(m),
+      ),
+    ).toEqual([]);
+    // A retired default is one the card no longer writes, and keeps its floor.
+    expect([...RETIRED_DEFAULTS].filter((m) => written.includes(m))).toEqual([]);
+    expect([...RETIRED_DEFAULTS].filter((m) => !ColorMix.COLOR_MIX_FLOORS.has(m))).toEqual([]);
   });
 
   it('keeps every floor free of color-mix(), so it draws where that is unknown', () => {
@@ -404,18 +486,18 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       'rendering/column.ts: day_header_separator_color',
       'rendering/column.ts: day_separator_color',
       'rendering/column.ts: month_separator_color',
-      'rendering/column.ts: week_separator_color',
       'rendering/grid.ts: allday_band_line_color',
       'rendering/grid.ts: day_header_separator_color',
       'rendering/grid.ts: day_separator_color',
       'rendering/grid.ts: hour_line_color',
       'rendering/grid.ts: month_separator_color',
       'rendering/grid.ts: today_background_color',
-      'rendering/grid.ts: week_separator_color',
       'rendering/grid.ts: weekend_background_color',
+      'rendering/leaves.ts: week_separator_color',
+      'rendering/month.ts: today_background_color',
+      'rendering/month.ts: weekend_background_color',
       'rendering/render.ts: day_separator_color',
       'rendering/render.ts: month_separator_color',
-      'rendering/render.ts: week_separator_color',
       'rendering/styles.ts: week_number_background_color',
     ]);
   });
@@ -452,6 +534,8 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
         'list-month-week | card | --calendar-card-week-number-bg-color',
         'list-separators | card | --calendar-card-week-number-bg-color',
         'list-week-numbers | card | --calendar-card-week-number-bg-color',
+        'month | card | --calendar-card-week-number-bg-color',
+        'month-compact | card | --calendar-card-week-number-bg-color',
       ],
       'card:week_separator_color': [
         'column | column-separator column-separator-week | background-color',
@@ -476,8 +560,18 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
       ],
       'grid:today_background_color': ['grid | grid-container | --calendar-card-grid-today'],
       'grid:weekend_background_color': ['grid | grid-container | --calendar-card-grid-weekend'],
+      'month:today_background_color': [
+        'month | month-container | --calendar-card-month-today',
+        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-today',
+      ],
+      'month:weekend_background_color': [
+        'month | month-container | --calendar-card-month-weekend',
+        'month-compact | month-container month-compact with-week-numbers | --calendar-card-month-weekend',
+      ],
     });
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('writes, where color-mix() is known, exactly the mixes whose floors are listed', () => {
     const written = new Set(
@@ -534,7 +628,9 @@ describe('color-mix() the card writes from script, where Safari before 16.2 has 
     }
     expect(wrong).toEqual([]);
     expect(checked).toBeGreaterThan(COLOR_OPTIONS.length);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it.each([true, false])('asks the browser once, when it answers %s', (answer) => {
     const supports = vi.fn(() => answer);

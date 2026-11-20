@@ -1138,7 +1138,7 @@ describe('chips too wide for the heading row', () => {
     expect(legendButton(menu)!.getAttribute('title')).toBe('My calendars');
     expect(
       root(menu).querySelectorAll('.view-switcher-segment .toolbar-button-label'),
-    ).toHaveLength(3);
+    ).toHaveLength(4);
     expect(headingRow(menu).className).toBe(row.heading);
 
     for (const selector of ['.toolbar-actions', '.toolbar-heading']) {

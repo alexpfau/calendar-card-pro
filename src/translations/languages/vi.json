@@ -9,6 +9,10 @@
   "viewList": "Danh sách",
   "viewColumns": "Cột",
   "viewGrid": "Lưới",
+  "viewMonth": "Tháng",
+  "moreEvents": "+{count} nữa",
+  "eventCount": "{count} sự kiện",
+  "eventCountOne": "{count} sự kiện",
   "endsToday": "kết thúc hôm nay",
   "endsTomorrow": "kết thúc ngày mai",
   "dayOfEvent": "Ngày thứ {day}/{days}",
@@ -19,5 +23,6 @@
   "loadFailed": "Không tải được:",
   "newEvent": "Sự kiện mới",
   "showAll": "Hiện tất cả",
-  "hideAll": "Ẩn tất cả"
+  "hideAll": "Ẩn tất cả",
+  "private": "Riêng tư"
 }

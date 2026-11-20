@@ -16,10 +16,9 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor#options-for-the-selected-view), **Card Displays**
-chooses the layout the card opens with. Select **Columns** under **Editing Settings For** to
-edit column view's own values, including its column-only options, without changing
-**Card Displays**.
+In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
+row under **Layouts** chooses the layout the card opens with. Select the **Columns** row itself to
+edit column view's own values, including its column-only options, without changing the card.
 
 Column view is responsive by design: a card too narrow to give every configured day a readable
 column falls back to the list layout. **A card configured `view: column` therefore renders as a
@@ -161,16 +160,16 @@ once `show_empty_days: false` is set in `column:` as well.
 
 `show_past_events` is different: Column inherits its top-level value unless `column:`
 overrides it. Grid substitutes `true` for both options. The editor guide includes the
-[comparison across all three layouts](/features/editor#yaml-view-defaults).
+[comparison across the layouts](/features/editor#yaml-view-defaults).
 
 ## 🚫 Options That Cannot Be Overridden
 
-Some options act on the card as a whole, so they hold one value in all three layouts and are
-ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level.
+Some options act on the card as a whole, so they hold one value in every layout and are
+ignored inside `list:`, `column:`, `time_grid:` or `month:`. Set them at the top level.
 
-Which events the card loads:
+Which events and forecasts the card loads:
 
-`entities` · `start_date` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
+`entities` · `start_date` · `first_day_of_week` · `weather_entity` · `weather` · `refresh_interval` · `refresh_on_navigate`
 
 Its actions and its toolbar:
 
@@ -184,13 +183,18 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 
 `event_type` · `hide_when_empty`
 
-An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor lists every such option when it opens and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
+An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor names every such option under **Options the Card Ignores** at the top of its overview and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
+
+Two of them need a word. `weather_entity` is the one entity every layout draws its forecast
+from; how a layout draws it is that layout's own `weather:`, which belongs in its block. The
+top-level `weather:` is weather as written before v6, which decides every layout's while it
+names an entity. See [Weather Per Layout](/features/weather#weather-per-layout).
 
 Three options sound as though they belong in the first list, and do not:
 
-- **`days_to_show`** also decides what is loaded, yet each layout may set its own: the card
-  loads the longest count among the layouts it can show, and each draws the first of those
-  days. See
+- **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
+  six weeks, may set its own: the card loads the longest count among the layouts it can show,
+  with Month's weeks where it can show Month, and each draws its own days out of that load. See
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
   so they can differ per view — and often want to, because a column is a narrow space where a
@@ -235,15 +239,19 @@ running forward, left to right and down each day.
 column is drawn whatever its events, so leaving events out would leave gaps rather than
 continue anything.
 
+**`month_separator_label`** writes the month's name at the start of the list's month rule, and
+**`month_separator_label_color` and `month_separator_label_font_size`** style it. A column's month
+rule is a vertical line in the gap between two days, with no room for words.
+
 **`multiday_banners`** draws a long timed event as a banner in grid view's all-day band. A
 column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls in the Columns workspace, including the per-calendar compact
-limit and grid banner setting. Stored values are preserved and still apply where they are read:
-in List, which the card falls back to, and the banner setting in Grid. To change them, select
-that layout under Editing Settings For; Card Displays stays unchanged.
+The editor omits these controls on Columns' pages, including the per-calendar compact limit and
+grid banner setting. Stored values are preserved and still apply where they are read: in List,
+which the card falls back to, and the banner setting in Grid. To change them, open that layout
+under **Layouts**; the card keeps opening in its own layout.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
@@ -337,11 +345,11 @@ A 2px header rule in the primary color and a wider `day_header_gap`, with per-ca
 `accent_color` and `event_background_opacity`, which are ordinary options that apply in both
 layouts.
 
-| Option                       | Type   | Default                | Description                                                                      |
-| ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
-| `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
-| `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
-| `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
+| Option                       | Type   | Default                                                          | Description                                                                      |
+| ---------------------------- | ------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `day_header_gap`             | string | `8px`                                                            | Vertical space between a day header and its first event                          |
+| `day_header_separator_width` | string | `0px`                                                            | Thickness of the rule under each day header; `0px`, the default, renders no rule |
+| `day_header_separator_color` | string | `color-mix(in srgb, var(--primary-text-color) 18%, transparent)` | Color of that rule                                                               |
 
 ```yaml
 view: column

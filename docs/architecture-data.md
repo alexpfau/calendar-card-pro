@@ -14,9 +14,16 @@ Every load runs one pipeline in `utils/events.ts`; the load modes below differ o
 they draw what is stored first and when they ask Home Assistant.
 
 1. **Request.** `resolveRequest` fixes the cache key, the first weekday and the window, half-open
-   from local midnight on the first day to local midnight after the last. The window spans the
-   longest `days_to_show` among the views the card can show (`loadedDaysToShow`), so switching
-   views never fetches.
+   from local midnight on the first day to local midnight after the last. The window spans every
+   view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
+   start (`loadedDaysToShow`), and where Month is reachable its six weeks: the month holding
+   `start_date`, or today's for Tomorrow and Start of Week (`ViewConfig.monthHomeDay`), as one
+   span with the other views' days. So
+   switching views at home never fetches. A page's load holds the weeks of the month its first day
+   falls in, the month Month draws for it, so a switch that carries a page's day draws from the
+   same load wherever the next view's days lie in those weeks. The key names the window as configured
+   (`ViewConfig.loadIdentity`), so home's stays put while Month's weeks move with the months; an
+   entry stored for a window that has since moved is refetched into the same key (`isEntryDue`).
 2. **Stored window.** `readEventSnapshot` reads and processes the stored payload synchronously, so
    an entry up to 24 hours old is on the first frame.
 3. **Fetch.** Calendars are asked in parallel, each with a timeout, from a live subscription where
@@ -92,7 +99,10 @@ Each store has one owner and one scope. Only the `localStorage` stores outlive a
 
 - **Key.** `getBaseCacheKey` covers only what shapes the request: the calendars, the loaded span,
   the raw `start_date`, the card version and, for a week-relative start, the first day of the week.
-  Render-side options are applied again on every read, so toggling one re-renders from the cache.
+  Where Month is reachable, home's key names the span as configured rather than the six weeks'
+  dates, with that Month is reachable, alone or beside other views, and the first day of the week
+  (`ViewConfig.loadIdentity`), so one entry serves as the months pass. Render-side options are
+  applied again on every read, so toggling one re-renders from the cache.
   The key begins with the card's query identity (`_instanceIdForPage`), which counts the first day
   of the week by the same rule (`firstDayKeyPart`), resolved from the profile as it is now, so cards
   asking for one window share one entry and a profile that moves the week starts a new query.

@@ -16,7 +16,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import * as EventUtils from '../src/utils/events';
+import * as Helpers from '../src/utils/helpers';
 import '../src/calendar-card-pro';
 
 vi.mock('../src/utils/logger', () => ({
@@ -35,7 +37,13 @@ const NOW = new Date(2026, 5, 17, 10, 0);
 /** `Intl`'s range separator: an en dash between thin spaces. */
 const TO = '\u2009–\u2009';
 
-/** List 14 days, Columns 5, Grid 7, from Monday June 15, with every toolbar control asked for. */
+/**
+ * List 14 days, Columns 5, Grid 7, from Monday June 15, with every toolbar control asked for.
+ *
+ * The switcher offers the three views that draw a count of days, and not month, whose six weeks
+ * widen the load past any count: these cases pin the counts. `MONTH_ON` below is the default
+ * switcher, with month.
+ */
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna'],
   days_to_show: 14,
@@ -44,6 +52,16 @@ const BASE: Partial<Types.Config> = {
   show_past_events: true,
   column: { days_to_show: 5 },
   time_grid: { days_to_show: 7, show_past_events: true },
+  toolbar: {
+    show: true,
+    navigation: true,
+    view_switcher_layouts: ['list', 'column', 'grid'],
+    add_event: false,
+  },
+};
+
+/** The default switcher, which offers month too. */
+const MONTH_ON: Partial<Types.Config> = {
   toolbar: { show: true, navigation: true, view_switcher: true, add_event: false },
 };
 
@@ -56,6 +74,10 @@ interface CardUnderTest extends HTMLElement {
   _columnCount: number;
   _midnightTimerId: number | null;
   _newEventDate(): Date;
+  _instanceIdForPage(page: string | null): string;
+  _loadConfigForPage(page: string | null): Types.Config;
+  _pageRange(page: string | null): { start: Date; days: number };
+  _requestPage(page: string | null): void;
   updateEvents(load?: string): Promise<void>;
   readonly updateComplete: Promise<boolean>;
 }
@@ -185,6 +207,21 @@ async function next(card: CardUnderTest): Promise<void> {
   await settle(card);
 }
 
+async function previous(card: CardUnderTest): Promise<void> {
+  root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[0].click();
+  await settle(card);
+}
+
+async function home(card: CardUnderTest): Promise<void> {
+  root(card).querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[1].click();
+  await settle(card);
+}
+
+/** The month the heading names. */
+function heading(card: CardUnderTest): string {
+  return root(card).querySelector('.toolbar-month-text')!.textContent!.trim();
+}
+
 function range(card: CardUnderTest): string {
   return root(card).querySelector('.toolbar-range-text')!.textContent!.trim();
 }
@@ -258,7 +295,9 @@ describe('days_to_show per view', () => {
     expect(drawnDays(card)).toBe(21);
     expect(range(card)).toBe(`Jun 15${TO}Jul 5`);
     expect(callApi).toHaveBeenCalledTimes(1);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('pages by the days on screen, and a switch keeps the first day without fetching', async () => {
     const card = await mount();
@@ -329,6 +368,167 @@ describe('days_to_show per view', () => {
 
     await pick(card, 'grid');
     expect(card._newEventDate().getTime()).toBe(new Date(2026, 5, 7).getTime());
+  });
+});
+
+describe('month on the default switcher', () => {
+  it('loads its six weeks with the other views, and switching to it and back fetches nothing', async () => {
+    const card = await mount(MONTH_ON);
+    await measure(card, 1400);
+
+    // June 2026 from Monday the 1st, six weeks to Sunday July 12, which hold the list's
+    // fourteen days from the 15th as well.
+    expect(fetchedWindows()).toEqual([['2026-06-01', '2026-07-12']]);
+    expect(drawnDays(card)).toBe(14);
+    expect(range(card)).toBe(`Jun 15${TO}28`);
+
+    await pick(card, 'month');
+    expect(card.effectiveView).toBe('month');
+    expect(range(card)).toBe(`Jun 1${TO}Jul 12`);
+    expect(heading(card)).toBe('June 2026');
+
+    await pick(card, 'grid');
+    expect(drawnDays(card)).toBe(7);
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(callApi).toHaveBeenCalledTimes(1);
+  });
+
+  it('pages a month at a time, from the month the heading names, and comes home', async () => {
+    const card = await mount(MONTH_ON);
+    await measure(card, 1400);
+    await pick(card, 'month');
+
+    await next(card);
+    expect(heading(card)).toBe('July 2026');
+    expect(range(card)).toBe(`Jun 29${TO}Aug 9`);
+    // The page's weeks, which hold the other views' days from its first day.
+    expect(lastFetchedWindow()).toEqual(['2026-06-29', '2026-08-09']);
+
+    await previous(card);
+    await previous(card);
+    expect(heading(card)).toBe('May 2026');
+    expect(range(card)).toBe(`Apr 27${TO}Jun 7`);
+
+    await home(card);
+    expect(heading(card)).toBe('June 2026');
+    expect(range(card)).toBe(`Jun 1${TO}Jul 12`);
+  });
+
+  it('opens month on the month holding a page’s first day, and comes back to the page', async () => {
+    const card = await mount(MONTH_ON);
+    await measure(card, 1400);
+
+    // The list pages fourteen days, to Monday June 29, and month shows the month holding it:
+    // June, home's, drawn from home's load.
+    await next(card);
+    expect(range(card)).toBe(`Jun 29${TO}Jul 12`);
+    const fetches = callApi.mock.calls.length;
+    await pick(card, 'month');
+    expect(range(card)).toBe(`Jun 1${TO}Jul 12`);
+    expect(heading(card)).toBe('June 2026');
+    expect(callApi.mock.calls.length).toBe(fetches);
+
+    // Back to the list: on the page it left, the day month carried.
+    await pick(card, 'list');
+    expect(range(card)).toBe(`Jun 29${TO}Jul 12`);
+    expect(callApi.mock.calls.length).toBe(fetches);
+  });
+
+  it('leaves a month page for its 1st, and home’s month for home', async () => {
+    const card = await mount(MONTH_ON);
+    await measure(card, 1400);
+    await pick(card, 'month');
+
+    // A month away carries its 1st, today not being in it.
+    await next(card);
+    expect(heading(card)).toBe('July 2026');
+    await pick(card, 'list');
+    expect(range(card)).toBe(`Jul 1${TO}14`);
+
+    // Home's month, nothing selected, opens the list's own home.
+    await pick(card, 'month');
+    await home(card);
+    expect(heading(card)).toBe('June 2026');
+    await pick(card, 'list');
+    expect(range(card)).toBe(`Jun 15${TO}28`);
+  });
+});
+
+describe('a month card', () => {
+  /** Month alone, with the date navigation and no switcher. */
+  const MONTH_CARD: Partial<Types.Config> = {
+    view: 'month',
+    toolbar: { show: true, navigation: true, view_switcher: false, add_event: false },
+  };
+
+  it('loads its weeks alone and pages them a month at a time', async () => {
+    const card = await mount(MONTH_CARD);
+    await measure(card, 1400);
+
+    // Only month is reachable, so the load is its six weeks, whatever the list's count says.
+    expect(fetchedWindows()).toEqual([['2026-06-01', '2026-07-12']]);
+    expect(card.effectiveView).toBe('month');
+    expect(heading(card)).toBe('June 2026');
+    expect(card._pageRange(null)).toEqual({ start: new Date(2026, 5, 1), days: 42 });
+    expect(card._loadConfigForPage(null)).toMatchObject({
+      start_date: '2026-06-01',
+      days_to_show: 42,
+    });
+
+    await next(card);
+    expect(heading(card)).toBe('July 2026');
+    expect(lastFetchedWindow()).toEqual(['2026-06-29', '2026-08-09']);
+    // Month's own moves key a month by its 1st, and any day of a month draws its weeks.
+    expect(card._pageRange('2026-07-01')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
+    expect(card._pageRange('2026-07-20')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
+    // 29 June is a day of June, whatever row it starts.
+    expect(card._pageRange('2026-06-29')).toEqual({ start: new Date(2026, 5, 1), days: 42 });
+  });
+
+  it('loads the weeks of the month a page key falls in, from that month’s first row', async () => {
+    const card = await mount(MONTH_CARD);
+    await measure(card, 1400);
+    expect(card._loadConfigForPage('2026-07-20')).toMatchObject({
+      start_date: '2026-06-29',
+      days_to_show: 42,
+    });
+  });
+});
+
+describe('a card month cannot reach', () => {
+  /**
+   * The query identity as the card worked it out before month existed: the longest count among
+   * the views it can show, and the page's first day or the configured start date.
+   */
+  function previousIdentity(config: Types.Config, page: string | null): string {
+    return Helpers.generateDeterministicId(
+      config.entities,
+      ViewConfig.loadedDaysToShow(config),
+      page ?? config.start_date,
+      1,
+    );
+  }
+
+  it.each([
+    ['the counted switcher', {}],
+    ['no toolbar', { toolbar: { show: false } }],
+    [
+      'a grid that cramps',
+      { view: 'grid', time_grid: { days_to_show: 21, min_days_fallback: 'cramp' } },
+    ],
+  ] as const)('loads exactly as before, with %s', async (_name, overrides) => {
+    const card = await mount(overrides as Partial<Types.Config>);
+    const config = buildConfig({ ...BASE, ...overrides } as Partial<Types.Config>);
+    expect(ViewConfig.reachesMonth(config)).toBe(false);
+
+    for (const page of [null, '2026-06-22']) {
+      const load = card._loadConfigForPage(page);
+      // The configuration, as the page has it, with the longest count and nothing else changed.
+      expect(load.start_date).toBe(page ?? 'start_of_week');
+      expect(load.days_to_show).toBe(ViewConfig.loadedDaysToShow(config));
+      expect(card._instanceIdForPage(page)).toBe(previousIdentity(config, page));
+    }
+    expect(fetchedWindows()[0][0]).toBe('2026-06-15');
   });
 });
 

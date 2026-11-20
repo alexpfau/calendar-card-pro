@@ -4,10 +4,10 @@ title: Rendering & Views
 
 # Rendering & Views
 
-This page is for contributors changing how events look, how one of the three layouts arranges them,
+This page is for contributors changing how events look, how one of the four layouts arranges them,
 or how grid view measures and fits its blocks. The rule that matters most is on the overview: the
-three views share one pipeline and differ only in arrangement
-([Three Views, One Agenda](/architecture#three-views-one-agenda)). For the map of the whole card,
+views share one pipeline and differ only in arrangement
+([Four Views, One Agenda](/architecture#four-views-one-agenda)). For the map of the whole card,
 start at the [architecture overview](/architecture).
 
 ## 🧱 Shared Pipeline
@@ -24,6 +24,30 @@ each renderer.
   each all-day event's columns into one banner and placing blocks from `utils/grid.ts`. A timed
   event a full day or longer is a banner too (`multiday_banners`): grouping stamps its days
   `_gridBanner`, and the band draws its times at its ends.
+- **`month.ts`** draws six week rows of seven days: Grid's banner as a bar across each all-day or
+  multi-day event's days, and each timed event as one line. Which line each takes, and what a day
+  hides behind "+N more", is `utils/month-layout.ts`, from the lines the card measures fit under a
+  date. Below `month → min_day_width` a day, it draws the compact form instead: each day a number
+  and a capsule of up to four segments, and under the weeks the selected day's list. A day's list,
+  there and in the panel "+N more" opens (`day-panel.ts`), is List's rows from one day model,
+  `utils/month-day.ts`, which groups the card's filtered source events rather than the grid's
+  display copies, so the capsules, the list and the panel agree. The rows are drawn with
+  `MonthDay.monthRowsConfig`, which puts each time beside its title; the panel fits those titles
+  itself, since the card's title fitting stops at its own shadow root. Under the weeks the list
+  takes the room the weeks leave, every part of a row kept to one line there. The card stages the
+  day's real rows and its "+N more" out of sight beside the list (`renderListStaging`), measures
+  them and the room (`MonthListFit.measureMonthList`), and draws as many rows as fit with "+N more" for the
+  rest (`utils/month-list-fit.ts`, `_syncMonthListFit`); until it has, the list draws "+N more"
+  alone. A compact month with no height under a cap grows with its list instead
+  (`monthCompactGrows`). A month is one height
+  before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
+  the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
+  writes on `ha-card` (`monthCardStyle`). Unset, both are the same pair, taller where the
+  configuration asks for a toolbar (`Config.asksForToolbar`), read from the configuration alone
+  because Home Assistant asks for the rows again only when it changes. The six wide weeks share
+  what the header leaves, each at
+  least a date and one line, floors the card measures from the probes and writes on the month
+  (`measureMonthFloors`); below them the content scrolls.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,
   the today indicator and the accent bar.
 - **`presentation.ts`** computes everything about an event that does not depend on layout: ended,
@@ -32,8 +56,8 @@ each renderer.
   color the `accent` sentinel governs with its custom property and imports no CSS, so the editor can
   read it.
 
-`event_gap` is decided once (`hasEventGap`) and drawn per view: a spacer row in list, `row-gap` in
-column, nothing in grid.
+`event_gap` is decided once (`hasEventGap`) and drawn per view: a spacer row in list and in a
+month's day list (`renderEventGapRow`), `row-gap` in column, nothing in grid.
 
 ## 🎨 From Calendar to Row
 
@@ -51,7 +75,10 @@ What a row shows is resolved on the display copy, one module per step; `_source`
   `YEAR=` marker into an age; `format.ts` formats dates, times and locations; `links.ts` returns
   text and link pieces, never markup, and links only `http` and `https`.
 - **Weather.** `weather.ts` matches forecasts to events; `weather-i18n.ts` words conditions in the
-  card's language, not the user's.
+  card's language, not the user's. Each view's weather is resolved with the rest of its
+  configuration (`resolveViewWeather` in `config/view.ts`), so a renderer reads `config.weather`
+  and draws per layout without knowing it; the card subscribes once to every forecast the views
+  it can show need (`weatherForecastTypes`), so switching views never subscribes again.
 
 ## 🧩 Stable DOM & Accessibility
 

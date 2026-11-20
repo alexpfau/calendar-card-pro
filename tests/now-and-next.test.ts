@@ -4,8 +4,9 @@
  * `docs/guide/now-and-next.md` prints a no-title phone tile for "what is on now, and what comes
  * next", and its promises are behaviors rather than option names: four events until tapped and
  * the rest on a tap, a free today that still says so, a plan on two people's calendars drawn
- * once, a countdown and a progress bar, two short lines per event, and events left as no tap
- * target of their own so a tap anywhere expands, while a hold on one opens it. `tests/example-stories.test.ts` checks the
+ * once, a countdown and a progress bar, two short lines per event, and an event tap of Nothing,
+ * where a tap on an event opens it by default, so a tap anywhere expands, while a hold on one
+ * opens it. `tests/example-stories.test.ts` checks the
  * card's option names; nothing ran the card until this file.
  *
  * Each promise is pinned beside a control arm — the page's card with the option responsible
@@ -154,12 +155,11 @@ describe('the Now & Next card behaves as its page describes', () => {
       show_location: false,
       show_end_time: false,
       tap_action: { action: 'expand' },
+      // "Tap to Expand, Hold for an Event": the default tap on an event turned off on purpose.
+      event_tap_action: { action: 'none' },
       event_hold_action: { action: 'details' },
       list: { compact_events_to_show: 4 },
     });
-    // "Tap to Expand, Hold for an Event": a tap of its own left out on purpose, and pinned as
-    // left out.
-    expect(CARD.event_tap_action).toBeUndefined();
   });
 
   it('shows four events until tapped, then the rest of today and tomorrow, then folds back', async () => {
@@ -194,19 +194,16 @@ describe('the Now & Next card behaves as its page describes', () => {
   });
 
   it('expands on a tap that lands on an event, because events are no tap target here', async () => {
-    // "A tap on an event wins over the card's tap, and events cover most of this card." With
-    // `event_tap_action` left out, the event under the finger hands the tap to the card.
+    // "By default a tap on an event opens it, and wins over the card's tap." With
+    // `event_tap_action: none`, the event under the finger hands the tap to the card.
     const card = await mountStory(CARD, WEEK);
     await tap(card, rowTitled(card, 'Swimming').target);
     expect(titles(card)).toEqual(EXPANDED);
     expect(popovers.opened).not.toHaveBeenCalled();
 
-    // Control: the option the page leaves out. The same tap on the same event now opens the
+    // Control: the option the page sets, taken out. The same tap on the same event now opens the
     // event and the card stays collapsed, which is the trade the page declines.
-    const details = await mountStory(
-      withOptions(CARD, { event_tap_action: { action: 'details' } }),
-      WEEK,
-    );
+    const details = await mountStory(dropOption(CARD, 'event_tap_action'), WEEK);
     await tap(details, rowTitled(details, 'Swimming').target);
     expect(titles(details)).toEqual(COLLAPSED);
     expect(popovers.opened).toHaveBeenCalledTimes(1);

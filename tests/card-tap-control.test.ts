@@ -222,10 +222,11 @@ describe("the card's tap, while the card hosts controls", () => {
     expect(control(card)!.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('says nothing about expanding where there is nothing to fold', async () => {
+  it('is no control at all where expand has nothing to fold', async () => {
     const card = await mount({ title: 'Family', tap_action: { action: 'expand' } });
 
-    expect(control(card)!.hasAttribute('aria-expanded')).toBe(false);
+    expect(control(card)).toBeNull();
+    expect(card.shadowRoot!.querySelector('ha-card > ha-ripple')).toBeNull();
   });
 });
 
@@ -234,6 +235,7 @@ describe('the control, where the card needs none', () => {
     const card = await mount({
       title: 'Family',
       tap_action: { action: 'more-info' },
+      event_tap_action: { action: 'none' },
       toolbar: { show: false },
     });
 
@@ -280,7 +282,11 @@ describe("focus on the card's tap, as the card starts or stops hosting controls"
   });
 
   it('moves from the control back to the card when the controls go', async () => {
-    const config = { title: 'Family', tap_action: { action: 'more-info' } } as const;
+    const config = {
+      title: 'Family',
+      tap_action: { action: 'more-info' },
+      event_tap_action: { action: 'none' },
+    } as const;
     const card = await mount(config);
     control(card)!.focus();
     expect(card.shadowRoot!.activeElement).toBe(control(card));

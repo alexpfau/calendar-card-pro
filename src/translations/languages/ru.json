@@ -17,6 +17,10 @@
   "viewList": "Список",
   "viewColumns": "Столбцы",
   "viewGrid": "Сетка",
+  "viewMonth": "Месяц",
+  "moreEvents": "+{count} ещё",
+  "eventCount": "Событий: {count}",
+  "eventCountOne": "{count} событие",
   "endsToday": "заканчивается сегодня",
   "endsTomorrow": "заканчивается завтра",
   "dayOfEvent": "День {day} из {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Не удалось загрузить:",
   "newEvent": "Новое событие",
   "showAll": "Показать все",
-  "hideAll": "Скрыть все"
+  "hideAll": "Скрыть все",
+  "private": "Личное"
 }

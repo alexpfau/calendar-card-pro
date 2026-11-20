@@ -17,6 +17,10 @@
   "viewList": "Saraksts",
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",
+  "viewMonth": "Mēnesis",
+  "moreEvents": "+{count} vēl",
+  "eventCount": "Notikumu skaits: {count}",
+  "eventCountOne": "{count} notikums",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
   "dayOfEvent": "Diena {day} no {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Neizdevās ielādēt:",
   "newEvent": "Jauns notikums",
   "showAll": "Rādīt visus",
-  "hideAll": "Paslēpt visus"
+  "hideAll": "Paslēpt visus",
+  "private": "Privāts"
 }

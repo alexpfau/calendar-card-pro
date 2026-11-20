@@ -6,9 +6,8 @@ import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import { isEntityIconSentinel } from '../../../utils/entity-icons';
 import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
-import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { heading, row, text } from './common';
+import { bool, color, select, text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -103,18 +102,7 @@ export const ENTITY_TRISTATE_DEFAULT: Readonly<Record<string, string>> = {
  * @returns The field
  */
 function choice(language: string, name: string): SelectorSchema {
-  return {
-    name,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: ENTITY_TRISTATE_VALUES[name].map((value) => ({
-          value,
-          label: lookup(language, `entity.${name}.option.${value}.label`) ?? humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, name, ENTITY_TRISTATE_VALUES[name], `entity.${name}`);
 }
 
 export const LABEL_TYPE = 'label_type';
@@ -258,18 +246,7 @@ export function entityConfigKeys(name: string): ReadonlyArray<string> {
  * @returns The field
  */
 function labelType(language: string): SelectorSchema {
-  return {
-    name: LABEL_TYPE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_TYPES.map((value) => ({
-          value,
-          label: lookup(language, `entity.${LABEL_TYPE}.option.${value}.label`) ?? humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_TYPE, LABEL_TYPES, `entity.${LABEL_TYPE}`);
 }
 
 /**
@@ -303,7 +280,7 @@ function labelFields(
         : [{ name: 'label', selector: { icon: {} } } as SelectorSchema]),
       // Kept in both modes on purpose: tinting an inherited icon is still the card's choice,
       // and the color is stored under a key of its own that the source never touches.
-      text('label_icon_color'),
+      color('label_icon_color'),
     ];
   }
 
@@ -342,9 +319,10 @@ function labelFields(
  * `Name & Appearance` leads, and is deliberately *outside* that spine rather than an
  * exception to it. It selects nothing, arranges nothing and populates nothing — it says
  * which calendar is being edited. Identity precedes configuration, which is also why the
- * card-level panel has no counterpart: a card is not one of several. `name` opens it,
- * because a name is the purest identity there is: it changes nothing about how an event
- * looks, only what the card calls the calendar it came from.
+ * card-level panel has no counterpart: a card is not one of several. Its accent color opens
+ * it, because a calendar's color is what most people come to its page for; `name` follows,
+ * the purest identity there is: it changes nothing about how an event looks, only what the
+ * card calls the calendar it came from.
  *
  * `Text Replacement` is likewise outside it, and is the one category this panel carries
  * that the card-level one does not. It rewrites what a row says rather than deciding which
@@ -357,19 +335,20 @@ function labelFields(
  */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
-    heading('heading_appearance'),
+    // First, ahead of the name: a calendar's color is what most people open its page for.
+    accentColorMode(ctx.language),
+    color('accent_color'),
     text('name'),
     // Beside `name` because both belong to the calendar rather than to this block, and both
     // are about the calendar filter's entry for it: what it says, and whether there is one.
     // Everything after them says how this calendar's events look.
-    { name: SHOW_IN_LEGEND, selector: { boolean: {} } },
+    bool(SHOW_IN_LEGEND),
     labelType(ctx.language),
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),
     text('label'),
-    text('label_icon_color'),
-    row(text('color'), accentColorMode(ctx.language)),
-    text('accent_color'),
+    color('label_icon_color'),
+    color('color'),
     // Last in the section that says how this calendar's events look: after which label and
     // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
     // which Home Assistant draws only with both bounds.
@@ -399,12 +378,13 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // Visibility comes before all of them, coarser still: whether this entry shows at all,
     // for this viewer and at this moment, before which of its events do. A section of its own
     // rather than the first filter, because it judges Home Assistant rather than the events.
-    // Edited in Home Assistant's own Visibility editor where it is available (`element.ts`,
-    // `splitAtVisibility`), and as YAML where it is not: its conditions nest where no form here
+    // Edited in Home Assistant's own Visibility editor where it is available (`element.ts` ›
+    // `_renderVisibility`), and as YAML where it is not: its conditions nest where no form here
     // can follow.
-    heading('heading_visibility'),
     { name: VISIBILITY, selector: { object: {} } },
-    heading('heading_filters'),
+    // With the conditions, as the other half of who sees what: whether the events show, then
+    // what everyone who sees them reads of them.
+    bool('private'),
     choice(ctx.language, 'days_of_week'),
     choice(ctx.language, 'event_type'),
     { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
@@ -430,7 +410,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // `replace_field` leads for `filter_field`'s reason one section up: it qualifies the two
     // below it rather than doing anything itself, and a reader who meets `Find` first has
     // already assumed it searches the title.
-    heading('heading_replace'),
     choice(ctx.language, 'replace_field'),
     text('replace_pattern'),
     text('replace_with'),
@@ -438,7 +417,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // Both answer how a multi-day event is drawn: across the days of a list or columns, and
     // in the time grid. Split first, as on the card-level Multi-Day section, where the grid's
     // switch also follows it.
-    heading('heading_multiday'),
     choice(ctx.language, 'split_multiday_events'),
     choice(ctx.language, 'multiday_banners'),
 
@@ -446,7 +424,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // at all, for the same coarse-to-fine reason: whether the row appears, then what it
     // carries. Appending it after `show_description` would separate it from the only
     // option it means anything alongside.
-    heading('heading_details'),
     choice(ctx.language, 'show_time'),
     choice(ctx.language, 'show_location'),
     { name: 'location_icon', selector: { icon: {} } },
@@ -465,20 +442,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
  * @returns The field
  */
 function accentColorMode(language: string): SelectorSchema {
-  return {
-    name: ACCENT_COLOR_MODE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: ACCENT_COLOR_MODES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${ACCENT_COLOR_MODE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, ACCENT_COLOR_MODE, ACCENT_COLOR_MODES, `entity.${ACCENT_COLOR_MODE}`);
 }
 
 /**
@@ -488,20 +452,7 @@ function accentColorMode(language: string): SelectorSchema {
  * @returns The field
  */
 function labelImageSource(language: string): SelectorSchema {
-  return {
-    name: LABEL_IMAGE_SOURCE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_IMAGE_SOURCES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${LABEL_IMAGE_SOURCE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_IMAGE_SOURCE, LABEL_IMAGE_SOURCES, `entity.${LABEL_IMAGE_SOURCE}`);
 }
 
 /**
@@ -511,20 +462,7 @@ function labelImageSource(language: string): SelectorSchema {
  * @returns The field
  */
 function labelIconSource(language: string): SelectorSchema {
-  return {
-    name: LABEL_ICON_SOURCE,
-    selector: {
-      select: {
-        mode: 'dropdown',
-        options: LABEL_ICON_SOURCES.map((value) => ({
-          value,
-          label:
-            lookup(language, `entity.${LABEL_ICON_SOURCE}.option.${value}.label`) ??
-            humanize(value),
-        })),
-      },
-    },
-  };
+  return select(language, LABEL_ICON_SOURCE, LABEL_ICON_SOURCES, `entity.${LABEL_ICON_SOURCE}`);
 }
 
 /**
@@ -593,20 +531,4 @@ export function entitySchemaFor(
     inserted = true;
     return labelFields(type, iconSourceField, iconSource, imageSourceField, imageSource);
   });
-}
-
-/**
- * A calendar's schema split around its visibility conditions, which `element.ts` hands to Home
- * Assistant's own Visibility editor rather than to the YAML box, where that editor is available.
- *
- * @param schema - The schema the calendar renders, after filtering
- * @returns The nodes before the conditions, the Visibility heading among them, and the nodes
- *   after; undefined where filtering left the conditions out
- */
-export function splitAtVisibility(
-  schema: ReadonlyArray<HaFormSchema>,
-): { before: HaFormSchema[]; after: HaFormSchema[] } | undefined {
-  const index = schema.findIndex((node) => node.name === VISIBILITY);
-  if (index < 0) return undefined;
-  return { before: schema.slice(0, index), after: schema.slice(index + 1) };
 }

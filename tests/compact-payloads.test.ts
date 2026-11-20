@@ -14,9 +14,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   EDITOR_TRANSLATION_GLOB,
+  collapseTemplateWhitespace,
   compactDayjsLocales,
   compactEditorStrings,
   editorDecoderSource,
+  frontCodeKeys,
   parseEditorTranslation,
   parseEnglishStrings,
   trimDayjsLocaleFields,
@@ -169,7 +171,7 @@ describe('Day.js source API guard', () => {
     const code = readFileSync(join(process.cwd(), 'src/translations/dayjs.ts'), 'utf8');
     const imports = validateDayjsUsage(code, 'dayjs.ts');
     expect(imports).toContain('dayjs/plugin/relativeTime');
-    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(37);
+    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(38);
     expect(() =>
       validateDayjsUsage(
         source('const target=dayjs(date).locale(locale);return target.from(dayjs(date));'),
@@ -391,7 +393,7 @@ describe('fail-closed locale trimming', () => {
       },
     });
     const payloads = watched.filter((file) => /dayjs[/\\]locale[/\\].+\.js$/.test(file));
-    expect(payloads).toHaveLength(37);
+    expect(payloads).toHaveLength(38);
     expect(watched).toContain(join(process.cwd(), 'src/calendar-card-pro.ts'));
     expect(watched).toContain(join(process.cwd(), 'src'));
     for (const file of payloads) {
@@ -492,7 +494,9 @@ describe('real Rollup builds and cache invalidation', () => {
     await expect(rollup({ input: entry, plugins, cache })).rejects.toThrow(
       'Unsupported Day.js instance API format',
     );
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   function setup() {
     const root = fixtures();
@@ -729,5 +733,59 @@ describe('real Rollup builds and cache invalidation', () => {
   it('keeps the JSON exclusion narrow and never wraps another plugin by generated-code sniffing', () => {
     expect(EDITOR_TRANSLATION_GLOB).toBe('**/src/rendering/editor/translations/*.json');
     expect(dirname(require.resolve('@rollup/plugin-json'))).toContain('@rollup/plugin-json');
+  });
+});
+
+describe('front-coded key vector', () => {
+  it('round-trips nested, numeric and single-segment keys through the emitted decoder', () => {
+    const keys = [
+      'a',
+      'grid.slot_minutes.option.15.label',
+      'grid.slot_minutes.option.20.label',
+      'grid.title',
+      'z.y',
+    ];
+    expect(frontCodeKeys(keys)).toEqual([
+      'a',
+      'grid.slot_minutes.option.15.label',
+      '320.label',
+      '1title',
+      'z.y',
+    ]);
+    const decode = runInNewContext(editorDecoderSource(keys).replace('export default', 'decode='));
+    expect(Object.keys(decode(keys.map((_, i) => String(i))))).toEqual(keys);
+  });
+
+  it('fails closed on a key the one-digit prefix cannot carry', () => {
+    expect(() => frontCodeKeys(['1st.label'])).toThrow(/front-coding/);
+  });
+});
+
+describe('editor template whitespace', () => {
+  const run = (code: string) => collapseTemplateWhitespace(code, 'probe.ts');
+
+  it('collapses line-spanning runs in html text and tags, leaving one-line spacing alone', () => {
+    const code = 'html`<div\n    class="a">\n      <b>x</b> <i>y</i>\n    ${v}\n  </div>`';
+    expect(run(code)).toBe('html`<div class="a"> <b>x</b> <i>y</i> ${v} </div>`');
+  });
+
+  it('keeps quoted attribute values and no-break spaces as written', () => {
+    const code = 'html`<p title="one\n  two" data-x=\'a\n b\'>\u00a0\n  z</p>`';
+    expect(run(code)).toBe('html`<p title="one\n  two" data-x=\'a\n b\'>\u00a0 z</p>`');
+  });
+
+  it('carries attribute state across interpolations and leaves comments alone', () => {
+    const code = 'html`<p class="${a}\n  b">\n<!-- x\n y -->\n</p>`';
+    expect(run(code)).toBe('html`<p class="${a}\n  b"> <!-- x\n y --> </p>`');
+  });
+
+  it('tightens css around braces and semicolons and keeps a combinator as one space', () => {
+    const code = "css`\n  .a\n  .b {\n    color: red;\n    content: 'x\n y';\n  }\n`";
+    expect(run(code)).toBe("css`.a .b {color: red;content: 'x\n y';}`");
+  });
+
+  it('touches nothing outside html and css tagged templates', () => {
+    expect(run('const a = `x\n  y`;')).toBeNull();
+    expect(run('svg`<g>\n  </g>`; html`<p>x</p>`')).toBeNull();
   });
 });

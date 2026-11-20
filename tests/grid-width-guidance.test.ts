@@ -33,7 +33,7 @@ describe('the default three-day Grid width guidance', () => {
     (language) => {
       const helper = lookup(language, 'time_grid.min_day_width.helper');
       const widths = [...(helper?.matchAll(/(\d+)px/g) ?? [])].map((match) => Number(match[1]));
-      expect(widths).toEqual([100, requiredWidth, entryWidth]);
+      expect(widths).toEqual([100, requiredWidth]);
     },
   );
 

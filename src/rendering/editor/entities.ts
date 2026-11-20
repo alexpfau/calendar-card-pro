@@ -25,7 +25,7 @@ import { configuredCalendarName } from '../../utils/calendar-names';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
-import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictures';
+import { firstPersonEntityId, isPersonEntityId, personPicture } from '../../utils/person-pictures';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show', 'text_scale']);
 
@@ -79,8 +79,8 @@ const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
  * @param key - Config key
  * @returns `true` for an option the calendar has once
  */
-function isCalendarOption(key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(CALENDAR_OPTIONS, key);
+export function isCalendarOption(key: string): boolean {
+  return Helpers.hasOwn(CALENDAR_OPTIONS, key);
 }
 
 /**
@@ -109,6 +109,9 @@ const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set([
  * `clearCopiedSettings()` exists for tests, which would otherwise leak this between cases.
  */
 let clipboard: Types.EntityConfig | undefined;
+
+/** The name of the calendar entry the clipboard was copied from, for Paste's "From Ben". */
+let copiedFromName: string | undefined;
 
 /**
  * Where one calendar sits among the blocks configuring that same calendar.
@@ -190,17 +193,14 @@ export function occurrenceOf(
  * Adds a second block for one calendar, carrying the first one's settings.
  *
  * Home Assistant's entity picker will not do this: it merges the current value into its
- * own exclusions, ignores a duplicate added through it, and deletes the row outright when
- * an existing one is pointed at a calendar already in the list. There is no opt-out in the
- * selector, so the only way to reach a pattern the card documents — one calendar with two
- * sets of settings, split by `event_type` — is to write the configuration directly.
- *
- * The picker is therefore not asked to represent blocks at all: it lists each calendar
- * once and decides only which calendars the card shows. See `SYNTHETIC_FIELDS.calendars`.
+ * own exclusions, and ignores a duplicate added through it. So the only way to reach a
+ * pattern the card documents — one calendar with two sets of settings, split by
+ * `event_type` — is to write the configuration directly, which the calendar list's
+ * Duplicate does (`calendar-list.ts` › `duplicateEntry`).
  *
  * The copy is inserted next to its source rather than appended, so it appears where the
- * user was looking, and because the picker now moves a calendar's blocks as a group there
- * is nothing to be gained by separating them.
+ * user was looking, and because the list keeps a calendar's entries together there is
+ * nothing to be gained by separating them.
  *
  * A spread is a complete copy because `EntityConfig` is flat — every option on it is a
  * string, number or boolean. An option holding an array or an object would need a deeper
@@ -268,6 +268,36 @@ export function removeEntity(
 }
 
 /**
+ * Deletes options from one block of a calendar, as a Reset does: the block's own lines go, and an
+ * option the calendar has once ({@link CALENDAR_OPTIONS}) goes from every block of the calendar,
+ * as {@link writeEntity} writes it, so no other block is left deciding it.
+ *
+ * @param entities - The list as stored
+ * @param index - Position of the block being reset
+ * @param keys - Configuration keys to delete
+ * @returns A new list; a block that held none of the keys is the same object
+ */
+export function resetEntry(
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+  index: number,
+  keys: ReadonlyArray<string>,
+): Array<string | Types.EntityConfig> {
+  if (index < 0 || index >= entities.length) return [...entities];
+
+  const id = entityIdOf(entities[index]);
+  const shared = keys.filter(isCalendarOption);
+  return entities.map((entry, at) => {
+    const own = at === index ? keys : id !== '' && entityIdOf(entry) === id ? shared : [];
+    if (typeof entry !== 'object' || entry === null || !own.some((key) => key in entry)) {
+      return entry;
+    }
+    const next: Record<string, unknown> = { ...entry };
+    for (const key of own) delete next[key];
+    return next as unknown as Types.EntityConfig;
+  });
+}
+
+/**
  * Reads one entry of the `entities` array as an object.
  *
  * @param entry - Entry as stored, either a bare id or a settings object
@@ -330,6 +360,49 @@ export function showsLocation(
 export function labelTypeOf(entry: string | Types.EntityConfig): string {
   const config = asEntityConfig(entry);
   return Helpers.resolveLabelType(config.label, config.label_type);
+}
+
+/**
+ * The fields whose helper speaks of one of their values, by that value: the helper shows only
+ * while the field holds it, so Label Type's note on image paths never sits under "Text or Emoji".
+ */
+export const HELPER_FOR_VALUE: Readonly<Record<string, string>> = {
+  label_type: 'image',
+  label_icon_source: 'home_assistant',
+  label_image_source: 'person',
+};
+
+/**
+ * The label the card draws for one entry, with what Home Assistant holds substituted for the
+ * value that stands in for it: its icon for the `home-assistant` sentinel, a person's picture
+ * for a `person.…` id. A mirror of `utils/events.ts` › `resolveEntityLabel`, read from the entry
+ * itself rather than from the first entry of its calendar; importing that module would put the
+ * card's event pipeline into the editor. `tests/editor-calendar-labels.test.ts` holds the two
+ * to the same answers.
+ *
+ * @param entry - Entry as stored
+ * @param hass - Home Assistant, which holds the icon and the picture
+ * @returns The label and the shape it is drawn as, or `undefined` where the card draws none
+ */
+export function resolvedLabel(
+  entry: string | Types.EntityConfig,
+  hass?: Types.Hass | null,
+): { readonly value: string; readonly type: 'text' | 'icon' | 'image' } | undefined {
+  const config = asEntityConfig(entry);
+  const label = config.label;
+  const followsIcon = isEntityIconSentinel(label);
+  const followsPerson = isPersonEntityId(label);
+  const declared = config.label_type;
+  const value =
+    (!followsIcon && !followsPerson) ||
+    (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image'))
+      ? label
+      : followsPerson
+        ? personPicture(label, hass)
+        : entityIcon(config.entity, hass);
+  if (!value) return undefined;
+  const type = Helpers.resolveLabelType(value, declared);
+  return type === 'none' ? undefined : { value, type };
 }
 
 /**
@@ -759,11 +832,22 @@ function transferableSettings(entry: string | Types.EntityConfig): Types.EntityC
  * clears the calendar it lands on.
  *
  * @param entry - Entry as stored
+ * @param from - What the entry is called, for Paste to say where its settings came from
  */
-export function copySettings(entry: string | Types.EntityConfig): void {
+export function copySettings(entry: string | Types.EntityConfig, from?: string): void {
   if (!hasTransferableSettings(entry)) return;
 
   clipboard = transferableSettings(entry);
+  copiedFromName = from;
+}
+
+/**
+ * What the entry the clipboard holds was called when it was copied.
+ *
+ * @returns Its name, or `undefined` when nothing has been copied or it was copied unnamed
+ */
+export function copiedFrom(): string | undefined {
+  return clipboard === undefined ? undefined : copiedFromName;
 }
 
 /**
@@ -780,6 +864,7 @@ export function copiedSettings(): Types.EntityConfig | undefined {
  */
 export function clearCopiedSettings(): void {
   clipboard = undefined;
+  copiedFromName = undefined;
 }
 
 /**

@@ -7,7 +7,9 @@
  * switcher, add, refresh, search and the calendar filter as a menu. Reset is off, since it is
  * for a screen several people share. Search, the first control added after v5, is on, by the
  * maintainer's choice (backlog item 182), and drawn only beside the date navigation a match
- * needs to open its day. The configuration's own
+ * needs to open its day. The controls beside the month are drawn at their usual size unless
+ * `size: large` asks for them as large as the action row's buttons, for a touch screen. The
+ * configuration's own
  * buttons are a list, empty unless it writes some, and read entry by entry: one that cannot be
  * drawn as written is left out.
  */
@@ -17,8 +19,11 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CONFIG,
   TOOLBAR_LEGEND_VALUES,
+  TOOLBAR_SIZE_VALUES,
   resolveToolbar,
+  switcherOffers,
   undrawableToolbarButtons,
+  unknownSwitcherViews,
 } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { workspaceFormData } from '../src/rendering/editor/routing';
@@ -30,10 +35,12 @@ const DEFAULTS = {
   navigation: true,
   addEvent: true,
   viewSwitcher: true,
+  switcherViews: ['list', 'column', 'grid', 'month'],
   reset: false,
   refresh: true,
   search: true,
   legend: 'menu',
+  size: 'normal',
   buttons: [],
 };
 
@@ -44,10 +51,12 @@ describe('the toolbar configuration', () => {
       navigation: true,
       add_event: true,
       view_switcher: true,
+      view_switcher_layouts: ['list', 'column', 'grid', 'month'],
       reset: false,
       refresh: true,
       search: true,
       legend: 'menu',
+      size: 'normal',
       buttons: [],
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);
@@ -57,8 +66,18 @@ describe('the toolbar configuration', () => {
     expect(TOOLBAR_LEGEND_VALUES).toEqual([false, 'menu', 'chips']);
   });
 
+  it('draws the controls beside the month at their usual size, or as large as the buttons above', () => {
+    expect(TOOLBAR_SIZE_VALUES).toEqual(['normal', 'large']);
+    expect(resolveToolbar({ toolbar: { show: true, size: 'large' } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      size: 'large',
+    });
+  });
+
   it('reads a partly written block member by member', () => {
     expect(resolveToolbar({ toolbar: { show: true } })).toEqual({ ...DEFAULTS, show: true });
+    // Off keeps the layouts it would offer, as a hidden bar keeps its controls.
     expect(resolveToolbar({ toolbar: { show: true, view_switcher: false } })).toEqual({
       ...DEFAULTS,
       show: true,
@@ -108,16 +127,121 @@ describe('the toolbar configuration', () => {
       toolbar: {
         show: 'true',
         add_event: 0,
-        view_switcher: null,
+        view_switcher: ['list', 'month'],
+        view_switcher_layouts: 'month',
         navigation: 'yes',
         reset: 'yes',
         refresh: 'on',
         search: 1,
         legend: 1,
+        size: true,
       },
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);
+  });
+
+  describe('the layouts the switcher offers', () => {
+    const offered = (toolbar: Record<string, unknown>) => {
+      const { viewSwitcher, switcherViews } = resolveToolbar({
+        toolbar: { show: true, ...toolbar } as Types.ToolbarConfig,
+      });
+      return { viewSwitcher, switcherViews };
+    };
+
+    // Two options, never one value: `view_switcher` alone turns the switcher on or off, and a
+    // list in `view_switcher_layouts` never does.
+    it.each([
+      ['nothing written, every layout', {}, true, ['list', 'column', 'grid', 'month']],
+      ['the switcher on', { view_switcher: true }, true, ['list', 'column', 'grid', 'month']],
+      ['the switcher off', { view_switcher: false }, false, ['list', 'column', 'grid', 'month']],
+      [
+        'the switcher off with a list, which it keeps',
+        { view_switcher: false, view_switcher_layouts: ['month'] },
+        false,
+        ['month'],
+      ],
+      [
+        'a list, in the layouts’ own order',
+        { view_switcher_layouts: ['month', 'list'] },
+        true,
+        ['list', 'month'],
+      ],
+      ['a list of one', { view_switcher_layouts: ['grid'] }, true, ['grid']],
+      [
+        'a list naming a layout twice, once',
+        { view_switcher_layouts: ['grid', 'grid', 'list'] },
+        true,
+        ['list', 'grid'],
+      ],
+      [
+        'a list with members that name no layout, without them',
+        { view_switcher_layouts: ['grid', 'Month', 'week', 3, null] },
+        true,
+        ['grid'],
+      ],
+      ['an empty list, as none, with the switch still on', { view_switcher_layouts: [] }, true, []],
+      [
+        'a list naming no layout at all, as none',
+        { view_switcher_layouts: ['week', 'agenda'] },
+        true,
+        [],
+      ],
+      [
+        'a list of another kind, as the default',
+        { view_switcher_layouts: 'month' },
+        true,
+        ['list', 'column', 'grid', 'month'],
+      ],
+      [
+        'the list form `view_switcher` took during Month’s development, as the default',
+        { view_switcher: ['list', 'month'] },
+        true,
+        ['list', 'column', 'grid', 'month'],
+      ],
+    ] as const)('reads %s', (_name, toolbar, viewSwitcher, switcherViews) => {
+      expect(offered(toolbar)).toEqual({ viewSwitcher, switcherViews });
+    });
+
+    const offers = (view: Types.EffectiveView, toolbar: Record<string, unknown>) =>
+      switcherOffers({ view, toolbar: toolbar as Types.ToolbarConfig });
+
+    it('offers the starting layout and the listed ones, two at least, while it is drawn', () => {
+      expect(offers('list', { show: true })).toEqual(['list', 'column', 'grid', 'month']);
+      // The starting layout is offered whether the list names it or not.
+      expect(offers('grid', { show: true, view_switcher_layouts: ['list', 'month'] })).toEqual([
+        'list',
+        'grid',
+        'month',
+      ]);
+      expect(offers('month', { show: true, view_switcher_layouts: ['list'] })).toEqual([
+        'list',
+        'month',
+      ]);
+      // One layout, the starting one alone, draws no switcher, and nor does an empty list.
+      expect(offers('month', { show: true, view_switcher_layouts: ['month'] })).toEqual([]);
+      expect(offers('list', { show: true, view_switcher_layouts: [] })).toEqual([]);
+      expect(offers('list', { show: true, view_switcher_layouts: ['week'] })).toEqual([]);
+      // Off, or with the bar hidden, it offers none, whatever the list says.
+      expect(offers('list', { show: true, view_switcher: false })).toEqual([]);
+      expect(offers('list', { show: false, view_switcher_layouts: ['list', 'month'] })).toEqual([]);
+    });
+
+    it('names each member it leaves out, as written, and no other', () => {
+      expect(
+        unknownSwitcherViews({
+          toolbar: { view_switcher_layouts: ['grid', 'Month', 'week', 3, 'grid'] },
+        } as never),
+      ).toEqual(['Month', 'week', 3]);
+      expect(unknownSwitcherViews({ toolbar: { view_switcher: true } })).toEqual([]);
+      expect(
+        unknownSwitcherViews({ toolbar: { view_switcher_layouts: ['list', 'month'] } }),
+      ).toEqual([]);
+      expect(
+        unknownSwitcherViews({ toolbar: { view_switcher_layouts: 'month' } } as never),
+      ).toEqual([]);
+      expect(unknownSwitcherViews({ toolbar: null } as never)).toEqual([]);
+    });
   });
 
   it('has no switch for labels: which control is an icon and which is words is fixed', () => {
@@ -142,6 +266,17 @@ describe('the toolbar configuration', () => {
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>).legend).toBe('menu');
   });
+
+  it.each([
+    ['true, which names no size', true],
+    ['an unknown size', 'huge'],
+    ['a size in the wrong case', 'Large'],
+    ['a number', 1.5],
+  ])('reads a size of %s as the default, normal', (_name, size) => {
+    const config = { toolbar: { show: true, size } };
+
+    expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>).size).toBe('normal');
+  });
 });
 
 describe('the toolbar block the editor shows', () => {
@@ -151,7 +286,15 @@ describe('the toolbar block the editor shows', () => {
     const changed = Object.fromEntries(
       Object.entries(DEFAULT_CONFIG.toolbar as Record<string, unknown>).map(([key, value]) => [
         key,
-        key === 'legend' ? 'chips' : key === 'buttons' ? [{ icon: 'mdi:arrow-left' }] : !value,
+        key === 'legend'
+          ? 'chips'
+          : key === 'size'
+            ? 'large'
+            : key === 'buttons'
+              ? [{ icon: 'mdi:arrow-left' }]
+              : key === 'view_switcher_layouts'
+                ? ['list', 'month']
+                : !value,
       ]),
     );
     const block = toolbarFormBlock({ ...DEFAULT_CONFIG, toolbar: changed } as Types.Config);
@@ -167,9 +310,24 @@ describe('the toolbar block the editor shows', () => {
         'reset',
         'search',
         'show',
+        'size',
         'view_switcher',
+        'view_switcher_layouts',
       ].sort(),
     );
+  });
+
+  it('shows the layouts the switcher offers, the starting one among them', () => {
+    const layouts = (view: Types.EffectiveView, toolbar: Types.ToolbarConfig) =>
+      toolbarFormBlock({ ...DEFAULT_CONFIG, view, toolbar } as Types.Config).view_switcher_layouts;
+
+    expect(layouts('list', { show: true })).toEqual(['list', 'column', 'grid', 'month']);
+    expect(layouts('grid', { show: true, view_switcher_layouts: ['month', 'list'] })).toEqual([
+      'list',
+      'grid',
+      'month',
+    ]);
+    expect(layouts('month', { show: true, view_switcher_layouts: [] })).toEqual(['month']);
   });
 
   it('shows the legend off as the word its dropdown offers, since a dropdown holds strings', () => {

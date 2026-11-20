@@ -17,6 +17,10 @@
   "viewList": "Lista",
   "viewColumns": "Colunas",
   "viewGrid": "Grade",
+  "viewMonth": "Mês",
+  "moreEvents": "+{count} mais",
+  "eventCount": "{count} eventos",
+  "eventCountOne": "{count} evento",
   "endsToday": "termina hoje",
   "endsTomorrow": "termina amanhã",
   "dayOfEvent": "Dia {day} de {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Não foi possível carregar:",
   "newEvent": "Novo evento",
   "showAll": "Mostrar todos",
-  "hideAll": "Ocultar todos"
+  "hideAll": "Ocultar todos",
+  "private": "Privado"
 }

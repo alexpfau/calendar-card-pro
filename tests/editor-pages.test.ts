@@ -1,0 +1,552 @@
+/**
+ * The overview and its pages as the editor draws them: the overview's blocks in order, Settings
+ * For compact or full, the named radio groups, Quick Setup's banner, focus across a move, the
+ * Escape guard, and a stylesheet that pins nothing in place.
+ *
+ * The predicates behind these are tested without a DOM in `editor-overview.test.ts`,
+ * `editor-navigation.test.ts` and `editor-escape.test.ts`; this file holds the element to them.
+ */
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { declarations } from './helpers/css-declarations';
+import {
+  type MountedEditor,
+  changeField,
+  editLayout,
+  formOf,
+  goOverview,
+  goPage,
+  lastConfig,
+  mountEditor,
+  openPageOf,
+  resultRows,
+  unfoldAll,
+} from './helpers/editor-host';
+import * as Config from '../src/config/config';
+import styles from '../src/rendering/editor/styles';
+
+const CARD = {
+  config_version: Config.CURRENT_CONFIG_VERSION,
+  entities: ['calendar.anna'],
+  title: 'Family',
+};
+
+afterEach(() => document.body.replaceChildren());
+
+/**
+ * One element the editor draws, or null.
+ *
+ * @param editor - Editor element
+ * @param selector - Selector
+ * @returns The element
+ */
+function $(editor: MountedEditor, selector: string): HTMLElement | null {
+  return editor.shadowRoot!.querySelector<HTMLElement>(selector);
+}
+
+/**
+ * Clicks a control the editor draws, then waits for what it opens.
+ *
+ * @param editor - Editor element
+ * @param selector - The control
+ */
+async function click(editor: MountedEditor, selector: string): Promise<void> {
+  const control = $(editor, selector);
+  if (control === null) throw new Error(`The editor draws no ${selector}`);
+  control.click();
+  await editor.updateComplete;
+  // Focus moves once the move has rendered (`_afterMove`).
+  await editor.updateComplete;
+}
+
+/**
+ * Presses Escape where focus is, as a keyboard does, and reports what the editor did with it.
+ *
+ * @param editor - Editor element
+ * @param from - The element the key is pressed on
+ * @returns Whether the editor consumed it, and whether it reached the editor's host
+ */
+async function escape(
+  editor: MountedEditor,
+  from: Element,
+): Promise<{ prevented: boolean; reachedHost: boolean }> {
+  let reachedHost = false;
+  const listen = (): void => {
+    reachedHost = true;
+  };
+  editor.addEventListener('keydown', listen);
+  const event = new KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+  });
+  from.dispatchEvent(event);
+  editor.removeEventListener('keydown', listen);
+  await editor.updateComplete;
+  await editor.updateComplete;
+  return { prevented: event.defaultPrevented, reachedHost };
+}
+
+describe('the overview', () => {
+  it('draws its blocks in order: Calendars, Whole Card, Layouts, More', async () => {
+    const editor = await mountEditor(CARD);
+    const blocks = [
+      'section[data-heading="calendars"]',
+      '.row-group > h3',
+      '.row-group [data-focus="nav:card_header"]',
+      '.row-group [data-focus="nav:events_weather_language"]',
+      '.row-group [data-focus="nav:taps_refresh"]',
+      'section[data-heading="starting_layout"] > h3',
+      'section[data-heading="starting_layout"] fieldset.layouts',
+      'section[data-heading="starting_layout"] [data-focus="layout:shared"]',
+      '[data-quick-setup-open]',
+    ].map((selector) => {
+      const found = $(editor, selector);
+      expect(found, selector).not.toBeNull();
+      return found!;
+    });
+    blocks.slice(1).forEach((block, at) => {
+      expect(
+        blocks[at].compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${at} before ${at + 1}`,
+      ).toBeTruthy();
+    });
+  });
+
+  it('names its radio group, each option with a value', async () => {
+    const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
+    // Starting Layout; Start Date's chips are on Which Events.
+    for (const name of ['view']) {
+      const radios = [
+        ...editor.shadowRoot!.querySelectorAll<HTMLInputElement>(`input[type="radio"]`),
+      ].filter((radio) => radio.name === name);
+      expect(radios.length, name).toBeGreaterThan(1);
+      expect(radios.every((radio) => radio.value !== '')).toBe(true);
+      expect(radios.filter((radio) => radio.checked)).toHaveLength(1);
+      expect(radios.every((radio) => radio.closest('fieldset')?.querySelector('legend'))).toBe(
+        true,
+      );
+    }
+    expect(
+      [...editor.shadowRoot!.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every(
+        (radio) => ['scope', 'view'].includes(radio.name),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('the search field', () => {
+  it('stays the same element, so it keeps focus, as a query starts and clears', async () => {
+    const editor = await mountEditor(CARD);
+    const search = (): Element =>
+      editor.shadowRoot!.querySelector('[data-field="filter:search"], ha-form.filter-form') ??
+      formOf(editor, 'filter:search')!;
+    const field = search();
+    expect(field.isConnected).toBe(true);
+
+    await changeField(editor, 'filter:search', 'c');
+    expect($(editor, '[data-focus^="nav:"]')).toBeNull();
+    expect(search()).toBe(field);
+    expect(field.isConnected).toBe(true);
+
+    await changeField(editor, 'filter:search', '');
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+    expect(search()).toBe(field);
+    expect(field.isConnected).toBe(true);
+  });
+});
+
+describe('a search by a page’s title', () => {
+  it.each(['shared', 'list', 'column', 'grid'])(
+    'lists every field of every page the overview lists, by the title it shows, in %s',
+    async (scope) => {
+      const editor = await mountEditor(CARD);
+      await editLayout(editor, scope);
+      await goOverview(editor);
+      // Whole Card's rows on the overview, then the topics the scope's page lists.
+      const read = () =>
+        [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="nav:"]')].map(
+          (row) => ({
+            page: row.dataset.focus!.slice('nav:'.length),
+            title: row.querySelector('.nav-title')!.textContent!.trim(),
+          }),
+        );
+      const rows = read();
+      await click(editor, `[data-focus="layout:${scope}"]`);
+      rows.push(...read());
+      await goOverview(editor);
+      expect(rows.length).toBeGreaterThan(5);
+      const missed: string[] = [];
+      for (const { page, title } of rows) {
+        await goPage(editor, page);
+        const drawn = [...editor.shadowRoot!.querySelectorAll('[data-field]')].map((field) =>
+          field.getAttribute('data-field')!,
+        );
+        await changeField(editor, 'filter:search', title);
+        const listed = resultRows(editor).map((row) => row.id);
+        if (drawn.length === 0) missed.push(`${page} draws no field`);
+        for (const id of drawn.filter((each) => !listed.includes(each))) {
+          missed.push(`${id} by "${title}"`);
+        }
+        await changeField(editor, 'filter:search', '');
+      }
+      expect(missed).toEqual([]);
+    },
+  );
+});
+
+describe('a layout’s own settings', () => {
+  it('are a page per layout, each listing the same topics', async () => {
+    const editor = await mountEditor({ ...CARD, view: 'grid' });
+    const listed = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.layout-page .nav-row')].map(
+        (row) => row.dataset.focus,
+      );
+    await click(editor, '[data-focus="layout:grid"]');
+    const grid = listed();
+    expect(grid).toEqual([
+      'nav:which_events',
+      'nav:day_header',
+      'nav:events',
+      'nav:size_spacing',
+      'nav:weather',
+    ]);
+    await goOverview(editor);
+    await click(editor, '[data-focus="layout:month"]');
+    expect(listed()).toEqual(grid);
+  });
+
+  it('are drawn on their topic’s page in their layout’s scope, and only there', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'month',
+      time_grid: { start_time: '06:00' },
+    });
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).toBeNull();
+    await editLayout(editor, 'grid');
+    await goPage(editor, 'which_events');
+    expect($(editor, '[data-heading="heading_hours"]')).not.toBeNull();
+    expect($(editor, '[data-field="layout:time_grid.start_time"]')).not.toBeNull();
+    // Grid's page says what the topic holds, in every layout alike.
+    await goOverview(editor);
+    await click(editor, '[data-focus="layout:grid"]');
+    expect($(editor, '[data-focus="nav:which_events"] .nav-summary')?.textContent).toBe(
+      'Date range, filters and empty days',
+    );
+  });
+});
+
+describe('Quick Setup’s banner', () => {
+  const FRESH = { config_version: Config.CURRENT_CONFIG_VERSION, entities: [] };
+
+  it('shows on a fresh card only', async () => {
+    expect($(await mountEditor(FRESH), '.quick-setup-banner')).not.toBeNull();
+    document.body.replaceChildren();
+    expect($(await mountEditor(CARD), '.quick-setup-banner')).toBeNull();
+  });
+
+  it('stays once a calendar is added, and goes on Dismiss', async () => {
+    const editor = await mountEditor(FRESH);
+    // Added as a user adds one: Add Calendar, a calendar chosen, Add; Add opens its page.
+    await click(editor, '[data-focus="add-calendar"]');
+    await changeField(editor, 'add_calendar:pick', 'calendar.anna');
+    await click(editor, '[data-focus="add-confirm"]');
+    expect(lastConfig(editor)?.entities).toEqual(['calendar.anna']);
+    await goOverview(editor);
+    expect($(editor, '.quick-setup-banner')).not.toBeNull();
+
+    await click(editor, `.quick-setup-entry .icon-button`);
+    expect($(editor, '.quick-setup-banner')).toBeNull();
+  });
+});
+
+describe('focus across a move', () => {
+  it('lands on the page’s heading after opening, and on its row after Back', async () => {
+    const editor = await mountEditor(CARD);
+    const row = '[data-focus="nav:card_header"]';
+    $(editor, row)!.focus();
+    await click(editor, row);
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, 'h2.page-title'));
+
+    await click(editor, '[data-focus="back-foot"]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, row));
+  });
+});
+
+describe('the Escape guard', () => {
+  it('goes Back from a page, and consumes the key', async () => {
+    const editor = await mountEditor(CARD);
+    await goPage(editor, 'card_header');
+    const result = await escape(editor, $(editor, 'h2.page-title')!);
+    expect(result).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, 'h2.page-title')).toBeNull();
+  });
+
+  it('goes Back from a layout’s topic to the layout’s page, then to the overview', async () => {
+    const editor = await mountEditor(CARD);
+    await goPage(editor, 'events');
+    expect(await escape(editor, $(editor, 'h2.page-title')!)).toEqual({
+      prevented: true,
+      reachedHost: false,
+    });
+    expect($(editor, '.page[data-layout]')).not.toBeNull();
+    await escape(editor, $(editor, 'h2.page-title')!);
+    expect($(editor, 'h2.page-title')).toBeNull();
+    expect(await escape(editor, $(editor, '[data-focus="nav:card_header"]')!)).toEqual({
+      prevented: false,
+      reachedHost: true,
+    });
+  });
+
+  it('clears the query, then goes Back, after Search Settings', async () => {
+    const editor = await mountEditor(CARD);
+    await goPage(editor, 'events');
+    await click(editor, '.page-head [data-focus="search-open"]');
+    expect($(editor, 'h2.page-title')).toBeNull();
+    await changeField(editor, 'filter:search', 'color');
+    const search = $(editor, 'ha-form.filter-form')!;
+
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '.page[data-page="events"]')).not.toBeNull();
+  });
+
+  it('contains a listbox’s Escape in a nested shadow root, and does nothing else', async () => {
+    const editor = await mountEditor(CARD);
+    await openPageOf(editor, 'events:event_font_size');
+    const frame = $(editor, '[data-field="events:event_font_size"]')!;
+    const host = document.createElement('div');
+    const listbox = document.createElement('div');
+    listbox.setAttribute('role', 'listbox');
+    host.attachShadow({ mode: 'open' }).append(listbox);
+    frame.append(host);
+
+    expect(await escape(editor, listbox)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, 'h2.page-title')).not.toBeNull();
+    host.remove();
+  });
+
+  it('clears a query on the overview, and puts focus back in the search field', async () => {
+    const editor = await mountEditor(CARD);
+    await changeField(editor, 'filter:search', 'color');
+    const search = $(editor, 'ha-form.filter-form')!;
+    expect(await escape(editor, search)).toEqual({ prevented: true, reachedHost: false });
+    expect($(editor, '[data-focus^="nav:"]')).not.toBeNull();
+    expect(editor.shadowRoot!.activeElement).toBe(search);
+  });
+
+  it('is Quick Setup’s Back, and Cancel on its first step', async () => {
+    const editor = await mountEditor(CARD);
+    await click(editor, '[data-quick-setup-open]');
+    await click(editor, '[data-story="family_hub"]');
+    await click(editor, '[data-quick-setup-next]');
+    const second = $(editor, '[data-quick-setup]')!.dataset.quickSetup;
+
+    expect(await escape(editor, $(editor, '[data-quick-setup-next]')!)).toEqual({
+      prevented: true,
+      reachedHost: false,
+    });
+    expect($(editor, '[data-quick-setup]')!.dataset.quickSetup).not.toBe(second);
+    expect($(editor, '[data-quick-setup]')!.dataset.quickSetup).toBe('story');
+
+    // On the first step, Cancel: the card as it was, the overview, focus on what opened it.
+    await escape(editor, $(editor, '[data-quick-setup-next]')!);
+    expect($(editor, '[data-quick-setup]')).toBeNull();
+    expect(lastConfig(editor) ?? CARD).toMatchObject({ title: 'Family' });
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-quick-setup-open]'));
+  });
+
+  it('reaches Quick Setup when a click focused nothing, as in Safari, and leaves Next focused', async () => {
+    const editor = await mountEditor(CARD);
+    // A click focuses no button here, as in Safari: focus is on nothing in the editor.
+    await click(editor, '[data-quick-setup-open]');
+    // The heading takes focus, and reads the step line as its description.
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-title'));
+    expect(
+      $(
+        editor,
+        `#${$(editor, '.quick-setup-title')!.getAttribute('aria-describedby')}`,
+      )!.textContent!.trim(),
+    ).toBe('Step 1 of 5: Starting Point');
+    await click(editor, '[data-story="family_hub"]');
+    (editor.shadowRoot!.activeElement as HTMLElement | null)?.blur();
+    await click(editor, '[data-quick-setup-next]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '.quick-setup-title'));
+
+    // A keyboard user on Next stays on Next.
+    $(editor, '[data-quick-setup-next]')!.focus();
+    await click(editor, '[data-quick-setup-next]');
+    expect(editor.shadowRoot!.activeElement).toBe($(editor, '[data-quick-setup-next]'));
+  });
+
+  it('lets the key through on the overview with nothing open', async () => {
+    const editor = await mountEditor(CARD);
+    expect(await escape(editor, $(editor, '[data-focus="nav:card_header"]')!)).toEqual({
+      prevented: false,
+      reachedHost: true,
+    });
+  });
+});
+
+describe('a nested field’s own data', () => {
+  /**
+   * Each field form’s data on the open page, by field id; the color controls and the controls the
+   * editor composes, chips among them, draw none.
+   *
+   * @param editor - Editor element
+   * @param prefix - The fields' id prefix
+   * @returns Each form's data object
+   */
+  function dataOf(editor: MountedEditor, prefix: string): Map<string, unknown> {
+    // A color control draws no form until its Custom text is open (`tests/editor-colors.test.ts`).
+    return new Map(
+      [
+        ...editor.shadowRoot!.querySelectorAll<HTMLElement>(
+          `[data-field^="${prefix}"]:not(.color-field):not([data-composed])`,
+        ),
+      ].map((frame) => [
+        frame.dataset.field!,
+        (frame.querySelector('ha-form') as { data?: unknown }).data,
+      ]),
+    );
+  }
+
+  it.each([
+    ['weather:weather.', 'weather:weather.date.font_size', '15px'],
+    // The toolbar's controls, once a second case here, are chips that hold no form.
+    ['weather:weather.', 'weather:weather.event.font_size', '13px'],
+  ] as const)('leaves every other %s form its very data on a write', async (prefix, id, value) => {
+    const editor = await mountEditor({
+      ...CARD,
+      weather: { entity: 'weather.home', position: 'both' },
+      toolbar: { show: true },
+    });
+    await openPageOf(editor, id);
+    await unfoldAll(editor);
+    const before = dataOf(editor, prefix);
+    expect(before.size).toBeGreaterThan(3);
+
+    await changeField(editor, id, value);
+    const after = dataOf(editor, prefix);
+    const renewed = [...after]
+      .filter(([field, data]) => before.get(field) !== data)
+      .map(([f]) => f);
+    expect(renewed).toEqual([id]);
+  });
+});
+
+describe('the stylesheet', () => {
+  it('pins nothing in place', () => {
+    const sticky = declarations(styles.cssText).filter(
+      ({ property, value }) => property === 'position' && /\bsticky\b/.test(value),
+    );
+    expect(declarations(styles.cssText).length).toBeGreaterThan(100);
+    expect(sticky).toEqual([]);
+  });
+
+  // A folded value takes at most 45% of its row, so a setting's name keeps the rest to wrap in.
+  it('caps a folded value at 45% of its row', () => {
+    const caps = declarations(styles.cssText)
+      .filter(
+        ({ selectors, property }) =>
+          property === 'max-width' && selectors.some((each) => /\.setting-value\b/.test(each)),
+      )
+      .map(({ at, selectors, value }) => ({ at, selectors, value }));
+    expect(caps).toEqual([{ at: [], selectors: ['.setting-value'], value: '45%' }]);
+  });
+
+  it('draws an inline text action’s fill as a pill inside its 44px target', () => {
+    const all = declarations(styles.cssText);
+    const inline = '.text-button:not(.filled, .add-action)';
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.text-button', 'min-height').map(({ value }) => value)).toEqual(['44px']);
+    expect(on(`${inline}::before`, 'inset').map(({ value }) => value)).toEqual(['6px 0']);
+    expect(on('.strip-button::before', 'inset').map(({ value }) => value)).toEqual(['6px 0']);
+    // The fill and the focus ring are the pill's, never the whole target's.
+    expect(on(`${inline}:hover:not(:disabled)`, 'background')).toEqual([]);
+    expect(on(`${inline}:hover:not(:disabled)::before`, 'background')).toHaveLength(1);
+    expect(on(`${inline}:focus-visible`, 'outline').map(({ value }) => value)).toEqual(['none']);
+    expect(on(`${inline}:focus-visible::before`, 'box-shadow')).toHaveLength(1);
+  });
+
+  // An "Also for" line names each layout by a link, and in Japanese two of them are one character
+  // each (列, 月): 12px wide side by side, so their 24px circles overlapped and the pair missed
+  // WCAG's 24px target. A link is that tall already; it is that wide too.
+  it('gives a link a 24px target across as well as down', () => {
+    // Every rule that sizes a link, so one under a condition, or another selector shrinking it
+    // again, fails as surely as a missing one.
+    const sizing = declarations(styles.cssText)
+      .filter(
+        ({ selectors, property }) =>
+          /^min-(width|height)$/.test(property) &&
+          selectors.some((each) => /\.link(?![\w-])[^\s>+~]*$/.test(each)),
+      )
+      .map(({ at, selectors, property, value }) => ({ at, selectors, property, value }));
+    expect(sizing).toEqual([
+      { at: [], selectors: ['.link'], property: 'min-height', value: '24px' },
+      { at: [], selectors: ['.link'], property: 'min-width', value: '24px' },
+    ]);
+  });
+});
+
+describe('the search row', () => {
+  it('moves its buttons under the field where the row is narrower than 340px', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.search-row', 'flex-wrap').map(({ value }) => value)).toEqual(['wrap']);
+    expect(on('.search-field', 'flex').map(({ value }) => value)).toEqual([
+      '1 1 calc((340px - 100%) * 999)',
+    ]);
+    expect(
+      on('.search-row .history-controls', 'margin-inline-start').map(({ value }) => value),
+    ).toEqual(['auto']);
+  });
+});
+
+describe('a page header', () => {
+  it('keeps Back and the title on its first row and its actions on a second, at every width', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.page-head', 'display').map(({ value }) => value)).toEqual(['grid']);
+    expect(on('.page-head', 'grid-template-columns').map(({ value }) => value)).toEqual([
+      '48px minmax(0, 1fr)',
+    ]);
+    expect(on('.head-actions', 'grid-column').map(({ value }) => value)).toEqual(['1 / -1']);
+    expect(on('.head-actions', 'justify-self').map(({ value }) => value)).toEqual(['end']);
+    // No width query brings the actions back beside the title.
+    expect(
+      all.filter(
+        (each) => each.at.length > 0 && /page-head|head-actions/.test(each.selectors.join()),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('a setting a gate withholds', () => {
+  it('says when it appears under its name, never where a value sits', () => {
+    const all = declarations(styles.cssText);
+    const on = (selector: string, property: string) =>
+      all.filter((each) => each.selectors.includes(selector) && each.property === property);
+    expect(on('.setting-gated', 'flex-direction').map(({ value }) => value)).toEqual(['column']);
+    expect(on('.setting-gated-when', 'text-align')).toEqual([]);
+    expect(on('.setting-gated-when', 'margin-inline-start')).toEqual([]);
+  });
+});
+
+describe('add actions', () => {
+  it('draw Add Calendar and Add Button as the same tonal pill', async () => {
+    const editor = await mountEditor({ ...CARD, toolbar: { show: true } });
+    expect($(editor, '[data-focus="add-calendar"]')!.classList.contains('add-action')).toBe(true);
+    await goPage(editor, 'card_header');
+    const add = $(editor, 'button.add-button');
+    expect(add, 'Add Button').not.toBeNull();
+    expect(add!.classList.contains('add-action')).toBe(true);
+  });
+});

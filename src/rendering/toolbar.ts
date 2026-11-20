@@ -248,6 +248,11 @@ export interface HeaderToolbar {
    * tooltip. The commands are icons either way.
    */
   labeled?: boolean;
+  /**
+   * Whether the heading row draws its date navigation and chips nearly as large as the action
+   * row's buttons (`toolbar.size: large`), for a touch screen. They are smaller otherwise.
+   */
+  large?: boolean;
   /** The month heading, which the heading row carries whenever the toolbar is drawn. */
   heading?: MonthHeading;
   /** Previous, home and next beside the month, which then opens a date picker. */
@@ -320,6 +325,7 @@ export const VIEW_LABEL_KEYS = {
   list: 'viewList',
   column: 'viewColumns',
   grid: 'viewGrid',
+  month: 'viewMonth',
 } as const satisfies Record<Types.EffectiveView, keyof Types.Translations>;
 
 //-----------------------------------------------------------------------------
@@ -327,7 +333,8 @@ export const VIEW_LABEL_KEYS = {
 //-----------------------------------------------------------------------------
 
 /**
- * Keep a press on a toolbar control from also becoming a press on the card.
+ * Keep a press on a toolbar control from also becoming a press on the card. Month view's
+ * "+N more" keeps its presses the same way.
  *
  * Only the controls keep their presses: each button, and the two groups drawn as one, the view
  * switcher's track and the date arrows, whose gaps are a near miss rather than room. The rows
@@ -344,7 +351,7 @@ export const VIEW_LABEL_KEYS = {
  *
  * @param ev - The event to keep inside the control
  */
-function stopCardGesture(ev: Event): void {
+export function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
 }
 
@@ -1262,8 +1269,9 @@ function renderActionRow(
  *
  * The title and the month are one block, the title a small label over the month, so a long
  * title wraps within it and the controls beside it never move. Those controls are smaller than
- * the action row's and centered on the month's capitals, so they read as level with its words
- * rather than raised above them. The arrows keep to the row's end in every layout, so a press on
+ * the action row's, unless `toolbar.size` is `large`, and centered on the month's capitals, so
+ * they read as level with its words rather than raised above them. The arrows keep to the row's
+ * end in every layout, so a press on
  * next lands on the same spot page after page however long each month's name is. The chips sit
  * between, in the middle of the card under the view switcher while there is room for that, by
  * the switcher's own rule: the title's block and the group holding the arrows share the room
@@ -1286,6 +1294,7 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
     'toolbar-heading',
     chips ? 'chips-shown' : '',
     heading?.short ? 'short-month' : '',
+    toolbar.large ? 'large-controls' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');

@@ -293,6 +293,7 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       'List',
       'Columns',
       'Grid',
+      'Month',
       'Refresh',
       'Search',
       'toolbar-month-button',

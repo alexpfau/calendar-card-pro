@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
+import { CASELESS_LANGUAGES, GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
 import { deriveEnGb } from './en-gb.mjs';
 import { loadEditorModule } from './load-editor-schema.mjs';
 
@@ -27,6 +27,8 @@ const EDITOR_T9N_INDEX_TS = join(ROOT, 'src/rendering/editor/translations/index.
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
+const PAGES_TS = join(ROOT, 'src/rendering/editor/pages.ts');
+const GATES_TS = join(ROOT, 'src/rendering/editor/gates.ts');
 const ACTIONS_TS = join(ROOT, 'src/rendering/editor/schemas/actions.ts');
 const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
 const GLOSSARY_SOURCE = 'scripts/editor-glossary.mjs';
@@ -180,8 +182,6 @@ export async function readEditorSchemaKeys() {
     chassisSubforms,
     CHASSIS_STRINGS,
     EDITOR_STRINGS,
-    DEFAULT_CONFIG,
-    VIEWS,
     VIEW_SCOPE,
     ENTITY_VIEW_SCOPE,
     DEFAULT_OVERRIDES_BY_VIEW,
@@ -243,18 +243,9 @@ export async function readEditorSchemaKeys() {
     }
   };
 
+  // A builder's own drawing may name strings beyond its fields' keys (the width table, the
+  // toolbar buttons' words). Its title is not among them: titles are the page registry's.
   for (const panel of PANELS) {
-    roots.add(panel.titleKey);
-    titles.add(panel.titleKey);
-    helpers.add(panel.titleKey);
-    // `_panelTitle` and `_panelHelper` resolve `<titleKey>.<view>` before the shared key,
-    // so a panel whose contents differ enough by view can retitle itself there. The title
-    // needs no registration — it is reachable under the shared root — but the helper does,
-    // or a legitimate per-view helper reads as a string nothing can look up. Registered
-    // as permitted rather than required: adding these to `titles` would demand 27 headings
-    // that should not exist. Reconciled against VIEWS rather than listed, so the day a
-    // fourth view lands its qualified keys are covered without an edit here.
-    for (const view of VIEWS) helpers.add(`${panel.titleKey}.${view}`);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
@@ -262,10 +253,25 @@ export async function readEditorSchemaKeys() {
   for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true, false);
   for (const prefix of CHASSIS_STRINGS) roots.add(prefix);
 
-  for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
-    for (const panel of PANELS) {
-      const ctx = { view: config.view, config, language: 'en' };
+  // The page registry names strings of its own, and a string is used by being named there.
+  const registry = readRegistryKeys(editor);
+  for (const key of registry.titles.keys()) {
+    titles.add(key);
+    roots.add(key);
+  }
+  for (const key of registry.named.keys()) roots.add(key);
+  for (const key of registry.helpers) helpers.add(key);
 
+  // Search reads a page's words on its title key (`search.ts` › `pageRow`) and a job of Home
+  // Assistant's tabs on its name's key (`search.ts` › `HA_TAB_KEYS`), and no other heading's.
+  for (const page of editor.PAGES) aliasKeys.add(page.titleKey);
+  for (const key of editor.HA_TAB_KEYS) aliasKeys.add(key);
+  // And the Starting Layout block's on its field's own key (`search.ts` › `startingLayoutRow`),
+  // although that field is the chassis's.
+  aliasKeys.add(editor.STARTING_LAYOUT_BLOCK.titleKey);
+
+  for (const ctx of probeContexts(editor, 'en')) {
+    for (const panel of PANELS) {
       collect(panel.build(ctx), [], true);
 
       // Hand-rendered panel subforms still expose schema to reconcile.
@@ -281,6 +287,7 @@ export async function readEditorSchemaKeys() {
     helpers,
     aliasKeys,
     roots,
+    registry,
     strings: EDITOR_STRINGS,
     // Both scope tables make the same promise on different surfaces, but a key may
     // legitimately appear in both with DIFFERENT scopes — `entityScopeFor` is
@@ -344,7 +351,6 @@ function escapeForRegExp(value) {
 async function readEditorOptionKeys() {
   const editor = await loadEditor();
   const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
-  const { DEFAULT_CONFIG, VIEWS } = editor;
   const { LABELED_ACTIONS, cardActionLabelKey } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
@@ -416,10 +422,8 @@ async function readEditorOptionKeys() {
       collect(subform.schema, subform.path);
     }
 
-    for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
+    for (const ctx of probeContexts(editor, OPTION_KEY_ECHO_LANGUAGE)) {
       for (const panel of PANELS) {
-        const ctx = { view: config.view, config, language: OPTION_KEY_ECHO_LANGUAGE };
-
         collect(panel.build(ctx), []);
         for (const subform of panelSubforms(panel, ctx)) collect(subform.schema, subform.path);
       }
@@ -429,6 +433,24 @@ async function readEditorOptionKeys() {
   }
 
   return { asked, unresolved };
+}
+
+/**
+ * A probe variant drawing weather in every layout from one entity: the same presentation in
+ * List, Columns and Grid, and Month's own, which offers no date header.
+ *
+ * @param weather - The presentation for List, Columns and Grid
+ * @param month - Month's presentation
+ * @returns The variant
+ */
+function weatherInEveryLayout(weather, month) {
+  return {
+    weather_entity: 'weather.home',
+    list: { weather },
+    column: { weather },
+    time_grid: { weather },
+    month: { weather: month },
+  };
 }
 
 /**
@@ -489,16 +511,13 @@ function probeConfigs(defaults, views) {
     // built only while the toolbar itself is shown, and without this the checker reports
     // their strings and helpers as referenced by no panel.
     { toolbar: { ...defaults.toolbar, show: true } },
-    { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
-    {
-      weather: {
-        ...defaults.weather,
-        entity: 'weather.home',
-        position: 'both',
-        date: { ...defaults.weather.date, show_uv_index: true },
-        event: { ...defaults.weather.event, show_uv_index: true },
-      },
-    },
+    // Weather is drawn per layout, from blocks no sweep reaches: the position opens the date
+    // and event groups, and each UV switch its threshold.
+    weatherInEveryLayout({ position: 'both' }, { position: 'event' }),
+    weatherInEveryLayout(
+      { position: 'both', date: { show_uv_index: true }, event: { show_uv_index: true } },
+      { position: 'event', event: { show_uv_index: true } },
+    ),
   ];
 
   const configs = [];
@@ -508,6 +527,120 @@ function probeConfigs(defaults, views) {
     }
   }
   return configs;
+}
+
+/**
+ * The schema contexts every panel is built in: each probe configuration as the card displays
+ * it, then every state of the gate corpus as the editor builds it, in the workspace its gates
+ * were opened in.
+ *
+ * The corpus opens each gate the way a user would, through routing, so a field two or three
+ * conditions deep (a UV threshold under its entity, position and switch) or one a layout
+ * defaults differently (Grid's location fields) is reconciled like any other. A single-key
+ * variant above cannot reach either.
+ *
+ * @param editor - The bundled editor modules
+ * @param language - Language the nodes are built in
+ * @returns Contexts to build each panel in
+ */
+function probeContexts(editor, language) {
+  const { DEFAULT_CONFIG, VIEWS, corpus, schemaCtx } = editor;
+  const states = corpus();
+  assertFound(states, 'any gate corpus states', GATES_TS);
+
+  return [
+    ...probeConfigs(DEFAULT_CONFIG, VIEWS).map((config) => ({
+      view: config.view,
+      config,
+      language,
+    })),
+    ...states.map((state) => schemaCtx(state.config, state.workspace, language)),
+  ];
+}
+
+/**
+ * Key prefixes the page registry and the gate table own: a key under one is used only if one of
+ * them names it.
+ */
+const REGISTRY_PREFIXES = ['page.', 'heading.', 'family.', 'gate.needs.', 'gate.when.'];
+
+/**
+ * The string keys the page registry and the gate table name, each with where.
+ *
+ * Titles are page titles, headings (per layout too) and family titles; they must exist, as a
+ * panel title must. The rest are notes, helper lines and the phrases a gate or one of its
+ * conditions is named by. A helper line is looked up by its own key, so only its base is
+ * registered as a helper root.
+ *
+ * A page's search words sit on its title key, `<title key>.aliases`, which names them where they
+ * exist. Words filed under any other page key, `page.weather.aliases` where Weather's title is
+ * `panel.weather`, fail twice: as a page-registry key nothing names, and as an alias search never
+ * reads (`checkEditorStrings`).
+ *
+ * @param editor - The bundled editor modules
+ * @returns Titles and other named keys, each with where it is named, and helper bases
+ */
+function readRegistryKeys(editor) {
+  const { PAGES, ENTRY_GROUPS, FAMILIES, CALENDARS_BLOCK, GATES, ENTRY_GATES } = editor;
+  assertFound(PAGES, 'any pages in the page registry', PAGES_TS);
+  assertFound(ENTRY_GROUPS, 'any calendar entry groups in the page registry', PAGES_TS);
+  assertFound(CALENDARS_BLOCK, 'the Calendars block in the page registry', PAGES_TS);
+
+  const titles = new Map();
+  const named = new Map();
+  const helpers = new Set();
+  const name = (map, key, where) => {
+    if (key !== undefined && !map.has(key)) map.set(key, where);
+  };
+  const helper = (key, where) => {
+    if (key === undefined) return;
+    name(named, key, where);
+    if (key.endsWith('.helper')) helpers.add(key.slice(0, -'.helper'.length));
+  };
+  const heading = (def, where) => {
+    name(titles, def.key, where);
+    for (const [view, key] of Object.entries(def.keyByView ?? {})) {
+      name(titles, key, `${where}, in ${view}`);
+    }
+    helper(def.helperKey, `${where}, its helper line`);
+    name(named, def.crossLink?.textKey, `${where}, its cross-link`);
+    name(named, def.pointer?.textKey, `${where}, its pointer`);
+    name(named, def.layoutLinks?.textKey, `${where}, its layout links`);
+  };
+
+  name(titles, CALENDARS_BLOCK.titleKey, 'the Calendars block');
+  for (const page of PAGES) {
+    name(titles, page.titleKey, `page ${page.id}`);
+    if (`${page.titleKey}.aliases` in editor.EDITOR_STRINGS) {
+      name(named, `${page.titleKey}.aliases`, `page ${page.id}, its search words`);
+    }
+    name(named, page.noteKey, `page ${page.id}, its note`);
+    for (const [view, key] of Object.entries(page.noteKeyByView ?? {})) {
+      name(named, key, `page ${page.id}, its note in ${view}`);
+    }
+    name(named, page.descriptionKey, `page ${page.id}, its row's description`);
+    page.headings.forEach((def, index) => heading(def, `page ${page.id}, heading ${index}`));
+  }
+  ENTRY_GROUPS.forEach((def, index) => heading(def, `calendar entry group ${index}`));
+  for (const [id, family] of Object.entries(FAMILIES)) {
+    name(titles, family.titleKey, `family ${id}`);
+    helper(family.helperKey, `family ${id}, its helper`);
+  }
+  for (const [id, gate] of [...Object.entries(GATES), ...Object.entries(ENTRY_GATES)]) {
+    name(named, gate.needsKey, `gate ${id}`);
+    name(named, gate.whenKey, `gate ${id}`);
+    for (const prereq of [...gate.requires, ...(gate.anyOf ?? []).flat()]) {
+      name(named, prereq.needsKey, `gate ${id}, its condition on ${prereq.field}`);
+      // A gate line's clause: the condition's own, else its gate's, else a switch's
+      // `gate.when.on` (`gates.ts` › `whenKeyOf`), so the switch template is named while any
+      // condition falls to it.
+      if (gate.kind === 'gate') {
+        name(named, editor.whenKeyOf(gate, prereq), `gate ${id}, its condition on ${prereq.field}`);
+      }
+    }
+  }
+
+  return { titles, named, helpers };
 }
 
 // ---------------------------------------------------------------------------
@@ -794,6 +927,7 @@ async function checkEditorStrings() {
     helpers,
     aliasKeys,
     roots,
+    registry,
     strings,
     viewScopeEntries,
     defaultOverridesByView,
@@ -827,6 +961,30 @@ async function checkEditorStrings() {
         `\`${key}\` has no heading — the section will be titled "${humanKey(key)}"`,
       );
     }
+  }
+
+  // Notes, helper lines and gate phrases: each is used by being named in the page registry or
+  // the gate table, so a name with no string is a hole.
+  for (const [key, where] of registry.named) {
+    if (!(key in strings)) {
+      error(
+        'strings.ts',
+        `\`${key}\` is named by the page registry (${where}) but has no English string — it ` +
+          `would render as "${humanKey(key)}"`,
+      );
+    }
+  }
+
+  // Under the registry's own prefixes a key is used only if the registry names it exactly, so
+  // a heading dropped from a page leaves its string to be reported here, not to linger.
+  for (const key of Object.keys(strings)) {
+    if (!REGISTRY_PREFIXES.some((prefix) => key.startsWith(prefix))) continue;
+    if (registry.titles.has(key) || registry.named.has(key)) continue;
+    error(
+      'strings.ts',
+      `\`${key}\` is under a page-registry prefix, but no page, heading, family or gate ` +
+        `names it`,
+    );
   }
 
   // Applicability notes are keyed by the scope they describe, so they reconcile
@@ -888,12 +1046,8 @@ async function checkEditorStrings() {
     // Exact for the same reason: a prefix test would accept aliases filed under a group's
     // name or a heading's, which search never reads, so the words would silently find nothing.
     if (key.endsWith('.aliases')) {
-      if (!aliasKeys.has(key.slice(0, -'.aliases'.length))) {
-        error(
-          'strings.ts',
-          `\`${key}\` can never be searched — no field resolves its aliases under that key`,
-        );
-      }
+      const problem = aliasKeyProblem(key, aliasKeys);
+      if (problem) error('strings.ts', problem);
       continue;
     }
 
@@ -906,7 +1060,10 @@ async function checkEditorStrings() {
     }
   }
 
-  return new Set(labels.keys()).size;
+  return {
+    fieldCount: new Set(labels.keys()).size,
+    registryCount: new Set([...registry.titles.keys(), ...registry.named.keys()]).size,
+  };
 }
 
 /**
@@ -1011,7 +1168,10 @@ async function checkEditorTranslations(languages) {
   assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
   const imported = new Set(imports.values());
-  const total = Object.keys(EDITOR_STRINGS).length;
+  // The swatches' names are English only by design: Home Assistant's own are read first, in its
+  // language, so no translation file holds them and the coverage line leaves them out.
+  const englishOnly = new Set(colorNameKeys(await loadEditor()));
+  const total = Object.keys(EDITOR_STRINGS).filter((key) => !englishOnly.has(key)).length;
 
   for (const file of files.sort()) {
     const code = basename(file, '.json').toLowerCase();
@@ -1097,9 +1257,10 @@ async function checkEditorTranslations(languages) {
       }
     }
 
+    const counted = keys.filter((key) => !englishOnly.has(key)).length;
     notes.push(
-      `  ${code.padEnd(6)} ${String(keys.length).padStart(3)} / ${total} strings ` +
-        `(${String(Math.round((keys.length / total) * 100)).padStart(2)}%)`,
+      `  ${code.padEnd(6)} ${String(counted).padStart(3)} / ${total} strings ` +
+        `(${String(Math.round((counted / total) * 100)).padStart(2)}%)`,
     );
   }
 
@@ -1170,25 +1331,45 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
-  'de:panel.layout',
-  'it:panel.layout',
-  'nb:panel.layout',
-  'sv:panel.layout',
+  // "Layout" is the glossary's decided word in these languages, and German's plural is the same.
+  'de:overview.layouts',
+  'de:layouts.layout',
+  'it:layouts.layout',
+  'nb:layouts.layout',
+  'sv:layouts.layout',
+  // A search result's value under its layout's name, as "Grid: Off": the two placeholders and a
+  // colon, which every editor language writes the same way.
+  'de:search.value_in',
+  'et:search.value_in',
+  'it:search.value_in',
+  'ko:search.value_in',
+  'lt:search.value_in',
+  'lv:search.value_in',
+  'nb:search.value_in',
+  'pl:search.value_in',
+  'sk:search.value_in',
+  'sv:search.value_in',
+
+  // Korean quotes typed words with the same curly double quotes as English.
+  'ko:summary.quoted',
 
   // `Label` is a German loanword in Home Assistant's own UI.
   'de:entity.label',
-  'de:view',
+
+  // `Countdown` is the glossary's German term, and the event-part chip is the term alone.
+  'de:chip.countdown',
 
   // `Name` is the ordinary German word for it, spelled as in English.
   'de:entity.name',
   'de:toolbar.buttons.name',
 
-  // `Layout` is the Italian term chosen by the glossary.
-  'it:view',
-
-  // `Layout` is the ordinary Swedish and Norwegian word.
-  'sv:view',
-  'nb:view',
+  // Quick Setup's review row naming the layout: `Layout` is the word German, Italian, Swedish and
+  // Norwegian use for it elsewhere in the editor ("Alle Layouts", "Tutti i layout", "Alla
+  // layouter", "Alle layouter").
+  'de:quick_setup.review.layout',
+  'it:quick_setup.review.layout',
+  'sv:quick_setup.review.layout',
+  'nb:quick_setup.review.layout',
 ]);
 
 /**
@@ -1204,11 +1385,21 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'sk:today_indicator_icon',
   // Same collision; the sibling fields are already qualified.
   'et:today_indicator_icon',
+  'ko:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
 
+  // German writes Calendars as `Kalender` too, so the bare term would collide with the overview's
+  // Calendars heading; the picker and the entry's own field say which calendar they mean.
+  'de:calendars.pick',
+  'de:entry.calendar',
+  // Korean qualifies them as choosing a calendar for the same reason.
+  'ko:calendars.pick',
+  'ko:entry.calendar',
+
   // A toolbar button's icon, qualified as the button's own for the same collision.
   'et:toolbar.buttons.icon',
+  'ko:toolbar.buttons.icon',
   'lt:toolbar.buttons.icon',
   'lv:toolbar.buttons.icon',
   'pl:toolbar.buttons.icon',
@@ -1254,6 +1445,21 @@ export const isOverlongLabel = ({ value, english }) => value > 24 && value > eng
  * @param key - String key
  * @returns `true` for a label
  */
+/**
+ * Whether an `.aliases` string sits on a key the search reads its words under: a field's label
+ * key or name, a page's title key, or the name of a job Home Assistant's tabs do. Exact, so words
+ * filed under a page's id rather than its title key are reported, not silently never found.
+ *
+ * @param {string} key - A string key ending in `.aliases`
+ * @param {Set<string>} aliasKeys - The keys words may sit on (`readEditorSchemaKeys`)
+ * @returns {string | undefined} The problem, or `undefined`
+ */
+export function aliasKeyProblem(key, aliasKeys) {
+  return aliasKeys.has(key.slice(0, -'.aliases'.length))
+    ? undefined
+    : `\`${key}\` can never be searched — no field, page or tab resolves its aliases under that key`;
+}
+
 export const isLabelKey = (key) => !key.endsWith('.helper') && !key.endsWith('.aliases');
 
 /**
@@ -1587,7 +1793,10 @@ function reportGlossaryReach(glossary, strings) {
  */
 function readGlossary() {
   assertFound(GLOSSARY_TERMS, 'any decided glossary terms', GLOSSARY_SOURCE);
-  return { terms: GLOSSARY_TERMS, nounCapsLanguages: new Set(NOUN_CAPS_LANGUAGES) };
+  return {
+    terms: GLOSSARY_TERMS,
+    nounCapsLanguages: new Set([...NOUN_CAPS_LANGUAGES, ...CASELESS_LANGUAGES]),
+  };
 }
 
 /**
@@ -1668,7 +1877,7 @@ function humanKey(key) {
 // Report
 // ---------------------------------------------------------------------------
 
-function report(languageCount, fieldCount, optionCount) {
+function report(languageCount, { fieldCount, registryCount }, optionCount) {
   const line = (kind, { where, msg }) => {
     if (IN_CI) console.log(`::${kind === 'error' ? 'error' : 'warning'}::${where}: ${msg}`);
     else console.log(`  ${kind === 'error' ? '✖' : '⚠'} ${where}: ${msg}`);
@@ -1705,6 +1914,7 @@ function report(languageCount, fieldCount, optionCount) {
 
   const summary =
     `\n${languageCount} languages, ${fieldCount} editor fields, ` +
+    `${registryCount} page-registry strings, ` +
     `${optionCount} dropdown options — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
   console.log(summary);
@@ -2028,9 +2238,23 @@ export function checkSeparators(
  * sentence belongs is still wrong, and it is the kind of wrong nobody notices in a
  * language they do not read. Cheap to reconcile, so reconcile it.
  *
+ * The chassis is the larger case. `element.ts` draws its own words through `_string`, and a
+ * key mistyped there rendered humanized with every gate green until the scan learned that
+ * idiom too.
+ *
  * Only fully-literal keys are collected. A composed key — `` `${blockKey}.density` `` —
  * has no single spelling to look up, and those are already covered by the schema walk.
  */
+/**
+ * The keys of the swatches' English names (`colors.ts` › `swatchNameKey`), one per swatch.
+ *
+ * @param editor - The bundled editor modules
+ * @returns The keys
+ */
+function colorNameKeys(editor) {
+  return editor.SWATCH_TOKENS.map((token) => editor.swatchNameKey(token));
+}
+
 async function checkEditorKeysUsedInCode() {
   const { EDITOR_STRINGS } = await loadEditor();
 
@@ -2046,11 +2270,16 @@ async function checkEditorKeysUsedInCode() {
   walk(dir);
   assertFound(sources, 'any editor sources', dir);
 
-  // The idiom these appear in: a panel-local `t('literal')` helper wrapping `lookup`, or
-  // a direct `lookup(<lang>, 'literal')`. Only fully-literal keys — a composed key such
-  // as `` `${blockKey}.density` `` has no single spelling to reconcile, and the schema
-  // walk already covers the fields those build.
-  const PATTERNS = [/\bt\(\s*'([^'`${}]+)'/g, /\blookup\(\s*[^,()]+,\s*'([^'`${}]+)'\s*[),]/g];
+  // The idioms these appear in: a panel-local `t('literal')` helper wrapping `lookup`, a
+  // direct `lookup(<lang>, 'literal')`, and the element's own `this._string(ctx, 'literal')`,
+  // which draws every string the chassis renders outside a form. Only fully-literal keys — a
+  // composed key such as `` `${blockKey}.density` `` has no single spelling to reconcile, and
+  // the schema walk already covers the fields those build.
+  const PATTERNS = [
+    /\bt\(\s*'([^'`${}]+)'/g,
+    /\blookup\(\s*[^,()]+,\s*'([^'`${}]+)'\s*[),]/g,
+    /\b_string\(\s*[^,()]+,\s*'([^'`${}]+)'\s*[),]/g,
+  ];
   const found = new Map();
 
   for (const file of sources) {
@@ -2066,6 +2295,32 @@ async function checkEditorKeysUsedInCode() {
   }
 
   assertFound([...found.keys()], 'any literal translation keys', dir);
+
+  // The color control names a swatch by its token and a theme color by its variable, through
+  // tables rather than literals: those tables are its readers (`colors.ts`).
+  const editor = await loadEditor();
+  for (const key of colorNameKeys(editor)) {
+    if (!found.has(key)) found.set(key, 'editor/colors.ts');
+  }
+  for (const key of Object.values(editor.COLOR_THEME_NAMES)) {
+    if (!found.has(key)) found.set(key, 'editor/colors.ts');
+  }
+
+  // Keys under a prefix held to its readers are used only where a literal or the registry names
+  // them; the prefix alone, which makes every other chassis key reachable, does not vouch here.
+  const registry = readRegistryKeys(editor);
+  const held = Object.keys(EDITOR_STRINGS).filter((key) =>
+    editor.REFERENCED_STRINGS.some((prefix) => key.startsWith(`${prefix}.`)),
+  );
+  assertFound(held, 'any strings under the prefixes held to their readers', dir);
+  for (const key of held) {
+    if (found.has(key) || registry.named.has(key) || registry.titles.has(key)) continue;
+    error(
+      'editor/strings.ts',
+      `defines \`${key}\`, which no code looks up by that literal and no registry table names — ` +
+        'it is translation work for a string nothing draws',
+    );
+  }
 
   for (const [key, where] of [...found].sort()) {
     if (!(key in EDITOR_STRINGS)) {
@@ -2091,7 +2346,7 @@ async function main() {
   checkNoEditorSectionsOnEagerPath(languages);
   checkDayjsWiring(localize.entries, dayjsWiring);
 
-  const fieldCount = await checkEditorStrings();
+  const editorCounts = await checkEditorStrings();
   const optionCount = await checkEditorOptions();
   await checkEditorKeysUsedInCode();
   await checkEditorTranslations(languages);
@@ -2102,7 +2357,7 @@ async function main() {
   checkRunningTextWeekdayCase(languages);
   checkSeparators(languages);
 
-  process.exit(report(languages.size, fieldCount, optionCount));
+  process.exit(report(languages.size, editorCounts, optionCount));
 }
 
 // Run as a script, but not when a test imports the rules above. Real paths on both sides,

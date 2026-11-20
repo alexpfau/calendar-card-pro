@@ -2,16 +2,12 @@
  * Action schema rows.
  */
 
-import { mdiGestureTapButton } from '@mdi/js';
-
 import { CARD_ACTION_VALUES, EVENT_DETAILS_ACTION } from '../../../config/constants';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { bool, number, select } from './common';
-
-export const ACTIONS_ICON = mdiGestureTapButton;
 
 /**
  * Actions this card implements itself, which Home Assistant cannot know about.
@@ -107,11 +103,6 @@ export function cardActionLabelKey(action: string): string {
  * press from the card's action only where it has one of its own, so read top to bottom the
  * panel says what a press does on the whole card, then where it does something else.
  *
- * No sub-headings, although "card", "day" and "event" are the obvious split. A heading
- * over the actions forces one over the refresh pair too, where `Refresh` above `Refresh
- * Interval` and `Refresh On Navigation` is a stutter. The panel title already names both
- * halves, and the day's and event's own labels already set them apart from the card's two.
- *
  * @param language - Effective language code
  * @param opensDetails - Whether a tap or a hold on an event opens its dialog, which is what
  *   the two `allow_event_*` switches depend on
@@ -134,8 +125,7 @@ const actionsSchema = Helpers.memoizeLast(
     ...(eventActs ? [] : [bool('open_links')]),
     // Dependent on purpose: they narrow what the event dialog offers, and without details
     // there is no dialog, so always-visible switches would be inert. Directly under the two
-    // dropdowns that reveal them, each a single field rather than a row, so nothing can come
-    // between them on a narrow viewport.
+    // dropdowns that reveal them.
     ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),

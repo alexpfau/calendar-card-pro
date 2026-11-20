@@ -39,8 +39,7 @@ days_to_show: 7
 event_gap: 4px
 filter_duplicates: true
 duplicate_accent_color: '#ffb74d'
-weather:
-  entity: weather.home
+weather_entity: weather.home
 toolbar:
   show: true
   legend: chips
@@ -70,15 +69,23 @@ entities:
     accent_color: '#b388ff'
 list:
   days_to_show: 3
+  weather:
+    position: date
 column:
   min_days_to_show: 3
   show_past_events: true
   past_event_opacity: 40
   event_background_opacity: 15
+  weather:
+    position: date
 time_grid:
   start_time: '07:00'
   end_time: '22:00'
   hour_height: 36px
+  weather:
+    position: date
+month:
+  event_gap: 4px
 ```
 
 ::: tip Build It in the Editor
@@ -87,7 +94,7 @@ time_grid:
 
 ## 🧭 Across Different Screens
 
-`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns and Grid, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
+`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
 
 <video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
@@ -103,7 +110,7 @@ Grid sheds days one at a time as the card narrows, always keeping today, so the 
 
 The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `min_days_to_show: 3` lets Columns drop days on a narrower screen, down to three, before it turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-instead).
 
-`event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns. Grid ignores it.
+`event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 
 ### The Toolbar
 
@@ -170,7 +177,7 @@ The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-it
 
 `view: grid` gives each day a column and puts every timed event at the time it starts, as tall as it is long, unless it lasts a full day or longer and runs into a second date, which makes it a banner in the all-day band. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
 
-Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather` puts each day's forecast in its date header, as far ahead as the forecast reaches. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
+Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather_entity` with `position: date` in the List, Columns and Grid blocks puts each day's forecast in its date header, as far ahead as the forecast reaches; Month shows none. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
 
 The axis runs from 07:00 to 22:00, the hours a family is awake. See [Choosing the Hours the Card Shows](/features/grid-view#choosing-the-hours-the-card-shows).
 
@@ -190,7 +197,7 @@ Where the calendar's [integration allows it](/features/actions#what-each-integra
 
 ### A Fixed Week on a Dedicated Wall
 
-A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by all three layouts, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
+A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by every layout, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
 
 Add these lines to the card, replace its `time_grid:` block with this one, and delete its `toolbar:`, `list:` and `column:` blocks:
 
@@ -224,17 +231,12 @@ entities:
     name: Work
     label: person.ben
     accent_color: '#90a4ae'
-    replace_with: Work # says Ben is at work, not what the meeting is
-    show_location: false # and not where it is
-    show_description: false
+    private: true # when Ben is at work, not what the meeting is or where
+    replace_with: Work # and Work in place of Private
   # calendar.family and calendar.trash_pickup as above
 ```
 
-::: warning Editing Shows the Real Title
-A tap opens a work event in the [event popover](/features/actions#event-details), which says _Work_ too. Where the calendar [allows editing](/features/actions#what-each-integration-allows), though, the real title appears as soon as someone starts editing it. Where that matters, add `allow_event_edit: false` to the card.
-:::
-
-[`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) replaces every title with _Work_, and Ben's face says whose it is. Grid hides locations already, but List and Columns show them, so `show_location: false` keeps a meeting room off the phone, and `show_description: false` keeps an agenda off even if descriptions are turned on for the whole card. Set on the calendar itself, both also keep their field out of the popover.
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
 
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 

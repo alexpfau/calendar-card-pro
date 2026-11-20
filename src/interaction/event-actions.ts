@@ -17,6 +17,7 @@
 
 import * as Types from '../config/types';
 import { stripHtmlTags } from '../utils/format';
+import * as PrivateEvents from '../utils/private-events';
 import * as TextReplace from '../utils/text-replace';
 
 //-----------------------------------------------------------------------------
@@ -87,12 +88,18 @@ export { eventActionKind, type EventActionKind } from './event-action-kind';
  * only what the card shows, so a location the grid hides, or any description while
  * `show_description` is off, would come through empty, and a title would carry an age count
  * the card appended. The calendar's text replacement is applied as the row applies it, from
- * the configuration the event was matched under, so a masked calendar stays masked.
+ * the configuration the event was matched under, so a masked calendar stays masked. A private
+ * entry's event fills its title, location and description as its popover shows them, Private
+ * where the event has one (`private-events.ts`).
  *
  * @param event - A rendered event
+ * @param language - The card's language, for a private event's placeholder
  * @returns Every field, each a string, empty where the event has none
  */
-export function eventFields(event: Types.CalendarEventData): Record<EventField, string> {
+export function eventFields(
+  event: Types.CalendarEventData,
+  language: string,
+): Record<EventField, string> {
   const source = event._source ?? event;
   const start = source.start?.dateTime ?? source.start?.date ?? '';
   const end = source.end?.dateTime ?? source.end?.date ?? '';
@@ -106,17 +113,19 @@ export function eventFields(event: Types.CalendarEventData): Record<EventField, 
   );
   const replaced = (text: string | null | undefined, field: Types.ReplaceField) =>
     TextReplace.applyTextReplacement(text ?? '', rule, field).text;
+  const shown = PrivateEvents.isPrivate(event)
+    ? PrivateEvents.privateText(source, matched, language)
+    : undefined;
 
   return {
-    title: replaced(source.summary, 'title'),
+    title: shown ? shown.title : replaced(source.summary, 'title'),
     start,
     end,
     all_day: allDay ? 'true' : 'false',
-    location: replaced(source.location, 'location'),
-    description: replaced(
-      source.description ? stripHtmlTags(source.description) : '',
-      'description',
-    ),
+    location: shown ? shown.location : replaced(source.location, 'location'),
+    description: shown
+      ? shown.description
+      : replaced(source.description ? stripHtmlTags(source.description) : '', 'description'),
     calendar: event._entityId ?? '',
   };
 }

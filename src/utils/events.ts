@@ -12,7 +12,8 @@ import * as Helpers from './helpers';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
-import { parseStartDateExpression } from './start-date';
+import * as PrivateEvents from './private-events';
+import { getTimeWindow, startDateFollowsToday } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -344,12 +345,16 @@ function resolveRequest(
   // cache entry whenever `start_date` was week-relative.
   const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
 
+  // Named by the load's identity, which for home's load where month is reachable is the window
+  // as configured rather than the concrete window asked for below (`loadIdentity`).
+  const identity = ViewConfig.loadIdentity(config);
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
-    config.days_to_show,
-    config.start_date,
+    identity.days,
+    identity.startDate,
     firstDayOfWeek,
+    identity.variant,
   );
 
   const window = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
@@ -1184,6 +1189,8 @@ function deduplicateEvents(
   const contributors = new Map<string, Types.MergedCalendar[]>();
   const mergeLocations = config.filter_duplicates === Constants.DUPLICATES_MERGE_LOCATIONS;
   const locations = new Map<string, string[]>();
+  // The earliest arrival among each calendar's copies, which the kept copy is drawn at.
+  const arrived = new Map<string, number>();
 
   for (const entityConfig of config.entities) {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1192,6 +1199,8 @@ function deduplicateEvents(
       if (event._entityId !== entityId) continue;
 
       const signature = signatureFor(event);
+      const own = `${signature}\n${entityId}`;
+      arrived.set(own, Math.min(arrived.get(own) ?? Infinity, event._arrival ?? Infinity));
 
       // Recorded *before* the duplicate test below, because a copy about to be dropped is
       // precisely what this has to remember. One entry per distinct calendar, taken from
@@ -1236,10 +1245,9 @@ function deduplicateEvents(
     const mergedLocations = locations.get(signature);
     const manyLocations =
       mergedLocations !== undefined && (mergedLocations.length > 1 || !event.location?.trim());
-    survivors.push(
+    const merged =
       mergedFrom && mergedFrom.length > 1
         ? {
-            ...event,
             _mergedFrom: mergedFrom,
             ...(manyLocations
               ? {
@@ -1248,8 +1256,12 @@ function deduplicateEvents(
                 }
               : {}),
           }
-        : event,
-    );
+        : undefined;
+    // A later copy kept over an earlier one of its own calendar, as a calendar listed twice can
+    // keep, is drawn where the earlier one arrived (`groupEventsByDay`).
+    const first = arrived.get(`${signature}\n${event._entityId}`) ?? Infinity;
+    const earlier = first < (event._arrival ?? Infinity) ? { _arrival: first } : undefined;
+    survivors.push(merged || earlier ? { ...event, ...merged, ...earlier } : event);
   }
 
   return survivors;
@@ -1574,13 +1586,17 @@ export function groupEventsByDay(
   const byDay = (a: Types.EventsByDay, b: Types.EventsByDay): number =>
     latestFirst ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
 
+  // Grid and month take Grid's daily coverage in place of the List splitter
+  // (`multidaySplitPolicy`).
+  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
+
   // Which day of its event a row stands for, only where it is drawn, and only while the progress
   // bar is on, whose form the counter is on an event a day or more long, so a card without it
-  // keeps its rows as they were. Not in grid, whose all-day banners already span their days and
-  // whose later blocks of a timed event draw a title alone; the gate decides nothing there today,
-  // since its splitter hands this function one-day segments, which never count. It is here so
-  // that stays a decision.
-  const stampsDayOfEvent = Boolean(config.show_progress_bar) && effectiveView !== 'grid';
+  // keeps its rows as they were. Not in grid or month, whose all-day banners and bars already
+  // span their days and whose later blocks of a timed event draw a title alone; the gate decides
+  // nothing there today, since their splitter hands this function one-day segments, which never
+  // count. It is here so that stays a decision.
+  const stampsDayOfEvent = Boolean(config.show_progress_bar) && !splitsForGrid;
 
   const referenceDate = getStartDateReference(
     config,
@@ -1602,7 +1618,6 @@ export function groupEventsByDay(
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = ignoresLocation(config.filter_duplicates);
-  const splitsForGrid = ViewConfig.multidaySplitPolicy(effectiveView) === 'never';
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
     const split = splitsForGrid
@@ -1655,18 +1670,20 @@ export function groupEventsByDay(
     // the same boundary, so it removes nothing that reached this far.
     if (startDate >= windowEnd) return false;
 
-    // Only the third term below decides anything for events this card can actually
-    // receive. An event starting inside the window, or after it, necessarily also ends
-    // at or after the window start, so `isOngoingEvent` is already true in both cases —
-    // removing the first two leaves the whole suite green. They diverge only for an
-    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
-    // `end` are present but not that they are ordered, so a malformed feed can still
-    // produce one, while nothing built here can — every multi-day segment ends at least
-    // a millisecond after it starts. Left in place rather than folded into one condition
-    // because dropping them would silently stop rendering those malformed events.
+    // The first two terms keep events starting in the window or after it. They differ from
+    // the third for an event whose end precedes its start (`keepWellFormedEvents` checks that
+    // `start` and `end` are present but not that they are ordered, so a malformed feed can
+    // still produce one) and for a timed event of no length at the window's first moment,
+    // which ends where the window opens and is still an instant of its first day.
+    //
+    // 🚨 A timed end is exclusive, so an event ending exactly at the window's first moment
+    // is over before the window opens: it belongs to the day before. An all-day `endDate` is
+    // already the last day it covers, so it touches the window when it is that day. Home
+    // Assistant never returns an event ending where a request starts, but a page now draws a
+    // prefix of a wider load (Month's starts at its grid's first row), which holds one.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
-    const isOngoingEvent = endDate >= referenceStart;
+    const isOngoingEvent = isAllDayEvent ? endDate >= referenceStart : endDate > referenceStart;
 
     if (!(isEventOnOrAfterReference || isFutureEvent || isOngoingEvent)) {
       return false;
@@ -1733,8 +1750,10 @@ export function groupEventsByDay(
   // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
   // calendar also discards the eligible copy behind it. Compare original intervals, not
   // sliced endpoints: distinct multi-day events can share an identical middle day.
+  // Not under Grid's coverage, whose daily segments are never `_isMultiDaySegment`: an unsplit
+  // winner there would key every day of an event alike and keep one of them.
   const firstEligible = new Map<string, Types.CalendarEventData>();
-  if (config.filter_duplicates && effectiveView !== 'grid') {
+  if (config.filter_duplicates && !splitsForGrid) {
     for (const event of upcomingEvents) {
       const signature = sourceSignatures.get(event)!;
       const previous = firstEligible.get(signature);
@@ -1800,9 +1819,12 @@ export function groupEventsByDay(
         };
       }
 
-      const showDescription =
-        getEntitySetting(event._entityId, 'show_description', config, event) ??
-        config.show_description;
+      // A view that pins `show_description` draws no description, so a calendar's own `true`
+      // cannot bring one back, and search, which matches what is drawn, finds none either.
+      const showDescription = ViewConfig.isPinned(effectiveView, 'show_description')
+        ? config.show_description
+        : (getEntitySetting(event._entityId, 'show_description', config, event) ??
+          config.show_description);
 
       // 🚨 Read the marker off the **raw** event and write the result into the display
       // copy. The `description` a few lines down is `''` whenever `show_description` is
@@ -1892,27 +1914,39 @@ export function groupEventsByDay(
         replacedSummary.replacedWholeField ||
         (summary.trim() !== '' && replacedSummary.text.trim() === '');
 
+      // A private entry's events show none of their words (`private-events.ts`): the title is the
+      // placeholder, or a whole-field replacement, and no location or description is drawn, a
+      // replacement for one included, which the popover shows instead: a row's location and
+      // description find their links in the event's own text (`Links.rowLinks`). No age either,
+      // which would say it is a birthday.
+      const privateText = PrivateEvents.isPrivate(event)
+        ? PrivateEvents.privateText(event, event._matchedConfig, language)
+        : null;
+      const showLocation =
+        getEntitySetting(event._entityId, 'show_location', config, event) ?? config.show_location;
+
       eventsByDay[eventDateKey].events.push({
-        summary:
-          ageCount === null || titleWithheld
+        summary: privateText
+          ? privateText.title
+          : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
         location:
-          (getEntitySetting(event._entityId, 'show_location', config, event) ??
-          config.show_location)
-            ? TextReplace.applyTextReplacement(
+          !showLocation || privateText
+            ? ''
+            : TextReplace.applyTextReplacement(
                 displayLocation(event, config.remove_location_country),
                 replacement,
                 'location',
-              ).text
-            : '',
-        description: showDescription
-          ? TextReplace.applyTextReplacement(
-              markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
-              replacement,
-              'description',
-            ).text
-          : '',
+              ).text,
+        description:
+          !showDescription || privateText
+            ? ''
+            : TextReplace.applyTextReplacement(
+                markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
+                replacement,
+                'description',
+              ).text,
         start: event.start,
         end: event.end,
         _entityId: event._entityId,
@@ -1931,12 +1965,14 @@ export function groupEventsByDay(
         _sourceStart: event._sourceStart,
         _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _arrival: event._arrival,
         _dayOfEvent: stampsDayOfEvent
           ? (resolveDayOfEvent(event, displayDate) ?? undefined)
           : undefined,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
         _gridBanner: event._gridBanner,
+        _privateTitle: privateText?.locked.title || undefined,
       } satisfies Types.EveryMember<Types.CalendarEventData, LeftOffDisplayCopy>);
     });
   }
@@ -1951,7 +1987,24 @@ export function groupEventsByDay(
     day.monthNumber = dayDate.getMonth();
   });
 
+  // A calendar listed more than once has its events in this day put back in the order it sent
+  // them, in the places they hold, so the sort below draws events sharing a start as the
+  // calendar listed once would, whichever entry kept them, and a card-wide event limit or Skip
+  // First Events keeps the same ones after Split This Calendar. A calendar listed once is left
+  // exactly as it arrives.
+  const entityIds = config.entities.map((entry) =>
+    typeof entry === 'string' ? entry : entry.entity,
+  );
+  const listedTwice = new Set(entityIds.filter((id, at) => entityIds.indexOf(id) !== at));
+
   Object.values(eventsByDay).forEach((day) => {
+    listedTwice.forEach((entityId) => {
+      const places = day.events.flatMap((event, at) => (event._entityId === entityId ? [at] : []));
+      const own = places
+        .map((place) => day.events[place])
+        .sort((a, b) => (a._arrival ?? 0) - (b._arrival ?? 0));
+      places.forEach((place, at) => (day.events[place] = own[at]));
+    });
     day.events.sort((a, b) => {
       const aIsAllDay = !a.start.dateTime;
       const bIsAllDay = !b.start.dateTime;
@@ -2338,6 +2391,7 @@ export function processEvents(
   const processedEvents: Types.CalendarEventData[] = [];
 
   const wellFormed = keepWellFormedEvents(events);
+  const arrival = new Map(wellFormed.map((event, at) => [event, at]));
 
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -2352,6 +2406,7 @@ export function processEvents(
         // A repaired event already carries the stamp, taken before its end was rewritten.
         _source: event._source ?? sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
+        _arrival: arrival.get(event),
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);
       return decorated;
@@ -2699,8 +2754,15 @@ function ignoresLocation(value: Types.Config['filter_duplicates'] | undefined): 
 }
 
 /**
- * The identity `filter_duplicates` compares copies by: the original title, start and end, and
- * the location too unless the option is `ignore_location` or `merge_locations`.
+ * The identity `filter_duplicates` compares copies by: the original title, start and end, the
+ * location too unless the option is `ignore_location` or `merge_locations`, and whether the copy
+ * is private.
+ *
+ * A private entry's copy (`EntityConfig.private`) is the same event only to another private
+ * entry's. Merged with a copy that is not private, a row would put the private calendar's label
+ * beside the other calendar's title; and since every step that picks one copy of an event reads
+ * this identity (the banner choice, the first eligible copy, the merge), apart they each follow
+ * their own calendar's options.
  *
  * @param event Event to identify
  * @param ignoreLocation Whether to leave the location out of the comparison
@@ -2722,7 +2784,8 @@ function generateEventSignature(event: Types.CalendarEventData, ignoreLocation =
     timeSignature = `${event.start.date || ''}|${event.end.date || ''}`;
   }
 
-  return `${summary}|${timeSignature}|${location}`;
+  // A tuple, so no title or location can read as another field or as the privacy flag.
+  return JSON.stringify([summary, timeSignature, location, PrivateEvents.isPrivate(event)]);
 }
 
 //-----------------------------------------------------------------------------
@@ -3205,8 +3268,8 @@ export function countsDays(event: Types.CalendarEventData): boolean {
  * window's first day for an event that began earlier. A row under a date the event takes up no
  * time on names no day, but is still a row of a counted event, so it draws no progress bar
  * either: the bar's rule, and the clock repaint's, is the event's, not the row's. Grouping draws
- * such a row in one case, an unsplit event ending at the first midnight of a window that starts
- * later, which counted from the event's start would read "Day 4 of 3".
+ * no such row, since an event ending at a window's first midnight belongs to the day before; the
+ * guard stays so a row never reads "Day 4 of 3", which counting from the start would give it.
  *
  * @param event A whole event or one day of one, as list and column split it
  * @param displayDate The date the row is drawn under
@@ -3355,122 +3418,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/**
- * Calculate time window for event fetching
- *
- * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
- * to local midnight after the last, which Home Assistant's calendar API treats as an
- * exclusive end. The end used to be the close of the day after the last one, so every card
- * asked for one day more than it could draw.
- *
- * @param daysToShow - Number of days to show in the calendar
- * @param startDate - Optional start date: a relative expression (`today+7`,
- *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
- * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
- *   required by week-relative expressions such as `start_of_week`
- * @param now - The moment a relative start date is resolved against
- * @returns Object containing start and end dates for the calendar window
- */
-export function getTimeWindow(
-  daysToShow: number,
-  startDate: string | undefined,
-  firstDayOfWeek: number,
-  now: Date = new Date(),
-): { start: Date; end: Date } {
-  let start: Date;
-
-  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
-
-  if (rawStartDate.trim() !== '') {
-    try {
-      const trimmed = rawStartDate.trim();
-
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
-
-      if (parsed.kind === 'ok') {
-        start = parsed.date;
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(
-            `start_date "${trimmed}" resolved outside the supported date range. Falling back to today.`,
-          );
-          start = today();
-        } else {
-          Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
-        }
-      } else if (parsed.kind === 'error') {
-        Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
-        start = today();
-      } else if (trimmed.includes('T')) {
-        start = new Date(trimmed);
-
-        if (isNaN(start.getTime())) {
-          Logger.warn(`Invalid ISO date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      } else {
-        const [year, month, day] = trimmed.split('-').map(Number);
-
-        if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          start = new Date(year, month - 1, day);
-
-          // `new Date(y, m - 1, d)` cannot fail on numbers this guard already bounded —
-          // it rolls a day past the end of its month forward instead, so `2025-02-30`
-          // becomes March 2 and an `isNaN` check here never fires. Reading the parts back
-          // is the only way to tell a real date from one JavaScript quietly moved.
-          if (
-            start.getFullYear() !== year ||
-            start.getMonth() !== month - 1 ||
-            start.getDate() !== day
-          ) {
-            Logger.warn(`Impossible date: ${trimmed}, falling back to today`);
-            start = today();
-          }
-        } else {
-          Logger.warn(`Malformed date: ${trimmed}, falling back to today`);
-          start = today();
-        }
-      }
-    } catch (error) {
-      Logger.warn(`Error parsing date: ${rawStartDate}, falling back to today`, error);
-      start = today();
-    }
-  } else {
-    start = today();
-  }
-
-  start.setHours(0, 0, 0, 0);
-
-  // Built from local fields, so a window spanning a DST change still ends at midnight.
-  const end = new Date(start);
-  const days = parseInt(daysToShow.toString()) || 3;
-  end.setDate(start.getDate() + days);
-
-  return { start, end };
-}
-
-/**
- * Whether a start date resolves against today, so the window it opens moves as days pass: no
- * start date, any relative expression, or a value so malformed that it falls back to today.
- *
- * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
- * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
- * exactly that week and a fixed date does not move at all. The first weekday decides where a
- * week-relative date lands, never whether it moves, so any value answers here.
- *
- * @param startDate - The configured `start_date`
- * @returns True when the resolved first day depends on the current date
- */
-export function startDateFollowsToday(startDate: string | undefined): boolean {
-  const now = new Date();
-  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
-  return (
-    getTimeWindow(1, startDate, 1, now).start.getTime() !==
-    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
-  );
-}
+// The window a `start_date` opens, and whether it follows today. Both live in `start-date.ts`,
+// which `config/view.ts` can import without this module, and stay reachable here for every
+// caller that always read them here.
+export { getTimeWindow, startDateFollowsToday };
 
 //-----------------------------------------------------------------------------
 // CACHE MANAGEMENT FUNCTIONS
@@ -3591,6 +3542,8 @@ function entryCalendars(entry: Types.CacheEntry): string[] {
  *   the window whenever `startDate` uses a week-relative expression. Numeric, not the
  *   raw `first_day_of_week` string: `'system'` resolves to a different weekday per user
  *   profile, so keying on the raw value gave two different windows one cache entry.
+ * @param variant Anything else that shapes the window, appended as it is
+ *   (`ViewConfig.loadIdentity`); empty where the rest says everything
  * @returns Base cache key
  */
 export function getBaseCacheKey(
@@ -3599,6 +3552,7 @@ export function getBaseCacheKey(
   daysToShow: number,
   startDate?: string,
   firstDayOfWeek?: number,
+  variant = '',
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -3623,7 +3577,7 @@ export function getBaseCacheKey(
   // One rule with the card's query identity, which this key begins with: see the helper.
   const firstDayPart = Helpers.firstDayKeyPart(normalizedStartDate, firstDayOfWeek);
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${variant}${Constants.VERSION.CURRENT}`;
 }
 
 /**

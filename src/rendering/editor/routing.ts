@@ -4,13 +4,21 @@
 
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize';
+import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
-import { type EditorWorkspace, WORKSPACE_FIELD, viewForWorkspace } from './workspace';
+import {
+  BLOCK_KEYS,
+  type EditorWorkspace,
+  LAYOUT_GROUPS,
+  storedPath,
+  viewForWorkspace,
+} from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
+import { weatherEntityOf } from '../../utils/weather-position';
 
 export interface WorkspaceField {
   node: SelectorSchema;
@@ -28,23 +36,10 @@ export interface FormFrame {
  * Enumerates inputs by their configuration path rather than their label groups.
  *
  * @param schema - Rendered schema
- * @param path - Enclosing data keys
  */
-export function* workspaceFields(
-  schema: ReadonlyArray<HaFormSchema>,
-  path: ReadonlyArray<string> = [],
-  labelPath: ReadonlyArray<string> = [],
-): Generator<WorkspaceField> {
-  for (const node of schema) {
-    if ('schema' in node) {
-      yield* workspaceFields(
-        node.schema,
-        node.name !== '' && node.flatten !== true ? [...path, node.name] : path,
-        node.type === 'expandable' && node.name !== '' ? [...labelPath, node.name] : labelPath,
-      );
-    } else if ('selector' in node) {
-      yield { node, path, labelPath };
-    }
+export function* workspaceFields(schema: ReadonlyArray<HaFormSchema>): Generator<WorkspaceField> {
+  for (const { node, path, dataPath } of walkSchema(schema)) {
+    if ('selector' in node) yield { node, path: dataPath, labelPath: path };
   }
 }
 
@@ -92,14 +87,11 @@ export function valueSource(
   if (view === undefined) return undefined;
 
   const block = ViewConfig.viewBlockFor(view);
-  if (!block || name === 'view' || name === WORKSPACE_FIELD) return undefined;
+  if (!block || name === 'view') return undefined;
   const keys = Synthetic.configKeysForField(name);
   if (!keys.some((key) => destination(key, workspace) === block.blockKey)) return 'card';
   const stored = storedBlocks(config)[block.blockKey];
-  if (
-    Helpers.isConfigBlock(stored) &&
-    keys.some((key) => Object.prototype.hasOwnProperty.call(stored, key))
-  )
+  if (Helpers.isConfigBlock(stored) && keys.some((key) => Helpers.hasOwn(stored, key)))
     return 'own';
   return keys.some(
     (key) => block.onlyKeys.includes(key) || ViewConfig.hasDivergentDefault(key, view),
@@ -121,7 +113,8 @@ export function pendingKey(
   workspace: EditorWorkspace,
   path: ReadonlyArray<string> = [],
 ): string {
-  if (path.length > 0) return [...path, name].join('.');
+  // A layout group's text is held where it is stored: `list.weather.date.icon_size`.
+  if (path.length > 0) return [...(storedPath(path, workspace) ?? path), name].join('.');
   const destinations = Synthetic.configKeysForField(name).map((key) => destination(key, workspace));
   const block = destinations[0];
   return block !== undefined && destinations.every((candidate) => candidate === block)
@@ -158,6 +151,18 @@ export function workspaceConfig(
 }
 
 /**
+ * The layout a card opens in, as the card reads it: its `view`, or List where that is missing or
+ * names no layout (`ViewConfig.validateView`). The editor's chips and its form data both read it
+ * here, so the two cannot disagree about which layout the switcher always offers.
+ *
+ * @param config - The card's configuration
+ * @returns The starting layout
+ */
+export function startingView(config: Readonly<Types.Config>): Types.EffectiveView {
+  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+}
+
+/**
  * Builds full form data while leaving write destinations to the router.
  *
  * @param config - Raw merged configuration
@@ -180,12 +185,14 @@ export function workspaceFormData(
       return [
         [
           block.blockKey,
-          Object.fromEntries(
-            Object.entries(values).map(([key, value]) => [
-              key,
-              normalizeFieldValue(config, [block.blockKey], key, value),
-            ]),
-          ),
+          {
+            ...Object.fromEntries(
+              Object.entries(values).map(([key, value]) => [
+                key,
+                normalizeFieldValue(config, [block.blockKey], key, value),
+              ]),
+            ),
+          },
         ],
       ];
     }),
@@ -198,15 +205,26 @@ export function workspaceFormData(
   let data: Record<string, unknown> = {
     ...projected,
     ...blocks,
-    weather: Value.weatherFormBlock(projected),
-    toolbar: Value.toolbarFormBlock(projected),
-    ...Synthetic.deriveSyntheticData(projected, held),
+    weather: workspaceWeather(config, workspace),
+    // The entity every layout draws from, wherever it is written.
+    weather_entity: weatherEntityOf(config),
+    // The card's own `view`, not the layout the page projects: the switcher always offers the
+    // layout the card opens in, whatever layout is being edited.
+    toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
+    ...Synthetic.deriveSyntheticData(projected, held, viewForWorkspace(workspace)),
   };
   for (const [key, text] of Object.entries(pending)) {
     const parts = key.split('.');
     const name = parts[parts.length - 1];
-    const path = parts.slice(0, -1);
-    if (Synthetic.isSyntheticKey(name)) continue;
+    let path = parts.slice(0, -1);
+    // A layout group's text, held under its layout's block, shows in that layout alone.
+    if (path.length > 1 && BLOCK_KEYS.has(path[0]) && LAYOUT_GROUPS.has(path[1])) {
+      if (storedPath(path.slice(1), workspace)?.[0] !== path[0]) continue;
+      path = path.slice(1);
+    }
+    // A synthetic field's text, which the derived data above took. Asked of the key, not the
+    // name alone: Month's own `card_height` shares its name with the card's Height.
+    if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;
     const block = destination(name, workspace);
     if (path.length === 0 && block !== undefined) continue;
     const paths = [path];
@@ -231,7 +249,64 @@ export function workspaceFormData(
   return data;
 }
 
-function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
+/**
+ * The part of a workspace's form data one form reads, as `ha-form` reads it (`getValue` in its
+ * frontend): the value under each name its schema draws, within a named group only the names
+ * its schema draws there, and through an unnamed or flattened group the names inside it. Handed this, a panel's form
+ * receives new data only when something it draws moves, rather than whenever any field
+ * anywhere does. `applyWorkspaceChange` reads a form's data and what it emits at its own fields'
+ * paths alone, so nothing it routes is lost.
+ *
+ * @param data - The workspace's form data (`workspaceFormData`)
+ * @param schema - The form's schema
+ * @returns The form's data
+ */
+export function formDataFor(
+  data: Readonly<Record<string, unknown>>,
+  schema: ReadonlyArray<HaFormSchema>,
+): Record<string, unknown> {
+  const part: Record<string, unknown> = {};
+  for (const node of schema) {
+    if ('schema' in node && (node.name === '' || node.flatten)) {
+      Object.assign(part, formDataFor(data, node.schema));
+    } else if (!(node.name in data)) {
+      continue;
+    } else if ('schema' in node && Helpers.isConfigBlock(data[node.name])) {
+      // Into a named group only as far as its schema draws: a field lifted out of Weather or the
+      // toolbar is handed its own value, not the block's every sibling.
+      part[node.name] = formDataFor(data[node.name] as Record<string, unknown>, node.schema);
+    } else {
+      part[node.name] = data[node.name];
+    }
+  }
+  return part;
+}
+
+/**
+ * A field in a form of its own, nested in named grids for its data path, so the form nests its data
+ * exactly as the field's panel did (`schemas/common.ts` › `blockScope`). A named `grid` nests data
+ * and not labels.
+ *
+ * @param node - The field
+ * @param dataPath - Enclosing data keys, outermost first
+ * @returns The one-field schema
+ */
+export function nestedSchema(node: HaFormSchema, dataPath: ReadonlyArray<string>): HaFormSchema[] {
+  return dataPath.reduceRight<HaFormSchema[]>(
+    (child, name) => [{ type: 'grid', name, column_min_width: '100%', schema: child }],
+    [node],
+  );
+}
+
+/**
+ * The value under a key inside nested data.
+ *
+ * @param data - Form data or configuration
+ * @param path - Enclosing data keys, outermost first
+ * @param key - The key
+ * @returns The value, or undefined where a step is missing
+ */
+export function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
   let value = data;
   for (const part of [...path, key]) {
     value = Helpers.isConfigBlock(value) ? value[part] : undefined;
@@ -239,7 +314,17 @@ function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknow
   return value;
 }
 
-function writePath<T extends object>(
+/**
+ * A copy of nested data with one value replaced, the blocks above it copied and every other value
+ * kept. An undefined value removes the key.
+ *
+ * @param data - Form data or configuration
+ * @param path - Enclosing data keys, outermost first
+ * @param key - The key
+ * @param value - The new value
+ * @returns The new data
+ */
+export function writePath<T extends object>(
   data: Readonly<T>,
   path: ReadonlyArray<string>,
   key: string,
@@ -281,7 +366,6 @@ export function applyWorkspaceChange(
   let draft: Types.Config = { ...config };
   const held = { ...pending };
   for (const { node, path } of workspaceFields(frame.schema)) {
-    if (node.name === WORKSPACE_FIELD) continue;
     const synthetic = path.length === 0 && Synthetic.isSyntheticKey(node.name);
     const comparisonKey = synthetic ? Synthetic.configKeysForField(node.name)[0] : node.name;
     const previousRaw = atPath(frame.data, path, node.name);
@@ -316,13 +400,20 @@ export function applyWorkspaceChange(
     }
 
     if (path.length > 0) {
-      draft = writePath(draft, path, node.name, next);
+      // A layout group is stored in the block of the layout being edited.
+      const stored = storedPath(path, frame.workspace);
+      if (stored !== undefined) draft = writePath(draft, stored, node.name, next);
       continue;
     }
 
     const projection = workspaceConfig(draft, frame.workspace);
     const applied = synthetic
-      ? Synthetic.applySyntheticChange(node.name, next, projection)
+      ? Synthetic.applySyntheticChange(
+          node.name,
+          next,
+          projection,
+          viewForWorkspace(frame.workspace),
+        )
       : { changes: { [node.name]: next } };
     for (const [key, raw] of Object.entries(applied.changes)) {
       const block = destination(key, frame.workspace);
@@ -339,6 +430,7 @@ export function applyWorkspaceChange(
       )
         continue;
       draft = writePath(draft, block ? [block] : [], key, value);
+      if (key === 'weather_entity') draft = turnOnLayoutWeather(draft, frame.workspace);
     }
     if ('pending' in applied) {
       for (const [name, value] of Object.entries(applied.pending ?? {})) {
@@ -354,4 +446,42 @@ export function applyWorkspaceChange(
     draft = Value.reconcileTimeGridValues(draft, gridResetKeys, authoredRootKeys);
   }
   return { config: draft, pending: held };
+}
+
+/**
+ * The weather a scope's Weather page edits, every option at its effective value: the layout's own,
+ * as it draws, or for All Layouts, which draws none, the layout base, off.
+ *
+ * @param config - Merged configuration
+ * @param workspace - The scope
+ * @returns The weather, without an entity
+ */
+export function workspaceWeather(
+  config: Readonly<Types.Config>,
+  workspace: EditorWorkspace,
+): Types.WeatherPresentationConfig {
+  const view = viewForWorkspace(workspace);
+  return view === undefined
+    ? structuredClone(ViewConfig.LAYOUT_WEATHER_BASE)
+    : ViewConfig.layoutWeather(config as Types.Config, view);
+}
+
+/**
+ * Turns the forecast on in the layout being edited when an entity is chosen there while that
+ * layout shows none: beside its days, or in Month, which has none, beside its events. Every other
+ * layout keeps its own setting.
+ *
+ * @param config - The configuration with the entity just written
+ * @param workspace - The scope the entity was chosen in
+ * @returns The configuration, with that layout's weather on where it was off
+ */
+export function turnOnLayoutWeather(
+  config: Types.Config,
+  workspace: EditorWorkspace,
+): Types.Config {
+  const view = viewForWorkspace(workspace);
+  if (view === undefined || weatherEntityOf(config) === undefined) return config;
+  if (ViewConfig.layoutWeather(config, view).position !== 'none') return config;
+  const block = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view] as string;
+  return writePath(config, [block, 'weather'], 'position', view === 'month' ? 'event' : 'date');
 }

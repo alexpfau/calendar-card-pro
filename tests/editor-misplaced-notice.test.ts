@@ -6,15 +6,21 @@
  * from the same rule (`findMisplacedOptions`) and moves one to where it works when that place is
  * free. A move must survive the next unrelated edit even when the moved value equals a default,
  * which is why it edits the YAML's own configuration rather than going through `_report`.
+ *
+ * Since the editor redesign's notices (backlog item 307), the overview names these in one row,
+ * "Options the Card Ignores: 2", and the list itself is on the page that row opens.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  changeField,
+  changeFields,
+  fakeHass,
+  goOverview,
+  mountEditor,
+  openPanels,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
-
-customElements.define('editor-misplaced-notice-test', CalendarCardProEditor);
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
@@ -22,21 +28,17 @@ interface EditorHost extends HTMLElement {
   readonly updateComplete: Promise<unknown>;
 }
 
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
 async function mount(config: Record<string, unknown>, language = 'en') {
-  const editor = document.createElement('editor-misplaced-notice-test') as EditorHost;
-  editor.hass = { states: {}, locale: { language } };
-  editor.setConfig({
-    config_version: Config.CURRENT_CONFIG_VERSION,
-    entities: ['calendar.anna'],
-    ...config,
-  });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(
+    {
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...config,
+    },
+    { hass: fakeHass({ language }) },
+  );
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     const reported = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
@@ -45,6 +47,17 @@ async function mount(config: Record<string, unknown>, language = 'en') {
     editor.setConfig(reported);
   });
   return { editor, reports };
+}
+
+/**
+ * Opens the notices page from the overview's notices row, where there is one.
+ *
+ * @param editor - The editor
+ */
+async function openNotices(editor: EditorHost): Promise<void> {
+  const row = editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="notices"]');
+  row?.click();
+  await editor.updateComplete;
 }
 
 function notice(editor: EditorHost): HTMLElement | null {
@@ -72,20 +85,6 @@ async function press(editor: EditorHost, path: string, label: string): Promise<v
   await editor.updateComplete;
 }
 
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].find((candidate) =>
-    [...workspaceFields(candidate.schema)].some(({ node }) => node.name === key),
-  )!;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
 afterEach(() => document.body.replaceChildren());
 
 describe('the misplaced-option notice', () => {
@@ -95,8 +94,33 @@ describe('the misplaced-option notice', () => {
       column: { min_day_width: '120px' },
       time_grid: { start_time: '07:00' },
     });
+    await openNotices(editor);
 
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"]')).toBeNull();
     expect(notice(editor)).toBeNull();
+  });
+
+  it('leaves Home Assistant’s card visibility alone, through an unrelated edit', async () => {
+    const visibility = [
+      { condition: 'screen', media_query: '(min-width: 0px) and (max-width: 1023px)' },
+    ];
+    const { editor, reports } = await mount({
+      type: 'custom:calendar-card-pro',
+      title: 'Before',
+      grid_options: { columns: 'full' },
+      visibility,
+    });
+    await openNotices(editor);
+
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"]')).toBeNull();
+    expect(notice(editor)).toBeNull();
+
+    await changeField(editor, 'card:title', 'After');
+
+    const last = reports[reports.length - 1];
+    expect(last.title).toBe('After');
+    expect(last.visibility).toEqual(visibility);
+    expect(last.grid_options).toEqual({ columns: 'full' });
   });
 
   it('lists each misplaced option with where it works and a button per free place', async () => {
@@ -107,13 +131,24 @@ describe('the misplaced-option notice', () => {
       time_grid: { weather: { entity: 'weather.home' } },
       weather: { entity: 'weather.home' },
     });
+    // Opening converts the weather written before v6, which drops the layout's own weather the
+    // old block made the card ignore, and says so, so the notices no longer list it.
+    expect(editor.shadowRoot!.querySelector('[data-upgrade-receipt]')!.textContent).toContain(
+      'Lines the card ignored are gone: time_grid.weather.',
+    );
+    expect(editor.shadowRoot!.querySelector('[data-focus="notices"] .nav-title')!.textContent).toBe(
+      'Options the Card Ignores: 3',
+    );
+    await openNotices(editor);
 
     expect(rows(editor)).toEqual({
+      // Month's block takes a `min_day_width` of its own too: the width below which it turns
+      // compact.
       min_day_width: {
         text:
-          'min_day_width Works only in a layout’s own settings: Columns or Grid. ' +
-          'Columns already sets it. Move to Grid',
-        buttons: ['Move to Grid'],
+          'min_day_width Works only in a layout’s own settings: Columns, Grid, or Month. ' +
+          'Columns already sets it. Move to Grid Move to Month',
+        buttons: ['Move to Grid', 'Move to Month'],
       },
       'list.toolbar': {
         text: 'list.toolbar Works only for the whole card, at the top level. Move to Top Level',
@@ -123,17 +158,12 @@ describe('the misplaced-option notice', () => {
         text: 'list.shwo_location Not an option of this card. Check its spelling and where it is.',
         buttons: [],
       },
-      'time_grid.weather': {
-        text:
-          'time_grid.weather Decides which events are loaded, so it works only for the whole ' +
-          'card, at the top level. Top Level already sets it.',
-        buttons: [],
-      },
     });
   });
 
   it('names the layout a key from another layout belongs to', async () => {
     const { editor } = await mount({ column: { start_time: '07:00' } });
+    await openNotices(editor);
 
     expect(rows(editor)['column.start_time']).toEqual({
       text: 'column.start_time Belongs to another layout: Grid. Move to Grid',
@@ -143,6 +173,7 @@ describe('the misplaced-option notice', () => {
 
   it('moves a card-wide option to the top level and drops the emptied block', async () => {
     const { editor, reports } = await mount({ time_grid: { toolbar: { show: true } } });
+    await openNotices(editor);
 
     await press(editor, 'time_grid.toolbar', 'Move to Top Level');
 
@@ -157,6 +188,7 @@ describe('the misplaced-option notice', () => {
       hour_height: '40px',
       time_grid: { slot_minutes: 30 },
     });
+    await openNotices(editor);
 
     await press(editor, 'hour_height', 'Move to Grid');
 
@@ -169,10 +201,11 @@ describe('the misplaced-option notice', () => {
       title: 'Before',
       list: { allow_event_edit: true, hide_when_empty: false },
     });
+    await openNotices(editor);
 
     await press(editor, 'list.allow_event_edit', 'Move to Top Level');
     await press(editor, 'list.hide_when_empty', 'Move to Top Level');
-    await change(editor, 'title', 'After');
+    await changeField(editor, 'card:title', 'After');
 
     const last = reports[reports.length - 1];
     expect(last.title).toBe('After');
@@ -184,7 +217,10 @@ describe('the misplaced-option notice', () => {
   it('keeps a misplaced list line, and the notice, through an unrelated edit', async () => {
     const { editor, reports } = await mount({ title: 'Before', list: { start_date: 'today' } });
 
-    await change(editor, 'title', 'After');
+    await changeField(editor, 'card:title', 'After');
+    // The edit was made on its page; the notice stands on the overview.
+    await goOverview(editor);
+    await openNotices(editor);
 
     expect(reports[reports.length - 1].list).toEqual({ start_date: 'today' });
     expect(Object.keys(rows(editor))).toEqual(['list.start_date']);
@@ -192,22 +228,16 @@ describe('the misplaced-option notice', () => {
 
   it('stays in view while search hides every panel', async () => {
     const { editor } = await mount({ list: { toolbar: { show: true } } });
-    const filter = editor.shadowRoot!.querySelector<Form>('.filter-form')!;
 
-    filter.dispatchEvent(
-      new CustomEvent('value-changed', {
-        detail: { value: { ...filter.data, search: 'zzzz-no-such-option', customized_only: true } },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    await editor.updateComplete;
+    await changeFields(editor, { 'filter:search': 'zzzz-no-such-option' });
+    await openNotices(editor);
 
     expect(Object.keys(rows(editor))).toEqual(['list.toolbar']);
   });
 
   it('speaks the editor language, joining places the way it writes a list', async () => {
     const { editor } = await mount({ day_header_gap: '8px' }, 'de');
+    await openNotices(editor);
 
     expect(notice(editor)!.querySelector('strong')!.textContent).not.toBe(
       'Options the Card Ignores',

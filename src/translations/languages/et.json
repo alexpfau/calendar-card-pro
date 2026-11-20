@@ -30,6 +30,10 @@
   "viewList": "Loetelu",
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",
+  "viewMonth": "Kuu",
+  "moreEvents": "+{count} veel",
+  "eventCount": "{count} sündmust",
+  "eventCountOne": "{count} sündmus",
   "endsToday": "lõpeb täna",
   "endsTomorrow": "lõpeb homme",
   "dayOfEvent": "Päev {day}/{days}",
@@ -40,5 +44,6 @@
   "loadFailed": "Laadimine ebaõnnestus:",
   "newEvent": "Uus sündmus",
   "showAll": "Näita kõiki",
-  "hideAll": "Peida kõik"
+  "hideAll": "Peida kõik",
+  "private": "Privaatne"
 }

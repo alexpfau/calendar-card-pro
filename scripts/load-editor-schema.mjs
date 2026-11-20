@@ -2,7 +2,8 @@
 /**
  * Loads the editor's schema modules as real JavaScript.
  *
- * `check-i18n.mjs` reconciles the editor's string table against the fields that use it.
+ * `check-i18n.mjs` reconciles the editor's string table against the fields that use it, and
+ * against the page registry and gate table that name strings and configurations of their own.
  * The editor schema is DOM-free, so this can bundle and import it without a browser.
  */
 
@@ -19,8 +20,13 @@ export async function loadEditorModule(root) {
     stdin: {
       contents: `
         export { PANELS, walkSchema } from './src/rendering/editor/panels.js';
-        export { panelSubforms, chassisSubforms, CHASSIS_STRINGS } from './src/rendering/editor/subforms.js';
+        export { panelSubforms, chassisSubforms, CHASSIS_STRINGS, REFERENCED_STRINGS } from './src/rendering/editor/subforms.js';
+        export { PAGES, OVERVIEW_FIELDS, ENTRY_GROUPS, FAMILIES, CALENDARS_BLOCK, STARTING_LAYOUT_BLOCK } from './src/rendering/editor/pages.js';
+        export { GATES, ENTRY_GATES, corpus, whenKeyOf } from './src/rendering/editor/gates.js';
+        export { schemaCtx } from './src/rendering/editor/field-index.js';
+        export { HA_TAB_KEYS } from './src/rendering/editor/search.js';
         export { EDITOR_STRINGS } from './src/rendering/editor/strings.js';
+        export { COLOR_THEME_NAMES, SWATCH_TOKENS, swatchNameKey } from './src/rendering/editor/colors.js';
         export { LABELED_ACTIONS, cardActionLabelKey } from './src/rendering/editor/schemas/actions.js';
         export { EDITOR_LANGUAGE_STRINGS } from './src/rendering/editor/translations/index.js';
         export { humanize, lookup, qualifiedKey } from './src/rendering/editor/localize.js';

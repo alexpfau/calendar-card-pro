@@ -30,6 +30,10 @@
   "viewList": "Lista",
   "viewColumns": "Sarakkeet",
   "viewGrid": "Ruudukko",
+  "viewMonth": "Kuukausi",
+  "moreEvents": "+{count} lisää",
+  "eventCount": "{count} tapahtumaa",
+  "eventCountOne": "{count} tapahtuma",
   "endsToday": "päättyy tänään",
   "endsTomorrow": "päättyy huomenna",
   "dayOfEvent": "Päivä {day}/{days}",
@@ -40,5 +44,6 @@
   "loadFailed": "Lataus epäonnistui:",
   "newEvent": "Uusi tapahtuma",
   "showAll": "Näytä kaikki",
-  "hideAll": "Piilota kaikki"
+  "hideAll": "Piilota kaikki",
+  "private": "Yksityinen"
 }

@@ -82,6 +82,7 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['days_of_week', 'weekdays', 'weekends'],
   ['allday_expires_at', '10:00', '18:00'],
   ['visibility', [{ condition: 'user', users: ['anna'] }], [{ condition: 'user', users: ['ben'] }]],
+  ['private', false, true],
 ];
 
 /**

@@ -1,26 +1,127 @@
 # Visual Configuration Editor
 
-Configure the card with Home Assistant's visual editor and see a live preview as you edit.
+Configure the card with Home Assistant's visual editor and see a live preview as you edit. The
+editor opens on an overview of the card, edits what most cards need right there, and leads to a
+page for everything else.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v5.png" alt="The visual editor in dark mode: Quick Setup at the top, the Card Displays choice, the layout being edited, search, the Customized Only and Essentials Only switches, and the collapsible panels, beside a live preview of the card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of the card: the overview, with search, Undo and Redo at the top, then the card's calendars, its starting layout, and a row for each page of settings"><br>
 
-The editor, with the card's preview beside it. **Card Displays** is set to List, so **Editing Settings For** starts on List too; [Options for the Selected View](#options-for-the-selected-view) explains the two.
+To open it, click the three dots (⋮) in the top-right corner of the card and select
+**Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
 
-To open it, click the three dots (⋮) in the top-right corner of the card and select **Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
+## 🗺️ The Overview
+
+The overview is the first thing the editor shows. It holds the card's calendars, the settings
+the whole card shares, and its layouts, each leading to pages of their own. Top to bottom:
+
+| Part                           | What it does                                                                                                                                          |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Notices**                    | Only when the YAML holds [options the card ignores](#options-the-card-ignores) or [removed options](#deprecated-options)                              |
+| **Quick Setup**                | On a fresh card, a banner offering [Quick Setup](#quick-setup), which takes focus as the editor opens                                                 |
+| **Search**, **Undo**, **Redo** | [Search](#search) every setting; [Undo and Redo](#undo-redo) the last change                                                                          |
+| **⋯ Editor Preferences**       | Show YAML Option Names, at the end of the search row                                                                                                  |
+| **Calendars**                  | The card's [calendars](#calendars), a row each                                                                                                        |
+| **Whole Card**                 | The pages whose settings are the same in every layout, a row each saying in one line what the page holds                                              |
+| **Layouts**                    | List, Columns, Grid and Month, a row each with its picture, then Layout Defaults; see [Options for the Selected View](#options-for-the-selected-view) |
+| **More**                       | [Stored Settings](#stored-settings) and Start From an Example                                                                                         |
+
+**Whole Card**'s rows open these pages, each row saying in a line what its page holds:
+
+| Page                           | What it holds                                                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Card & Header**              | The title and the card's background, the toolbar and your own toolbar buttons                                                                                                                                                                |
+| **Events, Weather & Language** | The whole card's answers to a first setup's questions: Start Date, Event Type and Hide The Card When Empty, the Weather Entity, then First Day of Week, Time Format and Language; see [Events, Weather & Language](#events-weather-language) |
+| **Taps & Refresh**             | What a tap or a hold on the card, a day or an event does, editing and deleting events, and how often the card reads its calendars again                                                                                                      |
+
+Each layout's page lists five topics, and Layout Defaults the first four, since no forecast
+setting has a value for every layout:
+
+| Topic                | What it holds                                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode     |
+| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading         |
+| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                              |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, Month's card heights, the density of Columns, Grid and Month, and the rules |
+| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares     |
+
+**Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
+the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
+`start_of_week`, and Relative to Today takes any offset, such as `today-29`. Month's page offers
+Today, A Fixed Date and Relative to Today. It shows Tomorrow and Start of Week as Today, since
+Month opens today's month for them, and names what the other layouts start on instead. A tap on
+an event opens its details; to change that, choose another action under **Event Tap Action** on
+Taps & Refresh.
+
+**Weather** opens with **Weather Entity**, shared by every layout. Choosing one here turns the
+forecast on in the layout you are editing, beside its days, or in Month beside its events, and
+leaves the other layouts as they are; clearing it removes the forecast from every layout.
+Everything else on the page is that layout's own, so List can show the forecast beside events while
+Grid shows it in the day header; see [Weather Per Layout](/features/weather#weather-per-layout).
+
+### Events, Weather & Language
+
+**Events, Weather & Language**, under **Whole Card**, holds the settings a first setup asks about
+that have one value for the whole card: **Start Date**, **Event Type** and **Hide The Card When
+Empty** under Which Events, the **Weather Entity** under Forecast, and **First Day of Week**,
+**Time Format** and **Language** under Format & Language.
+
+The layouts' topics name all but Language too, each in its place. Start Date sits editable beside
+Days to Show, and the Weather Entity on each layout's Weather, where choosing it turns that
+layout's forecast on. Event Type and Hide The Card When Empty on Which Events, First Day of Week on
+Days and Time Format on Event Appearance show as a row with their value and **Whole Card · Events,
+Weather & Language**, which opens the setting here; **Back to** and the topic's name, under the
+header there, returns to the row.
+
+Under Start Date, **Days to show, per layout** links to Days to Show in each layout the card can
+show that counts days, since each layout keeps a count of its own. **Show the forecast in** links
+to each layout's Weather, where the forecast is turned on, since choosing the entity here turns
+none on. With no entity chosen yet, each link opens that layout's Weather Entity, where choosing
+one turns that layout's forecast on.
+
+The **⋯** menu at the end of the search row holds **Show YAML Option Names**, remembered in this
+browser for every card, with a box that is checked while it is on. It shows each setting's YAML
+option name beside its label, and the YAML path in search results and in Stored Settings,
+which helps when you move between the editor and YAML. The **⋯** button opens and closes the
+menu, Down Arrow opens it from the button, and Escape closes it.
+
+### Pages & Back
+
+A row opens its page with focus on the page's title. **Back**, at the top and at the foot of
+every page, goes up one level: from a layout's topic to that layout's page, and from every other
+page to the overview. It lands on the row that opens the page you left, in view and focused, with
+the page scrolled as you left it on the way down. Nothing goes deeper than a layout's topic. At
+the top, Back and the title share the first row, and **Search Settings**, **Undo**, **Redo** and
+**Pick From Preview** sit on the row under it, at every width.
+
+- A page you reached another way than by its row says how to return under its header:
+  **Return to Results** after a search result, and **Back to** and the page's name after a link
+  from another page, Pick From Preview or Undo of a step taken there. Back still goes up.
+- **Escape** closes whatever the editor has open first, such as a setting's state menu or a row's
+  actions, then goes Back. On the overview it clears a search, and only then lets Home Assistant
+  close the dialog. A picker Home Assistant opened keeps its own Escape.
+- **Which Events** and **Days** link to each other: whether past events show is one, and
+  how the dates of past days look is the other.
+- The editor adds nothing to the browser's history, so the browser's Back closes the dialog as
+  it does for any card.
+- The line under a setting says only what its name does not: a default, a format, or how it
+  works with another setting. **Documentation**, at the foot of every page, opens the part of
+  this site that covers the page's settings in full, in a new tab.
 
 ## 🪄 Quick Setup
 
-**Quick Setup** starts a card from one of the [Example Stories](/reference/examples) and asks only
+**Quick Setup** starts a card from a [Simple Agenda](/guide/usage#your-first-card) or one of the
+[Example Stories](/reference/examples) and asks only
 what a story cannot know about your home: the title, your calendars, your weather and how the
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: five stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on its first step, Starting Point: five stories to start from with Family Hub picked, beside a preview already drawing the Family Hub card"><br>
 
 Pick a story and the preview draws it at once, on your own calendars as soon as you name them.
 
-Choose **Quick Setup** at the top of the editor. Starting from Birthdays & Holidays on two
-calendars writes this:
+A fresh card offers Quick Setup in a banner at the top of the overview; on any card it is
+**Start From an Example** under **More**. Starting from Birthdays & Holidays on two calendars
+writes this:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -49,17 +150,19 @@ entities:
     accent_color: '#26a69a'
 ```
 
-| Step                  | What it asks                                                                                                                                                                                                   |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Starting Point**    | [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
-| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                              |
-| **Weather**           | A weather entity, or none                                                                                                                                                                                      |
-| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                        |
-| **Review**            | What Apply will change, then **Apply**                                                                                                                                                                         |
+| Step                  | What it asks                                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Simple Agenda](/guide/usage#your-first-card), [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                                                                             |
+| **Weather**           | A weather entity, or none                                                                                                                                                                                                                                     |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                                                                       |
+| **Review**            | The example, calendars, layout, title and weather Apply leaves, each setting it replaces, then **Apply**                                                                                                                                                      |
 
-- **The preview follows every answer.** **Cancel** puts the card back exactly as it was.
+- **The preview follows every answer.** **Cancel** puts the card back exactly as it was, and
+  after **Apply**, one **Undo** does.
 - **The story replaces the card's look**: its layout, spacing, toolbar settings and actions, and
-  every setting the steps do not ask about.
+  every setting the steps do not ask about. On a card with settings, the review names each one it
+  replaces, with its value now and after, such as "Days To Show: 7 → 3".
 - **Your calendars keep their own settings.** A calendar without a color of its own takes the
   story's next color, until the story runs out of colors.
 - **The weather step starts from your card's weather entity.** Without one, a story that shows
@@ -73,131 +176,58 @@ entities:
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the
   story's family.
-- A calendar listed more than once keeps every one of its blocks, together, in the order the
+- A calendar listed more than once keeps every one of its entries, together, in the order the
   card first lists it.
 - Each answer is a real edit of the card, so pressing Home Assistant's **Save** before
   **Apply** saves what the preview shows.
 - Changing the card's YAML while Quick Setup is open closes it, keeping your YAML.
-
-:::
-
-## 🗂️ Editor Organization
-
-The editor groups its options into nine panels, each named for what it configures rather than for where the option lives in YAML. They are listed here in the order the editor shows them:
-
-| Panel                    | What it covers                                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| **Calendars**            | Which calendars the card shows, and how each one looks                                      |
-| **Layout**               | How the card arranges days, and how much room it takes up                                   |
-| **Time Range & Content** | Which days the card covers, and what it puts in them                                        |
-| **Card & Header**        | The card itself, and its header: the title and the toolbar                                  |
-| **Day Header**           | How each day announces itself, and in Columns and Grid the rule drawn under it              |
-| **Events**               | The events themselves, and the lines each one can carry                                     |
-| **Separators**           | The rules between days, weeks and months; in Grid also those across it, and **Day Spacing** |
-| **Weather**              | A forecast beside the day, beside the event, or both                                        |
-| **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars      |
-
-Several panels can be open at once, and a [search](#search-customized-only) opens every panel
-holding a match. Options appear only when they apply: switching a feature on reveals the
-settings that belong to it.
-
-Most panels look the same whichever [layout you are editing](#options-for-the-selected-view).
-Where they differ:
-
-- **List** adds **Event Order**, **Skip First Events** and **Compact Mode** under Time Range &
-  Content, and **Vertical Alignment** and **Indicator Position** under Day Header.
-- **Columns** adds a collapsible **Column Density** group under Layout, which decides how narrow a column may get
-  before the card gives one up.
-- **Columns** and **Grid** add **Gap & Rule** under Day Header, the space under a day header
-  and the rule drawn inside it, and a table under Layout's fields showing which layout the card
-  renders at each width.
-- **Grid** captions Layout's fields **Time Axis**, **Hour Labels**, **On the Grid** and
-  **Card Size & Spacing**, then adds **Grid Density**. It titles **Separators** as **Rules**,
-  and its **Day Spacing** sits there.
-- **Grid** leaves out **Multi-Day Events**, which it arranges itself; the empty-day text and
-  color, since it draws an empty day as a blank column; and **Show Now Indicator**, since it
-  marks the present with the **Now Line** under **Layout → On the Grid**.
-
-::: details Inside Each Panel
-
-- **Calendars** and **Time Range & Content** share an order: **Event Filtering**, then
-  **Multi-Day Events**. A calendar adds **Name & Appearance** and **Visibility** above them,
-  **Text Replacement** between them and **Event Details** below. **Visibility** holds Home
-  Assistant's own Visibility editor, for the calendar's
-  [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions). Time
-  Range & Content opens with
-  **Time Range**, the days the card covers, and ends with **Empty Days**, then the collapsible
-  groups **Compact Mode** and **Language & Time Format**.
-- **Layout** orders its spacing from the outside in: between days (**Day Spacing**), between a
-  day's events (**Event Gap**), inside each event (**Event Spacing**), then
-  **Additional Card Spacing** and **Card Height**. The layout's density group comes last.
-- **Card & Header** ends with a **Toolbar** heading over the
-  [header toolbar](/features/layout-appearance#header-toolbar). **Show Toolbar** turns it on or
-  off. While it is on, the panel offers the toolbar's controls in the order the toolbar is read:
-  **Calendar Filter**, **Add Event Button**, **View Switcher**, **Reset Button**,
-  **Refresh Button** and **Search Button** for the top row, then **Date Navigation** for the row under it.
-  **Calendar Filter** is a dropdown of **Off**, **Menu** and **Chips**, with **Menu** the
-  default. Under them, **Your Own Buttons** holds a panel for each of the toolbar's
-  [buttons of your own](/features/layout-appearance#your-own-buttons), with **Move Up**,
-  **Move Down** and **Remove** over its **Icon**, **Name**, **Entity** and **Tap Action**, and
-  **Add Button** after the last. Turning the toolbar off hides them and keeps what they were set
-  to.
-- **Day Header → Today Indicator**: the **Style** decides what follows. The **Date Tile** offers
-  only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add
-  **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling
-  options appear once **Numbering** is anything but **None**.
-- **Day Header → Today** sits right above the indicator: today's scale and weight, then its three
-  colors. The days before today have a collapsed **Past Days** group of their own, and weekends
-  **Weekend Colors**, both last in the panel. The month's colors appear only while
-  **Show Month** is on.
-- **Events → Event State** sits between the Event Details switches and Accent.
-  **Show Now Indicator** puts "Now" before the time of an event that is happening, and **Now Color** is the
-  color of that event, offered whether or not the switch is on. It colors grid view's now line
-  too; in the Grid workspace it writes `time_grid.now_color`, which colors grid alone.
-- **Past Event Opacity** accepts 0-100%, including fractions: 60% is the default look, 100%
-  removes the dimming, and 0% makes contents transparent without hiding events. It is offered in
-  every workspace, even when All Layouts has Show Past Events off, because Grid can show past
-  events on its own. Clear the number to restore 60 in All Layouts, or inheritance in a layout's
-  workspace; that layout's Reset does the same. See
-  [Past Events Display](/features/event-content#past-events-display) and the
-  [configuration reference](/reference/configuration#event-column).
-- **Events → Title → Scroll Long Titles** turns on
-  [scrolling long titles](/features/event-content#scrolling-long-titles) in supported browsers,
-  and can be set separately in each workspace; reduced motion always keeps titles still. It is
-  the only motion setting with a switch of its own: the **Pulsing Dot** style under
-  **Day Header → Today Indicator** animates too.
+- A new card from Home Assistant's card picker starts with the first calendar Home Assistant
+  lists, which nobody chose. Quick Setup starts such a card with no calendar chosen, and the
+  overview names that calendar under **Calendars**, with **Change Calendar** to pick another.
 
 :::
 
 ## 🧭 Options for the Selected View
 
-Two controls sit together above search. **Card Displays** chooses the card's starting
-layout and writes the existing `view` option. **Editing Settings For** chooses which settings
-the panels edit: **All Layouts**, **List**, **Columns**, or **Grid**. It starts by following
-Card Displays, then stays independent once you choose a workspace. The workspace is never
-saved to YAML; opening the editor again starts from the card's displayed view.
+Most settings can differ by layout, so a Grid card can keep tighter spacing for the List it falls
+back to on a narrow screen. **Layouts**, on the overview, gives each layout a row of its own:
 
-- **All Layouts** edits the shared base, the top level, which each layout falls back to. It
-  offers only the options that have a shared meaning, so a layout-specific one is never written
-  where only one view reads it.
-- **List**, **Columns** and **Grid** each write to their own block, `list:`, `column:` and
-  `time_grid:`, and omit the controls, per-calendar ones included, that cannot affect that view.
-  [Editor Organization](#editor-organization) lists the differences.
-- A layout with no value of its own uses its own default when it has one, otherwise the shared
-  base. Editing All Layouts therefore changes only the layouts that inherit that option, never
-  their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
-- Card-wide options such as calendars, title, language, and actions stay card-wide in every
-  workspace.
+- **The circle** picks the layout the card opens in and writes the existing `view` option. With
+  the [layout switcher](/features/layout-appearance#switching-between-layouts) on, people can
+  switch layouts on the card; the link in the help above the rows opens its chip on Card & Header.
+- **The rest of the row**, its picture, name and description, opens that layout's page, which
+  lists its topics: Which Events, Days, Event Appearance and Size & Spacing. Opening a layout
+  never changes the card. Its topics write to its own block, `list:`, `column:`, `time_grid:` or
+  `month:`, and leave out the controls, per-calendar ones included, that cannot affect that
+  layout. Grid's hours are on its Which Events, its hour labels and hour height on Size &
+  Spacing, its shading on Days and its now line and overlapping events on Event Appearance.
+  Month's heights sit on its Size & Spacing, its shading on Days, and the text sizes of its days
+  on Event Appearance, beside the sizes a day's list takes.
+- **A topic page names its layout** under its title. **Also for: List · Columns · Month · Layout
+  Defaults** opens the same topic in another layout, and **Continue with**, at its foot, opens the
+  next topic, then the next layout's Which Events, through List, Columns, Grid and Month in turn.
+- **Layout Defaults**, under the rows, is what a layout uses where it has no value of its own: the
+  top level of the YAML. It offers only the options with a shared meaning. A layout with no value
+  of its own uses its own default where it has one, otherwise Layout Defaults, so editing Layout
+  Defaults changes only the layouts that inherit that option, never their own choices or
+  built-in defaults ([YAML & View Defaults](#yaml-view-defaults)). It has no Weather topic: each
+  layout's forecast is its own.
+- **Whole-card settings** keep one value for every layout. Those a first setup asks about live on
+  Whole Card's pages, and a topic that also concerns one names it by a row that opens it there.
+  The detailed ones, such as the day colors and the card's Accent Color, stay on the topics,
+  marked **Whole Card**, so a change in one layout is a change in every layout.
 
-The workspace follows your selection, not the preview's width-dependent fallback, and search
-and **Customized Only** do not bring back controls for another workspace. To edit a list-only
-option used by a responsive fallback, choose List under Editing Settings For; Card Displays
-stays unchanged. An edit still pending when you switch workspaces stays with the workspace
-where you made it.
+The preview shows the layout you are editing, whatever its width would make it fall back to. When
+that is not the layout the card opens in, a line says so, as in **Preview shows Grid · The card
+opens in Month**, and for a layout the switcher does not offer the preview draws no switcher.
+Layout Defaults and Whole Card's pages preview the card as it opens. Quick Setup and Split This
+Calendar show their own previews while they are open, and a line edited in place under
+[Stored Settings](#stored-settings) previews its own layout. To edit a List-only
+option used by a responsive fallback, open List. [Search](#search) finds the settings only
+another layout offers.
 
-Hiding a control does not delete its stored value. For example, these empty-day options
-remain available to the list fallback, even though their controls are absent while
-editing Grid:
+Hiding a control does not delete its stored value. For example, these empty-day options remain
+available to the List fallback, even though Grid's pages leave out their controls:
 
 ```yaml
 view: grid
@@ -209,32 +239,80 @@ empty_day_color: '#607d8b'
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
 **[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
 
+### State in Words
+
+Under a setting's name, its facts say where its value lives, in words, so the state is never told
+by color alone. Each kind of fact has a form of its own, and none of them can be pressed. A
+setting at its default shows none, except where only some layouts use it; a screen reader still
+reads **Default** with its name. The words are the same on every page; a layout's page title says
+which layout they are about, and a calendar's page is about every layout the card shows.
+
+| Fact                                                   | Form                    | Means                                                                                                                                 |
+| ------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar                                               |
+| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                                  |
+| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                                |
+| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links; under Layout Defaults, any setting a layout draws nothing for |
+| **Day List & Panel**                                   | after Month's icon      | On Month's pages: a setting that acts on a day's list and the panel "+N more" opens, never on the weeks, listed after the weeks' own  |
+| **Only in List**                                       | after the layout's icon | On a calendar's page: a setting only some of the card's layouts use as they are set up, such as Compact Events to Show                |
+| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                                            |
+| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                                             |
+| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there                                                            |
+| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                                                                   |
+| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from                                                         |
+
+A setting with a stored value is always open, with **Reset** in plain view right after **Set**,
+on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open and names the value
+it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
+setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
+Parts** for an event's parts and **Reset Controls** for the toolbar's and the lines under them,
+after a line saying where each chip's state comes from: **Chosen Here**, **From Layout Defaults** or a layout's **Default**. A dropdown may also
+show Home Assistant's own ✕, which empties it, the same as its Reset.
+
+A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
+that follows another says so, as in **Same as Weekday Color**, and any other names what it does,
+such as **No Limit**, **None** or **Theme Default**.
+
 ### Upgrading a Card From Before v5
 
-Opening a List or Grid card from before v5 can raise one question first. Before v5, List
-settings lived at the top level, alongside values inherited by Column. In v5, that same
-location means **All Layouts**. When an older List or Grid card contains an option whose
-default differs in another layout, the editor cannot safely guess which meaning you want. It
-pauses before showing the normal controls and offers two choices:
+Opening a List or Grid card from before v5 upgrades it, and the card looks the same. Before v5,
+List settings lived at the top level, alongside values inherited by Column. In v5, that same
+location means **Layout Defaults**. When an older List or Grid card holds an option whose default
+differs in another layout, the editor keeps that value for List, as it was written, and says so
+at the top of the overview, for example "Upgraded. Day Spacing and Event Font Size now apply to
+List, as before. The card looks the same."
 
-- **Keep my existing List appearance** — recommended. The existing values stay with List,
-  while Column and Grid keep their own settings and defaults.
-- **Use these settings for all layouts** — the existing values become the shared starting
-  point. A layout's own settings and built-in defaults can still take precedence.
+- **Use Them for Every Layout** makes those values the shared starting point instead. A
+  layout's own settings and built-in defaults can still take precedence.
+- **Undo** puts the YAML back exactly as it was. The editor then upgrades it the same way with
+  your next change.
 
-Either choice keeps every option your YAML spells out, including one set to its default, such
-as `show_month: true`, and preserves the layout currently on screen at the moment you choose
-it. On a Grid card, the choice decides what List — including a responsive List fallback — uses
-later; the current Grid appearance is unchanged.
+Either way the editor keeps every option your YAML spells out, including one set to its default,
+such as `show_month: true`, and the layout currently on screen. On a Grid card, the upgrade
+decides what List, including a responsive List fallback, uses later; the current Grid appearance
+is unchanged.
 
-Column cards do not show this choice, and their columns do not change: the first editor edit
-keeps the top-level values shared, as Column read them before v5.
+Column cards are not upgraded on opening, and their columns do not change: the first editor
+edit keeps the top-level values shared, as Column read them before v5.
 
-Merely opening and closing the editor writes nothing, and a card you never edit keeps working
-as it is; see [Per-View Options](/features/core-settings#per-view-options). Once the choice or
-an automatic adoption is saved, it is not asked again, and the editor has written the
-`config_version` option for you, as it does on every card it creates. You do not need to add
-it by hand; see
+A card whose top-level `weather:` names an entity is converted to
+[weather per layout](/features/weather#weather-per-layout) on opening too, and looks the same: the
+entity becomes `weather_entity`, and List, Columns and Grid each take the old block's options as
+their own `weather:`. Month, which drew no forecast from it, stays off. The receipt says so and
+names any line the card ignored that the conversion removes, such as a layout's own `weather:`
+beside the old block. **Undo** puts the old block back, and your next change converts it again.
+
+A top-level `weather:` that names no entity drew nothing. Beside `weather_entity` it is converted
+on opening too, and the layouts with no `weather:` of their own take its options, so they show
+what they did not show before; the receipt names them. With no entity anywhere, your first change
+removes it.
+
+The upgrade is a change to the card like any other: it is kept only when you press **Save**, so
+**Cancel** leaves the card as it was, and a card you never open in the editor keeps working as it
+is; see
+[Per-View Options](/features/core-settings#per-view-options). Once it is saved, the editor has
+written the `config_version` option for you, as it does on every card it creates. You do not
+need to add it by hand; see
 [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ```yaml
@@ -244,14 +322,14 @@ config_version: 5
 
 ::: details What the Upgrade Writes
 
-- The editor asks only when at least one authored value is genuinely ambiguous. The five
-  options only List can read move into `list:` without asking. A List or Grid card with no
-  ambiguous values opens normally and adopts the v5 format on its first actual edit. A Column
-  card's first edit moves only those five and records the v5 format.
+- The editor upgrades a card on opening only when at least one authored value is genuinely
+  ambiguous. The five options only List can read move into `list:` either way. A List or Grid
+  card with no ambiguous values opens normally and adopts the v5 format on its first actual edit.
+  A Column card's first edit moves only those five and records the v5 format.
 - A configuration without `config_version` that already contains `list:` or `time_grid:` is
   treated as layered. It opens normally and adopts the marker on its first actual edit without
   reinterpreting shared values.
-- The choice moves only the values it asks about, and adds `config_version`.
+- The upgrade moves only those values, and adds `config_version`.
 - Every later save works the same way: the editor removes a line you wrote only when you change
   that option, so a card that spells out a default keeps it even if a later release changes the
   default. Setting an option back to its default in the editor still removes the line, except a
@@ -264,8 +342,8 @@ config_version: 5
 
 ### Switching an Existing Card to Grid
 
-On a v5-format card, changing **Card Displays** from List or Column to Grid keeps values
-you explicitly set through All Layouts, including a value equal to the List default. For
+On a v5-format card, picking Grid's circle under **Layouts** on a List or Column card keeps
+values you explicitly set under Layout Defaults, including a value equal to the List default. For
 options where Grid has a different default, the editor copies your value into `time_grid:`
 rather than replacing it. Options you did not set use Grid's defaults without writing
 those defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
@@ -288,29 +366,29 @@ time_grid:
   event_background_opacity: 5
 ```
 
-One notice lists the options kept instead of Grid's defaults. Use the option's
-**Reset** button in the Grid workspace to return to its default; switching away and
-back in the same editing session does not recreate a reset value.
+One notice under the layouts, **Existing Values Kept for Grid**, lists the options kept
+instead of Grid's defaults. Use the option's **Reset** on Grid's pages to return to its
+default; switching away and back in the same editing session does not recreate a reset value.
 
 Only a switch made in the editor keeps your values this way. A change to `view` made in YAML,
-opening a card that is already on Grid, or choosing a workspace copies nothing and shows no
-notice: a v5 card with root `event_background_opacity: 5` and no Grid opacity still shows
+opening a card that is already on Grid, or opening Grid's page copies nothing
+and shows no notice: a v5 card with root `event_background_opacity: 5` and no Grid opacity still shows
 Grid's default of 20.
-Choose the Grid workspace to change that value directly.
+Open Grid under **Layouts** to change that value directly.
 
 ::: details Reset, Saving & Reopening
 
 - The switch does not remove older `time_grid:` values that happen to match a divergent Grid
   default.
 - A reset applies only to the options that control writes. A later switch to Grid still keeps
-  other values you author in All Layouts, and if you deliberately change the reset option itself
-  in All Layouts afterward, that newer choice can be kept on the next switch too. Re-entering an
+  other values you author in Layout Defaults, and if you deliberately change the reset option
+  itself in Layout Defaults afterward, that newer choice can be kept on the next switch too. Re-entering an
   equivalent value, such as `14` for `14px`, does not replace the reset.
 - Reset memory belongs to the current editor session. After reopening, the saved YAML
   determines which shared choices a later switch to Grid keeps.
 - An explicit shared choice stays in YAML when another layout has a different default for that
   option, even if you set it back to the card's default, and so does one you chose to share
-  during an upgrade. Setting Event Font Size to `14px` in All Layouts keeps
+  during an upgrade. Setting Event Font Size to `14px` in Layout Defaults keeps
   `event_font_size: '14px'`, so a later switch to Grid keeps `14px` after reopening, just as it
   does in the original session. Untouched defaults are not added, and a value set directly in
   Grid still wins.
@@ -324,145 +402,157 @@ Choose the Grid workspace to change that value directly.
 The editor does not change the renderer's precedence rules. With no per-view override,
 these top-level values behave as follows:
 
-| Top-Level YAML            | List              | Column            | Grid              |
-| ------------------------- | ----------------- | ----------------- | ----------------- |
-| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  |
-| `show_past_events: false` | Hides past events | Hides past events | Keeps past events |
-| `show_location: true`     | Shows locations   | Shows locations   | Hides locations   |
+| Top-Level YAML            | List              | Column            | Grid              | Month             |
+| ------------------------- | ----------------- | ----------------- | ----------------- | ----------------- |
+| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  | Draws every day   |
+| `show_past_events: false` | Hides past events | Hides past events | Keeps past events | Keeps past events |
+| `show_location: true`     | Shows locations   | Shows locations   | Hides locations   | Shows locations   |
 
-Set the corresponding value in `column:` or `time_grid:` to change that view, or use
-its editor workspace. Grid also substitutes its own styling defaults, even when you
+Set the corresponding value in `column:`, `time_grid:` or `month:` to change that view, or open
+that layout under **Layouts**; Month always draws every day of its six weeks. Grid also substitutes its own styling defaults, even when you
 set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
-[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).
+[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default),
+and Month's three in
+[Month Options That Start From a Different Default](/features/month-view#options-that-start-from-a-different-default).
 
-## ✨ Key Features
+## 📅 Calendars
 
-- **Live Preview** — see changes immediately as you configure the card
-- **Quick Setup** — start from an example card and answer a few questions; see [Quick Setup](#quick-setup)
-- **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
-- **Search** — find any option by name or by what it does, without knowing which panel holds it
-- **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Essentials Only** — show the settings most cards need, plus any your card sets
-- **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
+The overview's **Calendars** block lists the calendars on the card, a row each, and opens a page
+for each one. A row shows the calendar's color, [its label](#per-calendar-labels), its name and
+what it shows, such as **All-day events** or **Events with a time · Without: Private**, then how
+many of its settings it sets. Every kind of label shows, text, emoji, icon and picture alike, as
+the card draws it, and once any calendar has one, every row keeps room for it so the names line
+up. From eight calendars on, **Filter Calendars** above the list narrows it by name.
 
-::: info Editor Language Support
-The editor is available in **12 languages**, and the calendar itself in **38**. Besides English, nine are translated in full (German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), Korean in part, and British English carries only the strings where it differs from US English.
+**+ Add Calendar** offers Home Assistant's calendar picker, with focus in it, ready to type a
+calendar's name. Choosing a calendar does nothing yet;
+**Add** puts it on the card and opens its page. The picker leaves out the calendars already on
+the card; where a Home Assistant release still offers one, the editor says **Anna is already on
+the card.** and offers **Open Anna** instead.
 
-A string not yet translated appears in English, so a partial translation is useful from its first string. If your language is not among the 12 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 38 supported languages, and contributions of further editor translations are very welcome; see [Translating the Editor](/contributing#translating-the-editor).
-:::
+A calendar listed more than once in `entities:` is one calendar with several **entries**, each
+with its own settings. Its calendar row heads the group, counting its entries, with a row for each
+entry indented under it, numbered and told apart by what each one shows, as in **2 · Events with
+a time**. An entry that keeps exactly the events an earlier one keeps says so, as in **Same events
+as entry 1**: each of those events then shows twice. That is how one calendar can show its all-day
+events in one color and its timed events in another; [Split This Calendar](#split-this-calendar)
+builds it in one step.
 
-## 🔎 Search & Customized Only
+### Entry Pages
 
-The editor holds nearly two hundred options, so it opens with a search box above the panels.
-Typing filters every panel down to what matches, drops the panels and the groups inside them
-that have nothing left, and expands what survives, so a match is never hidden behind a
-collapsed heading.
+A calendar's row opens its page; for a calendar with several entries, each entry's row opens
+that entry's page. Its heading names the calendar; where there are several, the line under it
+says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Calendar** and
+**Next Calendar** step through the list without going Back. The page holds these headings:
 
-Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `opacity` finds **Past Event Opacity** and **Event Background Opacity**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control, including the controls the editor names differently from the option they write: `time_24h` finds **Time Format**, and `entities` finds the **Calendars** picker.
+| Heading              | What it holds                                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name & Look**      | Its Accent Color first, then the calendar's name on the card, [its label](#per-calendar-labels), Show in Calendar Filter and Text Scale                                                             |
+| **Who Sees It**      | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor, then [Private](/features/core-settings#keeping-a-calendar-private) |
+| **Which Events**     | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show                 |
+| **Text Replacement** | Find and Replace With, rewriting the event's title, location or description                                                                                                                         |
+| **Multi-Day Events** | Whether this calendar's long events split across days, and how Grid draws them                                                                                                                      |
+| **Event Details**    | Whether this calendar's events show their time, location, description and weather                                                                                                                   |
 
-It also knows a few words people use for a setting whose name says something else: `12h` or `AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds **Event Order**, `tomorrow` finds **Start Date**, and `exclude` finds a calendar's **Blocklist**. A translated editor searches by its own language's words for these, and by the English ones where it has none.
+To show a calendar only on some days of the week, use **Days of the Week** under **Which
+Events**; the line under **Who Sees It** leads there.
 
-Some searches bring back a whole group rather than one control:
+**Hide Events Containing** and **Only Show Events Containing** write `blocklist` and `allowlist`.
+Each takes one word or phrase at a time, matched as written, so punctuation needs no escaping, and
+each is ready to type in the moment it is added. They check the event title unless **Match
+Against** names another field. The **Use a Pattern** link under a list switches it to the regular
+expression the card stores, and a pattern the card cannot read is flagged at the field: the card
+ignores that pattern, so it stops filtering events.
 
-- **A panel's title or helper** shows that panel's relevant controls, including a
-  workspace-specific title such as Grid's **Rules**, in your editor language.
-- **A calendar's entity id**, the name Home Assistant gives it, or its
-  [name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every setting
-  of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists it.
-- **A label** shows every setting of the block that carries it.
+The calendar's name and **Show in Calendar Filter** belong to the calendar, not to one entry:
+changing them on one entry changes every entry, and the page says so.
 
-**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes, with every panel and group it leaves open. Three things follow their own rule under it:
+A calendar's settings are stored once and apply wherever a layout uses them, so its page shows
+those any of the card's layouts use: the layout it opens in, the layouts the layout switcher
+offers while it is shown, and List where Columns or Grid fall back to it on a narrow screen. A
+setting only some of them use, as the card is set up now, says which, as in **Only in List**:
+Event Weather says so where only List shows the forecast beside events. A search result for a
+setting none of them uses opens the page with that setting's layout added, until you leave it.
+One left on **Follow the card** takes the card's value in each layout, so where those values
+differ, **Reset** reads **Reset (Follow the card)** rather than naming one of them.
 
-- **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
-- **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults do not count.
+**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything an entry page can set.
 
-### Essentials Only
+### Calendar Actions
 
-**Essentials Only** cuts the editor down to about twenty settings most cards need, so a first
-setup is not a walk through nine panels. Every setting your card already sets stays as well, so
-the switch never hides what a card does. It is off until you switch it on, and your browser
-remembers it for every card.
+Each row's ⋮ opens its actions, and an entry page's ⋮ holds that entry's. A calendar with one
+entry offers them all on its row. A calendar with several splits them: its calendar row moves or
+removes the whole calendar, and each entry row duplicates, copies, pastes or removes that entry.
 
-It keeps these, plus anything the card's YAML holds:
+| Action                                      | What it does                                                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Move Up**, **Move Down**, **Move to Top** | Moves the calendar, with all its entries; see [Reordering](#reordering)                                                            |
+| **Duplicate**                               | Adds a second entry for the calendar, carrying this one's settings                                                                 |
+| **Copy Settings**                           | Takes this entry's settings, without the calendar itself, its name or Show in Calendar Filter                                      |
+| **Paste Settings**                          | Applies them to this entry, keeping the calendar it reads, its name and Show in Calendar Filter                                    |
+| **Remove**                                  | On an entry, drops that entry; on a calendar's own row, removes the calendar with every entry, as **Remove Anna (2 entries)** says |
 
-- **Calendars**: the calendar picker, and each calendar's name, label and accent color
-- **Time Range & Content**: Days to Show, Start Date, Show Past Events and Show Empty Days
-- **Card & Header**: Title, Show Toolbar and Calendar Filter
-- **Events**: Show Time, Show End Time, Show Location, Show Description and Show Countdown
-- **Weather**: the weather entity and its position
-- **Actions & Refresh**: Tap Action, Day Tap Action and Event Tap Action
-- **Layout**, in Grid only: the hours the grid starts and ends
+- **Remove asks nothing.** A line takes the row's place, such as **Removed Ben · Undo**, and
+  **Undo** puts it back exactly.
+- **The copied settings outlive the dialog**, so settings copied while editing one card can be
+  pasted into another; **Paste Settings** names where they came from.
+- **A duplicated entry shows the same events as the first** until one of the two sets Event Type
+  or a word list, so until then every event shows twice, unless Filter Duplicates is on; the page
+  says so.
+- **The calendar an entry reads can change**: its page's **Calendar** field points it at another
+  calendar and keeps its settings.
 
-What the card sets counts on the card, in each calendar and on each of your toolbar's own
-buttons. A line written at its default value counts too, and in a layout, so does a value it
-takes from the shared base.
+### Reordering
 
-Typing a search sets Essentials Only aside, so a search still reaches every setting. With
-**Customized Only** also on, the editor shows what Customized Only shows. A line under the
-switches says how many settings Essentials Only is hiding.
+The order of the calendars decides which one keeps an event several of them hold, under
+[Filter Duplicates](/features/core-settings#filtering-duplicate-events), and which is the card's
+first calendar. Drag a calendar by the handle on its row, or move it without dragging:
 
-::: tip Not Everything Is There To Be Found
-The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, a calendar's Event Weather appears once the forecast is shown beside events, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
-:::
+- **Move Up**, **Move Down** and **Move to Top** in the row's actions;
+- **Alt+↑** and **Alt+↓** on a focused row;
+- Space on the handle grabs the calendar, the arrow keys move it, Space drops it and Escape puts
+  it back. Every move announces the new position, such as **Ben, position 2 of 4.**
 
-::: details How Search & Customized Only Read the Editor
+A move takes the whole calendar, every entry with it, and an entry keeps its place among its
+calendar's other entries, because the first entry decides how a duplicated event looks.
 
-- A sub-heading is never a match on its own: it shows only to caption a result beneath it, so a
-  word that appears in a heading and nowhere else returns nothing.
-- **Customized Only** reads values the way the card does. A number written as `"3"` in YAML
-  counts as untouched when `3` is the default, and a value the card rejects counts as untouched
-  too, since the card does not use it either.
+### Split This Calendar
 
-:::
+**Split This Calendar** turns one entry into two, each with its own color and label, and writes
+both in one step that **Undo** takes back. From its Colors step on, the preview draws the two
+parts; **Cancel** or Escape puts the entry back as it was. Use it to show a calendar's all-day events apart from
+its timed ones, or the events mentioning certain words apart from the rest. It is the first
+row under an entry page's **Which Events**, and the first action in its ⋮.
 
-## 📋 Per-Calendar Panels & Actions
+It takes three steps:
 
-The Calendars picker lists each calendar **once**, however many times the card uses it. It answers one question — which calendars this card shows — and the panels beneath it answer the other: how many blocks each calendar has, and what is set on each.
+| Step       | What it asks                                                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **How**    | **All-Day vs. With a Time**, or **By Words**: the words, and whether to look for them in the event's title, location or description |
+| **Colors** | A color and a label for each part; the first keeps the entry's color                                                                |
+| **Review** | Where the entry's upcoming events land, part by part, over the days the card shows                                                  |
 
-Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading; it shows in the **Name** field at the top of the panel and on the line under the heading, where it differs from the heading. That line also shows your own label if you have set one, then **Configured** if the calendar carries settings of its own, or **Using the card settings** if it does not.
+Splitting all-day from timed events writes `event_type` on each part. Splitting by words writes
+the words as `allowlist` on the first part and adds them to the second part's `blocklist`. Both
+parts keep every other setting the entry had, its visibility conditions included.
 
-Each panel opens with four actions:
+Every event the entry shows lands in exactly one part, so nothing shows twice and nothing goes
+missing. Where two entries could not promise that, Split refuses and says why, with a way
+forward:
 
-| Action             | What it does                                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself, its name or **Show in Calendar Filter**    |
-| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to, its name and **Show in Calendar Filter** |
-| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings and its name                             |
-| **Remove**         | Drops this block                                                                                               |
-
-**Remove** is held apart from the other three: it is the only one that discards anything, and a card editor has no undo.
-
-**Copy Settings** is offered only once a calendar carries something besides its name and **Show in Calendar Filter**. The clipboard behind it outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
-
-**Duplicate** is how you give one calendar two sets of settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and it cannot be done from the picker, which will not hold the same calendar twice. Both panels then carry the same heading, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2**.
-
-The copy starts out identical to the block it came from, so until you change something on one of them the card shows every event from that calendar **twice**. Setting **Event Type** on each usually resolves it.
-
-::: tip Two Ways to Take Something Away, and They Differ
-Clearing a calendar's row in the **picker** removes that calendar from the card altogether, along with every block it had. **Remove** on a panel drops just that one block and leaves the calendar's others alone.
-:::
-
-::: details Names & Missing Calendars
-
-- A calendar that has been removed from Home Assistant keeps its entity id in the heading, since
-  that is all there is left to identify it by.
-- A calendar whose only setting is its name shows just that name under the heading, as
-  **Kids** rather than **Kids · Configured**, and with a label as well it reads
-  **Kids · School**.
-- A calendar with two blocks has one name, so changing it on either block changes it on both,
-  and removing the block that held it leaves it on the block that remains. **Show in Calendar
-  Filter** works the same way.
-
-:::
-
-**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything a single calendar's panel can set.
+- an entry that already shows only all-day events, or only timed ones, cannot split on that;
+  **Duplicate** it and change the copy's Event Type instead;
+- an entry with its own Only Show Events Containing cannot split by words, since one entry holds
+  one list;
+- an entry whose word list the card cannot read cannot split by words until it is fixed;
+- an entry with its own **Compact Events to Show** clears it first, since two entries would
+  double it.
 
 ## 🏷️ Per-Calendar Labels
 
-Each calendar's panel opens with **Name**, the
+An entry page's **Name & Look** opens with **Name**, the
 calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), then
 **Show in Calendar Filter** while the toolbar shows a
 [calendar filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter), and the
@@ -490,12 +580,188 @@ get the icon picker.
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — the `label` option itself, and the rest of the per-calendar table.
 
+## 🎨 Colors
+
+Every color setting is one control. Closed, it shows a swatch of the color in use, its name and
+where it comes from. Open, it offers what that setting can follow, such as **Default**, **Follow
+Home Assistant** or **Calendar Color**, then Home Assistant's named colors as swatches, then
+**Custom…**.
+
+- **Custom…** takes any color the card can draw: a hex value such as `#e91e63`, a CSS color name,
+  or a theme variable such as `var(--primary-color)`. Text the card cannot draw is flagged and
+  not written; the color in use stays until the text is a color.
+- **Follow Home Assistant** on a calendar's Accent Color uses the color Home Assistant holds for
+  that calendar, under Settings › Devices & Services › Entities, and names it. A calendar Home
+  Assistant holds no color for falls back to the card.
+- **A named swatch** writes Home Assistant's theme variable for that color, such as
+  `var(--pink-color)`, so the color follows the theme.
+
+**→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)**
+— what Follow Home Assistant reads.
+
+## 🗂️ Every Setting on Its Page
+
+Every page shows every setting that applies here, each on a row of its own: its name, its value,
+its state pill where it has one, a chevron and an **ⓘ**, as in **Week Number Color · Primary
+Text**. A setting at its default is just that row. Each heading and its settings sit in a card
+of their own. Press the row to open Home Assistant's control for it below the row; press the
+same spot again to fold it. Nothing is written until you change a value.
+
+- **The row never moves.** Opening a setting draws its control under the row, so the pill, the
+  **ⓘ** and the chevron stay where they were, and a second press always lands on the same row.
+- **Settings you set stay open.** So do the few every card needs, such as Time Format. Leaving a
+  page folds again what you opened there without changing it.
+- **ⓘ** shows the setting's help under it. To a screen reader, an open setting is named with the
+  words under its name, such as **Event Font Size, From Layout Defaults**, and the help is its
+  description, on its own.
+- **A switch** is Home Assistant's own switch row. A switch never opens, so it sits where the
+  chevron sits on other rows, at the end of the row before its **ⓘ**; its pill, where it has one,
+  is under its name. A row grows with a name that wraps, and the **ⓘ** stays level with the
+  switch.
+- **On a phone** the name gets the row's width: the value shows once you open the setting, and a
+  pill sits under the name. On a wider screen the values and pills line up in columns down every
+  page, and **ⓘ** is always the last column.
+- **A setting that needs another one** stays in its place until it applies, with what it waits
+  for under its name, as in **Indicator Size** over **Appears once the Style is a dot, an icon or
+  an emoji**. Several in a row waiting on the same setting share one line. Turning the other
+  setting on brings them in.
+- **A heading with nothing to edit yet** says why beside its title. While a part of each event is
+  off, such as Location, its heading says **Off** with **Turn On**, which does what pressing the
+  part under Event Details does, for the layout shown. Before a weather entity is chosen, the
+  weather headings say **No Entity** with **Choose Weather Entity**, which goes to the picker. One
+  line under the title names the settings it holds.
+- **A value stored but not in use**, such as a description size while descriptions are off, is
+  listed under its heading, as in **Stored but not in use: Description Font Size (16px)**, with its
+  **Reset**. The feature is never switched on to show it.
+
+## 🔎 Search
+
+The search field at the top of the overview reaches every setting, including the folded ones,
+the ones waiting on another setting, the ones only another layout offers, and
+values stored but not in use. Typing turns the overview into a list of results, each with its
+name, the page and heading it lives under, its current value, and where the value comes from;
+with Show YAML Option Names on, its YAML path too. A value is the one its page opens with, for the
+layout the card opens in, and where layouts hold different values it names that layout, as
+in **Grid: 12px**. **Search Settings** at the top of every page takes you to the field, and
+**Back**, or Escape in an empty field, returns to the page. The **✕** beside the field, or Escape
+in it, clears the search. On a very narrow screen, Undo, Redo and the other buttons sit on a line
+under the field, so the field keeps room to type in.
+
+Results that match alike list a page's main settings first, so `past` leads with **Show Past
+Events**. Choosing a result opens its page at the setting, under the layout it belongs to,
+highlighted, with **Return to
+Results** above it, which brings back the query and the list. A result that is not on its page
+yet is added there as it opens; one waiting on another setting says what it needs, as in
+**Needs Show Description**. **Edit Here** turns the card settings the search found into their
+live controls, on the results list itself, and **Show as a List** goes back; a setting that is
+waiting on another one, not in use, or only another layout's stays a row that opens it.
+
+Search matches what the editor shows: a setting's name, the sentence explaining it, the choices
+a dropdown offers, its page's and heading's titles, and a calendar's names. Typing `opacity`
+finds **Past Event Opacity** and **Event Background Opacity**. It also matches the YAML option
+name, so a key copied out of the [Configuration Options reference](/reference/configuration)
+leads straight to its control, including the controls the editor names differently from the
+option they write: `time_24h` finds **Time Format**.
+
+It also knows a few words people use for a setting whose name says something else: `12h` or
+`AM/PM` finds **Time Format**, `hide past` finds **Show Past Events**, `newest first` finds
+**Event Order**, `tomorrow` finds **Start Date**, and `exclude` or `blocklist` finds a calendar's **Hide Events Containing**.
+A translated editor searches by its own language's words for these, and by the English ones
+where it has none. Earlier names still lead somewhere, such as `separators` to **Size & Spacing** and `card displays` to the layout the card opens in, and the British
+spelling of color finds every color setting.
+
+Two jobs belong to Home Assistant rather than to this card, and search names them where they
+are: `full width` finds **Card Width**, in Home Assistant's **Layout** tab above the editor, and
+`who sees` finds **Who Sees the Card**, in its **Visibility** tab.
+
+::: details How Search Reads the Editor
+
+- Words match in any order, whatever their case or accents, so `wochennummern` finds the week
+  numbers in a German editor.
+- A setting found only by the sentence explaining it comes last, with the phrase that matched.
+- A calendar's name, or its entity id, finds every setting of that calendar's entries.
+- With nothing found, the editor suggests fewer words, or an option name from YAML.
+
+:::
+
+## 👆 Pick From Preview
+
+**Pick From Preview** opens a setting by pointing at the part of the card it changes. Turn it on
+with its button, after **Undo** and **Redo** beside the search field and at the top of every
+page, then click a part of the preview: a day header, an event's time, a separator, the Grid's
+hour labels. Its page opens with that part's heading at the top and its first setting marked, as
+a search result opens one.
+
+- While it is on, a line above the editor says so, with **Cancel**, and the part under the
+  pointer is outlined and named, as in **Event Appearance › Location · Click to Edit**.
+- One pick turns it off again, and so do **Cancel**, Escape, the button itself, and moving
+  anywhere else in the editor. Picked from another page, its page says **Back to** and that
+  page's name under its header, which returns there.
+- The preview's own taps, holds and Grid's drag do nothing while it is on.
+- A legend chip opens its calendar's page, and the filter's button or row of chips the
+  **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
+  under the chips. A part only one layout has, such as
+  the Grid's hour labels, opens on that layout's page; any other opens under the layout the
+  preview shows.
+- A heading's first setting opens there, as a search result does, even where it was folded.
+- On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
+  to open it; the editor scrolls back up to the setting.
+
+::: details When Pick From Preview Is Not Offered
+
+The button appears only where the editor can find the card's preview beside it, which is Home
+Assistant's card editor dialog, on a sections dashboard and a masonry one alike. Anywhere else the
+editor opens, it draws no button, and the section rows and **Search** reach every setting there as
+before.
+Keyboard and screen reader users keep those too: the preview needs no new tab stops.
+
+:::
+
+## ↩️ Undo & Redo
+
+**Undo** and **Redo** sit beside the search field and at the top of every page. They cover
+every change the editor makes: a value typed or picked, a reset, a calendar added, moved or
+removed, a split, and Quick Setup's **Apply**. Each puts the card back exactly as it was before
+that step, so an option written at its default or a line the editor would otherwise tidy away
+comes back as it was.
+
+Outside a text field, Ctrl+Z (⌘Z on a Mac) undoes, and Ctrl+Y or Ctrl+Shift+Z (⌘⇧Z) redoes.
+Inside one, those keys stay the text field's own. Undo opens the page the change was made on,
+and says so, as in **Undid: Change Description. Showing Events.**
+
+The history lasts while the editor is open. A change made outside it, such as an edit in Home
+Assistant's code editor, ends what Undo can reach.
+
+## 📋 Stored Settings
+
+**Stored Settings**, under **More** on the overview, lists every value this card stores, in
+words, grouped by where it lives: **Whole Card** for settings with one value for every layout,
+**Layout Defaults** for the values every layout uses unless it has its own, then each layout,
+and each calendar entry. It lists a value written equal to its default, and one stored but not in
+use, too. Anything not listed uses its default; a card that stores nothing says **No Stored
+Settings**.
+
+Each line shows its setting and its value; with Show YAML Option Names on, its YAML path too.
+Pressing a line opens its actions under it:
+
+- **Change Here**, which opens the setting's control right there and writes where the line lives;
+- **Open in** its page, as in **Open in Days**, which opens the page at the setting, under the
+  line's layout; the layout the card opens in and your own toolbar buttons are changed there;
+- **Reset**, or **Remove** where the setting leaves its page, which removes the line. The line
+  left in its place says what was reset, with **Undo**.
+
+A layout's group adds **Reset All in Grid**. A line written at its default says **Same as the
+Default**, one stored but not in use says when it would apply, and a line under Layout Defaults
+says, a line per layout, which layouts keep a value of their own (**Grid Has Its Own**) or a
+default of their own (**Grid Default**). Lines the editor does not own, such as options it
+does not know, are listed under **Kept as Written**, and the editor keeps them exactly as written.
+
 ## ⚖️ View Exceptions
 
-To give one layout its own value, select **List**, **Columns**, or **Grid** under
-**Editing Settings For**, then use the ordinary controls. Their helper text says whether
-the value comes from the shared card settings, from that layout's own default, or from a
-value set for the layout.
+To give one layout its own value, open it under **Layouts**, then use the ordinary controls on
+its topic pages. The words under each say whether the value comes from Layout Defaults, from
+that layout's own default, or from a value set for the layout (see
+[State in Words](#state-in-words)).
 
 For example, editing Event Font Size in Grid writes the grid value while leaving the
 List value alone:
@@ -506,16 +772,17 @@ time_grid:
   event_font_size: '16px'
 ```
 
-**Reset** buttons at the foot of each panel remove individual view values and restore what the
-layout would use without them. They do not remove the input or clear other layouts.
-Where one mode control governs several options, its reset clears those options together.
+A value set for the layout carries a **Reset**, which removes it and restores what the layout
+would use without it, as its words say beforehand. It does not clear other layouts. Where one
+mode control governs several options, its reset clears those options together, and
+[Stored Settings](#stored-settings) resets a whole layout at once.
 
 ::: details What Each Layout's Block Keeps
 
 - List keeps every valid explicit value in `list:`, even one equal to the shared value; use
   Reset to return to inheritance.
 - Column and most Grid values that you edit to equal what the view inherits are omitted from
-  their saved blocks. Once omitted, they follow later All Layouts edits immediately, without
+  their saved blocks. Once omitted, they follow later Layout Defaults edits immediately, without
   closing and reopening the editor.
 - Options with a
   [different grid default](/features/grid-view#options-that-start-from-a-different-default)
@@ -529,8 +796,9 @@ Where one mode control governs several options, its reset clears those options t
 
 ## ⚠️ Options the Card Ignores
 
-When your YAML puts an option where the card does not read it, the editor lists it at the top,
-says where it works and offers to move it there. On your dashboard the card ignores such an
+When your YAML puts an option where the card does not read it, the overview opens with a
+**Notices** row, **Options the Card Ignores: 1**, whose page lists each such option, says where
+it works and offers to move it there. On your dashboard the card ignores such an
 option without a word, and only a development build warns in the browser console, so this is
 where you find out.
 
@@ -562,6 +830,9 @@ The editor lists five kinds:
 - **A name the card does not know inside a layout's block**, often a typo. It has no Move
   button; fix it in YAML.
 
+Home Assistant's own options at the top level, such as `visibility`, `grid_options` and
+`view_layout`, are never listed: Home Assistant applies them to the whole card.
+
 **Move** appears only where the destination holds no value for the option yet. Where it does,
 moving would replace something you wrote, so the editor names the conflict and leaves it to you.
 An option that belongs to two layouts, such as `min_day_width` at the top level, gets a Move
@@ -581,10 +852,68 @@ Five options were removed in v3.0.0. They are **inert**, so a configuration stil
 
 `max_events_to_show` is also recognized on an individual entry under `entities:`.
 
-**Opening a card in the editor and saving removes them.** There is no button to press, and since the options do nothing, removing them changes no behavior. Their replacements are not filled in for you: the card has been running on defaults for those settings, so setting them now is a change you should make deliberately.
+**The editor's next change removes them.** The overview's **Notices** row counts them as
+**Old Options**, and its page lists each with its replacement. **Move to** carries the value to
+its replacement, where that holds no value yet; otherwise the option simply goes with the next
+change, and since it does nothing, removing it changes no behavior. A replacement is never filled
+in without that button: the card has been running on defaults for those settings, so setting
+them now is a change to make deliberately.
 
 ::: warning YAML Is Not Migrated Automatically
 There is no runtime migration, so a deprecated option written directly in YAML is ignored and the card falls back to the default — it does not keep working under the old name.
 
 Each deprecated option found in your configuration is reported in the browser console, naming the current option to use in its place. Open your browser's developer tools and look for messages prefixed with `📅 Calendar Card Pro`. If you manage your card in YAML, use the current names from the [Configuration Options reference](/reference/configuration).
 :::
+
+## 🌐 Editor Languages
+
+The editor follows Home Assistant's language, or the card's own **Language** on
+[Events, Weather & Language](#events-weather-language), and keeps its layout when the words run long: labels wrap rather than being cut off.
+
+::: info Editor Language Support
+The editor is available in **13 languages**, and the calendar itself in **39**. Besides English, eleven are translated in full (German, Estonian, Italian, Japanese, Korean, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), and British English carries only the strings where it differs from US English.
+
+A string not yet translated appears in English, so a partial translation is useful from its first string. If your language is not among the 13 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 39 supported languages, and contributions of further editor translations are very welcome; see [Translating the Editor](/contributing#translating-the-editor).
+:::
+
+## 🗃️ Where Earlier Controls Went
+
+Before v6 the editor was nine collapsible panels, with switches that narrowed them. Each of
+those controls has a new home, and searching for its old name still finds it.
+
+| Before v6                | Now                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Calendars**            | The overview's calendar list, and a page per entry                                                  |
+| **Layout**               | The layouts' rows under Layouts; Size & Spacing; Grid's settings on Grid's topic pages              |
+| **Time Range & Content** | Which Events, with Days to Show; Start Date, Time Format and Language on Events, Weather & Language |
+| **Card & Header**        | Card & Header                                                                                       |
+| **Day Header**           | Days; First Day of Week on Events, Weather & Language                                               |
+| **Events**               | Event Appearance, with what each event shows as a row of parts to press                             |
+| **Separators**           | Size & Spacing                                                                                      |
+| **Weather**              | Weather; the Weather Entity on Events, Weather & Language too                                       |
+| **Actions & Refresh**    | Taps & Refresh                                                                                      |
+| **Editing Settings For** | A page per layout, opened from its row under Layouts, and Layout Defaults                           |
+
+### Essentials Only
+
+The **Essentials Only** switch is gone, because every page now shows
+[every setting on its page](#every-setting-on-its-page), each one at its default folded to a
+single row.
+
+### Search & Customized Only
+
+[Search](#search) is still at the top of the overview, now as a list of results that open each
+setting where it lives. The **Customized Only** switch is gone: pages show what the card sets
+anyway, and [Stored Settings](#stored-settings) lists every stored value in one
+place, each with Change Here and Reset.
+
+### Per-Calendar Panels & Actions
+
+The calendar picker and the panel per calendar under it became one
+[calendar list](#calendars), with a [page per entry](#entry-pages). Copy Settings, Paste
+Settings, Duplicate and Remove are in the rows' [actions](#calendar-actions), Remove no longer
+needs care because Undo takes it back, and splitting a calendar by event type is one step:
+[Split This Calendar](#split-this-calendar).
+
+**→ [Configuration Options reference](/reference/configuration)** — every option the editor
+writes, with its YAML name.

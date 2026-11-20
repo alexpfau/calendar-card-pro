@@ -17,6 +17,10 @@
   "viewList": "Λίστα",
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",
+  "viewMonth": "Μήνας",
+  "moreEvents": "+{count} ακόμη",
+  "eventCount": "{count} γεγονότα",
+  "eventCountOne": "{count} γεγονός",
   "endsToday": "λήγει σήμερα",
   "endsTomorrow": "λήγει αύριο",
   "dayOfEvent": "Ημέρα {day} από {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Αποτυχία φόρτωσης:",
   "newEvent": "Νέο γεγονός",
   "showAll": "Εμφάνιση όλων",
-  "hideAll": "Απόκρυψη όλων"
+  "hideAll": "Απόκρυψη όλων",
+  "private": "Ιδιωτικό"
 }

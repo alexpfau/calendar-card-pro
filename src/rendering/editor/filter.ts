@@ -1,592 +1,88 @@
 /**
- * View relevance and field-search filtering for the visual editor.
+ * View relevance for the visual editor: the fields a layout ignores are withheld before anything
+ * else reads a schema. What a query finds is `search.ts`'s, and what a page shows of what is left
+ * is `plan.ts`'s (the shown set); nothing here narrows a form by either.
  */
 
-import * as Entities from './entities';
-import { isEssentialCalendarField, isEssentialCardField } from './essentials';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
-import * as EditorLocalize from './localize';
-import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
-import * as Routing from './routing';
+import { walkSchema } from './panels';
 import { entityConfigKeys } from './schemas/entity';
-import { configKeysForField, deriveSyntheticData, isSyntheticKey } from './synthetic';
-import { deepEqual, storedViewBlocks } from './value';
+import { configKeysForField } from './synthetic';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
-import * as Config from '../../config/config';
-import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
-import { configuredCalendarName, homeAssistantName } from '../../utils/calendar-names';
-import * as Helpers from '../../utils/helpers';
 
 /**
- * What the user has asked to see.
+ * What the user has typed into the search field.
  */
 export interface FilterCriteria {
   query: string;
-  customizedOnly: boolean;
-  /** Only the settings most cards need; a typed query sets it aside (see `appliesEssentials`). */
-  essentialsOnly: boolean;
 }
 
-export const NO_FILTER: FilterCriteria = {
-  query: '',
-  customizedOnly: false,
-  essentialsOnly: false,
-};
+export const NO_FILTER: FilterCriteria = { query: '' };
 
 export const SEARCH_FIELD = 'search';
 
-export const CUSTOMIZED_ONLY_FIELD = 'customized_only';
-
-export const ESSENTIALS_ONLY_FIELD = 'essentials_only';
-
 export const FILTER_SCHEMA: ReadonlyArray<HaFormSchema> = [
   { name: SEARCH_FIELD, selector: { text: { type: 'search' } } },
-  { name: CUSTOMIZED_ONLY_FIELD, selector: { boolean: {} } },
-  { name: ESSENTIALS_ONLY_FIELD, selector: { boolean: {} } },
 ];
 
 /**
- * The filter bar's data, as the form binds it.
+ * The search field's data, as the form binds it.
  *
- * @param criteria - What the user has asked to see
- * @returns Form data for the filter bar
+ * @param criteria - What the user has typed
+ * @returns Form data for the search field
  */
 export function filterFormData(criteria: FilterCriteria): Record<string, unknown> {
-  return {
-    [SEARCH_FIELD]: criteria.query,
-    [CUSTOMIZED_ONLY_FIELD]: criteria.customizedOnly,
-    [ESSENTIALS_ONLY_FIELD]: criteria.essentialsOnly,
-  };
+  return { [SEARCH_FIELD]: criteria.query };
 }
 
 /**
- * Reads a filter-bar change back out of the form.
+ * Reads a change back out of the search field's form.
  *
- * @param data - Form data as returned by the filter bar
+ * @param data - Form data as returned by the form
  * @returns The criteria it describes
  */
 export function toFilterCriteria(data: Readonly<Record<string, unknown>>): FilterCriteria {
   const query = data[SEARCH_FIELD];
-
-  return {
-    query: typeof query === 'string' ? query : '',
-    customizedOnly: data[CUSTOMIZED_ONLY_FIELD] === true,
-    essentialsOnly: data[ESSENTIALS_ONLY_FIELD] === true,
-  };
-}
-
-/**
- * Everything matching needs that is not the node itself.
- */
-export interface FilterCtx extends SchemaCtx {
-  criteria: FilterCriteria;
-  /**
-   * Whether the fields being matched configure the card or one calendar. Both arrive with
-   * an empty data path, and a derived control maps to its keys differently in each, so the
-   * matcher cannot work it out from the node. `filterEntitySchema` sets it; absent means card.
-   */
-  scope?: 'card' | 'entity';
-  /**
-   * Home Assistant state, for the names it gives calendars: a calendar's panel is headed with
-   * that name, so a search for it has to find the panel. Absent before the editor has one.
-   */
-  hass?: Types.Hass;
-  /**
-   * The configuration as its YAML holds it, before any default is merged in: what tells a line
-   * the card sets from one it only inherits, which Essentials Only keeps. `rawConfig` cannot
-   * answer that, because its root already holds every default. Absent outside the editor, where
-   * nothing counts as written.
-   */
-  stored?: Readonly<Record<string, unknown>>;
-}
-
-/**
- * Folds a query to the form matching compares against.
- *
- * @param query - Search text as typed
- * @returns The comparable form
- */
-function normalizeQuery(query: string): string {
-  return query.trim().toLowerCase();
-}
-
-/**
- * The query, in the form matching uses.
- *
- * @param ctx - Matching context
- * @returns The comparable query, empty when nothing was typed
- */
-function queryOf(ctx: FilterCtx): string {
-  return normalizeQuery(ctx.criteria.query);
-}
-
-/**
- * Whether a set of criteria asks for anything at all.
- *
- * @param criteria - What the user has asked to see
- * @returns `true` when the editor is showing a subset of itself
- */
-export function isFiltering(criteria: FilterCriteria): boolean {
-  return criteria.customizedOnly || criteria.essentialsOnly || hasQuery(criteria);
+  return { query: typeof query === 'string' ? query : '' };
 }
 
 /**
  * Whether the user has typed a search.
  *
- * 🚨 The test for every shortcut that lets a whole panel or group through because its own name
- * matched. Asked as "is the editor filtering" instead, those shortcuts fire on an empty query,
- * where `matchesPanel` answers `true` for every panel, and Essentials Only would show every
- * field it was switched on to hide.
- *
- * @param criteria - What the user has asked to see
+ * @param criteria - What the user has typed
  * @returns `true` when the query holds more than whitespace
  */
 export function hasQuery(criteria: FilterCriteria): boolean {
-  return normalizeQuery(criteria.query) !== '';
+  return criteria.query.trim() !== '';
 }
 
-/**
- * Whether the user is looking for something, so that what matches should open by itself.
- *
- * Essentials Only is not looking for anything: it shortens the editor, and its panels stay
- * closed until opened, as they do without it.
- *
- * @param criteria - What the user has asked to see
- * @returns `true` while a search or Customized Only is narrowing the editor
- */
-export function isSearching(criteria: FilterCriteria): boolean {
-  return criteria.customizedOnly || hasQuery(criteria);
-}
-
-/**
- * Whether Essentials Only is cutting the editor down right now.
- *
- * A typed query sets it aside, so search reaches every setting whatever the switch says.
- *
- * @param criteria - What the user has asked to see
- * @returns `true` while only the essential fields show
- */
-export function appliesEssentials(criteria: FilterCriteria): boolean {
-  return criteria.essentialsOnly && !hasQuery(criteria);
-}
-
-/**
- * Whether one piece of text answers the query.
- *
- * @param text - Candidate text, or `undefined` when there is none
- * @param query - Normalized query
- * @returns `true` when the query appears in the text
- */
-function textMatches(text: string | undefined, query: string): boolean {
-  return typeof text === 'string' && text.toLowerCase().includes(query);
-}
-
-/**
- * Whether any of a set of strings answers the query.
- *
- * @param candidates - Text to search, holes allowed
- * @param query - Normalized query
- * @returns `true` when at least one matches
- */
-function anyMatches(candidates: ReadonlyArray<string | undefined>, query: string): boolean {
-  return candidates.some((text) => textMatches(text, query));
-}
-
-/**
- * Every string a node puts in front of the user, plus the keys behind them.
- *
- * @param node - Schema node
- * @param path - Enclosing group names, outermost first
- * @param ctx - Matching context
- * @param dataPath - Enclosing configuration keys, outermost first
- * @returns Text to search, in no particular order
- */
-function searchableText(
-  node: HaFormSchema,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-  dataPath: ReadonlyArray<string>,
-): Array<string | undefined> {
-  if ('type' in node && node.type === 'grid') {
-    return [];
-  }
-
-  const text: Array<string | undefined> = [node.name, EditorLocalize.qualifiedKey(node.name, path)];
-
-  // The label path and the configuration path diverge wherever a group nests data without
-  // nesting labels, so searching for the key as written in YAML has to match too.
-  const dataKey = EditorLocalize.qualifiedKey(node.name, dataPath);
-  if (dataKey !== text[1]) text.push(dataKey);
-
-  // Expandables only. A group renders the `title` the schema hands it rather than asking
-  // for a label, so its own strings have to be read off the node. A *field* may carry a
-  // `titleKey` too — it is how a field nested for storage keeps a qualified key — and that
-  // one resolves through `computeLabel` below like any other, which is where its label and
-  // helper actually come from.
-  if ('type' in node && node.type === 'expandable' && node.titleKey !== undefined) {
-    text.push(node.title, EditorLocalize.lookup(ctx.language, `${node.titleKey}.helper`));
-    return text;
-  }
-
-  // A derived control is named for the editor rather than for the YAML — `time_format`
-  // writes `time_24h`, the calendar picker writes `entities` — so a key copied out of the
-  // configuration reference has to find the control that writes it, not only one named
-  // after it. Taken from the same mappings the editor writes through, so the next derived
-  // control is searchable without being listed here.
-  const writes =
-    ctx.scope === 'entity' ? entityConfigKeys(node.name) : configKeysForField(node.name);
-  for (const key of writes) {
-    if (key === node.name) continue;
-    text.push(key, EditorLocalize.qualifiedKey(key, dataPath));
-  }
-
-  text.push(
-    EditorLocalize.computeLabel(ctx.language, node, path),
-    EditorLocalize.computeHelper(ctx.language, ctx.view, node, path, ctx.workspace !== undefined),
-    EditorLocalize.computeAliases(ctx.language, node, path),
-  );
-  if (ctx.workspace !== undefined && 'selector' in node) {
-    const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);
-    if (source) text.push(EditorLocalize.lookup(ctx.language, `value_source.${source}`));
-  }
-
-  if ('value' in node && typeof node.value === 'string') {
-    text.push(node.value);
-  }
-
-  if ('selector' in node && 'select' in node.selector && node.selector.select !== null) {
-    for (const option of node.selector.select.options) {
-      if (typeof option === 'string') {
-        text.push(option);
-        continue;
-      }
-      text.push(String(option.value), option.label, option.description);
-    }
-  }
-
-  return text;
-}
-
-/**
- * Whether a node answers the search text.
- *
- * @param node - Schema node
- * @param path - Enclosing group names, outermost first
- * @param ctx - Matching context
- * @param dataPath - Enclosing configuration keys, outermost first. Defaults to `path`, which is
- *   correct everywhere the two agree.
- * @returns `true` when the node matches, or when nothing was typed
- */
-export function matchesQuery(
-  node: HaFormSchema,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-  dataPath: ReadonlyArray<string> = path,
-): boolean {
-  const query = queryOf(ctx);
-  if (query === '') return true;
-
-  return anyMatches(searchableText(node, path, ctx, dataPath), query);
-}
-
-/**
- * Whether a panel's own heading answers the search text.
- *
- * @param panel - Panel definition
- * @param ctx - Matching context
- * @returns `true` when the panel matches, or when nothing was typed
- */
-export function matchesPanel(panel: PanelDef, ctx: FilterCtx): boolean {
-  const query = queryOf(ctx);
-  if (query === '') return true;
-
-  return anyMatches(
-    [
-      panel.id,
-      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view),
-      EditorLocalize.lookupForView(
-        ctx.language,
-        panel.titleKey,
-        ctx.workspace ?? ctx.view,
-        '.helper',
-      ),
-    ],
-    query,
-  );
-}
-
-const normalized = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
-  Config.normalizeLengthOptions(Config.normalizeNumericOptions({ ...config })),
-);
-
-/**
- * Reads a value out of a configuration by its data path.
- *
- * @param source - Configuration to read
- * @param path - Enclosing object keys, outermost first
- * @param name - Key to read
- * @returns The value, or `undefined` when any step is missing
- */
-function valueAt(source: unknown, path: ReadonlyArray<string>, name: string): unknown {
-  let cursor: unknown = source;
-
-  for (const step of [...path, name]) {
-    if (typeof cursor !== 'object' || cursor === null) return undefined;
-    cursor = (cursor as Record<string, unknown>)[step];
-  }
-
-  return cursor;
-}
-
-const OVERRIDE_BLOCK_KEYS: ReadonlySet<string> = new Set(
-  Object.values(ViewConfig.OVERRIDE_BLOCK_BY_VIEW).filter(
-    (key): key is keyof Types.Config => key !== undefined,
-  ),
-);
-
-const storedBlocks = Helpers.memoizeLast((config: Types.Config) => storedViewBlocks(config));
-
-/**
- * Whether a field is holding something other than what the card would do anyway.
- *
- * @param node - Schema node
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @param ctx - Matching context
- * @returns `true` when the field differs from what the card would do untouched
- */
-export function isCustomized(
-  node: HaFormSchema,
-  dataPath: ReadonlyArray<string>,
-  ctx: FilterCtx,
-): boolean {
-  const name = node.name;
-  const raw = ctx.rawConfig ?? ctx.config;
-
-  if (ctx.workspace !== undefined && dataPath.length === 0) {
-    const source = Routing.valueSource(raw, ctx.workspace, name);
-    if (source === 'own') return true;
-    if (source === 'default' || source === 'inherited') return false;
-  }
-
-  if (dataPath.length === 1 && OVERRIDE_BLOCK_KEYS.has(dataPath[0])) {
-    const block = storedBlocks(raw)[dataPath[0]];
-
-    return typeof block === 'object' && block !== null
-      ? (block as Record<string, unknown>)[name] !== undefined
-      : false;
-  }
-
-  if (dataPath.length === 0 && isSyntheticKey(name)) {
-    return !deepEqual(
-      deriveSyntheticData(normalized(ctx.config))[name],
-      deriveSyntheticData(Config.DEFAULT_CONFIG)[name],
-    );
-  }
-
-  const value = valueAt(normalized(ctx.config), dataPath, name);
-
-  // A key the merged config does not carry at all — one absent from `DEFAULT_CONFIG`, or a
-  // block the user cleared outright — is not customized; the card falls back to its own
-  // default. `setConfig` now fills nested blocks in from the defaults, so the ordinary
-  // partially-written block no longer arrives here undefined, and the branch below answers
-  // it by comparison instead. This guard remains for the cases that never had a default.
-  if (value === undefined) return false;
-
-  return !deepEqual(value, valueAt(Config.DEFAULT_CONFIG, dataPath, name));
-}
-
-/**
- * Whether a value counts as written: blanks and nulls are how a cleared field is left.
- *
- * @param value - Value as stored
- * @returns `true` when the value is there
- */
-function holdsValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
-
-/**
- * Whether the card's YAML holds a value for a field: at the field's own nested path, or, for a
- * field on the card's root, at the root or in the selected layout's block, both of which it shows.
- *
- * Read from the YAML as stored. The view blocks the editor re-serializes for labeling drop a
- * line that normalizes to its default, such as a unitless `event_font_size: 14`, so asking them
- * would hide exactly the lines the YAML holds and Customized Only does not count.
- *
- * @param node - Schema node
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @param ctx - Matching context
- * @returns `true` when the YAML holds a value for it
- */
-function isStored(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
-  const stored = ctx.stored;
-  if (stored === undefined) return false;
-  if (dataPath.length > 0) return holdsValue(valueAt(stored, dataPath, node.name));
-
-  const workspace = ctx.workspace;
-  return configKeysForField(node.name).some((key) => {
-    if (holdsValue(stored[key])) return true;
-    const block = workspace === undefined ? undefined : Routing.destination(key, workspace);
-    return block !== undefined && holdsValue(valueAt(stored, [block], key));
-  });
-}
-
-/**
- * Whether the card sets a field: its YAML holds a value for it, or the value differs from what
- * the card would use untouched.
- *
- * Asking `isCustomized` as well makes Customized Only and Essentials Only together show exactly
- * what Customized Only shows alone, rather than resting that on the two readings agreeing.
- *
- * @param node - Schema node
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @param ctx - Matching context
- * @returns `true` when the card sets it
- */
-function isSetByCard(node: HaFormSchema, dataPath: ReadonlyArray<string>, ctx: FilterCtx): boolean {
-  return isStored(node, dataPath, ctx) || isCustomized(node, dataPath, ctx);
-}
-
-type LeafPredicate = (
-  node: HaFormSchema,
-  path: ReadonlyArray<string>,
-  dataPath: ReadonlyArray<string>,
-) => boolean;
+type LeafPredicate = (node: HaFormSchema, dataPath: ReadonlyArray<string>) => boolean;
 
 type GroupSchema = Extract<HaFormSchema, { schema: ReadonlyArray<HaFormSchema> }>;
 
-/**
- * The label path a group's children are rendered under: Home Assistant qualifies labels only
- * inside a named collapsible.
- *
- * @param node - Group
- * @param path - Label path the group itself is under
- * @returns Its children's label path
- */
-function childLabelPath(node: GroupSchema, path: ReadonlyArray<string>): ReadonlyArray<string> {
-  return node.type === 'expandable' && node.name !== '' ? [...path, node.name] : path;
-}
-
-/**
- * The configuration path a group's children write under: a named group nests its data unless
- * it is flattened.
- *
- * @param node - Group
- * @param dataPath - Configuration path the group itself is under
- * @returns Its children's configuration path
- */
 function childDataPath(node: GroupSchema, dataPath: ReadonlyArray<string>): ReadonlyArray<string> {
   return node.name !== '' && node.flatten !== true ? [...dataPath, node.name] : dataPath;
 }
 
-/**
- * Opens the collapsible groups that hold a match, at any depth, and leaves the rest as declared.
- *
- * A group holds a match when one of its fields answers the query, or its own heading does. A
- * sub-heading never counts, as it never counts as a hit.
- *
- * @param schema - Schema to open
- * @param ctx - Matching context
- * @param path - Enclosing group names, outermost first
- * @param dataPath - Enclosing configuration keys, outermost first
- * @returns The schema with its matching groups open, and whether it held a match at all
- */
-function openMatching(
-  schema: ReadonlyArray<HaFormSchema>,
-  ctx: FilterCtx,
-  path: ReadonlyArray<string>,
-  dataPath: ReadonlyArray<string>,
-): { schema: HaFormSchema[]; matched: boolean } {
-  let matched = false;
-
-  const opened = schema.map((node): HaFormSchema => {
-    if (!isGroupSchema(node)) {
-      if (!isHeading(node) && matchesQuery(node, path, ctx, dataPath)) matched = true;
-      return node;
-    }
-
-    const inner = openMatching(
-      node.schema,
-      ctx,
-      childLabelPath(node, path),
-      childDataPath(node, dataPath),
-    );
-    const open =
-      inner.matched || (node.type === 'expandable' && matchesQuery(node, path, ctx, dataPath));
-    if (open) matched = true;
-
-    return node.type === 'expandable' && open
-      ? { ...node, schema: inner.schema, expanded: true }
-      : { ...node, schema: inner.schema };
-  });
-
-  return { schema: opened, matched };
-}
-
-/**
- * Opens the groups of a schema let through whole, because a panel's own heading matched, that
- * hold a match of their own: a field the query names is then never left behind a closed heading.
- *
- * @param schema - Schema shown whole
- * @param ctx - Matching context
- * @returns The schema, with the groups holding a match open; unchanged when nothing was typed
- */
-export function openMatches(schema: ReadonlyArray<HaFormSchema>, ctx: FilterCtx): HaFormSchema[] {
-  if (!hasQuery(ctx.criteria)) return [...schema];
-  return openMatching(schema, ctx, [], []).schema;
-}
-
-/**
- * Filters a schema to the nodes a predicate keeps, groups and all.
- *
- * While a search or Customized Only narrows the editor, every collapsible group it keeps opens,
- * as the panels around it do, so nothing it found is left behind a closed heading. A group let
- * through whole by its own heading opens the groups inside it that hold a match.
- *
- * @param schema - Schema to filter
- * @param ctx - Search context, or undefined when no group may bypass the predicate
- * @param keeps - Decides one field
- * @param path - Enclosing group names, outermost first
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @returns The schema, reduced
- */
 function filterNodes(
   schema: ReadonlyArray<HaFormSchema>,
-  ctx: FilterCtx | undefined,
   keeps: LeafPredicate,
-  path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
 ): HaFormSchema[] {
   const kept: HaFormSchema[] = [];
-  const opens = ctx !== undefined && isSearching(ctx.criteria);
 
   for (const node of schema) {
     if (!isGroupSchema(node)) {
-      if (keeps(node, path, dataPath)) kept.push(node);
+      if (keeps(node, dataPath)) kept.push(node);
       continue;
     }
 
-    const labelPath = childLabelPath(node, path);
-    const nodeDataPath = childDataPath(node, dataPath);
-
-    const wholeGroup =
-      ctx !== undefined &&
-      !ctx.criteria.customizedOnly &&
-      queryOf(ctx) !== '' &&
-      matchesQuery(node, path, ctx, dataPath);
-
-    const children = wholeGroup
-      ? openMatching(node.schema, ctx, labelPath, nodeDataPath).schema
-      : filterNodes(node.schema, ctx, keeps, labelPath, nodeDataPath);
+    const children = filterNodes(node.schema, keeps, childDataPath(node, dataPath));
 
     if (!hasFields(children)) continue;
 
-    kept.push(
-      opens && node.type === 'expandable'
-        ? { ...node, schema: children, expanded: true }
-        : { ...node, schema: children },
-    );
+    kept.push({ ...node, schema: children });
   }
 
   return kept;
@@ -665,8 +161,7 @@ export function withholdInertFields(
   return pruneLoneHeadings(
     filterNodes(
       schema,
-      undefined,
-      (node, _path, dataPath) => {
+      (node, dataPath) => {
         if (isHeading(node)) return true;
 
         if (dataPath.length === 0) {
@@ -701,69 +196,8 @@ export function withholdInertFields(
         );
       },
       [],
-      [],
     ),
   );
-}
-
-/**
- * Filters a panel's schema to the options the criteria ask for.
- *
- * @param schema - Schema to filter
- * @param ctx - Matching context
- * @param path - Enclosing group names, outermost first
- * @param dataPath - Enclosing object keys in the configuration, outermost first
- * @returns The schema, reduced
- */
-export function filterSchema(
-  schema: ReadonlyArray<HaFormSchema>,
-  ctx: FilterCtx,
-  path: ReadonlyArray<string> = [],
-  dataPath: ReadonlyArray<string> = [],
-): HaFormSchema[] {
-  if (!isFiltering(ctx.criteria)) return [...schema];
-
-  const essentials = appliesEssentials(ctx.criteria);
-
-  return pruneLoneHeadings(
-    filterNodes(
-      schema,
-      ctx,
-      (node, nodePath, nodeDataPath) =>
-        // A heading is not a setting, so it is never a search hit of its own — it rides
-        // along and is pruned above when its section came back empty.
-        isHeading(node) ||
-        ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
-          (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
-          (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)) &&
-          (!essentials ||
-            isEssentialCardField(node, nodeDataPath) ||
-            isSetByCard(node, nodeDataPath, ctx))),
-      path,
-      dataPath,
-    ),
-  );
-}
-
-/**
- * Whether a field is the calendar picker: the control writing the card's `entities`.
- *
- * @param node - Schema node
- * @returns `true` for the picker
- */
-function listsCalendars(node: HaFormSchema): boolean {
-  return configKeysForField(node.name).includes('entities');
-}
-
-/**
- * Whether the query names a calendar the card lists, as its panel would be found: the picker
- * lists those calendars, so a search for one keeps it beside the calendar's panel.
- *
- * @param ctx - Matching context
- * @returns `true` when some listed calendar answers the query
- */
-function namesACalendar(ctx: FilterCtx): boolean {
-  return (ctx.config?.entities ?? []).some((entry) => matchesEntity(entry, ctx));
 }
 
 /**
@@ -795,188 +229,4 @@ export function countFields(schema: ReadonlyArray<HaFormSchema>): number {
     if (!isGroupSchema(node) && !isHeading(node)) count++;
   }
   return count;
-}
-
-/**
- * Filters the content a panel renders below its fields.
- *
- * @param extras - Content the panel built
- * @param panel - Panel definition
- * @param ctx - Matching context
- * @returns The content to render
- */
-export function filterExtras(
-  extras: ReadonlyArray<PanelExtra>,
-  panel: PanelDef,
-  ctx: FilterCtx,
-): PanelExtra[] {
-  if (!isFiltering(ctx.criteria)) return [...extras];
-  if (ctx.criteria.customizedOnly) return [];
-  // A layout's width table explains the layout rather than setting it, so it is not essential.
-  if (appliesEssentials(ctx.criteria)) return [];
-  if (matchesPanel(panel, ctx)) return [...extras];
-
-  const query = queryOf(ctx);
-
-  return extras.filter((extra) =>
-    anyMatches(
-      [extra.title, extra.note, ...extra.rows.flatMap((row) => [row.width, row.layout])],
-      query,
-    ),
-  );
-}
-
-/**
- * Whether a calendar's own identity answers the query.
- *
- * Its identity is its entity id, its label and its names: the one the configuration gives it,
- * anywhere in the list, not only in this block, and the one Home Assistant gives it, which
- * heads its panel and names it in the picker.
- *
- * @param entry - Entry as stored
- * @param ctx - Matching context
- * @returns `true` when the calendar matches, or when nothing was typed
- */
-function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx): boolean {
-  const query = queryOf(ctx);
-  if (query === '') return true;
-
-  const config = Entities.asEntityConfig(entry);
-  const label = typeof config.label === 'string' ? config.label : undefined;
-  const name = configuredCalendarName([...(ctx.config?.entities ?? []), config], config.entity);
-
-  return anyMatches(
-    [config.entity, label, name, homeAssistantName(config.entity, ctx.hass)],
-    query,
-  );
-}
-
-/**
- * Whether one calendar has set one of its own options.
- *
- * @param entry - Entry as stored
- * @param node - Schema node
- * @returns `true` when this calendar sets this option
- */
-function isEntityFieldCustomized(entry: string | Types.EntityConfig, node: HaFormSchema): boolean {
-  const config = Entities.asEntityConfig(entry) as unknown as Record<string, unknown>;
-
-  return entityConfigKeys(node.name).some((key) => {
-    const value = config[key];
-    return value !== undefined && value !== null && value !== '';
-  });
-}
-
-/**
- * Filters one calendar's settings.
- *
- * @param schema - The per-calendar schema
- * @param entry - Entry as stored
- * @param path - Label path the sub-form is rendered under
- * @param ctx - Matching context
- * @returns The schema, reduced
- */
-export function filterEntitySchema(
-  schema: ReadonlyArray<HaFormSchema>,
-  entry: string | Types.EntityConfig,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-): HaFormSchema[] {
-  const relevant = withholdInertFields(schema, ctx.workspace ?? ctx.view, 'entity');
-  if (!isFiltering(ctx.criteria)) return relevant;
-
-  const entityCtx: FilterCtx = { ...ctx, scope: 'entity' };
-  const named = queryOf(entityCtx) !== '' && matchesEntity(entry, entityCtx);
-  const essentials = appliesEssentials(ctx.criteria);
-
-  return pruneLoneHeadings(
-    filterNodes(
-      relevant,
-      entityCtx,
-      (node, nodePath) =>
-        isHeading(node) ||
-        ((named || matchesQuery(node, nodePath, entityCtx)) &&
-          (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node)) &&
-          (!essentials || isEssentialCalendarField(node) || isEntityFieldCustomized(entry, node))),
-      path,
-      [],
-    ),
-  );
-}
-
-/**
- * Whether a toolbar button's own identity answers the query: its name, its icon, the words its
- * icon is named by on the card, or its entity.
- *
- * @param entry - The button as written
- * @param ctx - Matching context
- * @returns `true` when the button matches, or when nothing was typed
- */
-function matchesButton(entry: unknown, ctx: FilterCtx): boolean {
-  const query = queryOf(ctx);
-  if (query === '') return true;
-
-  const button = Helpers.isConfigBlock(entry) ? entry : {};
-  const text = (value: unknown): string | undefined =>
-    typeof value === 'string' ? value : undefined;
-  const icon = text(button.icon);
-  return anyMatches(
-    [
-      text(button.name),
-      icon,
-      icon === undefined ? undefined : Helpers.iconWords(icon),
-      text(button.entity),
-    ],
-    query,
-  );
-}
-
-/**
- * Whether one toolbar button holds a value in one of its fields.
- *
- * @param entry - The button as written
- * @param node - Schema node
- * @returns `true` when this button sets this field
- */
-function isButtonFieldCustomized(entry: unknown, node: HaFormSchema): boolean {
-  const value = Helpers.isConfigBlock(entry) ? entry[node.name] : undefined;
-  return value !== undefined && value !== null && value !== '';
-}
-
-/**
- * Filters one toolbar button's fields, as `filterEntitySchema` does a calendar's: a field shows
- * where it answers the query, or where the button's own name, icon or entity does, and, under
- * "customized only", only where the button sets it. Essentials Only names no button field, so
- * it keeps the fields the button sets: a button the card has is part of what the card does.
- *
- * @param schema - A button's fields
- * @param entry - The button as written
- * @param path - Label path the fields are rendered under
- * @param ctx - Matching context
- * @returns The fields, reduced
- */
-export function filterButtonSchema(
-  schema: ReadonlyArray<HaFormSchema>,
-  entry: unknown,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-): HaFormSchema[] {
-  if (!isFiltering(ctx.criteria)) return [...schema];
-
-  const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
-  const essentials = appliesEssentials(ctx.criteria);
-
-  return pruneLoneHeadings(
-    filterNodes(
-      schema,
-      ctx,
-      (node, nodePath) =>
-        isHeading(node) ||
-        ((named || matchesQuery(node, nodePath, ctx)) &&
-          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node)) &&
-          (!essentials || isButtonFieldCustomized(entry, node))),
-      path,
-      [],
-    ),
-  );
 }

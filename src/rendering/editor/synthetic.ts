@@ -11,7 +11,9 @@ import {
   EVENT_DETAILS_ACTION,
 } from '../../config/constants';
 import * as Types from '../../config/types';
+import { appliesToView } from '../../config/view';
 import { eventActionKind } from '../../interaction/event-action-kind';
+import { CARD_LANGUAGES } from '../../translations/language-codes';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
@@ -34,17 +36,31 @@ interface SyntheticField {
    * Reads the field's value out of the configuration.
    *
    * @param config - Current configuration
+   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
    * @returns The value to show in the form
    */
-  derive(config: Readonly<Types.Config>): unknown;
+  derive(config: Readonly<Types.Config>, view?: Types.EffectiveView): unknown;
   /**
    * Turns a user edit into configuration changes.
    *
    * @param value - Value the form produced
    * @param config - Current configuration
+   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
    * @returns Config changes, and any text to hold uncommitted
    */
-  apply(value: unknown, config: Readonly<Types.Config>): SyntheticApplyResult;
+  apply(
+    value: unknown,
+    config: Readonly<Types.Config>,
+    view?: Types.EffectiveView,
+  ): SyntheticApplyResult;
+  /**
+   * A switch that refines another control's option rather than owning it: Leave Out Repeated
+   * Countdowns reads `show_countdown`, which the Countdown chip writes. The line belongs to that
+   * control, so the switch holds a value of its own only where the line derives it on
+   * (`refinementHolds`), and its reset writes its off value instead of deleting the line, which
+   * would turn the refined control off too (`reset.ts` › `resetRefinement`).
+   */
+  readonly refines?: true;
 }
 
 const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
@@ -52,8 +68,6 @@ const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
 const FALLBACK_BOUNDED_HEIGHT = '300px';
 
 const INITIAL_OFFSET = '+0';
-
-const INITIAL_LANGUAGE = 'en';
 
 const INITIAL_INDICATOR_ICON = 'mdi:calendar-today';
 
@@ -110,17 +124,98 @@ function isCommittableIndicator(value: string): boolean {
   return type === 'image' || type === 'emoji';
 }
 
+/** The start-date choices, in the order the overview's chips offer them. */
+export const START_DATE_MODES = [
+  'default',
+  'tomorrow',
+  'start_of_week',
+  'fixed',
+  'offset',
+] as const;
+
+export type StartDateMode = (typeof START_DATE_MODES)[number];
+
+/**
+ * The start-date choices Month's page offers: Today, A Fixed Date and Relative to Today. Month opens
+ * the month holding the start date, except Tomorrow and Start of Week, which open today's month
+ * (`ViewConfig.monthOpensToday`), so those two would draw what Today draws there
+ * (`startDateModeIn`).
+ */
+export const MONTH_START_DATE_MODES: ReadonlyArray<StartDateMode> = ['default', 'fixed', 'offset'];
+
 /**
  * Derives the start-date mode from the shape of the stored value.
  *
  * @param config - Current configuration
- * @returns Which of the three start-date controls applies
+ * @returns Which of the start-date choices applies
  */
-export function startDateMode(config: Readonly<Types.Config>): 'default' | 'fixed' | 'offset' {
+export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
   const value = config.start_date;
 
-  if (!isSet(value)) return 'default';
-  return FIXED_DATE_PATTERN.test(String(value).trim()) ? 'fixed' : 'offset';
+  // Blank text resolves to today, as no start date does.
+  if (!isSet(value) || String(value).trim() === '') return 'default';
+  const text = String(value);
+  if (FIXED_DATE_PATTERN.test(text.trim())) return 'fixed';
+  return StartDate.startDateShortcut(text) ?? 'offset';
+}
+
+/**
+ * A start-date choice as a layout's page shows it: Month reads Tomorrow and Start of Week as Today,
+ * which is what it draws for them, and offers neither (`MONTH_START_DATE_MODES`). Relative to
+ * Today held over one of them is shown as held, on Month's page too, so its Expression opens there
+ * on the shortcut's own text.
+ *
+ * @param mode - The choice as stored or held
+ * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
+ * @returns Which of the start-date choices applies
+ */
+export function startDateModeShown(mode: string, view?: Types.EffectiveView): string {
+  return view === 'month' && (mode === 'tomorrow' || mode === 'start_of_week') ? 'default' : mode;
+}
+
+/**
+ * The start-date choice a layout's page shows for the stored value (`startDateModeShown`).
+ *
+ * @param config - Current configuration
+ * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
+ * @returns Which of the start-date choices applies
+ */
+export function startDateModeIn(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): StartDateMode {
+  return startDateModeShown(startDateMode(config), view) as StartDateMode;
+}
+
+/**
+ * The synthetic mode fields: those a choice of presentation can be held for, as
+ * `start_date_mode` holds Relative to Today over a value that reads as a shortcut.
+ */
+export const MODE_FIELDS: ReadonlyArray<string> = ['start_date_mode'];
+
+/** What a mode reads from: the configuration, and the mode choices held for its scope. */
+export interface ModeCtx {
+  readonly config: Readonly<Types.Config>;
+  /** Held mode choices by mode field name, for the context's scope (`SchemaCtx.presentation`). */
+  readonly presentation?: Readonly<Record<string, string>>;
+}
+
+/**
+ * A mode as the editor presents it: the choice held for it where there is one, which a value
+ * readable as two modes needs, else the mode the stored value reads as. Builders read a mode
+ * through this so the field a held mode reveals is built while the form shows that mode.
+ *
+ * @param ctx - The configuration and the held choices
+ * @param name - The mode field's name
+ * @param derive - How the stored value reads
+ * @returns The mode
+ */
+export function modeFor<T extends string>(
+  ctx: ModeCtx,
+  name: string,
+  derive: (config: Readonly<Types.Config>) => T,
+): T {
+  return (ctx.presentation?.[name] as T | undefined) ?? derive(ctx.config);
 }
 
 /**
@@ -135,14 +230,20 @@ export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | '
   return 'auto';
 }
 
+/** Language's one dropdown: Follow Home Assistant, then every language the card speaks. */
+export const LANGUAGE_CHOICES: ReadonlyArray<string> = ['system', ...CARD_LANGUAGES];
+
 /**
- * Derives whether the card follows Home Assistant's language or names its own.
+ * Derives the language the card names, as Language's dropdown offers it: a language the card
+ * speaks, in any case, else Home Assistant's, which is what the card falls back to for a code
+ * it does not speak.
  *
  * @param config - Current configuration
- * @returns Which language control applies
+ * @returns `system`, or a card language's code
  */
-export function languageMode(config: Readonly<Types.Config>): 'system' | 'custom' {
-  return config.language !== undefined && config.language !== null ? 'custom' : 'system';
+export function languageMode(config: Readonly<Types.Config>): string {
+  const code = typeof config.language === 'string' ? config.language.trim().toLowerCase() : '';
+  return (CARD_LANGUAGES as ReadonlyArray<string>).includes(code) ? code : 'system';
 }
 
 /**
@@ -160,6 +261,23 @@ export function todayIndicatorStyle(
   if (type === 'image' || type === 'emoji') return 'custom';
 
   return type as 'none' | 'tile' | 'dot' | 'pulse' | 'glow';
+}
+
+/**
+ * The today-indicator style a layout draws. Month marks today with the tile alone: every other
+ * style removes it and draws nothing in its place, so its page offers the tile and none, and
+ * reads any other style as none.
+ *
+ * @param config - Current configuration
+ * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
+ * @returns Which indicator control applies
+ */
+export function todayIndicatorStyleIn(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): ReturnType<typeof todayIndicatorStyle> {
+  const style = todayIndicatorStyle(config);
+  return view === 'month' && style !== 'tile' ? 'none' : style;
 }
 
 /**
@@ -280,14 +398,33 @@ export function alldayBadgeColorMode(value: unknown): string {
 }
 
 /**
+ * The colors the accent text switch governs on a layout's page: those the layout draws. Month
+ * draws no description and no progress bar (`ViewConfig.MONTH_PINNED`), so its switch writes
+ * neither: written from Month's page they would have no `month:` copy and land at the top level,
+ * recoloring every other layout. Layout Defaults governs all five.
+ *
+ * @param view - The layout whose page draws the switch, or `undefined` for Layout Defaults
+ * @returns The governed options
+ */
+export function accentTextKeys(view?: Types.EffectiveView): ReadonlyArray<string> {
+  return view === undefined
+    ? AccentText.ACCENT_TEXT_KEYS
+    : AccentText.ACCENT_TEXT_KEYS.filter((key) => appliesToView(key, view));
+}
+
+/**
  * Whether every governed color in the supplied form projection is the accent sentinel.
  * The workspace projection resolves inheritance before deriving any synthetic field.
  *
  * @param config - Current configuration
+ * @param view - The layout whose page draws the switch, or `undefined` for Layout Defaults
  * @returns `true` when every governed option is the sentinel
  */
-export function accentEventText(config: Readonly<Types.Config>): boolean {
-  return AccentText.ACCENT_TEXT_KEYS.every((key) =>
+export function accentEventText(
+  config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
+): boolean {
+  return accentTextKeys(view).every((key) =>
     EntityColors.isAccentTextSentinel(config[key as keyof Types.Config]),
   );
 }
@@ -354,22 +491,55 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
+  /**
+   * Start Date's five choices. Tomorrow and Start of Week write their expressions, and a value
+   * already reading as the chosen shortcut is kept as written (`+1` stays `+1`). Relative to Today
+   * over a shortcut writes nothing, since the expression is already there to edit; it holds
+   * `offset` as the presentation mode instead, or the shortcut it reads as would press its own
+   * chip again and the Expression field would never appear. On Month's page, which shows a
+   * shortcut as Today, Today keeps the shortcut and lets go of what is held, so it never changes
+   * the other layouts alone.
+   */
   start_date_mode: {
     configKeys: ['start_date'],
-    derive: (config) => startDateMode(config),
-    apply: (value, config) => {
-      const discardDates = { start_date_offset: null, start_date_fixed: null };
+    derive: (config, view) => startDateModeIn(config, view),
+    apply: (value, config, view) => {
+      const discardDates = {
+        start_date_offset: null,
+        start_date_fixed: null,
+        start_date_mode: null,
+      };
+      const current = String(config.start_date ?? '').trim();
+
+      if (
+        value === 'default' &&
+        view === 'month' &&
+        StartDate.startDateShortcut(current) !== undefined
+      ) {
+        return { changes: {}, pending: discardDates };
+      }
+
+      if (value === 'tomorrow' || value === 'start_of_week') {
+        const kept = StartDate.startDateShortcut(current) === value;
+        const written = value === 'tomorrow' ? StartDate.TOMORROW : StartDate.START_OF_WEEK;
+        return {
+          changes: { start_date: kept ? config.start_date : written },
+          pending: discardDates,
+        };
+      }
 
       if (value === 'fixed') {
-        const current = String(config.start_date ?? '');
-        const match = FIXED_DATE_PATTERN.exec(current.trim());
+        const match = FIXED_DATE_PATTERN.exec(current);
         return { changes: { start_date: match ? match[1] : todayIso() }, pending: discardDates };
       }
 
       if (value === 'offset') {
-        const current = String(config.start_date ?? '').trim();
         const carried = current !== '' && !FIXED_DATE_PATTERN.test(current) ? current : null;
-        return { changes: { start_date: carried ?? INITIAL_OFFSET }, pending: discardDates };
+        const held = carried !== null && StartDate.startDateShortcut(carried) !== undefined;
+        return {
+          changes: { start_date: carried ?? INITIAL_OFFSET },
+          pending: { ...discardDates, start_date_mode: held ? 'offset' : null },
+        };
       }
 
       return { changes: { start_date: undefined }, pending: discardDates };
@@ -395,12 +565,24 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
 
   start_date_offset: {
     configKeys: ['start_date'],
-    derive: (config) => (startDateMode(config) === 'offset' ? String(config.start_date) : ''),
-    apply: (value) => {
+    // A shortcut is an expression too: shown here while Relative to Today is held over it.
+    derive: (config) => {
+      const mode = startDateMode(config);
+      return mode === 'default' || mode === 'fixed' ? '' : String(config.start_date);
+    },
+    // Typed into while Relative to Today is chosen, a value that reads as a shortcut holds that
+    // choice, or typing `+10` would pass through `+1`, press Tomorrow and take the field away.
+    apply: (value): SyntheticApplyResult => {
       const text = String(value ?? '');
 
       return isCommittableOffset(text)
-        ? { changes: { start_date: text }, pending: { start_date_offset: null } }
+        ? {
+            changes: { start_date: text },
+            pending: {
+              start_date_offset: null,
+              start_date_mode: StartDate.startDateShortcut(text) === undefined ? null : 'offset',
+            },
+          }
         : { changes: {}, pending: { start_date_offset: text } };
     },
   },
@@ -408,11 +590,9 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   language_mode: {
     configKeys: ['language'],
     derive: (config) => languageMode(config),
-    apply: (value, config) =>
-      value === 'custom'
-        ? {
-            changes: { language: isSet(config.language) ? config.language : INITIAL_LANGUAGE },
-          }
+    apply: (value) =>
+      typeof value === 'string' && value !== 'system'
+        ? { changes: { language: value } }
         : { changes: { language: undefined } },
   },
 
@@ -482,6 +662,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    */
   countdown_once_per_day: {
     configKeys: ['show_countdown'],
+    refines: true,
     derive: (config) => config.show_countdown === COUNTDOWN_ONCE_PER_DAY,
     apply: (value) => ({ changes: { show_countdown: value ? COUNTDOWN_ONCE_PER_DAY : true } }),
   },
@@ -569,12 +750,12 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    */
   accent_event_text: {
     configKeys: AccentText.ACCENT_TEXT_KEYS,
-    derive: (config) => accentEventText(config),
-    apply: (value) => {
+    derive: (config, view) => accentEventText(config, view),
+    apply: (value, _config, view) => {
       const on = value === true;
       const changes: Record<string, unknown> = {};
 
-      for (const key of AccentText.ACCENT_TEXT_KEYS) {
+      for (const key of accentTextKeys(view)) {
         changes[key] = on
           ? EntityColors.ACCENT_TEXT_SENTINEL
           : Config.DEFAULT_CONFIG[key as keyof Types.Config];
@@ -595,7 +776,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
 
   today_indicator_style: {
     configKeys: ['today_indicator'],
-    derive: (config) => todayIndicatorStyle(config),
+    derive: (config, view) => todayIndicatorStyleIn(config, view),
     apply: (value, config) => {
       const discardText = { today_indicator_custom: null };
       const current = String(config.today_indicator ?? '');
@@ -667,64 +848,6 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         ? { changes: { day_tap_action: { action: 'add-event' } } }
         : { changes: { day_tap_action: undefined } },
   },
-
-  calendars: {
-    configKeys: ['entities'],
-    // One row per calendar, not one per block. The picker answers "which calendars does
-    // this card show"; the per-calendar panels below answer "how many blocks, and what is
-    // on each". Deriving 1:1 made the picker answer both and agree with itself on
-    // neither — a duplicate could be seen there and cleared there, but never added there,
-    // because Home Assistant's picker refuses to hold one entity twice.
-    //
-    // A Set keeps first-occurrence order, which is the only ordering anything downstream
-    // reads: `deduplicateEvents` walks `config.entities` and matches on `event._entityId`,
-    // so a second block of the same id finds every signature already seen and contributes
-    // nothing — priority under `filter_duplicates` is fixed by an id's *first* position.
-    // `fetchEvents` skips an id it has already fetched, and `getPrimaryEntityId` reads
-    // `entities[0]`. Collapsing `[a, b, c, b]` to `[a, b, b, c]` therefore changes nothing
-    // observable: b still precedes c, and entities[0] is untouched.
-    derive: (config) => [...new Set((config.entities ?? []).map(entityIdOf))],
-    apply: (value, config) => {
-      const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
-
-      // Listing the same calendar twice is supported and meaningful — each block
-      // carries its own label, color and limits. A Map keyed by entity ID kept
-      // only the last block for a repeated ID, so re-opening the picker rewrote
-      // every earlier duplicate with the last one's settings. Queue the blocks
-      // per ID so each keeps its own config.
-      const existing = new Map<string, Array<string | Types.EntityConfig>>();
-      for (const entry of config.entities ?? []) {
-        const id = entityIdOf(entry);
-        const queue = existing.get(id);
-        if (queue) {
-          queue.push(entry);
-        } else {
-          existing.set(id, [entry]);
-        }
-      }
-
-      // Each row emits that calendar's *whole* queue, because one row now stands for
-      // however many blocks the calendar has. Shifting one off instead would silently
-      // drop the rest, which is what makes this the half that cannot be changed alone.
-      // Clearing a row therefore drops every block for that calendar, which is the
-      // model the picker now presents; removing a single block is the panel's own
-      // Remove action.
-      const used = new Set<string>();
-
-      return {
-        changes: {
-          entities: ids.flatMap((id) => {
-            // The picker cannot emit an id twice, but this keeps the function total
-            // rather than duplicating a queue if anything else ever calls it.
-            if (used.has(id)) return [];
-            used.add(id);
-
-            return existing.get(id) ?? [id];
-          }),
-        },
-      };
-    },
-  },
 };
 
 /**
@@ -734,7 +857,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
  * @returns `true` when the key must never reach the configuration
  */
 export function isSyntheticKey(key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(SYNTHETIC_FIELDS, key);
+  return Helpers.hasOwn(SYNTHETIC_FIELDS, key);
 }
 
 /**
@@ -748,20 +871,40 @@ export function configKeysForField(name: string): ReadonlyArray<string> {
 }
 
 /**
+ * Whether a stored value gives a refinement (`SyntheticField.refines`) a value of its own: it
+ * derives otherwise than the card's default does. `show_countdown: true` is the Countdown chip's
+ * line, and leaves Leave Out Repeated Countdowns off; only `once_per_day` turns it on.
+ *
+ * @param name - Schema field name
+ * @param key - The option the value is stored for
+ * @param value - The stored value
+ * @returns Whether it holds a value of its own; `undefined` for a field that refines nothing
+ */
+export function refinementHolds(name: string, key: string, value: unknown): boolean | undefined {
+  if (!isSyntheticKey(name)) return undefined;
+  const field = SYNTHETIC_FIELDS[name];
+  if (!field.refines) return undefined;
+  const stored = { ...Config.DEFAULT_CONFIG, [key]: value } as Types.Config;
+  return field.derive(stored) !== field.derive(Config.DEFAULT_CONFIG);
+}
+
+/**
  * Builds the synthetic half of the form data.
  *
  * @param config - Current configuration
  * @param pending - Uncommitted text, keyed by field name
+ * @param view - The layout whose page draws the fields, or `undefined` for Layout Defaults
  * @returns Synthetic keys and their values, ready to merge into the form data
  */
 export function deriveSyntheticData(
   config: Readonly<Types.Config>,
   pending: PendingValues = {},
+  view?: Types.EffectiveView,
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
 
   for (const [name, field] of Object.entries(SYNTHETIC_FIELDS)) {
-    data[name] = name in pending ? pending[name] : field.derive(config);
+    data[name] = name in pending ? pending[name] : field.derive(config, view);
   }
 
   return data;
@@ -773,12 +916,14 @@ export function deriveSyntheticData(
  * @param name - Synthetic field name
  * @param value - Value the form produced
  * @param config - Current configuration
+ * @param view - The layout whose page draws the field, or `undefined` for Layout Defaults
  * @returns Config changes, and any text to hold uncommitted
  */
 export function applySyntheticChange(
   name: string,
   value: unknown,
   config: Readonly<Types.Config>,
+  view?: Types.EffectiveView,
 ): SyntheticApplyResult {
-  return SYNTHETIC_FIELDS[name].apply(value, config);
+  return SYNTHETIC_FIELDS[name].apply(value, config, view);
 }

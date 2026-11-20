@@ -17,6 +17,10 @@
   "viewList": "Lista",
   "viewColumns": "Kolumny",
   "viewGrid": "Siatka czasu",
+  "viewMonth": "Miesiąc",
+  "moreEvents": "+{count} więcej",
+  "eventCount": "Wydarzenia: {count}",
+  "eventCountOne": "{count} wydarzenie",
   "endsToday": "kończy się dziś",
   "endsTomorrow": "kończy się jutro",
   "dayOfEvent": "Dzień {day} z {days}",
@@ -27,5 +31,6 @@
   "loadFailed": "Nie udało się wczytać:",
   "newEvent": "Nowe wydarzenie",
   "showAll": "Pokaż wszystkie",
-  "hideAll": "Ukryj wszystkie"
+  "hideAll": "Ukryj wszystkie",
+  "private": "Prywatne"
 }

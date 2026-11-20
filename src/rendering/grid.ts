@@ -22,6 +22,7 @@ import * as Activation from './activation';
 import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as PrivateLock from './private-lock';
 import * as TextScale from './text-scale';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -62,6 +63,8 @@ interface GridSeparator {
   kind: SeparatorKind;
   width: string;
   color: string;
+  /** The pill's number color, for a week separator that takes the pill's background. */
+  ink?: string;
 }
 
 /**
@@ -145,7 +148,8 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
     return {
       kind: 'week',
       width: config.week_separator_width,
-      color: config.week_separator_color,
+      color: Leaves.weekSeparatorColor(config),
+      ink: Leaves.weekSeparatorInk(config),
     };
   }
 
@@ -192,6 +196,7 @@ function renderGridSeparator(
         gridRow: '3 / span 2',
         width: separator.width,
         '--calendar-card-grid-rule-paint': ColorMix.floorColor(separator.color),
+        color: separator.ink,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
@@ -454,8 +459,8 @@ function renderDayTints(
   weekendTint: string,
   todayTint: string,
 ): TemplateResult[] | typeof nothing {
-  const weekend = paintsSomething(weekendTint);
-  const today = paintsSomething(todayTint);
+  const weekend = ColorMix.paintsSomething(weekendTint);
+  const today = ColorMix.paintsSomething(todayTint);
 
   if (!weekend && !today) {
     return nothing;
@@ -469,23 +474,6 @@ function renderDayTints(
     ...(weekend ? renderWeekendStripes(days, hass, todayIndex) : []),
     ...(todayIndex === -1 ? [] : [renderTodayStripe(todayIndex)]),
   ];
-}
-
-/**
- * Whether a resolved color value would paint anything at all.
- *
- * `transparent` and `none` are what a user writes to switch an optional fill off, and an
- * empty string is what an editor text field hands back when it is cleared. None of them
- * needs a custom property emitted for it, and leaving the property unset lets the
- * stylesheet's own fallback stand rather than overriding it with a no-op.
- *
- * @param value - A resolved CSS color
- * @returns `true` when the value is worth writing to the DOM
- */
-function paintsSomething(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-
-  return normalized !== '' && normalized !== 'transparent' && normalized !== 'none';
 }
 
 //-----------------------------------------------------------------------------
@@ -1222,9 +1210,14 @@ function renderOverflow(
  * @param eventsTappable - Whether the banner is a tap target of its own
  * @param dayLabelId - The id of the header of the first day the banner covers on screen,
  *   which describes a tappable banner
+ * @param layout - Where its columns start and the class it adds, for a view that draws the
+ *   banner in a grid of its own: Grid's first day column is its second, after the hour axis,
+ *   and Month's is its first, with `month-bar`. Month also gives it an id, which its day's cell
+ *   owns it by, and takes a tappable banner out of the Tab order (`tabIndex: '-1'`), since its
+ *   day's panel is the keyboard's way to it
  * @returns Rendered banner
  */
-function renderBanner(
+export function renderBanner(
   event: Types.CalendarEventData,
   placement: Grid.BannerPlacement,
   row: number | undefined,
@@ -1233,6 +1226,9 @@ function renderBanner(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  layout: { firstColumn: number; className?: string; id?: string; tabIndex?: string } = {
+    firstColumn: 2,
+  },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -1241,9 +1237,11 @@ function renderBanner(
     ? bannerTimes(event, placement, presentation.contentParts, config, hass)
     : null;
   // The whole event's length, after the title, marked as such where the banner shows only part
-  // of it. It goes with the time, as on every row.
+  // of it. It goes with the time, as on every row. Only `show_duration` and the calendar's
+  // `show_time` decide it: the all-day time-row switches are List's and Column's, and a bar has
+  // no time row for them to hide.
   const lasts =
-    config.show_duration && presentation.contentParts.shouldShowTime
+    config.show_duration && presentation.showsTime
       ? FormatUtils.formatEventDuration(event, language, bannerShowsPart(event, placement))
       : null;
   const duration = lasts ? html`<span class="grid-banner-duration">${lasts}</span>` : nothing;
@@ -1261,16 +1259,18 @@ function renderBanner(
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
         [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
+        ...(layout.className ? { [layout.className]: true } : {}),
       })}
       style=${styleMap({
-        gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
+        gridColumn: `${placement.columnIndex + layout.firstColumn} / span ${placement.span}`,
         ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
         ...presentation.textScaleProperties,
       })}
+      id=${layout.id ?? nothing}
       role=${tap ? 'button' : nothing}
-      tabindex=${tap ? '0' : nothing}
+      tabindex=${tap ? (layout.tabIndex ?? '0') : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
@@ -1287,11 +1287,23 @@ function renderBanner(
               duration,
             )
           : lasts
-            ? html`<span class="grid-banner-title">${event.summary ?? ''}</span>${duration}`
-            : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+            ? html`<span class="grid-banner-title">${bannerTitle(event)}</span>${duration}`
+            : html`<span class="grid-banner-title">${bannerTitle(event)}</span>`
       }
     </div>
   `;
+}
+
+/**
+ * A banner's title: the event's, after a lock where it is a private event's Private.
+ *
+ * @param event - The banner's event
+ * @returns The title
+ */
+function bannerTitle(event: Types.CalendarEventData): TemplateResult | string {
+  return event._privateTitle
+    ? html`${PrivateLock.renderRowLock()}${event.summary ?? ''}`
+    : (event.summary ?? '');
 }
 
 /**
@@ -1404,7 +1416,7 @@ function renderTimedBannerContent(
       aria-hidden="true"
     >
       ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
-      <span class="grid-banner-title">${event.summary ?? ''}</span>${duration}
+      <span class="grid-banner-title">${bannerTitle(event)}</span>${duration}
       ${
         times.end === null
           ? nothing
@@ -1494,7 +1506,8 @@ export function renderNewBanner(
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
  * axis over. Banners beyond `allday_band_max_rows` are dropped, so the band cannot grow
- * without bound on a week containing a long holiday.
+ * without bound on a week containing a long holiday. The runs and the first fit are
+ * `resolveBannerRuns` and `lowestFreeRows` in `utils/grid.ts`, which Month's bars share.
  *
  * Nothing marks the ones that did not fit, which is the opposite of the timed path's
  * `+N` block, and the asymmetry is forced rather than chosen: a timed overflow marker
@@ -1512,50 +1525,10 @@ function layoutBanners(
   days: Types.EventsByDay[],
   maxRows: number,
 ): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
-  const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
-  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
-  const sources = new Map<
-    Pick<Types.CalendarEventData, 'start' | 'end'>,
-    Map<string, { event: Types.CalendarEventData; columns: number[] }>
-  >();
-  days.forEach((day, column) => {
-    for (const event of sortDayEvents(day).allDay) {
-      const source = event._gridSource ?? event;
-      let variants = sources.get(source);
-      if (!variants) {
-        variants = new Map();
-        sources.set(source, variants);
-      }
-      // Per-day filters can change which calendars contribute while the winning
-      // source stays the same. Keep their shared-color boundaries in the banner band.
-      const contributors = JSON.stringify(event._mergedFrom?.map((entry) => entry.entityId) ?? []);
-      const existing = variants.get(contributors);
-      if (existing) {
-        existing.columns.push(column);
-      } else {
-        variants.set(contributors, { event: { ...event, ...source }, columns: [column] });
-      }
-    }
-  });
-
-  const bannerRuns = [...sources.values()].flatMap((variants) => [...variants.values()]);
-  for (const { event, columns } of bannerRuns) {
-    const runs: Array<{ first: number; last: number }> = [];
-    for (const column of columns) {
-      const previous = runs[runs.length - 1];
-      if (previous && previous.last + 1 === column) previous.last = column;
-      else runs.push({ first: column, last: column });
-    }
-    for (const { first, last } of runs) {
-      const placement = Grid.computeBannerPlacement(event, visibleDayStarts.slice(first, last + 1));
-      if (placement) {
-        banners.push({
-          event,
-          placement: { ...placement, columnIndex: placement.columnIndex + first },
-        });
-      }
-    }
-  }
+  const banners = Grid.resolveBannerRuns(
+    days.map((day) => sortDayEvents(day).allDay),
+    days.map((day) => Grid.startOfDay(new Date(day.timestamp))),
+  );
 
   // Longest first, so a week-long banner takes the top row and the short ones tuck in
   // beneath it rather than the other way round.
@@ -1564,35 +1537,17 @@ function layoutBanners(
       b.placement.span - a.placement.span || a.placement.columnIndex - b.placement.columnIndex,
   );
 
-  const rowSpans: Array<Array<[number, number]>> = [];
-  const placed: Array<{
-    event: Types.CalendarEventData;
-    placement: Grid.BannerPlacement;
-    row: number;
-  }> = [];
+  const rows = Grid.lowestFreeRows(
+    banners.map(({ placement }) => ({
+      start: placement.columnIndex,
+      end: placement.columnIndex + placement.span,
+    })),
+    maxRows,
+  );
 
-  for (const banner of banners) {
-    const start = banner.placement.columnIndex;
-    const end = start + banner.placement.span;
-
-    let row = rowSpans.findIndex((occupied) =>
-      occupied.every(([from, to]) => end <= from || start >= to),
-    );
-
-    if (row < 0) {
-      if (rowSpans.length >= maxRows) {
-        continue;
-      }
-
-      row = rowSpans.length;
-      rowSpans.push([]);
-    }
-
-    rowSpans[row].push([start, end]);
-    placed.push({ ...banner, row: row + 1 });
-  }
-
-  return placed;
+  return banners.flatMap((banner, index) =>
+    rows[index] < 0 ? [] : [{ ...banner, row: rows[index] + 1 }],
+  );
 }
 
 /**
@@ -1872,10 +1827,10 @@ export function renderGridGroupedEvents(
         // transparent fallback is the off state rather than a placeholder. `transparent` and
         // `none` are how a user turns either off, and both are cheaper to drop here than to
         // paint.
-        ...(paintsSomething(weekendTint)
+        ...(ColorMix.paintsSomething(weekendTint)
           ? { '--calendar-card-grid-weekend': ColorMix.floorColor(weekendTint) }
           : {}),
-        ...(paintsSomething(todayTint)
+        ...(ColorMix.paintsSomething(todayTint)
           ? { '--calendar-card-grid-today': ColorMix.floorColor(todayTint) }
           : {}),
       })}
