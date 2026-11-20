@@ -4,7 +4,7 @@
 
 import type { HaFormSchema } from './ha-form';
 import { EDITOR_STRINGS, interpolate } from './strings';
-import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
+import { EDITOR_HELD_STRINGS } from './translations/held';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { intlLocales } from '../../translations/intl-locales';
@@ -24,12 +24,16 @@ export function humanize(key: string): string {
 /**
  * Resolves one string key for a language.
  *
+ * Reads the languages the editor holds now (`translations/held.ts`): British English always,
+ * any other only once its file has loaded. A language whose file is missing falls back to
+ * English key by key, exactly as an untranslated key does.
+ *
  * @param language - Effective language code
  * @param key - String key, qualified with its group path where it has one
  * @returns The resolved string, or `undefined` when no source defines the key
  */
 export function lookup(language: string, key: string): string | undefined {
-  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()]?.[key];
+  const translated = EDITOR_HELD_STRINGS[language.toLowerCase()]?.[key];
   if (translated !== undefined) {
     return translated;
   }

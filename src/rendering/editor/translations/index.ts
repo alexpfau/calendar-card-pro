@@ -20,28 +20,28 @@
  *
  * Adding a language needs no `TRANSLATIONS` entry of its own — the language must
  * already be registered by `src/translations/localize.ts`, and `npm run check:i18n`
- * fails on a file that is not, or that exists but is never imported below.
+ * fails on a file that is not, or that exists but is never imported below. It does need its
+ * code in `EDITOR_LANGUAGE_FILES` (`./files.ts`), which `check:i18n` also asks for.
+ *
+ * **This is the registry of every language, and the editor does not import it.** The editor
+ * holds British English (`./held.ts`) and loads any other language from a file of its own the
+ * build writes (`./loader.ts`), so this module is read by the tests, the gates and the build
+ * alone. Importing it from the editor would put every translation back into every editor open;
+ * `check:bundle` fails when a translated string turns up inside `editor.js`.
  */
 
-// Imports in the order the bundle carries the vectors, which is not alphabetical: module
-// order is emission order, and gzip compresses the editor better with British English first
-// and the rest side by side by language family. Keep the map below in the same order, or
-// terser stops inlining the vectors into it and the gain goes. The lint rule would re-sort
-// them alphabetically, so it is off for this block.
-/* eslint-disable import-x/order */
+import deEditor from './de.json';
 import enGBEditor from './en-GB.json';
-import koEditor from './ko.json';
+import etEditor from './et.json';
+import itEditor from './it.json';
 import jaEditor from './ja.json';
-import skEditor from './sk.json';
-import plEditor from './pl.json';
+import koEditor from './ko.json';
 import ltEditor from './lt.json';
 import lvEditor from './lv.json';
-import etEditor from './et.json';
-import deEditor from './de.json';
-import svEditor from './sv.json';
 import nbEditor from './nb.json';
-import itEditor from './it.json';
-/* eslint-enable import-x/order */
+import plEditor from './pl.json';
+import skEditor from './sk.json';
+import svEditor from './sv.json';
 
 /**
  * Editor strings by language code.

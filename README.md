@@ -90,15 +90,20 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
    👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/calendar-card-pro.js)
    and [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/editor.js)
 
-2. **Put both files** into a folder of their own under `www`:  
+   For the visual editor in a language other than English, also download that language's
+   file from the [latest release](https://github.com/alexpfau/calendar-card-pro/releases/latest),
+   such as `editor-de.js` for German.
+
+2. **Put the files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
 
-   The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in
-   the same folder, and `calendar-card-pro.js` is the only one you name as a resource —
-   the card loads the editor itself, when you open it. Use a subfolder rather than
-   `/config/www/` directly: that folder is shared by every hand-installed card, and
-   `editor.js` is a common enough name that another file can take it. HACS does all of
-   this for you, which is why it is the recommended route.
+   The card is `calendar-card-pro.js`, and its visual editor is `editor.js`, plus a file per
+   editor language. All of them must sit in the same folder, and `calendar-card-pro.js` is
+   the only one you name as a resource — the card loads the editor itself, when you open it,
+   and the editor loads its language. Without a language's file the editor opens in English.
+   Use a subfolder rather than `/config/www/` directly: that folder is shared by every
+   hand-installed card, and `editor.js` is a common enough name that another file can take
+   it. HACS does all of this for you, which is why it is the recommended route.
 
 3. **Navigate to:**
    Home Assistant → Settings → Dashboards → Resources → Add Resource

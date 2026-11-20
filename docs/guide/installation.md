@@ -26,7 +26,12 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
    👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/calendar-card-pro.js) and
    [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/editor.js)
 
-2. **Put both files** into a folder of their own under `www`:  
+   If you use the visual editor in German, Estonian, Italian, Japanese, Korean, Latvian,
+   Lithuanian, Norwegian, Polish, Slovak or Swedish, also download that language's file from the
+   [latest release](https://github.com/alexpfau/calendar-card-pro/releases/latest), such as
+   `editor-de.js` for German, or all of them.
+
+2. **Put the files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
 
 3. **Navigate to:**
@@ -47,20 +52,23 @@ Keep `calendar-card-pro.js` and `editor.js` together, in a folder of their own, 
 but cannot be configured: opening the visual editor reports that a file is missing. Use a
 subfolder rather than `/config/www/` itself, where another file called `editor.js` can take
 its place and stop the editor from opening.
+
+A language file goes beside them too. Without it, the visual editor opens in English.
 :::
 
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-738 KB and the editor at 1040 KB, once per version before the browser caches both.
+738 KB, the editor at 507 KB and a language file at up to 56 KB, once per version before the
+browser caches them.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
 ```bash
-gzip -9 -k calendar-card-pro.js editor.js
+gzip -9 -k *.js
 ```
 
-That brings the card to 203 KB and the editor to 298 KB. Delete or regenerate the `.gz`
+That brings the card to 203 KB, the editor to 148 KB and a language file to at most 14 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 
