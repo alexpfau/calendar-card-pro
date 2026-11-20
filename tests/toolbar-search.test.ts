@@ -1286,8 +1286,11 @@ describe('live changes', () => {
     await closeSearch(card);
     expect(wideRequests()).toEqual([ANNA, BEN]);
 
-    // Paging opens subscriptions for the next days, whose first pushes change nothing.
+    // Paging opens subscriptions for the next days, whose first pushes change nothing. Two pages
+    // forward: one page stays inside June's weeks, which home already loads where Month is
+    // reachable, as it is here; the second reaches July's.
     const before = live.subscribed();
+    await navigate(card, 'next');
     await navigate(card, 'next');
     await flush(card);
     expect(live.subscribed()).toBeGreaterThan(before);
@@ -1312,7 +1315,7 @@ describe('live changes', () => {
     // One it covers does: an event is added on a day the card has a subscription for.
     calendars[BEN] = [
       ...calendars[BEN],
-      timed('2026-06-26T09:00:00Z', '2026-06-26T10:00:00Z', 'Haircut'),
+      timed('2026-07-02T09:00:00Z', '2026-07-02T10:00:00Z', 'Haircut'),
     ];
     live.change(BEN);
     await flush(card);

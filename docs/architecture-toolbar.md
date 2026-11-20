@@ -73,12 +73,21 @@ the configuration.
 - **The date picker.** The month button focuses a hidden date input, because Safari closes a picker
   only on blur, and the card tracks an open picker so the press that closes Chrome's opens nothing.
 - **The page.** A page is a fixed first day (`_pageRequested`, null at home), fetched with
-  `start_date` replaced by it and `show_past_events` forced on. Arrows and swipes step by the days
-  on screen (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
+  `start_date` replaced by it and `show_past_events` forced on. List, Columns and Grid start on
+  it; Month draws the weeks of the month holding it. Arrows and swipes step by the days on screen
+  (`pageSpan`). The heading answers at once; the days stay those of `_pageShown`, dimmed,
   until the new page's events land, and the request generation discards the responses of pages
   passed by. Storage is under [What the Browser Stores](/architecture-data#what-the-browser-stores).
 - **A month's pages.** Arrows, swipes, the picker and Page Up and Page Down step whole months, from
-  the month the heading names.
+  the month the heading names, each keyed by its 1st.
+- **A view switch carries the date in view** (`_dateInView`, `_openOnDate` in `_chooseView`): a
+  month's selected day, else its own (today where it holds today, else its 1st), or the other
+  views' page's first day, in time order even for a list read latest first, so those three switch
+  among themselves on the same days. Month opens that day's month with the day selected and as
+  its tab stop; the others open the page starting that day. From home with nothing selected the
+  next view opens on its own home. A page's load holds the weeks of the month its day falls in
+  (`loadConfig`), so carrying a page's day lands on that same load wherever the next view's days
+  lie in those weeks.
 - **Nothing remembers a page.** A reload, a configuration change and the start of editing bring the
   card home.
 - **Hiding leaves a way back.** `hide_when_empty` acts only at home and only while the legend hides

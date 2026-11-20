@@ -1740,6 +1740,9 @@ class CalendarCardPro extends LitElement {
    * First day of the page the date navigation asked for, as `YYYY-MM-DD`, or null for home:
    * the window the card is configured to open with.
    *
+   * A day every layout reads alike: List, Columns and Grid start on it, and Month draws the weeks
+   * of the month holding it, so a layout switch that keeps it keeps the load as well.
+   *
    * Never stored anywhere: a reload, any change to the configuration and the start of editing
    * all bring the card home. A fixed day rather than a distance from home, so a page stays on
    * its dates at midnight while home moves on.
@@ -1824,8 +1827,10 @@ class CalendarCardPro extends LitElement {
   private _monthWidthPx: number | null = null;
 
   /**
-   * The day selected on a compact month, on this device only: never configuration, and gone with
-   * a page, Home or Reset (`MonthDay.selectedMonthDay`).
+   * The day selected on a month, on this device only: never configuration, and gone with a page,
+   * Home, Reset or a view switch (`MonthDay.selectedMonthDay`). A tap selects it on a compact
+   * month; a view switch carries it in either form (`_openOnDate`), and only the compact one
+   * lists it.
    */
   private _monthSelection: MonthDay.MonthSelection | null = null;
 
@@ -1892,8 +1897,9 @@ class CalendarCardPro extends LitElement {
   private _dayPanel: DayPanel.DayPanelHandle | null = null;
 
   /**
-   * The day, `YYYY-MM-DD`, whose cell is a month's one tab stop once the keyboard, a tap or a pick
-   * has put it there, while it is among the rows drawn; see `_monthTabStop`.
+   * The day, `YYYY-MM-DD`, whose cell is a month's one tab stop once the keyboard, a tap, a pick
+   * or a view switch (`_openOnDate`) has put it there, while it is among the rows drawn; see
+   * `_monthTabStop`.
    */
   private _monthFocusDay: string | null = null;
 
@@ -2349,18 +2355,18 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The first day of a month page's rows: at home the weeks of Month's home month
-   * (`_monthHomeDay`), on a page the row holding the page's key, which is already a row's first
-   * day unless another view left it there.
+   * (`_monthHomeDay`), on a page the weeks of the month holding the page's day. Month's own moves
+   * key a month by its 1st; a layout switch keys it by the day it carried (`_openOnDate`).
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
    * @returns The first row's first day, at local midnight
    */
   private _monthRowsStart(page: string | null, now: Date = new Date()): Date {
-    const firstDayOfWeek = this._firstDayOfWeek;
-    return page === null
-      ? ViewConfig.monthHomeRowsStart(this._monthHomeDay(now), firstDayOfWeek)
-      : ViewConfig.monthRowsStart(Paging.pageStart(page), firstDayOfWeek);
+    return ViewConfig.monthHomeRowsStart(
+      page === null ? this._monthHomeDay(now) : Paging.pageStart(page),
+      this._firstDayOfWeek,
+    );
   }
 
   /**
@@ -2616,9 +2622,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The days a page covers as drawn now: as many as the view on screen shows, so switching
-   * views keeps a page's first day and changes how far it runs. Month draws six weeks from the
-   * row holding the page's first day.
+   * The days a page covers as drawn now: as many as the view on screen shows, from the page's
+   * first day. Month draws the six weeks of the month holding that day.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -4096,7 +4101,7 @@ class CalendarCardPro extends LitElement {
     const drawn = Paging.rangeContains(this._pageRange(this._pageRequested), day);
     if (toItsMonth || !drawn) {
       if (this._wantsNavigation && !this._isBeingEdited) {
-        this._goToPage(ViewConfig.monthHomeRowsStart(day, this._firstDayOfWeek));
+        this._goToPage(new Date(day.getFullYear(), day.getMonth(), 1));
       } else if (!drawn) {
         return;
       }
@@ -9540,12 +9545,7 @@ class CalendarCardPro extends LitElement {
     const from = this._pageRange(this._pageRequested);
     if (this.effectiveView === 'month') {
       const month = Paging.majorityMonth(from);
-      this._goToPage(
-        ViewConfig.monthHomeRowsStart(
-          new Date(month.getFullYear(), month.getMonth() + direction, 1),
-          this._firstDayOfWeek,
-        ),
-      );
+      this._goToPage(new Date(month.getFullYear(), month.getMonth() + direction, 1));
       return;
     }
     this._goToPage(Paging.stepPage(from.start, from.days, direction));
@@ -9564,7 +9564,7 @@ class CalendarCardPro extends LitElement {
     if (isNaN(date.getTime())) return;
 
     if (this.effectiveView === 'month') {
-      this._goToPage(ViewConfig.monthHomeRowsStart(date, this._firstDayOfWeek));
+      this._goToPage(new Date(date.getFullYear(), date.getMonth(), 1));
       return;
     }
 
@@ -9577,9 +9577,10 @@ class CalendarCardPro extends LitElement {
   /**
    * Asks for a page, and loads it.
    *
-   * A page starting where home does is home: it draws the card's own window, past events
-   * hidden as configured. Nothing happens for the page already asked for, so the home button
-   * at home is inert, and nothing at all while the card is being edited.
+   * A page that draws what home does is home: it draws the card's own window, past events
+   * hidden as configured. For Month that is any day of home's month, whose weeks are home's; for
+   * the other layouts home's first day. Nothing happens for the page already asked for, so the
+   * home button at home is inert, and nothing at all while the card is being edited.
    *
    * @param start - First day of the page, or null for home
    */
@@ -9589,9 +9590,14 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    const homeKey = Paging.pageKey(this._homeRange().start);
-    const key = start === null ? null : Paging.pageKey(start);
-    const page = key === null || key === homeKey ? null : key;
+    const page =
+      start === null ||
+      (this.effectiveView === 'month'
+        ? Paging.pageKey(ViewConfig.monthHomeRowsStart(start, this._firstDayOfWeek)) ===
+          Paging.pageKey(this._monthRowsStart(null))
+        : Paging.pageKey(start) === Paging.pageKey(this._homeRange().start))
+        ? null
+        : Paging.pageKey(start);
     if (page === this._pageRequested) return;
 
     Logger.debug(`Paging to ${page ?? 'home'}`);
@@ -10795,9 +10801,13 @@ class CalendarCardPro extends LitElement {
    * Pressing the view already on screen still counts. On a narrow card it may be the list
    * standing in for a remembered view that does not fit, and the press makes the list the
    * choice. Pressing the view already asked for while the list stands in for it draws it,
-   * when it is offered at all: the choice is unchanged, the layout is not. Nothing is
-   * fetched: every view draws from the same events, loaded as far as the longest view the
-   * card can show, so a view with fewer days draws the first of them.
+   * when it is offered at all: the choice is unchanged, the layout is not.
+   *
+   * The date in view comes along (`_dateInView`, `_openOnDate`), and from home with nothing
+   * selected the next view opens on its own home. Every view draws from one load, as far as the
+   * longest view the card can show, and a page's load holds the weeks of the month its day falls
+   * in, so a switch fetches nothing unless it carries a day to a page no load has named yet, as a
+   * day selected on a compact month at home does.
    *
    * @param view - The view picked
    */
@@ -10814,11 +10824,9 @@ class CalendarCardPro extends LitElement {
     }
     if (choice === this._viewChoice && view === this._effectiveView) return;
 
-    // Read before the view changes, since a month page's range is the month's.
-    const leftMonth =
-      this._effectiveView === 'month' && this._pageRequested !== null
-        ? Paging.majorityMonth(this._pageRange(this._pageRequested))
-        : null;
+    // Read before the view changes: each view names the date in view its own way.
+    const carried = this._dateInView();
+    const before = this._effectiveView;
 
     this._viewChoice = choice;
     const fit = ViewConfig.resolveColumnFitIfPicked(
@@ -10829,22 +10837,54 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
     this._effectiveView = fit.view;
     this._columnCount = fit.columns;
-    if (leftMonth !== null && fit.view !== 'month') this._leaveMonthPage(leftMonth);
+    if (fit.view !== before) this._openOnDate(carried);
     this.requestUpdate();
   }
 
   /**
-   * Re-keys a page month was showing for the view that replaces it: the month the heading named,
-   * from its first day, or home where that is home's month. A page's key is kept the other way
-   * round, entering month, whose rows snap to the key's week.
+   * The date in view, which a view switch carries to the next view: on a month the day selected
+   * on the page asked for, else that page's own (`_monthOwnDay`: today where its month holds it,
+   * else its 1st; at home today or a fixed start date); on any other view its page's first day,
+   * in time order whichever way a list reads, so List, Columns and Grid switch among themselves on
+   * the same days. Null at home with nothing selected, where the next view opens on its own home.
    *
-   * @param month - The first day of the month the heading named
+   * @param now - The current moment
+   * @returns The day, at local midnight, or null
    */
-  private _leaveMonthPage(month: Date): void {
-    const home = this._homeWindowStart(new Date());
-    const homeMonth =
-      home.getFullYear() === month.getFullYear() && home.getMonth() === month.getMonth();
-    this._goToPage(homeMonth ? null : month);
+  private _dateInView(now: Date = new Date()): Date | null {
+    const page = this._pageRequested;
+    if (this.effectiveView === 'month') {
+      const own = this._monthOwnDay(page, now);
+      const day = MonthDay.selectedMonthDay(
+        this._monthSelection,
+        page,
+        this._monthRowsStart(page, now),
+        now,
+        own,
+      );
+      return page === null && day.getTime() === own.getTime() ? null : day;
+    }
+    return page === null ? null : Paging.pageStart(page);
+  }
+
+  /**
+   * Opens the view on screen on a day another view carried (`_dateInView`), or on its own home
+   * for none. A month opens on the weeks of the month holding the day, with the day selected,
+   * listed where the month is compact and kept where it is wide, and its cell the tab stop either
+   * way. Any other view opens on the page starting that day. A page that draws what home does is
+   * home (`_goToPage`).
+   *
+   * @param day - The day carried, or null
+   */
+  private _openOnDate(day: Date | null): void {
+    this._monthSelection = null;
+    this._monthFocusDay = null;
+    this._goToPage(day);
+    if (day !== null && this.effectiveView === 'month') {
+      // After the page, which lets go of a selection made on another.
+      this._monthSelection = MonthDay.monthSelectionOf(day, this._pageRequested);
+      this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    }
   }
 
   //-----------------------------------------------------------------------------

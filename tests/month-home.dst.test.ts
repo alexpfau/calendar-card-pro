@@ -422,7 +422,7 @@ describe('the two homes of a card that switches between List and Month', () => {
     expect(listDays(card)).toEqual(['2026-12-01', '2026-12-07']);
   });
 
-  it('goes to List’s own home from the Month page that holds it', async () => {
+  it('opens List on the Month page’s own day, and goes to List’s home from there', async () => {
     // Wednesday 18 November, 30 days ahead: List's home is 18 December, Month's is November.
     vi.setSystemTime(new Date(2026, 10, 18, 10));
     const card = await mount({
@@ -436,10 +436,9 @@ describe('the two homes of a card that switches between List and Month', () => {
     await press(card, 'next');
     expect(month(card).heading).toBe('December 2026');
     const fetched = asked.length;
+    // The date in view goes along, December's 1st, though List's home is in the same month.
     await switchTo(card, 'list');
-    expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
-    // Home's events are still fresh, so arriving there draws them and fetches nothing. Once they
-    // are due, arriving home refetches them, as the home button does.
+    expect(listDays(card)).toEqual(['2026-12-01', '2026-12-07']);
     expect(asked).toHaveLength(fetched);
     await press(card, 'home');
     expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
