@@ -1032,4 +1032,20 @@ export const GLOSSARY_TERMS = [
     },
     rejected: {},
   },
+  {
+    // Decided in the v6 review, where the word for a dashboard had to stay apart from the word for
+    // Month's day panel ("+N more" opens it), and Swedish and Latvian had drifted from Home
+    // Assistant's own word.
+    name: 'dashboard',
+    sense: 'a Home Assistant dashboard, which holds the card (never Month’s day panel)',
+    decided: {
+      lt: 'prietaisų skydelis',
+      lv: 'infopanelis',
+      sv: 'kontrollpanel',
+    },
+    rejected: {
+      lv: ['informācijas panel'],
+      sv: ['instrumentpanel'],
+    },
+  },
 ];
