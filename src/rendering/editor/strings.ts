@@ -808,6 +808,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'row.without': 'Without: {words}',
   'row.weekdays': 'Weekdays',
   'row.weekends': 'Weekend days',
+  'row.starts_after': 'Starts from {time}',
+  'row.starts_before': 'Starts before {time}',
+  'row.starts_between': 'Starts {from}–{until}',
   'row.expires': 'Expires at {time}',
   'row.conditions': 'Shown under conditions',
   // An entry's name inside a calendar with several, as its controls are named: "Remove Family,
@@ -998,6 +1001,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.filter_field.option.description.label': 'Description',
   'entity.filter_field.helper':
     'One at a time: list the same calendar twice to filter on a second.',
+  'entity.starts_after': 'Starts At or After',
+  'entity.starts_after.helper':
+    'All-day events always show, and an event over several days follows its start.',
+  'entity.starts_before': 'Starts Before',
+  'entity.starts_before.helper': 'Earlier than Starts At or After, the hours run past midnight.',
   'entity.allday_expires_at': 'All-Day Events Expire At',
   'entity.allday_expires_at.helper':
     'When this calendar’s all-day events stop counting as upcoming on their last day. Only while past events are hidden.',

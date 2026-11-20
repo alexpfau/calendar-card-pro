@@ -35,6 +35,7 @@ import {
 } from '../../config/view';
 import { intlLocales } from '../../translations/intl-locales';
 import { parseStartDateExpression } from '../../utils/start-date';
+import { readStartWindow, startsInWindow } from '../../utils/start-window';
 
 /** How long the review waits for Home Assistant before showing each part's rule alone. */
 export const READ_TIMEOUT = 15000;
@@ -143,8 +144,9 @@ export function reviewWindow(
 }
 
 /**
- * Whether an entry keeps an event, by its event type and its word lists, as
- * `filterEventsForEntity` decides it: a list the card cannot compile is skipped.
+ * Whether an entry keeps an event, by its event type, the hours its timed events start in and its
+ * word lists, as `filterEventsForEntity` decides it: a list the card cannot compile is skipped,
+ * and the hours are read by the card's own rule (`utils/start-window.ts`).
  *
  * @param event - The event as Home Assistant sent it
  * @param entry - The entry
@@ -159,6 +161,10 @@ export function entryKeeps(
   const own = asEntityConfig(entry);
   const type = effectiveEventType(own, card);
   if (type !== 'all' && !event.start.dateTime !== (type === 'all_day')) return false;
+  const hours = readStartWindow(own.starts_after, own.starts_before).window;
+  if (hours && event.start.dateTime && !startsInWindow(new Date(event.start.dateTime), hours)) {
+    return false;
+  }
   const field = filterFieldOf(own.filter_field);
   const subject =
     field === 'location'

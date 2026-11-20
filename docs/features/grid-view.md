@@ -64,6 +64,9 @@ time_grid:
   edge on that side, so the event reads as carrying on past the visible hours. An event
   entirely outside the window is not drawn at all, so the window decides what the card shows,
   not only how it looks.
+- These are the grid's hours, the same for every calendar. To leave out one calendar's events
+  that start outside some hours, in every layout, use
+  [`starts_after` and `starts_before`](/features/core-settings#showing-events-that-start-at-certain-hours).
 - A timed event that runs across more than one day but lasts less than a full day, such as a
   night shift, gets one block per day column; a longer one is
   [one banner above the hours](#long-timed-events-as-banners) instead. The block where it

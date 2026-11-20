@@ -706,6 +706,39 @@ describe('the new event while the popover adds it', () => {
     expect(newBlock(body)!.textContent).toContain('Riverside Pool');
   });
 
+  it('is drawn with the entry whose hours its start falls in, as the saved event will be', async () => {
+    const config = (entities: unknown[]) => ({ ...ADD, entities });
+    const morning = { entity: ANNA, starts_before: '16:00', accent_color: 'rgb(204, 51, 102)' };
+    const afternoon = { entity: ANNA, starts_after: '16:00', accent_color: 'rgb(51, 102, 204)' };
+    const { card, dialogs } = await mount(config([morning, afternoon]));
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    const accent = () =>
+      newBlock(body)!.style.getPropertyValue('--calendar-card-event-accent-bar-color');
+    expect(accent()).toBe('rgb(204, 51, 102)');
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { times: { allDay: false, start: AT(18, 17), end: AT(18, 18) } }) as never,
+    );
+    expect(accent()).toBe('rgb(51, 102, 204)');
+
+    // With no entry keeping 10:00, it is drawn as it stands, with the calendar's first entry.
+    const piano = {
+      summary: 'Piano',
+      start: { dateTime: '2026-06-17T17:00:00Z' },
+      end: { dateTime: '2026-06-17T18:00:00Z' },
+      uid: 'uid-piano',
+    };
+    const alone = await mount(config([afternoon]), false, [piano, ...EVENTS]);
+    await drawAndRelease(alone.card);
+    expect(label(bodies(alone.card)[1])).toBe('New event\n10:00 - 12:30');
+    expect(
+      newBlock(bodies(alone.card)[1])!.style.getPropertyValue(
+        '--calendar-card-event-accent-bar-color',
+      ),
+    ).toBe('rgb(51, 102, 204)');
+  });
+
   it("is drawn as Private behind a lock where its calendar's entry is private, typed words or not", async () => {
     const { card, dialogs } = await mount({
       ...ADD,

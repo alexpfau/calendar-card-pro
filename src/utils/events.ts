@@ -14,6 +14,7 @@ import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
 import * as PrivateEvents from './private-events';
 import { getTimeWindow, startDateFollowsToday } from './start-date';
+import * as StartWindow from './start-window';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
@@ -1339,14 +1340,12 @@ function resolveDisplayDate(startDate: Date, endDate: Date, referenceStart: Date
   return startDate;
 }
 
-/** `HH:MM`, or `HH:MM:SS`. A single-digit hour is accepted; 24 and above is not. */
-const TIME_OF_DAY_PATTERN = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/;
-
 /** Values already reported as unparseable, so one typo warns once rather than per event. */
 const reportedExpiryValues = new Set<string>();
 
 /**
- * Read a wall-clock time of day out of a configured string.
+ * Read a wall-clock time of day out of a configured string: `HH:MM` or `HH:MM:SS`, a single-digit
+ * hour accepted, 24 and above not (`StartWindow.TIME_OF_DAY_PATTERN`).
  *
  * @param value Configured value, from a calendar's `allday_expires_at`
  * @returns The time, or `null` when the value is absent or not a time
@@ -1356,7 +1355,7 @@ function parseTimeOfDay(
 ): { hours: number; minutes: number; seconds: number } | null {
   if (typeof value !== 'string') return null;
 
-  const match = TIME_OF_DAY_PATTERN.exec(value.trim());
+  const match = StartWindow.TIME_OF_DAY_PATTERN.exec(value.trim());
   if (!match) return null;
 
   const hours = Number(match[1]);
@@ -2741,6 +2740,58 @@ function filterSubject(
   return event.summary;
 }
 
+/** Problems with a calendar's start hours already reported, so one typo warns once. */
+const reportedStartWindowProblems = new Set<string>();
+
+/**
+ * The hours one calendar's timed events have to start in (`starts_after`, `starts_before`;
+ * `utils/start-window.ts` holds the rule), or `undefined` where it keeps them all.
+ *
+ * A value the card cannot read leaves the calendar unnarrowed, and is reported once per calendar
+ * and value: a console line is all a hand-written YAML typo gets, as for `allday_expires_at`, since
+ * the editor's time field cannot write one.
+ *
+ * @param entityConfig - The calendar's own settings
+ * @returns The window, or `undefined`
+ */
+function resolveStartWindow(entityConfig: Types.EntityConfig): StartWindow.StartWindow | undefined {
+  const reading = StartWindow.readStartWindow(
+    entityConfig.starts_after,
+    entityConfig.starts_before,
+  );
+
+  for (const problem of reading.problems) {
+    const shown =
+      problem.kind === 'equal'
+        ? problem.value
+        : typeof problem.value === 'string'
+          ? `"${problem.value}"`
+          : String(problem.value);
+    const id = `${entityConfig.entity}|${problem.kind}|${problem.kind === 'invalid' ? problem.key : ''}|${shown}`;
+    if (reportedStartWindowProblems.has(id)) continue;
+    reportedStartWindowProblems.add(id);
+
+    if (problem.kind === 'equal') {
+      Logger.warn(
+        `${entityConfig.entity}: starts_after and starts_before are both ${shown}, which leaves ` +
+          'no hours out. Set two different times to narrow the calendar.',
+      );
+    } else if (typeof problem.value === 'number') {
+      Logger.warn(
+        `${entityConfig.entity}: ${problem.key} is the number ${shown}, not a time. Write the time ` +
+          `in quotes, as ${problem.key}: '16:00'. The calendar's hours are not narrowed.`,
+      );
+    } else {
+      Logger.warn(
+        `${entityConfig.entity}: invalid ${problem.key} value ${shown}, expected a time such as ` +
+          `16:00${problem.key === 'starts_before' ? ' or 24:00' : ''}. The calendar's hours are not narrowed.`,
+      );
+    }
+  }
+
+  return reading.window;
+}
+
 function filterEventsForEntity(
   events: Types.CalendarEventData[],
   entityConfig: string | Types.EntityConfig,
@@ -2756,6 +2807,19 @@ function filterEventsForEntity(
   // Before the pattern filters, and unconditionally — a calendar that carries no settings
   // of its own still has to follow the card-level value.
   let matchedEvents = filterEventsByType(events, resolveEventType(entityConfig, config));
+
+  // The hours the calendar's timed events have to start in (#346). After the event type, since it
+  // speaks about timed events alone and an all-day one always passes; and here, before any
+  // multi-day splitting, so each event is judged once by its real start. A split middle day reads
+  // as all-day, and a split last day as starting at midnight.
+  const startWindow = resolveStartWindow(entityConfig);
+  if (startWindow) {
+    matchedEvents = matchedEvents.filter(
+      (event) =>
+        !event.start.dateTime ||
+        StartWindow.startsInWindow(new Date(event.start.dateTime), startWindow),
+    );
+  }
 
   const field = entityConfig.filter_field;
 

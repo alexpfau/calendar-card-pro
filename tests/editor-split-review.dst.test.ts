@@ -50,7 +50,7 @@ describe("Split's review names what the card shows, in a zone that changes its c
     const named = card.reduce((sum, days) => sum + days.size, 0);
 
     expect({ cases: cases.length, named: named > cases.length * 5 }).toEqual({
-      cases: 2044,
+      cases: 2062,
       named: true,
     });
     expect(found).toEqual([]);
@@ -119,7 +119,7 @@ describe("Split's review rests on a card-wide limit keeping the same events, tie
     // The denominators beside the verdict: the limits cut rows in most cases, not in none.
     expect({ cases: cases.length, rows: rows > cases.length * 4, cut: cut > cases.length }).toEqual(
       {
-        cases: 674,
+        cases: 680,
         rows: true,
         cut: true,
       },
