@@ -176,6 +176,15 @@ async function mount(config: Record<string, unknown>, width = 1100): Promise<Car
   return card;
 }
 
+/** Reports a new width to the card, and lets the layout follow it. */
+async function resize(card: CardUnderTest, width: number): Promise<void> {
+  for (const observer of RecordingResizeObserver.instances) {
+    observer.callback([{ target: card, contentRect: { width, height: 0 } }]);
+  }
+  vi.advanceTimersByTime(Constants.TIMING.WIDTH_SETTLE_DELAY);
+  await settle(card);
+}
+
 const root = (card: CardUnderTest) => card.shadowRoot!;
 const text = (element: Element | null | undefined): string =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -453,6 +462,50 @@ describe('a carry that lands on a layout’s home', () => {
     await press(card, 'home');
     await switchTo(card, 'list');
     expect(shown(card).days).toEqual(['2026-11-11', '2026-11-17']);
+  });
+
+  it('keeps the day as the page’s first where the width changes the layout under it', async () => {
+    const card = await mount(
+      { view: 'list', start_date: 'today-7', time_grid: { days_to_show: 14 } },
+      400,
+    );
+    await press(card, 'next');
+    await switchTo(card, 'grid');
+    expect(shown(card).days[0]).toBe('2026-11-18');
+    // Wide enough for all fourteen days: home would start a week back, the carried day does not.
+    await resize(card, 1800);
+    expect(card.effectiveView).toBe('grid');
+    expect(shown(card).days[0]).toBe('2026-11-18');
+    await switchTo(card, 'list');
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+  });
+
+  it('lets go of a day selected at home with a configuration change or editing', async () => {
+    const config = { view: 'month', start_date: 'today+7' };
+    for (const leave of ['configuration', 'editing'] as const) {
+      const card = await mount(config, 360);
+      await select(card, '2026-11-20');
+      if (leave === 'configuration') {
+        card.setConfig({
+          entities: [ANNA],
+          days_to_show: 7,
+          show_empty_days: true,
+          first_day_of_week: 'monday',
+          toolbar: TOOLBAR,
+          ...config,
+          title: 'Family',
+        });
+      } else {
+        (card as unknown as { editMode: boolean }).editMode = true;
+        await settle(card);
+        (card as unknown as { editMode: boolean }).editMode = false;
+      }
+      await settle(card);
+      expect(shown(card).listed, leave).toContain('November 18');
+      await switchTo(card, 'list');
+      expect(shown(card).days, leave).toEqual(['2026-11-25', '2026-12-01']);
+      document.body.replaceChildren();
+    }
   });
 
   it('keeps the day for the way back where it is List’s home', async () => {

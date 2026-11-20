@@ -1761,8 +1761,9 @@ class CalendarCardPro extends LitElement {
    * The day, `YYYY-MM-DD`, a view switch carried to List, Columns or Grid where it opened their
    * home (`_openOnDate`): a Grid that draws fewer columns than its days starts home on today, so a
    * page starting today lands there. Kept while the card stays home, so the next switch carries it
-   * on and a round trip comes back to it; gone with a page, Home, Reset, a configuration change
-   * and the start of editing. A month keeps its carried day as its selection instead.
+   * on and a round trip comes back to it, and so does a change of the layout or columns the width
+   * draws (`_handleWidthMeasured`); gone with a page, Home, Reset, a configuration change and the
+   * start of editing. A month keeps its carried day as its selection instead.
    */
   private _carriedDay: string | null = null;
 
@@ -1837,9 +1838,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The day selected on a month, on this device only: never configuration, and gone with a page,
-   * Home, Reset or a view switch (`MonthDay.selectedMonthDay`). A tap selects it on a compact
-   * month; a view switch carries it in either form (`_openOnDate`), and only the compact one
-   * lists it.
+   * Home, Reset, a view switch, a configuration change and the start of editing
+   * (`MonthDay.selectedMonthDay`). A tap selects it on a compact month; a view switch carries it
+   * in either form (`_openOnDate`), and only the compact one lists it. It lapses once its page no
+   * longer draws it, as home's weeks move on at midnight under a relative start date.
    */
   private _monthSelection: MonthDay.MonthSelection | null = null;
 
@@ -4938,6 +4940,11 @@ class CalendarCardPro extends LitElement {
 
     this._effectiveView = next.view;
     this._columnCount = next.columns;
+    // A day a switch carried to this home is the page's first day still, in whatever layout the
+    // width now draws, as it would be had the switch landed here.
+    if (this._carriedDay !== null && this._pageRequested === null) {
+      this._openOnDate(Paging.pageStart(this._carriedDay));
+    }
     this.requestUpdate();
   }
 
@@ -5027,6 +5034,11 @@ class CalendarCardPro extends LitElement {
     }
     if ((changedProps.has('editMode') || changedProps.has('preview')) && this._isBeingEdited) {
       this._carriedDay = null;
+      if (this._monthSelection !== null || this._monthFocusDay !== null) {
+        this._monthSelection = null;
+        this._monthFocusDay = null;
+        this.requestUpdate();
+      }
     }
 
     // Reconciled after every update rather than acquired once: the view can change after
@@ -7960,7 +7972,13 @@ class CalendarCardPro extends LitElement {
     // home's events are committed, so nothing is drawn under the wrong dates meanwhile.
     const leftPage = replaced && this._pageRequested !== null;
     if (leftPage) this._requestPage(null);
-    if (replaced) this._carriedDay = null;
+    if (replaced) {
+      // Nor is a day carried or selected at home kept: it would carry on from a configuration
+      // it was never chosen under.
+      this._carriedDay = null;
+      this._monthSelection = null;
+      this._monthFocusDay = null;
+    }
     const seededFit = ViewConfig.resolveColumnFit(
       this.requestedView,
       this.config,
