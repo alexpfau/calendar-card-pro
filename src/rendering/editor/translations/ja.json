@@ -768,6 +768,7 @@
   "filter_duplicates_mode.option.off.label": "オフ",
   "filter_duplicates_mode.option.exact.label": "タイトル、開始、終了、場所が同じ",
   "filter_duplicates_mode.option.ignore_location.label": "タイトル、開始、終了が同じ",
+  "filter_duplicates_mode.option.merge_locations.label": "タイトル、開始、終了が同じ（場所をすべて表示）",
   "filter_duplicates_mode.helper": "選んだ内容がすべて他の予定と一致する場合、その予定を非表示にします。残るのは先に並ぶエントリの予定で、その色で表示されます。",
   "duplicate_accent_color": "共有予定の色",
   "duplicate_accent_color.helper": "2つ以上のカレンダーから1件にまとめた予定に使います。空欄の場合は最初のカレンダーの色のままです。",

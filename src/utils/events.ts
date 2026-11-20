@@ -1156,7 +1156,7 @@ function keepWellFormedEvents(
 
 /**
  * Collapse copies of one event down to the first-listed entry's, and record which
- * calendars held it.
+ * calendars held it. Under `merge_locations` the copy kept also lists every copy's location.
  *
  * The two jobs are one pass because only this function ever sees the copies it drops.
  * Everything downstream receives the survivor alone, so a row that came from three
@@ -1172,7 +1172,8 @@ function keepWellFormedEvents(
  * @param config Card configuration, already resolved for the view being rendered
  * @param enabled Whether `filter_duplicates` is on for this view
  * @param signatureFor Original event identity and the eligible display occurrence to compare
- * @returns The surviving events, with merged rows carrying `_mergedFrom`
+ * @returns The surviving events, with merged rows carrying `_mergedFrom` and, under
+ *   `merge_locations`, `_mergedLocations`
  */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
@@ -1187,6 +1188,8 @@ function deduplicateEvents(
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
   const contributors = new Map<string, Types.MergedCalendar[]>();
+  const mergeLocations = config.filter_duplicates === Constants.DUPLICATES_MERGE_LOCATIONS;
+  const locations = new Map<string, Types.MergedLocation[]>();
   // The earliest arrival among each calendar's copies, which the kept copy is drawn at.
   const arrived = new Map<string, number>();
 
@@ -1211,11 +1214,37 @@ function deduplicateEvents(
         contributing.push({ entityId, config: event._matchedConfig });
       }
 
+      // Every copy's location, the dropped ones included, for the same reason as the calendars
+      // above: one entry per calendar and location, from the block whose copy carried it first,
+      // as `_mergedFrom` takes one per calendar. Two calendars sharing a location each keep
+      // theirs, since each draws it by its own options. Compared trimmed, and kept as the
+      // calendar wrote it, since its replacement pattern is written against that text.
+      const location = event.location ?? '';
+      const key = location.trim();
+      if (mergeLocations && key) {
+        const part = { entityId, config: event._matchedConfig, location };
+        const listed = locations.get(signature);
+        if (!listed) locations.set(signature, [part]);
+        else if (
+          !listed.some((known) => known.entityId === entityId && known.location.trim() === key)
+        )
+          listed.push(part);
+      }
+
       if (seen.has(signature)) continue;
 
       seen.add(signature);
       keep.add(event);
     }
+  }
+
+  // In the order of the entries that matched them. The loop above takes every block of a
+  // calendar at its first entry, so a block listed after another calendar's would otherwise
+  // jump ahead of it. A stable sort, so a block's own locations keep their order.
+  for (const listed of locations.values()) {
+    if (listed.length < 2) continue;
+    const at = new Map(listed.map((part) => [part, entryPosition(part, config)]));
+    listed.sort((a, b) => at.get(a)! - at.get(b)!);
   }
 
   const survivors: Types.CalendarEventData[] = [];
@@ -1230,14 +1259,45 @@ function deduplicateEvents(
 
     const mergedFrom = contributors.get(signature);
     const merged = mergedFrom && mergedFrom.length > 1 ? { _mergedFrom: mergedFrom } : undefined;
+    // Stamped only where the list says more than the copy kept already does: two or more
+    // locations, or one the kept copy itself lacks. Not gated on `_mergedFrom`, so two events
+    // of one calendar, one per room, list both rooms too.
+    const listed = locations.get(signature);
+    const listsMore =
+      listed !== undefined &&
+      (listed.length > 1 || listed[0].location.trim() !== (event.location ?? '').trim());
+    const places = listsMore ? { _mergedLocations: listed } : undefined;
     // A later copy kept over an earlier one of its own calendar, as a calendar listed twice can
     // keep, is drawn where the earlier one arrived (`groupEventsByDay`).
     const first = arrived.get(`${signature}\n${event._entityId}`) ?? Infinity;
     const earlier = first < (event._arrival ?? Infinity) ? { _arrival: first } : undefined;
-    survivors.push(merged || earlier ? { ...event, ...merged, ...earlier } : event);
+    survivors.push(
+      merged || places || earlier ? { ...event, ...merged, ...places, ...earlier } : event,
+    );
   }
 
   return survivors;
+}
+
+/**
+ * Where the entry a merged location came from sits in `entities`: the block it matched, found as
+ * `groupEventsByDay`'s compact limits find it, by reference, else by value, since a card-level
+ * edit can rebuild the entries without reprocessing the events, else its calendar's first entry.
+ *
+ * @param part A location `deduplicateEvents` collected
+ * @param config Card configuration
+ * @returns The entry's index
+ */
+function entryPosition(part: Types.MergedLocation, config: Types.Config): number {
+  const byReference = part.config ? config.entities.indexOf(part.config) : -1;
+  if (byReference !== -1) return byReference;
+  const written = part.config && JSON.stringify(part.config);
+  const byValue = written
+    ? config.entities.findIndex(
+        (entry) => typeof entry === 'object' && JSON.stringify(entry) === written,
+      )
+    : -1;
+  return byValue !== -1 ? byValue : getEntityIndex(part.entityId, config);
 }
 
 //-----------------------------------------------------------------------------
@@ -1419,8 +1479,54 @@ function dayPassesWeekFilter(
  *   where every reader takes them from.
  * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
  *   (`Search.ringIn`), so no event reaching the copy carries one.
+ * - `_mergedLocations` is drawn into the copy's own `location` (`mergedLocationText`), so no
+ *   renderer needs the parts apart.
  */
-type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
+type LeftOffDisplayCopy =
+  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
+
+/**
+ * The location a row `filter_duplicates: merge_locations` merged draws: each listed location as
+ * its own calendar would draw it on a row of its own, in `entities` order, joined by
+ * `MERGED_LOCATION_SEPARATOR`.
+ *
+ * Each part answers to the block whose copy carried it, as a merged row's labels do
+ * (`resolveMergedLabels`): its `show_location` decides whether it is listed, and its location
+ * replacement rewrites it. So a calendar that hides or masks its locations keeps them hidden or
+ * masked on another calendar's row. The country strip runs on each part, because it reads the
+ * end of a location and on the joined text would reach the last one alone. Parts that come out
+ * the same are listed once, and empty ones not at all.
+ *
+ * @param event Row being copied for display
+ * @param parts Its `_mergedLocations`
+ * @param config Card configuration, already resolved for the view
+ * @returns The location text to draw
+ */
+function mergedLocationText(
+  event: Types.CalendarEventData,
+  parts: ReadonlyArray<Types.MergedLocation>,
+  config: Types.Config,
+): string {
+  const drawn = new Set<string>();
+  for (const part of parts) {
+    const asPart = { ...event, _entityId: part.entityId, _matchedConfig: part.config };
+    const shown =
+      getEntitySetting(part.entityId, 'show_location', config, asPart) ?? config.show_location;
+    if (!shown) continue;
+    const replacement = TextReplace.resolveTextReplacement(
+      getEntitySetting(part.entityId, 'replace_field', config, asPart),
+      getEntitySetting(part.entityId, 'replace_pattern', config, asPart),
+      getEntitySetting(part.entityId, 'replace_with', config, asPart),
+    );
+    const text = TextReplace.applyTextReplacement(
+      FormatUtils.formatLocation(part.location, config.remove_location_country),
+      replacement,
+      'location',
+    ).text.trim();
+    if (text) drawn.add(text);
+  }
+  return [...drawn].join(Constants.MERGED_LOCATION_SEPARATOR);
+}
 
 /**
  * Whether grid view draws this one event as a banner in its all-day band: a timed event a full
@@ -1465,7 +1571,7 @@ function resolveGridBanners(
 
   if (!config.filter_duplicates) return new Set(events.filter(wantsBanner));
 
-  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const ignoreLocation = ignoresLocation(config.filter_duplicates);
   const signatures = new Map<Types.CalendarEventData, string>();
   const presenting = new Map<string, Types.CalendarEventData>();
   for (const event of events) {
@@ -1564,7 +1670,7 @@ export function groupEventsByDay(
   // Its splitter keeps timed middle days timed and all-day banner identity intact.
   const sourceSignatures = new Map<Types.CalendarEventData, string>();
   const displayDays = new Map<Types.CalendarEventData, string>();
-  const ignoreLocation = config.filter_duplicates === Constants.DUPLICATES_IGNORE_LOCATION;
+  const ignoreLocation = ignoresLocation(config.filter_duplicates);
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
   const splitEvents = events.flatMap((event) => {
     const split = splitsForGrid
@@ -1878,14 +1984,17 @@ export function groupEventsByDay(
           : ageCount === null || titleWithheld
             ? replacedSummary.text
             : EventAge.appendAgeCount(replacedSummary.text, ageCount),
-        location:
-          !showLocation || privateText
-            ? ''
-            : TextReplace.applyTextReplacement(
-                FormatUtils.formatLocation(event.location || '', config.remove_location_country),
-                replacement,
-                'location',
-              ).text,
+        location: privateText
+          ? ''
+          : event._mergedLocations
+            ? mergedLocationText(event, event._mergedLocations, config)
+            : !showLocation
+              ? ''
+              : TextReplace.applyTextReplacement(
+                  FormatUtils.formatLocation(event.location || '', config.remove_location_country),
+                  replacement,
+                  'location',
+                ).text,
         description:
           !showDescription || privateText
             ? ''
@@ -2688,8 +2797,22 @@ function filterEventsForEntity(
 }
 
 /**
+ * Whether a `filter_duplicates` value leaves the location out of the signature: both
+ * `ignore_location` and `merge_locations` do, and differ only in what the row kept shows.
+ *
+ * @param value Configured `filter_duplicates`, resolved for the view
+ * @returns True where copies match on title, start and end alone
+ */
+function ignoresLocation(value: Types.Config['filter_duplicates'] | undefined): boolean {
+  return (
+    value === Constants.DUPLICATES_IGNORE_LOCATION || value === Constants.DUPLICATES_MERGE_LOCATIONS
+  );
+}
+
+/**
  * The identity `filter_duplicates` compares copies by: the original title, start and end, the
- * location too unless the option is `ignore_location`, and whether the copy is private.
+ * location too unless the option is `ignore_location` or `merge_locations`, and whether the copy
+ * is private.
  *
  * A private entry's copy (`EntityConfig.private`) is the same event only to another private
  * entry's. Merged with a copy that is not private, a row would put the private calendar's label

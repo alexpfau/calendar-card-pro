@@ -116,6 +116,16 @@ export const EVENT_DETAILS_ACTION = 'details';
 export const DUPLICATES_IGNORE_LOCATION = 'ignore_location';
 
 /**
+ * The `filter_duplicates` value that matches copies as `ignore_location` does and then lists
+ * every copy's location on the row kept, in `entities` order, rather than the first one's
+ * alone. For one event two calendars carry at two places, such as a meeting held in two rooms.
+ */
+export const DUPLICATES_MERGE_LOCATIONS = 'merge_locations';
+
+/** What `filter_duplicates: merge_locations` puts between the locations it lists. */
+export const MERGED_LOCATION_SEPARATOR = ' · ';
+
+/**
  * The `show_countdown` value that leaves out a countdown repeating the one above it on the same
  * day, in list and column view: `true` shows every countdown. For a sparse calendar where
  * several events share a date, such as a day the paper and the plastic bins both go out.

@@ -763,6 +763,7 @@
   "filter_duplicates_mode.option.off.label": "Vypnuté",
   "filter_duplicates_mode.option.exact.label": "Zhodujú sa názov, začiatok, koniec a miesto",
   "filter_duplicates_mode.option.ignore_location.label": "Zhodujú sa názov, začiatok a koniec",
+  "filter_duplicates_mode.option.merge_locations.label": "Zhodujú sa názov, začiatok a koniec, so všetkými miestami",
   "filter_duplicates_mode.helper": "Skryje udalosť, ktorá sa v týchto poliach zhoduje s inou. Zachová sa kópia z položky uvedenej skôr, aj s jej farbou.",
   "duplicate_accent_color": "Farba spoločnej udalosti",
   "duplicate_accent_color.helper": "Pre udalosť zachovanú z dvoch alebo viacerých kalendárov. Ak zostane prázdne, zachová farbu prvého kalendára.",

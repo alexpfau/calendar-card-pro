@@ -762,6 +762,7 @@
   "filter_duplicates_mode.option.off.label": "Išjungta",
   "filter_duplicates_mode.option.exact.label": "Sutampa pavadinimas, pradžia, pabaiga ir vieta",
   "filter_duplicates_mode.option.ignore_location.label": "Sutampa pavadinimas, pradžia ir pabaiga",
+  "filter_duplicates_mode.option.merge_locations.label": "Sutampa pavadinimas, pradžia ir pabaiga, rodomos visos vietos",
   "filter_duplicates_mode.helper": "Paslepia įvykį, kurio šie laukai sutampa su kito įvykio laukais. Paliekama kopija iš pirmiau išvardyto įrašo kartu su jo spalva.",
   "duplicate_accent_color": "Bendro įvykio spalva",
   "duplicate_accent_color.helper": "Įvykiui, kuris paliekamas iš dviejų ar daugiau kalendorių. Palikus tuščią, išlaikoma pirmojo kalendoriaus spalva.",

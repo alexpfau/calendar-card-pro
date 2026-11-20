@@ -763,6 +763,7 @@
   "filter_duplicates_mode.option.off.label": "Av",
   "filter_duplicates_mode.option.exact.label": "Samma titel, start, slut och plats",
   "filter_duplicates_mode.option.ignore_location.label": "Samma titel, start och slut",
+  "filter_duplicates_mode.option.merge_locations.label": "Samma titel, start och slut, med alla platser",
   "filter_duplicates_mode.helper": "Döljer en händelse som stämmer med en annan i dessa fält. Kopian från den post som står först behålls tillsammans med sin färg.",
   "duplicate_accent_color": "Gemensam händelsefärg",
   "duplicate_accent_color.helper": "För en händelse som behålls från två eller flera kalendrar. Lämnas det tomt behålls den första kalenderns färg.",

@@ -762,6 +762,7 @@
   "filter_duplicates_mode.option.off.label": "Väljas",
   "filter_duplicates_mode.option.exact.label": "Sama pealkiri, algus, lõpp ja asukoht",
   "filter_duplicates_mode.option.ignore_location.label": "Sama pealkiri, algus ja lõpp",
+  "filter_duplicates_mode.option.merge_locations.label": "Sama pealkiri, algus ja lõpp, kõigi asukohtadega",
   "filter_duplicates_mode.helper": "Peidab sündmuse, mis ühtib mõne teisega nendel väljadel. Alles jääb koopia esimesena loetletud kirjest koos oma värviga.",
   "duplicate_accent_color": "Jagatud sündmuse värv",
   "duplicate_accent_color.helper": "Sündmusele, mis jääb alles kahest või enamast kalendrist. Kui väli on tühi, säilib esimese kalendri värv.",

@@ -2408,11 +2408,17 @@ const SENTINEL_OPTIONS = [
   },
   {
     // Not a string option, but check 21 is as blind to it: the type is
-    // `boolean | 'ignore_location'`, and a union with one string literal registers nothing
+    // `boolean | 'ignore_location' | …`, and a union of string literals registers nothing
     // there, so the value the editor's third choice writes could leave its row unnoticed.
     fields: ['filter_duplicates'],
     file: 'src/config/constants.ts',
     constant: 'DUPLICATES_IGNORE_LOCATION',
+  },
+  {
+    // The fourth choice, `merge_locations`, is as invisible to check 21 as the third.
+    fields: ['filter_duplicates'],
+    file: 'src/config/constants.ts',
+    constant: 'DUPLICATES_MERGE_LOCATIONS',
   },
   {
     // `boolean | 'once_per_day'`, the same shape as `filter_duplicates` and as blind to

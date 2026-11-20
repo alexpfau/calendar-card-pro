@@ -762,6 +762,7 @@
   "filter_duplicates_mode.option.off.label": "Izslēgts",
   "filter_duplicates_mode.option.exact.label": "Sakrīt virsraksts, sākums, beigas un atrašanās vieta",
   "filter_duplicates_mode.option.ignore_location.label": "Sakrīt virsraksts, sākums un beigas",
+  "filter_duplicates_mode.option.merge_locations.label": "Sakrīt virsraksts, sākums un beigas, rādot visas atrašanās vietas",
   "filter_duplicates_mode.helper": "Paslēpj notikumu, kas šajos laukos sakrīt ar citu. Tiek paturēta kopija no pirmā sarakstā esošā ieraksta kopā ar tā krāsu.",
   "duplicate_accent_color": "Kopīga notikuma krāsa",
   "duplicate_accent_color.helper": "Notikumam, kas tiek paturēts no diviem vai vairākiem kalendāriem. Atstājot tukšu, tiek paturēta pirmā kalendāra krāsa.",
