@@ -462,6 +462,19 @@ describe('the stylesheet', () => {
     expect(on(`${inline}:focus-visible`, 'outline').map(({ value }) => value)).toEqual(['none']);
     expect(on(`${inline}:focus-visible::before`, 'box-shadow')).toHaveLength(1);
   });
+
+  // An "Also for" line names each layout by a link, and in Japanese two of them are one character
+  // each (列, 月): 12px wide side by side, so their 24px circles overlapped and the pair missed
+  // WCAG's 24px target. A link is that tall already; it is that wide too.
+  it('gives a link a 24px target across as well as down', () => {
+    const all = declarations(styles.cssText);
+    const on = (property: string) =>
+      all
+        .filter((each) => each.selectors.includes('.link') && each.property === property)
+        .map(({ value }) => value);
+    expect(on('min-height')).toEqual(['24px']);
+    expect(on('min-width')).toEqual(['24px']);
+  });
 });
 
 describe('the search row', () => {
