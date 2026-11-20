@@ -771,6 +771,8 @@ function liveWhy(
   }
   if (inheritedDifferent(field, ctx)) return 'inherited';
   if (ctx.added.has(addedKey(field.id, ctx))) return 'added';
+  // A kept setting is drawn only while the card holds it, whatever else is shown.
+  if (appearance === 'kept') return undefined;
   return ctx.showEverySetting ? 'every' : undefined;
 }
 
