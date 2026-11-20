@@ -48,6 +48,7 @@ import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-fo
 import { computeLabel, lookup } from '../src/rendering/editor/localize';
 import { WHOLE_CARD_PAGES, placementOf } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
+import { appearanceOf, leavesKeptOut } from '../src/rendering/editor/plan';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildToolbarButtonSchema } from '../src/rendering/editor/schemas/card';
 import { deepEqual, toStoredConfig } from '../src/rendering/editor/value';
@@ -727,7 +728,12 @@ describe('the index builds what the editor draws today', () => {
       await draw(config, workspace);
       const ctx = schemaCtx(config, workspace, 'en');
       const sharedCtx = schemaCtx(config, 'shared', 'en');
-      const card = inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields);
+      // All the builders build, but a kept setting the card does not hold (`leavesKeptOut`).
+      const card = new Map(
+        [...inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields)].filter(
+          ([id]) => !leavesKeptOut(id, config as unknown as Record<string, unknown>, workspace),
+        ),
+      );
       // A calendar's page is built for the card's layouts and the one being edited.
       const entries = new Map(
         (config.entities ?? []).flatMap((entry) => [
@@ -903,12 +909,15 @@ describe('the index builds what the editor draws today', () => {
 
     // Every field of every workspace's universe, and each toolbar button field, was reached:
     // Whole Card's pages draw theirs in the shared scope whatever the workspace.
+    // A kept setting is drawn only where a run holds it, so it is not expected everywhere.
     const expected = WORKSPACES.flatMap((workspace) =>
       [
-        ...inScope(
-          universeIndex('en', workspace).fields,
-          universeIndex('en', 'shared').fields,
-        ).keys(),
+        ...[
+          ...inScope(
+            universeIndex('en', workspace).fields,
+            universeIndex('en', 'shared').fields,
+          ).keys(),
+        ].filter((id) => appearanceOf(id) !== 'kept'),
         ...buttonFieldIndex(buildToolbarButtonSchema()).fields.keys(),
       ].map((id) => `${workspace} ${id}`),
     );
@@ -927,6 +936,8 @@ describe('the index builds what the editor draws today', () => {
     expect(
       beyond.filter((each) => {
         const id = each.slice(each.indexOf(' ') + 1) as FieldId;
+        // A kept setting is drawn where a run holds it, and is reached there.
+        if (appearanceOf(id) === 'kept') return false;
         return (
           !id.startsWith('calendar:') ||
           !WORKSPACES.some((workspace) => universeIndex('en', workspace).fields.has(id))

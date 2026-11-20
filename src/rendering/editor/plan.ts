@@ -445,6 +445,36 @@ function isEntryField(id: FieldId): boolean {
 }
 
 /**
+ * Whether a page leaves a built field out: a kept setting (`pages.ts` › `kept`) the YAML does not
+ * hold where this scope writes it, and that the scope does not inherit at another value. The one exception to a page drawing everything its builders
+ * build, so a check that walks what is built and what is drawn asks this rather than restate it.
+ *
+ * @param id - Field id
+ * @param raw - The configuration as stored
+ * @param workspace - Editing scope
+ * @returns `true` where the page draws nothing for it
+ */
+export function leavesKeptOut(
+  id: FieldId,
+  raw: Readonly<Record<string, unknown>>,
+  workspace: EditorWorkspace,
+): boolean {
+  if (appearanceOf(id) !== 'kept') return false;
+  const field = universeIndex('en', workspace).fields.get(id);
+  if (field === undefined) return true;
+  if (storedAt(raw, field, workspace)) return false;
+  // Inherited: what the scope resolves differs from the card's default, as `inheritedDifferent`.
+  const resolved = Routing.workspaceConfig(
+    raw as unknown as Types.Config,
+    workspace,
+  ) as unknown as Record<string, unknown>;
+  const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
+  return field.configKeys.every(
+    (key) => normalizeRootValue(key, resolved[key]) === normalizeRootValue(key, defaults[key]),
+  );
+}
+
+/**
  * Whether the YAML holds a value for a field at a workspace's destination: one of the keys it
  * writes, at `routing.ts` › `destination` for a root field, or at its own path for a nested one.
  * For a calendar entry's field or a toolbar button's, `raw` is that entry or button as stored.

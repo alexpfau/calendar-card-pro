@@ -24,6 +24,7 @@ import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
+import { leavesKeptOut } from '../src/rendering/editor/plan';
 import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
   buildEntitySchema,
@@ -219,6 +220,22 @@ function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field
   );
 }
 
+/**
+ * What a page draws of the fields built: all of them but a kept setting the card does not hold
+ * (`plan.ts` › `leavesKeptOut`), the events area's own height pair.
+ *
+ * @param built - Fields built
+ * @param config - The configuration as stored
+ * @param view - The layout edited
+ * @returns The fields drawn
+ */
+function drawable(built: Field[], config: Types.Config, view: Types.EffectiveView): Field[] {
+  return built.filter(
+    ({ key }) =>
+      !leavesKeptOut(`layout:${key}`, config as unknown as Record<string, unknown>, view),
+  );
+}
+
 function reconcile(actual: Field[], expected: Field[]): void {
   const actualKeys = actual.map((field) => field.key);
   const expectedKeys = expected.map((field) => field.key);
@@ -265,7 +282,8 @@ describe('view withholding reconciles both directions', () => {
 
         reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
         const editor = await mount(config);
-        reconcile(drawnInBuiltOrder(editor, expected), expected);
+        const drawn = drawable(expected, config, view);
+        reconcile(drawnInBuiltOrder(editor, drawn), drawn);
         expect(schemas).toEqual(before);
       }
       // Over a second in a full local run; the limit is set for CI's slower runner under load
@@ -469,16 +487,15 @@ describe('withholding is not a search filter or a config edit', () => {
       );
     });
     const before = PANELS.flatMap((panel) => panel.build(context(config)));
-    reconcile(
-      drawnInBuiltOrder(editor, expectedFields(before, from)),
-      expectedFields(before, from),
-    );
+    const drawnBefore = drawable(expectedFields(before, from), config, from);
+    reconcile(drawnInBuiltOrder(editor, drawnBefore), drawnBefore);
 
     await changeField(editor, 'display:view', to);
     expect(seen).toHaveLength(1);
     expect(seen[0].view).toBe(to);
     const after = PANELS.flatMap((panel) => panel.build(context(seen[0])));
-    reconcile(drawnInBuiltOrder(editor, expectedFields(after, to)), expectedFields(after, to));
+    const drawnAfter = drawable(expectedFields(after, to), seen[0], to);
+    reconcile(drawnInBuiltOrder(editor, drawnAfter), drawnAfter);
   });
 
   it('cannot be bypassed by page, heading or field searches', async () => {
