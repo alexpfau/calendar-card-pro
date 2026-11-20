@@ -730,6 +730,27 @@ describe('the new event while the popover adds it', () => {
     expect(newBlock(body)!.textContent).not.toMatch(/Dentist|Clinic/);
   });
 
+  it('is drawn as Private where the entry it matches is private and hides it, not the first', async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      // The new event passes the first entry's filter no more than its words would, so the
+      // second, private entry takes it, and hides it on June 18, a Thursday.
+      entities: [
+        { entity: ANNA, allowlist: 'Dentist' },
+        { entity: ANNA, blocklist: 'Dentist', private: true, days_of_week: 'weekends' },
+      ],
+    });
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { summary: 'Secret plan', location: 'Clinic' }) as never,
+    );
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+    expect(newBlock(body)!.textContent).not.toMatch(/Secret|Clinic/);
+  });
+
   it("is drawn by the day, as the grid draws an event's days", async () => {
     // Today is June 17 at 10:00. From 9:00 today to 11:00 tomorrow, with progress bars, drawn
     // as a block a day rather than the banner a full day or longer is by default.

@@ -12,6 +12,7 @@ import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 import * as EventUtils from '../src/utils/events';
 import * as MonthDay from '../src/utils/month-day';
 import { privateText } from '../src/utils/private-events';
+import * as Search from '../src/utils/search';
 
 /**
  * `private: true` on a calendar entry: its events show when they are and whose they are, and
@@ -233,6 +234,31 @@ describe('a private calendar on the card', () => {
     });
     expect(eventsShowing(card, 'Private').length).toBeGreaterThan(0);
     expect(card.shadowRoot!.innerHTML).not.toContain(SECRET);
+  });
+
+  it('never merges, whatever the other copy says', async () => {
+    const dinner = {
+      summary: 'Team dinner',
+      start: { dateTime: '2026-06-17T18:00:00Z' },
+      end: { dateTime: '2026-06-17T20:00:00Z' },
+    };
+    const { card } = await mount(
+      {
+        filter_duplicates: true,
+        show_location: false,
+        entities: [
+          { entity: ANNA, label: '🅰️' },
+          { ...PRIVATE_BEN, label: '🅱️' },
+        ],
+      },
+      'Team dinner',
+      // Text that reads like a marker of privacy must not stand in for one.
+      { anna: [{ ...dinner, location: 'Room|private' }], ben: [{ ...dinner, location: 'Room' }] },
+    );
+    const rows = eventsShowing(card, 'Team dinner');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).not.toContain('🅱️');
+    expect(eventsShowing(card, 'Private')).toHaveLength(1);
   });
 
   it('never merges with a copy from a calendar that is not private', async () => {
@@ -492,6 +518,30 @@ describe('what a private event leaves the card', () => {
     });
     // Without one, it reads Private, so it does not say it has none.
     expect(privateText({}, { entity: BEN, private: true }, 'en').title).toBe('Private');
+  });
+
+  it('is found again by a search pick as itself, without holding its words', () => {
+    const at = (summary: string, end: string): Types.CalendarEventData => {
+      const source = {
+        summary,
+        start: { dateTime: '2026-06-17T16:00:00Z' },
+        end: { dateTime: end },
+      };
+      return {
+        ...source,
+        summary: 'Private',
+        _entityId: BEN,
+        _matchedConfig: { entity: BEN, private: true },
+        _privateTitle: true,
+        _source: source as Types.CalendarEventData['_source'],
+      };
+    };
+    const short = at('SECRET-ONE', '2026-06-17T16:30:00Z');
+    const long = at('SECRET-TWO', '2026-06-17T17:00:00Z');
+    const target = Search.ringTargetOf(long);
+    expect(JSON.stringify(target)).not.toContain(SECRET);
+    expect(Search.isRingTarget(long, target)).toBe(true);
+    expect(Search.isRingTarget(short, target)).toBe(false);
   });
 
   it('fills an action with what the popover shows', () => {

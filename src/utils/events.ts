@@ -2688,8 +2688,8 @@ function filterEventsForEntity(
 }
 
 /**
- * The identity `filter_duplicates` compares copies by: the original title, start and end, and
- * the location too unless the option is `ignore_location`.
+ * The identity `filter_duplicates` compares copies by: the original title, start and end, the
+ * location too unless the option is `ignore_location`, and whether the copy is private.
  *
  * A private entry's copy (`EntityConfig.private`) is the same event only to another private
  * entry's. Merged with a copy that is not private, a row would put the private calendar's label
@@ -2717,7 +2717,8 @@ function generateEventSignature(event: Types.CalendarEventData, ignoreLocation =
     timeSignature = `${event.start.date || ''}|${event.end.date || ''}`;
   }
 
-  return `${summary}|${timeSignature}|${location}${PrivateEvents.isPrivate(event) ? '|private' : ''}`;
+  // A tuple, so no title or location can read as another field or as the privacy flag.
+  return JSON.stringify([summary, timeSignature, location, PrivateEvents.isPrivate(event)]);
 }
 
 //-----------------------------------------------------------------------------

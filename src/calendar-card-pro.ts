@@ -6715,7 +6715,8 @@ class CalendarCardPro extends LitElement {
    * (`groupEventsByDay`), so that entry's options, its text replacements and every rule about
    * which days show what apply as they will. Where the card would not show it at all, as a
    * title an entry's filter turns away or a time a hidden past covers, it is split into days as
-   * it stands, with its calendar's first entry, so a press drawing it still sees where it goes.
+   * it stands, with the entry it matched, else its calendar's first entry, so a press drawing it
+   * still sees where it goes.
    *
    * @param shown - The new event
    * @param dayStarts - The days the grid shows, as the start of each
@@ -6745,9 +6746,12 @@ class CalendarCardPro extends LitElement {
       if (byDay.size) return byDay;
     }
     if (!dayStarts.length) return byDay;
-    const entry = config.entities.find(
-      (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
-    );
+    // The entry it matched where one admits it, a private one included, which the first may not be.
+    const entry =
+      matched?._matchedConfig ??
+      config.entities.find(
+        (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
+      );
     const asItStands: Types.CalendarEventData = {
       ...source,
       ...(typeof entry === 'object' && { _matchedConfig: entry }),

@@ -78,8 +78,8 @@ export interface RingTarget {
   /** When it starts, as an instant in UTC or a date (`startKey`). */
   start: string;
   /**
-   * Its title as Home Assistant returned it, or as the card draws it for a private event, which
-   * tells it apart where it has no uid.
+   * Its title as Home Assistant returned it, or a fingerprint for a private event
+   * (`targetSummary`), which tells it apart where it has no uid.
    */
   summary: string;
 }
@@ -508,19 +508,39 @@ function startKey(event: Types.CalendarEventData): string {
 }
 
 /**
- * The title an event is found again by where it has no uid: as Home Assistant returned it, or as
- * the card draws it for a private entry's event, whose own words a search never holds.
+ * A short fingerprint of a text (32-bit FNV-1a), which tells two texts apart without holding
+ * either.
+ *
+ * @param text - The text
+ * @returns The fingerprint
+ */
+function fingerprint(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * What tells an event without a uid apart from another starting with it: its title as Home
+ * Assistant returned it, or for a private entry's event, whose own words a search never holds, a
+ * fingerprint of its title and its end.
  *
  * @param event - A display copy
- * @returns The title
+ * @returns The title, or the private event's fingerprint
  */
 function targetSummary(event: Types.CalendarEventData): string {
-  return isPrivate(event) ? (event.summary ?? '') : (event._source?.summary ?? event.summary ?? '');
+  const source = event._source;
+  if (!isPrivate(event)) return source?.summary ?? event.summary ?? '';
+  const end = source?.end ?? event._gridSource?.end ?? event._sourceEnd ?? event.end;
+  return `private:${fingerprint(JSON.stringify([source?.summary ?? '', end?.dateTime ?? end?.date ?? '']))}`;
 }
 
 /**
  * What finds an event again on the card: its calendar and when it starts, with its uid and
- * recurrence id where Home Assistant gives them, else its title (`targetSummary`).
+ * recurrence id where Home Assistant gives them, else its title or a private event's fingerprint
+ * (`targetSummary`).
  *
  * @param event - The event's display copy
  * @returns The target
