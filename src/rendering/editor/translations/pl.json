@@ -718,7 +718,6 @@
   "days_to_show.helper": "Każdy układ może mieć własną liczbę. Karta wczytuje najdłuższy zakres raz, więc przełączenie układu nigdy nie wczytuje danych ponownie.",
   "start_date_mode": "Data początkowa",
   "start_date_mode.aliases": "jutro, wczoraj, zacznij od, pierwszy wyświetlany dzień, data startu",
-  "start_date_mode.helper": "Układ miesiąca otwiera się na bieżącym miesiącu albo na miesiącu ustalonej daty.",
   "start_date_mode.option.default.label": "Dzisiaj",
   "start_date_mode.option.tomorrow.label": "Jutro",
   "start_date_mode.option.start_of_week.label": "Początek tygodnia",

@@ -720,7 +720,6 @@
   "days_to_show.helper": "Varje layout kan ha ett eget antal. Kortet läser in det största antalet dagar en gång, så inget läses in på nytt när du byter layout.",
   "start_date_mode": "Startdatum",
   "start_date_mode.aliases": "imorgon, i morgon, igår, i går, börja på, första visade dagen",
-  "start_date_mode.helper": "Månadslayouten öppnar på innevarande månad eller på månaden för ett fast datum.",
   "start_date_mode.option.default.label": "I dag",
   "start_date_mode.option.tomorrow.label": "I morgon",
   "start_date_mode.option.start_of_week.label": "Veckans början",

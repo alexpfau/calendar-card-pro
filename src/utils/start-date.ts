@@ -35,6 +35,30 @@ const WEEKDAYS: Readonly<Record<string, number>> = {
 const ANCHOR_TODAY = 'today';
 const ANCHOR_START_OF_WEEK = 'start_of_week';
 
+/** What the editor's Tomorrow writes; `+1` reads as Tomorrow too (`startDateShortcut`). */
+export const TOMORROW = 'today+1';
+
+/** What the editor's Start of Week writes: the anchor itself. */
+export const START_OF_WEEK = ANCHOR_START_OF_WEEK;
+
+/**
+ * The shortcut a start date reads as: `today+1` and `+1` as Tomorrow, `start_of_week` as Start of
+ * Week, each exactly as written apart from surrounding space. Any other value, `today + 1` and
+ * `Today+1` among them, is no shortcut, though it may resolve to the same day.
+ *
+ * The editor offers its choices by it, and Month opens today's month for exactly these
+ * (`ViewConfig.monthOpensToday`), so the two read every value alike.
+ *
+ * @param value - The configured `start_date`
+ * @returns The shortcut, or undefined for any other value
+ */
+export function startDateShortcut(value: string): 'tomorrow' | 'start_of_week' | undefined {
+  const text = value.trim();
+  if (text === TOMORROW || text === '+1') return 'tomorrow';
+  if (text === START_OF_WEEK) return 'start_of_week';
+  return undefined;
+}
+
 function atMidnight(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

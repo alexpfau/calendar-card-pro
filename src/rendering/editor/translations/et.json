@@ -719,7 +719,6 @@
   "days_to_show.helper": "Igal paigutusel võib olla oma arv. Kaart laadib neist pikima korraga, nii et paigutuse vahetamine ei laadi kunagi uuesti.",
   "start_date_mode": "Alguskuupäev",
   "start_date_mode.aliases": "homme, eile, algab, esimene kuvatav päev, alguspäev",
-  "start_date_mode.helper": "Kuupaigutus avab jooksva kuu või kindla kuupäeva kuu.",
   "start_date_mode.option.default.label": "Täna",
   "start_date_mode.option.tomorrow.label": "Homme",
   "start_date_mode.option.start_of_week.label": "Nädala algus",

@@ -47,9 +47,10 @@ setting has a value for every layout:
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. Month's page offers
-Today and A Fixed Date alone, since Month opens today's month for every other choice, and names
-what the other layouts start on when one of those is set. A tap on an event opens its details; to
-change that, choose another action under **Event Tap Action** on Taps & Refresh.
+Today, A Fixed Date and Relative to Today. It shows Tomorrow and Start of Week as Today, since
+Month opens today's month for them, and names what the other layouts start on instead. A tap on
+an event opens its details; to change that, choose another action under **Event Tap Action** on
+Taps & Refresh.
 
 **Weather** opens with **Weather Entity**, shared by every layout. Choosing one here turns the
 forecast on in the layout you are editing, beside its days, or in Month beside its events, and

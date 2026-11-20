@@ -375,29 +375,31 @@ describe('Month, switched to another layout', () => {
       new Date(2026, 11, 3, 10),
       ['2026-12-03', '2026-12-09'],
     ],
-    // 30 days ahead: List's home is 18 December, yet December's page opens on its 1st.
+    // 30 days ahead, a month past home: January's page opens on its 1st, not on a day 30 days on.
     [
-      'a month holding List’s home',
+      'a month past a home 30 days ahead',
       'today+30',
       new Date(2026, 10, 18, 10),
-      ['2026-12-01', '2026-12-07'],
+      ['2027-01-01', '2027-01-07'],
     ],
   ] as const)(
     'opens on the month’s own day from %s, and comes back to the month',
     async (_name, start_date, now, days) => {
       vi.setSystemTime(now);
+      // The month a step forward from home, and its six weeks.
+      const [heading, weeks] =
+        start_date === 'today+30'
+          ? ['January 2027', ['2026-12-28', '2027-02-07']]
+          : ['December 2026', ['2026-11-30', '2027-01-10']];
       for (const view of ['list', 'column', 'grid'] as const) {
         const card = await mount({ view: 'month', ...(start_date ? { start_date } : {}) });
         await press(card, 'next');
-        expect(shown(card).heading).toBe('December 2026');
+        expect(shown(card).heading).toBe(heading);
         const fetched = asked.length;
         await switchTo(card, view);
         expect(shown(card).days, view).toEqual(days);
         await switchTo(card, 'month');
-        expect(shown(card), view).toMatchObject({
-          heading: 'December 2026',
-          days: ['2026-11-30', '2027-01-10'],
-        });
+        expect(shown(card), view).toMatchObject({ heading, days: weeks });
         expect(asked.slice(fetched), view).toEqual([]);
         document.body.replaceChildren();
       }
@@ -407,17 +409,19 @@ describe('Month, switched to another layout', () => {
 
 describe('home', () => {
   it.each([
-    ['no start date', undefined, ['2026-11-18', '2026-11-24']],
-    ['Tomorrow', 'today+1', ['2026-11-19', '2026-11-25']],
-    ['a fixed date', '2026-11-10', ['2026-11-10', '2026-11-16']],
+    ['no start date', undefined, ['2026-11-18', '2026-11-24'], 'November 2026'],
+    ['Tomorrow', 'today+1', ['2026-11-19', '2026-11-25'], 'November 2026'],
+    ['a fixed date', '2026-11-10', ['2026-11-10', '2026-11-16'], 'November 2026'],
+    // 30 days ahead: List's home starts on 18 December, and Month's is December.
+    ['30 days ahead', 'today+30', ['2026-12-18', '2026-12-24'], 'December 2026'],
   ] as const)(
     'opens each layout on its own home from home, with %s',
-    async (_name, start_date, days) => {
+    async (_name, start_date, days, heading) => {
       const card = await mount({ view: 'list', ...(start_date ? { start_date } : {}) });
       expect(shown(card).days).toEqual(days);
       const fetched = asked.length;
       await switchTo(card, 'month');
-      expect(shown(card)).toMatchObject({ heading: 'November 2026' });
+      expect(shown(card)).toMatchObject({ heading });
       await switchTo(card, 'grid');
       expect(shown(card).days).toEqual(days);
       await switchTo(card, 'month');
@@ -426,6 +430,20 @@ describe('home', () => {
       expect(asked.slice(fetched)).toEqual([]);
     },
   );
+
+  it('opens List on its home from a month paged away and back to Month’s home', async () => {
+    // 30 days ahead: Month opens December, a month forward and back is December again, which is
+    // home, so nothing is carried, and List opens its own home rather than December's 1st.
+    for (const view of ['list', 'column', 'grid'] as const) {
+      const card = await mount({ view: 'month', start_date: 'today+30' });
+      await press(card, 'next');
+      await press(card, 'previous');
+      expect(shown(card).heading).toBe('December 2026');
+      await switchTo(card, view);
+      expect(shown(card).days, view).toEqual(['2026-12-18', '2026-12-24']);
+      document.body.replaceChildren();
+    }
+  });
 
   it('returns each layout to its own home after a carry', async () => {
     const card = await mount({ view: 'list', start_date: 'today+1' }, 360);
@@ -501,7 +519,8 @@ describe('a carry that lands on a layout’s home', () => {
         (card as unknown as { editMode: boolean }).editMode = false;
       }
       await settle(card);
-      expect(shown(card).listed, leave).toContain('November 18');
+      // Month's own home day again, a week ahead, rather than the day selected.
+      expect(shown(card).listed, leave).toContain('November 25');
       await switchTo(card, 'list');
       expect(shown(card).days, leave).toEqual(['2026-11-25', '2026-12-01']);
       document.body.replaceChildren();
@@ -521,21 +540,23 @@ describe('a carry that lands on a layout’s home', () => {
   });
 
   it('comes back to a page starting today, which is the day Month selects by itself', async () => {
-    // A week ahead: List's home is 25 November – 1 December, a page back starts today.
-    const card = await mount({ view: 'list', start_date: 'today+7' }, 360);
+    // Tomorrow, a day at a time: List's home is 19 November, a page back starts today, and
+    // Month, which opens today's month for Tomorrow, selects today by itself.
+    const card = await mount({ view: 'list', start_date: 'today+1', days_to_show: 1 }, 360);
     await press(card, 'previous');
-    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-18']);
     await switchTo(card, 'month');
     expect(shown(card)).toMatchObject({
       heading: 'November 2026',
       listed: expect.stringContaining('November 18'),
     });
     await switchTo(card, 'list');
-    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
+    expect(shown(card).days).toEqual(['2026-11-18', '2026-11-18']);
   });
 
   it('carries a day tapped on a compact month, even the one it selects by itself', async () => {
-    const card = await mount({ view: 'month', start_date: 'today+7' }, 360);
+    // Tomorrow: Month selects today by itself, and List's home starts on 19 November.
+    const card = await mount({ view: 'month', start_date: 'today+1' }, 360);
     await select(card, '2026-11-18');
     await switchTo(card, 'list');
     expect(shown(card).days).toEqual(['2026-11-18', '2026-11-24']);
