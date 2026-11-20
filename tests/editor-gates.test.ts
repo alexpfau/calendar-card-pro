@@ -914,13 +914,14 @@ describe('the universe', () => {
     // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
     // lost what its day list and panel leave to the event's details or draw one way only
     // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then a
-    // calendar gained Private, in every workspace.
+    // calendar gained Private, in every workspace. Then a calendar gained its two start hours,
+    // in every workspace.
     expect(sizes).toEqual({
-      shared: { card: 135, calendar: 28 },
-      list: { card: 162, calendar: 29 },
-      column: { card: 158, calendar: 28 },
-      grid: { card: 157, calendar: 28 },
-      month: { card: 104, calendar: 27 },
+      shared: { card: 135, calendar: 30 },
+      list: { card: 162, calendar: 31 },
+      column: { card: 158, calendar: 30 },
+      grid: { card: 157, calendar: 30 },
+      month: { card: 104, calendar: 29 },
     });
   });
 

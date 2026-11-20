@@ -125,7 +125,8 @@ function hassFor(firstWeekday: string | undefined, country: string | undefined):
  * Every case: three layouts; no start date, `today+1`, `start_of_week`, `today-2`, `monday`, a
  * fixed date and an ISO date-time; the card's Monday and Sunday weeks and Home Assistant's own
  * Sunday; past events shown and hidden; every day, weekdays, weekends and a Friday and Saturday
- * weekend; splitting across days off and on; an expiry time or none. Then a card whose `list:`
+ * weekend; splitting across days off and on; an expiry time or none. Then the hours an entry's
+ * timed events start in, in each layout, split and whole. Then a card whose `list:`
  * and `time_grid:` blocks give different `days_to_show`, reviewed with each displayed.
  *
  * @returns The cases
@@ -200,6 +201,29 @@ export function reviewCases(): ReviewCase[] {
             } as Partial<Types.Config>),
           });
         }
+      }
+    }
+  }
+  for (const view of ['list', 'column', 'grid'] as const) {
+    for (const [hours, window] of [
+      ['starting from 12:00', { starts_after: '12:00' }],
+      ['starting before 12:00', { starts_before: '12:00' }],
+      ['starting 22:00 to 06:00', { starts_after: '22:00', starts_before: '06:00' }],
+    ] as const) {
+      for (const split of [false, true]) {
+        cases.push({
+          name: `${view} · today · ${hours} · ${split ? 'split' : 'whole'}`,
+          view,
+          hass: hassFor(undefined, undefined),
+          config: buildConfig({
+            view,
+            entities: [{ entity: CALENDAR, ...window }],
+            days_to_show: 7,
+            show_past_events: true,
+            split_multiday_events: split,
+            ...(view === 'grid' ? { time_grid: { show_past_events: true } } : {}),
+          } as Partial<Types.Config>),
+        });
       }
     }
   }
@@ -319,7 +343,7 @@ export function disagreements(card: FirstDays, mirror: FirstDays): string[] {
 /**
  * Defects planted at the mirror's inputs, each a way it could drift from the card: the start
  * fixed to today, no weekday filter, no past rule, a fixed first weekday, the layout's block
- * ignored, and a different moment.
+ * ignored, no start hours, and a different moment.
  */
 export const PLANTED: Readonly<Record<string, (inputs: MirrorInputs) => MirrorInputs>> = {
   'start fixed to today': (inputs) => ({
@@ -338,6 +362,14 @@ export const PLANTED: Readonly<Record<string, (inputs: MirrorInputs) => MirrorIn
   "the layout's block ignored": (inputs) => ({
     ...inputs,
     view: inputs.view === 'grid' ? 'list' : 'grid',
+  }),
+  'no start hours': (inputs) => ({
+    ...inputs,
+    entry: {
+      ...(inputs.entry as Types.EntityConfig),
+      starts_after: undefined,
+      starts_before: undefined,
+    },
   }),
   'no expiry time': (inputs) => ({
     ...inputs,

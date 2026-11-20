@@ -1009,6 +1009,23 @@ export interface EntityConfig {
    */
   allday_expires_at?: string;
   /**
+   * The hours of the day this entry's timed events have to start in, as `HH:MM` or `HH:MM:SS`
+   * (#346): at or after `starts_after`, before `starts_before`. Either alone runs to or from
+   * midnight; with `starts_before` the earlier of the two, the hours run past midnight, as Home
+   * Assistant's `time` condition reads `after` and `before`. `starts_before` also takes `24:00`,
+   * and `00:00` there is the end of the day too. Unset, the entry keeps every timed event.
+   *
+   * An event is judged once, by the clock time its real start reads in the browser's zone, so a
+   * multi-day event is kept or dropped on every day it covers. All-day events always pass; pair
+   * with `event_type: timed` to drop them. A value that is not a time, the number an unquoted
+   * `16:00` becomes in YAML among them, leaves the entry unnarrowed and is reported once.
+   * Applied while events are processed (`events.ts` › `filterEventsForEntity`), in every layout,
+   * in search, and before `filter_duplicates` picks a copy (`utils/start-window.ts`).
+   */
+  starts_after?: string;
+  /** @see starts_after */
+  starts_before?: string;
+  /**
    * Home Assistant's visibility conditions for this entry, in the shapes its card-level
    * `visibility:` takes (`utils/visibility.ts`). The entry's events show only while every one
    * holds; a calendar every entry of which is hidden is treated as though it were not on the

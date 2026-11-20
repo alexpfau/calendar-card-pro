@@ -46,6 +46,8 @@ entities:
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                                                          |
 | `multiday_banners`       | boolean | `multiday_banners`       | In grid and month view, whether this calendar's timed events a full day or longer are drawn as one banner across their days, above the hours in Grid and a bar in Month, or as an event on each day (overrides global `multiday_banners`); see [Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners) and [Long Timed Events](/features/month-view#long-timed-events) in Month |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                                                               |
+| `starts_after`           | string  | `-`                      | Keeps only this calendar's timed events that start at or after this time of day, as `HH:MM`. All-day events always show. See [Showing Events That Start at Certain Hours](/features/core-settings#showing-events-that-start-at-certain-hours)                                                                                                                                                            |
+| `starts_before`          | string  | `-`                      | Keeps only this calendar's timed events that start before this time of day, as `HH:MM`; `00:00` and `24:00` are the end of the day. Earlier than `starts_after`, the hours run past midnight                                                                                                                                                                                                             |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                                                    |
 | `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                                                               |
 | `visibility`             | list    | `-`                      | Home Assistant visibility conditions, as a card's own Visibility tab takes them. This entry's events show only while all of them hold; unset, they always show. See [Showing a Calendar Under Conditions](#showing-a-calendar-under-conditions)                                                                                                                                                          |
@@ -829,6 +831,53 @@ each judged separately. Column view already defaults the option to `true`.
   Saturday and Sunday in every other language. A language speaks for only one of the
   countries that use it, so English gives an Israeli home Saturday and Sunday, and Arabic
   gives a Moroccan one Friday and Saturday.
+
+:::
+
+### Showing Events That Start at Certain Hours
+
+`starts_after` and `starts_before` keep only those of a calendar's timed events that start
+within certain hours of the day. They suit a busy shared calendar of which only the afternoon,
+or only the morning, matters to you:
+
+```yaml
+entities:
+  - entity: calendar.volunteer_shifts
+    starts_after: '16:00' # only the shifts that start after work
+  - calendar.family # keeps all its events
+```
+
+- An event stays when it starts **at or after** `starts_after` and **before** `starts_before`.
+  Set either or both; one alone runs to or from midnight.
+- With `starts_before` earlier than `starts_after`, the hours run past midnight:
+  `starts_after: '22:00'` and `starts_before: '06:00'` keep the night's events.
+- Each event is judged once, by when it starts. A meeting from 15:00 to 17:00 is left out by
+  `starts_after: '16:00'`, and an event over several days, an on-call week for one, is kept or
+  left out on every day it covers.
+- All-day events always show, since they start at no particular time. Add
+  [`event_type: timed`](#separating-all-day-from-timed-events) to leave them out too.
+- Like the calendar's other filters, the hours apply in every layout and to
+  [search](/features/layout-appearance#searching-the-card). A day they empty is an
+  [empty day](#showing-a-calendar-on-weekdays-only) like any other.
+- Write each time in quotes, as `HH:MM` on a 24-hour clock.
+
+::: details Midnight, Quotes, Two Blocks & Grid's Hours
+
+- `starts_before` takes `00:00` or `24:00` for the end of the day, so `starts_after: '16:00'`
+  keeps the same events alone or with either of them.
+- Seconds count where you write them, `16:00:30`, and a single-digit hour works, `9:30`.
+- Unquoted, a YAML dashboard reads `16:00` as the number 960, which is not a time. A value the
+  card cannot read as a time, or the same time in both options, leaves the calendar's events
+  as they are and is reported once in the browser console.
+- The hours are read on the clock the card shows times in, the browser's.
+- Listing one calendar twice, once with `starts_before: '16:00'` and once with
+  `starts_after: '16:00'`, divides its timed events between the two blocks, each in exactly
+  one. Its all-day events are in both, unless one block also sets `event_type: timed`.
+- Grid view's [`start_time` and `end_time`](/features/grid-view#choosing-the-hours-the-card-shows)
+  are something else: they set the hours the grid draws, for every calendar, and clip an
+  event partly outside them. They leave the other layouts as they are.
+- A [visibility condition](#showing-a-calendar-under-conditions) of the `time` kind is
+  something else too: it shows or hides the whole calendar depending on what time it is now.
 
 :::
 
