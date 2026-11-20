@@ -414,35 +414,41 @@ describe('month on the default switcher', () => {
     expect(range(card)).toBe(`Jun 1${TO}Jul 12`);
   });
 
-  it('keeps a page’s first day entering month, and leaves month for the month it named', async () => {
+  it('opens month on the month holding a page’s first day, and comes back to the page', async () => {
     const card = await mount(MONTH_ON);
     await measure(card, 1400);
 
-    // The list pages fourteen days, to Monday June 29, and month shows that day's weeks.
+    // The list pages fourteen days, to Monday June 29, and month shows the month holding it:
+    // June, home's, drawn from home's load.
     await next(card);
     expect(range(card)).toBe(`Jun 29${TO}Jul 12`);
     const fetches = callApi.mock.calls.length;
     await pick(card, 'month');
-    expect(range(card)).toBe(`Jun 29${TO}Aug 9`);
-    expect(heading(card)).toBe('July 2026');
-    expect(callApi.mock.calls.length).toBe(fetches);
-
-    // Back to the list: from the 1st of the month the heading named.
-    await pick(card, 'list');
-    expect(range(card)).toBe(`Jul 1${TO}14`);
-  });
-
-  it('leaves month for home where the month it named is home’s', async () => {
-    const card = await mount(MONTH_ON);
-    await measure(card, 1400);
-
-    // A list page of June 1 to 14, whose month shows June's weeks, which are home's.
-    await previous(card);
-    expect(range(card)).toBe(`Jun 1${TO}14`);
-    await pick(card, 'month');
     expect(range(card)).toBe(`Jun 1${TO}Jul 12`);
     expect(heading(card)).toBe('June 2026');
+    expect(callApi.mock.calls.length).toBe(fetches);
 
+    // Back to the list: on the page it left, the day month carried.
+    await pick(card, 'list');
+    expect(range(card)).toBe(`Jun 29${TO}Jul 12`);
+    expect(callApi.mock.calls.length).toBe(fetches);
+  });
+
+  it('leaves a month page for its 1st, and home’s month for home', async () => {
+    const card = await mount(MONTH_ON);
+    await measure(card, 1400);
+    await pick(card, 'month');
+
+    // A month away carries its 1st, today not being in it.
+    await next(card);
+    expect(heading(card)).toBe('July 2026');
+    await pick(card, 'list');
+    expect(range(card)).toBe(`Jul 1${TO}14`);
+
+    // Home's month, nothing selected, opens the list's own home.
+    await pick(card, 'month');
+    await home(card);
+    expect(heading(card)).toBe('June 2026');
     await pick(card, 'list');
     expect(range(card)).toBe(`Jun 15${TO}28`);
   });
@@ -472,15 +478,17 @@ describe('a month card', () => {
     await next(card);
     expect(heading(card)).toBe('July 2026');
     expect(lastFetchedWindow()).toEqual(['2026-06-29', '2026-08-09']);
-    expect(card._pageRange('2026-06-29')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
-    // A key that is no row's first day draws the rows holding it.
-    expect(card._pageRange('2026-07-02')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
+    // Month's own moves key a month by its 1st, and any day of a month draws its weeks.
+    expect(card._pageRange('2026-07-01')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
+    expect(card._pageRange('2026-07-20')).toEqual({ start: new Date(2026, 5, 29), days: 42 });
+    // 29 June is a day of June, whatever row it starts.
+    expect(card._pageRange('2026-06-29')).toEqual({ start: new Date(2026, 5, 1), days: 42 });
   });
 
-  it('loads the weeks of the month a page key falls in from that key’s row', async () => {
+  it('loads the weeks of the month a page key falls in, from that month’s first row', async () => {
     const card = await mount(MONTH_CARD);
     await measure(card, 1400);
-    expect(card._loadConfigForPage('2026-07-02')).toMatchObject({
+    expect(card._loadConfigForPage('2026-07-20')).toMatchObject({
       start_date: '2026-06-29',
       days_to_show: 42,
     });

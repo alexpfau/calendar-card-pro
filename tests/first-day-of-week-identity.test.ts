@@ -264,8 +264,8 @@ describe('cards that ask for the same window share one load', () => {
   });
 
   it('keeps a page apart between the weekdays where month can show it', async () => {
-    // The default switcher offers month, whose weeks hold the page's first day from the week it
-    // falls in: Sunday 21 June on a Sunday profile, Monday 22 June under `monday`.
+    // The default switcher offers month, whose weeks hold the page's first day in its month's
+    // grid: from Sunday 31 May on a Sunday profile, from Monday 1 June under `monday`.
     const toolbar = { show: true, navigation: true };
     const a = await mount({ toolbar, first_day_of_week: 'system' }, SUNDAY);
     const b = await mount({ toolbar, first_day_of_week: 'monday' }, SUNDAY);
@@ -282,7 +282,7 @@ describe('cards that ask for the same window share one load', () => {
       asked,
     }).toEqual({
       sameId: false,
-      asked: ['2026-06-21', '2026-06-22'],
+      asked: ['2026-05-31', '2026-06-01'],
     });
   });
 });
