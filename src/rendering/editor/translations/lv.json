@@ -374,7 +374,7 @@
   "column.density.helper": "Cik šaura drīkst kļūt kolonna, pirms karte atsakās no vienas kolonnas, un ko tā dara, kad sašaurināt vairs nav kur.",
   "column.min_day_width": "Mazākais dienas platums",
   "column.min_days_to_show": "Mazākais dienu kolonnu skaits",
-  "column.min_days_to_show.helper": "Noklusējums ir 2. Ja tas ir vienāds ar rādāmo dienu skaitu, karte nekad neatmet kolonnu.",
+  "column.min_days_to_show.helper": "Noklusējums ir 2 vai visas dienas, ja kolonnas tiek paturētas šaurākas. Ja tas ir vienāds ar rādāmo dienu skaitu, karte nekad neatmet kolonnu.",
   "column.min_days_fallback": "Kad pārāk šaurs",
   "column.min_days_fallback.option.list.label": "Pāriet uz sarakstu",
   "column.min_days_fallback.option.cramp.label": "Paturēt kolonnas šaurākas",

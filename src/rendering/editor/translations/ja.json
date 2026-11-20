@@ -378,7 +378,7 @@
   "column.density.helper": "列を1つ減らすまでに許す列の狭さと、それ以上減らせなくなったときの動作です。",
   "column.min_day_width": "1日の最小幅",
   "column.min_days_to_show": "日の列の最小数",
-  "column.min_days_to_show.helper": "デフォルトは2です。表示日数と同じにすると、カードが列を減らすことはありません。",
+  "column.min_days_to_show.helper": "デフォルトは2です。列数を保って狭く表示する場合はすべての日になります。表示日数と同じにすると、カードが列を減らすことはありません。",
   "column.min_days_fallback": "幅が足りないとき",
   "column.min_days_fallback.option.list.label": "リストに切り替え",
   "column.min_days_fallback.option.cramp.label": "列数を保って狭く表示",

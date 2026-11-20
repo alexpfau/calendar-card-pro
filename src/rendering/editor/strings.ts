@@ -580,7 +580,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_day_width': 'Minimum Day Width',
   'column.min_days_to_show': 'Fewest Day Columns',
   'column.min_days_to_show.helper':
-    'Defaults to 2. At the number of days shown, the card never drops a column.',
+    'Defaults to 2, or every day when the columns are kept narrower. At the number of days shown, the card never drops a column.',
   'column.min_days_fallback': 'When Too Narrow',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
