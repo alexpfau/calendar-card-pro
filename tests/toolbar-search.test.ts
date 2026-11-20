@@ -826,6 +826,44 @@ describe('what a term finds', () => {
     expect(found('parents')).toEqual([['Parents evening', '2026-10-01']]);
   });
 
+  it('finds a merged event by what a later day alone draws, and names every calendar there', async () => {
+    // Saturday to Monday in both calendars, drawn a row a day; Ben's copy is drawn on weekdays
+    // alone, so Monday's row is the merged one, listing both halls and both calendars.
+    for (const [id, hall] of [
+      [ANNA, 'Hall A'],
+      [BEN, 'Hall B'],
+    ] as const) {
+      calendars[id].push(
+        timed('2026-06-20T15:00:00Z', '2026-06-22T11:00:00Z', 'Conference', {
+          uid: 'conference-1',
+          location: hall,
+        }),
+      );
+    }
+    const card = await mount(
+      configFor({
+        entities: [ANNA, { entity: BEN, days_of_week: 'weekdays' }],
+        filter_duplicates: 'merge_locations',
+        split_multiday_events: true,
+        duplicate_accent_color: '#3f51b5',
+      } as Partial<Types.Config>),
+    );
+    await openSearch(card);
+
+    const rows = source()
+      .find('conference')
+      .groups.flatMap((group) => group.hits.map((hit) => hit.row));
+    expect(rows.map(({ day, location, calendar }) => [day, location, calendar])).toEqual([
+      ['2026-06-20', 'Hall A', 'Anna'],
+      ['2026-06-22', 'Hall A · Hall B', 'Anna, Ben'],
+    ]);
+    expect(new Set(rows.map(({ id }) => id)).size).toBe(2);
+    // Each is dated by the event it is, and only Monday's takes the merged accent.
+    expect(rows.map(({ dayText }) => dayText)).toEqual([rows[0].dayText, rows[0].dayText]);
+    expect(rows[1].color).not.toBe(rows[0].color);
+    expect(found('hall b')).toEqual([['Conference', '2026-06-22']]);
+  });
+
   it('lists each copy of an event a calendar listed twice draws twice, the keyboard reaching both', async () => {
     const card = await mount(
       configFor({ entities: [ANNA, { entity: ANNA }, BEN] } as Partial<Types.Config>),

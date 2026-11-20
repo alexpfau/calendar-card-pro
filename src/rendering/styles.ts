@@ -2341,10 +2341,10 @@ export const cardStyles = css`
   @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
     (width: round(1px, 1px)) {
     .event {
-      --calendar-card-accent-ink: oklch(
+      --calendar-card-accent-ink: oklab(
         from
           color-mix(in oklab, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
-          l calc(c * 2.2) h
+          l calc(a * 2.2) calc(b * 2.2)
       );
     }
   }
@@ -2395,14 +2395,14 @@ export const cardStyles = css`
   @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
     (width: round(1px, 1px)) {
     .event-now {
-      --calendar-card-now-ink: oklch(
+      --calendar-card-now-ink: oklab(
         from
           color-mix(
             in oklab,
             var(--calendar-card-now-color, #34d399) 45%,
             var(--primary-text-color)
           )
-          l calc(c * 2.2) h
+          l calc(a * 2.2) calc(b * 2.2)
       );
     }
   }
@@ -4349,6 +4349,12 @@ export const cardStyles = css`
    * which is the share the earlier tuning had settled on. Gamut mapping is the browser's
    * problem, and it is better at it than a lookup table would be.
    *
+   * The chroma is scaled as Oklab's a and b rather than as OKLCH's c, which is the same scaling
+   * wherever the color has a hue, as the today tile's is (above). Below a chroma of about 0.02
+   * Chromium converts the mix to OKLCH with no hue at all, and scaling c then paints hue 0: the
+   * wash of Home Assistant's default blue came out pink, and the ink of a muted calendar color
+   * mauve. Oklab has no hue to lose.
+   *
    * Only chroma is touched, never lightness, so the wash stays a small step off the card
    * rather than an absolute target -- which is why the collision the old 0.26-to-0.38 tuning
    * existed to escape cannot recur, for any theme or any hue.
@@ -4373,18 +4379,18 @@ export const cardStyles = css`
     (width: round(1px, 1px)) {
     .allday-badge,
     .allday-title-pill {
-      --badge-ink: oklch(
+      --badge-ink: oklab(
         from color-mix(in oklab, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
-          calc(c * 2.2) h
+          calc(a * 2.2) calc(b * 2.2)
       );
-      --badge-wash: oklch(
+      --badge-wash: oklab(
         from
           color-mix(
             in oklab,
             var(--calendar-card-event-accent) 14%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
-          l calc(c * 1.8) h
+          l calc(a * 1.8) calc(b * 1.8)
       );
     }
   }

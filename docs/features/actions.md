@@ -74,8 +74,10 @@ Wherever a day shows no event, in every layout:
 - **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
   quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
   all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
-- **[Month view](/features/month-view):** the empty part of a day. On a narrow month a tap
-  selects the day instead, and the selected day's name over its list adds.
+- **[Month view](/features/month-view):** the empty part of a day, and the day's name over its
+  events: on a narrow month, where a tap on a day selects it, the selected day's name over its
+  list; and on a wide month, the day's name at the top of the panel a day opens in, which is
+  where the keyboard adds, as [Enter and Space open the day](#from-the-keyboard).
 
 A tap on an event never adds: the tap is the event's unless its `event_tap_action` is `none`, and
 the card's then. Nor do a grid's `+N` block, which stands for several events, the week numbers,
@@ -146,7 +148,9 @@ anywhere else, on an event included, still runs that action.
 
 While `day_tap_action` adds events, each day's date in list view, and each day's header in column
 and grid view, is a button named with Home Assistant's own "Add event" and described by its
-date. Tab to it and press Enter or Space to add on that day, at the hour it is now.
+date. Tab to it and press Enter or Space to add on that day, at the hour it is now. A month is
+one stop whose arrow keys move between days: Enter or Space opens a day, and the day's name over
+it, in a narrow month's list or at the top of a wide month's panel, is the button that adds.
 
 ## 🗒️ Tapping an Event
 

@@ -696,7 +696,10 @@ A search finds only what the card would show on some page, in the words it would
 - **A calendar's own filters apply,** `blocklist`, `allowlist`, `days_of_week`, `event_type` and
   the rest, and a calendar hidden with the [calendar filter](#showing-hiding-calendars) stays
   hidden.
-- **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
+- **`filter_duplicates` lists an event two calendars share once,** as the card draws it. Where
+  a calendar's `days_of_week` leaves it out of some of a multi-day event's days, the days it
+  shares are listed apart, with every location `merge_locations` draws there and every calendar,
+  and picking that result opens the first of them.
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
   `show_location` or `show_description` off, is not searched, nor is a description in

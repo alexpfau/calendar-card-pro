@@ -63,6 +63,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_canPick',
     '_pickingAt',
     '_pickLooks',
+    '_pickRetry',
     '_picker',
     '_togglePick',
     // The preview drawn in the layout being edited, which writes nothing.

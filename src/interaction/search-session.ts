@@ -56,7 +56,10 @@ export interface SearchHost {
   held: ReadonlyArray<Types.CalendarEventData>;
   /** Home Assistant's word for today, or undefined where it has none. */
   today: string | undefined;
-  /** An event's calendar color as the card draws it, for use outside the card. */
+  /**
+   * An event's calendar color as the card draws it, for use outside the card: a merged row's
+   * accent where the card sets one.
+   */
   colorOf(event: Types.CalendarEventData): string;
   /** A calendar's name on this card. */
   nameOf(entityId: string): string;
@@ -398,11 +401,14 @@ export class SearchSession implements SearchSource {
       return cache.get(key)!;
     };
 
-    return ({ event, startPoint, endPoint, start, end }) => {
+    return ({ event, from, startPoint, endPoint, start, end }) => {
       const entityId = event._entityId ?? '';
-      const day = FormatUtils.getLocalDateKey(start);
+      const startDay = FormatUtils.getLocalDateKey(start);
+      // A way of drawing the event that starts on a later day is picked there, where it is drawn.
+      const day = from ? FormatUtils.getLocalDateKey(from) : startDay;
       const title = event.summary ?? '';
       const location = event.location ?? '';
+      const merged = event._mergedFrom && event._mergedFrom.length > 1 ? event._mergedFrom : null;
       return {
         id: JSON.stringify([
           entityId,
@@ -411,6 +417,7 @@ export class SearchSession implements SearchSource {
           title,
           event._source?.uid ?? null,
           event._source?.recurrence_id ?? null,
+          Search.drawnAs(event),
         ]),
         entityId,
         title,
@@ -424,10 +431,10 @@ export class SearchSession implements SearchSource {
         start: start.getTime(),
         end: end.getTime(),
         day,
-        monthKey: day.slice(0, 7),
-        month: cached(months, day.slice(0, 7), () => Paging.monthHeading(start, language)),
+        monthKey: startDay.slice(0, 7),
+        month: cached(months, startDay.slice(0, 7), () => Paging.monthHeading(start, language)),
         dayText:
-          day === today
+          startDay === today
             ? (host.today ?? Paging.todayWord(language))
             : Paging.dayName(start, language),
         timeText: FormatUtils.formatEventTime(
@@ -436,8 +443,16 @@ export class SearchSession implements SearchSource {
           language,
           host.hass,
         ),
-        color: cached(colors, event._matchedConfig ?? entityId, () => host.colorOf(event)),
-        calendar: cached(names, entityId, () => host.nameOf(entityId)),
+        color: merged
+          ? host.colorOf(event)
+          : cached(colors, event._matchedConfig ?? entityId, () => host.colorOf(event)),
+        calendar: merged
+          ? merged
+              .map((calendar) =>
+                cached(names, calendar.entityId, () => host.nameOf(calendar.entityId)),
+              )
+              .join(', ')
+          : cached(names, entityId, () => host.nameOf(entityId)),
         target: Search.ringTargetOf(event),
       };
     };
