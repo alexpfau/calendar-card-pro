@@ -35,13 +35,13 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import {
   changeField,
+  editLayout,
   fakeHass,
   formsOf,
   lastConfig,
   mountEditor,
   openPageOf,
   openPanels,
-  valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -57,7 +57,6 @@ import {
 import { PANELS } from '../src/rendering/editor/panels';
 import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
-import { WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 const plant = vi.hoisted(() => ({ on: false, action: false, many: 0, extra: '' }));
 
@@ -553,9 +552,7 @@ describe('the warm-up form', () => {
         await new Promise((resolve) => nodeTimeout(resolve, 0));
         editor.setConfig({ ...state.config, config_version: Config.CURRENT_CONFIG_VERSION });
         await editor.updateComplete;
-        if (valueOf(editor, `workspace:${WORKSPACE_FIELD}`) !== state.workspace) {
-          await changeField(editor, `workspace:${WORKSPACE_FIELD}`, state.workspace);
-        }
+        await editLayout(editor, state.workspace);
         const warm = warmed(editor);
         const held = warmValues(editor);
         const label = `${state.workspace} ${state.display} ${state.gate ?? 'fresh'}`;
@@ -598,7 +595,7 @@ describe('the warm-up form', () => {
   it('holds each element and each value the forms draw for calendars and buttons of every kind, in every workspace', async () => {
     const editor = await mountEditor(KINDS);
     for (const workspace of ['list', 'column', 'grid', 'shared']) {
-      await changeField(editor, `workspace:${WORKSPACE_FIELD}`, workspace);
+      await editLayout(editor, workspace);
       expect(warmed(editor), workspace).toEqual(await drawn(editor));
       expect(warmValues(editor), workspace).toEqual(await drawnValues(editor));
     }

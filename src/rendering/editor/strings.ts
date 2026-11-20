@@ -47,7 +47,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.description': 'Title, colors and toolbar controls',
   'page.events_weather_language.description': 'Start date, week start and time format',
   'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
-  'page.which_events.description': 'Days to show, filters and empty days',
+  'page.which_events.description': 'Date range, filters and empty days',
   'panel.day_header.description': 'Dates, week numbers, today and weekends',
   'panel.events.description': 'Event details, text styles and colors',
   'page.size_spacing.description': 'Card height, gaps and separator lines',
@@ -149,6 +149,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
   'layouts.help_switch_link': 'layout switcher',
   'layouts.help_open': 'Select a layout to change its own settings.',
+  // The row and page of the values every layout starts from; a layout's own name is its option
+  // under Starting Layout (`view.option.<view>.label`).
+  'layouts.defaults': 'Layout Defaults',
   // A layout row's button, which opens the layout's page.
   'layouts.settings_named': '{layout} Settings',
   // Under a layout's name on its page, and the line there.
@@ -174,8 +177,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // A page draws every setting that applies; one at its default folds to its head row, which
   // opens it. Its ⓘ, named for the setting, shows its helper.
   'setting.about': 'About {label}',
-  // What a setting says under its name, one vocabulary on every page, since Settings For already
-  // names the layout: whether a value is stored here, what it reaches, where it comes from, and
+  // What a setting says under its name, one vocabulary on every page, since the page's title
+  // already names the layout: whether a value is stored here, what it reaches, where it comes from, and
   // what each other layout uses. A setting at its default says nothing; a screen reader hears
   // "Default".
   'state.set': 'Set',
@@ -412,18 +415,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.grid.description': 'Days side by side on an hour axis',
   'view.option.month.label': 'Month',
   'view.option.month.description': 'A whole month, a row per week',
-  'view.helper': 'Side-by-side layouts can fall back to List when space is tight.',
-  editing_workspace: 'Editing Settings For',
-  'editing_workspace.helper': 'Choose which layout to edit without changing Starting Layout.',
-  'editing_workspace.shared_note':
-    'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
+  'view.helper':
+    'Side-by-side layouts can fall back to List when space is tight, with List’s own settings.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
-  'editing_workspace.option.shared.label': 'Layout Defaults',
-  'editing_workspace.option.list.label': 'List',
-  'editing_workspace.option.column.label': 'Columns',
-  'editing_workspace.option.grid.label': 'Grid',
-  'editing_workspace.option.month.label': 'Month',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
@@ -589,6 +584,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback': 'When Too Narrow',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
+  'column.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'column.day_header_gap': 'Day Header Gap',
   'time_grid.day_header_gap': 'Day Header Gap',
 
@@ -667,7 +663,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'chip.not_in': 'Not in {layout}: {names}.',
   // Month's parts that act on a day's list and the panel "+N more" opens, never on its weeks.
   'chip.day_list': 'Day List & Panel: {names}.',
-  // The chips stored where Settings For points, under the chips with where the others come from.
+  // The chips stored in the scope the page edits, under the chips with where the others come from.
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
   'chip.part_state': '{part} ({state})',
@@ -908,10 +904,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
-  'entity.multiday_banners': 'In the Time Grid',
+  'entity.multiday_banners': 'Long Timed Events',
   'entity.multiday_banners.option.inherit.label': 'Follow the card',
-  'entity.multiday_banners.option.banner.label': 'One banner above the hours',
-  'entity.multiday_banners.option.blocks.label': 'A block on each day',
+  'entity.multiday_banners.option.banner.label': 'One banner across its days',
+  'entity.multiday_banners.option.blocks.label': 'On each day it covers',
   'entity.multiday_banners.helper':
     'How this calendar\u2019s events with a time that last a full day or longer are drawn.',
 
@@ -1033,6 +1029,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback': 'When Too Narrow',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
+  'time_grid.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1214,9 +1211,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
-  multiday_banners: 'Banners Above the Hours',
+  multiday_banners: 'Long Timed Events as Banners',
   'multiday_banners.helper':
-    'Draws an event with a time that lasts a day or longer as one banner above the hours.',
+    'Draws an event with a time that lasts a day or longer as one banner across its days.',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',

@@ -10,8 +10,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   CARD,
   changeField,
+  editLayout,
+  editingLayout,
   formOf,
   formsOf,
+  layoutOf,
   mountEditor,
   openPageOf,
   openPanels,
@@ -26,7 +29,6 @@ import { parseFieldId } from '../src/rendering/editor/field-index';
 import { GATES, openingEdits } from '../src/rendering/editor/gates';
 import { lookup } from '../src/rendering/editor/localize';
 import { workspaceFields, workspaceFormData } from '../src/rendering/editor/routing';
-import { type EditorWorkspace, WORKSPACE_FIELD } from '../src/rendering/editor/workspace';
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
@@ -72,10 +74,10 @@ async function mount(config: Record<string, unknown> = {}) {
  * @param value - Value to author
  */
 async function authorAtRoot(editor: EditorHost, id: string, value: unknown): Promise<void> {
-  const previous = valueOf(editor, 'workspace:editing_workspace');
-  await changeField(editor, 'workspace:editing_workspace', 'shared');
+  const previous = editingLayout(editor);
+  await editLayout(editor, 'shared');
   await changeField(editor, id, value);
-  await changeField(editor, 'workspace:editing_workspace', previous);
+  await editLayout(editor, previous);
 }
 
 function notice(editor: EditorHost): HTMLElement | null {
@@ -449,13 +451,16 @@ describe('first-switch reconciliation regressions', () => {
     expect(notice(editor)).toBeNull();
   });
 
-  it('leaves a pinned workspace unchanged while Card Displays switches to Grid', async () => {
+  it('reconciles a switch to Grid made after editing Columns, whose page stays its own', async () => {
     const { editor, reports } = await mount({ event_background_opacity: 5 });
-    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await editLayout(editor, 'column');
     await changeField(editor, 'display:view', 'grid');
-    expect(valueOf(editor, 'workspace:editing_workspace')).toBe('column');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_background_opacity', 5);
     expect(notice(editor)).not.toBeNull();
+    // The overview follows the card into Grid; Columns' row still opens Columns.
+    expect(layoutOf(editor)).toBe('grid');
+    await editLayout(editor, 'column');
+    expect(layoutOf(editor)).toBe('column');
   });
 
   it('does not recopy a changed root value over the reconciled view value', async () => {
@@ -520,7 +525,7 @@ describe('first-switch reconciliation regressions', () => {
     // Asked of Grid explicitly. Choosing a workspace pins it, and `authorAtRoot` chooses
     // one — so the workspace no longer follows Card Displays here, and reading the control
     // without saying which workspace would report List's value and look like a regression.
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
     expect(notice(editor)).toBeNull();
   });
@@ -549,7 +554,7 @@ describe('implicit defaults and first-switch boundaries', () => {
     async ({ key, gridDefault }) => {
       const { editor, reports } = await mount();
       await changeField(editor, 'display:view', 'grid');
-      const workspace = valueOf(editor, `workspace:${WORKSPACE_FIELD}`) as EditorWorkspace;
+      const workspace = editingLayout(editor);
       const gates = Object.values(GATES).filter(({ fields }) =>
         fields.some((field) => field.endsWith(`:${key}`)),
       );
@@ -604,7 +609,7 @@ describe('implicit defaults and first-switch boundaries', () => {
 
   it('does not mark a preconfigured Grid value as an authored root value', async () => {
     const { editor, reports } = await mount();
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     await changeField(editor, 'events:event_font_size', '18px');
     await changeField(editor, 'display:view', 'grid');
     expect(reports.slice(-1)[0]).toHaveProperty('time_grid', {
@@ -615,7 +620,7 @@ describe('implicit defaults and first-switch boundaries', () => {
 
   it('does not reconcile when only the editing workspace changes', async () => {
     const { editor, reports } = await mount({ event_background_opacity: 5 });
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     expect(reports).toHaveLength(0);
     expect(valueOf(editor, 'events:event_background_opacity')).toBe(20);
     expect(notice(editor)).toBeNull();

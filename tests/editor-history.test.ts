@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type MountedEditor,
   changeField,
+  editLayout,
   emitChange,
   fakeHass,
   formOf,
@@ -131,7 +132,7 @@ describe('History', () => {
     label,
     before: snap(from),
     after: snap(to),
-    where: { route: { kind: 'overview' }, workspace: undefined },
+    where: { route: { kind: 'overview' } },
   });
 
   it('joins typing in one field under COALESCE_MS, and nothing else', () => {
@@ -246,7 +247,7 @@ describe('Undo restores exactly', () => {
     // Days to Show at its default, written where Shared writes it.
     const stored = { config_version: VERSION, entities: ['calendar.anna'], days_to_show: 3 };
     const { editor, sent, last } = await mount(stored);
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await changeField(editor, 'content:days_to_show', 5);
     expect(last()).toHaveProperty('days_to_show', 5);
 

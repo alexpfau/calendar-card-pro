@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   changeField,
+  editLayout,
   goPage,
   lastConfig,
   mountEditor,
@@ -35,7 +36,7 @@ function receipt(editor: HTMLElement): string | undefined {
 describe('the entity every layout draws from', () => {
   it('is written as weather_entity, and turns the forecast on in the layout it is chosen in', async () => {
     const editor = await mountEditor({ ...CARD, view: 'grid' });
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
 
     // Chosen on Grid's Weather, where the entity is copied beside Grid's own forecast.
     await goPage(editor, 'weather');
@@ -54,7 +55,7 @@ describe('the entity every layout draws from', () => {
       view: 'month',
       list: { weather: { position: 'event' } },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'month');
+    await editLayout(editor, 'month');
 
     await goPage(editor, 'weather');
     await changeField(editor, 'weather:weather_entity', 'weather.home');
@@ -101,7 +102,7 @@ describe('a layout’s own weather', () => {
     ['grid', 'time_grid'],
   ])('is written in %s’s block alone, and minimized there', async (workspace, block) => {
     const editor = await mountEditor({ ...CARD, weather_entity: 'weather.home' });
-    await changeField(editor, 'workspace:editing_workspace', workspace);
+    await editLayout(editor, workspace);
 
     await changeField(editor, 'weather:weather.position', 'both');
     await changeField(editor, 'weather:weather.date.show_low_temp', true);
@@ -123,11 +124,11 @@ describe('a layout’s own weather', () => {
       weather_entity: 'weather.home',
       time_grid: { weather: { position: 'event' } },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'grid');
+    await editLayout(editor, 'grid');
     await openPageOf(editor, 'weather:weather.position');
     expect(valueOf(editor, 'weather:weather.position')).toBe('event');
 
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     await openPageOf(editor, 'weather:weather.position');
     expect(valueOf(editor, 'weather:weather.position')).toBe('none');
   });

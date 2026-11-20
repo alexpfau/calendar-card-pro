@@ -9,6 +9,7 @@ import {
   type MountedEditor,
   addFromRow,
   changeField,
+  editLayout,
   entry,
   formOf,
   goEntry,
@@ -384,7 +385,7 @@ describe('a word list', () => {
     await openPageOf(editor, field);
     const drawn = listForm(editor, field);
     expect(drawn.data).toEqual({ location_country_pattern: ['Germany'] });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     drawn.dispatchEvent(
       new CustomEvent('value-changed', {
         detail: { value: { location_country_pattern: ['Germany', 'Austria'] } },
@@ -434,7 +435,7 @@ describe('a word list', () => {
     expect(listForm(editor, field).data).toEqual({ location_country_pattern: ['Germany'] });
 
     await sendTerms(editor, ['Germany', 'Austria'], field);
-    // Written where Settings For says, List here, as any of its settings is.
+    // Written in the layout the page edits, List here, as any of its settings is.
     expect(lastConfig(editor)!.list).toEqual({ remove_location_country: 'Germany|Austria' });
 
     // An empty list writes the empty pattern clearing its raw field writes, and stays drawn.

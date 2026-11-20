@@ -15,12 +15,12 @@ import {
   CARD,
   type Owner,
   button,
-  changeField,
+  editLayout,
   entry,
   fakeHass,
   formsOf,
+  layoutOf,
   openPanels,
-  valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
@@ -54,7 +54,6 @@ import { deepEqual, toStoredConfig } from '../src/rendering/editor/value';
 import {
   type EditorWorkspace,
   WORKSPACES,
-  WORKSPACE_FIELD,
   baseViewForWorkspace,
 } from '../src/rendering/editor/workspace';
 
@@ -594,10 +593,8 @@ describe('the index builds what the editor draws today', () => {
     if (!host.isConnected) document.body.appendChild(host);
     await host.updateComplete;
 
-    if (valueOf(host, `workspace:${WORKSPACE_FIELD}`) !== workspace) {
-      await changeField(host, `workspace:${WORKSPACE_FIELD}`, workspace);
-    }
-    expect(valueOf(host, `workspace:${WORKSPACE_FIELD}`)).toBe(workspace);
+    await editLayout(host, workspace);
+    expect(layoutOf(host)).toBe(workspace);
     // A closed panel mounts no form, so every panel is opened before the forms are read.
     await openPanels(host);
   };

@@ -12,7 +12,8 @@
  *   data, and one that draws none is paired with one that does in the same configuration.
  * - **Subscriptions.** One subscription per forecast type every reachable view needs, so a
  *   layout switch, a narrow screen's list and an edit that keeps the union never subscribe
- *   again; the editor's preview subscribes for every layout so Settings For does not either.
+ *   again; the editor's preview subscribes for every layout, so opening a layout's page does not
+ *   either.
  * - **Validation.** What the console says about weather written where the card ignores it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -421,7 +422,7 @@ describe('forecast subscriptions follow the views the card can show', () => {
     expect(conn.live()).toEqual(['daily', 'hourly']);
     const opened = conn.subs.length;
 
-    // Settings For hands the preview's card the configuration with `view` replaced.
+    // A layout's page hands the preview's card the configuration with `view` replaced.
     for (const view of VIEWS) {
       card.setConfig({ entities: ['calendar.anna'], ...config, view });
       await card.updateComplete;

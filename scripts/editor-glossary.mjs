@@ -853,7 +853,7 @@ export const GLOSSARY_TERMS = [
     rejected: {},
   },
   {
-    // `editing_workspace.option.shared.label`, which was All Layouts before every layout had a page.
+    // `layouts.defaults`, which was All Layouts before every layout had a page.
     name: 'layout defaults',
     sense: 'the values every layout starts from, as against one layout’s own',
     decided: {

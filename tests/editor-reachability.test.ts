@@ -17,7 +17,7 @@ import { setTimeout as nodeTimeout } from 'node:timers/promises';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { type MountedEditor, changeField, mountEditor, unfoldAll } from './helpers/editor-host';
+import { type MountedEditor, mountEditor, unfoldAll } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { type ColorSpec, cardColorFields } from '../src/rendering/editor/colors';
@@ -158,11 +158,11 @@ describe('reachability through rendered navigation', () => {
         // As stored by a card the visual editor wrote: at the current configuration version.
         editor.setConfig({ ...config, config_version: Config.CURRENT_CONFIG_VERSION });
         await editor.updateComplete;
-        // Back to the overview, as Back would take a user there, then the state's scope.
+        // Back to the overview, as Back would take a user there; the loop below opens each page
+        // itself, a topic from the state's layout row.
         while (editor.shadowRoot!.querySelector('[data-focus="back-top"]') !== null) {
           await click(editor, '[data-focus="back-top"]');
         }
-        await changeField(editor, 'workspace:editing_workspace', workspace);
 
         await unfoldAll(editor);
         const found = new Set<FieldId>(reached(editor, nodes, colors));

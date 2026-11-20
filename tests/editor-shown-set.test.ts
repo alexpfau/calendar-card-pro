@@ -17,6 +17,7 @@ import {
   type MountedEditor,
   button,
   changeField,
+  editLayout,
   factsOf,
   formsOf,
   goEntry,
@@ -213,7 +214,9 @@ describe('every setting on a fresh card', () => {
     expect(info.getAttribute('aria-label')).toBe(`About ${labelOf(editor, id)}`);
     const help = $(editor, `[data-setting="${id}"] .setting-help`)!;
     expect(help.hidden).toBe(true);
-    expect($(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')).toBe(help.id);
+    // Described by its facts first, then by its helper (the test below).
+    const named = $(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')!;
+    expect(named.split(' ').pop()).toBe(help.id);
     // The form shows none of its own.
     const form = $(editor, `.field[data-field="${id}"] ha-form`) as unknown as {
       computeHelper(node: unknown): string | undefined;
@@ -223,6 +226,63 @@ describe('every setting on a fresh card', () => {
     await click(editor, `[data-setting="${id}"] .setting-info`);
     expect(help.hidden).toBe(false);
     expect(help.textContent?.trim()).toBe(helperOf(editor, id));
+  });
+
+  it('describes an open setting by the facts under its name, then its helper, never its Reset', async () => {
+    /**
+     * What a screen reader hears as a control's description: the text of each element its
+     * wrapper names, in order.
+     *
+     * @param editor - Editor element
+     * @param wrapper - The control's wrapper
+     * @returns The words, and whether any named element is or holds a button
+     */
+    const description = (editor: MountedEditor, wrapper: Element) => {
+      const named = (wrapper.getAttribute('aria-describedby') ?? '')
+        .split(' ')
+        .filter(Boolean)
+        .map((id) => editor.shadowRoot!.getElementById(id));
+      expect(named).not.toContain(null);
+      return {
+        words: named.map((each) => each!.textContent!.replace(/\s+/g, ' ').trim()),
+        pressable: named.some(
+          (each) => each!.closest('button') !== null || each!.querySelector('button'),
+        ),
+      };
+    };
+    // At its default, opened: no fact under its name, so the "Default" a screen reader hears, then
+    // its helper.
+    const fresh = await mount({ view: 'list' });
+    const opened = 'events:time_font_size';
+    await goPage(fresh, 'events');
+    await click(fresh, `[data-setting="${opened}"] .setting-toggle`);
+    const atDefault = description(fresh, $(fresh, `.field[data-field="${opened}"]`)!);
+    expect(atDefault.words[0]).toBe('Default');
+    expect(atDefault.words.slice(1)).toEqual(
+      helperOf(fresh, opened) === undefined ? [] : [helperOf(fresh, opened)],
+    );
+
+    // A Layout Defaults value on a List topic: where the value comes from.
+    const editor = await mount({ view: 'list', event_font_size: '20px' });
+    const id = 'events:event_font_size';
+    await openPageOf(editor, id);
+    const head = $(editor, `[data-setting="${id}"] .setting-toggle`);
+    if (head?.getAttribute('aria-expanded') === 'false') head.click();
+    await editor.updateComplete;
+    const inherited = description(editor, $(editor, `.field[data-field="${id}"]`)!);
+    const facts = (): string[] => factsOf(editor, id).map((fact) => fact.replace(/\s+/g, ' '));
+    expect(facts().length).toBeGreaterThan(0);
+    expect(inherited.words.slice(0, facts().length)).toEqual(facts());
+    expect(inherited.words.join(' ')).toMatch(/Layout Defaults/);
+    expect(inherited.pressable).toBe(false);
+
+    // Stored here: Set, and its Reset beside it stays out of the description.
+    await changeField(editor, id, '22px');
+    const set = description(editor, $(editor, `.field[data-field="${id}"]`)!);
+    expect(set.words[0]).toBe('Set');
+    expect(set.words.slice(0, facts().length)).toEqual(facts());
+    expect(lineOf(editor, id)!.querySelector('button')).not.toBeNull();
+    expect(set.pressable).toBe(false);
   });
 
   it('draws the editor’s tools in the head, never inside Home Assistant’s field box', async () => {
@@ -259,7 +319,7 @@ describe('what the card sets stays on its page', () => {
 
   it('gives a value from All Layouts no button of its own, and no other layouts’ line', async () => {
     const editor = await mount({ view: 'grid', filter_duplicates: true });
-    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await editLayout(editor, 'column');
     await openPageOf(editor, 'content:filter_duplicates_mode');
     expect(stateWordOf(editor, 'content:filter_duplicates_mode')).toBe('From Layout Defaults');
     expect(
@@ -277,7 +337,7 @@ describe('what the card sets stays on its page', () => {
       filter_duplicates: true,
       column: { filter_duplicates: false },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await openPageOf(editor, 'content:filter_duplicates_mode');
     const id = 'content:filter_duplicates_mode';
     // A line of the head itself, under the name, so it is read with its own row.
@@ -315,7 +375,7 @@ describe('what the card sets stays on its page', () => {
       const editor = await mount(config);
       await openPageOf(editor, id);
       expect(live(editor)).toContain(id);
-      // Settings For names the layout, so the pill says only that it is set.
+      // The page's title names the layout, so the fact says only that it is set.
       expect(stateWordOf(editor, id)).toBe('Set');
     },
   );
@@ -389,7 +449,7 @@ describe('state words, by where they are drawn', () => {
 
   it('carry “Set” under All Layouts on a dropdown’s label, never naming the scope', async () => {
     const editor = await mount({ show_week_numbers: 'iso' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await openPageOf(editor, 'day_header:week_number_mode');
     expect(stateWordOf(editor, 'day_header:week_number_mode')).toBe('Set');
     expect(labelOf(editor, 'day_header:week_number_mode')).toBe('Numbering');
@@ -421,7 +481,7 @@ describe('state words, by where they are drawn', () => {
 
   it('name Reset for what it leaves, in its text and leading its name, and Reset leaves it', async () => {
     const editor = await mount({ view: 'grid', start_date: 'today+1', event_font_size: '14px' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await openPageOf(editor, 'content:start_date_mode');
     const reset = $(editor, '[data-focus="reset:content:start_date_mode"]')!;
     expect(reset.textContent?.trim()).toBe('Reset (Today)');
@@ -482,7 +542,7 @@ describe('state words, by where they are drawn', () => {
 describe('Reset and Remove', () => {
   it('keeps an essential field on Reset, with focus on its wrapper, in one undo step', async () => {
     const editor = await mount({ show_time: false });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     // Show Time is a chip, reset with its group.
     const reset = $(editor, '[data-focus="reset-chips:parts"]')!;
@@ -597,7 +657,7 @@ describe('gate lines and stored values not in use', () => {
       description_icon_size: '18px',
       description_max_lines: 2,
     });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     const group = $(editor, '.page-group[data-heading="description"]')!;
     expect(group.classList.contains('off-group')).toBe(true);
@@ -632,7 +692,7 @@ describe('gate lines and stored values not in use', () => {
         line.textContent!.replace(/\s+/g, ' ').trim(),
       ),
     ).toEqual(['Stored but not in use: Description Font Size (20px), from Layout Defaults']);
-    // No Reset here reaches All Layouts' value, so the line has no button; Settings For does.
+    // No Reset here reaches Layout Defaults' value, so the line has no button; its page does.
     const line = $(editor, '[data-focus="inactive:events:description_font_size"]')!;
     expect(line.querySelector('button')).toBeNull();
   });
@@ -646,7 +706,7 @@ describe('a heading with nothing to edit', () => {
 
   it('turns its part on in the scope shown, as the chip would, in one undo step', async () => {
     const editor = await mount({ show_location: false });
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     await goPage(editor, 'events');
     expect(turnOns(editor)).toContainEqual(['Turn On', 'Turn On Location']);
     await click(editor, '[data-focus="turn-on:events:show_location"]');
@@ -669,7 +729,7 @@ describe('a heading with nothing to edit', () => {
 
   it('names each button by its part where a heading waits on two', async () => {
     const editor = await mount({ show_countdown: false, show_progress_bar: false });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     const group = $(editor, '.page-group[data-heading="progress"]');
     expect(group?.classList.contains('off-group')).toBe(true);
@@ -833,7 +893,7 @@ describe('the preferences in the overview header’s ⋯ menu', () => {
 describe('the review’s findings', () => {
   it('keeps focus in the editor after a Remove of a mode value', async () => {
     const editor = await mount({ start_date: '2026-11-15' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await openPageOf(editor, 'content:start_date_mode');
     expect(live(editor)).toContain('content:start_date_fixed');
     $(editor, '[data-focus="remove:content:start_date_fixed"]')!.focus();
@@ -910,7 +970,7 @@ describe('a helper shown once', () => {
 describe('a stored setting', () => {
   it('never folds, and offers its Reset in plain view, one press away', async () => {
     const editor = await mount({ event_font_size: '30px' });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     const id = 'events:event_font_size';
     // No toggle to open first: a setting holding a value is drawn open.
@@ -926,7 +986,7 @@ describe('a stored setting', () => {
 
   it('puts a switch’s Reset after Set under its row, not inside Home Assistant’s', async () => {
     const editor = await mount({ scroll_long_titles: true });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     const id = 'events:scroll_long_titles';
     const setting = $(editor, `[data-setting="${id}"]`)!;
@@ -958,7 +1018,7 @@ describe('a stored setting', () => {
       event_font_size: '15px',
       list: { event_font_size: '16px' },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     const facts = [...editor.shadowRoot!.querySelectorAll('.setting-facts')];
     expect(facts.length).toBeGreaterThan(0);

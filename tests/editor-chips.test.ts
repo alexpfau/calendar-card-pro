@@ -12,7 +12,14 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { changeField, goPage, lastConfig, mountEditor, openPageOf } from './helpers/editor-host';
+import {
+  changeField,
+  editLayout,
+  goPage,
+  lastConfig,
+  mountEditor,
+  openPageOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { CHIP_LABELS, chipFields, inScope } from '../src/rendering/editor/chips';
 import { universeIndex } from '../src/rendering/editor/field-index';
@@ -217,7 +224,7 @@ describe('the event-part chips', () => {
     expect(lines(editor)).toContain('Not in Grid: Now.');
 
     // In All Layouts, which offers every part, no line.
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     expect(chips(editor, 'Event Details')).toHaveLength(8);
     expect(lines(editor).some((line) => line.startsWith('Not in'))).toBe(false);
@@ -271,19 +278,19 @@ describe('the event-part chips', () => {
   it('presses as the scope reads it, names where each stored part lives, and writes there', async () => {
     const editor = await mount({ show_location: false, column: { show_location: true } });
 
-    await changeField(editor, 'workspace:editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
     expect(lines(editor)[0]).toBe('Chosen Here: Location (Off)');
 
-    await changeField(editor, 'workspace:editing_workspace', 'column');
+    await editLayout(editor, 'column');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
     expect(lines(editor)[0]).toBe('Chosen Here: Location (On)');
     // A chip's name carries its state words, as any field's does.
     expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe('Location, Set');
 
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     await goPage(editor, 'events');
     expect(read(editor, 'Event Details')[2]).toBe('Location');
     expect(lines(editor)[0]).toBe('From Layout Defaults: Location (Off)');
@@ -317,7 +324,7 @@ describe('the event-part chips', () => {
       show_description: false,
       list: { show_countdown: true, show_location: false },
     });
-    await changeField(editor, 'workspace:editing_workspace', 'list');
+    await editLayout(editor, 'list');
     await goPage(editor, 'events');
     // One button for the group, named for every part it resets; the All Layouts one is not here.
     expect(resets(editor)).toEqual(['Reset Parts: Reset Parts: Location, Countdown']);

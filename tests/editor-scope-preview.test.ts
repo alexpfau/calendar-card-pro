@@ -1,5 +1,5 @@
 /**
- * The preview following Settings For (`views/scope-preview.ts`): the preview's own card drawn in
+ * The preview following the layout being edited (`views/scope-preview.ts`): the preview's own card drawn in
  * the layout being edited, through its `setConfig`, following Home Assistant's rebuilds, and given
  * the configuration as written back once it is to show the card as it opens. Nothing reaches Home
  * Assistant.

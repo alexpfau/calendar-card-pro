@@ -20,6 +20,7 @@ import {
   type MountedEditor,
   changeField,
   changeFields,
+  editLayout,
   emitChange,
   entry,
   formOf,
@@ -28,6 +29,7 @@ import {
   mountEditor,
   openPageOf,
   openPanels,
+  pressReset,
   resetButton,
   resultRows,
   valueOf,
@@ -140,10 +142,10 @@ describe('editor panel option forms', () => {
     };
     const element = await mount(config);
     const seen = reported(element);
-    await changeField(element, 'workspace:editing_workspace', from);
+    await editLayout(element, from);
     const origin = panelOwning(element, 'events:event_font_size');
 
-    await changeField(element, 'workspace:editing_workspace', to);
+    await editLayout(element, to);
     expect(seen).toHaveLength(0);
 
     emitChange(origin, { 'events:event_font_size': '31px' });
@@ -347,7 +349,7 @@ describe("a dropdown's clear button", () => {
       entities: ['calendar.a'],
       ...config,
     });
-    await changeField(element, 'workspace:editing_workspace', 'shared');
+    await editLayout(element, 'shared');
     return element;
   }
 
@@ -359,11 +361,9 @@ describe("a dropdown's clear button", () => {
     const afterClear = lastConfig(cleared);
 
     const reset = await inAllLayouts(config);
-    const button = await resetButton(reset, keys);
-    expect(button).not.toBeNull();
-    button!.click();
-    await reset.updateComplete;
+    await pressReset(reset, id);
 
+    expect(lastConfig(reset)).toBeDefined();
     expect(afterClear).toEqual(lastConfig(reset));
     expect(afterClear).not.toHaveProperty(keys);
   });
