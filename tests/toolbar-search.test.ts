@@ -785,6 +785,18 @@ describe('what a term finds', () => {
     expect(found('dentist')).toEqual([['Dentist check-up', '2026-12-08']]);
   });
 
+  it('leaves out an event that starts outside the hours a calendar keeps', async () => {
+    const card = await mount(
+      configFor({
+        entities: [{ entity: ANNA, starts_after: '12:00' }, BEN],
+      } as Partial<Types.Config>),
+    );
+    await openSearch(card);
+
+    // The check-up starts at 15:30 and the cleaning at 09:00.
+    expect(found('dentist')).toEqual([['Dentist check-up', '2026-12-08']]);
+  });
+
   it('leaves out a calendar the filter hides', async () => {
     const card = await mount(configFor({}, { ...SEARCH_ON, legend: 'chips' }));
     root(card).querySelector<HTMLButtonElement>(`.legend-chip[data-calendar="${BEN}"]`)!.click();

@@ -387,6 +387,10 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     bool('private'),
     choice(ctx.language, 'days_of_week'),
     choice(ctx.language, 'event_type'),
+    // After the event type and before the all-day events' expiry: the hours a timed event has to
+    // start in refine the class above them, as the expiry refines the other one.
+    { name: 'starts_after', selector: { text: { type: 'time' } } },
+    { name: 'starts_before', selector: { text: { type: 'time' } } },
     { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
     choice(ctx.language, 'filter_field'),
     text('blocklist'),
