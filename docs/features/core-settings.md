@@ -1416,9 +1416,10 @@ See the [Column defaults](/features/column-view#options-that-start-from-a-differ
 the complete exception lists.
 
 Each block also holds the options only that layout has — the compact caps and date-cell
-settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`, the card's
-heights, the day width it turns narrow at and week scrolling in `month:`. Those have no shared meaning, so the visual
-editor does not offer them under Layout Defaults.
+settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`, and in
+`month:` the card's heights, the day width it turns narrow at, weekend and today shading and
+the text sizes in its days. Those have no shared meaning, so the visual editor does not offer
+them under Layout Defaults.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
 them: the ones that decide which events are loaded, such as `entities` and `start_date`, and
