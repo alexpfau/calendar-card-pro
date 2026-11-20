@@ -35,6 +35,11 @@ const ENTRY = [
   `export { EDITOR_STRINGS } from ${JSON.stringify(resolve('src/rendering/editor/strings.ts'))};`,
   `export { EDITOR_LANGUAGE_STRINGS } from ${JSON.stringify(resolve('src/rendering/editor/translations/index.ts'))};`,
   `export { lookup } from ${JSON.stringify(resolve('src/rendering/editor/localize.ts'))};`,
+  // `lookup` reads the languages the editor holds, which in the built editor arrive one at a time
+  // from their own files; this library holds them all, as the test setup does for the sources.
+  `import { EDITOR_LANGUAGE_STRINGS as registry } from ${JSON.stringify(resolve('src/rendering/editor/translations/index.ts'))};`,
+  `import { EDITOR_HELD_STRINGS as held } from ${JSON.stringify(resolve('src/rendering/editor/translations/held.ts'))};`,
+  'Object.assign(held, registry);',
 ].join('\n');
 
 function filenames(directory: string): string[] {
@@ -256,6 +261,10 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
         }
       }
       assertEquivalent('editor lookups', result, languages.length * keys.length);
+      // Translated, not two English fallbacks agreeing with each other.
+      const german = candidate.library.EDITOR_LANGUAGE_STRINGS.de.show_time;
+      expect(candidate.library.lookup('de', 'show_time')).toBe(german);
+      expect(german).not.toBe(candidate.library.EDITOR_STRINGS.show_time);
     });
 
     it('detects altered translations and removed fallback in a tiny mutation control', async () => {

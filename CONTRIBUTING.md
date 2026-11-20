@@ -17,10 +17,11 @@ Before contributing code, I strongly recommend reviewing my [architecture docume
 2. Clone your fork: `git clone https://github.com/[your-username]/calendar-card-pro.git`
 3. Install dependencies: `npm install`
 4. Start development mode: `npm run dev`
-5. The build emits **two** files into `dist/`: `calendar-card-pro-dev.js` and
-   `editor-dev.js` — the card fetches the editor by URL when someone opens it. Both must
-   be installed together; a production build (`npm run build`) emits the same pair without
-   the `-dev` suffix, and those two files are exactly what a release attaches
+5. The build emits into `dist/` the card, `calendar-card-pro-dev.js`, the editor,
+   `editor-dev.js`, and one file per editor language, `editor-dev-de.js` and so on — the card
+   fetches the editor by URL when someone opens it, and the editor fetches the language it is
+   drawn in. All of them are installed together; a production build (`npm run build`) emits
+   the same files without the `-dev` suffix, and those are exactly what a release attaches
 6. For testing in Home Assistant, follow the [testing instructions](#testing-in-home-assistant)
 
 ## Branch Structure
@@ -42,10 +43,11 @@ The repository follows this branch structure:
 
 To test your changes in a real Home Assistant environment:
 
-1. Copy **both** build outputs into your Home Assistant's `www/community/calendar-card-pro/`
+1. Copy **every** build output into your Home Assistant's `www/community/calendar-card-pro/`
    folder, keeping them side by side in the same directory:
    - `dist/calendar-card-pro-dev.js`
    - `dist/editor-dev.js`
+   - `dist/editor-dev-*.js`, the editor's languages
 2. Add the resource to Home Assistant. Register **only the card** — the editor is never a
    Lovelace resource, because the card loads it on demand:
    ```yaml
@@ -56,12 +58,13 @@ To test your changes in a real Home Assistant environment:
 4. Test with various calendar types and configurations
 5. Verify performance with both small and large event sets
 
-> **⚠️ Copy both files, not just the card**
+> **⚠️ Copy every file, not just the card**
 >
 > The card loads the visual editor on demand, resolving `./editor-dev.js` against its own
 > URL. Copy only `calendar-card-pro-dev.js` and the card renders perfectly — then the
 > editor 404s the moment you open it, which looks like a code bug rather than a missing
-> file. The two files must sit in the same directory.
+> file. The editor loads its language the same way, from `./editor-dev-<code>.js`; without
+> it the editor opens in English. All of them must sit in the same directory.
 
 > **💡 Pro Tip: Defeating Home Assistant's Aggressive Caching**
 >
@@ -79,13 +82,17 @@ To test your changes in a real Home Assistant environment:
 >    ```
 >
 > You only ever bump this on the card. The card copies its own query string onto the
-> editor URL it builds, so `?v=2` fetches `editor-dev.js?v=2` as well and the two can
-> never fall out of sync — provided you remembered to copy the new `editor-dev.js` across.
+> editor URL it builds, and the editor onto its language file's, so `?v=2` fetches
+> `editor-dev.js?v=2` and `editor-dev-de.js?v=2` as well and none can fall out of sync —
+> provided you remembered to copy the new files across.
 
-> **Note:** The build system emits **two** files, and renames both depending on the build mode:
+> **Note:** The build system emits the card, the editor and the editor's language files, and
+> renames all of them depending on the build mode:
 >
-> - Development build (`npm run dev`): `calendar-card-pro-dev.js` + `editor-dev.js`
-> - Production build (`npm run build`): `calendar-card-pro.js` + `editor.js`
+> - Development build (`npm run dev`): `calendar-card-pro-dev.js` + `editor-dev.js` +
+>   `editor-dev-<code>.js`
+> - Production build (`npm run build`): `calendar-card-pro.js` + `editor.js` +
+>   `editor-<code>.js`
 >
 > This naming convention allows both development and production versions to coexist in the same Home Assistant directory, making it easier to test changes alongside the stable version installed via HACS. The Home Assistant card element name also includes the `-dev` suffix in development mode, ensuring there's no conflict between versions.
 

@@ -205,28 +205,29 @@ jobs:
       - name: Verify bundle integrity
         run: npm run check:bundle
 
-      # The stamp has to reach both files, or the card would warn about a stale editor on
-      # every open, so read it back out of the built output rather than trusting the step
-      # that wrote it.
+      # The stamp has to reach every file, or the card would warn about a stale editor on
+      # every open and the editor would refuse its language files and show English, so read
+      # it back out of the built output rather than trusting the step that wrote it.
       - name: Verify beta version in bundle
         if: steps.tag.outputs.kind == 'beta'
         env:
           BETA_VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          for FILE in dist/calendar-card-pro.js dist/editor.js; do
+          for FILE in dist/*.js; do
             if ! grep -qF "\"${BETA_VERSION}\"" "${FILE}"; then
               echo "::error::${FILE} does not carry the version string \"${BETA_VERSION}\"."
               exit 1
             fi
           done
-          if grep -qF '"vPLACEHOLDER"' dist/calendar-card-pro.js dist/editor.js; then
+          if grep -qF '"vPLACEHOLDER"' dist/*.js; then
             echo "::error::A version placeholder survived into the bundle."
             exit 1
           fi
-          echo "Both files carry ${BETA_VERSION}."
+          echo "Every file carries ${BETA_VERSION}."
 
-      # Assets are deliberately just the two .js files, and this is a constraint rather
-      # than a preference: HACS downloads *every* asset attached to a release. Its
+      # Assets are deliberately just the .js files the build emits (the card, the editor and
+      # one file per editor language), and this is a constraint rather than a preference:
+      # HACS downloads *every* asset attached to a release. Its
       # gather_files_to_download() appends the whole asset list and returns before any
       # filtering — `filename` in hacs.json only selects which of them becomes the
       # Lovelace resource, and there is no exclude option anywhere in the manifest
@@ -253,7 +254,8 @@ jobs:
       #
       # dist/*.js deliberately, not dist/* — the glob does not match *.js.map, so the
       # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this. It
-      # matches exactly two files, and `check:bundle` above has already asserted that.
+      # matches exactly the card, the editor and its language files, and `check:bundle` above
+      # has already asserted that set.
       - name: Release
         if: steps.tag.outputs.kind == 'stable'
         uses: softprops/action-gh-release@v3
@@ -263,7 +265,8 @@ jobs:
           files: |
             dist/*.js
 
-      # The same two assets, named rather than globbed, as a draft marked prerelease. The
+      # The same assets as a draft marked prerelease, the card and the editor named so a missing
+      # one fails the job, and the language files by the glob `check:bundle` checked. The
       # Marketplace never shows a draft, and shows a published prerelease only to users who
       # included pre-releases for this repository; `make_latest: false` keeps
       # releases/latest, which the installation docs link, on the stable release.
@@ -279,3 +282,4 @@ jobs:
           files: |
             dist/calendar-card-pro.js
             dist/editor.js
+            dist/editor-*.js
