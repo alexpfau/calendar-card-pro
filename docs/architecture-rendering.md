@@ -27,7 +27,7 @@ each renderer.
 - **`month.ts`** draws six week rows of seven days: Grid's banner as a bar across each all-day or
   multi-day event's days, and each timed event as one line. Which line each takes, and what a day
   hides behind "+N more", is `utils/month-layout.ts`, from the lines the card measures fit under a
-  date. Below `month → min_day_width` a day, it draws the compact form instead: each day a number
+  date. Below `month → min_day_width` a day, it draws the narrow form instead: each day a number
   and a capsule of up to four segments, and under the weeks the selected day's list. A day's list,
   there and in the panel "+N more" opens (`day-panel.ts`), is List's rows from one day model,
   `utils/month-day.ts`, which groups the card's filtered source events rather than the grid's
@@ -38,8 +38,8 @@ each renderer.
   day's real rows and its "+N more" out of sight beside the list (`renderListStaging`), measures
   them and the room (`MonthListFit.measureMonthList`), and draws as many rows as fit with "+N more" for the
   rest (`utils/month-list-fit.ts`, `_syncMonthListFit`); until it has, the list draws "+N more"
-  alone. A compact month with no height under a cap grows with its list instead
-  (`monthCompactGrows`). A month is one height
+  alone. A narrow month with no height under a cap grows with its list instead
+  (`monthNarrowGrows`). A month is one height
   before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
   the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
   writes on `ha-card` (`monthCardStyle`). Unset, both are the same pair, taller where the

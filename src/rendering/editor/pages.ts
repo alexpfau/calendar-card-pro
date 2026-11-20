@@ -571,11 +571,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
           // Grid's height, set per hour, beside the Height a fixed one replaces.
           ['layout:time_grid.hour_height', A],
           // Month's own, in the Height's place, which it does not read: the whole card, wide then
-          // compact, each height before its cap.
+          // narrow, each height before its cap.
           ['layout:month.card_height', A],
           ['layout:month.card_max_height', A],
-          ['layout:month.compact_card_height', A],
-          ['layout:month.compact_card_max_height', A],
+          ['layout:month.narrow_card_height', A],
+          ['layout:month.narrow_card_max_height', A],
           ['layout:additional_card_spacing', A],
           ['layout:event_gap', A],
           ['layout:event_spacing', A],

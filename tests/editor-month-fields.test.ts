@@ -40,17 +40,17 @@ const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> 
     '60rem',
   ],
   [
-    'layout:month.compact_card_height',
+    'layout:month.narrow_card_height',
     'size_spacing',
     'heading_card_size',
-    'Compact Card Height',
+    'Narrow Card Height',
     '30rem',
   ],
   [
-    'layout:month.compact_card_max_height',
+    'layout:month.narrow_card_max_height',
     'size_spacing',
     'heading_card_size',
-    'Compact Maximum Height',
+    'Narrow Maximum Height',
     '40rem',
   ],
   [
@@ -176,8 +176,8 @@ describe('Month’s own settings in the editor', () => {
     );
     expect(helpers['layout:month.card_height']).toMatch(/632px, or 760px with the toolbar/);
     expect(helpers['layout:month.card_height']).toMatch(/Layout tab/);
-    expect(helpers['layout:month.compact_card_height']).toMatch(/632px, or 760px with the toolbar/);
-    expect(helpers['layout:month.compact_card_max_height']).toMatch(/grows/);
+    expect(helpers['layout:month.narrow_card_height']).toMatch(/632px, or 760px with the toolbar/);
+    expect(helpers['layout:month.narrow_card_max_height']).toMatch(/grows/);
     expect(helpers['layout:month.today_background_color']).toMatch(/replaces/);
     expect(helpers['layout:month.cell_event_font_size']).toMatch(/Event Font Size/);
     expect(helpers['layout:month.cell_time_font_size']).toMatch(/Time Font Size/);
@@ -186,7 +186,7 @@ describe('Month’s own settings in the editor', () => {
     editor.remove();
   });
 
-  it.each(['layout:month.card_height', 'layout:month.compact_card_height'] as const)(
+  it.each(['layout:month.card_height', 'layout:month.narrow_card_height'] as const)(
     'holds %s while it is typed, and writes it once it is a length',
     async (id) => {
       const editor = await monthEditor();
@@ -211,12 +211,12 @@ describe('Month’s own settings in the editor', () => {
     const editor = await monthEditor({
       ...CARD,
       height: '300px',
-      month: { card_height: '50rem', compact_card_max_height: '40rem' },
+      month: { card_height: '50rem', narrow_card_max_height: '40rem' },
     });
     await changeField(editor, 'layout:month.cell_time_font_size', '11px');
     expect(stored(editor).month).toEqual({
       card_height: '50rem',
-      compact_card_max_height: '40rem',
+      narrow_card_max_height: '40rem',
       cell_time_font_size: '11px',
     });
     expect(stored(editor).height).toBe('300px');

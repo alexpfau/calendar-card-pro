@@ -2,7 +2,7 @@
  * A month day as a list, and the state a narrow month keeps around it.
  *
  * One model of "this day's events" serves every place a month lists a day: the panel "+N more"
- * opens on a wide card, and the list under a compact card's grid, whose capsules count from it
+ * opens on a wide card, and the list under a narrow card's grid, whose capsules count from it
  * too. It groups the card's filtered source events, never the month grid's display copies, the
  * way List groups them, so its rows are List's rows: all-day events first, then timed ones by
  * start, a multi-day event as the part of it that day holds. It keeps List's per-event rules
@@ -12,7 +12,7 @@
  * split, whatever `split_multiday_events` says on the card or a calendar, so the list of a day
  * holds exactly the events the grid draws across it.
  *
- * The compact form and the selected day are decided here too, from numbers alone, so both are
+ * The narrow form and the selected day are decided here too, from numbers alone, so both are
  * tested without a layout engine.
  */
 
@@ -35,11 +35,11 @@ const rowsConfigs = [
 
 /**
  * The configuration a month's day rows are drawn with, in the panel "+N more" opens and under a
- * compact month's weeks: Month's own, with each row's time beside its title whatever
+ * narrow month's weeks: Month's own, with each row's time beside its title whatever
  * `time_position` says, as a phone's day list sets it. A row is then a line shorter, so more of a
  * day fits where the list is short of room, and the times line up at the row's end.
  *
- * The list under a compact month's weeks keeps every part of a row to one line besides: the title
+ * The list under a narrow month's weeks keeps every part of a row to one line besides: the title
  * beside its time, ending in "…" where it is too long, the time, the location, the description and
  * the forecast. So a row is as tall wherever it is drawn, and the card can fit the day's rows to the
  * list's room by measuring them once (`MonthListFit.fitMonthList`).
@@ -48,7 +48,7 @@ const rowsConfigs = [
  * one.
  *
  * @param config - Card configuration, resolved for month
- * @param oneLine - Whether every part of a row keeps to one line, as under a compact month's weeks
+ * @param oneLine - Whether every part of a row keeps to one line, as under a narrow month's weeks
  * @returns The configuration the rows are drawn with
  */
 export function monthRowsConfig(config: Types.Config, oneLine = false): Types.Config {
@@ -183,7 +183,7 @@ export function monthDayLists(
 }
 
 /**
- * One day's events, as a month lists them: the day panel's and the compact day list's rows.
+ * One day's events, as a month lists them: the day panel's and the narrow day list's rows.
  *
  * @param events - The card's source events, without the calendars it does not show
  * @param config - Card configuration, resolved for month
@@ -203,12 +203,12 @@ export function monthDayEvents(
 }
 
 //-----------------------------------------------------------------------------
-// THE COMPACT FORM
+// THE NARROW FORM
 //-----------------------------------------------------------------------------
 
 /**
  * How wide a month's day is on a card this wide: what the card's border and padding leave, less
- * the week numbers' gutter where they are drawn, in seven. The gutter is the compact form's in
+ * the week numbers' gutter where they are drawn, in seven. The gutter is the narrow form's in
  * either form, so the answer depends on the card and its configuration alone.
  *
  * @param cardWidth - The card's width, in CSS pixels
@@ -221,21 +221,17 @@ export function monthDayWidth(cardWidth: number, weekNumbers: boolean): number {
 }
 
 /**
- * Whether a month draws its compact form: below `min_day_width` a day, and once compact, until
- * a day is `MONTH_COMPACT_HYSTERESIS` wider than that, so a card resting at the threshold keeps
+ * Whether a month draws its narrow form: below `min_day_width` a day, and once narrow, until
+ * a day is `MONTH_NARROW_HYSTERESIS` wider than that, so a card resting at the threshold keeps
  * one form.
  *
  * @param dayWidth - A day's width (`monthDayWidth`)
  * @param minDayWidth - `month → min_day_width`
- * @param wasCompact - Whether the month is compact now
- * @returns True for the compact form
+ * @param wasNarrow - Whether the month is narrow now
+ * @returns True for the narrow form
  */
-export function monthCompactAt(
-  dayWidth: number,
-  minDayWidth: number,
-  wasCompact: boolean,
-): boolean {
-  const band = wasCompact ? Constants.UI.MONTH_COMPACT_HYSTERESIS : 0;
+export function monthNarrowAt(dayWidth: number, minDayWidth: number, wasNarrow: boolean): boolean {
+  const band = wasNarrow ? Constants.UI.MONTH_NARROW_HYSTERESIS : 0;
   return dayWidth < minDayWidth + band;
 }
 
@@ -247,7 +243,7 @@ export function monthCompactAt(
 export const SELECTED_TODAY = 'today';
 
 /**
- * A day someone selected on a compact month: the page it was selected on, and the day, or
+ * A day someone selected on a narrow month: the page it was selected on, and the day, or
  * `SELECTED_TODAY` where it was today, so it follows today past midnight.
  */
 export interface MonthSelection {
@@ -294,7 +290,7 @@ export function selectionOnPage(
 }
 
 /**
- * The day a compact month shows the list of: the one selected on this page while it is one of
+ * The day a narrow month shows the list of: the one selected on this page while it is one of
  * the page's days, else the page's own, `defaultMonthDay` unless the card names another.
  *
  * @param selection - The day selected, if any

@@ -478,11 +478,11 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:card_max_height W SLCG',
       // Grid's own height, beside the Height it yields to.
       'layout:time_grid.hour_height A G',
-      // Month's own, in the Height's place: the whole card, wide then compact.
+      // Month's own, in the Height's place: the whole card, wide then narrow.
       'layout:month.card_height A M',
       'layout:month.card_max_height A M',
-      'layout:month.compact_card_height A M',
-      'layout:month.compact_card_max_height A M',
+      'layout:month.narrow_card_height A M',
+      'layout:month.narrow_card_max_height A M',
       'layout:additional_card_spacing A',
       'layout:event_gap A SLCM',
       'layout:event_spacing A SLCM',
@@ -518,7 +518,7 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.min_days_fallback F G',
     ],
   ],
-  // How narrow Month's days may get before it turns compact, beside the same question for Columns
+  // How narrow Month's days may get before it turns narrow, beside the same question for Columns
   // and Grid; one field, so no family.
   ['Size & Spacing', 'Month Density', '', ['layout:month.min_day_width A M']],
   [

@@ -1417,7 +1417,7 @@ the complete exception lists.
 
 Each block also holds the options only that layout has — the compact caps and date-cell
 settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`, the card's
-heights, compact width and week scrolling in `month:`. Those have no shared meaning, so the visual
+heights, the day width it turns narrow at and week scrolling in `month:`. Those have no shared meaning, so the visual
 editor does not offer them under Layout Defaults.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores

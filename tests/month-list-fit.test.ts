@@ -1,8 +1,8 @@
 /**
- * How many of a day's events a compact month's list draws in its room
+ * How many of a day's events a narrow month's list draws in its room
  * (`utils/month-list-fit.ts`), from measured numbers alone: where each row ends, "+N more"'s
  * height, the gap before it and the room. The card's side, measuring them off the staged rows, is
- * in `month-compact.test.ts`; how the measuring reads a scale an ancestor draws the card at is
+ * in `month-narrow.test.ts`; how the measuring reads a scale an ancestor draws the card at is
  * here, on boxes laid out by hand.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -107,7 +107,7 @@ interface Scale {
 const usedHeights = new WeakMap<Element, number>();
 
 /**
- * A compact month's card laid out by hand, in layout pixels before the scale: a 343px card 600px
+ * A narrow month's card laid out by hand, in layout pixels before the scale: a 343px card 600px
  * tall under a 640px cap, its list's 44px header over a rows' box 100px tall, and nine staged rows
  * 40px tall and 6px apart with a 28px "+N more" 6px under them. Every box is scaled as a browser
  * reports it; `offsetWidth` and `offsetHeight` are not, and round, and a box's used height is

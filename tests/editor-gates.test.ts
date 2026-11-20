@@ -139,8 +139,8 @@ const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners']
 const MONTH_ONLY = [
   'layout:month.card_height',
   'layout:month.card_max_height',
-  'layout:month.compact_card_height',
-  'layout:month.compact_card_max_height',
+  'layout:month.narrow_card_height',
+  'layout:month.narrow_card_max_height',
   'layout:month.weekend_background_color',
   'layout:month.today_background_color',
   'layout:month.cell_event_font_size',

@@ -798,9 +798,9 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
 }
 
 /**
- * A month in both its forms: wide, then compact with the list of a day that has events under
+ * A month in both its forms: wide, then narrow with the list of a day that has events under
  * it, keeping room for fewer than that day holds so it ends in "+N more" beside its hidden probe,
- * then the list of a day with none, so the compact form's and the day list's sizes are reached in
+ * then the list of a day with none, so the narrow form's and the day list's sizes are reached in
  * every pass a month draws.
  */
 function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
@@ -817,7 +817,7 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
   );
   return html`${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null)}
   ${Render.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null, false, {
-    compact: {
+    narrow: {
       selected: Paging.addDays(rowsStart, busiest),
       dayLists,
       weatherForecasts: WEATHER,

@@ -4,7 +4,7 @@
  * The map names the card's own class names, so a markup change could break a pick without a
  * word: a renamed part would fall through to whatever holds it, and the outline would then name
  * the wrong page. This file renders the real card in List, Columns, Grid and Month, Month both wide
- * and in the compact form a narrow card draws, with every part the map names turned on, and holds
+ * and in the narrow form a narrow card draws, with every part the map names turned on, and holds
  * the map in both directions:
  *
  * - every selector in the map matches something in at least one layout, so a stale entry fails
@@ -131,7 +131,7 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
  *
  * @param view - The layout
  * @param width - A card width to report, as the resize observer would: a narrow one turns a
- *   month compact
+ *   month narrow
  * @param overrides - Options laid over the layout's configuration
  * @returns The card
  */
@@ -224,7 +224,7 @@ describe('Pick From Preview part map', () => {
     const absorbed = new Set<string>();
     let elements = 0;
     // List twice: with week numbers off it draws the plain week rule instead of the week row.
-    // Month twice: at a phone's width it draws its compact form and the chosen day's list.
+    // Month twice: at a phone's width it draws its narrow form and the chosen day's list.
     const layouts: ReadonlyArray<{
       view: Types.EffectiveView;
       width?: number;
@@ -256,7 +256,7 @@ describe('Pick From Preview part map', () => {
         const entry = part && entryOf(part.element);
         const name = [element.localName, ...element.classList].join('.');
         if (entry === undefined || PICK_CATCH_ALLS.has(entry.group)) {
-          unmapped.push(`${view}${width === undefined ? '' : ' compact'}: ${name}`);
+          unmapped.push(`${view}${width === undefined ? '' : ' narrow'}: ${name}`);
         } else if (part!.element !== element) {
           absorbed.add(`${entry.selector} ⊃ ${name}`);
         }
@@ -317,13 +317,13 @@ describe('Pick From Preview part map', () => {
       '.legend-menu ⊃ span.legend-menu-surface',
       '.location ⊃ ha-icon',
       '.location ⊃ span',
-      '.month-compact-marks ⊃ span.month-compact-mark',
       '.month-container ⊃ div.month-probe',
       '.month-date ⊃ span.day',
       '.month-date ⊃ span.month-date-month',
       '.month-day-list-date ⊃ span.month-day-list-form',
       '.month-day-list-date ⊃ span.month-day-list-name',
       '.month-day-list-date ⊃ span.month-day-list-rest',
+      '.month-narrow-marks ⊃ span.month-narrow-mark',
       '.month-separator ⊃ div.month-separator-line',
       '.month-separator ⊃ span.month-separator-label',
       '.month-weekdays ⊃ div.month-weekday',
@@ -367,7 +367,7 @@ describe('Pick From Preview part map', () => {
       }
     }
     // The parts that name their setting: the switcher, Layouts in Switcher; Grid's own parts,
-    // each at the setting it is, where its topic keeps it; and a compact month's day list, Events
+    // each at the setting it is, where its topic keeps it; and a narrow month's day list, Events
     // in Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
@@ -382,7 +382,7 @@ describe('Pick From Preview part map', () => {
       '.grid-weekend layout:time_grid.weekend_background_color',
       '.grid-today layout:time_grid.today_background_color',
       '.grid-day-body layout:time_grid.hour_height',
-      '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.compact_card_height',
+      '.month-day-list-more, .month-day-list-rows, .month-day-list layout:month.narrow_card_height',
     ]);
   });
 

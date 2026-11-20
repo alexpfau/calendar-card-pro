@@ -208,7 +208,7 @@ const cellDay = (cell: Element): string =>
   key(new Date((cell as unknown as { calendarCardMonthCell: number }).calendarCardMonthCell));
 
 /**
- * What the card shows: for a month its heading and its six weeks, and on the compact form the
+ * What the card shows: for a month its heading and its six weeks, and on the narrow form the
  * day its list names; for any other layout its first and last day, from the days it stamps.
  */
 function shown(card: CardUnderTest): {
@@ -235,9 +235,9 @@ function shown(card: CardUnderTest): {
   return { days: [key(new Date(sorted[0])), key(new Date(sorted[sorted.length - 1]))] };
 }
 
-/** Taps a day of a compact month, by its date, as a user selects it. */
+/** Taps a day of a narrow month, by its date, as a user selects it. */
 async function select(card: CardUnderTest, date: string): Promise<void> {
-  const cell = [...root(card).querySelectorAll('.month-compact .month-day')].find(
+  const cell = [...root(card).querySelectorAll('.month-narrow .month-day')].find(
     (each) => cellDay(each) === date,
   ) as HTMLElement;
   cell.click();
@@ -318,12 +318,12 @@ describe('a page of List, Columns or Grid, switched to Month', () => {
     }
   });
 
-  it('selects the page’s first day, on a compact month and as the wide month’s tab stop', async () => {
-    const compact = await mount({ view: 'list' }, 360);
-    await press(compact, 'next');
-    await press(compact, 'next');
-    await switchTo(compact, 'month');
-    expect(shown(compact)).toMatchObject({
+  it('selects the page’s first day, on a narrow month and as the wide month’s tab stop', async () => {
+    const narrow = await mount({ view: 'list' }, 360);
+    await press(narrow, 'next');
+    await press(narrow, 'next');
+    await switchTo(narrow, 'month');
+    expect(shown(narrow)).toMatchObject({
       heading: 'December 2026',
       listed: expect.stringContaining('December 2'),
     });
@@ -353,7 +353,7 @@ describe('a page of List, Columns or Grid, switched to Month', () => {
 });
 
 describe('Month, switched to another layout', () => {
-  it('carries the day selected on a compact month, and selects it again on the way back', async () => {
+  it('carries the day selected on a narrow month, and selects it again on the way back', async () => {
     const card = await mount({ view: 'month' }, 360);
     await select(card, '2026-11-25');
     await switchTo(card, 'list');
@@ -554,7 +554,7 @@ describe('a carry that lands on a layout’s home', () => {
     expect(shown(card).days).toEqual(['2026-11-18', '2026-11-18']);
   });
 
-  it('carries a day tapped on a compact month, even the one it selects by itself', async () => {
+  it('carries a day tapped on a narrow month, even the one it selects by itself', async () => {
     // Tomorrow: Month selects today by itself, and List's home starts on 19 November.
     const card = await mount({ view: 'month', start_date: 'today+1' }, 360);
     await select(card, '2026-11-18');

@@ -1093,12 +1093,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The whole card, title and toolbar included: auto is 632px, or 760px with the toolbar, and ' +
     'rows set in a Sections dashboard’s Layout tab win over it.',
   'month.card_max_height': 'Month Maximum Height',
-  'month.compact_card_height': 'Compact Card Height',
-  'month.compact_card_height.helper':
+  'month.narrow_card_height': 'Narrow Card Height',
+  'month.narrow_card_height.helper':
     'auto is 632px, or 760px with the toolbar, as in the wide month.',
-  'month.compact_card_max_height': 'Compact Maximum Height',
-  'month.compact_card_max_height.helper':
-    'With Compact Card Height at auto, the card grows with the day’s list up to this.',
+  'month.narrow_card_max_height': 'Narrow Maximum Height',
+  'month.narrow_card_max_height.helper':
+    'With Narrow Card Height at auto, the card grows with the day’s list up to this.',
   'month.weekend_background_color': 'Weekend Shading',
   'month.weekend_background_color.helper':
     'Any CSS color, or transparent for none; weekend days follow the country set in Home Assistant.',

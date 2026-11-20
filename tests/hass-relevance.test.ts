@@ -412,7 +412,7 @@ async function recordReads(config: Record<string, unknown>, forecast = false, wi
 
   const card = await mount(config, hass);
   if (width !== undefined) {
-    // The width a resize observer would report, for a month's compact form.
+    // The width a resize observer would report, for a month's narrow form.
     (card as unknown as { _syncMonthForm(width: number): boolean })._syncMonthForm(width);
     card.requestUpdate();
     await card.updateComplete;
@@ -553,7 +553,7 @@ describe('reconciliation: the rule watches everything the card reads', () => {
     expect([...keys].filter((key) => !Object.keys(hass).includes(key))).toEqual([]);
   });
 
-  it('compact month, every feature: its days and the selected day’s list', async () => {
+  it('narrow month, every feature: its days and the selected day’s list', async () => {
     // Laid out, so the list draws its rows, which nothing here would otherwise fit to its room.
     const unlayOut = layOutMonthList({ room: 1000 });
     try {
@@ -562,7 +562,7 @@ describe('reconciliation: the rule watches everything the card reads', () => {
         true,
         375,
       );
-      expect(card.shadowRoot!.querySelector('.month-compact')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.month-narrow')).not.toBeNull();
       expect(card.shadowRoot!.querySelectorAll('.month-day-list td.event').length).toBeGreaterThan(
         0,
       );

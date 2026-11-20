@@ -515,7 +515,7 @@ export function findDayAdd(
 }
 
 /**
- * A compact month's day, which a tap selects rather than adds on: the recognizer reads the day
+ * A narrow month's day, which a tap selects rather than adds on: the recognizer reads the day
  * off it as it reads an event's tap target, so a swipe that starts on it still pages. The
  * property names its day.
  */
@@ -524,7 +524,7 @@ export interface MonthPickElement extends Element {
 }
 
 /**
- * The compact month day an input event started on: the element, and its day.
+ * The narrow month day an input event started on: the element, and its day.
  *
  * @param path - The input event's composed path, innermost first
  * @param boundary - Where the walk ends, exclusive

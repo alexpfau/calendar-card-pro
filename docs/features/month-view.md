@@ -38,7 +38,7 @@ today, and `start_date: 2027-01-15` opens January 2027.
   carries its month's name, such as "1 Dec".
 - **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), filled with
   `today_indicator_color` and its number in white by default, so it stands out among the events,
-  as a [compact month](#the-compact-month) draws it while today is the selected day.
+  as a [narrow month](#the-narrow-month) draws it while today is the selected day.
   `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
   tile and none. Past days are dimmed. Past events are shown
   by default in month view; see
@@ -53,12 +53,12 @@ while that month is today's, and otherwise by the month it goes to, such as "Jan
 
 - **Switching layouts keeps your place.** The date in view goes along. Into Month, the month
   holding the other layout's first day opens with that day selected. Out of Month, List, Columns
-  and Grid start on the day selected on a [compact month](#the-compact-month), else on today
+  and Grid start on the day selected on a [narrow month](#the-narrow-month), else on today
   where the month shows it, else on the month's 1st. From home, with no day selected, each layout
   opens on its own home, and the home button returns each one there. Paging back to the month the
   card opens with is home again.
 - **Search** pages to the month of the event you pick, and opens the day's list where the
-  event is behind "+N more", or selects its day on a [compact month](#the-compact-month).
+  event is behind "+N more", or selects its day on a [narrow month](#the-narrow-month).
 
 ## 🟦 Bars & Lines
 
@@ -121,21 +121,21 @@ month:
 ```
 
 ```yaml
-# A phone: the compact month grows with the day's list, up to 40rem
+# A phone: the narrow month grows with the day's list, up to 40rem
 view: month
 month:
-  compact_card_max_height: 40rem
+  narrow_card_max_height: 40rem
 ```
 
-| Option                            | Type   | Default           | Description                                                                                                                                      |
-| --------------------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `month → card_height`             | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `632px`, `760px` with the toolbar                  |
-| `month → card_max_height`         | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                                                    |
-| `month → compact_card_height`     | string | `card_height`     | The same for the [compact month](#the-compact-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's |
-| `month → compact_card_max_height` | string | `card_max_height` | The same cap for the compact month; with its height `auto`, the card grows with the day's list up to it                                          |
+| Option                           | Type   | Default           | Description                                                                                                                                    |
+| -------------------------------- | ------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `month → card_height`            | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `632px`, `760px` with the toolbar                |
+| `month → card_max_height`        | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                                                  |
+| `month → narrow_card_height`     | string | `card_height`     | The same for the [narrow month](#the-narrow-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's |
+| `month → narrow_card_max_height` | string | `card_max_height` | The same cap for the narrow month; with its height `auto`, the card grows with the day's list up to it                                         |
 
-In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Compact Card
-Height** and **Compact Maximum Height** on Month's Size & Spacing.
+In the visual editor these are **Month Card Height**, **Month Maximum Height**, **Narrow Card
+Height** and **Narrow Maximum Height** on Month's Size & Spacing.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks. The default makes room for the toolbar, so a day keeps its four lines with
@@ -150,9 +150,9 @@ Height** and **Compact Maximum Height** on Month's Size & Spacing.
   one does, the card sizes itself, and rows chosen in the dashboard's Layout tab always win, the
   four then doing nothing. A card that opens as a month keeps its rows when you switch it to
   another layout, which scrolls within them.
-- **The compact month follows the wide one** until its own two are set, and an explicit `auto` or
+- **The narrow month follows the wide one** until its own two are set, and an explicit `auto` or
   `none` there gives it its own default back.
-- **A maximum lets the compact month grow.** With its height `auto` and a maximum from either
+- **A maximum lets the narrow month grow.** With its height `auto` and a maximum from either
   key, the card is as tall as its weeks and [the day's list](#the-days-list), up to the maximum,
   so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
   the wide month at it.
@@ -180,7 +180,7 @@ month:
 
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
 opens the day in a panel: every event that day, drawn as in [the day's list](#the-days-list) of a
-compact month, with their times, locations and the other details the card shows. A press on an
+narrow month, with their times, locations and the other details the card shows. A press on an
 event there closes the panel and does what a press on it in the month would.
 
 ::: details Limits the Day's List Ignores
@@ -188,10 +188,10 @@ The list shows the whole day whatever the list layout's own limits say: `skip_fi
 the compact limits, `event_order` and `show_empty_days` shape a list card, not a day.
 :::
 
-## 📱 The Compact Month
+## 📱 The Narrow Month
 
-On a narrow card, a phone's, a day is too narrow for titles, so the month draws its compact
-form: under each day's number a small capsule with a segment per event in its calendar's color,
+Where a day is too narrow for titles, as on a phone, the month draws its narrow form:
+under each day's number a small capsule with a segment per event in its calendar's color,
 up to four, or a dot for a single event, and the events of the day you choose listed under the
 weeks.
 
@@ -201,12 +201,12 @@ month:
   min_day_width: 60 # stay wide down to narrower days
 ```
 
-| Option                  | Type   | Default | Description                                                                        |
-| ----------------------- | ------ | ------- | ---------------------------------------------------------------------------------- |
-| `month → min_day_width` | number | `80`    | Narrowest a day may be, in pixels, before the month draws its compact form instead |
+| Option                  | Type   | Default | Description                                                                       |
+| ----------------------- | ------ | ------- | --------------------------------------------------------------------------------- |
+| `month → min_day_width` | number | `80`    | Narrowest a day may be, in pixels, before the month draws its narrow form instead |
 
-At the defaults, a card narrower than about 600 pixels draws the compact form. It turns wide
-again only a little past the width it turned compact at, so a card on the edge does not flicker
+At the defaults, a card narrower than about 600 pixels draws the narrow form. It turns wide
+again only a little past the width it turned narrow at, so a card on the edge does not flicker
 between the two.
 
 - **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
@@ -225,12 +225,12 @@ The chosen day's events are listed under the weeks, in the room the weeks leave 
 list shows as many of the day's events as fit that room, in order, and "+N more" for the rest,
 which opens the day in a panel. The room is the same on every day, so the card stays one height as
 you tap from day to day and page from month to month. To let a busy day list more, give the
-compact month a maximum and no height, and it grows with the list up to that maximum:
+narrow month a maximum and no height, and it grows with the list up to that maximum:
 
 ```yaml
 view: month
 month:
-  compact_card_max_height: 40rem
+  narrow_card_max_height: 40rem
 ```
 
 See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maximum.
@@ -276,7 +276,7 @@ shows "No events".
 
 The month is one stop in the tab order. The arrow keys move a day or a week, Home and End go to
 the ends of the week, and Page Up and Page Down go to the month before or after the one shown, on
-the same date where it has one. Enter or Space opens the day's list in a panel, or on a compact
+the same date where it has one. Enter or Space opens the day's list in a panel, or on a narrow
 month selects the day. Each day is announced with its full date and how many events it holds.
 
 The events in a wide month's days are not stops of their own, so a busy month does not hold
@@ -285,7 +285,7 @@ hundreds of them; the day's list reaches each one.
 ## 🔢 Week Numbers
 
 `show_week_numbers` draws each week's number in the corner of its first day, or beside the row on
-a compact month, where the current week's stands out. As in List, the first row's number shows
+a narrow month, where the current week's stands out. As in List, the first row's number shows
 only with `show_current_week_number`. `week_number_color` and `week_number_font_size` apply;
 `week_number_background_color` does not, since the numbers are plain text.
 
@@ -310,7 +310,7 @@ month:
 In the visual editor they are **Weekend Shading** and **Today Shading** on Month's Days.
 
 - **The whole day is shaded**, under its date and its events, and on a
-  [compact month](#the-compact-month) its number and marks. Days of the months either side are
+  [narrow month](#the-narrow-month) its number and marks. Days of the months either side are
   shaded too; the weekday names, the day's list and the panel are not.
 - **Keep both faint**, since event text sits on top. Today's tile, the selected day's mark and the
   keyboard's focus ring stay above the shade.
@@ -338,14 +338,14 @@ month:
   day_font_size: 18px
 ```
 
-| Option                         | Type   | Default  | Description                                                                                    |
-| ------------------------------ | ------ | -------- | ---------------------------------------------------------------------------------------------- |
-| `month → cell_event_font_size` | string | `12px`   | A line's title and calendar label, a bar's title, and a day's "+N more", in the wide month     |
-| `month → cell_time_font_size`  | string | `10px`   | A line's time, and a bar's times and length, in the wide month                                 |
-| `day_font_size`                | string | `16px`   | Each day's number, in both forms; Month's own default, which only `month:` changes             |
-| `weekday_font_size`            | string | `16px`   | The weekday names over the columns and a day list's heading; Month's own default               |
-| `week_number_font_size`        | string | `13.5px` | The week numbers, in the first day's corner or the compact month's gutter; Month's own default |
-| `month_font_size`              | string | `16px`   | The month named beside the number on a 1st, at the number's size; Month's own default          |
+| Option                         | Type   | Default  | Description                                                                                   |
+| ------------------------------ | ------ | -------- | --------------------------------------------------------------------------------------------- |
+| `month → cell_event_font_size` | string | `12px`   | A line's title and calendar label, a bar's title, and a day's "+N more", in the wide month    |
+| `month → cell_time_font_size`  | string | `10px`   | A line's time, and a bar's times and length, in the wide month                                |
+| `day_font_size`                | string | `16px`   | Each day's number, in both forms; Month's own default, which only `month:` changes            |
+| `weekday_font_size`            | string | `16px`   | The weekday names over the columns and a day list's heading; Month's own default              |
+| `week_number_font_size`        | string | `13.5px` | The week numbers, in the first day's corner or the narrow month's gutter; Month's own default |
+| `month_font_size`              | string | `16px`   | The month named beside the number on a 1st, at the number's size; Month's own default         |
 
 In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
 Days** on Month's Event Appearance, beside the sizes a day's list takes.

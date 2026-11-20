@@ -328,7 +328,7 @@ export const MONTH_IGNORED_SHARED_KEYS = [
  * its `month:` block or a calendar says (`Types.MonthPinnedKeys`). A day's list and the panel
  * "+N more" opens draw an event's title, time, location and forecast; its description, countdown,
  * progress bar and all-day badge are the event details' to show. Every part takes one line under
- * a compact month's weeks (`MonthDay.monthRowsConfig`) and runs in full in the panel, so no line
+ * a narrow month's weeks (`MonthDay.monthRowsConfig`) and runs in full in the panel, so no line
  * limit and no alignment of the icons beside several lines is left to set.
  *
  * Applied last by both resolvers (`resolveEffectiveConfig`, `resolveViewOption`), so the month's
@@ -396,15 +396,15 @@ export const MONTH_OVERRIDE_KEYS = [
 ] as const;
 
 /**
- * Month-only options: the whole card's height and its cap, wide and compact, the day width below
- * which the compact form draws, the weekend's and today's tints, which are Grid's, and the font
+ * Month-only options: the whole card's height and its cap, wide and narrow, the day width below
+ * which the narrow form draws, the weekend's and today's tints, which are Grid's, and the font
  * sizes of the wide month's days.
  */
 export const MONTH_ONLY_KEYS = [
   'card_height',
   'card_max_height',
-  'compact_card_height',
-  'compact_card_max_height',
+  'narrow_card_height',
+  'narrow_card_max_height',
   'min_day_width',
   'weekend_background_color',
   'today_background_color',
@@ -540,7 +540,7 @@ export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
  *
  * Month draws its cells from its own rows and lines, and an event's title, time, location and
  * forecast in its day list, which is List's rows with Month's options, in the panel "+N more"
- * opens and under a compact month's weeks. So an option a List row reads for those parts reaches
+ * opens and under a narrow month's weeks. So an option a List row reads for those parts reaches
  * Month too, unless it shapes the list as a whole, and the scopes below say so wherever they name
  * List and not Month. What Month draws around its events reads fewer: it sizes its card with its
  * own heights, rules its days itself, lists one day at a time and sets its dates at one scale on
@@ -587,7 +587,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   month_separator_width: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
   month_separator_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
-  // A month's week numbers are plain text, in a cell's corner or a compact form's gutter.
+  // A month's week numbers are plain text, in a cell's corner or a narrow form's gutter.
   week_number_background_color: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
   // A month sets its dates at one scale on every day, so the date line the card measures its
@@ -653,7 +653,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
 
   // What a month keeps at its shipped value (`MONTH_PINNED`): its rows draw an event's title,
-  // time, location and forecast, each on one line under a compact month's weeks and in full in
+  // time, location and forecast, each on one line under a narrow month's weeks and in full in
   // the panel, and leave the description, the countdown and the progress bar to the event's
   // details.
   show_description: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
@@ -698,7 +698,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // its neighbors belongs to the grid's own layout. Nothing in grid reads
   // --calendar-card-event-gap, and the class that draws the gap is only emitted by the list,
   // column and month renderers. A month draws it between the rows of a day's list, in the panel
-  // and under a compact month's weeks; its weeks' one-line entries sit on their lines.
+  // and under a narrow month's weeks; its weeks' one-line entries sit on their lines.
   event_gap: new Set<Types.EffectiveView>(['list', 'column', 'month']),
 
   // Grid neutralizes both of the option's clamp paths: the plain time span is blockified,
@@ -1246,15 +1246,15 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * Defaults for month-only options.
  *
  * `card_height` and `card_max_height` size the whole card in the wide form, its title, toolbar
- * and notices included: `auto` is the month's own default height and `none` no cap. The compact
- * form's two, `compact_card_height` and `compact_card_max_height`, have no default here: unset,
+ * and notices included: `auto` is the month's own default height and `none` no cap. The narrow
+ * form's two, `narrow_card_height` and `narrow_card_max_height`, have no default here: unset,
  * each takes its wide counterpart (`resolveMonthCardSize`).
  *
- * `min_day_width` is the day width below which the month draws its compact form. At the shipped
+ * `min_day_width` is the day width below which the month draws its narrow form. At the shipped
  * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
- * which reads worse than the compact form's list; from about 80px a title keeps a word or two,
- * so the compact form takes every card narrower than 594px, a phone's and a narrow column's,
- * and the wide one comes back from 622px (`UI.MONTH_COMPACT_HYSTERESIS`).
+ * which reads worse than the narrow form's list; from about 80px a title keeps a word or two,
+ * so the narrow form takes every card narrower than 594px, a phone's and a narrow column's,
+ * and the wide one comes back from 622px (`UI.MONTH_NARROW_HYSTERESIS`).
  *
  * The two tints are Grid's, read from {@link TIME_GRID_DEFAULTS} so the two layouts cannot ship
  * different ones: the weekend's a faint mix of the theme's text color, which darkens a light theme
@@ -1353,8 +1353,8 @@ export function resolveMonthOption<K extends keyof typeof MONTH_DEFAULTS>(
   return MONTH_DEFAULTS[key] as MonthOptionValue<K>;
 }
 
-/** The two forms a month draws: its weeks at full width, or the compact form with a day list. */
-export type MonthCardForm = 'wide' | 'compact';
+/** The two forms a month draws: its weeks at full width, or the narrow form with a day list. */
+export type MonthCardForm = 'wide' | 'narrow';
 
 /**
  * A month card's height and its cap in one form, as the configuration resolves them: `height` is
@@ -1369,11 +1369,11 @@ export interface MonthCardSize {
  * Resolves the height a month card is drawn at in one form, and its cap.
  *
  * The wide form reads `card_height` and `card_max_height`, each folded to `auto` or `none` where
- * unusable. The compact form reads `compact_card_height` and `compact_card_max_height`, each of
+ * unusable. The narrow form reads `narrow_card_height` and `narrow_card_max_height`, each of
  * which counts as set by being written in the `month:` block, so an explicit `auto` or `none`
  * keeps the wide value out; written as nothing or as something unusable, it is unset, and the
- * compact form takes the wide value. `auto` is left for the renderer, which draws it at the
- * month's own default and lets a compact list grow under a cap. Pure: the card's layout, a Sections
+ * narrow form takes the wide value. `auto` is left for the renderer, which draws it at the
+ * month's own default and lets a narrow list grow under a cap. Pure: the card's layout, a Sections
  * row count, is decided elsewhere and wins over both.
  *
  * @param config - Merged configuration, defaults already applied
@@ -1389,7 +1389,7 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
 
   const overrides = blockValues(config, 'month');
   const own = (
-    key: 'compact_card_height' | 'compact_card_max_height',
+    key: 'narrow_card_height' | 'narrow_card_max_height',
     valid: (value: unknown) => string | undefined,
   ): string | undefined =>
     overrides && hasOverride(overrides, key as keyof Types.ColumnOverrides)
@@ -1397,8 +1397,8 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
       : undefined;
 
   return {
-    height: own('compact_card_height', toValidCardHeight) ?? wide.height,
-    max: own('compact_card_max_height', toValidCardMaxHeight) ?? wide.max,
+    height: own('narrow_card_height', toValidCardHeight) ?? wide.height,
+    max: own('narrow_card_max_height', toValidCardMaxHeight) ?? wide.max,
   };
 }
 
@@ -1416,7 +1416,7 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
  * @returns `true` when either form resolves to a height or a maximum
  */
 export function monthSetsCardSize(config: Types.Config): boolean {
-  return (['wide', 'compact'] as const).some((form) => {
+  return (['wide', 'narrow'] as const).some((form) => {
     const { height, max } = resolveMonthCardSize(config, form);
     return height !== 'auto' || max !== 'none';
   });
@@ -2010,7 +2010,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  * behind today, as Grid keeps today's finished blocks on its axis.
  *
  * `event_gap` sets each event of a day's list apart, in the panel "+N more" opens and under a
- * compact month's weeks, each a rounded block with its own accent bar, as a phone's day list
+ * narrow month's weeks, each a rounded block with its own accent bar, as a phone's day list
  * draws its events. A list card keeps List's 0px, which joins a day's events into one block
  * beside its date; a month's list holds one day under its name, with nothing beside it to join
  * against, so its events read better apart.
@@ -2020,7 +2020,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
  * the title, since a day's number sits in its cell's corner over the lines rather than alone in a
  * list's 26px date column; `weekday_font_size` 16px, as the dates under them;
  * `week_number_font_size` 13.5px in the first day's corner; and `month_font_size` 16px, so a 1st's
- * month reads at its number's size, as one label. Both forms take the first three: the compact
+ * month reads at its number's size, as one label. Both forms take the first three: the narrow
  * form sets its numbers in boxes 1.75 times their size, and its day list's heading in the date's
  * size. Only the wide form draws a 1st's month.
  *
@@ -3493,7 +3493,7 @@ export function monthOpensToday(startDate: string | undefined): boolean {
  * layouts start on that day. Today, where `start_date` is unset, Tomorrow or Start of Week
  * (`monthOpensToday`).
  *
- * The day is also what a compact month selects at home, where `hide_when_empty` starts counting,
+ * The day is also what a narrow month selects at home, where `hide_when_empty` starts counting,
  * and what the add button suggests. The other layouts' windows are untouched; a card that can
  * show Month loads both as one span (`loadConfig`), so switching at home never fetches.
  *

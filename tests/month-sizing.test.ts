@@ -1,8 +1,8 @@
 /**
- * How tall a month is: the four `month:` keys that size the whole card, wide and compact, and
+ * How tall a month is: the four `month:` keys that size the whole card, wide and narrow, and
  * how each form resolves them.
  *
- * The wide keys stand alone, folded to `auto` and `none` where they are unusable. A compact key
+ * The wide keys stand alone, folded to `auto` and `none` where they are unusable. A narrow key
  * counts as set by being written in the block, so an explicit `auto` or `none` stops it taking
  * the wide one, and an absent or unusable one takes the wide one. A month asks a Sections
  * dashboard for its own rows until a form resolves to a height or a maximum, so a key written at
@@ -57,7 +57,7 @@ describe('the card size a month resolves', () => {
   it.each<Case>([
     ['nothing set', undefined, AUTO, AUTO],
     ['an empty block', {}, AUTO, AUTO],
-    // The compact form follows the wide one where it is not set.
+    // The narrow form follows the wide one where it is not set.
     [
       'the wide height alone',
       { card_height: '50rem' },
@@ -65,27 +65,27 @@ describe('the card size a month resolves', () => {
       { height: '50rem', max: 'none' },
     ],
     [
-      'the compact height alone',
-      { compact_card_height: '30rem' },
+      'the narrow height alone',
+      { narrow_card_height: '30rem' },
       AUTO,
       { height: '30rem', max: 'none' },
     ],
     [
       'both heights',
-      { card_height: '50rem', compact_card_height: '30rem' },
+      { card_height: '50rem', narrow_card_height: '30rem' },
       { height: '50rem', max: 'none' },
       { height: '30rem', max: 'none' },
     ],
-    // Written, so set: the compact form takes its own default rather than the wide height.
+    // Written, so set: the narrow form takes its own default rather than the wide height.
     [
-      'an explicit compact auto',
-      { card_height: '50rem', compact_card_height: 'auto' },
+      'an explicit narrow auto',
+      { card_height: '50rem', narrow_card_height: 'auto' },
       { height: '50rem', max: 'none' },
       AUTO,
     ],
     [
-      'an explicit compact none',
-      { card_max_height: '40rem', compact_card_max_height: 'none' },
+      'an explicit narrow none',
+      { card_max_height: '40rem', narrow_card_max_height: 'none' },
       { height: 'auto', max: '40rem' },
       AUTO,
     ],
@@ -97,14 +97,14 @@ describe('the card size a month resolves', () => {
       { height: 'auto', max: '40rem' },
     ],
     [
-      'the compact cap alone',
-      { compact_card_max_height: '40rem' },
+      'the narrow cap alone',
+      { narrow_card_max_height: '40rem' },
       AUTO,
       { height: 'auto', max: '40rem' },
     ],
     [
-      'a wide height under a compact cap',
-      { card_height: '50rem', compact_card_max_height: '40rem' },
+      'a wide height under a narrow cap',
+      { card_height: '50rem', narrow_card_max_height: '40rem' },
       { height: '50rem', max: 'none' },
       { height: '50rem', max: '40rem' },
     ],
@@ -120,8 +120,8 @@ describe('the card size a month resolves', () => {
       {
         card_height: 'calc(100dvh - var(--header-height, 56px))',
         card_max_height: 'NONE',
-        compact_card_height: ' Auto ',
-        compact_card_max_height: '90dvh',
+        narrow_card_height: ' Auto ',
+        narrow_card_max_height: '90dvh',
       },
       { height: 'calc(100dvh - var(--header-height, 56px))', max: 'none' },
       { height: 'auto', max: '90dvh' },
@@ -134,48 +134,48 @@ describe('the card size a month resolves', () => {
       AUTO,
       AUTO,
     ],
-    // Unusable means unset, so the compact form takes the wide value.
+    // Unusable means unset, so the narrow form takes the wide value.
     [
-      'unusable compact values',
+      'unusable narrow values',
       {
         card_height: '50rem',
         card_max_height: '60rem',
-        compact_card_height: '50%',
-        compact_card_max_height: 'big',
+        narrow_card_height: '50%',
+        narrow_card_max_height: 'big',
       },
       { height: '50rem', max: '60rem' },
       { height: '50rem', max: '60rem' },
     ],
     [
-      'blank compact values',
+      'blank narrow values',
       {
         card_height: '50rem',
         card_max_height: '60rem',
-        compact_card_height: null,
-        compact_card_max_height: '',
+        narrow_card_height: null,
+        narrow_card_max_height: '',
       } as unknown as Types.MonthOverrides,
       { height: '50rem', max: '60rem' },
       { height: '50rem', max: '60rem' },
     ],
     [
-      'compact keys written as undefined',
-      { card_height: '50rem', compact_card_height: undefined },
+      'narrow keys written as undefined',
+      { card_height: '50rem', narrow_card_height: undefined },
       { height: '50rem', max: 'none' },
       { height: '50rem', max: 'none' },
     ],
-  ])('%s', (_name, month, wide, compact) => {
+  ])('%s', (_name, month, wide, narrow) => {
     const config = buildConfig(month === undefined ? {} : { month });
     expect(ViewConfig.resolveMonthCardSize(config, 'wide')).toEqual(wide);
-    expect(ViewConfig.resolveMonthCardSize(config, 'compact')).toEqual(compact);
+    expect(ViewConfig.resolveMonthCardSize(config, 'narrow')).toEqual(narrow);
   });
 
   it('ignores the four keys anywhere but the month block', () => {
     const config = buildConfig({
       card_height: '50rem',
-      column: { compact_card_height: '30rem' },
+      column: { narrow_card_height: '30rem' },
     } as unknown as Partial<Types.Config>);
     expect(ViewConfig.resolveMonthCardSize(config, 'wide')).toEqual(AUTO);
-    expect(ViewConfig.resolveMonthCardSize(config, 'compact')).toEqual(AUTO);
+    expect(ViewConfig.resolveMonthCardSize(config, 'narrow')).toEqual(AUTO);
   });
 });
 
@@ -184,8 +184,8 @@ describe('the four height keys', () => {
     expect([...Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual([
       'card_height',
       'card_max_height',
-      'compact_card_height',
-      'compact_card_max_height',
+      'narrow_card_height',
+      'narrow_card_max_height',
     ]);
     expect(
       ['50%', 'fit-content', '-1px', 'none', '600px', 'auto', 7].map((value) =>
@@ -211,7 +211,7 @@ describe('the four height keys', () => {
     expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
   });
 
-  it('says once that a height it cannot draw falls back, and the compact form follows', () => {
+  it('says once that a height it cannot draw falls back, and the narrow form follows', () => {
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
     try {
       ViewConfig.validateColumnOverrides(
@@ -219,8 +219,8 @@ describe('the four height keys', () => {
           month: {
             card_height: '50%',
             card_max_height: 'auto',
-            compact_card_height: 'big',
-            compact_card_max_height: '-4px',
+            narrow_card_height: 'big',
+            narrow_card_max_height: '-4px',
           },
         }),
       );
@@ -230,8 +230,8 @@ describe('the four height keys', () => {
           month: {
             card_height: '50rem',
             card_max_height: 'none',
-            compact_card_height: 'auto',
-            compact_card_max_height: '',
+            narrow_card_height: 'auto',
+            narrow_card_max_height: '',
           },
         }),
       );
@@ -242,10 +242,10 @@ describe('the four height keys', () => {
         'Invalid month.card_max_height "auto": expected "none" or a non-negative CSS length ' +
           'such as "40rem", "600px" or "90dvh", not a percentage or another keyword. Falling ' +
           'back to "none".',
-        'Invalid month.compact_card_height "big": expected "auto" or a non-negative CSS length ' +
+        'Invalid month.narrow_card_height "big": expected "auto" or a non-negative CSS length ' +
           'such as "44rem", "600px" or "100dvh", not a percentage or another keyword. Ignoring ' +
           'it.',
-        'Invalid month.compact_card_max_height "-4px": expected "none" or a non-negative CSS ' +
+        'Invalid month.narrow_card_max_height "-4px": expected "none" or a non-negative CSS ' +
           'length such as "40rem", "600px" or "90dvh", not a percentage or another keyword. ' +
           'Ignoring it.',
       ]);
@@ -258,11 +258,11 @@ describe('the four height keys', () => {
     expect(
       ViewConfig.findMisplacedOptions({
         card_height: '50rem',
-        column: { compact_card_max_height: '40rem' },
+        column: { narrow_card_max_height: '40rem' },
       }),
     ).toEqual([
       { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
-      { kind: 'wrong-view', key: 'compact_card_max_height', from: 'column', to: ['month'] },
+      { kind: 'wrong-view', key: 'narrow_card_max_height', from: 'column', to: ['month'] },
     ]);
 
     const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
@@ -290,18 +290,18 @@ describe('the rows a card asks a Sections dashboard for', () => {
       'auto',
     ],
     [
-      'a month with compact_card_height',
-      { view: 'month', month: { compact_card_height: '30rem' } },
+      'a month with narrow_card_height',
+      { view: 'month', month: { narrow_card_height: '30rem' } },
       'auto',
     ],
     [
-      'a month with compact_card_max_height',
-      { view: 'month', month: { compact_card_max_height: '40rem' } },
+      'a month with narrow_card_max_height',
+      { view: 'month', month: { narrow_card_max_height: '40rem' } },
       'auto',
     ],
     [
-      'a month whose compact form takes its own default under a wide height',
-      { view: 'month', month: { card_height: '50rem', compact_card_height: 'auto' } },
+      'a month whose narrow form takes its own default under a wide height',
+      { view: 'month', month: { card_height: '50rem', narrow_card_height: 'auto' } },
       'auto',
     ],
     // Each key at its default sets nothing, written or not, so saving one back to it from the
@@ -313,8 +313,8 @@ describe('the rows a card asks a Sections dashboard for', () => {
         month: {
           card_height: 'auto',
           card_max_height: 'none',
-          compact_card_height: 'auto',
-          compact_card_max_height: 'none',
+          narrow_card_height: 'auto',
+          narrow_card_max_height: 'none',
         },
       },
       10,
@@ -326,13 +326,13 @@ describe('the rows a card asks a Sections dashboard for', () => {
       10,
     ],
     [
-      'a month with compact_card_height auto',
-      { view: 'month', month: { compact_card_height: 'auto' } },
+      'a month with narrow_card_height auto',
+      { view: 'month', month: { narrow_card_height: 'auto' } },
       10,
     ],
     [
-      'a month with compact_card_max_height none',
-      { view: 'month', month: { compact_card_max_height: 'none' } },
+      'a month with narrow_card_max_height none',
+      { view: 'month', month: { narrow_card_max_height: 'none' } },
       10,
     ],
     // Unusable values fold to the default, so they set nothing either.
@@ -344,8 +344,8 @@ describe('the rows a card asks a Sections dashboard for', () => {
         month: {
           card_height: 'fit-content',
           card_max_height: 'auto',
-          compact_card_height: 'big',
-          compact_card_max_height: '-4px',
+          narrow_card_height: 'big',
+          narrow_card_max_height: '-4px',
         },
       },
       10,
@@ -495,7 +495,7 @@ function hass(): Types.Hass {
 
 /**
  * A card at a width, laid out as Home Assistant says: the default 900px draws a wide month, 375px
- * a compact one.
+ * a narrow one.
  */
 async function mount(
   config: Record<string, unknown>,
@@ -546,9 +546,9 @@ describe('the height a month writes on its card', () => {
     // The month's own default, one in both forms, and a taller one where the configuration asks
     // for a toolbar: a Sections slot's ten rows, or twelve.
     ['wide, by default', {}, 900, ['632px', 'none']],
-    ['compact, by default', {}, 375, ['632px', 'none']],
+    ['narrow, by default', {}, 375, ['632px', 'none']],
     ['wide, with the toolbar', { toolbar: { show: true } }, 900, ['760px', 'none']],
-    ['compact, with the toolbar', { toolbar: { show: true } }, 375, ['760px', 'none']],
+    ['narrow, with the toolbar', { toolbar: { show: true } }, 375, ['760px', 'none']],
     [
       'with a toolbar of one control',
       { toolbar: { show: true, ...NO_CONTROLS, refresh: true } },
@@ -568,44 +568,44 @@ describe('the height a month writes on its card', () => {
       900,
       ['632px', 'none'],
     ],
-    // Each form's keys, the compact one following the wide one where unset.
+    // Each form's keys, the narrow one following the wide one where unset.
     [
       'wide, set',
       { month: { card_height: '50rem', card_max_height: '40rem' } },
       900,
       ['50rem', '40rem'],
     ],
-    ['compact, following wide', { month: { card_height: '50rem' } }, 375, ['50rem', 'none']],
+    ['narrow, following wide', { month: { card_height: '50rem' } }, 375, ['50rem', 'none']],
     [
-      'compact, set',
-      { month: { card_height: '50rem', compact_card_height: '30rem' } },
+      'narrow, set',
+      { month: { card_height: '50rem', narrow_card_height: '30rem' } },
       375,
       ['30rem', 'none'],
     ],
-    // With no height of its own under a cap, a compact month grows with its list up to the cap,
+    // With no height of its own under a cap, a narrow month grows with its list up to the cap,
     // its own or the wide one it follows; the wide month is capped at its own height.
     [
-      'compact, growing under its cap',
-      { month: { compact_card_max_height: '30rem' } },
+      'narrow, growing under its cap',
+      { month: { narrow_card_max_height: '30rem' } },
       375,
       ['auto', '30rem'],
     ],
     [
-      'compact, growing under the wide cap',
+      'narrow, growing under the wide cap',
       { month: { card_max_height: '40rem' } },
       375,
       ['auto', '40rem'],
     ],
     ['wide, capped', { month: { card_max_height: '40rem' } }, 900, ['632px', '40rem']],
     [
-      'compact, a height under a cap',
-      { month: { compact_card_height: '30rem', compact_card_max_height: '40rem' } },
+      'narrow, a height under a cap',
+      { month: { narrow_card_height: '30rem', narrow_card_max_height: '40rem' } },
       375,
       ['30rem', '40rem'],
     ],
     [
-      'compact, its cap taken off',
-      { month: { card_max_height: '40rem', compact_card_max_height: 'none' } },
+      'narrow, its cap taken off',
+      { month: { card_max_height: '40rem', narrow_card_max_height: 'none' } },
       375,
       ['632px', 'none'],
     ],
@@ -634,11 +634,11 @@ describe('the height a month writes on its card', () => {
     };
     const capped = { month: { card_max_height: '40rem' } };
     expect(flex(await mount(capped, { width: 375 }))).toEqual(['0 1 auto', 'none']);
-    // A fixed room: the defaults, a compact height, the wide form, and a slot it fills.
+    // A fixed room: the defaults, a narrow height, the wide form, and a slot it fills.
     expect(flex(await mount({}, { width: 375 }))).toEqual(['', '']);
     expect(
       flex(
-        await mount({ month: { ...capped.month, compact_card_height: '30rem' } }, { width: 375 }),
+        await mount({ month: { ...capped.month, narrow_card_height: '30rem' } }, { width: 375 }),
       ),
     ).toEqual(['', '']);
     expect(flex(await mount(capped))).toEqual(['', '']);
@@ -656,9 +656,9 @@ describe('the height a month writes on its card', () => {
     expect(written(withToolbar)).toEqual(['', '']);
     expect(written(card)).toEqual(['', '']);
 
-    // A compact month fills it too.
-    const compact = await mount({}, { layout: 'grid', width: 375 });
-    expect(written(compact)).toEqual(['', '']);
+    // A narrow month fills it too.
+    const narrow = await mount({}, { layout: 'grid', width: 375 });
+    expect(written(narrow)).toEqual(['', '']);
   });
 
   it('sizes itself again once the dashboard lays it out elsewhere, or a height is set', async () => {
@@ -690,8 +690,8 @@ describe('the height a month writes on its card', () => {
         month: {
           card_height: '50rem',
           card_max_height: '400px',
-          compact_card_height: '30rem',
-          compact_card_max_height: '300px',
+          narrow_card_height: '30rem',
+          narrow_card_max_height: '300px',
         },
         event_font_size: '20px',
       });
@@ -708,7 +708,7 @@ describe('the height a month writes on its card', () => {
       expect(size()).toEqual([undefined, undefined]);
       expect(styles()['--calendar-card-font-size-event']).toBe('20px');
 
-      // The source is read live, so the compact form's sizes must stay off it too.
+      // The source is read live, so the narrow form's sizes must stay off it too.
       for (const observer of RecordingResizeObserver.instances) {
         observer.callback([{ contentRect: { width: 375 } }]);
       }

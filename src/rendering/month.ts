@@ -16,7 +16,7 @@
  * So the capacity cannot feed back into the size it is measured from, and the card's height does
  * not change from page to page.
  *
- * Below `month → min_day_width` a day the card draws the compact form instead, as a phone's
+ * Below `month → min_day_width` a day the card draws the narrow form instead, as a phone's
  * calendar draws its month: each day its number and one capsule, a segment per event in its
  * calendar's color, and under the six weeks the selected day's events as List's rows, as many as
  * fit the room the card leaves the list, and "+N more" for the rest (`renderMonthDayList`). The
@@ -25,7 +25,7 @@
  *
  * @see renderGridGroupedEvents in `grid.ts`, whose banner the bars are
  * @see renderColumnGroupedEvents in `column.ts`, whose row the lines trim
- * @see utils/month-day.ts, which lists a day and decides the compact form and the selected day
+ * @see utils/month-day.ts, which lists a day and decides the narrow form and the selected day
  */
 
 import { TemplateResult, html, nothing } from 'lit';
@@ -78,8 +78,8 @@ export interface MonthOptions {
    * Opens a day's panel from its "+N more", given the day and the button it opens beside.
    */
   readonly more?: (day: Date, button: HTMLElement) => void;
-  /** Draws the compact form, with the selected day's list under the weeks. */
-  readonly compact?: MonthCompact;
+  /** Draws the narrow form, with the selected day's list under the weeks. */
+  readonly narrow?: MonthNarrow;
   /**
    * The day whose cell is the month's one tab stop (`tabindex="0"`), every other cell `-1`: the
    * keyboard's day, else the day selected, else today or the header month's 1st, as the card
@@ -88,8 +88,8 @@ export interface MonthOptions {
   readonly focusDay?: Date;
 }
 
-/** What a compact month draws besides its weeks. */
-export interface MonthCompact {
+/** What a narrow month draws besides its weeks. */
+export interface MonthNarrow {
   /** The day selected, at local midnight, whose list is drawn under the weeks. */
   readonly selected: Date;
   /** Each of the six weeks' 42 days' events, as the day model lists them (`monthDayLists`). */
@@ -116,7 +116,7 @@ export interface MonthCompact {
 export const MONTH_LIST_PROBE_CLASS = MonthListFit.MONTH_LIST_STAGING_CLASS;
 
 /**
- * The custom property the card writes on a compact month's list for the least it may be: its
+ * The custom property the card writes on a narrow month's list for the least it may be: its
  * header, its padding, and the taller of "+N more" and "No events", in the card's own pixels
  * (`MonthListFit.measureMonthListMin`). Below it the card's content scrolls the weeks and the list
  * as one.
@@ -326,7 +326,7 @@ export function eventCountText(count: number, language: string): string {
 
 /**
  * A month day's cell as assistive technology names it: the day in full and what it holds,
- * "Tuesday, November 10, 2026, 5 events". Today is said by `aria-current`, and a compact form's
+ * "Tuesday, November 10, 2026, 5 events". Today is said by `aria-current`, and a narrow form's
  * selection by `aria-selected`, so neither is in the name.
  *
  * @param date - The day
@@ -850,7 +850,7 @@ function weekdayStyle(day: Date, config: Types.Config, hass?: Types.Hass | null)
 
 /**
  * The weekday names, the month grid's header row: each a column header named in full for
- * assistive technology. In the compact form over a gutter where week numbers are drawn, which,
+ * assistive technology. In the narrow form over a gutter where week numbers are drawn, which,
  * as the numbers, is hidden from it, so every row holds seven cells.
  *
  * @param starts - The first row's days
@@ -959,8 +959,8 @@ function tintProperties(config: Types.Config): Record<string, string> {
 }
 
 /**
- * Render a month page: the weekday names, then six week rows of seven days, or the compact form
- * where the card hands one (`MonthOptions.compact`).
+ * Render a month page: the weekday names, then six week rows of seven days, or the narrow form
+ * where the card hands one (`MonthOptions.narrow`).
  *
  * @param days - Grouped days of the page, which hold only days with events
  * @param rowsStart - The first row's first day, which is the first weekday
@@ -969,7 +969,7 @@ function tintProperties(config: Types.Config): Record<string, string> {
  * @param capacity - Lines that fit under a date, as the card last measured them
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each bar, line and row is a tap target of its own
- * @param options - What "+N more" opens, the compact form's selected day and lists, and the day
+ * @param options - What "+N more" opens, the narrow form's selected day and lists, and the day
  *   the keyboard's tab stop is on
  * @returns The month
  */
@@ -985,12 +985,12 @@ export function renderMonthGroupedEvents(
 ): TemplateResult {
   const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
   const focusKey = FormatUtils.getLocalDateKey(options.focusDay ?? headerMonth);
-  if (options.compact) {
-    return renderCompactMonth(
+  if (options.narrow) {
+    return renderNarrowMonth(
       rowsStart,
       config,
       language,
-      options.compact,
+      options.narrow,
       focusKey,
       hass,
       eventsTappable,
@@ -1037,7 +1037,7 @@ export function renderMonthGroupedEvents(
 }
 
 //-----------------------------------------------------------------------------
-// THE COMPACT FORM
+// THE NARROW FORM
 //-----------------------------------------------------------------------------
 
 /**
@@ -1064,8 +1064,8 @@ function markColor(event: Types.CalendarEventData, config: Types.Config): string
 }
 
 /**
- * A compact day's capsule: one segment per event, in its calendar's color, up to
- * `MONTH_COMPACT_MARKS`. A single event is a dot. A day without events keeps an empty capsule,
+ * A narrow day's capsule: one segment per event, in its calendar's color, up to
+ * `MONTH_NARROW_MARKS`. A single event is a dot. A day without events keeps an empty capsule,
  * so every day is as tall as one with events.
  *
  * @param events - The day's events, as the day model lists them
@@ -1076,12 +1076,12 @@ function renderMarks(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): TemplateResult {
-  const shown = events.slice(0, Constants.UI.MONTH_COMPACT_MARKS);
-  return html`<span class="month-compact-marks" aria-hidden="true"
+  const shown = events.slice(0, Constants.UI.MONTH_NARROW_MARKS);
+  return html`<span class="month-narrow-marks" aria-hidden="true"
     >${shown.map(
       (event) =>
         html`<span
-          class="month-compact-mark"
+          class="month-narrow-mark"
           style=${styleMap({ backgroundColor: markColor(event, config) })}
         ></span>`,
     )}</span
@@ -1089,7 +1089,7 @@ function renderMarks(
 }
 
 /**
- * One compact day: its number and its capsule. The selected day's number sits on a neutral
+ * One narrow day: its number and its capsule. The selected day's number sits on a neutral
  * mark, today's on the today tile, and both at once on the tile filled. A tap selects the day
  * (`calendarCardMonthPick`), and never adds on it or runs `day_tap_action`: adding is the
  * toolbar's add, dated on the selected day, and `day_tap_action` the list's.
@@ -1108,7 +1108,7 @@ function renderMarks(
  * @param hass - Home Assistant, whose country or language decides the weekend
  * @returns The day
  */
-function renderCompactDay(
+function renderNarrowDay(
   date: Date,
   headerMonth: Date,
   selected: boolean,
@@ -1168,43 +1168,43 @@ function renderCompactDay(
 }
 
 /**
- * The compact form: the weekday names, six weeks of days drawn as a number and a capsule, the
+ * The narrow form: the weekday names, six weeks of days drawn as a number and a capsule, the
  * week numbers in a narrow gutter with the current week's emphasized, and under them the
  * selected day's list. The rows take their content's height.
  *
  * @param rowsStart - The first row's first day
  * @param config - Card configuration, resolved for month
  * @param language - Card language
- * @param compact - The selected day, every day's events and what the list draws with
+ * @param narrow - The selected day, every day's events and what the list draws with
  * @param focusKey - The date of the month's tab stop, `YYYY-MM-DD`
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each of the list's rows is a tap target of its own
  * @returns The month and its list
  */
-function renderCompactMonth(
+function renderNarrowMonth(
   rowsStart: Date,
   config: Types.Config,
   language: string,
-  compact: MonthCompact,
+  narrow: MonthNarrow,
   focusKey: string,
   hass?: Types.Hass | null,
   eventsTappable = false,
 ): TemplateResult {
   const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
   const weekNumbers = config.show_week_numbers !== null;
-  const selectedKey = FormatUtils.getLocalDateKey(compact.selected);
+  const selectedKey = FormatUtils.getLocalDateKey(narrow.selected);
   const today = Paging.startOfDay(new Date());
   const weeks = Array.from({ length: ViewConfig.MONTH_ROWS }, (_, row) =>
     Array.from({ length: 7 }, (_, column) => Paging.addDays(rowsStart, row * 7 + column)),
   );
-  const selectedIndex = FormatUtils.getCalendarDayDiff(rowsStart, compact.selected);
-  const selectedEvents = compact.dayLists[selectedIndex] ?? [];
+  const selectedIndex = FormatUtils.getCalendarDayDiff(rowsStart, narrow.selected);
+  const selectedEvents = narrow.dayLists[selectedIndex] ?? [];
 
   return html`
     <div
       class=${classMap({
         'month-container': true,
-        'month-compact': true,
+        'month-narrow': true,
         'with-week-numbers': weekNumbers,
       })}
       role="grid"
@@ -1227,12 +1227,12 @@ function renderCompactMonth(
               : nothing
           }
           ${starts.map((start, column) =>
-            renderCompactDay(
+            renderNarrowDay(
               start,
               headerMonth,
               FormatUtils.getLocalDateKey(start) === selectedKey,
               FormatUtils.getLocalDateKey(start) === focusKey,
-              compact.dayLists[row * 7 + column] ?? [],
+              narrow.dayLists[row * 7 + column] ?? [],
               config,
               language,
               hass,
@@ -1242,20 +1242,20 @@ function renderCompactMonth(
       })}
     </div>
     ${renderMonthDayList(
-      compact.selected,
+      narrow.selected,
       selectedEvents,
       config,
       language,
       hass,
       eventsTappable,
-      compact.weatherForecasts,
-      compact.dayAdd,
-      compact.shown,
-      compact.more,
+      narrow.weatherForecasts,
+      narrow.dayAdd,
+      narrow.shown,
+      narrow.more,
     )}
     ${
       selectedEvents.length > 0
-        ? renderListStaging(selectedEvents, config, language, hass, compact.weatherForecasts)
+        ? renderListStaging(selectedEvents, config, language, hass, narrow.weatherForecasts)
         : nothing
     }
   `;
@@ -1348,7 +1348,7 @@ function renderDayRow(
 
 /**
  * A day's events as List's rows, in Month's presentation and without a date column: what the
- * day panel lists and what a compact month lists under its weeks. Each row's time is beside its
+ * day panel lists and what a narrow month lists under its weeks. Each row's time is beside its
  * title, whatever `time_position` says (`MonthDay.monthRowsConfig`), and `event_gap` sets each
  * event apart as List's does, with the same row between two. Nothing for a day without events.
  *
@@ -1359,7 +1359,7 @@ function renderDayRow(
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather, as a list row shows them
  * @param dayLabelId - The id of what names the day, which describes each row as a tap target
- * @param oneLine - Whether each part of a row keeps to a line, as under a compact month's weeks
+ * @param oneLine - Whether each part of a row keeps to a line, as under a narrow month's weeks
  * @returns The rows, or nothing
  */
 export function renderMonthDayRows(
@@ -1395,11 +1395,11 @@ export function renderMonthDayRows(
   </table>`;
 }
 
-/** What a compact month's list writes on itself for each part's one line, per configuration. */
+/** What a narrow month's list writes on itself for each part's one line, per configuration. */
 const oneLineStyles = new WeakMap<Types.Config, Readonly<Record<string, string>>>();
 
 /**
- * The custom properties a compact month's list writes on itself, and its staged copy beside it,
+ * The custom properties a narrow month's list writes on itself, and its staged copy beside it,
  * over the card's: each the card writes differently for the one-line rows' configuration
  * (`MonthDay.monthRowsConfig`), so every line limit the stylesheet reads takes one line there and
  * nowhere else, as `text_scale` scales one event's sizes.
@@ -1452,7 +1452,7 @@ function renderListMore(
   count: number,
   language: string,
   hass?: Types.Hass | null,
-  more?: MonthCompact['more'],
+  more?: MonthNarrow['more'],
 ): TemplateResult {
   const text = listMoreText(count, language, hass);
   return html`<button
@@ -1544,7 +1544,7 @@ function renderDayTitleFit(
 }
 
 /**
- * The selected day's list, under a compact month's weeks: the day named on one line, in full
+ * The selected day's list, under a narrow month's weeks: the day named on one line, in full
  * where that fits and in a shorter form where it does not, then its rows, or the card's "no
  * events" where it has none. Its own space is the day's: a press there, on its name or under its
  * rows, runs `day_tap_action`, and where that adds an event its name is a button that adds on the
@@ -1581,7 +1581,7 @@ export function renderMonthDayList(
   weatherForecasts?: Types.WeatherForecasts,
   dayAdd?: Activation.DayAddButtons,
   shown?: number,
-  more?: MonthCompact['more'],
+  more?: MonthNarrow['more'],
 ): TemplateResult {
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
@@ -1689,16 +1689,16 @@ export function measureMonthCapacity(root: ParentNode): number | null {
 //-----------------------------------------------------------------------------
 
 /**
- * Whether a compact month's list grows with its day, up to a cap, rather than taking a fixed room:
- * where the compact form's height is `auto` and a cap applies to it, through its own key or the
+ * Whether a narrow month's list grows with its day, up to a cap, rather than taking a fixed room:
+ * where the narrow form's height is `auto` and a cap applies to it, through its own key or the
  * wide one it follows (`ViewConfig.resolveMonthCardSize`). A Sections slot, which the card fills,
  * is decided elsewhere and wins over this.
  *
  * @param config - Card configuration
  * @returns `true` while the list grows under a cap
  */
-export function monthCompactGrows(config: Types.Config): boolean {
-  const { height, max } = ViewConfig.resolveMonthCardSize(config, 'compact');
+export function monthNarrowGrows(config: Types.Config): boolean {
+  const { height, max } = ViewConfig.resolveMonthCardSize(config, 'narrow');
   return height === 'auto' && max !== 'none';
 }
 
@@ -1710,8 +1710,8 @@ export function monthCompactGrows(config: Types.Config): boolean {
  * `rem`, `dvh` and a `calc()` with a `var()` survive.
  *
  * The whole card's, its title, toolbar and notices included, so the weeks share what those leave
- * and never take their height from their events. The one exception is a compact month whose
- * height is `auto` under a cap (`monthCompactGrows`): its card is as tall as its weeks and the
+ * and never take their height from their events. The one exception is a narrow month whose
+ * height is `auto` under a cap (`monthNarrowGrows`): its card is as tall as its weeks and the
  * day's list, up to the cap, and the list lists as many rows as that leaves room for. The two
  * properties written then let the content and the list take their own height rather than share a
  * fixed one, which in a card of no fixed height would leave them none.
@@ -1725,7 +1725,7 @@ export function monthCardStyle(
   form: ViewConfig.MonthCardForm,
 ): Record<string, string> {
   const { height, max } = ViewConfig.resolveMonthCardSize(config, form);
-  if (form === 'compact' && monthCompactGrows(config)) {
+  if (form === 'narrow' && monthNarrowGrows(config)) {
     return {
       height: 'auto',
       'max-height': max,

@@ -185,7 +185,7 @@ function selection(card: CardUnderTest): [string[], string] {
   const text = (element: Element | null) =>
     (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
   return [
-    [...root.querySelectorAll('.month-compact .month-day.month-selected .month-date')].map(text),
+    [...root.querySelectorAll('.month-narrow .month-day.month-selected .month-date')].map(text),
     text(root.querySelector('.month-day-list-name')),
   ];
 }
@@ -253,7 +253,7 @@ describe('the selected day at midnight', () => {
     const evening = new Date(2026, 2, 28, 23, 59, 30);
     const card = await mountAt(evening);
     const tenth = [
-      ...card.shadowRoot!.querySelectorAll<HTMLElement>('.month-compact .month-day'),
+      ...card.shadowRoot!.querySelectorAll<HTMLElement>('.month-narrow .month-day'),
     ][15];
     for (const type of ['pointerdown', 'pointerup']) {
       tenth.dispatchEvent(

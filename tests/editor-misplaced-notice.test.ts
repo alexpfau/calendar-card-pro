@@ -143,7 +143,7 @@ describe('the misplaced-option notice', () => {
 
     expect(rows(editor)).toEqual({
       // Month's block takes a `min_day_width` of its own too: the width below which it turns
-      // compact.
+      // narrow.
       min_day_width: {
         text:
           'min_day_width Works only in a layout’s own settings: Columns, Grid, or Month. ' +

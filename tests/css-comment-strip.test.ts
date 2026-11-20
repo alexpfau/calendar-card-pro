@@ -281,7 +281,7 @@ describe('stripComments', () => {
     expect(saved).toBeGreaterThan(26_000);
     expect(saved).toBeLessThan(254_000);
     // The wide month's filled today tile moved the ceiling last, from 251,000 to 254,000 (backlog
-    // item 363): the note on why the wide month fills the tile as the compact form fills a selected
+    // item 363): the note on why the wide month fills the tile as the narrow form fills a selected
     // today, why the tile's ink is redefined rather than its color set, and why the week-number
     // pill and the week separators keep the list's tile. The reading went from 250,441 to
     // 251,281, taken with stripComments after the last comment was written.
@@ -294,7 +294,7 @@ describe('stripComments', () => {
     // The reading went from 247,077 to 249,358, taken with stripComments after the last comment
     // was written.
     //
-    // Month's compact list fit moved the ceiling before that, from 245,000 to 248,000: the notes
+    // Month's narrow list fit moved the ceiling before that, from 245,000 to 248,000: the notes
     // on why the list and its rows' box flex with a basis of 0, what the staged copy beside the
     // list is for, why the rows' box cuts only at its foot and only as a guard, and why a list
     // under a cap with no height takes its own height. The reading went from 244,527 to 245,566,

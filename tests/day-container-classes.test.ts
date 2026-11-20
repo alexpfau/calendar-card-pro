@@ -516,7 +516,7 @@ describe('theming.md card-mod selectors', () => {
     // Month, in both forms, on June's six weeks from June 1, with week numbers and a labeled
     // calendar so every part of a day, a line and the gutter is drawn. Wide twice: with room for
     // four lines, so lines show, and for one, so "+N more" does, the trips crossing a week as
-    // bars that continue. Compact with a busy day chosen, whose list draws tappable rows, and
+    // bars that continue. Narrow with a busy day chosen, whose list draws tappable rows, and
     // with an empty one, whose list says so.
     {
       const config = ViewConfig.resolveEffectiveConfig(
@@ -538,8 +538,8 @@ describe('theming.md card-mod selectors', () => {
         [4, { more: noop }],
         [1, { more: noop }],
         // None of a busy day's events fitted, so its list draws "+N more" alone.
-        [4, { compact: { selected: new Date(2026, 5, 17), dayLists, shown: 0 } }],
-        [4, { compact: { selected: new Date(2026, 5, 2), dayLists } }],
+        [4, { narrow: { selected: new Date(2026, 5, 17), dayLists, shown: 0 } }],
+        [4, { narrow: { selected: new Date(2026, 5, 2), dayLists } }],
       ] as const) {
         const container = document.createElement('div');
         litRender(

@@ -151,7 +151,7 @@ src/
     ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
     ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a column share
     ├── month-layout.ts           # A month row's lines, and what each day hides behind "+N"
-    ├── month-day.ts              # A month day's list, the compact form and the selected day
+    ├── month-day.ts              # A month day's list, the narrow form and the selected day
     ├── content-box.ts            # A clipping text box's width without its inline room
     ├── format.ts                 # Date and text formatting
     ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
@@ -187,7 +187,7 @@ worth holding on to before changing anything under `rendering/`:
 - **`view: grid`** positions timed events against a shared hour axis, with all-day events in a
   band above it.
 - **`view: month`** draws six whole weeks, a row each: all-day and multi-day events as bars across
-  their days and timed events as lines, or on a narrow card a compact form with the selected
+  their days and timed events as lines, or, where a day is too narrow for titles, a narrow form with the selected
   day's list.
 
 They share the card shell, the event pipeline and the presentation models. `leaves.ts` holds the
@@ -203,7 +203,7 @@ allows (`visibleDayWindowStart`). Below that floor `min_days_fallback` decides: 
 List, and `cramp` holds the floor with days narrower than `min_day_width`, Column narrowing its
 columns and Grid scrolling sideways with each day at least `2rem` wide. `config/view.ts` owns this
 resolution and its hysteresis, so resizing does not flip layouts back and forth. Month never falls
-back: below `month → min_day_width` a day, it draws its compact form, with a hysteresis of its own
+back: below `month → min_day_width` a day, it draws its narrow form, with a hysteresis of its own
 (`utils/month-day.ts`).
 
 Switching layouts at home never fetches, because the load spans every view the card can show: the
@@ -211,7 +211,7 @@ longest `days_to_show` from the shared start, and Month's six weeks where it is 
 can start before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)).
 A switch away from home carries the date in view, and a page's load holds the weeks of the month
 its day falls in, so that switch lands on the same load wherever the next layout's days lie in
-those weeks. A day picked on a compact month at home, or days running past the weeks, are loaded
+those weeks. A day picked on a narrow month at home, or days running past the weeks, are loaded
 as any page is. The editor's
 scope is separate again: opening List's page exposes its controls without changing the layout.
 
@@ -398,12 +398,12 @@ both happen. It reads the target at pointer-down and runs the innermost target's
 | ---------------------------------------------------- | ------------------ | ------------------- |
 | An event                                             | `event_tap_action` | `event_hold_action` |
 | An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
-| A compact month's day                                | selects the day    | `hold_action`       |
+| A narrow month's day                                 | selects the day    | `hold_action`       |
 | The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 - **Precedence.** A tap or a hold runs the innermost target's action, else the next target out's.
   An event covers its slot: a press on an event falls through to the card, never to the slot. A
-  compact month's day covers its day too: a tap selects it and runs nothing else, and
+  narrow month's day covers its day too: a tap selects it and runs nothing else, and
   `day_tap_action` is its list's, under the weeks.
 - **Not targets.** Toolbar controls and the filter menu keep their presses (`stopCardGesture`), and
   a press that begins on a link in an event row arms nothing.
@@ -415,7 +415,7 @@ both happen. It reads the target at pointer-down and runs the innermost target's
   hold: an event with a hold and no tap of its own is still a button, and the keys run its hold
   (`_activate`). A month is one grid with one tab stop, which the arrows, Home, End and the page
   keys move, paging where they leave its rows; Enter or Space opens a wide day's panel or selects a
-  compact day (`_handleMonthKeyDown`). While Home Assistant edits the card, nothing that writes to
+  narrow day (`_handleMonthKeyDown`). While Home Assistant edits the card, nothing that writes to
   a calendar runs, and no swipe.
 
 The full rules are in [Gesture Model in Detail](/architecture-interaction#gesture-model-in-detail).

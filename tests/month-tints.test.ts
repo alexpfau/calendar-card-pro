@@ -5,7 +5,7 @@
  * The card writes each as a custom property on the month, only where it paints and floored where
  * the browser has no color-mix(), and the stylesheet paints a day's cell from them in either form,
  * as Grid paints its backdrops: today's tint replaces the weekend's. What is drawn over a cell, the
- * today tile, the compact selection mark, the focus ring and a pressed day's wash, stays above it,
+ * today tile, the narrow selection mark, the focus ring and a pressed day's wash, stays above it,
  * and nothing but a day's cell takes either tint.
  *
  * Wednesday, November 18, 2026, 10:00 UTC, Mondays first: the six weeks run from Monday,
@@ -86,7 +86,7 @@ async function settle(card: CardUnderTest): Promise<void> {
   await card.updateComplete;
 }
 
-/** A month card, wide, or compact at a phone's width. */
+/** A month card, wide, or narrow at a phone's width. */
 async function mount(config: Record<string, unknown> = {}, width?: number) {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig({
@@ -111,20 +111,20 @@ async function mount(config: Record<string, unknown> = {}, width?: number) {
 
 const FORMS = [
   ['wide', undefined],
-  ['compact', 375],
+  ['narrow', 375],
 ] as const;
 
 const root = (card: CardUnderTest) => card.shadowRoot!;
 
 /** The month the card draws, in the form it was asked for. */
-function month(card: CardUnderTest, form: 'wide' | 'compact'): HTMLElement {
+function month(card: CardUnderTest, form: 'wide' | 'narrow'): HTMLElement {
   const container = root(card).querySelector<HTMLElement>('.month-container')!;
-  expect(container.classList.contains('month-compact')).toBe(form === 'compact');
+  expect(container.classList.contains('month-narrow')).toBe(form === 'narrow');
   return container;
 }
 
 /** The two tints as written on the month, '' where one is not. */
-function tints(card: CardUnderTest, form: 'wide' | 'compact'): [string, string] {
+function tints(card: CardUnderTest, form: 'wide' | 'narrow'): [string, string] {
   const { style } = month(card, form);
   return [style.getPropertyValue(WEEKEND), style.getPropertyValue(TODAY)];
 }
@@ -180,7 +180,7 @@ describe('the tints the card writes on the month', () => {
       expect(tints(await mount({}, width), form)).toEqual([SHIPPED, '']);
       const set = await mount({ month: { today_background_color: 'rgb(1, 2, 3)' } }, width);
       expect(tints(set, form)).toEqual([SHIPPED, 'rgb(1, 2, 3)']);
-      // On the month alone: the day list beside a compact one, and every cell, carry neither.
+      // On the month alone: the day list beside a narrow one, and every cell, carry neither.
       const holders = [...root(set).querySelectorAll<HTMLElement>('[style]')].filter(
         (element) =>
           element.style.getPropertyValue(WEEKEND) !== '' ||
@@ -268,9 +268,9 @@ describe('the cells it tints', () => {
 });
 
 describe('what stays clear', () => {
-  it('leaves the weekday names and a compact month’s day list clear, which are not cells', async () => {
+  it('leaves the weekday names and a narrow month’s day list clear, which are not cells', async () => {
     const card = await mount({}, 375);
-    month(card, 'compact');
+    month(card, 'narrow');
     const tinted = [...root(card).querySelectorAll(TINT_RULES.join(', '))];
     expect(tinted.length).toBeGreaterThan(0);
     expect(tinted.every((element) => element.matches('.month-week > .month-day'))).toBe(true);
@@ -337,8 +337,8 @@ describe('the stylesheet', () => {
       (d) => d.property === 'background' && d.selectors.some((s) => s.includes('.month-selected')),
     );
     expect(marks.flatMap((d) => d.selectors)).toEqual([
-      '.month-compact .month-day.month-selected:not(.today) .month-date > .day',
-      '.month-compact .month-day.month-selected.today .month-date > .day',
+      '.month-narrow .month-day.month-selected:not(.today) .month-date > .day',
+      '.month-narrow .month-day.month-selected.today .month-date > .day',
     ]);
     // The ring is an outline drawn inside the cell's edges, over its background.
     expect(rule('.month-day:focus-visible')).toMatchObject({ 'outline-offset': '-2px' });

@@ -310,13 +310,13 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   `start_date` is shared, and Month opens the month holding it, or today's month for Tomorrow
   and Start of Week. The
   card does not reload its events to switch, except to carry you to days it has not loaded yet,
-  such as from a day picked on a compact month, which it loads as paging does. `days_to_show` is shared too,
+  such as from a day picked on a narrow month, which it loads as paging does. `days_to_show` is shared too,
   unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
   [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
   Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come
   with it.
 - **Your place comes along.** Paged away from the card's own days, or with a day picked on a
-  [compact month](/features/month-view#the-compact-month), the next layout opens on the same
+  [narrow month](/features/month-view#the-narrow-month), the next layout opens on the same
   date: Month on the month holding it, with that day selected, and List, Columns and Grid on the
   days starting from it. With nothing picked on the card's own days, each layout opens on its
   own, and the home button takes each back there; see
@@ -1148,7 +1148,7 @@ such as `'#e67c7380'` makes a fainter tile, while its digits keep the color's fu
 
 A wide [month](/features/month-view#the-six-weeks) fills the tile instead, with rounder corners,
 so today stands out among the colored events: `today_indicator_color` itself, with the digits in
-your theme's text color for the primary color, `--text-primary-color`, white by default. A compact
+your theme's text color for the primary color, `--text-primary-color`, white by default. A narrow
 month draws today the same way while it is the selected day. A color you name for the digits still wins, and
 a see-through `today_indicator_color` makes white digits harder to read there.
 
