@@ -67,15 +67,15 @@ describe('the month block', () => {
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
       'card_height',
       'card_max_height',
-      'compact_card_height',
-      'compact_card_max_height',
+      'narrow_card_height',
+      'narrow_card_max_height',
       'min_day_width',
       'weekend_background_color',
       'today_background_color',
       'cell_event_font_size',
       'cell_time_font_size',
     ]);
-    // The compact form's two heights have no default of their own: unset, each takes the wide
+    // The narrow form's two heights have no default of their own: unset, each takes the wide
     // one (`resolveMonthCardSize`).
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       card_height: 'auto',

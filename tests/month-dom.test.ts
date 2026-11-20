@@ -719,7 +719,7 @@ describe('the rows’ height', () => {
 
   it('shares the content area among six weeks, each at least its floor, none sized by events', () => {
     // The content area takes what the header leaves of the card, whatever height and max_height
-    // say, and scrolls only below the floors. Only a compact month whose list grows under a cap
+    // say, and scrolls only below the floors. Only a narrow month whose list grows under a cap
     // writes the property, for a card of no height of its own (month-sizing.test.ts).
     expect(rule('.calendar-card-pro.month-view .content-container')).toEqual({
       display: 'flex',
@@ -742,9 +742,9 @@ describe('the rows’ height', () => {
     });
     // The wide month's last week ends at the card's edge with no rule of its own.
     expect(rule('.month-container')['border-block-end']).toBeUndefined();
-    // The compact form's weeks are as tall as their days, and a rule sets them off from the
+    // The narrow form's weeks are as tall as their days, and a rule sets them off from the
     // day's list.
-    expect(rule('.month-container.month-compact')).toMatchObject({
+    expect(rule('.month-container.month-narrow')).toMatchObject({
       flex: 'none',
       'min-height': '0',
       'grid-template-rows': 'auto repeat(6, auto)',

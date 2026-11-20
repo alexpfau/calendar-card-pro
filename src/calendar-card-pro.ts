@@ -816,7 +816,7 @@ class CalendarCardPro extends LitElement {
   /** The day's add button the active press began on, if any; see `_derivedClick`. */
   private _pointerDayAdd: EventTarget | null = null;
   /**
-   * The compact month day the active press began on, which a tap on it selects
+   * The narrow month day the active press began on, which a tap on it selects
    * (`_selectMonthDay`); null otherwise.
    */
   private _pointerMonthPick: { element: EventTarget; timestamp: number } | null = null;
@@ -1649,7 +1649,7 @@ class CalendarCardPro extends LitElement {
    * The event a search pick rings: from the pick until its ring has shown for `SEARCH_RING`, or
    * the page asked for turned out not to draw it. `page` is the page the pick asked for, the only
    * one the ring is drawn on; `day` the result's own day; `until` is set once it is drawn; `focus`
-   * until focus has moved to it. `listFitted` is set once a compact month's list has been fitted
+   * until focus has moved to it. `listFitted` is set once a narrow month's list has been fitted
    * in a render that holds the pick, which is the only fit it routes against; `inPanel` once it
    * has been routed to a day's panel, behind "+N more" (`_syncSearchRing`).
    */
@@ -1675,7 +1675,7 @@ class CalendarCardPro extends LitElement {
   private _searchRingBehindMore: Date | null = null;
 
   /**
-   * Whether the render just made holds the event a pick rings in a compact month's list the card
+   * Whether the render just made holds the event a pick rings in a narrow month's list the card
    * has not fitted yet, which may list it or leave it behind "+N more": the ring waits for the fit
    * (`_syncSearchRing`).
    */
@@ -1837,10 +1837,10 @@ class CalendarCardPro extends LitElement {
   private _monthCapacity = MonthRender.MONTH_LINE_CAPACITY_DEFAULT;
 
   /**
-   * Whether a month draws its compact form, decided from the card's width with a band either
+   * Whether a month draws its narrow form, decided from the card's width with a band either
    * side of `min_day_width` (`_syncMonthForm`); the wide form until the card has been measured.
    */
-  private _monthCompact = false;
+  private _monthNarrow = false;
 
   /** The card's width the month's form was last decided at, or null before it was measured. */
   private _monthWidthPx: number | null = null;
@@ -1848,27 +1848,27 @@ class CalendarCardPro extends LitElement {
   /**
    * The day selected on a month, on this device only: never configuration, and gone with a page,
    * Home, Reset, a view switch, a configuration change and the start of editing
-   * (`MonthDay.selectedMonthDay`). A tap selects it on a compact month; a view switch carries it
-   * in either form (`_openOnDate`), and only the compact one lists it. It lapses once its page no
+   * (`MonthDay.selectedMonthDay`). A tap selects it on a narrow month; a view switch carries it
+   * in either form (`_openOnDate`), and only the narrow one lists it. It lapses once its page no
    * longer draws it, as home's weeks move on at midnight under a relative start date.
    */
   private _monthSelection: MonthDay.MonthSelection | null = null;
 
   /**
-   * How many of the selected day's events a compact month's list draws, as last fitted to its room
+   * How many of the selected day's events a narrow month's list draws, as last fitted to its room
    * (`_syncMonthListFit`), and the day they were fitted for. The list draws them on that day alone;
    * on any other it draws "+N more" alone until the card has fitted it.
    */
   private _monthListFit: { readonly day: string; readonly shown: number } | null = null;
 
   /**
-   * The day a compact month's list was drawn for in the render just made, `YYYY-MM-DD`, and how
+   * The day a narrow month's list was drawn for in the render just made, `YYYY-MM-DD`, and how
    * many events it holds; null where no list is drawn. What `_syncMonthListFit` fits.
    */
   private _monthListDrawn: { readonly day: string; readonly count: number } | null = null;
 
   /**
-   * Watches what a compact month's list is fitted from, the staged rows and the rows' box, for a
+   * Watches what a narrow month's list is fitted from, the staged rows and the rows' box, for a
    * change of size, as a font loading, a width that changes the rows or a card that changes height
    * makes, and fits the list again from its callback (`_watchMonthList`).
    */
@@ -1878,16 +1878,16 @@ class CalendarCardPro extends LitElement {
   private _monthListWatched: ReadonlyArray<Element> = [];
 
   /**
-   * Whether a compact month's list that grows under a cap listens for the viewport's resize
+   * Whether a narrow month's list that grows under a cap listens for the viewport's resize
    * (`_watchMonthList`), which moves a cap in a viewport unit without resizing anything else.
    */
   private _monthListViewportWatched = false;
 
-  /** Fits a growing compact month's list again when the viewport resizes. */
+  /** Fits a growing narrow month's list again when the viewport resizes. */
   private readonly _onMonthListViewport = (): void => this._syncMonthListFit();
 
   /**
-   * The heights of a compact month's "+N more" and "No events" last read, in the card's own
+   * The heights of a narrow month's "+N more" and "No events" last read, in the card's own
    * pixels, for the least the list may be (`MonthListFit.measureMonthListMin`).
    */
   private readonly _monthListParts: { more: number | null; empty: number | null } = {
@@ -1896,7 +1896,7 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
-   * The row or "+N more" of a compact month's list that had focus as the update began, which a
+   * The row or "+N more" of a narrow month's list that had focus as the update began, which a
    * new fit can take away (`_keepMonthListFocus`).
    */
   private _monthListFocus: HTMLElement | null = null;
@@ -1910,8 +1910,8 @@ class CalendarCardPro extends LitElement {
   /** The probes it watches, as last drawn. */
   private _monthProbes: ReadonlyArray<HTMLElement> = [];
 
-  /** Whether the day panel open was opened from a compact month, whose form it goes with. */
-  private _dayPanelCompact = false;
+  /** Whether the day panel open was opened from a narrow month, whose form it goes with. */
+  private _dayPanelNarrow = false;
 
   /** The open day panel, while one is (`_openDayPanel`). */
   private _dayPanel: DayPanel.DayPanelHandle | null = null;
@@ -2301,11 +2301,11 @@ class CalendarCardPro extends LitElement {
    * The configuration the card's event rows are drawn with, which the title fits and the title
    * scroll read: the view's own, and in month view its day list's (`MonthDay.monthRowsConfig`),
    * whose times are beside their titles whatever `time_position` says, and each part of a row on
-   * one line under a compact month's weeks.
+   * one line under a narrow month's weeks.
    */
   private get _rowsConfig(): Types.Config {
     return this.effectiveView === 'month'
-      ? MonthDay.monthRowsConfig(this.effectiveConfig, this._drawsCompactMonth)
+      ? MonthDay.monthRowsConfig(this.effectiveConfig, this._drawsNarrowMonth)
       : this.effectiveConfig;
   }
 
@@ -2966,7 +2966,7 @@ class CalendarCardPro extends LitElement {
       // only after a re-render.
       this._scheduleGridScaleSync();
 
-      // A compact month's list growing under a cap watches no box of its own room, so a cap that
+      // A narrow month's list growing under a cap watches no box of its own room, so a cap that
       // moves is heard here, where it clamps the card or lets it grow again (`_watchMonthList`).
       if (this._monthListGrows) this._syncMonthListFit();
     });
@@ -3722,9 +3722,7 @@ class CalendarCardPro extends LitElement {
    * stylesheet's estimate before the first.
    */
   private _writeMonthFloors(): void {
-    const month = this.renderRoot.querySelector<HTMLElement>(
-      '.month-container:not(.month-compact)',
-    );
+    const month = this.renderRoot.querySelector<HTMLElement>('.month-container:not(.month-narrow)');
     const floors = month ? MonthRender.measureMonthFloors(month) : null;
     if (!month || !floors) return;
     for (const key of ['week', 'month'] as const) {
@@ -3771,7 +3769,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Fits a compact month's list to its room: measures the day's rows, staged beside the list, and
+   * Fits a narrow month's list to its room: measures the day's rows, staged beside the list, and
    * the room (`MonthListFit.measureMonthList`), decides how many fit (`MonthListFit.fitMonthList`),
    * and re-renders once if that is another number or another day than the list draws. Called
    * after every update, and from a resize observer on what the fit is read from
@@ -3810,19 +3808,19 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a compact month's list grows with its day under a cap, rather than taking a fixed room:
-   * never in a Sections slot, which the card fills (`MonthRender.monthCompactGrows`).
+   * Whether a narrow month's list grows with its day under a cap, rather than taking a fixed room:
+   * never in a Sections slot, which the card fills (`MonthRender.monthNarrowGrows`).
    */
   private get _monthListGrows(): boolean {
     return (
-      this._drawsCompactMonth &&
+      this._drawsNarrowMonth &&
       !this._holdsSectionsSlot &&
-      MonthRender.monthCompactGrows(this.config)
+      MonthRender.monthNarrowGrows(this.config)
     );
   }
 
   /**
-   * Writes the least a compact month's list may be on it (`MonthRender.MONTH_LIST_MIN_PROPERTY`),
+   * Writes the least a narrow month's list may be on it (`MonthRender.MONTH_LIST_MIN_PROPERTY`),
    * straight onto its style and only when it changed, as `_writeMonthFloors` writes a wide
    * month's floors, so it costs no render. A list not laid out writes nothing and keeps what it
    * had, or the stylesheet's estimate before the first.
@@ -3840,7 +3838,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Watches what a compact month's list is fitted from for a change of size: the staged rows, and
+   * Watches what a narrow month's list is fitted from for a change of size: the staged rows, and
    * the rows' box where it is the room. A list that grows under a cap leaves its box out, as that
    * changes with every fit and sets nothing. Re-aimed whenever those are other elements, as after a
    * day without events or a switch of form; no list, no watch.
@@ -3882,7 +3880,7 @@ class CalendarCardPro extends LitElement {
     }
   }
 
-  /** Stops watching a compact month's list, and the viewport for it, leaving its fit. */
+  /** Stops watching a narrow month's list, and the viewport for it, leaving its fit. */
   private _stopMonthList(): void {
     this._monthListWatch?.disconnect();
     this._monthListWatch = null;
@@ -3894,7 +3892,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The row or "+N more" of a compact month's list that has focus, or null: anything focused in
+   * The row or "+N more" of a narrow month's list that has focus, or null: anything focused in
    * its rows' box, which a new fit can take away.
    */
   private _focusedMonthListPart(): HTMLElement | null {
@@ -3906,7 +3904,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Gives focus a place to go when the render just made took away the row or "+N more" that had it,
-   * as a new fit of a compact month's list can: the list's "+N more", which now stands for that
+   * as a new fit of a narrow month's list can: the list's "+N more", which now stands for that
    * row, else the selected day's cell, without scrolling. Nothing else moves focus, and focus left
    * where it was is left alone.
    */
@@ -3918,13 +3916,13 @@ class CalendarCardPro extends LitElement {
       '.month-day-list > .month-day-list-rows > .month-day-list-more',
     );
     const target =
-      more ?? (this._drawsCompactMonth ? this._monthCellFor(this._monthSelectedDay()) : null);
+      more ?? (this._drawsNarrowMonth ? this._monthCellFor(this._monthSelectedDay()) : null);
     target?.focus({ preventScroll: true });
   }
 
   /**
-   * Decides the month's form at the card's width: compact below `month → min_day_width` a day,
-   * wide again only once a day is `MONTH_COMPACT_HYSTERESIS` past it (`MonthDay.monthCompactAt`).
+   * Decides the month's form at the card's width: narrow below `month → min_day_width` a day,
+   * wide again only once a day is `MONTH_NARROW_HYSTERESIS` past it (`MonthDay.monthNarrowAt`).
    * Its own state, apart from shedding columns and from List's fallback, neither of which a
    * month uses. Decided whatever the view, so a switch to month draws the form the width asks
    * for at once; and from the card's width alone, which its content does not set, so the form
@@ -3939,24 +3937,24 @@ class CalendarCardPro extends LitElement {
     const weekNumbers =
       ViewConfig.resolveViewOption(this.config, 'show_week_numbers', 'month') !== null;
     const dayWidth = MonthDay.monthDayWidth(widthPx, weekNumbers);
-    const next = MonthDay.monthCompactAt(
+    const next = MonthDay.monthNarrowAt(
       dayWidth,
       ViewConfig.resolveMonthOption(this.config, 'min_day_width'),
-      this._monthCompact,
+      this._monthNarrow,
     );
-    if (next === this._monthCompact) return false;
-    Logger.debug(`Month ${next ? 'compact' : 'wide'} at ${Math.round(widthPx)}px`);
-    this._monthCompact = next;
+    if (next === this._monthNarrow) return false;
+    Logger.debug(`Month ${next ? 'narrow' : 'wide'} at ${Math.round(widthPx)}px`);
+    this._monthNarrow = next;
     return true;
   }
 
-  /** Whether the card draws a compact month now. */
-  private get _drawsCompactMonth(): boolean {
-    return this.effectiveView === 'month' && this._monthCompact;
+  /** Whether the card draws a narrow month now. */
+  private get _drawsNarrowMonth(): boolean {
+    return this.effectiveView === 'month' && this._monthNarrow;
   }
 
   /**
-   * The day a compact month lists under its weeks: the one selected on the page shown, else the
+   * The day a narrow month lists under its weeks: the one selected on the page shown, else the
    * page's own (`MonthDay.selectedMonthDay`).
    *
    * @param now - The current moment
@@ -3973,7 +3971,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The day a month page lists by itself on a compact month, with nothing selected: at home,
+   * The day a month page lists by itself on a narrow month, with nothing selected: at home,
    * Month's home day (`_monthHomeDay`), the start date or today, so the card opens, and Home
    * returns, on the day it is configured to start; on any other page, today where it falls in the
    * month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
@@ -3989,18 +3987,18 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the day a compact month lists is another than its page would list by itself: what
+   * Whether the day a narrow month lists is another than its page would list by itself: what
    * Reset brings back. Never while the month is wide, where nothing shows the selection.
    */
   private get _monthSelectionAway(): boolean {
-    if (!this._drawsCompactMonth || this._monthSelection === null) return false;
+    if (!this._drawsNarrowMonth || this._monthSelection === null) return false;
     const now = new Date();
     const own = this._monthOwnDay(this._pageShown, now);
     return this._monthSelectedDay(now).getTime() !== own.getTime();
   }
 
   /**
-   * Selects a compact month's day for a tap on it. Selecting is all a tap on a day does there:
+   * Selects a narrow month's day for a tap on it. Selecting is all a tap on a day does there:
    * adding is the toolbar's add, dated on the day selected, and `day_tap_action` the list's.
    *
    * @param timestamp - The day, any moment of it
@@ -4014,30 +4012,30 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * What a compact month draws besides its weeks: the day selected, and every day's events as
+   * What a narrow month draws besides its weeks: the day selected, and every day's events as
    * the day model lists them, which its capsules count and its list draws, as many of the selected
    * day's as the card last fitted to the list's room (`_monthListFit`). The selected day's list
    * rings the event a search picked, where it holds it. Undefined for a wide month.
    *
    * @param rowsStart - The page's first row's first day
    * @param ring - The event a pick rings on this page, or null
-   * @returns The compact form's options; where the ring is drawn, in the list, behind its
+   * @returns The narrow form's options; where the ring is drawn, in the list, behind its
    *   "+N more", or not yet known while the list waits for its fit; and the day the list is drawn
    *   for, with how many events it holds; or undefined
    */
-  private _monthCompactView(
+  private _monthNarrowView(
     rowsStart: Date,
     ring: Search.RingTarget | null,
   ):
     | {
-        compact: MonthRender.MonthCompact;
+        narrow: MonthRender.MonthNarrow;
         ringed: boolean;
         behindMore: boolean;
         ringPending: boolean;
         list: { day: string; count: number };
       }
     | undefined {
-    if (!this._drawsCompactMonth) return undefined;
+    if (!this._drawsNarrowMonth) return undefined;
     const selected = this._monthSelectedDay();
     const dayLists = MonthDay.monthDayLists(
       this._shownEvents,
@@ -4061,7 +4059,7 @@ class CalendarCardPro extends LitElement {
     const pending = (shown === undefined || waits) && count > 0;
     const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
-      compact: {
+      narrow: {
         selected,
         dayLists: listed
           ? dayLists.map((list, each) => (each === index ? listed.rows : list))
@@ -4080,7 +4078,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The day whose cell is a month's one tab stop (`tabindex="0"`): the day the keyboard, a tap or
-   * a pick last put it on while that day is among the rows, else the compact form's selected
+   * a pick last put it on while that day is among the rows, else the narrow form's selected
    * day, else today where the rows show it, else the 1st of the month the header names.
    *
    * @param rowsStart - The page's first row's first day
@@ -4093,7 +4091,7 @@ class CalendarCardPro extends LitElement {
       const day = Paging.pageStart(this._monthFocusDay);
       if (Paging.rangeContains(range, day)) return day;
     }
-    if (this._drawsCompactMonth) return this._monthSelectedDay(now);
+    if (this._drawsNarrowMonth) return this._monthSelectedDay(now);
     const today = Paging.startOfDay(now);
     return Paging.rangeContains(range, today) ? today : Paging.majorityMonth(range);
   }
@@ -4165,7 +4163,7 @@ class CalendarCardPro extends LitElement {
    * date there where it has one, else its last day. Counted from the heading rather than from the
    * cell, since six rows draw days of the months either side: a step from the cell would land on
    * a date already drawn, and the month would not move. A day past the rows drawn pages there
-   * (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a compact
+   * (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a narrow
    * one, on its keydown; Space does on its keyup, as a native button does, so a panel it opened
    * never takes the keyup as a press on what it focused (`_handleKeyUp`). A key with a modifier,
    * and any key on anything but a cell, is left alone, so Home Assistant's own shortcuts work
@@ -4216,13 +4214,13 @@ class CalendarCardPro extends LitElement {
 
   /**
    * What Enter and Space, or assistive technology's click, do on a month day's cell: open a wide
-   * month's day in its panel, or select a compact month's day.
+   * month's day in its panel, or select a narrow month's day.
    *
    * @param timestamp - The day's local midnight
    * @param cell - Its cell, which focus comes back to
    */
   private _activateMonthCell(timestamp: number, cell: HTMLElement): void {
-    if (this._drawsCompactMonth) {
+    if (this._drawsNarrowMonth) {
       this._selectMonthDay(timestamp);
     } else {
       this._openDayPanel(new Date(timestamp), cell);
@@ -4238,11 +4236,11 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens a month day's panel: the day's events as the day model lists them, through Home
    * Assistant's dialog manager as the search panel is, beside what opened it, a wide day's
-   * "+N more" or its cell, or a compact month's list's "+N more".
+   * "+N more" or its cell, or a narrow month's list's "+N more".
    *
    * Focus comes back to what took it as the panel opened, when it closes, as the search panel's
    * magnifier does. From a wide month that is the day's cell, which becomes the month's tab stop:
-   * its "+N more" is out of the Tab order. From a compact month's list it is the list's
+   * its "+N more" is out of the Tab order. From a narrow month's list it is the list's
    * "+N more" itself, a stop of its own (`returnToAnchor`). A row pressed in the panel closes it
    * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`). A
    * search's pick behind "+N more" rings its row there, and starts focus on it. Nothing opens
@@ -4264,7 +4262,7 @@ class CalendarCardPro extends LitElement {
       return;
     }
     this._dayPanel?.close();
-    this._dayPanelCompact = this._drawsCompactMonth;
+    this._dayPanelNarrow = this._drawsNarrowMonth;
     if (returnToAnchor) {
       anchor.focus({ preventScroll: true });
     } else {
@@ -4975,14 +4973,14 @@ class CalendarCardPro extends LitElement {
     }
     // A configuration change can move the month's form at the width it already has.
     this._syncMonthForm();
-    // The day panel belongs to the "+N more" it opened from, a wide day's or a compact list's,
+    // The day panel belongs to the "+N more" it opened from, a wide day's or a narrow list's,
     // and goes with the form that drew it.
     if (
       this._dayPanel &&
       (this._isBeingEdited ||
         this.hidden ||
         this.effectiveView !== 'month' ||
-        this._monthCompact !== this._dayPanelCompact)
+        this._monthNarrow !== this._dayPanelNarrow)
     ) {
       this._dayPanel.close();
     }
@@ -5636,7 +5634,7 @@ class CalendarCardPro extends LitElement {
     if (this.effectiveView !== 'month' || this._holdsSectionsSlot) return styles;
     return {
       ...styles,
-      ...MonthRender.monthCardStyle(this.config, this._monthCompact ? 'compact' : 'wide'),
+      ...MonthRender.monthCardStyle(this.config, this._monthNarrow ? 'narrow' : 'wide'),
     };
   }
 
@@ -6072,7 +6070,7 @@ class CalendarCardPro extends LitElement {
     const path = press?.path;
     const onLink = this._startsOnRowLink(ev, path);
     const tapTarget = onLink ? undefined : this._eventTapAt(ev, path);
-    // A compact month's day selects, and so covers whatever its day would otherwise do.
+    // A narrow month's day selects, and so covers whatever its day would otherwise do.
     const monthPick = onLink || tapTarget ? undefined : this._monthPickAt(ev, path);
     const dayHit = onLink || tapTarget || monthPick ? undefined : this._dayHitAt(ev, path);
     // A press on an event, a day or a link is theirs, so the card's ripple stays still for it
@@ -7141,7 +7139,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The compact month day an input event started on, which a tap on it selects. Undefined on any
+   * The narrow month day an input event started on, which a tap on it selects. Undefined on any
    * other card, and while the card is being edited.
    *
    * @param ev - An input event dispatched to `ha-card` or inside it
@@ -7152,7 +7150,7 @@ class CalendarCardPro extends LitElement {
     ev: Event,
     path: ReadonlyArray<EventTarget> | undefined,
   ): { element: EventTarget; timestamp: number } | undefined {
-    if (!this._drawsCompactMonth || this._isBeingEdited || !path) return undefined;
+    if (!this._drawsNarrowMonth || this._isBeingEdited || !path) return undefined;
     return Activation.findMonthPick(path, ev.currentTarget);
   }
 
@@ -7325,7 +7323,7 @@ class CalendarCardPro extends LitElement {
     // is let go; one that never left its place runs the event's hold instead, or its tap where
     // no hold runs, since the hold only lifted it. Otherwise the event's own hold where it has
     // one, else the card's, wherever it landed. Stayed: a tap, run by the innermost target that
-    // has one: the event's, else a compact month day's selection, else the day's where the
+    // has one: the event's, else a narrow month day's selection, else the day's where the
     // press was on a day and not on an event, else the card's. Moved: never a tap or a hold on
     // anything; a mouse in a grid draws or moves at once, and otherwise it is a swipe when it can
     // be one. Canceled: `_handlePointerCancel` ends it and runs nothing. A hold cannot fire once
@@ -7896,7 +7894,7 @@ class CalendarCardPro extends LitElement {
   private _wideMonthCellAt(
     ev: MouseEvent,
   ): { element: HTMLElement; timestamp: number } | undefined {
-    if (this.effectiveView !== 'month' || this._monthCompact || this._isBeingEdited) return;
+    if (this.effectiveView !== 'month' || this._monthNarrow || this._isBeingEdited) return;
     const target = ev.composedPath()[0];
     const timestamp = Activation.monthCellOn(target);
     return timestamp === undefined || !(target instanceof HTMLElement)
@@ -8756,8 +8754,8 @@ class CalendarCardPro extends LitElement {
 
     const shownDays = (days: Types.EventsByDay[]): Types.EventsByDay[] =>
       this._daysOnScreen(days, this._pageShown);
-    // A compact month's selected day and every day's list, decided once the events are in.
-    let monthCompact: MonthRender.MonthCompact | undefined;
+    // A narrow month's selected day and every day's list, decided once the events are in.
+    let monthNarrow: MonthRender.MonthNarrow | undefined;
     this._monthListDrawn = null;
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
@@ -8789,7 +8787,7 @@ class CalendarCardPro extends LitElement {
           this._eventsActivatable,
           {
             more: (day, button) => this._openDayPanel(day, button),
-            compact: monthCompact,
+            narrow: monthNarrow,
             focusDay: this._monthTabStop(rowsStart),
           },
         );
@@ -8839,17 +8837,17 @@ class CalendarCardPro extends LitElement {
       const days = ringed.days;
       const month = this.effectiveView === 'month';
       const rowsStart = month ? this._monthRowsStart(this._pageShown) : undefined;
-      const compactView = rowsStart && this._monthCompactView(rowsStart, ringTarget);
-      monthCompact = compactView ? compactView.compact : undefined;
-      this._monthListDrawn = compactView ? compactView.list : null;
-      // A month decides where a pick's ring is drawn once it knows what it discloses: a compact
+      const narrowView = rowsStart && this._monthNarrowView(rowsStart, ringTarget);
+      monthNarrow = narrowView ? narrowView.narrow : undefined;
+      this._monthListDrawn = narrowView ? narrowView.list : null;
+      // A month decides where a pick's ring is drawn once it knows what it discloses: a narrow
       // month in the selected day's list alone, once the card has fitted it, a wide one in its
       // weeks where it draws the event as a bar or a line, else in its day's panel
       // (`_syncSearchRing`).
-      if (compactView) {
-        this._searchRingDrawn = compactView.ringed;
-        this._searchRingPending = compactView.ringPending;
-        if (compactView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
+      if (narrowView) {
+        this._searchRingDrawn = narrowView.ringed;
+        this._searchRingPending = narrowView.ringPending;
+        if (narrowView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
       } else if (rowsStart && ring && ringed.found) {
         this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
@@ -9183,7 +9181,7 @@ class CalendarCardPro extends LitElement {
    * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
    * outside it. Within the page, rows are not consulted: a collapsed compact card, or an empty
    * day the card leaves out, still suggests today, the day an event is most often added for.
-   * A month suggests the day its compact form selects by itself (`_monthOwnDay`): at home, the
+   * A month suggests the day its narrow form selects by itself (`_monthOwnDay`): at home, the
    * start date or today; elsewhere today where it falls in the month the heading names, else that
    * month's 1st, never a dimmed day of the month before that its first row opens on.
    *
@@ -9243,11 +9241,11 @@ class CalendarCardPro extends LitElement {
     origin?: Feedback.PressOrigin,
     dayTimestamp?: number,
   ): void {
-    // A compact month adds on the day it lists, wherever nothing names another.
+    // A narrow month adds on the day it lists, wherever nothing names another.
     const timestamp =
       hit?.timestamp ??
       dayTimestamp ??
-      (this._drawsCompactMonth ? this._monthSelectedDay().getTime() : undefined);
+      (this._drawsNarrowMonth ? this._monthSelectedDay().getTime() : undefined);
     const times =
       timestamp === undefined
         ? AddEvent.newEventTimes(this._newEventDate())
@@ -9560,7 +9558,7 @@ class CalendarCardPro extends LitElement {
    */
   private _pressHome(): void {
     const away = this._pageRequested !== null;
-    // Home lists Month's home day on a compact month, whichever day was selected, on home's page
+    // Home lists Month's home day on a narrow month, whichever day was selected, on home's page
     // or not, and puts a month's tab stop back on its own day. Nor does a day a switch carried here
     // carry on from it.
     if (!this._isBeingEdited) this._carriedDay = null;
@@ -9936,7 +9934,7 @@ class CalendarCardPro extends LitElement {
    * with home's, in the view on screen, and rings the event once that page draws it. Home brings
    * the card back, as after any jump.
    *
-   * A month pages to the result's month, selects its day where it is compact, and puts its tab
+   * A month pages to the result's month, selects its day where it is narrow, and puts its tab
    * stop on the day either way; where its ring is drawn is decided once the page shows what it
    * discloses (`render`, `_syncSearchRing`).
    *
@@ -9981,7 +9979,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Rings the event a pick paged to once the page draws it, for `SEARCH_RING`, and moves focus to
-   * it once the panel has gone where it is a target; where the page cannot draw it, a compact
+   * it once the panel has gone where it is a target; where the page cannot draw it, a narrow
    * card's limit or a column the width sheds, the card was paged all the same and there is
    * nothing to ring, so focus stays on the magnifier. Called after every update.
    *
@@ -9989,7 +9987,7 @@ class CalendarCardPro extends LitElement {
    * the event's row there and starting focus on it, once the search panel has gone and Home
    * Assistant has put focus back where it was: opened sooner, that would take focus from it.
    *
-   * A ring already drawn in a compact month's list whose row a new fit leaves out, as after a
+   * A ring already drawn in a narrow month's list whose row a new fit leaves out, as after a
    * resize, is routed the same way rather than left on nothing: to its day's panel, for the ring's
    * whole time again, with focus on its row there where the list held focus.
    */
@@ -9999,7 +9997,7 @@ class CalendarCardPro extends LitElement {
 
     const behindMore = this._searchRingBehindMore;
     if (ring.until === undefined) {
-      // A compact month's list not fitted yet may list the pick or leave it behind "+N more";
+      // A narrow month's list not fitted yet may list the pick or leave it behind "+N more";
       // the render the fit makes says which.
       if (this._searchRingPending) return;
       if (this._searchRingDrawn) {
@@ -10019,7 +10017,7 @@ class CalendarCardPro extends LitElement {
       behindMore &&
       !ring.inPanel &&
       !this._searchRingDrawn &&
-      this._drawsCompactMonth &&
+      this._drawsNarrowMonth &&
       this._searchPanelGone
     ) {
       // Focus is owed to the ring, or was on the list, which a new fit moves to "+N more"
@@ -10048,7 +10046,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Rings a pick its month draws only behind a day's "+N more" in that day's panel, for
-   * `SEARCH_RING` from now. A compact month's list opens the panel from its own "+N more", which
+   * `SEARCH_RING` from now. A narrow month's list opens the panel from its own "+N more", which
    * focus comes back to; a wide month from the day's cell.
    *
    * @param ring - The ring
@@ -10062,7 +10060,7 @@ class CalendarCardPro extends LitElement {
   ): void {
     this._startSearchRing(ring);
     ring.inPanel = true;
-    const listMore = this._drawsCompactMonth
+    const listMore = this._drawsNarrowMonth
       ? this.renderRoot.querySelector<HTMLElement>('.month-day-list .month-day-list-more')
       : null;
     const cell = this._monthCellFor(day);
@@ -10829,7 +10827,7 @@ class CalendarCardPro extends LitElement {
    * and from home with nothing selected the next view opens on its own home. Every view draws from
    * one load, as far as the longest view the card can show, and a page's load holds the weeks of
    * the month its day falls in, so a switch fetches nothing unless it carries a day to a page no
-   * load has named yet, as a day selected on a compact month at home does.
+   * load has named yet, as a day selected on a narrow month at home does.
    *
    * @param view - The view picked
    */
@@ -10893,7 +10891,7 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens the view on screen on a day another view carried (`_dateInView`), or on its own home
    * for none. A month opens on the weeks of the month holding the day, with the day selected,
-   * listed where the month is compact and kept where it is wide, and its cell the tab stop either
+   * listed where the month is narrow and kept where it is wide, and its cell the tab stop either
    * way. Any other view opens on the page starting that day. A page that draws what home does is
    * home (`_goToPage`), which keeps the day for the next switch (`_carriedDay`).
    *

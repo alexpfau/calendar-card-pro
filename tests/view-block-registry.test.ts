@@ -120,7 +120,7 @@ describe('every registered view is internally consistent', () => {
     // resolved by `resolveMinDaysToShow`, which is why it is absent from
     // `COLUMN_DEFAULTS` by design rather than by omission. Grid's sibling key defaults
     // to a literal 1, so it belongs in `TIME_GRID_DEFAULTS` and is not an exception here.
-    // Month's compact heights default to the wide ones, through `resolveMonthCardSize`.
+    // Month's narrow heights default to the wide ones, through `resolveMonthCardSize`.
     //
     // 🚨 Reconciled in both directions rather than skipped. A bare exception list
     // silently stops covering anything added to it, and stops meaning anything when a
@@ -129,7 +129,7 @@ describe('every registered view is internally consistent', () => {
     // missing fails too.
     const derived: Readonly<Record<string, ReadonlyArray<string>>> = {
       column: ['min_days_to_show'],
-      month: ['compact_card_height', 'compact_card_max_height'],
+      month: ['narrow_card_height', 'narrow_card_max_height'],
     };
     const expected = derived[_view] ?? [];
 

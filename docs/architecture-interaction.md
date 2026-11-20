@@ -45,12 +45,12 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   functions that open the popover refuse.
 - **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven
   `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
-  them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the compact
+  them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the narrow
   selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
   reading right to left, Home and End to the week's ends, Page Up and Page Down to the month either
   side of the one the heading names, always paging, since the rows draw days of both; a day off
   the rows pages there where the card pages, and focus follows once the page is drawn
-  (`_syncMonthFocus`). Enter or Space opens a wide day's panel, or selects a compact day. A wide
+  (`_syncMonthFocus`). Enter or Space opens a wide day's panel, or selects a narrow day. A wide
   day's bars, lines and "+N more" are out of the Tab order and owned by its cell (`aria-owns`),
   since the panel lists them. Keys with a modifier, and keys off the cells, are Home Assistant's.
 
@@ -197,7 +197,7 @@ owned by the card's `SearchSession`.
   (`searchGroupingConfig`), so filters, duplicates and replacements are the card's.
 - **A pick** pages through the date picker's path (`_pickDate`) and rings the event through a class
   render binds (`_searchRing`), never an element added in `updated()`. A month decides where once
-  it knows what it discloses: a compact month selects the day and rings the row in its list, once
+  it knows what it discloses: a narrow month selects the day and rings the row in its list, once
   the list has been fitted in a render after the pick, a wide one rings the bar or line where it
   draws one (`monthDrawsRing`), and otherwise opens the day's panel, once the search panel has
   gone, with the row rung and focused. A ring whose row a later fit leaves out of the list goes to

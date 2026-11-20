@@ -133,7 +133,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 
 /**
  * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
- * its cap in each form, the day width below which the compact form draws, the weekend's and today's
+ * its cap in each form, the day width below which the narrow form draws, the weekend's and today's
  * shading, and the font sizes of the wide month's days.
  *
  * 🚨 Two of the names, `card_height` and `card_max_height`, are also the names of the card's
@@ -152,8 +152,8 @@ function monthFields(blockKey: string): HaFormSchema[] {
     blockScope(blockKey, [
       text('card_height'),
       text('card_max_height'),
-      text('compact_card_height'),
-      text('compact_card_max_height'),
+      text('narrow_card_height'),
+      text('narrow_card_max_height'),
       {
         name: 'min_day_width',
         selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },

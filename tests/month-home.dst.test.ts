@@ -377,21 +377,21 @@ describe('the month Month opens on', () => {
     expect(asked[asked.length - 1]).toBe('2026-11-30');
   });
 
-  it('selects today in the compact form, in the month it opens', async () => {
+  it('selects today in the narrow form, in the month it opens', async () => {
     vi.setSystemTime(new Date(2026, 11, 3, 10));
     const card = await mount({ start_date: 'start_of_week' }, 360);
-    expect(root(card).querySelector('.month-compact')).not.toBeNull();
+    expect(root(card).querySelector('.month-narrow')).not.toBeNull();
     expect(text(root(card).querySelector('.month-day-list-name'))).toContain('December 3');
   });
 });
 
-describe('the day a compact month selects at home', () => {
-  /** The day the compact form lists under its weeks, as its list names it. */
+describe('the day a narrow month selects at home', () => {
+  /** The day the narrow form lists under its weeks, as its list names it. */
   const listed = (card: CardUnderTest) => text(root(card).querySelector('.month-day-list-name'));
 
-  /** Taps a day of the compact form, by its date, as a user selects it. */
+  /** Taps a day of the narrow form, by its date, as a user selects it. */
   async function select(card: CardUnderTest, date: string): Promise<void> {
-    const cell = [...root(card).querySelectorAll<HTMLElement>('.month-compact .month-day')].find(
+    const cell = [...root(card).querySelectorAll<HTMLElement>('.month-narrow .month-day')].find(
       (each) =>
         key(
           new Date((each as unknown as { calendarCardMonthCell: number }).calendarCardMonthCell),
@@ -456,11 +456,11 @@ describe('the day a compact month selects at home', () => {
     async (_name, now, start_date, day, opened) => {
       vi.setSystemTime(now);
       const card = await mount(start_date === undefined ? {} : { start_date }, 360);
-      expect(root(card).querySelector('.month-compact')).not.toBeNull();
+      expect(root(card).querySelector('.month-narrow')).not.toBeNull();
       expect(listed(card)).toContain(day);
       // The wide form shows no selection, and its add button suggests the same day.
       const wide = await mount(start_date === undefined ? {} : { start_date });
-      expect(root(wide).querySelector('.month-compact')).toBeNull();
+      expect(root(wide).querySelector('.month-narrow')).toBeNull();
       expect(new Date(wide._newEventDate()).toDateString()).toBe(
         new Date(`${day} 12:00`).toDateString(),
       );

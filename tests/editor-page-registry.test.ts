@@ -478,16 +478,26 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:card_max_height W SLCG',
       // Grid's own height, beside the Height it yields to.
       'layout:time_grid.hour_height A G',
-      // Month's own, in the Height's place: the whole card, wide then compact.
-      'layout:month.card_height A M',
-      'layout:month.card_max_height A M',
-      'layout:month.compact_card_height A M',
-      'layout:month.compact_card_max_height A M',
       'layout:additional_card_spacing A',
-      'layout:event_gap A SLCM',
-      'layout:event_spacing A SLCM',
+      // How narrow Month's days may get before it turns narrow, ahead of each form's heights.
+      'layout:month.min_day_width A M',
     ],
   ],
+  // Month's own heights, in the Height's place: the whole card, one heading per form.
+  [
+    'Size & Spacing',
+    'Wide Month',
+    '',
+    ['layout:month.card_height A M', 'layout:month.card_max_height A M'],
+  ],
+  [
+    'Size & Spacing',
+    'Narrow Month',
+    '',
+    ['layout:month.narrow_card_height A M', 'layout:month.narrow_card_max_height A M'],
+  ],
+  // Day List & +N Panel in Month, whose weeks draw neither.
+  ['Size & Spacing', 'Event Rows', '', ['layout:event_gap A SLCM', 'layout:event_spacing A SLCM']],
   [
     'Size & Spacing',
     'Hour Labels',
@@ -518,9 +528,6 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.min_days_fallback F G',
     ],
   ],
-  // How narrow Month's days may get before it turns compact, beside the same question for Columns
-  // and Grid; one field, so no family.
-  ['Size & Spacing', 'Month Density', '', ['layout:month.min_day_width A M']],
   [
     'Size & Spacing',
     'Between Days',
@@ -1091,7 +1098,13 @@ describe('the registry heads what the builders used to', () => {
       'layout:time_grid.axis_label_minutes',
     ]);
     const spacing = PAGES.find((page) => page.id === 'size_spacing')!.headings.map((h) => h.key);
-    expect(spacing.indexOf('heading_hour_labels')).toBe(spacing.indexOf('heading_card_size') + 1);
+    // Only headings Grid draws nothing under come between, so Hour Labels follows its height there.
+    expect(
+      spacing.slice(
+        spacing.indexOf('heading_card_size') + 1,
+        spacing.indexOf('heading_hour_labels'),
+      ),
+    ).toEqual(['heading_wide_month', 'heading_narrow_month', 'heading_event_rows']);
     expect(under('day_header', 'weekend_colors')).toContain(
       'layout:time_grid.weekend_background_color',
     );

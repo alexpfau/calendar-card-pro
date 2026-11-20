@@ -74,7 +74,7 @@ Wherever a day shows no event, in every layout:
 - **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
   quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
   all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
-- **[Month view](/features/month-view):** the empty part of a day. On a compact month a tap
+- **[Month view](/features/month-view):** the empty part of a day. On a narrow month a tap
   selects the day instead, and the selected day's name over its list adds.
 
 A tap on an event never adds: the tap is the event's unless its `event_tap_action` is `none`, and

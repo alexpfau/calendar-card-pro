@@ -1385,8 +1385,8 @@ describe('editor: displayed view and the Layout panel', () => {
     const always = [
       'card_height',
       'card_max_height',
-      'compact_card_height',
-      'compact_card_max_height',
+      'narrow_card_height',
+      'narrow_card_max_height',
       'min_day_width',
       'weekend_background_color',
       'today_background_color',

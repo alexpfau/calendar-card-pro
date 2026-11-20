@@ -4,7 +4,7 @@
  *
  * The selectors are the card's own class names, grouped by the place they open, so they are a contract between the card's markup
  * and this table. `tests/editor-pick-map.test.ts` holds it in both directions: it renders the card
- * in List, Columns, Grid and Month, wide and compact, and fails on a selector that matches nothing,
+ * in List, Columns, Grid and Month, wide and narrow, and fails on a selector that matches nothing,
  * and on a drawn element that reaches no part but a catch-all. Month's day panel is a dialog of
  * its own, outside the card, so nothing in it is picked.
  *
@@ -148,30 +148,35 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     },
   ],
   ['.event', { page: 'events', heading: 'heading_details' }],
-  ['.event-gap-row', { page: 'size_spacing', heading: 'heading_card_size' }],
+  ['.event-gap-row', { page: 'size_spacing', heading: 'heading_event_rows' }],
   ['.grid-axis', { page: 'size_spacing', heading: 'heading_hour_labels', scope: 'grid' }],
   ['.grid-rules', { page: 'size_spacing', heading: 'heading_across_the_grid', scope: 'grid' }],
   ['.grid-container', { page: 'which_events', heading: 'heading_hours', scope: 'grid' }],
-  // A compact month's day, and its marks, open what made it compact; a wide one's, and the rest
+  // A narrow month's day, and its marks, open what made it narrow; a wide one's, and the rest
   // of the weeks, open the card's size, which sets how many lines a day holds before "+N more".
   [
-    '.month-compact-marks, .month-compact .month-day',
-    { page: 'size_spacing', heading: 'month.density', scope: 'month' },
+    '.month-narrow-marks, .month-narrow .month-day',
+    {
+      page: 'size_spacing',
+      heading: 'heading_card_size',
+      scope: 'month',
+      field: 'layout:month.min_day_width',
+    },
   ],
-  // A compact month's list, its room and its "+N more" open Compact Card Height, whose room the
+  // A narrow month's list, its room and its "+N more" open Narrow Card Height, whose room the
   // list fits its rows to: its events and its day's name keep the parts above.
   [
     '.month-day-list-more, .month-day-list-rows, .month-day-list',
     {
       page: 'size_spacing',
-      heading: 'heading_card_size',
+      heading: 'heading_narrow_month',
       scope: 'month',
-      field: 'layout:month.compact_card_height',
+      field: 'layout:month.narrow_card_height',
     },
   ],
   [
     '.month-more, .month-day, .month-container',
-    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
+    { page: 'size_spacing', heading: 'heading_wide_month', scope: 'month' },
   ],
   ['.day-column', { page: 'size_spacing', heading: 'column.density', scope: 'column' }],
   ['.content-container', { page: 'size_spacing', heading: 'heading_card_size' }],
