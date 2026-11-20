@@ -411,7 +411,7 @@ describe('the editor’s duplicate dropdown, for merge_locations', () => {
 
     expect(select.selector.select.options).toContainEqual({
       value: 'merge_locations',
-      label: 'Same title, start and end — list all locations',
+      label: 'Same title, start and end, listing every location',
     });
   });
 });

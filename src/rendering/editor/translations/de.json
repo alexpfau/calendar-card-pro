@@ -764,7 +764,7 @@
   "filter_duplicates_mode.option.off.label": "Aus",
   "filter_duplicates_mode.option.exact.label": "Titel, Beginn, Ende und Ort stimmen überein",
   "filter_duplicates_mode.option.ignore_location.label": "Titel, Beginn und Ende stimmen überein",
-  "filter_duplicates_mode.option.merge_locations.label": "Titel, Beginn und Ende stimmen überein — alle Orte auflisten",
+  "filter_duplicates_mode.option.merge_locations.label": "Titel, Beginn und Ende stimmen überein, mit allen Orten",
   "filter_duplicates_mode.helper": "Blendet einen Termin aus, der in diesen Feldern mit einem anderen übereinstimmt. Erhalten bleibt die Kopie aus dem zuerst aufgeführten Eintrag samt ihrer Farbe.",
   "duplicate_accent_color": "Farbe für gemeinsame Termine",
   "duplicate_accent_color.helper": "Für einen Termin, der aus zwei oder mehr Kalendern erhalten bleibt. Bleibt das Feld leer, behält er die Farbe des ersten Kalenders.",

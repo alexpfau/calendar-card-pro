@@ -764,7 +764,7 @@
   "filter_duplicates_mode.option.off.label": "Av",
   "filter_duplicates_mode.option.exact.label": "Samme tittel, start, slutt og sted",
   "filter_duplicates_mode.option.ignore_location.label": "Samme tittel, start og slutt",
-  "filter_duplicates_mode.option.merge_locations.label": "Samme tittel, start og slutt — vis alle steder",
+  "filter_duplicates_mode.option.merge_locations.label": "Samme tittel, start og slutt, med alle steder",
   "filter_duplicates_mode.helper": "Skjuler en hendelse som stemmer med en annen i disse feltene. Kopien fra oppføringen som står først, beholdes sammen med fargen sin.",
   "duplicate_accent_color": "Felles hendelsesfarge",
   "duplicate_accent_color.helper": "For en hendelse som beholdes fra to eller flere kalendere. Står det tomt, beholder den fargen til den første kalenderen.",

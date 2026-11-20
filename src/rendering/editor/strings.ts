@@ -1207,7 +1207,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'filter_duplicates_mode.option.exact.label': 'Same title, start, end and location',
   'filter_duplicates_mode.option.ignore_location.label': 'Same title, start and end',
   'filter_duplicates_mode.option.merge_locations.label':
-    'Same title, start and end — list all locations',
+    'Same title, start and end, listing every location',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
   // block of the same calendar rather than a different one. Colors only — since v4.2 a row
   // merged across two or more distinct calendars shows every one of their labels.

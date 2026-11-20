@@ -673,7 +673,7 @@
   "filter_duplicates_mode.option.off.label": "끄기",
   "filter_duplicates_mode.option.exact.label": "제목, 시작, 종료, 장소 일치",
   "filter_duplicates_mode.option.ignore_location.label": "제목, 시작, 종료 일치",
-  "filter_duplicates_mode.option.merge_locations.label": "제목, 시작, 종료 일치 — 모든 장소 표시",
+  "filter_duplicates_mode.option.merge_locations.label": "제목, 시작, 종료 일치, 모든 장소 표시",
   "filter_duplicates_mode.helper": "이 필드의 값이 다른 이벤트와 일치하는 이벤트를 숨깁니다. 먼저 나열된 항목의 이벤트가 그 항목의 색상과 함께 유지됩니다.",
   "duplicate_accent_color": "공유 이벤트 색상",
   "duplicate_accent_color.helper": "두 개 이상의 캘린더에서 유지되는 이벤트에 적용됩니다. 비워두면 첫 번째 캘린더의 색상을 유지합니다.",

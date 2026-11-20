@@ -760,7 +760,7 @@
   "filter_duplicates_mode.option.off.label": "Disattivato",
   "filter_duplicates_mode.option.exact.label": "Stesso titolo, inizio, fine e luogo",
   "filter_duplicates_mode.option.ignore_location.label": "Stesso titolo, inizio e fine",
-  "filter_duplicates_mode.option.merge_locations.label": "Stesso titolo, inizio e fine — elenca tutti i luoghi",
+  "filter_duplicates_mode.option.merge_locations.label": "Stesso titolo, inizio e fine, con tutti i luoghi",
   "filter_duplicates_mode.helper": "Nasconde un evento che coincide con un altro in questi campi. Si conserva la copia della voce elencata per prima, con il suo colore.",
   "duplicate_accent_color": "Colore evento condiviso",
   "duplicate_accent_color.helper": "Per un evento conservato da due o più calendari. Se lasciato vuoto, mantiene il colore del primo calendario.",
