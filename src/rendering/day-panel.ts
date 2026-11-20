@@ -85,6 +85,18 @@ export interface DayPanelSource {
    * @param origin - Where the panel opened, for the details popover to open beside in its place
    */
   activate(target: Activation.EventTapTarget, origin: Feedback.PressOrigin): void;
+  /**
+   * Home Assistant's "Add event" while a tap on a day adds an event on it (`day_tap_action`), so the
+   * panel's title adds on its day as the narrow month's day name does; undefined while it adds
+   * nothing.
+   */
+  addLabel?(): string | undefined;
+  /**
+   * Adds an event on the day. Called once the panel has gone.
+   *
+   * @param origin - Where the panel opened, for the new event's popover to open beside in its place
+   */
+  add?(origin: Feedback.PressOrigin): void;
 }
 
 /** What the card hands the day panel, through Home Assistant's `show-dialog`. */
@@ -151,6 +163,8 @@ export class DayPanel extends Shell.PopoverShell {
   private _detach?: () => void;
   /** The row pressed, whose action runs once the panel has gone. */
   private _picked?: { target: Activation.EventTapTarget; origin: Feedback.PressOrigin };
+  /** Where an event is added on the day once the panel has gone, its title having been pressed. */
+  private _adding?: Feedback.PressOrigin;
   /** Watches the rows' titles and times while they are fitted (`_syncTitleFits`). */
   private _titleWatch?: ResizeObserver;
   /** The fit asked for on the next frame, if one is. */
@@ -172,13 +186,16 @@ export class DayPanel extends Shell.PopoverShell {
     const detach = this._detach;
     const source = this._params?.source;
     const picked = this._picked;
+    const adding = this._adding;
     this._detach = undefined;
     this._params = undefined;
     this._picked = undefined;
+    this._adding = undefined;
     detach?.();
     // After the dialog manager has heard the panel close, so the popover a details action opens
     // is the dialog it opens next, and focus goes back to "+N more" when that one closes.
     if (source && picked) setTimeout(() => source.activate(picked.target, picked.origin));
+    if (source && adding) setTimeout(() => source.add?.(adding));
   }
 
   //---------------------------------------------------------------------------
@@ -196,12 +213,14 @@ export class DayPanel extends Shell.PopoverShell {
     // was pressed in it then is dropped, since another day is what was asked for now.
     if (this._closing) {
       this._picked = undefined;
+      this._adding = undefined;
       this._closeNow();
     }
     this._detach?.();
     this._params = params;
     this._onClosed = params.closed;
     this._picked = undefined;
+    this._adding = undefined;
     this._place = undefined;
     this._maxHeight = undefined;
     this._detach = params.source.attach({
@@ -384,15 +403,35 @@ export class DayPanel extends Shell.PopoverShell {
    */
   private _pick(hit: Activation.EventTapHit): void {
     if (this._closing || !this._params) return;
-    const anchor = this._params.anchor;
-    this._picked = {
-      target: hit.target,
-      origin: anchor
-        ? { x: anchor.x, y: anchor.y, rect: anchor.rect, below: anchor.below }
-        : boxOrigin((hit.element as Element).getBoundingClientRect()),
-    };
+    this._picked = { target: hit.target, origin: this._whereOpened(hit.element as Element) };
     this._close();
   }
+
+  /**
+   * Where the panel opened, for what runs once it has gone to open in its place, without the
+   * pointer that opened it (`_pick`).
+   *
+   * @param pressed - What was pressed in the panel, where it opened beside nothing
+   * @returns The press
+   */
+  private _whereOpened(pressed: Element): Feedback.PressOrigin {
+    const anchor = this._params?.anchor;
+    return anchor
+      ? { x: anchor.x, y: anchor.y, rect: anchor.rect, below: anchor.below }
+      : boxOrigin(pressed.getBoundingClientRect());
+  }
+
+  /**
+   * The title pressed while a tap on a day adds: the panel closes, and an event is added on its day
+   * once it has gone, opening where the panel opened, as a row's popover does (`_pick`).
+   *
+   * @param ev - The title's click, from a press, Enter or Space
+   */
+  private readonly _onAdd = (ev: MouseEvent): void => {
+    if (this._closing || !this._params) return;
+    this._adding = this._whereOpened(ev.currentTarget as Element);
+    this._close();
+  };
 
   private readonly _onRowClick = (ev: MouseEvent): void => {
     const hit = this._rowAt(ev);
@@ -441,13 +480,15 @@ export class DayPanel extends Shell.PopoverShell {
       .filter((part) => part !== '')
       .join(';');
     const close = this._named(...CLOSE);
+    const addLabel = params.source.addLabel?.();
+    const day = html`<span id="day-panel-day">${params.title}</span>`;
 
     return html`
       <dialog
         class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}${this._lift > 0 ? ' lifted' : ''}"
         ?data-placed=${this._sheet || !!place}
         style=${Shell.placedStyle(this._sheet, place, this._lift)}
-        aria-labelledby="day-panel-title"
+        aria-labelledby="day-panel-day"
         @cancel=${this._onCancel}
         @pointerdown=${this._onPointerDown}
         @click=${this._onClick}
@@ -461,7 +502,19 @@ export class DayPanel extends Shell.PopoverShell {
               id="day-panel-title"
               style=${styleMap({ color: params.source.titleColor?.() })}
             >
-              ${params.title}
+              ${
+                addLabel
+                  ? html`<button
+                      type="button"
+                      class="day-panel-add"
+                      aria-label=${addLabel}
+                      aria-describedby="day-panel-day"
+                      @click=${this._onAdd}
+                    >
+                      ${day}
+                    </button>`
+                  : day
+              }
             </h2>
             <button
               type="button"
@@ -546,6 +599,30 @@ export class DayPanel extends Shell.PopoverShell {
         font-weight: 600;
         line-height: 1.3;
         color: var(--text);
+      }
+      /* While a tap on a day adds, the title is a button that adds on the day, as the narrow
+         month's day name is: the title as it is, with the press feedback of the name. */
+      .day-panel-add {
+        display: block;
+        width: 100%;
+        margin: -4px -6px;
+        padding: 4px 6px;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-align: start;
+        cursor: pointer;
+        box-sizing: content-box;
+      }
+      @media (hover: hover) {
+        .day-panel-add:hover {
+          background-color: var(--button);
+        }
+      }
+      .day-panel-add:active {
+        background-color: var(--button);
       }
       .day-panel-close {
         flex: none;

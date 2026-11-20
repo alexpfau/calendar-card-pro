@@ -4319,6 +4319,8 @@ class CalendarCardPro extends LitElement {
           };
         },
         activate: (target, origin) => this._activate({ event: target }, origin),
+        addLabel: () => this._dayAddButtons?.label,
+        add: (origin) => this._activate({ day: day.getTime() }, origin),
       },
       title: MonthRender.monthDayTitle(day, language),
       anchor: at && { ...at, rect: at.rect ?? anchor.getBoundingClientRect() },

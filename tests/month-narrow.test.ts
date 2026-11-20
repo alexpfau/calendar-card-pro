@@ -1633,6 +1633,52 @@ describe('the day panel', () => {
     });
   });
 
+  it('adds on its day from its title where day_tap_action adds, opened by a key on the day', async () => {
+    // The keys open the day's panel whatever a press on the day runs, as that is how they reach
+    // the day's events; where that press adds, the panel's title adds, as a narrow day's name does.
+    const manager = playDialogManager();
+    const card = await mount({ day_tap_action: { action: 'add-event' } });
+    const cell = root(card).querySelector<HTMLElement>(
+      '.month-day[aria-label^="Tuesday, November 10, 2026"]',
+    )!;
+    cell.focus();
+    cell.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+    await settle(card);
+    const panel = manager.panel()!;
+    await panel.updateComplete;
+    expect(isOpen(panel)).toBe(true);
+    const dialog = panel.shadowRoot!.querySelector('dialog')!;
+    expect(text(panel.shadowRoot!.getElementById(dialog.getAttribute('aria-labelledby')!))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    const add = panel.shadowRoot!.querySelector<HTMLButtonElement>('.day-panel-title button')!;
+    expect(add.getAttribute('aria-label')).toBe('Add event');
+    expect(text(panel.shadowRoot!.getElementById(add.getAttribute('aria-describedby')!))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    const anchor = (dialogs[0].dialogParams as DayPanelParams).anchor!;
+
+    add.click();
+    await afterClose(card);
+    expect(isOpen(panel)).toBe(false);
+    const opened = dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+    expect(opened).toHaveLength(1);
+    const params = opened[0].dialogParams as PopoverParams;
+    expect(params.entry).toBeUndefined();
+    expect(params.times?.start).toEqual(new Date(2026, 10, 10, 10));
+    expect(params.anchor?.rect).toEqual(anchor.rect);
+  });
+
+  it('keeps its title plain where a tap on a day adds nothing', async () => {
+    const { panel } = await open({ tap_action: { action: 'more-info' } });
+    expect(panel!.shadowRoot!.querySelector('.day-panel-title button')).toBeNull();
+    expect(text(panel!.shadowRoot!.querySelector('.day-panel-title'))).toBe(
+      'Tuesday, November 10, 2026',
+    );
+  });
+
   it('runs Home Assistant’s action for a row where event_tap_action names one', async () => {
     const { card, panel } = await open({ event_tap_action: { action: 'more-info' } });
     [...panel!.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')]

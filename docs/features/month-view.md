@@ -182,7 +182,9 @@ month:
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
 opens the day in a panel: every event that day, drawn as in [the day's list](#the-days-list) of a
 narrow month, with their times, locations and the other details the card shows. A press on an
-event there closes the panel and does what a press on it in the month would.
+event there closes the panel and does what a press on it in the month would. With
+`day_tap_action: add-event`, a press on the day's name at the top of the panel adds an event on
+that day, as the selected day's name does over a narrow month's list.
 
 ::: details Limits the Day's List Ignores
 The list shows the whole day whatever the list layout's own limits say: `skip_first_events`,
@@ -279,6 +281,11 @@ The month is one stop in the tab order. The arrow keys move a day or a week, Hom
 the ends of the week, and Page Up and Page Down go to the month before or after the one shown, on
 the same date where it has one. Enter or Space opens the day's list in a panel, or on a narrow
 month selects the day. Each day is announced with its full date and how many events it holds.
+
+On a wide month the keys open the panel whatever a press on the day's empty part does, and what
+that press does stays in reach: with `day_tap_action: add-event` the day's name at the top of the
+panel adds, as a narrow day's name over its list does, and `tap_action` has
+[the card's own tap button](/features/actions#where-you-can-tap), first in the card's Tab order.
 
 The events in a wide month's days are not stops of their own, so a busy month does not hold
 hundreds of them; the day's list reaches each one.
