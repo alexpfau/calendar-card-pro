@@ -670,7 +670,7 @@ export const GLOSSARY_TERMS = [
       nb: 'Skjul',
       pl: 'Ukryj',
       sk: 'Skryť',
-      sv: 'Göm',
+      sv: 'Dölj',
     },
     rejected: {},
   },
