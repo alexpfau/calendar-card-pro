@@ -542,6 +542,9 @@ describe('what a private event leaves the card', () => {
     expect(JSON.stringify(target)).not.toContain(SECRET);
     expect(Search.isRingTarget(long, target)).toBe(true);
     expect(Search.isRingTarget(short, target)).toBe(false);
+    // A live update writing the same end in another zone is the same event.
+    const pushed = at('SECRET-TWO', '2026-06-17T17:00:00+00:00');
+    expect(Search.isRingTarget(pushed, target)).toBe(true);
   });
 
   it('fills an action with what the popover shows', () => {

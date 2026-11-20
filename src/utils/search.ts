@@ -491,20 +491,30 @@ export function findRows(
 //-----------------------------------------------------------------------------
 
 /**
- * When an event starts, comparable however it was written: a time as its instant in UTC, so a
- * push and a request spelling one start in two zones agree, and a date as it is.
+ * A start or an end, comparable however it was written: a time as its instant in UTC, so a push
+ * and a request spelling one time in two zones agree, and a date as it is.
+ *
+ * @param point - The start or end
+ * @returns The key, or an empty string where there is none
+ */
+function pointKey(point: Types.CalendarEventData['start'] | null | undefined): string {
+  if (point?.dateTime) {
+    const instant = Date.parse(point.dateTime);
+    return isNaN(instant) ? point.dateTime : new Date(instant).toISOString();
+  }
+  return point?.date ?? '';
+}
+
+/**
+ * When an event starts, comparable however it was written (`pointKey`).
  *
  * @param event - Any copy of the event
  * @returns The start, or an empty string where it has none
  */
 function startKey(event: Types.CalendarEventData): string {
-  const start =
-    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start;
-  if (start?.dateTime) {
-    const instant = Date.parse(start.dateTime);
-    return isNaN(instant) ? start.dateTime : new Date(instant).toISOString();
-  }
-  return start?.date ?? '';
+  return pointKey(
+    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start,
+  );
 }
 
 /**
@@ -534,7 +544,7 @@ function targetSummary(event: Types.CalendarEventData): string {
   const source = event._source;
   if (!isPrivate(event)) return source?.summary ?? event.summary ?? '';
   const end = source?.end ?? event._gridSource?.end ?? event._sourceEnd ?? event.end;
-  return `private:${fingerprint(JSON.stringify([source?.summary ?? '', end?.dateTime ?? end?.date ?? '']))}`;
+  return `private:${fingerprint(JSON.stringify([source?.summary ?? '', pointKey(end)]))}`;
 }
 
 /**
