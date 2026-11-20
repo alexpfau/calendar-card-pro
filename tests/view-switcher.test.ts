@@ -66,9 +66,9 @@ const SWITCHER_AND_ADD: Types.ToolbarConfig = { ...SWITCHER_ONLY, add_event: tru
 
 /**
  * Seven days, every one kept in Columns: at the default 140px a day, Columns then needs about a
- * thousand pixels, while Grid sheds days down to one and fits almost anywhere. So a 400px card
- * offers List, Grid and Month, which has no width it falls back from, and a 1400px card offers
- * all four. Columns' own default, shedding down to two, has a case of its own below.
+ * thousand pixels, while Grid sheds days down to one and draws almost anywhere. So a 400px card
+ * draws a Columns pick as a list, and a 1400px card draws every layout. Columns' own default,
+ * shedding down to two, has a case of its own below.
  */
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna'],
@@ -174,13 +174,20 @@ function segment(card: CardUnderTest, view: Types.EffectiveView): HTMLButtonElem
   )!;
 }
 
-/** The view each segment stands for, and how it is drawn. */
+/** The view each segment stands for, and whether it is marked. */
 function describeSegments(card: CardUnderTest) {
   return segments(card).map((button) => ({
     view: button.dataset.view,
     pressed: button.getAttribute('aria-pressed'),
-    disabled: button.getAttribute('aria-disabled'),
   }));
+}
+
+/** Every segment stays pressable: none is dimmed or `aria-disabled`, at any width. */
+function expectAllPressable(card: CardUnderTest): void {
+  for (const button of segments(card)) {
+    expect(button.hasAttribute('aria-disabled'), button.dataset.view).toBe(false);
+    expect(button.classList.contains('unavailable'), button.dataset.view).toBe(false);
+  }
 }
 
 async function press(card: CardUnderTest, view: Types.EffectiveView): Promise<void> {
@@ -231,21 +238,17 @@ afterEach(() => {
 });
 
 describe('the view switcher', () => {
-  it('confirms the fixture: List, Grid and Month fit a narrow card, all four a wide one', async () => {
+  it('confirms the fixture: a narrow card draws a Columns pick as a list, a wide one draws it', () => {
     // Guards the widths every case below relies on. Without it a change to the column or
     // grid defaults would quietly turn the narrow cases into wide ones.
-    const card = await mount();
+    const config = configFor();
 
-    await measure(card, NARROW);
-    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([
-      null,
-      'true',
-      null,
-      null,
-    ]);
-
-    await measure(card, WIDE);
-    expect(describeSegments(card).map((entry) => entry.disabled)).toEqual([null, null, null, null]);
+    expect(resolveColumnFitIfPicked('column', config, NARROW).view).toBe('list');
+    expect(resolveColumnFitIfPicked('grid', config, NARROW).view).toBe('grid');
+    expect(resolveColumnFitIfPicked('column', config, WIDE)).toEqual({
+      view: 'column',
+      columns: 7,
+    });
   });
 
   it.each([
@@ -263,10 +266,10 @@ describe('the view switcher', () => {
 
     expect(switcher(card)!.getAttribute('role')).toBe('group');
     expect(describeSegments(card)).toEqual([
-      { view: 'list', pressed: 'false', disabled: null },
-      { view: 'column', pressed: 'true', disabled: null },
-      { view: 'grid', pressed: 'false', disabled: null },
-      { view: 'month', pressed: 'false', disabled: null },
+      { view: 'list', pressed: 'false' },
+      { view: 'column', pressed: 'true' },
+      { view: 'grid', pressed: 'false' },
+      { view: 'month', pressed: 'false' },
     ]);
     // Native buttons, so each is a tab stop and Enter and Space need no handling of ours.
     for (const button of segments(card)) {
@@ -455,49 +458,50 @@ describe('the view switcher', () => {
 });
 
 describe('narrow cards', () => {
-  it('dims a view that cannot fit, and ignores a press on it', async () => {
+  it('keeps a view the card is too narrow for pressable, marked while the list stands in', async () => {
+    const config = configFor();
     const card = await mount();
     await measure(card, NARROW);
+    expectAllPressable(card);
 
+    await press(card, 'column');
+    expect(drawnView(card)).toBe('list');
     expect(describeSegments(card)).toEqual([
-      { view: 'list', pressed: 'true', disabled: null },
-      { view: 'column', pressed: 'false', disabled: 'true' },
-      { view: 'grid', pressed: 'false', disabled: null },
-      { view: 'month', pressed: 'false', disabled: null },
+      { view: 'list', pressed: 'false' },
+      { view: 'column', pressed: 'true' },
+      { view: 'grid', pressed: 'false' },
+      { view: 'month', pressed: 'false' },
     ]);
-    expect(segment(card, 'column').classList.contains('unavailable')).toBe(true);
-
-    await press(card, 'column');
-    expect(drawnView(card)).toBe('list');
-    expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toBeNull();
+    expect(readViewChoice(configFingerprint(config))).toBe('column');
+    expectAllPressable(card);
   });
 
-  it('offers a view again once the card is wide enough for it', async () => {
+  it('draws the marked view once the card is wide enough for it', async () => {
     const card = await mount();
     await measure(card, NARROW);
-    expect(segment(card, 'column').getAttribute('aria-disabled')).toBe('true');
-
-    // The layout on screen does not change here, so only the offer moves.
-    await measure(card, WIDE);
+    await press(card, 'column');
     expect(drawnView(card)).toBe('list');
-    expect(segment(card, 'column').hasAttribute('aria-disabled')).toBe(false);
+
+    await measure(card, WIDE);
+    expect(drawnView(card)).toBe('column');
+    expect(segment(card, 'column').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('marks the list a remembered view falls back to, and keeps the memory for wider', async () => {
+  it('keeps a remembered view marked while the list stands in for it', async () => {
     const card = await mount();
     await measure(card, WIDE);
     await press(card, 'column');
 
     await measure(card, NARROW);
     expect(drawnView(card)).toBe('list');
-    expect(segment(card, 'list').getAttribute('aria-pressed')).toBe('true');
-    expect(segment(card, 'column').getAttribute('aria-disabled')).toBe('true');
+    expect(segment(card, 'column').getAttribute('aria-pressed')).toBe('true');
+    expect(segment(card, 'list').getAttribute('aria-pressed')).toBe('false');
 
     await measure(card, WIDE);
     expect(drawnView(card)).toBe('column');
   });
 
-  it('makes the marked list the choice when it is pressed over a fallen-back view', async () => {
+  it('makes the list the choice when it is pressed over a fallen-back view', async () => {
     const config = configFor();
     const card = await mount();
     await measure(card, WIDE);
@@ -506,6 +510,7 @@ describe('narrow cards', () => {
 
     await press(card, 'list');
     expect(readViewChoice(configFingerprint(config))).toBeUndefined();
+    expect(segment(card, 'list').getAttribute('aria-pressed')).toBe('true');
 
     await measure(card, WIDE);
     expect(drawnView(card)).toBe('list');
@@ -531,7 +536,7 @@ describe('narrow cards', () => {
     expect(drawnView(card)).toBe('column');
 
     await press(card, 'list');
-    expect(segment(card, 'column').hasAttribute('aria-disabled')).toBe(false);
+    expectAllPressable(card);
 
     await press(card, 'column');
     expect(drawnView(card)).toBe('column');
@@ -554,7 +559,7 @@ describe('narrow cards', () => {
     const card = await mount({ view: 'column' });
     await measure(card, inBand);
     expect(drawnView(card)).toBe('list');
-    expect(segment(card, 'column').hasAttribute('aria-disabled')).toBe(false);
+    expect(segment(card, 'column').getAttribute('aria-pressed')).toBe('true');
 
     await press(card, 'column');
     expect(drawnView(card)).toBe('column');
@@ -593,6 +598,57 @@ describe('narrow cards', () => {
     expect(drawnView(card)).toBe('column');
   });
 
+  /**
+   * Item 381: a switcher that left out List vanished on a phone where only one of its layouts
+   * fit, so the other could not be reached. Every offered layout is pressable now, and the list
+   * a Columns pick draws keeps Columns marked, so it is also the way back from Month.
+   */
+  it.each([
+    ['Columns and Month', ['column', 'month'], 'month'],
+    ['Columns and Grid', ['column', 'grid'], 'grid'],
+  ] as const)(
+    'draws the switcher on a phone where %s alone are offered, and reaches both',
+    async (_name, offered, other) => {
+      const card = await mount({
+        view: 'column',
+        toolbar: { ...SWITCHER_ONLY, view_switcher_layouts: [...offered] },
+      });
+      await measure(card, NARROW);
+
+      expect(drawnView(card)).toBe('list');
+      expect(describeSegments(card)).toEqual([
+        { view: 'column', pressed: 'true' },
+        { view: other, pressed: 'false' },
+      ]);
+      expectAllPressable(card);
+
+      await press(card, other);
+      expect(card.effectiveView).toBe(other);
+      expect(segment(card, other).getAttribute('aria-pressed')).toBe('true');
+
+      await press(card, 'column');
+      expect(drawnView(card)).toBe('list');
+      expect(segment(card, 'column').getAttribute('aria-pressed')).toBe('true');
+    },
+  );
+
+  it('draws the switcher whatever the width, wherever two layouts are offered', async () => {
+    const card = await mount({
+      time_grid: { min_days_to_show: 7 },
+      toolbar: { ...SWITCHER_ONLY, view_switcher_layouts: ['list', 'column', 'grid'] },
+    });
+
+    for (const width of [NARROW, WIDE]) {
+      await measure(card, width);
+      expect(segments(card).map((button) => button.dataset.view)).toEqual([
+        'list',
+        'column',
+        'grid',
+      ]);
+      expectAllPressable(card);
+    }
+  });
+
   it('draws Columns with its default floor on a phone, two days of seven', async () => {
     // Columns sheds days down to two before it falls back, so without the fixture's floor a
     // phone draws it rather than a list.
@@ -601,31 +657,6 @@ describe('narrow cards', () => {
 
     expect(drawnView(card)).toBe('column');
     expect(card._columnCount).toBe(2);
-  });
-
-  it('draws no switcher when only one view fits', async () => {
-    // Month left off: it has no width it falls back from, so it always fits.
-    const card = await mount({
-      time_grid: { min_days_to_show: 7 },
-      toolbar: { ...SWITCHER_ONLY, view_switcher_layouts: ['list', 'column', 'grid'] },
-    });
-    await measure(card, NARROW);
-
-    expect(switcher(card)).toBeNull();
-    expect(card.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
-
-    await measure(card, WIDE);
-    expect(switcher(card)).not.toBeNull();
-
-    // On the default switcher month fits beside the list there, so the switcher stays.
-    const withMonth = await mount({ time_grid: { min_days_to_show: 7 } });
-    await measure(withMonth, NARROW);
-    expect(describeSegments(withMonth).map(({ view, disabled }) => [view, disabled])).toEqual([
-      ['list', null],
-      ['column', 'true'],
-      ['grid', 'true'],
-      ['month', null],
-    ]);
   });
 });
 
@@ -802,10 +833,10 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
 
     expect(drawnView(card)).toBe('column');
     expect(describeSegments(card)).toEqual([
-      { view: 'list', pressed: 'false', disabled: null },
-      { view: 'column', pressed: 'true', disabled: null },
-      { view: 'grid', pressed: 'false', disabled: null },
-      { view: 'month', pressed: 'false', disabled: null },
+      { view: 'list', pressed: 'false' },
+      { view: 'column', pressed: 'true' },
+      { view: 'grid', pressed: 'false' },
+      { view: 'month', pressed: 'false' },
     ]);
 
     await press(card, 'grid');

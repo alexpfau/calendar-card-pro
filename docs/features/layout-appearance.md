@@ -295,7 +295,7 @@ does nothing, and the card shows the days it opens with.
 
 The view switcher lets each device show the card as List, Columns, Grid or Month without editing
 it, so a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever
-more than one layout fits the card.
+the card offers more than one layout.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_view_switcher.mp4#t=0.001" width="740" height="728" loop muted playsinline controls preload="auto" aria-label="Two days of a family's calendar on a tablet in Grid; a tap on Columns lays the same two days out side by side, a tap on List stacks them under their dates, and a tap on Grid brings back the time grid"></video><br>
 
@@ -324,11 +324,10 @@ Each press redraws the same two days: as Columns, then as List, then as Grid aga
   close to today as the range allows, or from the first day of a page the
   [date navigation](#paging-through-dates) has moved to. Month always draws six whole weeks; see
   [Month View](/features/month-view).
-- **Columns and Grid need room.** A layout that cannot fit at the card's current width, Columns
-  on a phone by default, is dimmed in the switcher, and returns when the card is wide enough
-  again, as when a tablet is turned. If the layout a device remembers no longer fits, the card
-  shows List and the switcher marks it, until there is room again. When only one layout fits,
-  there is no switcher at all. See [Column View](/features/column-view) and
+- **Columns and Grid need room.** On a card too narrow for even their fewest days, two for
+  Columns and one for Grid by default, they draw as a list. The switcher still marks the layout
+  picked, and draws it once the card is wide enough again, as when a tablet is turned. Every
+  layout it offers stays pressable at any width. See [Column View](/features/column-view) and
   [Grid View](/features/grid-view) for how much room each needs.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
@@ -562,10 +561,9 @@ English. Nothing else in the toolbar changes.
 
 ::: details More About Reset
 
-- It goes by what is on screen. Where the card is too narrow for a layout picked on the switcher,
-  List stands in for it; if the configured layout would show List at that width too, there is
-  nothing to undo, so the button stays hidden, and a `reset` action does nothing, until the card
-  is wide enough again.
+- A layout picked on the switcher counts even where the card is too narrow for it and draws the
+  same list the configured layout would: the switcher marks the pick, and a press moves the mark
+  back to the configured layout.
 - Another card with the same configuration shows every calendar again at once, as it does after a
   press on the filter, including one open in another tab of the same browser. Its layout stays
   until that card is reset, reloaded or edited.

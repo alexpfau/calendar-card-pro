@@ -114,9 +114,11 @@ device's choice, else `view`) and the effective view the width fit makes of it (
 - **Per configuration.** `utils/view-choice.ts` stores the choice under a fingerprint of the raw
   configuration, so any edit resets every device. Old entries are pruned past `MAX_VIEW_CHOICES`,
   never deleted on edit, since no card learns which configuration it replaced.
-- **What it offers.** Decided at render: the view on screen always, any other by
-  `resolveColumnFitIfPicked` with the hysteresis a view on screen keeps. One that does not fit is
-  `aria-disabled`; with fewer than two that fit there is no switcher.
+- **What it offers.** Every layout `switcherOffers` names, pressable at any width, with the
+  requested view marked (`requestedView`), not the effective one: a pick the card is too narrow
+  for draws the list while its own segment stays marked, so a switcher never strands a layout and
+  a phone always has the way back from Month. Reset counts a held pick whatever it draws
+  (`_viewChoiceShows`).
 - **What a pick draws.** The days a fresh load draws at that width. The band a view on screen
   keeps admits only the view, at its floor, where a fresh load would fall back to the list; it
   never adds a day. Reset refits `view` by the same rule.

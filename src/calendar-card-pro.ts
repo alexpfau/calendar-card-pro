@@ -4912,22 +4912,16 @@ class CalendarCardPro extends LitElement {
             widthPx,
             { view: this._effectiveView, columns: this._columnCount },
           );
-    // Three things on screen depend on the width without being the dashboard's layout: which
-    // views the switcher offers, which can change while the layout does not, the day
+    // Two things on screen depend on the width without being the dashboard's layout: the day
     // columns the configured view is fitted to while it is being edited, and whether a grid
     // holding its days is crammed, which decides whether it swipes (`_swipeAvailable`).
-    const offeredBefore = this._offeredViewsKey();
     const shownBefore = this._shownColumnCount;
     const swipeBefore = this._swipeAvailable;
 
     this._measuredWidthPx = widthPx;
 
     if (next.view === this._effectiveView && next.columns === this._columnCount) {
-      if (
-        this._offeredViewsKey() !== offeredBefore ||
-        this._shownColumnCount !== shownBefore ||
-        this._swipeAvailable !== swipeBefore
-      ) {
+      if (this._shownColumnCount !== shownBefore || this._swipeAvailable !== swipeBefore) {
         this.requestUpdate();
       }
       return;
@@ -10750,81 +10744,46 @@ class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
 
   /**
-   * Whether the configuration asks for the view switcher, offering two layouts or more. Not
-   * whether it is drawn: that also takes at least two of them that fit (`_viewSwitcher`).
+   * Whether the configuration asks for the view switcher, offering two layouts or more. The card
+   * then draws it at every width (`_viewSwitcher`).
    */
   private get _wantsViewSwitcher(): boolean {
     return this._switcherViews.length > 0;
   }
 
   /**
-   * The views the switcher offers, fitting or not: `view` and those `view_switcher_layouts`
-   * names, in `VIEWS` order (`Config.switcherOffers`). Empty without a switcher, and where that
-   * would offer one layout alone.
+   * The views the switcher offers: `view` and those `view_switcher_layouts` names, in `VIEWS`
+   * order (`Config.switcherOffers`). Empty without a switcher, and where that would offer one
+   * layout alone.
    */
   private get _switcherViews(): ReadonlyArray<Types.EffectiveView> {
     return Config.switcherOffers(this.config);
   }
 
   /**
-   * Whether picking a view would draw it at the card's current width, rather than the list
-   * a narrow card falls back to.
+   * The view switcher, when the card asks for one.
    *
-   * The view on screen fits by definition. Every other one is fitted as `_chooseView` fits
-   * a pick, through `resolveColumnFitIfPicked`, so a segment offered is a segment that
-   * works and the rule is the same for each: a layout the card was just drawing stays on
-   * offer after switching away from it, and the configured view, fallen back to the list
-   * at a width it could have kept, is offered exactly as it would be after a detour through
-   * another. List has no width requirement; before the first measurement every view fits,
-   * as `resolveColumnFit` itself assumes.
-   *
-   * @param view - View to test
-   * @returns True when the view can be drawn now
-   */
-  private _viewFits(view: Types.EffectiveView): boolean {
-    if (!ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) return true;
-    if (view === this._effectiveView) return true;
-
-    return (
-      ViewConfig.resolveColumnFitIfPicked(view, this.config, this._measuredWidthPx).view === view
-    );
-  }
-
-  /**
-   * The views the switcher would offer now, as a comparable string; empty without one.
-   *
-   * @returns One letter per view that fits
-   */
-  private _offeredViewsKey(): string {
-    return this._switcherViews.filter((view) => this._viewFits(view)).join(',');
-  }
-
-  /**
-   * The view switcher, when the card asks for one and more than one view fits.
-   *
-   * It offers `view` and the views `view_switcher_layouts` names (`_switcherViews`). While the
-   * card is being edited it marks `view`, the layout the dashboard opens with, and offers each of
-   * them; pressing one does nothing. Otherwise it marks the view on screen, which for a remembered
-   * view too wide for this card is the list it fell back to.
+   * It offers `view` and the views `view_switcher_layouts` names (`_switcherViews`), every one of
+   * them pressable at any width, and marks the layout asked for (`requestedView`). A layout the
+   * card is too narrow for stays marked while the list draws in its place, so the switcher never
+   * hides a layout and never strands one that fits: a card offering Columns and Month alone still
+   * reaches Month on a phone, and comes back to Columns from it. While the card is being edited it
+   * marks `view`, the layout the dashboard opens with; pressing one does nothing.
    *
    * @returns Switcher description for the wrapper, or undefined for none
    */
   private _viewSwitcher(): Toolbar.ViewSwitcher | undefined {
     if (!this._wantsViewSwitcher) return undefined;
 
-    const editing = this._isBeingEdited;
     const translations = Localize.getTranslations(this.effectiveLanguage);
     const views = this._switcherViews.map((view) => ({
       view,
       label: translations[Toolbar.VIEW_LABEL_KEYS[view]],
-      available: editing || this._viewFits(view),
     }));
-
-    if (views.filter((option) => option.available).length < 2) return undefined;
 
     return {
       views,
-      selected: this.effectiveView,
+      selected: this._isBeingEdited ? this.config.view : this.requestedView,
       onSelect: (view) => this._chooseView(view),
     };
   }
@@ -10832,16 +10791,16 @@ class CalendarCardPro extends LitElement {
   /**
    * Shows another view on this device, and remembers it there.
    *
-   * Pressing the view already on screen still counts. On a narrow card it may be the list
-   * standing in for a remembered view that does not fit, and the press makes the list the
-   * choice. Pressing the view already asked for while the list stands in for it draws it,
-   * when it is offered at all: the choice is unchanged, the layout is not.
+   * A pick is fitted by `resolveColumnFitIfPicked`, which draws the list where the card is too
+   * narrow for the view; the pick stays marked on the switcher and is drawn once there is room.
+   * Pressing the view already asked for while the list stands in for it changes nothing. Pressing
+   * List there makes the list the choice, so the mark moves to it.
    *
-   * The date in view comes along (`_dateInView`, `_openOnDate`), and from home with nothing
-   * selected the next view opens on its own home. Every view draws from one load, as far as the
-   * longest view the card can show, and a page's load holds the weeks of the month its day falls
-   * in, so a switch fetches nothing unless it carries a day to a page no load has named yet, as a
-   * day selected on a compact month at home does.
+   * The date in view comes along (`_dateInView`, `_openOnDate`) whenever the drawn layout changes,
+   * and from home with nothing selected the next view opens on its own home. Every view draws from
+   * one load, as far as the longest view the card can show, and a page's load holds the weeks of
+   * the month its day falls in, so a switch fetches nothing unless it carries a day to a page no
+   * load has named yet, as a day selected on a compact month at home does.
    *
    * @param view - The view picked
    */
@@ -10850,7 +10809,7 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Not switching views while the card is being edited');
       return;
     }
-    if (!this._switcherViews.includes(view) || !this._viewFits(view)) return;
+    if (!this._switcherViews.includes(view)) return;
 
     const choice = view === this.config.view ? null : view;
     if (this._configFingerprint !== null) {
@@ -10978,8 +10937,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card shows something its configuration does not, on this device: a page away
-   * from home, a layout picked with the switcher that draws something else at this width
-   * (`_viewChoiceShows`), a hidden calendar, or a compact card expanded. Never while it is being
+   * from home, a layout picked with the switcher (`_viewChoiceShows`), a hidden calendar, or a
+   * compact card expanded. Never while it is being
    * edited, when every control is inert: the page, the layout and the calendars show the
    * configuration then, and an expansion is left as it is for when editing ends.
    *
@@ -11000,20 +10959,13 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the layout picked with the switcher draws something the configuration would not at
-   * this width, as a reset would draw it. A pick the card is too narrow for falls back to the
-   * list, which may be just what the configuration draws there too; the pick is kept for when
-   * the card is wide enough again, and counts again then. The view alone decides it: a pick is
-   * never the configured view (`_chooseView`), and two views only ever draw the same as the list.
+   * Whether a layout picked with the switcher is held: one other than `view` (`_chooseView`
+   * never stores `view` itself). It counts whatever it draws, since the switcher marks it, so a
+   * pick the card is too narrow for, drawn as the same list the configuration draws there too,
+   * is still something a reset undoes: the mark goes back to `view`.
    */
   private get _viewChoiceShows(): boolean {
-    if (this._viewChoice === null) return false;
-    const configured = ViewConfig.resolveColumnFitIfPicked(
-      this.config.view,
-      this.config,
-      this._measuredWidthPx,
-    );
-    return configured.view !== this._effectiveView;
+    return this._viewChoice !== null;
   }
 
   /**
