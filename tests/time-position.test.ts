@@ -193,7 +193,7 @@ describe('time_position', () => {
     const files = readdirSync(dir).filter(
       (file) => file.endsWith('.json') && file !== 'en-GB.json',
     );
-    expect(files).toHaveLength(10);
+    expect(files).toHaveLength(11);
     for (const file of files) {
       const strings = JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<string, string>;
       const helper = strings['time_position.helper'];

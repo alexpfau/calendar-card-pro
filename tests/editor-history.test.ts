@@ -570,6 +570,16 @@ describe('steps', () => {
     expect($(editor, '[data-focus="redo"]')!.getAttribute('aria-label')).toBe('Redo');
   });
 
+  it('use their own word where Home Assistant’s is the English left untranslated', async () => {
+    const words: Record<string, string> = { 'ui.common.undo': 'Atcelt', 'ui.common.redo': 'Redo' };
+    const editor = await mountEditor(
+      { config_version: VERSION, entities: ['calendar.anna'] },
+      { hass: fakeHass({ language: 'lv', localize: (key: string) => words[key] ?? '' }) },
+    );
+    expect(undoLabel(editor)).toBe('Atcelt');
+    expect($(editor, '[data-focus="redo"]')!.getAttribute('aria-label')).toBe('Atkārtot');
+  });
+
   it('keep the last 75', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     const { editor } = await mount({ config_version: VERSION, entities: ['calendar.anna'] });

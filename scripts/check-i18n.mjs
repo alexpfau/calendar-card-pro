@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
+import { CASELESS_LANGUAGES, GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
 import { deriveEnGb } from './en-gb.mjs';
 import { loadEditorModule } from './load-editor-schema.mjs';
 
@@ -1385,6 +1385,7 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'sk:today_indicator_icon',
   // Same collision; the sibling fields are already qualified.
   'et:today_indicator_icon',
+  'ko:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
 
@@ -1392,9 +1393,13 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   // Calendars heading; the picker and the entry's own field say which calendar they mean.
   'de:calendars.pick',
   'de:entry.calendar',
+  // Korean qualifies them as choosing a calendar for the same reason.
+  'ko:calendars.pick',
+  'ko:entry.calendar',
 
   // A toolbar button's icon, qualified as the button's own for the same collision.
   'et:toolbar.buttons.icon',
+  'ko:toolbar.buttons.icon',
   'lt:toolbar.buttons.icon',
   'lv:toolbar.buttons.icon',
   'pl:toolbar.buttons.icon',
@@ -1788,7 +1793,10 @@ function reportGlossaryReach(glossary, strings) {
  */
 function readGlossary() {
   assertFound(GLOSSARY_TERMS, 'any decided glossary terms', GLOSSARY_SOURCE);
-  return { terms: GLOSSARY_TERMS, nounCapsLanguages: new Set(NOUN_CAPS_LANGUAGES) };
+  return {
+    terms: GLOSSARY_TERMS,
+    nounCapsLanguages: new Set([...NOUN_CAPS_LANGUAGES, ...CASELESS_LANGUAGES]),
+  };
 }
 
 /**

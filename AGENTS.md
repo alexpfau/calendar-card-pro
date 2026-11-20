@@ -828,10 +828,10 @@ videos there: name any whose frames or steps a change alters.
   **The `+ 1` is not a rounding error, and the editor count is the one that keeps going
   wrong.** US English has no file — it lives in `src/rendering/editor/strings.ts` — so
   counting the directory undercounts by one. `en-GB.json` is a _delta_ of a few dozen strings
-  rather than a full translation, so it is easy to skip as well, and the nine complete
+  rather than a full translation, so it is easy to skip as well, and the eleven complete
   files are easy to mistake for the whole set. All three are languages the editor renders
-  in, and the total is **12**: US English in code, British English as a delta, nine
-  translated in full, and Korean in part. Do not write "nine editor languages" — that is the count of the
+  in, and the total is **13**: US English in code, British English as a delta, and eleven
+  translated in full. Do not write "eleven editor languages" — that is the count of the
   files that happen to be complete, not the count of languages a user can get.
   `docs/contributing.md` states the breakdown correctly; check against it.
 
@@ -1534,7 +1534,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    39 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Eleven of the 39 languages translate the editor; the other 28 have no
+   may be partial**. Twelve of the 39 languages translate the editor; the other 27 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.
@@ -1555,7 +1555,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    It is complete by construction and already held to a **stricter** standard than
    coverage. Measured against the full editor string table it reads in the low teens, so any "warn below
    N%" rule flags it permanently — and a permanently-red gate is the one people learn to
-   ignore, which is the failure such a gate exists to prevent. The ten hand-maintained
+   ignore, which is the failure such a gate exists to prevent. The eleven hand-maintained
    files are the only meaningful denominator.
 
    These files are reachable **only** from `src/rendering/editor/`, so they are built into
@@ -1579,7 +1579,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    (see _Documenting a change_). `check:docs` reconciles these against the
    files on disk, so a wrong count now fails the build instead of shipping. Count the editor
    languages as files **+ 1**, because US English lives in `strings.ts` and not in
-   `translations/`; the answer is 12, not 10 and not 11.
+   `translations/`; the answer is 13, not 11 and not 12.
 
 Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and

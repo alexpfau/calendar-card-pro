@@ -31,6 +31,7 @@
 /* eslint-disable import-x/order */
 import enGBEditor from './en-GB.json';
 import koEditor from './ko.json';
+import jaEditor from './ja.json';
 import skEditor from './sk.json';
 import plEditor from './pl.json';
 import ltEditor from './lt.json';
@@ -53,6 +54,7 @@ import itEditor from './it.json';
 export const EDITOR_LANGUAGE_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   'en-gb': enGBEditor,
   ko: koEditor,
+  ja: jaEditor,
   sk: skEditor,
   pl: plEditor,
   lt: ltEditor,
