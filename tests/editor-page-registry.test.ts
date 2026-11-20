@@ -630,6 +630,8 @@ const APPROVED_MAP: ReadonlyArray<
     [
       'calendar:days_of_week A',
       'calendar:event_type A',
+      'calendar:starts_after A',
+      'calendar:starts_before A',
       'calendar:allday_expires_at A',
       'calendar:filter_field W',
       'calendar:blocklist A',
@@ -672,16 +674,17 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 237 ids, Month's own seven, Layouts in Switcher, the three of the month's name
-    // on List's month separator, When Too Narrow and the events area's own height pair among
-    // them, and every one of them is built under some workspace and state.
+    // map places 239 ids, Month's own seven, Layouts in Switcher, the three of the month's name
+    // on List's month separator, a calendar's two start hours, When Too Narrow and the events
+    // area's own height pair among them, and every one of them is built under some workspace and
+    // state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(237);
-    expect(PLACED).toHaveLength(237);
+    expect(BUILT.size).toBe(239);
+    expect(PLACED).toHaveLength(239);
   });
 
   it('has no field built but unplaced', () => {

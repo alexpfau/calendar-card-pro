@@ -940,16 +940,17 @@ describe('the universe', () => {
     // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
     // lost what its day list and panel leave to the event's details or draw one way only
     // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then a
-    // calendar gained Private, in every workspace. Then Card Height became the whole card's in
-    // every layout: Month gained its three controls and lost its wide pair, and every layout that
-    // reads the events area's own height and cap kept them as two fields of their own. Columns and
-    // Grid gained When Too Narrow over their Down To and Below That.
+    // calendar gained Private, in every workspace. Then a calendar gained its two start hours,
+    // in every workspace. Then Card Height became the whole card's in every layout: Month gained
+    // its three controls and lost its wide pair, and every layout that reads the events area's own
+    // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
+    // over their Down To and Below That.
     expect(sizes).toEqual({
-      shared: { card: 137, calendar: 28 },
-      list: { card: 164, calendar: 29 },
-      column: { card: 161, calendar: 28 },
-      grid: { card: 160, calendar: 28 },
-      month: { card: 105, calendar: 27 },
+      shared: { card: 137, calendar: 30 },
+      list: { card: 164, calendar: 31 },
+      column: { card: 161, calendar: 30 },
+      grid: { card: 160, calendar: 30 },
+      month: { card: 105, calendar: 29 },
     });
   });
 

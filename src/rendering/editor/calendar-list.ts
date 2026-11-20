@@ -24,6 +24,7 @@ import { entityIdOf } from './synthetic';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import { configuredCalendarName } from '../../utils/calendar-names';
+import { readStartWindow } from '../../utils/start-window';
 
 type Entry = string | Types.EntityConfig;
 
@@ -283,12 +284,35 @@ function words(value: string): string {
 }
 
 /**
+ * The hours an entry's timed events have to start in, as the card reads them: "Starts from
+ * 16:00", "Starts before 12:00" or "Starts 22:00–06:00", in the times as written. Nothing where
+ * the entry keeps every timed event, an unreadable value or two equal times among them, so the
+ * list never names hours the card does not apply.
+ *
+ * @param settings - The entry's settings
+ * @param language - Editor language code
+ * @returns The part, or `undefined`
+ */
+function startHours(settings: Partial<Types.EntityConfig>, language: string): string | undefined {
+  const window = readStartWindow(settings.starts_after, settings.starts_before).window;
+  if (!window) return undefined;
+
+  const after = String(settings.starts_after ?? '').trim();
+  const before = String(settings.starts_before ?? '').trim();
+  if (window.until === 86400)
+    return interpolate(lookup(language, 'row.starts_after')!, { time: after });
+  if (window.from === 0)
+    return interpolate(lookup(language, 'row.starts_before')!, { time: before });
+  return interpolate(lookup(language, 'row.starts_between')!, { from: after, until: before });
+}
+
+/**
  * What an entry does, in at most two parts: what tells it apart from its calendar's other
  * entries on the list.
  *
- * In order of preference: the event type it keeps, its allowlist, its blocklist, its days of
- * the week, when its all-day events expire, and whether it is shown under conditions. An entry
- * that sets none of them shows all events.
+ * In order of preference: the event type it keeps, the hours its timed events start in, its
+ * allowlist, its blocklist, its days of the week, when its all-day events expire, and whether it
+ * is shown under conditions. An entry that sets none of them shows all events.
  *
  * @param entry - The entry as stored
  * @param language - Editor language code
@@ -301,6 +325,11 @@ export function rowParts(entry: Entry, language: string): ReadonlyArray<string> 
 
   if (settings.event_type === 'all_day') parts.push(lookup(language, 'row.all_day')!);
   else if (settings.event_type === 'timed') parts.push(lookup(language, 'row.timed')!);
+
+  // Right after the event type, ahead of the word lists: only two parts are shown, and the hours
+  // are what tells a calendar's morning entry from its afternoon one.
+  const hours = startHours(settings, language);
+  if (hours) parts.push(hours);
 
   const only = typeof settings.allowlist === 'string' ? words(settings.allowlist) : '';
   if (only) parts.push(interpolate(lookup(language, 'row.only')!, { words: only }));
@@ -378,6 +407,8 @@ const WHICH_EVENTS: ReadonlyArray<keyof Types.EntityConfig> = [
   'blocklist',
   'filter_field',
   'days_of_week',
+  'starts_after',
+  'starts_before',
   'allday_expires_at',
   'visibility',
   'compact_events_to_show',

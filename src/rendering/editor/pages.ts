@@ -777,6 +777,8 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
     fields: [
       ['calendar:days_of_week', A],
       ['calendar:event_type', A],
+      ['calendar:starts_after', A],
+      ['calendar:starts_before', A],
       ['calendar:allday_expires_at', A],
       ['calendar:filter_field', withMode(['calendar:blocklist', 'calendar:allowlist'])],
       ['calendar:blocklist', A],

@@ -510,6 +510,8 @@ describe('editor: the order of the two panels', () => {
       '# page.which_events',
       'days_of_week',
       'event_type',
+      'starts_after',
+      'starts_before',
       'allday_expires_at',
       'filter_field',
       'blocklist',
@@ -615,6 +617,8 @@ describe('editor: the order of the two panels', () => {
     expect(entityFilters).toEqual([
       'days_of_week',
       'event_type',
+      'starts_after',
+      'starts_before',
       'allday_expires_at',
       'filter_field',
       'blocklist',

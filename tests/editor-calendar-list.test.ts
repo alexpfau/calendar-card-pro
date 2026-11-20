@@ -358,6 +358,31 @@ describe('rowParts', () => {
     ).toEqual(['Shown under conditions']);
   });
 
+  it('says the hours an entry’s timed events start in, as the card reads them', () => {
+    expect(parts({ entity: 'x', starts_after: ' 16:00 ' })).toEqual(['Starts from 16:00']);
+    expect(parts({ entity: 'x', starts_before: '12:00' })).toEqual(['Starts before 12:00']);
+    expect(parts({ entity: 'x', starts_after: '16:00', starts_before: '24:00' })).toEqual([
+      'Starts from 16:00',
+    ]);
+    expect(parts({ entity: 'x', starts_after: '22:00', starts_before: '06:00' })).toEqual([
+      'Starts 22:00–06:00',
+    ]);
+    // Hours the card does not apply are not named: unreadable, equal, or the whole day.
+    for (const entry of [
+      { starts_after: '4pm' },
+      { starts_after: '16:00', starts_before: '16:00' },
+      { starts_after: '00:00', starts_before: '00:00' },
+    ]) {
+      expect(parts({ entity: 'x', ...entry })).toEqual(['All events']);
+    }
+  });
+
+  it('keeps the hours beside the event type, ahead of the word lists that would push them out', () => {
+    expect(
+      parts({ entity: 'x', event_type: 'timed', starts_after: '16:00', allowlist: 'Help' }),
+    ).toEqual(['Events with a time', 'Starts from 16:00']);
+  });
+
   it('says All events when none applies, for a bare id and for an empty word list', () => {
     expect(parts('calendar.anna')).toEqual(['All events']);
     expect(parts({ entity: 'x', event_type: 'all', allowlist: '|', visibility: [] })).toEqual([
@@ -412,6 +437,20 @@ describe('sameEventsAs', () => {
       1,
       undefined,
       undefined,
+    ]);
+  });
+
+  it('tells apart two entries that keep different hours', () => {
+    const list = state([
+      { entity: 'calendar.ben', starts_before: '16:00' },
+      { entity: 'calendar.ben', starts_after: '16:00' },
+      { entity: 'calendar.ben', starts_after: '16:00', label: 'B' },
+    ]);
+
+    expect([0, 1, 2].map((index) => List.sameEventsAs(list, index))).toEqual([
+      undefined,
+      undefined,
+      2,
     ]);
   });
 
