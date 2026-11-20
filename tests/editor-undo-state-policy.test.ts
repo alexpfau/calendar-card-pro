@@ -98,6 +98,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
   caches: [
     '_emittedConditions',
     '_intlLanguage',
+    // The language drawn in and the one whose file is awaited, which follow the configuration.
+    '_drawnLanguage',
+    '_awaitedLanguage',
     '_kept',
     '_drawn',
     '_drawnConditions',

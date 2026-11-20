@@ -110,6 +110,7 @@ import styles from './styles';
 import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
+import * as EditorLanguages from './translations/loader';
 import * as Unset from './unset';
 import * as Value from './value';
 import * as AuditView from './views/audit';
@@ -267,14 +268,14 @@ const NO_DATA: Readonly<Record<string, unknown>> = {};
  *
  * @param rawConfig - The configuration as stored
  * @param workspace - The scope
- * @param locale - Home Assistant's locale
+ * @param language - The language the editor draws in (`CalendarCardProEditor._language`)
  * @param held - The mode choices held for the scope (`_heldModes`)
  * @returns Schema context
  */
 function scopeCtx(
   rawConfig: Types.Config,
   workspace: Workspace.EditorWorkspace,
-  locale: Types.Hass['locale'],
+  language: string,
   held: string,
 ): SchemaCtx {
   const config = Routing.workspaceConfig(rawConfig, workspace);
@@ -288,7 +289,7 @@ function scopeCtx(
     workspace,
     config,
     rawConfig,
-    language: LanguageCodes.getEffectiveLanguage(config.language, locale),
+    language,
     presentation: JSON.parse(held) as Record<string, string>,
   };
 }
@@ -686,7 +687,8 @@ export class CalendarCardProEditor extends LitElement {
    * what Home Assistant or the user focused stays focused.
    */
   private _greet(): void {
-    if (this._greeted || !this._config) return;
+    // Not before the editor has drawn: its first render waits for its language (`_language`).
+    if (this._greeted || !this._config || this._drawnLanguage === undefined) return;
     this._greeted = true;
     if (!this._banner) return;
     const until = Date.now() + 1000;
@@ -2251,10 +2253,38 @@ export class CalendarCardProEditor extends LitElement {
     return this._ctxFor(
       this._config!,
       workspace,
-      this.hass?.locale,
+      this._language(),
       this._heldModes(this._pending, workspace),
     );
   }
+
+  /**
+   * The language the editor draws in: the one the card asks for, once its strings are in.
+   *
+   * A language shipped as a file of its own (`translations/loader.ts`) is asked for here, and
+   * until it settles the editor keeps the language it last drew in, or before its first drawing
+   * draws nothing at all (`render`). It never draws a language whose strings are still on their
+   * way: every label, helper and search index is kept by language, so strings arriving under a
+   * language already drawn would leave all of those stale. A file that cannot be used settles
+   * the language too, which then reads in English key by key.
+   *
+   * @returns Effective language code
+   */
+  private _language(): string {
+    const asked = LanguageCodes.getEffectiveLanguage(this._config!.language, this.hass?.locale);
+    if (EditorLanguages.editorLanguageReady(asked)) return (this._drawnLanguage = asked);
+    if (this._awaitedLanguage !== asked) {
+      this._awaitedLanguage = asked;
+      void EditorLanguages.loadEditorLanguage(asked).then(() => this.requestUpdate());
+    }
+    return this._drawnLanguage ?? 'en';
+  }
+
+  /** The language the editor last drew in (`_language`); unset until its first is ready. */
+  private _drawnLanguage?: string;
+
+  /** The language whose file the editor last asked for (`_language`). */
+  private _awaitedLanguage = '';
 
   /**
    * The mode choices held for a scope, by mode field name (`SchemaCtx.presentation`), kept while
@@ -9773,6 +9803,8 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
+    // The card's language is still on its way, and nothing has been drawn yet (`_language`).
+    if (this._drawnLanguage === undefined) return nothing;
     if (this._migration.kind === 'future') {
       return this._renderMigrationBlock(
         ctx,

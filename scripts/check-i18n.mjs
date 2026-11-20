@@ -305,11 +305,12 @@ export async function readEditorSchemaKeys() {
  * The language the option scan resolves under. Never a real language.
  *
  * Registering it mutates a module the rest of this file shares, so it is removed again in
- * a `finally`. That is insurance rather than a live guard, and the difference is worth
- * stating because the obvious justification is false: `checkEditorTranslations` reconciles
- * the `EDITOR_LANGUAGE_STRINGS` entries it parses out of the **index module's source**, not
- * the keys of the runtime object, so a leaked entry is invisible to it — planted and
- * measured at 0 errors. Nothing today reads that object's key set, and nothing today
+ * a `finally`. It goes into `EDITOR_HELD_STRINGS`, the table `lookup` reads, which holds every
+ * language here (`load-editor-schema.mjs`). That is insurance rather than a live guard, and the
+ * difference is worth stating because the obvious justification is false:
+ * `checkEditorTranslations` reconciles the `EDITOR_LANGUAGE_STRINGS` entries it parses out of
+ * the **index module's source**, not the keys of the runtime object, so a leaked entry is
+ * invisible to it — planted and measured at 0 errors. Nothing today reads that object's key set, and nothing today
  * resolves a string after this scan that could see the extra language. Both of those are
  * facts about the current file rather than guarantees, which is exactly why the scan puts
  * the module back the way it found it.
@@ -350,7 +351,7 @@ function escapeForRegExp(value) {
  */
 async function readEditorOptionKeys() {
   const editor = await loadEditor();
-  const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
+  const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_HELD_STRINGS } = editor;
   const { LABELED_ACTIONS, cardActionLabelKey } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
@@ -412,7 +413,7 @@ async function readEditorOptionKeys() {
     }
   };
 
-  EDITOR_LANGUAGE_STRINGS[OPTION_KEY_ECHO_LANGUAGE] = new Proxy(
+  EDITOR_HELD_STRINGS[OPTION_KEY_ECHO_LANGUAGE] = new Proxy(
     {},
     { get: (_target, key) => (typeof key === 'string' ? key : undefined) },
   );
@@ -429,7 +430,7 @@ async function readEditorOptionKeys() {
       }
     }
   } finally {
-    delete EDITOR_LANGUAGE_STRINGS[OPTION_KEY_ECHO_LANGUAGE];
+    delete EDITOR_HELD_STRINGS[OPTION_KEY_ECHO_LANGUAGE];
   }
 
   return { asked, unresolved };
@@ -1163,7 +1164,9 @@ function readEditorTranslationWiring() {
  */
 async function checkEditorTranslations(languages) {
   const { files, imports, entries } = readEditorTranslationWiring();
-  const { EDITOR_STRINGS, EDITOR_LANGUAGE_STRINGS, lookup } = await loadEditor();
+  const { EDITOR_STRINGS, EDITOR_LANGUAGE_STRINGS, EDITOR_LANGUAGE_FILES, lookup } =
+    await loadEditor();
+  const shipped = new Set(EDITOR_LANGUAGE_FILES);
 
   assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
@@ -1209,6 +1212,15 @@ async function checkEditorTranslations(languages) {
     } catch (err) {
       error(where, `is not valid JSON: ${err.message}`);
       continue;
+    }
+
+    // Every language but British English ships as a file the editor asks for by name.
+    if (code !== 'en-gb' && !shipped.has(code)) {
+      error(
+        'editor/translations/files.ts',
+        `${file} is not in EDITOR_LANGUAGE_FILES, so the build writes editor-${code}.js but ` +
+          'the editor never asks for it and stays in English',
+      );
     }
 
     if (EDITOR_LANGUAGE_STRINGS[code] === undefined) {
@@ -1262,6 +1274,21 @@ async function checkEditorTranslations(languages) {
       `  ${code.padEnd(6)} ${String(counted).padStart(3)} / ${total} strings ` +
         `(${String(Math.round((counted / total) * 100)).padStart(2)}%)`,
     );
+  }
+
+  // And the other way: a listed language with no file is a request that 404s on every open.
+  const onDisk = new Set(files.map((file) => basename(file, '.json').toLowerCase()));
+  for (const code of EDITOR_LANGUAGE_FILES) {
+    if (code === 'en-gb' || code !== code.toLowerCase() || !onDisk.has(code)) {
+      error(
+        'editor/translations/files.ts',
+        `EDITOR_LANGUAGE_FILES lists '${code}', which is ` +
+          (code === 'en-gb'
+            ? 'built into the editor and has no file of its own'
+            : 'not the lowercase code of a translation in editor/translations/, so the ' +
+              'editor would ask for a file the build never writes'),
+      );
+    }
   }
 
   for (const [key, identifier] of entries) {

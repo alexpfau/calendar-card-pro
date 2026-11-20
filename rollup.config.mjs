@@ -8,10 +8,12 @@ import { readdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
 import {
+  BUILT_IN_EDITOR_LANGUAGES,
   collapseTemplateWhitespace,
   compactDayjsLocales,
   compactEditorStrings,
   EDITOR_TRANSLATION_GLOB,
+  emitEditorLanguages,
 } from './scripts/compact-payloads.mjs';
 
 // Use the existing NODE_ENV variable for both purposes
@@ -24,6 +26,21 @@ const isProd = process.env.NODE_ENV === 'prod';
 const suffix = isProd ? '' : '-dev';
 const cardFile = `calendar-card-pro${suffix}.js`;
 const editorFile = `editor${suffix}.js`;
+// Each editor language ships as a file of its own beside the editor, `editor-de.js` and so on
+// (`emitEditorLanguages`), and the editor builds their URLs from this prefix.
+const languagePrefix = `editor${suffix}-`;
+
+/**
+ * The language files this build emits, read from the translations on disk when asked.
+ *
+ * @returns File names
+ */
+function languageFiles() {
+  return readdirSync('src/rendering/editor/translations')
+    .filter((file) => file.endsWith('.json'))
+    .filter((file) => !BUILT_IN_EDITOR_LANGUAGES.includes(file.slice(0, -5)))
+    .map((file) => `${languagePrefix}${file.slice(0, -5).toLowerCase()}.js`);
+}
 
 // Get version from package.json reliably
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
@@ -289,6 +306,9 @@ export function createBuildPlugins({ compactPayloads = true, editor = false } = 
       // it builds, and it 404s only when someone opens the editor.
       // `scripts/check-bundle.mjs` asserts the emitted card names the right one.
       './editor-dev.js': `./${editorFile}`,
+      // The editor's language files, by the same mechanism: `translations/files.ts` names the
+      // dev prefix, and a mismatch is an editor that silently stays in English.
+      './editor-dev-': `./${languagePrefix}`,
     }),
     json({ exclude: compactPayloads ? EDITOR_TRANSLATION_GLOB : undefined }),
     esbuild({
@@ -353,8 +373,8 @@ export function createBuildPlugins({ compactPayloads = true, editor = false } = 
 /**
  * Removes anything in `dist/` that this build will not itself write.
  *
- * Both outputs have stable names and are overwritten on every build, so this is not about
- * stale copies of *these* files. It is about the other build's: `dist/` is one flat
+ * Every output has a stable name and is overwritten on every build (the card, the editor and
+ * the editor's language files), so this is not about stale copies of *these* files. It is about the other build's: `dist/` is one flat
  * directory, `release.yml` attaches `dist/*.js`, and the dev deploy copies whatever it
  * finds — so a `calendar-card-pro-dev.js` left behind by an earlier `npm run dev` would be
  * published as a release asset by the next `npm run build`. It also sweeps up the
@@ -370,7 +390,7 @@ export function createBuildPlugins({ compactPayloads = true, editor = false } = 
 const cleanDist = {
   name: 'clean-dist',
   buildStart() {
-    const keep = new Set([cardFile, editorFile]);
+    const keep = new Set([cardFile, editorFile, ...languageFiles()]);
 
     let existing;
     try {
@@ -436,6 +456,9 @@ export default [
   {
     input: 'src/rendering/editor/index.ts',
     output: output(editorFile),
-    plugins: createBuildPlugins({ editor: true }),
+    plugins: [
+      ...createBuildPlugins({ editor: true }),
+      emitEditorLanguages({ version, prefix: languagePrefix }),
+    ],
   },
 ];

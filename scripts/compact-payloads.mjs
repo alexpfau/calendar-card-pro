@@ -190,6 +190,70 @@ export function editorDecoderSource(keys) {
   return `${decodeKeys(frontCodeKeys(keys))};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
 }
 
+/** Editor translations built into the editor rather than shipped as files of their own. */
+export const BUILT_IN_EDITOR_LANGUAGES = ['en-GB'];
+
+/**
+ * The FNV-1a hash `keyFingerprint` in `src/rendering/editor/translations/files.ts` computes.
+ * Written twice because a build script cannot import TypeScript; a test holds them together.
+ */
+export function editorKeyFingerprint(keys) {
+  const text = keys.join('\n');
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/** One language file: its version, the key fingerprint and its value vector, importing nothing. */
+export function editorLanguageFileSource(version, keys, values) {
+  return `export default{v:${JSON.stringify(version)},k:${JSON.stringify(editorKeyFingerprint(keys))},s:${JSON.stringify(values)}};\n`;
+}
+
+/**
+ * Emits every editor translation but the built-in ones as a file of its own beside the editor,
+ * named `<prefix><code>.js` with a lowercase code. Each holds one value per English key, in the
+ * sorted order the editor's own decoder rebuilds its keys in (`compactEditorStrings`), so a file
+ * is read by position and the fingerprint proves the positions agree.
+ *
+ * The editor imports none of these, so the JSON files and `strings.ts` are watched by hand:
+ * a `--watch` rebuild must rewrite a language when its JSON or the English keys change.
+ *
+ * @param options - `version` stamped into each file, `prefix` of each file name
+ * @returns The plugin
+ */
+export function emitEditorLanguages({ version, prefix, root = process.cwd() }) {
+  const absoluteRoot = path.resolve(root);
+  const stringsPath = path.join(absoluteRoot, 'src/rendering/editor/strings.ts');
+  const translationsPath = path.join(absoluteRoot, 'src/rendering/editor/translations');
+  const files = () =>
+    readdirSync(translationsPath)
+      .filter((file) => file.endsWith('.json'))
+      .filter((file) => !BUILT_IN_EDITOR_LANGUAGES.includes(file.slice(0, -5)))
+      .sort();
+  return {
+    name: 'emit-editor-languages',
+    buildStart() {
+      this.addWatchFile(stringsPath);
+      for (const file of files()) this.addWatchFile(path.join(translationsPath, file));
+    },
+    generateBundle() {
+      const { keys } = parseEnglishStrings(readFileSync(stringsPath, 'utf8'), stringsPath);
+      for (const file of files()) {
+        const id = path.join(translationsPath, file);
+        const values = parseEditorTranslation(readFileSync(id, 'utf8'), keys, id);
+        this.emitFile({
+          type: 'asset',
+          fileName: `${prefix}${file.slice(0, -5).toLowerCase()}.js`,
+          source: editorLanguageFileSource(version, keys, values),
+        });
+      }
+    },
+  };
+}
+
 /** Compact emitted payloads only; the on-disk English and JSON remain authoring sources. */
 export function compactEditorStrings(root = process.cwd()) {
   const absoluteRoot = path.resolve(root);
@@ -332,6 +396,14 @@ export function validateDayjsUsage(code, id = 'source.ts') {
           node.arguments[0].expression.getText(ast) === 'editorModuleUrl' &&
           node.arguments[0].arguments.length === 1 &&
           node.arguments[0].arguments[0].getText(ast) === 'import.meta.url'
+        ) &&
+        // The editor's language files, by the URL `translations/files.ts` builds for one.
+        !(
+          id.replace(/\\/g, '/').endsWith('/src/rendering/editor/translations/loader.ts') &&
+          node.arguments.length === 1 &&
+          ts.isCallExpression(node.arguments[0]) &&
+          node.arguments[0].expression.getText(ast) === 'languageFileUrl' &&
+          node.arguments[0].arguments.length === 2
         )
       ) {
         fail(id, 'Unrecognized dynamic import could bypass the Day.js source guard');

@@ -60,17 +60,36 @@ Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
-**The card ships as two files.** `rollup.config.mjs` exports an **array of two configs**,
-so each build emits the pair named in the table above, and the editor is fetched only when
-someone opens it — which keeps it and its
-translations off every dashboard load. Both files are self-contained bundles with stable,
-human-readable names. `hacs.json` names the card and needs no change; HACS downloads every
-asset attached to a release, and `filename` only selects which one becomes the Lovelace
-resource. Four consequences worth holding on to: **neither file may import the other**,
-**every emitted file must sit directly in `dist/`** because HACS fetches no
-subdirectories, **`import.meta` must survive into the output** (below), and **both files
-stamp the same version** so the card can warn when a stale editor is paired with a fresh
-card. `npm run check:bundle` enforces all four.
+**The card ships as two bundles and a file per editor language.** `rollup.config.mjs`
+exports an **array of two configs**, so each build emits the pair named in the table above,
+and the editor is fetched only when someone opens it — which keeps it off every dashboard
+load. The editor build also writes each editor translation but British English into a file
+of its own, `editor-de.js` and so on (`editor-dev-de.js` in a dev build), and the editor
+fetches only the language it is drawn in. Every file has a stable, human-readable name.
+`hacs.json` names the card and needs no change; HACS downloads every asset attached to a
+release, and `filename` only selects which one becomes the Lovelace resource. Five
+consequences worth holding on to: **no emitted file may import another**, **every emitted
+file must sit directly in `dist/`** because HACS fetches no subdirectories, **`import.meta`
+must survive into the output** (below), **both bundles stamp the same version** so the card
+can warn when a stale editor is paired with a fresh card, and **each language file carries
+the version and a fingerprint of the English keys**, so the editor refuses a stale one and
+shows English instead. `npm run check:bundle` enforces all five, and also that no
+translation is left inside `editor.js`.
+
+**Why a language is a file of its own.** The translations were half the editor: 539 KB of
+1,040 KB raw, measured on a production build of cd58d4ac, and every editor open downloaded
+all eleven.
+A language file is the same positional vector the editor already decoded, so each costs about
+14 KB gzip -9 and opening the editor in German downloads about 161 KB rather than 297 KB.
+Nothing changes for a dashboard, which never loaded the editor, or for what HACS stores, which
+is every release asset. Three alternatives were weighed: grouping languages saves file count
+and makes every user download someone else's; JSON is fetched rather than imported, and HACS
+writes a `.gz` beside `.js` files only, so it transfers four to six times more; and a keyed
+map instead of a vector is 40% larger per file. The editor draws nothing until its language
+settles (`_language` in `element.ts`), because labels, helpers and the search index are kept
+by language; drawing in German before German arrived left Quick Setup in English for good.
+Tests hold every language from the start (`tests/setup/editor-languages.ts`);
+`tests/editor-language-files.test.ts` takes that away to test the loading.
 
 **Why two builds and not one build with code-splitting.** Rollup, given one entry and a
 dynamic `import()`, puts the modules the card and editor share into a chunk that the
@@ -128,7 +147,9 @@ only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` t
 copies the card's own query onto the editor's URL, making the editor bust exactly when the
 card busts. It is strictly better than the content hashes it replaced, which never
 responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
-itself changes, so a shared-module change reloaded the card and left a stale editor.
+itself changes, so a shared-module change reloaded the card and left a stale editor. The
+editor passes the query on to its language file in turn (`languageFileUrl`), so all three
+bust together.
 
 🚨 **`import.meta` compiles to `{}` under any esbuild target below `es2020`.** That makes
 `import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
@@ -584,8 +605,9 @@ mistake for leftovers. They are not. What each one is:
 | `vitest-limits.mjs`         | test library   | imported by `vitest.config.mjs`      |
 
 `compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
-and packs the editor's English and translated string maps behind one shared key vector.
-Both are build-only representations; keep the authoring files and the i18n gate's independent
+and packs the editor's English and translated string maps behind one shared key vector,
+writing each translation but British English as a language file of its own
+(`emitEditorLanguages`). All are build-only representations; keep the authoring files and the i18n gate's independent
 loader unchanged. New Day.js APIs require revisiting the subset, not bypassing its source
 guard. The emitted equivalence tests run through the real Rollup plugin chain under UTC and
 the DST projects. Incremental builds must regenerate every language vector when English keys
@@ -1132,7 +1154,7 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
    **This merge is also the docs deploy.** The moment it lands, the site and the README
    advertise the new version and — since the two-file split — tell manual installers to
-   download both files "from the latest release", while `releases/latest` still resolves
+   download both files and their language "from the latest release", while `releases/latest` still resolves
    to the _previous_ release, which carries only one of them. Steps 4–7 are therefore one
    operation rather than a merge now and a publish when convenient: the gap between them
    is a window in which the published install instructions describe a release that does
@@ -1147,8 +1169,8 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    passes the tag/`package.json` check — would otherwise have produced a complete,
    publishable draft release built from code that never went through the release PR.
 7. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
-   attaches `dist/*.js` and nothing else — since the two-file split that is **both**
-   `calendar-card-pro.js` and `editor.js`. Publish it manually.
+   attaches `dist/*.js` and nothing else — `calendar-card-pro.js`, `editor.js` and every
+   `editor-<code>.js`, a set `check:bundle` has already asserted. Publish it manually.
 8. **Answer the issues the release resolved.** The merge to `main` closes whichever ones a
    commit message named with a closing keyword, and leaves every other one open — see
    _Branch model_. So part of this now happens for you, silently, and the part that
@@ -1225,8 +1247,8 @@ does, invited or not:
    commits that carry it. The workflow checks the commit is reachable from `origin/dev` or an
    `origin/feature/*` branch, that `X.Y.Z` is newer than `package.json`'s version and not yet
    tagged, stamps the beta version into `package.json` and both lockfile fields of its
-   throwaway checkout, runs lint, `tsc`, the build and `check:bundle`, checks both files carry
-   the version, and creates a **draft** prerelease with the two `.js` files and a placeholder
+   throwaway checkout, runs lint, `tsc`, the build and `check:bundle`, checks every file carries
+   the version, and creates a **draft** prerelease with the `.js` files and a placeholder
    body.
 3. Put the notes in the draft with `gh release edit vX.Y.Z-beta.N --notes-file <file>`, then
    publish it. Beta notes stay out of `docs/RELEASE_NOTES.md`, which records what shipped.
@@ -1266,7 +1288,9 @@ that renders perfectly and then reports a missing file the first time someone op
 visual editor, a failure that appears nowhere near the omission that caused it. So
 `README.md` and `docs/guide/installation.md` both say "both files, in a folder of their
 own" in as many words. If the file layout ever changes again, those two pages are the fix;
-there is no packaging step to lean on.
+there is no packaging step to lean on. A language file is optional by design: without it the
+editor opens in English, and logs which file it could not load. Both pages say so, and that a
+manual installer needs only the language they use.
 
 **The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
 release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
@@ -1300,10 +1324,11 @@ between them.**
 
 - **One bundled file.** A single asset, so there is nothing to choose. Splitting the editor
   out is what took this card off this shape.
-- **Attach every chunk and absorb the cost.** This card's shape, with two chunks: the card
-  and its editor. A build that splits further attaches every hashed chunk it emits —
-  editors, engines, one file per language — and every HACS user then downloads all of them,
-  used or not. Nothing in `hacs.json` narrows that (see below), so the cost is simply paid.
+- **Attach every chunk and absorb the cost.** This card's shape: the card, its editor and one
+  file per editor language. Every HACS user downloads all of them, used or not, and nothing in
+  `hacs.json` narrows that (see below), so the cost is simply paid. Splitting the languages
+  out cost HACS nothing to speak of, because it stores the same bytes as before in more files;
+  what it bought is the browser fetching one language rather than all of them.
 - **Deliver through the repository tree and attach nothing.** Commit `dist/` and publish
   releases with **zero** assets. `gather_files_to_download()` appends assets then returns
   `if files:` — _conditionally_ — so a release with no assets falls through to the tree
@@ -1607,11 +1632,14 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    ignore, which is the failure such a gate exists to prevent. The eleven hand-maintained
    files are the only meaningful denominator.
 
-   These files are reachable **only** from `src/rendering/editor/`, so they are built into
-   `editor.js` rather than loaded on every dashboard load, and they may not go back into
-   `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
-   entry in `translations/index.ts`, under a lowercase key naming a language that already
-   exists — a file nothing imports is silently never registered.
+   These files are reachable **only** from `src/rendering/editor/`, and they may not go back
+   into `languages/`. British English is built into `editor.js` (`translations/held.ts`);
+   every other one ships as `editor-<code>.js`, which the editor loads only when it is drawn in
+   that language (see _Why a language is a file of its own_). A new file also needs an
+   `import` **and** an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, under a
+   lowercase key naming a language that already exists — a file nothing imports is silently
+   never registered — and its code in `EDITOR_LANGUAGE_FILES` in `translations/files.ts`, or
+   the build writes its file and the editor never asks for it. `check:i18n` fails on either.
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
@@ -2451,7 +2479,7 @@ nowhere near the backtick. Write property names bare in CSS comments.
   [`architecture-interaction.md`](./docs/architecture-interaction.md) (gestures, actions and
   event writes) and [`architecture-toolbar.md`](./docs/architecture-toolbar.md) (toolbar and
   navigation). Read before making structural changes. The overview's _Four Views, One
-  Agenda_ and _Two Files, One Card_ sections are the current description of the view split
+  Agenda_ and _One Card, Its Editor & Its Languages_ sections are the current description of the view split
   and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,
   which options it overrides per view, and which it deliberately ignores. Read before

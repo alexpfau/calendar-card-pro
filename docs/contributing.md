@@ -299,7 +299,9 @@ uses the same keys, holding only the ones its language translates.
 A partial translation is safe to ship. Each key falls back on its own, so anything you
 leave out simply renders in English rather than looking broken. Register a new file with an
 `import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
-lowercase key as the language itself.
+lowercase key as the language itself, and add that key to `EDITOR_LANGUAGE_FILES` in
+`translations/files.ts`. The build ships each language as a file of its own, `editor-<code>.js`,
+which the editor loads only when it is drawn in that language.
 
 A key ending in `.aliases` is never shown. It lists, separated by commas, the words people type
 into the editor's search when looking for that setting, such as `12h` for Time Format. Write the

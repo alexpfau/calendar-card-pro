@@ -284,17 +284,36 @@ switch to Grid has to copy.
 See [Per-View Options](/features/core-settings#per-view-options) and the
 [editor upgrade flow](/features/editor#upgrading-a-card-from-before-v5) for user-facing examples.
 
-## 📦 Two Files, One Card
+## 📦 One Card, Its Editor & Its Languages
 
-The build emits **two** self-contained bundles into a flat `dist/`: `calendar-card-pro.js` and
-`editor.js` (`-dev` suffixed in development builds). The card fetches the editor only when someone
-opens it, which keeps the editor and its translations off every dashboard load.
+The build emits self-contained files into a flat `dist/`: the card, `calendar-card-pro.js`, the
+editor, `editor.js`, and one file per editor language, `editor-de.js` and so on (each `-dev`
+suffixed in development builds). The card fetches the editor only when someone opens it, which
+keeps the editor off every dashboard load, and the editor fetches only the language it is drawn in.
 
-Neither file imports the other. The card computes the editor's URL at runtime
-(`utils/editor-url.ts`), carrying its own cache-busting query onto it, where neither module graph
-sees it. A plain dynamic `import()` would make Rollup emit a shared chunk that the editor imports
-back from the card, and the query HACS appends to the card's URL would make the browser load that as
-a second copy of the card. `npm run check:bundle` asserts the result after every build.
+No file imports another. The card computes the editor's URL at runtime (`utils/editor-url.ts`),
+carrying its own cache-busting query onto it, where neither module graph sees it. A plain dynamic
+`import()` would make Rollup emit a shared chunk that the editor imports back from the card, and the
+query HACS appends to the card's URL would make the browser load that as a second copy of the card.
+The editor finds a language file the same way (`translations/files.ts`), carrying on the query it
+was given. `npm run check:bundle` asserts the result after every build.
+
+### Editor Languages
+
+US English lives in `strings.ts` and British English, a delta of a few dozen spellings, is built
+into the editor (`translations/held.ts`). Every other translation is written by the build into a
+file of its own (`emitEditorLanguages`): the version, a fingerprint of the English keys and one
+value per key, in the order the editor rebuilds its keys in. The editor reads it by position and
+refuses a file from another version or for other keys. Opening the editor in German downloads the
+editor and German, about half of what it downloaded when every language was inside it; HACS still
+stores every file, since it downloads every release asset.
+
+The editor draws nothing until its language has loaded or failed (`_language` in `element.ts`),
+because labels, helpers and the search index are kept by language: strings arriving under a
+language already drawn would leave them stale. A file that is missing, stale, malformed or never
+answers settles the language anyway, and the editor shows it in English, key by key, through
+`lookup`. `translations/index.ts` still imports every language, for the tests and the gates; the
+editor does not import it.
 
 The event popover and the search panel ship inside the card's file: every HACS user downloads every
 release asset, so a third file would spare nobody its bytes.
@@ -312,9 +331,8 @@ authored translations, browser requirements and the two-file layout unchanged.
   translations, the British English delta and the fallback order use the same lookup code as
   before. An English-key change invalidates every vector in incremental builds. The key vector
   ships front-coded by dot segment and is rebuilt before the first lookup; the build decodes what
-  it emits and fails unless the keys come back exactly. The language vectors are emitted in the
-  import order of `translations/index.ts`, grouped by language family because gzip does better
-  that way.
+  it emits and fails unless the keys come back exactly. Only English and British English ship
+  inside the editor; every other language's vector is its own file (see _Editor Languages_).
 - **Editor templates.** In files under `src/rendering/editor/` only, a run of ASCII whitespace
   spanning a line break in an `html` template becomes one space, outside quoted attributes and
   comments, and in the stylesheet it goes beside a brace or semicolon. The card's templates keep
