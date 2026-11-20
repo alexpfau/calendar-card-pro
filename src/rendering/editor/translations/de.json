@@ -794,7 +794,6 @@
   "toolbar.view_switcher": "Layout-Umschalter",
   "toolbar.view_switcher.helper": "Jedes Gerät merkt sich seine Wahl.",
   "toolbar.view_switcher_layouts": "Layouts im Umschalter",
-  "toolbar.view_switcher_layouts.aliases": "Layout-Umschalter, Ansichtsumschalter, Ansicht wechseln, view switcher",
   "toolbar.reset": "Knopf „Zurücksetzen“",
   "toolbar.reset.helper": "Macht die Änderungen dieses Geräts an Tagen, Layout, Kalendern und aufgeklappter Ansicht rückgängig.",
   "toolbar.refresh": "Knopf „Aktualisieren“",
