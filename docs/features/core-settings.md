@@ -1133,7 +1133,7 @@ They need not be removed: a card set to `view: column` or `view: grid` renders a
 whenever it is too narrow for even `min_days_to_show` under the default
 `min_days_fallback: list`, and they all apply again the moment it does. To control how much
 a side-by-side view shows while it stays side-by-side, use
-[`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
+[`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-on-narrow-cards)
 for column view, or the matching
 [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid.
 :::
@@ -1416,10 +1416,10 @@ never loads anything. The rest of the card follows the layout on screen:
   count from it.
 - When Columns or Grid falls back to List on a narrow card, it shows List's own count:
   `list.days_to_show` when it is set, otherwise the top-level value. So a Columns card set to
-  5 days in `column:` shows List's count when it turns into a list on a phone. Leave the
+  5 days in `column:` shows List's count when it turns into a list. Leave the
   column's own count unset if both should match.
-- Columns and Grid shed days on a narrow card from their own count, and Columns'
-  `min_days_to_show` defaults to its own count.
+- Columns and Grid shed days on a narrow card from their own count, Columns down to two and
+  Grid down to one unless `min_days_to_show` says otherwise.
 - `hide_when_empty` hides the card only when none of the layouts it can show has an event:
   every layout with the view switcher, otherwise the one set in `view` plus List as its
   fallback. A week with nothing on the grid does not hide a card whose list has something

@@ -65,13 +65,15 @@ const SWITCHER_ONLY: Types.ToolbarConfig = {
 const SWITCHER_AND_ADD: Types.ToolbarConfig = { ...SWITCHER_ONLY, add_event: true };
 
 /**
- * Seven days: at the default 140px a day, Columns needs about a thousand pixels, while Grid
- * sheds days down to one and fits almost anywhere. So a 400px card offers List, Grid and
- * Month, which has no width it falls back from, and a 1400px card offers all four.
+ * Seven days, every one kept in Columns: at the default 140px a day, Columns then needs about a
+ * thousand pixels, while Grid sheds days down to one and fits almost anywhere. So a 400px card
+ * offers List, Grid and Month, which has no width it falls back from, and a 1400px card offers
+ * all four. Columns' own default, shedding down to two, has a case of its own below.
  */
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna'],
   days_to_show: 7,
+  column: { min_days_to_show: 7 },
   toolbar: SWITCHER_ONLY,
 };
 
@@ -589,6 +591,16 @@ describe('narrow cards', () => {
     await press(card, 'column');
     await measure(card, inBand);
     expect(drawnView(card)).toBe('column');
+  });
+
+  it('draws Columns with its default floor on a phone, two days of seven', async () => {
+    // Columns sheds days down to two before it falls back, so without the fixture's floor a
+    // phone draws it rather than a list.
+    const card = await mount({ view: 'column', column: {} });
+    await measure(card, NARROW);
+
+    expect(drawnView(card)).toBe('column');
+    expect(card._columnCount).toBe(2);
   });
 
   it('draws no switcher when only one view fits', async () => {

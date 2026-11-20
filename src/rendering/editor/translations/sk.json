@@ -375,7 +375,7 @@
   "column.density.helper": "Aký úzky môže byť stĺpec, kým sa karta jedného stĺpca vzdá, a čo urobí, keď už žiadny nezostane.",
   "column.min_day_width": "Minimálna šírka dňa",
   "column.min_days_to_show": "Najmenší počet stĺpcov",
-  "column.min_days_to_show.helper": "Predvolene zodpovedá počtu zobrazených dní, takže karta nikdy neuberie stĺpec.",
+  "column.min_days_to_show.helper": "Predvolená hodnota je 2. Ak zodpovedá počtu zobrazených dní, karta nikdy neuberie stĺpec.",
   "column.min_days_fallback": "Keď je príliš úzka",
   "column.min_days_fallback.option.list.label": "Prejsť na zoznam",
   "column.min_days_fallback.option.cramp.label": "Ponechať stĺpce, ale užšie",

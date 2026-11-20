@@ -374,7 +374,7 @@
   "column.density.helper": "Kui kitsaks võib veerg muutuda, enne kui kaart ühest veerust loobub, ja mida ta teeb, kui veerge enam vähendada ei saa.",
   "column.min_day_width": "Päeva vähim laius",
   "column.min_days_to_show": "Vähim päevaveergude arv",
-  "column.min_days_to_show.helper": "Vaikimisi kuvatavate päevade arv, nii et kaart ei jäta ühtegi veergu ära.",
+  "column.min_days_to_show.helper": "Vaikimisi 2. Kui see võrdub kuvatavate päevade arvuga, ei jäta kaart ühtegi veergu ära.",
   "column.min_days_fallback": "Kui liiga kitsas",
   "column.min_days_fallback.option.list.label": "Mine üle loetelule",
   "column.min_days_fallback.option.cramp.label": "Säilita veerud kitsamana",

@@ -375,7 +375,7 @@
   "column.density.helper": "Kiek gali susiaurėti stulpelis, kol kortelė atsisako vieno stulpelio, ir ką ji daro, kai siaurinti nebėra kur.",
   "column.min_day_width": "Mažiausias dienos plotis",
   "column.min_days_to_show": "Mažiausias dienų stulpelių skaičius",
-  "column.min_days_to_show.helper": "Numatytoji reikšmė yra rodomų dienų skaičius, todėl kortelė niekada nesumažina stulpelių skaičiaus.",
+  "column.min_days_to_show.helper": "Numatytoji reikšmė yra 2. Jei ji lygi rodomų dienų skaičiui, kortelė niekada nesumažina stulpelių skaičiaus.",
   "column.min_days_fallback": "Kai per siaura",
   "column.min_days_fallback.option.list.label": "Pereiti prie sąrašo",
   "column.min_days_fallback.option.cramp.label": "Palikti stulpelius siauresnius",

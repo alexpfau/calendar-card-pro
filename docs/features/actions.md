@@ -671,7 +671,7 @@ action: no pointer cursor, ripple, hold circle or Tab stop, as with `add-event`,
 `back` where they cannot run. A column or grid card that falls back to a list on a narrow screen
 still expands.
 
-Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
+Column density is controlled by [showing fewer columns on narrow cards](/features/column-view#showing-fewer-columns-on-narrow-cards), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
 :::
 
 With both card-wide and per-calendar limits:

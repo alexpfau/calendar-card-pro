@@ -875,6 +875,17 @@ export const COLUMN_DEFAULTS = {
 } as const;
 
 /**
+ * The fewest day columns Columns sheds to while `min_days_to_show` is unset: two. One column is
+ * a single day, which the list draws better, with every day, so below two the card falls back to
+ * it. Never more than the layout's own `days_to_show`.
+ *
+ * Not in {@link COLUMN_DEFAULTS}, because it is not the default everywhere: under
+ * `min_days_fallback: cramp` an unset floor is every day, so "keep the columns, narrower" keeps
+ * them all (`resolveMinDaysToShow`). `check:docs` reads the number from this line.
+ */
+export const COLUMN_MIN_DAYS_DEFAULT = 2;
+
+/**
  * Defaults for grid-only options.
  *
  * `07:00`–`22:00` covers a domestic day without wasting a third of the axis on hours
@@ -970,8 +981,8 @@ export const TIME_GRID_DEFAULTS = {
   min_day_width: 100,
 
   // A one-column grid is a useful day view with a now line, so grid sheds columns down to
-  // one by default. Column view keeps its dynamic `days_to_show` default because one
-  // cramped text column is not the layout a multi-day column card asked for.
+  // one by default. Column view stops at two (`COLUMN_MIN_DAYS_DEFAULT`), because one text
+  // column is a single day, which the list draws better.
   min_days_to_show: 1,
 
   // Preserves the wholesale fallback unless a user explicitly opts into cramping.
@@ -3330,7 +3341,9 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
 /**
  * Resolves the fewest columns the card may reduce to.
  *
- * The default is dynamic (the view's own `days_to_show`), so it cannot live in
+ * Unset, Grid's is its `TIME_GRID_DEFAULTS` entry, and Columns' is
+ * {@link COLUMN_MIN_DAYS_DEFAULT}, or its own `days_to_show` under `min_days_fallback: cramp`,
+ * which keeps every day. That makes Columns' default dynamic, so it cannot live in
  * `COLUMN_DEFAULTS`. The result is clamped into `[1, days_to_show]`.
  *
  * @param config - Merged configuration, defaults already applied
@@ -3344,7 +3357,11 @@ export function resolveMinDaysToShow(
   const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
   const fallback = widthFallbackDefaults(view).min_days_to_show;
   const defaultValue =
-    typeof fallback === 'number' && Number.isFinite(fallback) ? Math.floor(fallback) : days;
+    typeof fallback === 'number' && Number.isFinite(fallback)
+      ? Math.floor(fallback)
+      : view === 'column' && resolveMinDaysFallback(config, view) !== 'cramp'
+        ? COLUMN_MIN_DAYS_DEFAULT
+        : days;
 
   if (!overrides || !Object.prototype.hasOwnProperty.call(overrides, 'min_days_to_show')) {
     return Math.min(days, Math.max(1, defaultValue));

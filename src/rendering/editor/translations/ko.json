@@ -349,7 +349,7 @@
   "column.density.helper": "카드가 열을 줄이기 전까지 허용되는 최소 열 너비와, 공간이 부족할 때의 동작을 설정합니다.",
   "column.min_day_width": "최소 일자 열 너비",
   "column.min_days_to_show": "최소 일자 열 수",
-  "column.min_days_to_show.helper": "기본값은 표시된 일자 수이며, 이 경우 카드는 열을 줄이지 않습니다.",
+  "column.min_days_to_show.helper": "기본값은 2입니다. 표시된 일자 수와 같게 하면 카드는 열을 줄이지 않습니다.",
   "column.min_days_fallback": "너비가 너무 좁을 때",
   "column.min_days_fallback.option.list.label": "목록 형식으로 전환",
   "column.min_days_fallback.option.cramp.label": "열을 유지하고 더 좁게 표시",

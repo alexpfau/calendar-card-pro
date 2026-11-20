@@ -376,7 +376,7 @@
   "column.density.helper": "Hur smal en kolumn får bli innan kortet ger upp en kolumn, och vad det gör när det inte räcker längre.",
   "column.min_day_width": "Minsta dagbredd",
   "column.min_days_to_show": "Minsta antal dagkolumner",
-  "column.min_days_to_show.helper": "Standard är antalet dagar som visas, så kortet tar aldrig bort en kolumn.",
+  "column.min_days_to_show.helper": "Standard är 2. Är värdet lika med antalet dagar som visas tar kortet aldrig bort en kolumn.",
   "column.min_days_fallback": "När det blir för smalt",
   "column.min_days_fallback.option.list.label": "Byt till lista",
   "column.min_days_fallback.option.cramp.label": "Behåll kolumnerna, smalare",

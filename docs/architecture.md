@@ -198,7 +198,8 @@ pixels. A behavior meant for every view belongs in the shared path, never once p
 [Rendering & Views](/architecture-rendering)).
 
 The effective view can change with available width. A narrower Column or Grid card first draws
-fewer days, down to `min_days_to_show`, in a window kept as close to today as the configured range
+fewer days, down to `min_days_to_show` (two for Columns and one for Grid unless set; Columns keeps
+every day by default under `cramp`), in a window kept as close to today as the configured range
 allows (`visibleDayWindowStart`). Below that floor `min_days_fallback` decides: `list` falls back to
 List, and `cramp` holds the floor with days narrower than `min_day_width`, Column narrowing its
 columns and Grid scrolling sideways with each day at least `2rem` wide. `config/view.ts` owns this

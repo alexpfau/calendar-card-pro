@@ -760,7 +760,7 @@ describe('what reset undoes', () => {
     expect(lit(card)).toBe(true);
 
     // Too narrow for columns, the configuration draws the list picked: nothing to undo shows.
-    await measure(card, 320);
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
     expect(lit(card)).toBe(false);
 
@@ -785,7 +785,7 @@ describe('what reset undoes', () => {
     expect(drawnView(card)).toBe('column');
     expect(lit(card)).toBe(true);
 
-    await measure(card, 320);
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
     expect(card.requestedView).toBe('column');
     expect(lit(card)).toBe(false);
@@ -803,7 +803,7 @@ describe('what reset undoes', () => {
     const card = await mount({ view: 'grid', days_to_show: 7 });
     await measure(card, 1400);
     await pressView(card, 'column');
-    await measure(card, 320);
+    await measure(card, 300);
 
     expect(drawnView(card)).toBe('list');
     expect(card.requestedView).toBe('column');
@@ -1023,7 +1023,7 @@ describe('the reset card action', () => {
     const fingerprint = configFingerprint(configFor(overrides));
     await measure(card, 1400);
     await pressView(card, 'column');
-    await measure(card, 320);
+    await measure(card, 300);
     expect(drawnView(card)).toBe('list');
 
     const writes = watchChoiceWrites();
