@@ -40,15 +40,6 @@ interface SyntheticField {
    */
   derive(config: Readonly<Types.Config>, view?: Types.EffectiveView): unknown;
   /**
-   * How a layout's page reads a presentation choice held for the field, where it reads one
-   * otherwise than as held: Month's page reads a held Relative to Today as Today.
-   *
-   * @param held - The choice held
-   * @param view - The layout whose page draws it, or `undefined` for Layout Defaults
-   * @returns The value to show in the form
-   */
-  heldIn?(held: string, view?: Types.EffectiveView): string;
-  /**
    * Turns a user edit into configuration changes.
    *
    * @param value - Value the form produced
@@ -144,32 +135,12 @@ export const START_DATE_MODES = [
 export type StartDateMode = (typeof START_DATE_MODES)[number];
 
 /**
- * The start-date choices Month's page offers: Today and A Fixed Date. Month opens today's month for
- * every start date that follows today and a fixed date's own month otherwise
- * (`ViewConfig.monthHomeDay`), so Tomorrow, Start of Week and Relative to Today would each draw
- * what Today draws there (`startDateModeIn`).
+ * The start-date choices Month's page offers: Today, A Fixed Date and Relative to Today. Month opens
+ * the month holding the start date, except Tomorrow and Start of Week, which open today's month
+ * (`ViewConfig.monthOpensToday`), so those two would draw what Today draws there
+ * (`startDateModeIn`).
  */
-export const MONTH_START_DATE_MODES: ReadonlyArray<StartDateMode> = ['default', 'fixed'];
-
-/** What Tomorrow writes; `+1` reads back as Tomorrow too. */
-const TOMORROW = 'today+1';
-
-/** What Start of Week writes: the anchor the card resolves (`start-date.ts` › `ANCHOR_START_OF_WEEK`). */
-const START_OF_WEEK = 'start_of_week';
-
-/**
- * The shortcut a stored expression reads as: `today+1` and `+1` as Tomorrow, `start_of_week` as
- * Start of Week, each exactly as written apart from surrounding space.
- *
- * @param value - Stored `start_date`
- * @returns The shortcut, or undefined for any other value
- */
-function startDateShortcut(value: string): 'tomorrow' | 'start_of_week' | undefined {
-  const text = value.trim();
-  if (text === TOMORROW || text === '+1') return 'tomorrow';
-  if (text === START_OF_WEEK) return 'start_of_week';
-  return undefined;
-}
+export const MONTH_START_DATE_MODES: ReadonlyArray<StartDateMode> = ['default', 'fixed', 'offset'];
 
 /**
  * Derives the start-date mode from the shape of the stored value.
@@ -180,24 +151,25 @@ function startDateShortcut(value: string): 'tomorrow' | 'start_of_week' | undefi
 export function startDateMode(config: Readonly<Types.Config>): StartDateMode {
   const value = config.start_date;
 
-  if (!isSet(value)) return 'default';
+  // Blank text resolves to today, as no start date does.
+  if (!isSet(value) || String(value).trim() === '') return 'default';
   const text = String(value);
   if (FIXED_DATE_PATTERN.test(text.trim())) return 'fixed';
-  return startDateShortcut(text) ?? 'offset';
+  return StartDate.startDateShortcut(text) ?? 'offset';
 }
 
 /**
- * A start-date choice as a layout's page shows it: Month reads every start date that follows today
- * as Today, which is what it draws for them, and offers nothing else but A Fixed Date
- * (`MONTH_START_DATE_MODES`). Applied to the stored value's choice and to one held for it alike,
- * so Relative to Today held on another page never reaches Month's.
+ * A start-date choice as a layout's page shows it: Month reads Tomorrow and Start of Week as Today,
+ * which is what it draws for them, and offers neither (`MONTH_START_DATE_MODES`). Relative to
+ * Today held over one of them is shown as held, on Month's page too, so its Expression opens there
+ * on the shortcut's own text.
  *
  * @param mode - The choice as stored or held
  * @param view - The layout whose page draws it, or `undefined` for a Whole Card page
  * @returns Which of the start-date choices applies
  */
 export function startDateModeShown(mode: string, view?: Types.EffectiveView): string {
-  return view === 'month' && mode !== 'fixed' ? 'default' : mode;
+  return view === 'month' && (mode === 'tomorrow' || mode === 'start_of_week') ? 'default' : mode;
 }
 
 /**
@@ -517,13 +489,14 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    * already reading as the chosen shortcut is kept as written (`+1` stays `+1`). Relative to Today
    * over a shortcut writes nothing, since the expression is already there to edit; it holds
    * `offset` as the presentation mode instead, or the shortcut it reads as would press its own
-   * chip again and the Expression field would never appear.
+   * chip again and the Expression field would never appear. On Month's page, which shows a
+   * shortcut as Today, Today keeps the shortcut and lets go of what is held, so it never changes
+   * the other layouts alone.
    */
   start_date_mode: {
     configKeys: ['start_date'],
     derive: (config, view) => startDateModeIn(config, view),
-    heldIn: (held, view) => startDateModeShown(held, view),
-    apply: (value, config) => {
+    apply: (value, config, view) => {
       const discardDates = {
         start_date_offset: null,
         start_date_fixed: null,
@@ -531,9 +504,17 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       };
       const current = String(config.start_date ?? '').trim();
 
+      if (
+        value === 'default' &&
+        view === 'month' &&
+        StartDate.startDateShortcut(current) !== undefined
+      ) {
+        return { changes: {}, pending: discardDates };
+      }
+
       if (value === 'tomorrow' || value === 'start_of_week') {
-        const kept = startDateShortcut(current) === value;
-        const written = value === 'tomorrow' ? TOMORROW : START_OF_WEEK;
+        const kept = StartDate.startDateShortcut(current) === value;
+        const written = value === 'tomorrow' ? StartDate.TOMORROW : StartDate.START_OF_WEEK;
         return {
           changes: { start_date: kept ? config.start_date : written },
           pending: discardDates,
@@ -547,7 +528,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
 
       if (value === 'offset') {
         const carried = current !== '' && !FIXED_DATE_PATTERN.test(current) ? current : null;
-        const held = carried !== null && startDateShortcut(carried) !== undefined;
+        const held = carried !== null && StartDate.startDateShortcut(carried) !== undefined;
         return {
           changes: { start_date: carried ?? INITIAL_OFFSET },
           pending: { ...discardDates, start_date_mode: held ? 'offset' : null },
@@ -592,7 +573,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
             changes: { start_date: text },
             pending: {
               start_date_offset: null,
-              start_date_mode: startDateShortcut(text) === undefined ? null : 'offset',
+              start_date_mode: StartDate.startDateShortcut(text) === undefined ? null : 'offset',
             },
           }
         : { changes: {}, pending: { start_date_offset: text } };
@@ -916,10 +897,7 @@ export function deriveSyntheticData(
   const data: Record<string, unknown> = {};
 
   for (const [name, field] of Object.entries(SYNTHETIC_FIELDS)) {
-    data[name] =
-      name in pending
-        ? (field.heldIn?.(pending[name], view) ?? pending[name])
-        : field.derive(config, view);
+    data[name] = name in pending ? pending[name] : field.derive(config, view);
   }
 
   return data;

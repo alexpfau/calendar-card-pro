@@ -720,7 +720,6 @@
   "days_to_show.helper": "Každé rozloženie môže mať vlastný počet. Karta raz načíta najdlhšie obdobie, takže prepnutie rozloženia nikdy nič znova nenačítava.",
   "start_date_mode": "Počiatočný dátum",
   "start_date_mode.aliases": "zajtra, včera, začať od, prvý zobrazený deň, dátum začiatku",
-  "start_date_mode.helper": "Rozloženie mesiaca sa otvorí na aktuálnom mesiaci alebo na mesiaci pevného dátumu.",
   "start_date_mode.option.default.label": "Dnes",
   "start_date_mode.option.tomorrow.label": "Zajtra",
   "start_date_mode.option.start_of_week.label": "Začiatok týždňa",

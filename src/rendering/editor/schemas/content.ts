@@ -16,7 +16,7 @@ import { bool, color, number, select, text } from './common';
  *
  * @param language - Effective language code
  * @param mode - Start-date mode, as presented
- * @param modes - The choices offered: Month's page offers two (`Synthetic.MONTH_START_DATE_MODES`)
+ * @param modes - The choices offered: Month's page offers three (`Synthetic.MONTH_START_DATE_MODES`)
  * @returns The mode selector and the control it calls for
  */
 function startDateFields(

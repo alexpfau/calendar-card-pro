@@ -1152,7 +1152,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Each layout can set its own. The card loads the longest once, so switching layouts never reloads.',
   start_date_mode: 'Start Date',
   'start_date_mode.aliases': 'tomorrow, yesterday, begin on, first day shown',
-  'start_date_mode.helper': "Month opens on today's month, or on a fixed date's own month.",
   'start_date_mode.option.default.label': 'Today',
   'start_date_mode.option.tomorrow.label': 'Tomorrow',
   'start_date_mode.option.start_of_week.label': 'Start of Week',

@@ -2,13 +2,13 @@
  * The month Month opens on, the home button that returns to it, and what follows from it, under
  * every zone the suite runs in.
  *
- * Month's home is today's month for every start date that follows today, and a fixed date's own
- * month otherwise (`ViewConfig.monthHomeDay`). The other layouts keep starting on the resolved
- * start date, so a card that switches between them has two homes, and both are pinned here: the
- * cases sit on a month's first and last days, where a relative start date falls in another
- * month than today, and where the old rule opened the wrong one. Every date is local, so each
- * zone draws the same days; the fixtures sit in November and December, when every zone here is
- * off UTC. Names are invented.
+ * Month's home is the month holding the resolved start date, a fixed date or one relative to today
+ * alike, except Tomorrow and Start of Week, which open today's month (`ViewConfig.monthHomeDay`).
+ * The other layouts start on the resolved start date itself, so a card that switches between them
+ * has two homes, and both are pinned here: the cases sit on a month's first and last days, where
+ * Tomorrow and Start of Week fall in another month than today, and on offsets that reach another
+ * month. Every date is local, so each zone draws the same days; the fixtures sit in October to
+ * January, when every zone here is off UTC. Names are invented.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -238,7 +238,7 @@ describe('the zone these tests run under', () => {
 
 describe('the month Month opens on', () => {
   it.each([
-    // Wednesday 18 November: every start date that falls in November.
+    // Wednesday 18 November, no start date.
     ['unset, mid-month', new Date(2026, 10, 18, 10), undefined, 'November 2026'],
     // Tuesday 1 December: the week began on Monday 30 November, in the month before.
     [
@@ -247,14 +247,10 @@ describe('the month Month opens on', () => {
       'start_of_week',
       'December 2026',
     ],
-    // Thursday 3 December, three days back is 30 November.
-    ['three days back early in a month', new Date(2026, 11, 3, 10), 'today-3', 'December 2026'],
     // Monday 30 November: tomorrow is 1 December, in the month after.
     ['tomorrow on a month’s last day', new Date(2026, 10, 30, 10), 'today+1', 'November 2026'],
-    // A log of the last 30 days, mid-month: 29 days back is 20 October.
-    ['29 days back', new Date(2026, 10, 18, 10), 'today-29', 'November 2026'],
-    ['30 days ahead', new Date(2026, 10, 18, 10), 'today+30', 'November 2026'],
-    ['a weekday', new Date(2026, 10, 30, 10), 'friday', 'November 2026'],
+    // Tomorrow's short form, which the editor reads as Tomorrow too.
+    ['tomorrow written +1', new Date(2026, 10, 30, 10), '+1', 'November 2026'],
   ] as const)('is today’s for %s', async (_name, now, start_date, heading) => {
     vi.setSystemTime(now);
     const card = await mount(start_date === undefined ? {} : { start_date });
@@ -265,6 +261,61 @@ describe('the month Month opens on', () => {
     expect(today).not.toBeNull();
     expect(today!.classList.contains('other-month')).toBe(false);
   });
+
+  it.each([
+    // Wednesday 18 November, 30 days ahead is 18 December: December, without today.
+    [
+      '30 days ahead',
+      new Date(2026, 10, 18, 10),
+      'today+30',
+      { heading: 'December 2026', rows: ['2026-11-30', '2027-01-10'], home: 'December 2026' },
+    ],
+    // A log of the last 30 days, mid-month: 29 days back is 20 October.
+    [
+      '29 days back',
+      new Date(2026, 10, 18, 10),
+      'today-29',
+      { heading: 'October 2026', rows: ['2026-09-28', '2026-11-08'], home: 'October 2026' },
+    ],
+    // Thursday 3 December, three days back is 30 November: November, today dimmed in its last row.
+    [
+      'three days back early in a month',
+      new Date(2026, 11, 3, 10),
+      'today-3',
+      { heading: 'November 2026', rows: ['2026-10-26', '2026-12-06'], home: 'November 2026' },
+    ],
+    // Monday 30 November, the next Friday is 4 December.
+    [
+      'a weekday in the month after',
+      new Date(2026, 10, 30, 10),
+      'friday',
+      { heading: 'December 2026', rows: ['2026-11-30', '2027-01-10'], home: 'December 2026' },
+    ],
+    // Wednesday 18 November, a week ahead is 25 November: today's month, so the button says Today.
+    [
+      'a week ahead in the same month',
+      new Date(2026, 10, 18, 10),
+      'today+7',
+      { heading: 'November 2026', rows: ['2026-10-26', '2026-12-06'], home: 'Today' },
+    ],
+    // Tomorrow written another way than the editor's Tomorrow is an offset like any other: Monday
+    // 30 November, it opens December.
+    [
+      'tomorrow written with spaces',
+      new Date(2026, 10, 30, 10),
+      'today + 1',
+      { heading: 'December 2026', rows: ['2026-11-30', '2027-01-10'], home: 'December 2026' },
+    ],
+  ] as const)(
+    'is the month holding a relative start date, %s',
+    async (_name, now, start_date, shown) => {
+      vi.setSystemTime(now);
+      const card = await mount({ start_date });
+      expect(month(card)).toEqual(shown);
+      // A month card alone loads its six weeks, and nothing else.
+      expect(asked).toEqual([shown.rows[0]]);
+    },
+  );
 
   it.each([
     ['in a later month', '2027-01-15', 'January 2027', ['2026-12-28', '2027-02-07']],
@@ -315,6 +366,17 @@ describe('the month Month opens on', () => {
     expect(asked[asked.length - 1]).toBe('2026-11-30');
   });
 
+  it('moves with an offset at midnight into the month its new date falls in', async () => {
+    // Saturday 31 October, 23:59, 30 days ahead: 30 November, then 1 December after midnight.
+    vi.setSystemTime(new Date(2026, 9, 31, 23, 59));
+    const card = await mount({ start_date: 'today+30' });
+    expect(month(card)).toMatchObject({ heading: 'November 2026', home: 'November 2026' });
+    await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+    await settle(card);
+    expect(month(card)).toMatchObject({ heading: 'December 2026', home: 'December 2026' });
+    expect(asked[asked.length - 1]).toBe('2026-11-30');
+  });
+
   it('selects today in the compact form, in the month it opens', async () => {
     vi.setSystemTime(new Date(2026, 11, 3, 10));
     const card = await mount({ start_date: 'start_of_week' }, 360);
@@ -361,17 +423,37 @@ describe('the day a compact month selects at home', () => {
 
   it.each([
     // A fixed date in another month: that day, not the month's 1st.
-    ['a fixed date in a later month', new Date(2026, 10, 18, 10), '2027-01-15', 'January 15, 2027'],
+    [
+      'a fixed date in a later month',
+      new Date(2026, 10, 18, 10),
+      '2027-01-15',
+      'January 15, 2027',
+      '2027-01-01',
+    ],
     // A fixed date in today's month: that day, not today.
-    ['a fixed date in this month', new Date(2026, 10, 18, 10), '2026-11-25', 'November 25, 2026'],
-    // Every start date that follows today: today, whatever day it names.
-    ['no start date', new Date(2026, 10, 18, 10), undefined, 'November 18, 2026'],
-    ['Tomorrow on a month’s last day', new Date(2026, 10, 30, 10), 'today+1', 'November 30, 2026'],
-    ['Start of Week', new Date(2026, 11, 3, 10), 'start_of_week', 'December 3, 2026'],
-    ['29 days back', new Date(2026, 10, 18, 10), 'today-29', 'November 18, 2026'],
+    [
+      'a fixed date in this month',
+      new Date(2026, 10, 18, 10),
+      '2026-11-25',
+      'November 25, 2026',
+      '2026-11-01',
+    ],
+    // A start date relative to today: the day it names, in whichever month that falls.
+    ['30 days ahead', new Date(2026, 10, 18, 10), 'today+30', 'December 18, 2026', '2026-12-01'],
+    ['29 days back', new Date(2026, 10, 18, 10), 'today-29', 'October 20, 2026', '2026-10-01'],
+    // No start date, Tomorrow and Start of Week: today, whatever day they name.
+    ['no start date', new Date(2026, 10, 18, 10), undefined, 'November 18, 2026', '2026-11-01'],
+    [
+      'Tomorrow on a month’s last day',
+      new Date(2026, 10, 30, 10),
+      'today+1',
+      'November 30, 2026',
+      '2026-11-01',
+    ],
+    ['Start of Week', new Date(2026, 11, 3, 10), 'start_of_week', 'December 3, 2026', '2026-12-01'],
   ] as const)(
     'is the home day for %s, on opening and from Home, and the day the add button suggests',
-    async (_name, now, start_date, day) => {
+    async (_name, now, start_date, day, opened) => {
       vi.setSystemTime(now);
       const card = await mount(start_date === undefined ? {} : { start_date }, 360);
       expect(root(card).querySelector('.month-compact')).not.toBeNull();
@@ -384,11 +466,7 @@ describe('the day a compact month selects at home', () => {
       );
 
       // Another day selected at home, the 1st of the month it opens, then Home: the home day again.
-      const opened =
-        start_date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(start_date)
-          ? new Date(Number(start_date.slice(0, 4)), Number(start_date.slice(5, 7)) - 1, 1)
-          : new Date(now.getFullYear(), now.getMonth(), 1);
-      await select(card, key(opened));
+      await select(card, opened);
       expect(listed(card)).not.toContain(day);
       await press(card, 'home');
       expect(listed(card)).toContain(day);
@@ -397,6 +475,11 @@ describe('the day a compact month selects at home', () => {
       await press(card, 'next');
       expect(listed(card)).not.toContain(day);
       await press(card, 'home');
+      expect(listed(card)).toContain(day);
+
+      // A month away and back again is home, and lists the home day by itself.
+      await press(card, 'next');
+      await press(card, 'previous');
       expect(listed(card)).toContain(day);
     },
   );
@@ -422,8 +505,8 @@ describe('the two homes of a card that switches between List and Month', () => {
     expect(listDays(card)).toEqual(['2026-12-01', '2026-12-07']);
   });
 
-  it('opens List on the Month page’s own day, and goes to List’s home from there', async () => {
-    // Wednesday 18 November, 30 days ahead: List's home is 18 December, Month's is November.
+  it('opens Month on the month holding the start date, and List on its home from there', async () => {
+    // Wednesday 18 November, 30 days ahead: both homes start on 18 December.
     vi.setSystemTime(new Date(2026, 10, 18, 10));
     const card = await mount({
       view: 'month',
@@ -432,15 +515,30 @@ describe('the two homes of a card that switches between List and Month', () => {
       start_date: 'today+30',
       toolbar: SWITCHER,
     });
-    expect(month(card).heading).toBe('November 2026');
-    await press(card, 'next');
-    expect(month(card).heading).toBe('December 2026');
+    expect(month(card)).toMatchObject({ heading: 'December 2026', home: 'December 2026' });
     const fetched = asked.length;
-    // The date in view goes along, December's 1st, though List's home is in the same month.
+    // Nothing paged, nothing selected: List opens its own home, and one load held both.
     await switchTo(card, 'list');
-    expect(listDays(card)).toEqual(['2026-12-01', '2026-12-07']);
+    expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
+    await switchTo(card, 'month');
+    expect(month(card).heading).toBe('December 2026');
     expect(asked).toHaveLength(fetched);
+
+    // A month away, the date in view is that month's own day, its 1st.
+    await press(card, 'next');
+    expect(month(card).heading).toBe('January 2027');
+    await switchTo(card, 'list');
+    expect(listDays(card)).toEqual(['2027-01-01', '2027-01-07']);
     await press(card, 'home');
+    expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
+
+    // A month away and back again is home: List opens its own home again.
+    await switchTo(card, 'month');
+    expect(month(card).heading).toBe('December 2026');
+    await press(card, 'next');
+    await press(card, 'previous');
+    expect(month(card).heading).toBe('December 2026');
+    await switchTo(card, 'list');
     expect(listDays(card)).toEqual(['2026-12-18', '2026-12-24']);
   });
 });
@@ -449,8 +547,10 @@ describe('hide_when_empty on Month', () => {
   it.each([
     // Tomorrow, and the only event later today, which Month draws: the card stays.
     ['an event later today, with Tomorrow', 'today+1', [new Date(2026, 10, 18, 15)], false],
-    // 30 days ahead, and the only event next week, in the month shown: the card stays.
-    ['an event next week, 30 days ahead', 'today+30', [new Date(2026, 10, 25, 9)], false],
+    // 30 days ahead counts from 18 December: an event in its month after that keeps the card, one
+    // in December's first row, before that day, does not.
+    ['an event after a start date 30 days ahead', 'today+30', [new Date(2026, 11, 20, 9)], false],
+    ['an event before a start date 30 days ahead', 'today+30', [new Date(2026, 11, 2, 9)], true],
     // Start of Week, and the only event on Monday, before today: the card hides.
     [
       'an event earlier this week, with Start of Week',
@@ -461,7 +561,7 @@ describe('hide_when_empty on Month', () => {
     // A fixed date counts from itself: an event before it hides the card, one after keeps it.
     ['an event before a fixed date', '2026-11-25', [new Date(2026, 10, 20, 9)], true],
     ['an event after a fixed date', '2026-11-25', [new Date(2026, 10, 26, 9)], false],
-  ] as const)('counts from today or a fixed date: %s', async (_name, start_date, starts, hides) => {
+  ] as const)('counts from its home day: %s', async (_name, start_date, starts, hides) => {
     vi.setSystemTime(new Date(2026, 10, 18, 10));
     events = starts.map((start) => ({
       summary: 'Swim',

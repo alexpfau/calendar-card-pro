@@ -630,7 +630,6 @@
   "days_to_show.helper": "레이아웃마다 따로 설정할 수 있습니다. 카드는 가장 긴 기간을 한 번만 불러오므로 레이아웃을 전환해도 다시 불러오지 않습니다.",
   "start_date_mode": "시작일",
   "start_date_mode.aliases": "내일, 어제, 시작 날짜, 시작하는 날, 첫 날짜, 처음 표시할 날",
-  "start_date_mode.helper": "월 레이아웃은 오늘이 속한 달 또는 고정된 날짜가 속한 달로 열립니다.",
   "start_date_mode.option.default.label": "오늘",
   "start_date_mode.option.tomorrow.label": "내일",
   "start_date_mode.option.start_of_week.label": "주 시작일",

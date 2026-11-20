@@ -719,7 +719,6 @@
   "days_to_show.helper": "Kiekvienas išdėstymas gali turėti savo skaičių. Kortelė vieną kartą įkelia ilgiausią laikotarpį, todėl perjungiant išdėstymą niekas iš naujo neįkeliama.",
   "start_date_mode": "Pradžios data",
   "start_date_mode.aliases": "rytoj, vakar, pradėti nuo, pirma rodoma diena, pradžios diena",
-  "start_date_mode.helper": "Mėnesio išdėstymas atsidaro einamajame mėnesyje arba konkrečios datos mėnesyje.",
   "start_date_mode.option.default.label": "Šiandien",
   "start_date_mode.option.tomorrow.label": "Rytoj",
   "start_date_mode.option.start_of_week.label": "Savaitės pradžia",

@@ -22,13 +22,13 @@ set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
 ## 📅 The Six Weeks
 
 The weeks start on the first day of the week, `first_day_of_week` or your Home Assistant
-locale's, and the first row is the week holding the 1st of the month the card opens on: today's
-month, unless `start_date` is a fixed date such as `2027-01-15`, which opens its own month.
+locale's, and the first row is the week holding the 1st of the month the card opens on: the
+month holding `start_date`. So `start_date: today+30` opens the month of the day 30 days from
+today, and `start_date: 2027-01-15` opens January 2027.
 
-- **A relative start date opens today's month.** Today, Tomorrow, Start of Week, a weekday and
-  any offset such as `today-29` all open the month holding today, while the other layouts start
-  on the day they name. So Start of Week on the 1st still opens this month, and a card that logs
-  the last 30 days opens on this month with today in it.
+- **Tomorrow and Start of Week open today's month**, as does no `start_date` at all. Both days
+  are always in today's six weeks, and their own month would be last month on a month's first
+  days, or next month on its last.
 - **Always six rows.** Six weeks hold any month, whichever day its 1st falls on: the 1st is
   always in the first row, and the weeks after the month's last are drawn below it. The six share
   the card's height, which paging never changes.
@@ -55,7 +55,8 @@ while that month is today's, and otherwise by the month it goes to, such as "Jan
   holding the other layout's first day opens with that day selected. Out of Month, List, Columns
   and Grid start on the day selected on a [compact month](#the-compact-month), else on today
   where the month shows it, else on the month's 1st. From home, with no day selected, each layout
-  opens on its own home, and the home button returns each one there.
+  opens on its own home, and the home button returns each one there. Paging back to the month the
+  card opens with is home again.
 - **Search** pages to the month of the event you pick, and opens the day's list where the
   event is behind "+N more", or selects its day on a [compact month](#the-compact-month).
 
@@ -208,9 +209,9 @@ At the defaults, a card narrower than about 600 pixels draws the compact form. I
 again only a little past the width it turned compact at, so a card on the edge does not flicker
 between the two.
 
-- **Choosing a day:** a tap selects it. The month opens with today selected, or a fixed
-  `start_date` such as `2027-01-15`. Paging to another month selects today where the heading's
-  month holds it, and otherwise the 1st, and the home and
+- **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
+  for Tomorrow, Start of Week or no `start_date`. Paging to another month selects today where the
+  heading's month holds it, and otherwise the 1st, and the home and
   [reset](/features/layout-appearance#resetting-the-card) buttons go back to the day the month
   opens with.
 - **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
@@ -373,8 +374,9 @@ toolbar:
 In the visual editor, that is **View Switcher offers** under Card & Header › Toolbar: uncheck
 Month to take it out.
 
-`hide_when_empty` counts Month's events only from today on, or from a fixed `start_date`, so past
-events in the month never keep an otherwise empty card on screen.
+`hide_when_empty` counts Month's events only from its `start_date` on, or from today for Tomorrow,
+Start of Week or no `start_date`, so earlier events in the month never keep an otherwise empty
+card on screen.
 
 ## 🎨 Overriding Options in Month View
 
