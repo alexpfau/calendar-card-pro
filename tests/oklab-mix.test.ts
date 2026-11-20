@@ -58,3 +58,48 @@ describe('color mixes keep the accent hue (#742)', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * The relative-color tiers put back the chroma a mix spent, and they scale it as Oklab's a and b,
+ * never as OKLCH's c. Below a chroma of about 0.02 Chromium (measured in Chrome 157) converts a
+ * mix to OKLCH with no hue, reads that missing hue as 0, and scaling c then paints hue 0: the
+ * all-day badge's wash of Home Assistant's default blue came out pink, and the ink of a muted
+ * calendar color mauve, while Safari kept the hue. Scaling a and b scales chroma at the same hue,
+ * and Oklab has no hue to lose. An OKLCH relative color that sets c outright, as the filled
+ * badge's 0 does, has no hue to keep and is left alone.
+ */
+describe('relative colors restore chroma without a hue Chromium can drop', () => {
+  const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  /** The channel list of every relative color in `css` written in a polar space. */
+  const polarChannels = [...css.matchAll(/\b(?:oklch|lch)\(\s*from\s/gi)].map((match) => {
+    let depth = 0;
+    for (let i = match.index; i < css.length; i++) {
+      if (css[i] === '(') depth++;
+      else if (css[i] === ')' && --depth === 0) return css.slice(match.index, i + 1);
+    }
+    return css.slice(match.index);
+  });
+
+  it('scales chroma as a and b in every tier that restores it', () => {
+    const scaled = [
+      ...css.matchAll(/calc\(\s*a\s*\*\s*([\d.]+)\s*\)\s+calc\(\s*b\s*\*\s*\1\s*\)/g),
+    ];
+    // The today tile's wash and ink, a set week pill's number, the accent ink, the Now ink, and
+    // the badge's ink and wash.
+    expect(scaled.map((match) => match[1]).sort()).toEqual([
+      '1.8',
+      '1.8',
+      '2.2',
+      '2.2',
+      '2.2',
+      '2.2',
+      '2.2',
+    ]);
+  });
+
+  it('scales no OKLCH chroma, which keeps a hue Chromium may have dropped', () => {
+    expect(polarChannels.length).toBeGreaterThan(0);
+    expect(polarChannels.filter((channels) => /\bc\s*\*|\*\s*c\b/.test(channels))).toEqual([]);
+  });
+});
