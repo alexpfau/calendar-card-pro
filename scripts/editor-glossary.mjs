@@ -590,7 +590,9 @@ export const GLOSSARY_TERMS = [
       sk: 'Zvýraznenie',
       sv: 'Framhävning',
     },
-    rejected: {},
+    rejected: {
+      et: ['rõhuvärv'],
+    },
   },
   {
     name: 'font',
