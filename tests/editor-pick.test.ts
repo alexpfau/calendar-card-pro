@@ -107,6 +107,8 @@ async function settle(editor: Editor, card?: Card): Promise<void> {
 
 const $ = (editor: Editor, selector: string) =>
   editor.shadowRoot!.querySelector<HTMLElement>(selector);
+const text = (element: Element | null): string =>
+  element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 const pickButton = (editor: Editor) => $(editor, '[data-focus="pick"]');
 
 /** Every sentence the live region says from now on. */
@@ -297,6 +299,42 @@ describe('Pick From Preview', () => {
     fire(chip, 'click');
     await settle(editor, card);
     expect($(editor, '.entry-page')?.getAttribute('data-entry-key')).toBe('1');
+  });
+
+  // A Whole Card page edits the shared scope, which is Layout Defaults' too, so a part that names
+  // no layout of its own has to open under the layout the preview draws there, the one the card
+  // opens in: where the same pick lands from that layout's own page.
+  it('opens a part picked from a Whole Card page under the layout the preview draws', async () => {
+    const month = { ...CONFIG, view: 'month' };
+    const pickTime = async (from: string) => {
+      const { editor, card } = await dialog({ card: month, editor: month });
+      $(editor, `[data-focus="${from}"]`)!.click();
+      await settle(editor, card);
+      const on = text($(editor, '.page-sub'));
+      pickButton(editor)!.click();
+      await settle(editor, card);
+      const said = listen(editor);
+      fire(card.shadowRoot!.querySelector('.month-line-time')!, 'click');
+      await settle(editor, card);
+      const landed = {
+        on,
+        page: $(editor, '.page')?.getAttribute('data-page'),
+        sub: text($(editor, '.page-sub')),
+        field: $(editor, '.page-group[data-heading="time"] .jump [data-field]')?.getAttribute(
+          'data-field',
+        ),
+        said,
+      };
+      document.body.replaceChildren();
+      return landed;
+    };
+    const control = await pickTime('layout:month');
+    expect(control).toMatchObject({ on: 'Layout', page: 'events', sub: 'Month' });
+    expect(control.field).toMatch(/^events:/);
+    expect(control.said).toEqual(['Showing Event Appearance › Time.']);
+    for (const page of ['card_header', 'events_weather_language', 'taps_refresh']) {
+      expect(await pickTime(`nav:${page}`), page).toEqual({ ...control, on: 'Whole Card' });
+    }
   });
 
   it('switches to Grid for a part only Grid’s scope holds, and says so', async () => {
