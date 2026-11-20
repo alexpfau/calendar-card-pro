@@ -1204,6 +1204,43 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    signal you want. A backtick is not enough on its own to rely on; in that PR `#251` appeared
    both backticked and bare, so which form suppressed the reference was never established.
 
+### Beta releases
+
+A beta is a GitHub prerelease, cut from an integration branch before the release PR exists so
+users can test the next version early. HACS offers it only to users who turn on pre-releases
+for this repository, in its three-dot menu or with the switch entity HACS creates; anyone who
+does gets it, invited or not.
+
+1. Leave `package.json` at the last stable version. Nothing is bumped or committed for a beta.
+2. Tag a commit on `dev` or a `feature/*` branch `vX.Y.Z-beta.N`, N counting from 1, and push
+   the tag. A tag runs the `release.yml` of its own commit, so the beta path exists only on
+   commits that carry it. The workflow checks the commit is reachable from `origin/dev` or an
+   `origin/feature/*` branch, that `X.Y.Z` is newer than `package.json`'s version and not yet
+   tagged, stamps the beta version into `package.json` and both lockfile fields of its
+   throwaway checkout, runs lint, `tsc`, the build and `check:bundle`, checks both files carry
+   the version, and creates a **draft** prerelease with the two `.js` files and a placeholder
+   body.
+3. Put the notes in the draft with `gh release edit vX.Y.Z-beta.N --notes-file <file>`, then
+   publish it. Beta notes stay out of `docs/RELEASE_NOTES.md`, which records what shipped.
+
+Any other tag shape fails the job at its first step; delete such a tag with
+`git push origin :refs/tags/<tag>`. Stable tags take the path described above, unchanged.
+
+What HACS does with a beta is decided in `custom_components/hacs/repositories/base.py` and
+`utils/version.py`, read at hacs/integration 8a543828:
+
+- It walks releases newest first, takes the first prerelease it meets, and stops at the first
+  stable one. **A stable release published after a beta hides that beta**, so while a beta
+  cycle runs, follow any stable patch with a new beta.
+- Versions compare with AwesomeVersion: `6.0.0-beta.1` < `6.0.0-beta.2` < `6.0.0`, and
+  `-beta.10` sorts above `-beta.9`. Testers get the stable release as an ordinary update when it
+  ships.
+- HACS offers only a higher version as an update, so turning pre-releases off on a beta offers
+  nothing. Going back to stable is **Redownload** with the stable version picked, and the beta
+  notes have to say so.
+- `releases/latest` ignores prereleases, so the installation docs keep pointing at the stable
+  release.
+
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
@@ -1311,7 +1348,8 @@ download would have to live outside the release assets entirely.
   no releases, so until v5 every outside contribution failed with _"Repository structure …
   is not compliant"_ whatever it changed. The fork path only runs for a fork; to exercise it
   without one, `gh workflow run hacs-validate.yml --ref <branch> -f pull_request=<n>`.
-- `release.yml` — tag-triggered draft release.
+- `release.yml` — tag-triggered draft release: `vX.Y.Z` from main, or a `vX.Y.Z-beta.N`
+  prerelease from `dev` or a `feature/*` branch (see _Beta releases_).
 - `docs-preview.yml` — manual only (`workflow_dispatch`); publishes the docs preview
   described under _Docs site deployment_. Its Cloudflare credentials are secrets on the
   `docs-preview` environment, not the repository; only `main` may deploy to that environment,

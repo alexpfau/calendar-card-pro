@@ -23,6 +23,30 @@ jobs:
           # shallow fetch hands it a single commit with no relationship to any branch.
           fetch-depth: 0
 
+      # Two kinds of tag reach this job, and everything below branches on which one it is.
+      # A stable tag (`v6.0.0`) is a release cut from main, exactly as it always was. A beta
+      # tag (`v6.0.0-beta.1`) is a GitHub prerelease that HACS offers only to users who turn
+      # on pre-releases for this repository; it is built from an integration branch before
+      # the release PR exists. Anything else is refused here, so a typo such as `v6.0.0beta1`,
+      # `v6.0.0-rc.1` or `v6.0` can never fall through to either path. Leading zeros are
+      # refused too, because `v6.0.01` and `v6.0.1` would name one version twice.
+      - name: Classify tag
+        id: tag
+        run: |
+          N='(0|[1-9][0-9]*)'
+          if [[ "${GITHUB_REF_NAME}" =~ ^v${N}\.${N}\.${N}$ ]]; then
+            echo "kind=stable" >> "$GITHUB_OUTPUT"
+            echo "Stable tag ${GITHUB_REF_NAME}."
+          elif [[ "${GITHUB_REF_NAME}" =~ ^v(${N}\.${N}\.${N})-beta\.([1-9][0-9]*)$ ]]; then
+            echo "kind=beta" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "base=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "Beta tag ${GITHUB_REF_NAME}."
+          else
+            echo "::error::Tag ${GITHUB_REF_NAME} is neither a stable release tag (vX.Y.Z) nor a beta tag (vX.Y.Z-beta.N, N from 1). Delete it; see AGENTS.md § Release process."
+            exit 1
+          fi
+
       # A `v*` tag on *any* commit reaches this workflow — the trigger cannot tell a
       # release tag on main from one pushed to a feature branch by mistake, and the
       # version check below compares the tag text to package.json, which a release
@@ -35,6 +59,7 @@ jobs:
       # than "is the tag on main" so that tagging an older commit that main has since
       # moved past still passes — that is a legitimate patch release.
       - name: Verify tag is on main
+        if: steps.tag.outputs.kind == 'stable'
         run: |
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
@@ -42,6 +67,47 @@ jobs:
             exit 1
           fi
           echo "Ancestry check passed: ${GITHUB_SHA} is reachable from main."
+
+      # The beta's counterpart of the check above. A beta is built before the release PR
+      # exists, so main cannot vouch for it; an integration branch can, because work lands
+      # there by merged pull request. `dev` and every `feature/*` branch on this repository
+      # qualify: a beta of the next major comes from its feature branch (feature/v6.0 for
+      # v6), a beta of a minor from dev, and a fixed list would need editing here every
+      # cycle. A personal working branch does not qualify, and neither does a fork's branch,
+      # which never exists as origin/feature/*.
+      #
+      # Two version checks follow, both against facts HACS acts on. The beta must be newer
+      # than the version package.json ships, or HACS would treat it as a downgrade and offer
+      # it to nobody. And its stable version must not have shipped yet: HACS offers the
+      # newest prerelease only when it was published after the latest stable release, so a
+      # beta of a version already out is dead on arrival.
+      - name: Verify beta tag is on an integration branch
+        if: steps.tag.outputs.kind == 'beta'
+        env:
+          BETA_VERSION: ${{ steps.tag.outputs.version }}
+          BETA_BASE: ${{ steps.tag.outputs.base }}
+        run: |
+          git fetch --no-tags origin '+refs/heads/dev:refs/remotes/origin/dev' '+refs/heads/feature/*:refs/remotes/origin/feature/*'
+          FOUND=""
+          for REF in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/dev refs/remotes/origin/feature); do
+            if git merge-base --is-ancestor "${GITHUB_SHA}" "${REF}"; then FOUND="${REF}"; break; fi
+          done
+          if [ -z "${FOUND}" ]; then
+            echo "::error::Beta tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not reachable from origin/dev or any origin/feature/* branch. Tag a commit that has been merged into an integration branch."
+            exit 1
+          fi
+          echo "Ancestry check passed: ${GITHUB_SHA} is reachable from ${FOUND}."
+
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$(printf '%s\n%s\n' "${PKG_VERSION}" "${BETA_BASE}" | sort -V | tail -n 1)" != "${BETA_BASE}" ] || [ "${PKG_VERSION}" = "${BETA_BASE}" ]; then
+            echo "::error::Beta ${BETA_VERSION} is not newer than ${PKG_VERSION}, the version package.json ships on this commit."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v${BETA_BASE}" > /dev/null; then
+            echo "::error::v${BETA_BASE} is already tagged, so a beta of it would never be offered. Tag a beta of the next version instead."
+            exit 1
+          fi
+          echo "Version check passed: ${BETA_VERSION} is newer than ${PKG_VERSION}, and v${BETA_BASE} has not shipped."
 
       # Read the Node version from .nvmrc, exactly as ci.yml does. This job is the one
       # that runs `npm ci` against the lockfile and publishes what every user downloads,
@@ -59,6 +125,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A beta ships with its own version inside the bundle: the card's banner, its
+      # card/editor mismatch warning and its event-cache key all read it, and a beta that
+      # called itself 5.3.0 would share a cache with the stable release and hide which build
+      # a tester is reporting from. So the version is stamped here, into this throwaway
+      # checkout only, never committed: package.json and both version fields of the
+      # lockfile, the same three that ci.yml keeps in step. Stamped after `npm ci`, which
+      # does not read the root version, so the install is the one CI tested.
+      - name: Stamp beta version
+        if: steps.tag.outputs.kind == 'beta'
+        env:
+          BETA_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const v = process.env.BETA_VERSION;
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+            pkg.version = v;
+            lock.version = v;
+            lock.packages[""].version = v;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+            fs.writeFileSync("package-lock.json", JSON.stringify(lock, null, 2) + "\n");
+          '
+          node -e '
+            const v = process.env.BETA_VERSION;
+            const pkg = require("./package.json");
+            const lock = require("./package-lock.json");
+            const seen = [pkg.version, lock.version, lock.packages[""].version];
+            if (seen.some((x) => x !== v)) { console.error("::error::Stamping failed: " + seen.join(", ")); process.exit(1); }
+            console.log("Stamped " + v + " into package.json and both lockfile fields.");
+          '
+
       # A tag that disagrees with package.json ships a bundle whose embedded version
       # string does not match the release it is attached to. Cheap to check, painful
       # to discover after publishing.
@@ -75,9 +173,19 @@ jobs:
       # Fail before building if the curated notes are missing, so the problem surfaces
       # in seconds rather than after a full lint + build cycle.
       - name: Extract release notes
+        if: steps.tag.outputs.kind == 'stable'
         run: |
           node scripts/extract-release-notes.mjs "${GITHUB_REF_NAME}" > release-body.md
           echo "Release body: $(wc -l < release-body.md) lines"
+
+      # A beta's notes are written for its testers and do not belong in
+      # docs/RELEASE_NOTES.md, which records what shipped. The draft gets a placeholder that
+      # says so, and the notes go in with `gh release edit` before it is published.
+      - name: Write beta release body
+        if: steps.tag.outputs.kind == 'beta'
+        run: |
+          printf '%s\n\n%s\n' "# Calendar Card Pro ${GITHUB_REF_NAME}" "Beta notes go here before this pre-release is published." > release-body.md
+          echo "Release body: placeholder for ${GITHUB_REF_NAME}"
 
       - name: Lint
         run: npm run lint
@@ -95,6 +203,26 @@ jobs:
       # earlier build would otherwise be published and then downloaded by every user.
       - name: Verify bundle integrity
         run: npm run check:bundle
+
+      # The stamp has to reach both files, or the card would warn about a stale editor on
+      # every open, so read it back out of the built output rather than trusting the step
+      # that wrote it.
+      - name: Verify beta version in bundle
+        if: steps.tag.outputs.kind == 'beta'
+        env:
+          BETA_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          for FILE in dist/calendar-card-pro.js dist/editor.js; do
+            if ! grep -qF "\"${BETA_VERSION}\"" "${FILE}"; then
+              echo "::error::${FILE} does not carry the version string \"${BETA_VERSION}\"."
+              exit 1
+            fi
+          done
+          if grep -qF '"vPLACEHOLDER"' dist/calendar-card-pro.js dist/editor.js; then
+            echo "::error::A version placeholder survived into the bundle."
+            exit 1
+          fi
+          echo "Both files carry ${BETA_VERSION}."
 
       # Assets are deliberately just the two .js files, and this is a constraint rather
       # than a preference: HACS downloads *every* asset attached to a release. Its
@@ -126,9 +254,27 @@ jobs:
       # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this. It
       # matches exactly two files, and `check:bundle` above has already asserted that.
       - name: Release
+        if: steps.tag.outputs.kind == 'stable'
         uses: softprops/action-gh-release@v3
         with:
           draft: true
           body_path: release-body.md
           files: |
             dist/*.js
+
+      # The same two assets, named rather than globbed, as a draft marked prerelease. HACS
+      # never shows a draft, and shows a published prerelease only to users who turned on
+      # pre-releases for this repository; `make_latest: false` keeps releases/latest, which
+      # the installation docs link, on the stable release.
+      - name: Release (beta)
+        if: steps.tag.outputs.kind == 'beta'
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          prerelease: true
+          make_latest: false
+          body_path: release-body.md
+          fail_on_unmatched_files: true
+          files: |
+            dist/calendar-card-pro.js
+            dist/editor.js
