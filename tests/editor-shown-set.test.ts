@@ -19,6 +19,7 @@ import {
   changeField,
   editLayout,
   factsOf,
+  fakeHass,
   formsOf,
   goEntry,
   goPage,
@@ -44,6 +45,7 @@ import { PREFS_KEY } from '../src/rendering/editor/prefs';
 import * as Reset from '../src/rendering/editor/reset';
 import * as Shown from '../src/rendering/editor/shown';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 import { toStoredConfig } from '../src/rendering/editor/value';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
@@ -104,6 +106,106 @@ async function click(editor: MountedEditor, selector: string): Promise<void> {
   if (control === null) throw new Error(`The editor draws no ${selector}`);
   control.click();
   await editor.updateComplete;
+}
+
+/**
+ * Opens a setting folded to its head, as a user would, and waits for the render.
+ *
+ * @param editor - The editor
+ * @param id - The setting
+ */
+async function open(editor: MountedEditor, id: FieldId): Promise<void> {
+  const toggle = $(editor, `[data-setting="${id}"] .setting-toggle`);
+  if (toggle?.getAttribute('aria-expanded') === 'false') toggle.click();
+  await editor.updateComplete;
+}
+
+/**
+ * What a screen reader hears for an open setting's group: its name, then its description, the
+ * text of each element its `aria-describedby` names joined with a space as accessible-name
+ * computation joins them, so nothing between two parts ends a sentence that the parts do not.
+ *
+ * @param editor - The editor
+ * @param id - The setting
+ * @returns Its name, its description (undefined where it names none), and whether any element it
+ *   is described by is or holds a button
+ */
+function spoken(
+  editor: MountedEditor,
+  id: FieldId,
+): { name: string; description: string | undefined; pressable: boolean } {
+  const wrapper = $(editor, `.setting > .field[role="group"][data-field="${id}"]`);
+  if (wrapper === null) throw new Error(`No open setting draws ${id}`);
+  const named = (wrapper.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((each) => editor.shadowRoot!.getElementById(each));
+  expect(named).not.toContain(null);
+  return {
+    name: wrapper.getAttribute('aria-label') ?? '',
+    description:
+      named.length === 0
+        ? undefined
+        : named.map((each) => each!.textContent!.replace(/\s+/g, ' ').trim()).join(' '),
+    pressable: named.some(
+      (each) => each!.closest('button') !== null || each!.querySelector('button') !== null,
+    ),
+  };
+}
+
+/**
+ * Opens every folded setting on the open page and checks each open setting's group as a screen
+ * reader hears it: named with its visible name, then the facts under it and its "Default", each a
+ * phrase of its own; described by its helper behind ⓘ and nothing else.
+ *
+ * @param editor - The editor
+ * @returns How many groups it checked, how many of them had facts or a helper, and their kinds
+ */
+async function openSettingsSpoken(
+  editor: MountedEditor,
+): Promise<{ checked: number; withFacts: number; withHelp: number; kinds: string[] }> {
+  for (const toggle of editor.shadowRoot!.querySelectorAll<HTMLElement>(
+    '.setting-toggle[aria-expanded="false"]',
+  )) {
+    toggle.click();
+  }
+  await editor.updateComplete;
+  const counts = { checked: 0, withFacts: 0, withHelp: 0, kinds: [] as string[] };
+  for (const wrapper of editor.shadowRoot!.querySelectorAll<HTMLElement>(
+    '.setting > .field[role="group"][data-field]',
+  )) {
+    const id = wrapper.dataset.field as FieldId;
+    const setting = wrapper.closest('.setting')!;
+    const facts = [
+      ...setting.querySelectorAll(':scope > .setting-head .setting-facts > .fact'),
+    ].map((fact) => fact.textContent!.replace(/\s+/g, ' ').trim());
+    const quiet = setting.querySelector(':scope > .setting-head > .setting-state.visually-hidden');
+    const help = setting.querySelector(':scope > .setting-help')?.textContent?.trim();
+    const label = setting.querySelector(':scope > .setting-head .setting-label');
+    const { name, description } = spoken(editor, id);
+    // A switch's head is Home Assistant's row, which draws no label of the editor's.
+    if (label !== null) {
+      expect(name, id).toBe(
+        [label.textContent!.trim(), ...facts, ...(quiet ? [quiet.textContent!.trim()] : [])].join(
+          ', ',
+        ),
+      );
+    }
+    expect(description, id).toBe(help);
+    counts.checked += 1;
+    if (facts.length > 0) counts.withFacts += 1;
+    if (help !== undefined) counts.withHelp += 1;
+    counts.kinds.push(
+      id === 'calendar:visibility'
+        ? id
+        : wrapper.classList.contains('color-field')
+          ? 'color'
+          : wrapper.querySelector('ha-form') !== null
+            ? 'form'
+            : 'other',
+    );
+  }
+  return counts;
 }
 
 /** Whether a setting's head starts with Home Assistant's own switch row. */
@@ -214,9 +316,8 @@ describe('every setting on a fresh card', () => {
     expect(info.getAttribute('aria-label')).toBe(`About ${labelOf(editor, id)}`);
     const help = $(editor, `[data-setting="${id}"] .setting-help`)!;
     expect(help.hidden).toBe(true);
-    // Described by its facts first, then by its helper (the test below).
-    const named = $(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')!;
-    expect(named.split(' ').pop()).toBe(help.id);
+    // Described by its helper alone; its facts are in its name (the test below).
+    expect($(editor, `.field[data-field="${id}"]`)!.getAttribute('aria-describedby')).toBe(help.id);
     // The form shows none of its own.
     const form = $(editor, `.field[data-field="${id}"] ha-form`) as unknown as {
       computeHelper(node: unknown): string | undefined;
@@ -228,61 +329,140 @@ describe('every setting on a fresh card', () => {
     expect(help.textContent?.trim()).toBe(helperOf(editor, id));
   });
 
-  it('describes an open setting by the facts under its name, then its helper, never its Reset', async () => {
-    /**
-     * What a screen reader hears as a control's description: the text of each element its
-     * wrapper names, in order.
-     *
-     * @param editor - Editor element
-     * @param wrapper - The control's wrapper
-     * @returns The words, and whether any named element is or holds a button
-     */
-    const description = (editor: MountedEditor, wrapper: Element) => {
-      const named = (wrapper.getAttribute('aria-describedby') ?? '')
-        .split(' ')
-        .filter(Boolean)
-        .map((id) => editor.shadowRoot!.getElementById(id));
-      expect(named).not.toContain(null);
-      return {
-        words: named.map((each) => each!.textContent!.replace(/\s+/g, ' ').trim()),
-        pressable: named.some(
-          (each) => each!.closest('button') !== null || each!.querySelector('button'),
-        ),
-      };
-    };
-    // At its default, opened: no fact under its name, so the "Default" a screen reader hears, then
-    // its helper.
-    const fresh = await mount({ view: 'list' });
-    const opened = 'events:time_font_size';
-    await goPage(fresh, 'events');
-    await click(fresh, `[data-setting="${opened}"] .setting-toggle`);
-    const atDefault = description(fresh, $(fresh, `.field[data-field="${opened}"]`)!);
-    expect(atDefault.words[0]).toBe('Default');
-    expect(atDefault.words.slice(1)).toEqual(
-      helperOf(fresh, opened) === undefined ? [] : [helperOf(fresh, opened)],
-    );
+  it('names an open setting with the facts under its name and describes it by its helper alone', async () => {
+    // At its default with a helper: the "Default" a screen reader hears is in the name, so the
+    // helper that follows is never read as part of it ("Default Large makes them bigger…").
+    const editor = await mount({
+      view: 'list',
+      title: 'Family',
+      event_font_size: '20px',
+      toolbar: { show: true },
+    });
+    await goPage(editor, 'card_header');
+    await open(editor, 'card:toolbar.size');
+    expect(spoken(editor, 'card:toolbar.size')).toEqual({
+      name: 'Arrow & Chip Size, Default',
+      description: 'Large makes them bigger and easier to tap on a touch screen.',
+      pressable: false,
+    });
+    // Stored here: Set, then the helper as a sentence of its own; its Reset is in neither.
+    expect(spoken(editor, 'card:title')).toEqual({
+      name: 'Title, Set',
+      description: helperOf(editor, 'card:title'),
+      pressable: false,
+    });
+    expect(helperOf(editor, 'card:title')).toMatch(/^Text with/);
+    expect(lineOf(editor, 'card:title')!.querySelector('button')).not.toBeNull();
 
-    // A Layout Defaults value on a List topic: where the value comes from.
-    const editor = await mount({ view: 'list', event_font_size: '20px' });
+    // Two facts, each its own phrase in the name, and no helper to describe it.
+    await goPage(editor, 'events');
+    await open(editor, 'events:accent_color_mode');
+    expect(spoken(editor, 'events:accent_color_mode')).toEqual({
+      name: 'Accent Color, Whole Card, Default',
+      // A color is composed, so its helper is read where it is drawn, behind ⓘ.
+      description: $(
+        editor,
+        '[data-setting="events:accent_color_mode"] > .setting-help',
+      )!.textContent!.trim(),
+      pressable: false,
+    });
+    // A Layout Defaults value on a List topic: where the value comes from, and no description.
     const id = 'events:event_font_size';
-    await openPageOf(editor, id);
-    const head = $(editor, `[data-setting="${id}"] .setting-toggle`);
-    if (head?.getAttribute('aria-expanded') === 'false') head.click();
-    await editor.updateComplete;
-    const inherited = description(editor, $(editor, `.field[data-field="${id}"]`)!);
-    const facts = (): string[] => factsOf(editor, id).map((fact) => fact.replace(/\s+/g, ' '));
-    expect(facts().length).toBeGreaterThan(0);
-    expect(inherited.words.slice(0, facts().length)).toEqual(facts());
-    expect(inherited.words.join(' ')).toMatch(/Layout Defaults/);
-    expect(inherited.pressable).toBe(false);
-
-    // Stored here: Set, and its Reset beside it stays out of the description.
+    await open(editor, id);
+    expect(factsOf(editor, id)).toEqual(['From Layout Defaults']);
+    expect(spoken(editor, id)).toEqual({
+      name: 'Event Font Size, From Layout Defaults',
+      description: undefined,
+      pressable: false,
+    });
+    // Stored here: Set, and Reset beside it stays out.
     await changeField(editor, id, '22px');
-    const set = description(editor, $(editor, `.field[data-field="${id}"]`)!);
-    expect(set.words[0]).toBe('Set');
-    expect(set.words.slice(0, facts().length)).toEqual(facts());
+    expect(spoken(editor, id)).toEqual({
+      name: 'Event Font Size, Set',
+      description: undefined,
+      pressable: false,
+    });
     expect(lineOf(editor, id)!.querySelector('button')).not.toBeNull();
-    expect(set.pressable).toBe(false);
+  });
+
+  it.each([
+    ['de', 'Pfeil- und Chipgröße, Standard'],
+    ['ja', '矢印とチップのサイズ, デフォルト'],
+  ])('keeps the facts and the helper apart in %s', async (language, name) => {
+    const editor = await mountEditor(
+      {
+        config_version: VERSION,
+        entities: ['calendar.anna'],
+        view: 'list',
+        toolbar: { show: true },
+      },
+      { hass: fakeHass({ language }) },
+    );
+    await goPage(editor, 'card_header');
+    await open(editor, 'card:toolbar.size');
+    const help = $(editor, '[data-setting="card:toolbar.size"] .setting-help')!.textContent!.trim();
+    expect(help).not.toBe(EDITOR_STRINGS['toolbar.size.helper']);
+    expect(spoken(editor, 'card:toolbar.size')).toEqual({
+      name,
+      description: help,
+      pressable: false,
+    });
+  });
+
+  it.each(['en', ...Object.keys(EDITOR_LANGUAGE_STRINGS)])(
+    'reads each open setting’s facts in its name and its helper alone as its description in %s',
+    async (language) => {
+      const editor = await mountEditor(
+        {
+          config_version: VERSION,
+          entities: ['calendar.anna'],
+          view: 'month',
+          title: 'Family',
+          event_font_size: '20px',
+          toolbar: { show: true },
+        },
+        { hass: fakeHass({ language }) },
+      );
+      let checked = 0;
+      let withFacts = 0;
+      let withHelp = 0;
+      for (const page of ['card_header', 'events']) {
+        await goPage(editor, page);
+        const counts = await openSettingsSpoken(editor);
+        checked += counts.checked;
+        withFacts += counts.withFacts;
+        withHelp += counts.withHelp;
+      }
+      // Enough open settings, with facts and with helpers, that the loop proves something.
+      expect(checked).toBeGreaterThan(15);
+      expect(withFacts).toBeGreaterThan(2);
+      expect(withHelp).toBeGreaterThan(5);
+    },
+  );
+
+  it('names a calendar’s open settings with their facts and describes them by their help alone', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: [
+        { entity: 'calendar.anna', accent_color: '#e57373', label: 'A', show_time: false },
+      ],
+      view: 'list',
+    });
+    await goEntry(editor, keysOf(editor, 'entry')[0]);
+    const counts = await openSettingsSpoken(editor);
+    // A calendar's color, its ordinary forms and Who Sees It, each with facts and with a helper.
+    expect(counts.kinds).toEqual(expect.arrayContaining(['color', 'form', 'calendar:visibility']));
+    expect(counts.withFacts).toBeGreaterThan(2);
+    expect(counts.withHelp).toBeGreaterThan(2);
+    expect(spoken(editor, 'calendar:accent_color_mode')).toEqual({
+      name: 'Accent Color, Set',
+      description: $(
+        editor,
+        '[data-setting="calendar:accent_color_mode"] > .setting-help',
+      )!.textContent!.trim(),
+      pressable: false,
+    });
+    expect(spoken(editor, 'calendar:label').name).toBe('Label, Set');
   });
 
   it('draws the editor’s tools in the head, never inside Home Assistant’s field box', async () => {

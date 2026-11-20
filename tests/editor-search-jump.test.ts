@@ -317,7 +317,7 @@ describe('choosing a result', () => {
     const page = $(editor, '.entry-page')!;
     const wrapper = page.querySelector<HTMLElement>('.jump [data-field="calendar:blocklist"]');
     expect(page.dataset.page).toBe(`entry:${keys[1]}`);
-    expect(wrapper?.getAttribute('aria-label')).toBe('Hide Events Containing');
+    expect(wrapper?.getAttribute('aria-label')).toBe('Hide Events Containing, Set');
     expect(editor.shadowRoot!.activeElement).toBe(wrapper);
     // The field once, where the page draws it, with the page's other fields around it.
     expect(page.querySelectorAll('[data-field="calendar:blocklist"]')).toHaveLength(1);

@@ -501,20 +501,35 @@ interface FieldShow {
   /** The helper's element id: the helper sits behind ⓘ, so the form draws none of its own. */
   readonly describedBy?: string;
   /**
-   * The ids of the facts under the setting's name, and of its "Default" (`views/shown.ts` ›
-   * `factIds`), space-separated: its open control is described by them, then by its helper.
+   * The words read with the setting's name (`views/shown.ts` › `spokenFacts`): the facts under it,
+   * then its "Default".
    */
-  readonly factIds?: string;
+  readonly facts?: ReadonlyArray<string>;
 }
 
 /**
- * What a field's wrapper is described by: the facts under its name, then its helper behind ⓘ.
+ * What a field's wrapper is named: the setting's name, then the facts under it and its "Default",
+ * each a phrase of its own, as its folded row is named. They are in the name, never in the
+ * description: accessible-name computation joins what a description names with a bare space, so
+ * described together they ran into the helper as one sentence ("Default Large makes them
+ * bigger…").
+ *
+ * @param name - The setting's name
+ * @param show - What the field shows besides its control
+ * @returns The name
+ */
+function groupName(name: string, show: FieldShow | undefined): string {
+  return ShownView.spokenName([name, ...(show?.facts ?? [])]);
+}
+
+/**
+ * What a field's wrapper is described by: its helper behind ⓘ, and nothing else.
  *
  * @param show - What the field shows besides its control
- * @returns The ids, space-separated, or nothing
+ * @returns The helper's id, or nothing
  */
 function describedBy(show: FieldShow | undefined): string | typeof nothing {
-  return [show?.factIds, show?.describedBy].filter(Boolean).join(' ') || nothing;
+  return show?.describedBy ?? nothing;
 }
 
 /** Whose page a heading is planned for: the card's, or one calendar entry's, by its key. */
@@ -2908,7 +2923,7 @@ export class CalendarCardProEditor extends LitElement {
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${text.group}
+      aria-label=${groupName(text.group, show)}
       aria-describedby=${describedBy(show)}
     >
       ${keyed(
@@ -3095,7 +3110,7 @@ export class CalendarCardProEditor extends LitElement {
       data-composed="words"
       tabindex="-1"
       role="group"
-      aria-label=${owner.kind === 'card' ? text.group : label}
+      aria-label=${groupName(owner.kind === 'card' ? text.group : label, show)}
       aria-describedby=${describedBy(show)}
     >
       ${keyed(
@@ -3581,7 +3596,6 @@ export class CalendarCardProEditor extends LitElement {
     const helper =
       helpedValue === undefined || entryValue === helpedValue ? fieldHelper(field, ctx) : undefined;
     const helpId = `help-${key.replace(/[^\w-]/g, '_')}`;
-    const factsId = `facts-${key.replace(/[^\w-]/g, '_')}`;
     const helpOpen = this._helpOpen.has(key);
     const isSwitch = isSwitchRow(field);
     const jumped =
@@ -3631,7 +3645,6 @@ export class CalendarCardProEditor extends LitElement {
       facts,
       actions: buttons,
       quiet,
-      factsId,
       help: helper
         ? {
             id: helpId,
@@ -3660,7 +3673,7 @@ export class CalendarCardProEditor extends LitElement {
       open: open && !isSwitch,
       switchRow: isSwitch,
       describedBy: helper ? helpId : undefined,
-      factIds: ShownView.factIds(factsId, facts, quiet).join(' ') || undefined,
+      facts: ShownView.spokenFacts(facts, quiet),
       line: ShownView.fieldLine({ notes: [], calendars, actions: [] }),
     };
   }
@@ -4198,7 +4211,7 @@ export class CalendarCardProEditor extends LitElement {
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${name}
+      aria-label=${groupName(name, show)}
       aria-describedby=${describedBy(show)}
     >
       ${this._renderColor({
@@ -8251,7 +8264,7 @@ export class CalendarCardProEditor extends LitElement {
           data-field=${field.id}
           tabindex="-1"
           role="group"
-          aria-label=${fieldLabel(field, ctx.language)}
+          aria-label=${groupName(fieldLabel(field, ctx.language), show)}
           aria-describedby=${describedBy(show)}
         >
           ${this._renderEntryColor(key, field.id, ctx, show?.words, show?.describedBy === undefined)}
@@ -8297,7 +8310,7 @@ export class CalendarCardProEditor extends LitElement {
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${fieldLabel(field, ctx.language)}
+      aria-label=${groupName(fieldLabel(field, ctx.language), show)}
       aria-describedby=${describedBy(show)}
     >
       ${keyed(
@@ -8383,7 +8396,7 @@ export class CalendarCardProEditor extends LitElement {
       data-field=${field.id}
       tabindex="-1"
       role="group"
-      aria-label=${fieldLabel(field, ctx.language)}
+      aria-label=${groupName(fieldLabel(field, ctx.language), show)}
       aria-describedby=${describedBy(show)}
       @context-request=${(event: Event) => provideCalendar(event, entityId)}
     >

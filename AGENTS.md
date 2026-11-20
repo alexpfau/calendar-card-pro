@@ -2174,6 +2174,30 @@ test suite cannot see an overlap.
 draws its own helper only where `show.describedBy` is undefined, i.e. where no head row carries the
 ⓘ; a new composed control follows the same rule, or its helper shows twice.
 
+**An open setting's facts go in its name, its helper alone in its description.** Its wrapper is
+named through `groupName` (the setting's name, then its facts and "Default", joined as a folded
+row's name is) and described through `describedBy` (the helper's id, nothing else). Accessible-name
+computation joins the elements an `aria-describedby` names with a bare space, so facts and helper
+described together read as one sentence: "Default Large makes them bigger…", as though Large were
+the default. A new wrapper uses both; `tests/editor-shown-set.test.ts` checks every open setting
+on two pages in each of the 13 editor languages, and on a calendar's page, and
+`tests/editor-visibility.test.ts` both of Who Sees It's editors.
+
+**Every ring the editor draws reads `--calendar-card-editor-focus-ring`**, defined on `:host` in
+`styles.ts`: the primary and the text color mixed half and half, the text color without
+`color-mix()`. Never write a ring in `--primary-color`; on Home Assistant's light theme it measures
+2.59:1 on the gray of a strip or a status bar. Nor may a ring touch a color it does not clear: a
+ring drawn inside a bordered row goes 4px in, a border drawn with a ring takes the ring's color,
+and a swatch's tooltip sits clear of its ring, with a hovered swatch's hidden while the keyboard
+is in the color control or on the field that holds it, which Undo focuses. `tests/editor-focus-ring.test.ts` pins every outline, shadow and tooltip rule by
+value, with the rules around them; checks the ring against every background and frame the sheet
+paints, on the default themes and with each Material primary, a frame in the color that wins and
+over each background its element shows; fails on a background or frame it has not been taught;
+and makes every ring that reaches its element's edge name the frame it touches (`FRAMES`), since a
+stylesheet read as text cannot say what touches what. The guarantee is
+the default themes': a custom theme with a mid-gray text color and a light primary can still fall
+under 3:1, and no fixed mix, the text color alone included, clears every theme.
+
 **Only what can be pressed looks pressable.** A setting's facts (Set, Whole Card, From All
 Layouts, a layout's own value) are words in a form of their kind, never a pill, a link color or a
 button; at a default the state is a `visually-hidden` "Default", read but not seen. Reset and
