@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
+import { CASELESS_LANGUAGES, GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
 import { deriveEnGb } from './en-gb.mjs';
 import { loadEditorModule } from './load-editor-schema.mjs';
 
@@ -1788,7 +1788,10 @@ function reportGlossaryReach(glossary, strings) {
  */
 function readGlossary() {
   assertFound(GLOSSARY_TERMS, 'any decided glossary terms', GLOSSARY_SOURCE);
-  return { terms: GLOSSARY_TERMS, nounCapsLanguages: new Set(NOUN_CAPS_LANGUAGES) };
+  return {
+    terms: GLOSSARY_TERMS,
+    nounCapsLanguages: new Set([...NOUN_CAPS_LANGUAGES, ...CASELESS_LANGUAGES]),
+  };
 }
 
 /**

@@ -15,7 +15,8 @@
  *   catches compounds — the way to enforce a term that has no key of its own.
  *
  * `NOUN_CAPS_LANGUAGES` are the languages whose own orthography capitalizes nouns, and
- * which are therefore exempt from the sentence-case check on multi-word labels.
+ * `CASELESS_LANGUAGES` those whose script has no case; both are exempt from the sentence-case
+ * check on multi-word labels.
  *
  * Held here rather than in a document because a checked artifact that only prose defines
  * is one the checker cannot be trusted to still be reading: this file is imported, so a
@@ -24,6 +25,12 @@
 
 /** Languages whose orthography capitalizes nouns, exempt from the sentence-case check. */
 export const NOUN_CAPS_LANGUAGES = ['de'];
+
+/**
+ * Languages written in a script without letter case, exempt from the sentence-case check too:
+ * every capital in their labels is a Latin name such as Home Assistant.
+ */
+export const CASELESS_LANGUAGES = ['ja'];
 
 /**
  * Every decided term, with the forms rejected for it.

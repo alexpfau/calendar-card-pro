@@ -193,6 +193,13 @@ const FOLD_TABLE: Readonly<Record<string, string>> = {
 /** Hangul, which is not folded: its syllables decompose into letters, not marks. */
 const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
 
+/**
+ * Scripts whose words a short query is found inside: Hangul, and the kana and kanji Japanese
+ * writes without spaces, where "天気" has to find "日付の天気".
+ */
+const UNSPACED =
+  /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff66-\uff9f]/;
+
 /** What each ASCII character folds to, worked out once: most text is ASCII. */
 let ASCII_FOLDED: string[] | undefined;
 
@@ -1162,14 +1169,14 @@ function merged(
 /**
  * Where a text holds a word of the query: anywhere, as German compounds need ("farbe" in
  * "Hintergrundfarbe"), but a word shorter than three letters only where a word starts, or "at"
- * would match inside "path" and "format". Korean is held anywhere.
+ * would match inside "path" and "format". Korean and Japanese are held anywhere (`UNSPACED`).
  *
  * @param text - Folded text
  * @param term - One folded word of the query
  * @returns Its index, or -1
  */
 function termAt(text: string, term: string): number {
-  if (term.length >= 3 || HANGUL.test(term)) return text.indexOf(term);
+  if (term.length >= 3 || UNSPACED.test(term)) return text.indexOf(term);
   const at = ` ${text}`.replace(/\n/g, ' ').indexOf(` ${term}`);
   return at < 0 ? -1 : at;
 }
