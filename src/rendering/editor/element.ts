@@ -6865,12 +6865,34 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders panel content that is not a form field.
+   * Renders panel content that is not a form field: a width table, or the fit summary, whose
+   * columns are the layouts and whose rows the card widths.
    *
    * @param extra - Content to render
    * @returns The template
    */
   private _renderExtra(extra: PanelExtra): TemplateResult {
+    if (extra.kind === 'fit-summary') {
+      return html`
+        <div class="width-table fit-summary">
+          <div class="width-table-title">${extra.title}</div>
+          <table>
+            <tr>
+              <td></td>
+              ${extra.layouts.map((layout) => html`<th scope="col">${layout}</th>`)}
+            </tr>
+            ${extra.rows.map(
+              (row) => html`
+                <tr>
+                  <th scope="row" class="width-table-width">${row.width}</th>
+                  ${row.cells.map((cell) => html`<td class="width-table-layout">${cell}</td>`)}
+                </tr>
+              `,
+            )}
+          </table>
+        </div>
+      `;
+    }
     return html`
       <div class="width-table">
         <div class="width-table-title">${extra.title}</div>

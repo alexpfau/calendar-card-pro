@@ -1,7 +1,7 @@
 /**
- * Month's own settings in the visual editor: the card's four heights, its two shadings and the font
- * sizes of its days. Each is drawn on its topic's page under Month, and writes into `month:`, never
- * the top level.
+ * Month's own settings in the visual editor: its narrow form's two heights, its two shadings and the
+ * font sizes of its days, and the card's Card Height as Month's page writes it. Each is drawn on its
+ * topic's page under Month, and writes into `month:`, never the top level.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,14 +25,6 @@ const CARD = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'], vi
 
 /** Each new field, the page and heading it is placed under, its label and a value to write. */
 const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> = [
-  ['layout:month.card_height', 'size_spacing', 'heading_wide_month', 'Wide Card Height', '50rem'],
-  [
-    'layout:month.card_max_height',
-    'size_spacing',
-    'heading_wide_month',
-    'Wide Maximum Height',
-    '60rem',
-  ],
   [
     'layout:month.narrow_card_height',
     'size_spacing',
@@ -151,9 +143,7 @@ describe('Month’s own settings in the editor', () => {
       const config = stored(editor);
       const key = id.slice('layout:month.'.length);
       expect(config.month).toEqual({ [key]: value });
-      // Never the card's own Height, whose synthetic fields share two of these names.
-      expect(config).not.toHaveProperty('height');
-      expect(config).not.toHaveProperty('max_height');
+      expect(config).not.toHaveProperty('card_height');
       expect(config).not.toHaveProperty(key);
       editor.remove();
     },
@@ -168,19 +158,15 @@ describe('Month’s own settings in the editor', () => {
         return [...list, [id, helperOf(editor, id)]];
       }, Promise.resolve([])),
     );
-    expect(helpers['layout:month.card_height']).toMatch(/632px, or 760px with the toolbar/);
-    expect(helpers['layout:month.card_height']).toMatch(/Layout tab/);
     expect(helpers['layout:month.narrow_card_height']).toMatch(/632px, or 760px with the toolbar/);
     expect(helpers['layout:month.narrow_card_max_height']).toMatch(/grows/);
     expect(helpers['layout:month.today_background_color']).toMatch(/replaces/);
     expect(helpers['layout:month.cell_event_font_size']).toMatch(/Event Font Size/);
     expect(helpers['layout:month.cell_time_font_size']).toMatch(/Time Font Size/);
-    // The cap alone says nothing the label does not.
-    expect(helpers['layout:month.card_max_height']).toBeUndefined();
     editor.remove();
   });
 
-  it.each(['layout:month.card_height', 'layout:month.narrow_card_height'] as const)(
+  it.each(['layout:month.narrow_card_height'] as const)(
     'holds %s while it is typed, and writes it once it is a length',
     async (id) => {
       const editor = await monthEditor();
@@ -214,6 +200,47 @@ describe('Month’s own settings in the editor', () => {
       cell_time_font_size: '11px',
     });
     expect(stored(editor).height).toBe('300px');
+    editor.remove();
+  });
+});
+
+describe('Card Height on Month’s page', () => {
+  it('names its first choice Month’s default height, and writes the whole card’s into month:', async () => {
+    const editor = await monthEditor({ ...CARD, card_height: '30rem' });
+    editor.addEventListener('config-changed', (event) =>
+      editor.setConfig((event as CustomEvent<{ config: unknown }>).detail.config),
+    );
+    await openPageOf(editor, 'layout:height_mode');
+    const form = formOf(editor, 'layout:height_mode') as unknown as {
+      schema: Array<{ selector: { select: { options: Array<{ label: string }> } } }>;
+    };
+    expect(form.schema[0].selector.select.options.map((option) => option.label)).toEqual([
+      'Default height',
+      'Fixed height',
+      'Maximum height',
+    ]);
+    // The card's own height reaches Month too, so the page reads it as Month's.
+    expect(valueOf(editor, 'layout:height_mode')).toBe('fixed');
+
+    for (const text of ['5', '50', '50r', '50re', '50rem']) {
+      await changeField(editor, 'layout:fixed_height', text);
+      expect(valueOf(editor, 'layout:fixed_height'), text).toBe(text);
+    }
+    const config = stored(editor);
+    expect(config.month).toEqual({ card_height: '50rem' });
+    // The top level, which every other layout reads, keeps its own.
+    expect(config.card_height).toBe('30rem');
+    editor.remove();
+  });
+
+  it('leaves the events area’s own height at the top level, which Month never reads', async () => {
+    const editor = await monthEditor({ ...CARD, height: '300px', max_height: '500px' });
+    await openPageOf(editor, 'layout:height_mode');
+    await changeField(editor, 'layout:height_mode', 'fixed');
+    const config = stored(editor);
+    expect(config.month).toEqual({ card_height: '300px' });
+    expect(config.height).toBe('300px');
+    expect(config.max_height).toBe('500px');
     editor.remove();
   });
 });

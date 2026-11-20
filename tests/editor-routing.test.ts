@@ -340,8 +340,8 @@ describe('synthetic edits are routed as real options', () => {
     'uses %s values for a mode change without touching other views',
     (workspace) => {
       const config = buildConfig({
-        height: '500px',
-        max_height: '700px',
+        card_height: '500px',
+        card_max_height: '700px',
         show_week_numbers: 'iso',
         today_indicator: 'mdi:star',
         remove_location_country: true,
@@ -354,13 +354,13 @@ describe('synthetic edits are routed as real options', () => {
       }).config;
       const block = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
       expect(result[block]).toMatchObject({
-        height: 'auto',
-        max_height: 'none',
+        card_height: 'auto',
+        card_max_height: 'none',
         show_week_numbers: null,
         today_indicator: false,
         remove_location_country: false,
       });
-      expect(result.height).toBe('500px');
+      expect(result.card_height).toBe('500px');
       expect(result.today_indicator).toBe('mdi:star');
       expect(result[block]).not.toHaveProperty('height_mode');
     },
@@ -378,9 +378,9 @@ describe('synthetic edits are routed as real options', () => {
 
   it('keeps pending values local to their storage scope', () => {
     const config = buildConfig({
-      height: '300px',
-      column: { height: '400px' },
-      time_grid: { height: '500px' },
+      card_height: '300px',
+      column: { card_height: '400px' },
+      time_grid: { card_height: '500px' },
     });
     const current = frame(config, 'grid', 'fixed_height');
     const result = Routing.applyWorkspaceChange(
@@ -415,6 +415,9 @@ describe('synthetic edits are routed as real options', () => {
       'offset',
       'default',
       'custom',
+      'fewer',
+      'list',
+      'cramp',
       'system',
       '24',
       '12',
@@ -442,13 +445,24 @@ describe('synthetic edits are routed as real options', () => {
     for (const [name, field] of Object.entries(Synthetic.SYNTHETIC_FIELDS)) {
       expect(field.configKeys.length, name).toBeGreaterThan(0);
       expect(new Set(field.configKeys).size, name).toBe(field.configKeys.length);
-      for (const key of field.configKeys) expect(known.has(key), `${name}: ${key}`).toBe(true);
+      // A layout block's own option is no top-level `Config` key: When Too Narrow's two.
+      const blockOwn = new Set<string>([...View.COLUMN_ONLY_KEYS, ...View.TIME_GRID_ONLY_KEYS]);
+      for (const key of field.configKeys) {
+        expect(known.has(key) || blockOwn.has(key), `${name}: ${key}`).toBe(true);
+      }
       const written = new Set(
+        // Layout Defaults and a layout's page: When Too Narrow writes only on Columns' and Grid's.
         values.flatMap((value) =>
-          Object.keys(Synthetic.applySyntheticChange(name, value, buildConfig()).changes),
+          [undefined, 'column' as const].flatMap((view) =>
+            Object.keys(Synthetic.applySyntheticChange(name, value, buildConfig(), view).changes),
+          ),
         ),
       );
-      expect([...written].sort(), name).toEqual([...field.configKeys].sort());
+      // A pick may also clear what the control replaces, which it declares (`clears`).
+      expect([...written].sort(), name).toEqual(
+        [...field.configKeys, ...(field.clears ?? [])].sort(),
+      );
+      for (const key of field.clears ?? []) expect(known.has(key), `${name}: ${key}`).toBe(true);
     }
     expect(Synthetic.isSyntheticKey('toString')).toBe(false);
   });
@@ -600,7 +614,7 @@ describe('rendered form frames preserve edit intent', () => {
       await changeField(editor, 'layout:fixed_height', text);
       expect(valueOf(editor, 'layout:fixed_height')).toBe(text);
     }
-    expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('height', '24em');
+    expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('card_height', '24em');
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.
   }, 30_000);

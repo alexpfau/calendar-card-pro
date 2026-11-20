@@ -133,12 +133,13 @@ const GRID_ONLY = [
  * Offered in Grid and Month, which draw a long timed event as a bar, and so in All Layouts as
  * well, where an option more than one layout reads is offered.
  */
+/** When Too Narrow, which Columns and Grid offer, storing what it writes in their blocks. */
+const COLUMN_AND_GRID = ['layout:narrow_fit'];
+
 const GRID_AND_MONTH = ['content:multiday_banners', 'calendar:multiday_banners'];
 
 /** Offered only in Month: its own block's options. */
 const MONTH_ONLY = [
-  'layout:month.card_height',
-  'layout:month.card_max_height',
   'layout:month.narrow_card_height',
   'layout:month.narrow_card_max_height',
   'layout:month.weekend_background_color',
@@ -219,16 +220,15 @@ const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
 ];
 
 /**
- * Offered everywhere but Month, which sizes its card with its own heights, draws every day of six
- * weeks, rules them itself and sets its dates at one scale. The card's Height fields read the
- * shared `height` and `max_height`; the multi-day all-day time row is one Month's day list never
+ * Offered everywhere but Month, which sizes its card with Card Height alone, draws every day of
+ * six weeks, rules them itself and sets its dates at one scale. The events area's own `height` and
+ * `max_height` size nothing there; the multi-day all-day time row is one Month's day list never
  * draws, since it splits every multi-day event.
  */
 const NOT_IN_MONTH = [
   ...NOT_IN_GRID_OR_MONTH,
-  'layout:height_mode',
-  'layout:fixed_height',
-  'layout:maximum_height',
+  'layout:height',
+  'layout:max_height',
   'events:show_multiday_allday_time',
   'content:days_to_show',
   'content:show_empty_days',
@@ -279,11 +279,25 @@ const WEATHER_BY_DAY = LAYOUT_WEATHER.filter((id) => id.startsWith('weather:weat
 
 /** What each workspace's universe lacks, pinned by value. */
 const LACKS: Readonly<Record<EditorWorkspace, ReadonlyArray<FieldId>>> = {
-  shared: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...MONTH_ONLY, ...LAYOUT_WEATHER],
-  list: [...COLUMN_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
+  shared: [
+    ...LIST_ONLY,
+    ...COLUMN_ONLY,
+    ...GRID_ONLY,
+    ...COLUMN_AND_GRID,
+    ...MONTH_ONLY,
+    ...LAYOUT_WEATHER,
+  ],
+  list: [...COLUMN_ONLY, ...GRID_ONLY, ...COLUMN_AND_GRID, ...GRID_AND_MONTH, ...MONTH_ONLY],
   column: [...LIST_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
   grid: [...LIST_ONLY, ...COLUMN_ONLY, ...MONTH_ONLY, ...NOT_IN_GRID],
-  month: [...LIST_ONLY, ...COLUMN_ONLY, ...GRID_ONLY, ...NOT_IN_MONTH, ...WEATHER_BY_DAY],
+  month: [
+    ...LIST_ONLY,
+    ...COLUMN_ONLY,
+    ...GRID_ONLY,
+    ...COLUMN_AND_GRID,
+    ...NOT_IN_MONTH,
+    ...WEATHER_BY_DAY,
+  ],
 };
 
 /** Each workspace's universe as pinned: the expectation every check below starts from. */
@@ -364,6 +378,11 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   start_date: [undefined, '2026-01-01', 'today+7', '+3', '-1'],
   height: ['auto', '300px'],
   max_height: ['none', '300px'],
+  card_height: ['auto', '300px'],
+  card_max_height: ['none', '300px'],
+  // When Too Narrow's two options, each preset's combination and Custom's among them.
+  min_days_fallback: [undefined, 'list', 'cramp'],
+  min_days_to_show: [undefined, 1, 2, 3, 7],
   language: [undefined, 'de'],
   accent_color: ['var(--primary-color, #03a9f4)', '#ff0000', 'home-assistant'],
   compact_events_to_show: [undefined, 0, 3],
@@ -568,7 +587,14 @@ function domainOf(node: SelectorSchema): ReadonlyArray<unknown> | undefined {
     const domain = selector.entity?.filter?.domain;
     return ['', `${typeof domain === 'string' ? domain : 'sensor'}.home`];
   }
-  if ('number' in selector) return [undefined, 0, 3];
+  // Within the control's own ceiling: Down To stops a day short of the day count, and a value past
+  // it is one the form cannot hold.
+  if ('number' in selector) {
+    const max = selector.number?.max;
+    return [undefined, 0, 3].filter(
+      (value) => value === undefined || max === undefined || value <= max,
+    );
+  }
   return undefined;
 }
 
@@ -914,13 +940,16 @@ describe('the universe', () => {
     // Then Month lost Week Scrolling and its Minimum Card Width, which never shipped. Then Month
     // lost what its day list and panel leave to the event's details or draw one way only
     // (`MONTH_LEAVES_OUT`): twenty-seven on the card and a calendar's Show Description. Then a
-    // calendar gained Private, in every workspace.
+    // calendar gained Private, in every workspace. Then Card Height became the whole card's in
+    // every layout: Month gained its three controls and lost its wide pair, and every layout that
+    // reads the events area's own height and cap kept them as two fields of their own. Columns and
+    // Grid gained When Too Narrow over their Down To and Below That.
     expect(sizes).toEqual({
-      shared: { card: 135, calendar: 28 },
-      list: { card: 162, calendar: 29 },
-      column: { card: 158, calendar: 28 },
-      grid: { card: 157, calendar: 28 },
-      month: { card: 104, calendar: 27 },
+      shared: { card: 137, calendar: 28 },
+      list: { card: 164, calendar: 29 },
+      column: { card: 161, calendar: 28 },
+      grid: { card: 160, calendar: 28 },
+      month: { card: 105, calendar: 27 },
     });
   });
 
@@ -1280,6 +1309,16 @@ describe('the gate table', () => {
         kind: 'mode-value',
         fields: ['layout:maximum_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
+      },
+      fewer_days: {
+        kind: 'mode-value',
+        fields: ['layout:column.min_days_to_show', 'layout:time_grid.min_days_to_show'],
+        requires: [p('layout:narrow_fit', 'fewer', ['fewer', 'custom'])],
+      },
+      custom_fit: {
+        kind: 'mode-value',
+        fields: ['layout:column.min_days_fallback', 'layout:time_grid.min_days_fallback'],
+        requires: [p('layout:narrow_fit', 'custom', ['custom'])],
       },
       accent: {
         kind: 'mode-value',

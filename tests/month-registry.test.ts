@@ -65,8 +65,6 @@ describe('the month block', () => {
       pinned: ViewConfig.MONTH_PINNED,
     });
     expect(ViewConfig.MONTH_ONLY_KEYS).toEqual([
-      'card_height',
-      'card_max_height',
       'narrow_card_height',
       'narrow_card_max_height',
       'min_day_width',
@@ -75,11 +73,9 @@ describe('the month block', () => {
       'cell_event_font_size',
       'cell_time_font_size',
     ]);
-    // The narrow form's two heights have no default of their own: unset, each takes the wide
-    // one (`resolveMonthCardSize`).
+    // The narrow form's two heights have no default of their own: unset, each takes the card's
+    // `card_height` and `card_max_height` as Month resolves them (`resolveCardSize`).
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
-      card_height: 'auto',
-      card_max_height: 'none',
       min_day_width: 80,
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
@@ -449,11 +445,11 @@ describe('a month-only option', () => {
   it('is reported where it does nothing: at the top level, or in another view’s block', () => {
     expect(
       ViewConfig.findMisplacedOptions({
-        card_height: '90px',
+        narrow_card_height: '90px',
         column: { cell_event_font_size: '12px' },
       }),
     ).toEqual([
-      { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
+      { kind: 'view-only', key: 'narrow_card_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'cell_event_font_size', from: 'column', to: ['month'] },
     ]);
     // A tint is Grid's and Month's, each in its own block, so a misplaced one names both.

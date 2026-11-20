@@ -92,12 +92,12 @@ it.each([false, true])(
 it('keeps incomplete scoped text through a save and an echo', async () => {
   const { editor, reports } = await mount({
     view: 'grid',
-    time_grid: { height: '400px' },
+    time_grid: { card_height: '400px' },
   });
   await changeField(editor, 'layout:fixed_height', '');
   expect(reports).toHaveLength(0);
   await changeField(editor, 'events:show_description', true);
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.height', '400px');
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.card_height', '400px');
   expect(valueOf(editor, 'layout:fixed_height')).toBe('');
   editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;

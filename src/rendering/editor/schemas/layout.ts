@@ -3,13 +3,15 @@
  */
 
 import { blockScope, bool, color, select, text } from './common';
+import * as Config from '../../../config/config';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
+import { intlLocales } from '../../../translations/intl-locales';
 import * as Helpers from '../../../utils/helpers';
 import { VIEW_PICTOGRAM_VIEWBOX, pictogramMarkup } from '../../view-pictograms';
 import type { HaFormSchema, SelectOption } from '../ha-form';
 import { humanize, lookup } from '../localize';
-import type { PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
+import type { FitSummaryRow, PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
 import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
 
@@ -57,16 +59,30 @@ export function buildDisplayViewSchema(language: string): HaFormSchema[] {
   return [{ name: 'view', selector: { select: { mode: 'box', options: viewOptions(language) } } }];
 }
 
+/** When Too Narrow's choices, in the order they read: the default first, Custom last. */
+export const NARROW_FIT_CHOICES = ['fewer', 'list', 'cramp', 'custom'] as const;
+
 /**
- * Column density — the options that decide how narrow the card may get.
+ * How a side-by-side layout fits a narrow card: When Too Narrow, one choice over the two options
+ * below it (`Synthetic.SYNTHETIC_FIELDS.narrow_fit`), and Minimum Day Width, how narrow a day may
+ * get. Down To, the fewest days, is built while the choice sheds days or is Custom; Below That,
+ * what happens past them, only while it is Custom. The choice is a top-level field, since the
+ * editor routes a synthetic field from there into the block of the layout being edited; the rest
+ * are stored in that block.
  *
  * @param blockKey - Config key holding this view's override block
- * @param daysToShow - Configured day count, which bounds the column floor
+ * @param fit - When Too Narrow as the configuration reads (`ViewConfig.narrowFit`)
+ * @param daysToShow - The layout's day count, which Down To stays below
  * @param language - Effective language code
- * @returns The density fields, in the view's own block
+ * @returns The fields
  */
-function densityFields(blockKey: string, daysToShow: number, language: string): HaFormSchema {
-  return blockScope(blockKey, [
+function densityFields(
+  blockKey: string,
+  fit: string,
+  daysToShow: number,
+  language: string,
+): HaFormSchema[] {
+  const block: HaFormSchema[] = [
     {
       name: 'min_day_width',
       // No ceiling: `normalizeColumnValue` accepts any positive number, and the
@@ -82,14 +98,27 @@ function densityFields(blockKey: string, daysToShow: number, language: string): 
       // rather than leaving it to be inferred.
       selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
     },
-    {
+  ];
+  // Down To stops a day short of the day count: shedding to every day sheds none, which is what
+  // Show a List and Keep the Days, Narrower write, so reaching it would switch the choice under
+  // the field being edited. A one-day layout has nothing to shed.
+  const days = Math.floor(daysToShow);
+  if ((fit === 'fewer' || fit === 'custom') && days > 1) {
+    block.push({
       name: 'min_days_to_show',
-      selector: {
-        number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
-      },
-    },
-    select(language, 'min_days_fallback', ['list', 'cramp'], `${blockKey}.min_days_fallback`),
-  ]);
+      selector: { number: { min: 1, max: days - 1, step: 1 } },
+    });
+  }
+  if (fit === 'custom') {
+    block.push(
+      select(language, 'min_days_fallback', ['list', 'cramp'], `${blockKey}.min_days_fallback`),
+    );
+  }
+  // A one-day layout has nothing to shed to, so no Custom, unless it already reads so.
+  const choices = NARROW_FIT_CHOICES.filter(
+    (choice) => choice !== 'custom' || daysToShow > 1 || fit === 'custom',
+  );
+  return [select(language, 'narrow_fit', choices), blockScope(blockKey, block)];
 }
 
 /**
@@ -133,8 +162,9 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 
 /**
  * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
- * its cap in each form, the day width below which the narrow form draws, the weekend's and today's
- * shading, and the font sizes of the wide month's days.
+ * its cap in the narrow form, the day width below which the narrow form draws, the weekend's and
+ * today's shading, and the font sizes of the wide month's days. The wide form's pair is the card's
+ * own Card Height, which the panel builds for every layout.
  *
  * @param blockKey - Config key holding this view's override block
  * @returns The fields, in the view's own block
@@ -144,8 +174,6 @@ function monthFields(blockKey: string): HaFormSchema[] {
   // integer the runtime's `parsed > 0` admits.
   return [
     blockScope(blockKey, [
-      text('card_height'),
-      text('card_max_height'),
       text('narrow_card_height'),
       text('narrow_card_max_height'),
       {
@@ -164,7 +192,9 @@ function monthFields(blockKey: string): HaFormSchema[] {
  * Builds the Layout panel schema.
  *
  * @param view - View the card is configured to render
- * @param heightMode - Derived height mode
+ * @param heightMode - Card Height's mode
+ * @param eventsArea - Whether the layout reads the events area's own `height` and `max_height`
+ * @param fit - When Too Narrow as the configuration reads, for Columns and Grid
  * @param daysToShow - Configured day count
  * @param language - Effective language code
  * @returns The panel's schema
@@ -173,6 +203,8 @@ const layoutSchema = Helpers.memoizeLast(
   (
     view: Types.EffectiveView,
     heightMode: string,
+    eventsArea: boolean,
+    fit: string,
     daysToShow: number,
     language: string,
   ): HaFormSchema[] => {
@@ -182,9 +214,15 @@ const layoutSchema = Helpers.memoizeLast(
     const spacing: HaFormSchema[] =
       view === 'grid' ? [] : [text('day_spacing'), text('event_gap'), text('event_spacing')];
 
+    // Month's `auto` is its own default height rather than its content's, so its choice says so.
     const cardBox: HaFormSchema[] = [
       text('additional_card_spacing'),
-      select(language, 'height_mode', ['auto', 'fixed', 'maximum']),
+      select(
+        language,
+        'height_mode',
+        ['auto', 'fixed', 'maximum'],
+        view === 'month' ? 'month.height_mode' : undefined,
+      ),
     ];
 
     if (heightMode === 'fixed') {
@@ -192,6 +230,10 @@ const layoutSchema = Helpers.memoizeLast(
     } else if (heightMode === 'maximum') {
       cardBox.push(text('maximum_height'));
     }
+
+    // The events area's own pair, which Card Height has replaced. Its page draws it only where a
+    // card still holds one, so it can be read and cleared, and never offers it (`pages.ts`, kept).
+    if (eventsArea) cardBox.push(text('height'), text('max_height'));
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
 
@@ -205,7 +247,7 @@ const layoutSchema = Helpers.memoizeLast(
     // does not accept. `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below
     // is gated on.
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-      schema.push(densityFields(blockKey, daysToShow, language));
+      schema.push(...densityFields(blockKey, fit, daysToShow, language));
     }
 
     if (view === 'month' && blockKey !== undefined) {
@@ -223,10 +265,16 @@ const layoutSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const view = ctx.view;
+  const fit = ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)
+    ? ViewConfig.narrowFit(ctx.config, view)
+    : '';
   return layoutSchema(
-    ctx.view,
+    view,
     Synthetic.heightMode(ctx.config),
-    ctx.config.days_to_show,
+    ViewConfig.appliesToView('height', view),
+    fit,
+    ViewConfig.layoutDays(ctx.config, view),
     ctx.language,
   );
 }
@@ -285,27 +333,143 @@ export function widthTableRows(ctx: SchemaCtx): WidthTableRow[] {
 }
 
 /**
- * Extra content rendered below the Layout panel's fields.
+ * The card widths the fit summary reads at, with the string naming each: a phone, a Sections
+ * dashboard's column on a desktop, a portrait tablet and a wide screen.
+ */
+export const FIT_SUMMARY_WIDTHS: ReadonlyArray<readonly [number, string]> = [
+  [390, 'fit_summary.width_phone'],
+  [480, 'fit_summary.width_sections'],
+  [768, 'fit_summary.width'],
+  [1280, 'fit_summary.width'],
+];
+
+/**
+ * The configuration as the card reads it, every layout's block in place: the one each layout is
+ * resolved from, whatever layout the page edits.
  *
  * @param ctx - Schema context
- * @returns The width table, for views whose layout depends on how wide the card is
+ * @returns The merged configuration
  */
-export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
-  if (!ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(ctx.view)) {
-    return [];
-  }
+function cardConfig(ctx: SchemaCtx): Types.Config {
+  if (ctx.workspace === 'shared' || ctx.rawConfig === undefined) return ctx.config;
+  return Config.normalizeLengthOptions(
+    Config.normalizeNumericOptions({ ...Config.DEFAULT_CONFIG, ...ctx.rawConfig }),
+  );
+}
 
+/**
+ * The layouts the card can show: those the switcher offers, or the one it opens in.
+ *
+ * @param config - Merged configuration
+ * @returns The layouts, in `VIEWS` order where the switcher offers several
+ */
+export function cardLayouts(config: Types.Config): ReadonlyArray<Types.EffectiveView> {
+  const offered = Config.switcherOffers(config);
+  if (offered.length > 0) return offered;
+  return [ViewConfig.VIEWS.includes(config.view) ? config.view : 'list'];
+}
+
+/**
+ * What a layout draws at one width, as a cell of the fit summary.
+ *
+ * @param ctx - Schema context, for the language
+ * @param fit - What it draws (`ViewConfig.fitAtWidth`)
+ * @returns The cell's text
+ */
+function fitCell(ctx: SchemaCtx, fit: ViewConfig.LayoutFit): string {
   const t = (key: string, values: Record<string, string | number> = {}): string =>
     translate(ctx, key, values);
+  if (fit.kind === 'month') return t(`fit_summary.month_${fit.form}`);
+  const base = {
+    days: 'fit_summary.days',
+    narrower: 'fit_summary.narrower',
+    list: 'fit_summary.list',
+  }[fit.kind];
+  return fit.days === 1 ? t(`${base}_one`) : t(base, { count: fit.days });
+}
 
-  return [
-    {
+/**
+ * The fit summary: what each layout the card can show draws at a few common card widths, on a
+ * fresh load (`ViewConfig.fitAtWidth`). `undefined` for a card that draws the same at every one of
+ * them, such as one that shows List alone.
+ *
+ * @param ctx - Schema context
+ * @returns The summary, or `undefined`
+ */
+export function fitSummary(
+  ctx: SchemaCtx,
+): Extract<PanelExtra, { kind: 'fit-summary' }> | undefined {
+  const config = cardConfig(ctx);
+  const layouts = cardLayouts(config);
+  const format = new Intl.NumberFormat(intlLocales(ctx.language));
+  const rows: FitSummaryRow[] = FIT_SUMMARY_WIDTHS.map(([width, key]) => ({
+    width: translate(ctx, key, { width: format.format(width) }),
+    cells: layouts.map((view) => fitCell(ctx, ViewConfig.fitAtWidth(config, view, width))),
+  }));
+  // A card that draws the same at every width, a List card above all, has nothing to summarize.
+  if (rows.every((row) => row.cells.join('\u0000') === rows[0].cells.join('\u0000'))) {
+    return undefined;
+  }
+  return {
+    kind: 'fit-summary',
+    title: translate(ctx, 'fit_summary.title'),
+    layouts: layouts.map((view) => translate(ctx, `view.option.${view}.label`)),
+    rows,
+  };
+}
+
+/**
+ * Month's width table: the card widths below which it draws its narrow form, and the one-way margin
+ * it keeps once narrow (`ViewConfig.describeMonthWidths`).
+ *
+ * @param ctx - Schema context
+ * @returns The table
+ */
+export function monthWidthTable(ctx: SchemaCtx): Extract<PanelExtra, { kind: 'width-table' }> {
+  const { wideFromPx, wideAgainFromPx } = ViewConfig.describeMonthWidths(ctx.config);
+  return {
+    kind: 'width-table',
+    title: translate(ctx, 'width_table.title'),
+    rows: [
+      {
+        width: translate(ctx, 'width_table.at_least', { width: wideFromPx }),
+        layout: translate(ctx, 'width_table.month_wide'),
+      },
+      {
+        width: translate(ctx, 'width_table.below', { width: wideFromPx }),
+        layout: translate(ctx, 'width_table.month_narrow'),
+      },
+    ],
+    note: translate(ctx, 'width_table.month_hysteresis', { width: wideAgainFromPx }),
+  };
+}
+
+/**
+ * Extra content rendered below the Layout panel's fields: the fit summary, then the width table of
+ * the layout being edited where its form depends on the card's width.
+ *
+ * @param ctx - Schema context
+ * @returns The summary and the table, each where it applies
+ */
+export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
+  const extras: PanelExtra[] = [];
+  const summary = fitSummary(ctx);
+  if (summary !== undefined) extras.push(summary);
+
+  if (ctx.view === 'month') {
+    extras.push(monthWidthTable(ctx));
+  }
+
+  if (ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(ctx.view)) {
+    extras.push({
       kind: 'width-table',
-      title: t('width_table.title'),
+      title: translate(ctx, 'width_table.title'),
       rows: widthTableRows(ctx),
-      note: t('width_table.hysteresis', {
+      note: translate(ctx, 'width_table.hysteresis', {
         band: ViewConfig.describeColumnLayoutBands(ctx.config, ctx.view).hysteresisPx,
       }),
-    },
-  ];
+    });
+  }
+
+  return extras;
 }

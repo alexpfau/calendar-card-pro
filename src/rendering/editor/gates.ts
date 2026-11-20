@@ -461,6 +461,16 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:height_mode', 'maximum')],
     kind: 'mode-value',
   },
+  fewer_days: {
+    fields: ['layout:column.min_days_to_show', 'layout:time_grid.min_days_to_show'],
+    requires: [oneOf('layout:narrow_fit', 'fewer', 'custom')],
+    kind: 'mode-value',
+  },
+  custom_fit: {
+    fields: ['layout:column.min_days_fallback', 'layout:time_grid.min_days_fallback'],
+    requires: [oneOf('layout:narrow_fit', 'custom')],
+    kind: 'mode-value',
+  },
   accent: {
     fields: ['events:accent_color'],
     requires: [oneOf('events:accent_color_mode', 'custom')],

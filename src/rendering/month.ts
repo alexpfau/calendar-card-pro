@@ -1691,20 +1691,20 @@ export function measureMonthCapacity(root: ParentNode): number | null {
 /**
  * Whether a narrow month's list grows with its day, up to a cap, rather than taking a fixed room:
  * where the narrow form's height is `auto` and a cap applies to it, through its own key or the
- * wide one it follows (`ViewConfig.resolveMonthCardSize`). A Sections slot, which the card fills,
+ * wide one it follows (`ViewConfig.resolveCardSize`). A Sections slot, which the card fills,
  * is decided elsewhere and wins over this.
  *
  * @param config - Card configuration
  * @returns `true` while the list grows under a cap
  */
 export function monthNarrowGrows(config: Types.Config): boolean {
-  const { height, max } = ViewConfig.resolveMonthCardSize(config, 'narrow');
+  const { height, max } = ViewConfig.resolveCardSize(config, 'month', 'narrow');
   return height === 'auto' && max !== 'none';
 }
 
 /**
  * The height and the cap a month writes on its card where no Sections slot sizes it, from its
- * `month:` block in the form drawn (`ViewConfig.resolveMonthCardSize`). `auto` is the month's own
+ * configuration in the form drawn (`ViewConfig.resolveCardSize`). `auto` is the month's own
  * default, one height in both forms and a taller one where the configuration asks for a toolbar
  * (`UI.MONTH_CARD_HEIGHT`, `Config.asksForToolbar`); a length is handed to CSS as written, so
  * `rem`, `dvh` and a `calc()` with a `var()` survive.
@@ -1724,7 +1724,7 @@ export function monthCardStyle(
   config: Types.Config,
   form: ViewConfig.MonthCardForm,
 ): Record<string, string> {
-  const { height, max } = ViewConfig.resolveMonthCardSize(config, form);
+  const { height, max } = ViewConfig.resolveCardSize(config, 'month', form);
   if (form === 'narrow' && monthNarrowGrows(config)) {
     return {
       height: 'auto',

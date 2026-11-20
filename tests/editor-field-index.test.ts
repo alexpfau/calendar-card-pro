@@ -277,10 +277,11 @@ describe('field ids', () => {
     );
     // 223 without Month or the name on List's month separator, Arrow & Chip Size and a calendar's
     // Private among them.
-    // Month adds its own ten: its four card heights, Minimum Day Width, its two shadings, the two
-    // font sizes of its days, and Layouts in Switcher. List's month separator adds three: Month
-    // Name on Rule, its color and its size.
-    expect(EVERY_FIELD.size).toBe(236);
+    // Month adds its own eight: its two narrow card heights, Minimum Day Width, its two shadings,
+    // the two font sizes of its days, and Layouts in Switcher. List's month separator adds three:
+    // Month Name on Rule, its color and its size. Then the events area's own height pair and When
+    // Too Narrow.
+    expect(EVERY_FIELD.size).toBe(237);
   });
 
   it('do not depend on the editor language', () => {
@@ -349,7 +350,7 @@ describe('indexed fields', () => {
   it('know the keys they write', () => {
     const keys = (id: FieldId) => EVERY_FIELD.get(id)!.configKeys;
     expect(keys('content:start_date_mode')).toEqual(['start_date']);
-    expect(keys('layout:height_mode')).toEqual(['height', 'max_height']);
+    expect(keys('layout:height_mode')).toEqual(['card_height', 'card_max_height']);
     expect(keys('events:countdown_once_per_day')).toEqual(['show_countdown']);
     expect(keys('layout:time_grid.start_time')).toEqual(['start_time']);
     expect(keys('card:toolbar.show')).toEqual(['show']);

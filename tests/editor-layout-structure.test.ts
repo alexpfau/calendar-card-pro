@@ -106,8 +106,17 @@ function renderedPanel(
   return Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
 }
 
-/** The density fields, alike in Columns and Grid; each block keeps its own helper wording. */
-const DENSITY = ['Minimum Day Width', 'Fewest Day Columns', 'When Too Narrow'];
+/**
+ * How Columns and Grid fit a narrow card, alike in both: When Too Narrow, then the day width and,
+ * while the choice sheds days, how far. Below That is built only for Custom.
+ */
+const DENSITY = ['When Too Narrow', 'Minimum Day Width', 'Down To'];
+
+/**
+ * The events area's own height and cap, which Card Height replaced: built wherever a layout reads
+ * them, and drawn by their page only while the card holds one.
+ */
+const EVENTS_AREA = ['Events Area Height', 'Events Area Maximum Height'];
 
 function layoutOutline(view: Types.EffectiveView): string[] {
   const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
@@ -144,6 +153,7 @@ describe('Layout panel structure', () => {
       'Most Events Side By Side',
       'Additional Card Spacing',
       'Card Height',
+      ...EVENTS_AREA,
       ...DENSITY,
     ]);
   });
@@ -164,6 +174,7 @@ describe('Layout panel structure', () => {
       'Event Spacing',
       'Additional Card Spacing',
       'Card Height',
+      ...EVENTS_AREA,
     ];
     expect(layoutOutline('list')).toEqual(expected);
     expect(layoutOutline('column')).toEqual([...expected, ...DENSITY]);

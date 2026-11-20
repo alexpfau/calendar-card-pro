@@ -49,6 +49,7 @@ import * as GridMove from './interaction/grid-move';
 import type * as PopoverModel from './interaction/popover-model';
 import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
+import * as CardSize from './rendering/card-size';
 import * as DayPanel from './rendering/day-panel';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
@@ -5626,15 +5627,18 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Generate style properties from configuration. Returns a style object for use with styleMap.
-   * A month adds the card's height and cap from its `month:` block, in the form it draws, except
-   * in a Sections slot, which it fills (`_holdsSectionsSlot`).
+   * Adds the card's whole height and cap for the layout drawn, and in a month the form it draws,
+   * or the events area's fill in a Sections slot (`CardSize.cardSizeStyle`).
    */
   private getCustomStyles(): Record<string, string> {
-    const styles = this._customProperties();
-    if (this.effectiveView !== 'month' || this._holdsSectionsSlot) return styles;
     return {
-      ...styles,
-      ...MonthRender.monthCardStyle(this.config, this._monthNarrow ? 'narrow' : 'wide'),
+      ...this._customProperties(),
+      ...CardSize.cardSizeStyle(
+        this.config,
+        this.effectiveView,
+        this._monthNarrow ? 'narrow' : 'wide',
+        this._holdsSectionsSlot,
+      ),
     };
   }
 
@@ -8772,6 +8776,7 @@ class CalendarCardPro extends LitElement {
           this._eventsActivatable,
           dayAdd,
           this._bandOpenForNew,
+          CardSize.fillsCard(this.config, 'grid', this._holdsSectionsSlot),
         );
       }
 

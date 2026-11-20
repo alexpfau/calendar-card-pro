@@ -72,6 +72,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     queries: ['future weeks', 'weeks ahead'],
   },
   'start_date_mode.aliases': { field: 'start_date_mode', scope: 'card', queries: ['tomorrow'] },
+  // The names the choice's two options had before When Too Narrow stood over them.
+  'narrow_fit.aliases': {
+    field: 'narrow_fit',
+    scope: 'card',
+    queries: ['fewest day columns', 'column density'],
+  },
   'event_order.aliases': { field: 'event_order', scope: 'card', queries: ['newest first', 'sort'] },
   'compact_events_to_show.aliases': {
     field: 'compact_events_to_show',

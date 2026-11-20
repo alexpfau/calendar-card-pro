@@ -865,7 +865,9 @@ export function fieldState(id: FieldId, appearance: Appearance, ctx: PlanCtx): F
   if (present) {
     const why = liveWhy(present, appearance, ctx);
     if (why !== undefined) return { kind: 'live', why };
-    return typeof appearance === 'object' && 'with' in appearance ? NONE : { kind: 'add' };
+    return appearance === 'kept' || (typeof appearance === 'object' && 'with' in appearance)
+      ? NONE
+      : { kind: 'add' };
   }
 
   const field = ctx.universe.fields.get(id);

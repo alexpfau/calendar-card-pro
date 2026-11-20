@@ -11,7 +11,14 @@ import {
   EVENT_DETAILS_ACTION,
 } from '../../config/constants';
 import * as Types from '../../config/types';
-import { appliesToView } from '../../config/view';
+import {
+  OVERRIDE_BLOCK_BY_VIEW,
+  VIEWS_WITH_WIDTH_FALLBACK,
+  appliesToView,
+  layoutDays,
+  narrowFit,
+  resolveMinDaysToShow,
+} from '../../config/view';
 import { eventActionKind } from '../../interaction/event-action-kind';
 import { CARD_LANGUAGES } from '../../translations/language-codes';
 import * as EntityColors from '../../utils/entity-colors';
@@ -32,6 +39,11 @@ interface SyntheticApplyResult {
 interface SyntheticField {
   /** Real options this control writes; used for routing, pending text, and reset actions. */
   readonly configKeys: ReadonlyArray<string>;
+  /**
+   * Options a pick may also clear, which the control neither shows nor owns: Card Height clears
+   * the events area's own `height` and `max_height`, which a whole-card height replaces.
+   */
+  readonly clears?: ReadonlyArray<string>;
   /**
    * Reads the field's value out of the configuration.
    *
@@ -219,15 +231,41 @@ export function modeFor<T extends string>(
 }
 
 /**
- * Derives the height mode from which of the two height keys is set.
+ * Derives Card Height's mode from which of the whole card's two heights is set.
  *
- * @param config - Current configuration
+ * @param config - Current configuration, resolved for the layout being edited
  * @returns Which height control applies
  */
 export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | 'maximum' {
-  if (isSet(config.height) && config.height !== 'auto') return 'fixed';
-  if (isSet(config.max_height) && config.max_height !== 'none') return 'maximum';
+  if (isSet(config.card_height) && config.card_height !== 'auto') return 'fixed';
+  if (isSet(config.card_max_height) && config.card_max_height !== 'none') return 'maximum';
   return 'auto';
+}
+
+/**
+ * The floor Custom starts from where none below the day count is written: the fewest days the
+ * layout sheds to by default, two for Columns and one for Grid.
+ *
+ * @param view - Columns or Grid
+ * @returns The floor
+ */
+function narrowFitDefaultFloor(view: Types.EffectiveView): number {
+  return resolveMinDaysToShow({ ...Config.DEFAULT_CONFIG, days_to_show: 7 } as Types.Config, view);
+}
+
+/**
+ * What picking a whole-card height clears in the layout being edited: the events area's own
+ * `height` and `max_height`, which the whole card's would otherwise fight, in a layout that reads
+ * them. Month reads neither, and for it they are stored at the top level for the other layouts,
+ * so nothing is cleared there. Layout Defaults clears the top level's.
+ *
+ * @param view - The layout being edited, or `undefined` for Layout Defaults
+ * @returns The events area's options to clear
+ */
+function eventsAreaHeights(view?: Types.EffectiveView): Record<string, undefined> {
+  return view === undefined || appliesToView('height', view)
+    ? { height: undefined, max_height: undefined }
+    : {};
 }
 
 /** Language's one dropdown: Follow Home Assistant, then every language the card speaks. */
@@ -430,64 +468,125 @@ export function accentEventText(
 }
 
 export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
+  /**
+   * Card Height: the whole card's `card_height` and `card_max_height`, in the layout being edited.
+   * A fixed or maximum height starts from the one already set, or from 300px, and clears the events
+   * area's pair, which it replaces ({@link eventsAreaHeights}).
+   */
   height_mode: {
-    configKeys: ['height', 'max_height'],
+    configKeys: ['card_height', 'card_max_height'],
+    clears: ['height', 'max_height'],
     derive: (config) => heightMode(config),
-    apply: (value, config) => {
+    apply: (value, config, view) => {
       const discardHeights = { fixed_height: null, maximum_height: null };
 
       if (value === 'fixed') {
+        const height = config.card_height;
         return {
           changes: {
-            height:
-              isSet(config.height) && config.height !== 'auto'
-                ? config.height
-                : FALLBACK_BOUNDED_HEIGHT,
-            max_height: undefined,
+            ...eventsAreaHeights(view),
+            card_height:
+              isSet(height) && height !== 'auto' ? String(height) : FALLBACK_BOUNDED_HEIGHT,
+            card_max_height: undefined,
           },
           pending: discardHeights,
         };
       }
 
       if (value === 'maximum') {
+        const cap = config.card_max_height;
         return {
           changes: {
-            height: undefined,
-            max_height:
-              isSet(config.max_height) && config.max_height !== 'none'
-                ? config.max_height
-                : FALLBACK_BOUNDED_HEIGHT,
+            ...eventsAreaHeights(view),
+            card_height: undefined,
+            card_max_height: isSet(cap) && cap !== 'none' ? String(cap) : FALLBACK_BOUNDED_HEIGHT,
           },
           pending: discardHeights,
         };
       }
 
       return {
-        changes: { height: undefined, max_height: undefined },
+        changes: { card_height: undefined, card_max_height: undefined },
         pending: discardHeights,
       };
     },
   },
 
   fixed_height: {
-    configKeys: ['height'],
-    derive: (config) => (heightMode(config) === 'fixed' ? String(config.height) : ''),
+    configKeys: ['card_height'],
+    derive: (config) => (heightMode(config) === 'fixed' ? String(config.card_height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
       return text === ''
         ? { changes: {}, pending: { fixed_height: text } }
-        : { changes: { height: text }, pending: { fixed_height: null } };
+        : { changes: { card_height: text }, pending: { fixed_height: null } };
     },
   },
 
   maximum_height: {
-    configKeys: ['max_height'],
-    derive: (config) => (heightMode(config) === 'maximum' ? String(config.max_height) : ''),
+    configKeys: ['card_max_height'],
+    derive: (config) => (heightMode(config) === 'maximum' ? String(config.card_max_height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
       return text === ''
         ? { changes: {}, pending: { maximum_height: text } }
-        : { changes: { max_height: text }, pending: { maximum_height: null } };
+        : { changes: { card_max_height: text }, pending: { maximum_height: null } };
+    },
+  },
+
+  /**
+   * When Too Narrow, on Columns' and Grid's pages: one choice over `min_days_to_show` and
+   * `min_days_fallback` in the layout's block (`ViewConfig.narrowFit`). Shown as the configuration
+   * reads, never written by reading it, so a combination stays as written. A pick writes its
+   * choice: fewer days keeps a floor already below the day count and otherwise leaves it to the
+   * layout's default; a list writes the floor at the day count; narrower keeps every day, writing
+   * the floor at the day count where the layout's own would shed (Grid's is one); Custom,
+   * the one combination the others do not name, sheds to a floor below the day count and keeps
+   * that many narrower, which Down To and Below That then edit. A one-day layout has no Custom.
+   */
+  narrow_fit: {
+    configKeys: ['min_days_fallback', 'min_days_to_show'],
+    derive: (config, view) =>
+      view !== undefined && VIEWS_WITH_WIDTH_FALLBACK.has(view)
+        ? narrowFit(config as Types.Config, view)
+        : '',
+    apply: (value, config, view) => {
+      if (view === undefined || !VIEWS_WITH_WIDTH_FALLBACK.has(view)) return { changes: {} };
+      const days = layoutDays(config as Types.Config, view);
+      const block = config[OVERRIDE_BLOCK_BY_VIEW[view] as keyof Types.Config];
+      const written =
+        Helpers.isConfigBlock(block) && Helpers.hasOwn(block, 'min_days_to_show')
+          ? resolveMinDaysToShow(config as Types.Config, view)
+          : undefined;
+      const shed = written !== undefined && written < days ? written : undefined;
+      switch (value) {
+        case 'list':
+          return { changes: { min_days_fallback: undefined, min_days_to_show: days } };
+        case 'cramp': {
+          // Columns keeps every day under `cramp` with no floor written; Grid's floor stays one,
+          // so it is written at the day count there.
+          const unset = {
+            ...(Helpers.isConfigBlock(block) ? block : {}),
+            min_days_fallback: 'cramp',
+          };
+          delete (unset as Record<string, unknown>).min_days_to_show;
+          const every =
+            resolveMinDaysToShow(
+              { ...config, [OVERRIDE_BLOCK_BY_VIEW[view] as string]: unset } as Types.Config,
+              view,
+            ) >= days;
+          return {
+            changes: { min_days_fallback: 'cramp', min_days_to_show: every ? undefined : days },
+          };
+        }
+        case 'custom': {
+          if (days <= 1) return { changes: {} };
+          const floor = shed ?? Math.max(1, Math.min(narrowFitDefaultFloor(view), days - 1));
+          return { changes: { min_days_fallback: 'cramp', min_days_to_show: floor } };
+        }
+        default:
+          return { changes: { min_days_fallback: undefined, min_days_to_show: shed } };
+      }
     },
   },
 

@@ -94,6 +94,7 @@ function renderGrid(
   hass: Types.Hass | null = null,
   weatherForecasts: Types.WeatherForecasts | undefined = undefined,
   overflowStripPct?: number,
+  fillsCard = false,
 ): HTMLElement {
   // Both of these mirror what the card host does, and skipping either renders something
   // the card never would. `groupEventsByDay` resolves per-view overrides, so grouping
@@ -115,6 +116,10 @@ function renderGrid(
       FROZEN_NOW,
       undefined,
       overflowStripPct,
+      false,
+      undefined,
+      false,
+      fillsCard,
     ),
     container,
   );
@@ -344,50 +349,76 @@ describe('the grid shares one column template', () => {
   });
 });
 
-describe('a fixed content height compresses the band, a max height does not', () => {
+describe('a fixed height compresses the hours down to a floor, a max height does not', () => {
   // The event blocks are already percentages (see "uses percentages, never pixels"), but a
   // percentage of what? The body row is `hour_height * bandHours` pixels by default, a fixed
   // scale that cannot shrink, so a `height` smaller than the content scrolled instead of
   // compressing -- the feature `docs/features/grid-view.md` and the `.grid-container`
   // stylesheet comment both promise. Compression needs the body row to become fractional
-  // AND the container stretched to a definite `100%` so the `1fr` has room to resolve.
-  function bodyHeightVar(container: ParentNode): string {
-    return requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
-      '--calendar-card-grid-body-height',
-    );
+  // AND the container at least a definite `100%` so the `1fr` has room to resolve, and a
+  // minimum an hour, so the hours never shrink below a readable height.
+  function container(node: ParentNode): HTMLElement {
+    return requireElement<HTMLElement>(node, '.grid-container');
   }
-  function containerHeight(container: ParentNode): string {
-    return requireElement<HTMLElement>(container, '.grid-container').style.height;
+  function bodyHeightVar(node: ParentNode): string {
+    return container(node).style.getPropertyValue('--calendar-card-grid-body-height');
   }
   const oneEvent = [timed(17, '09:00', '10:00', 'Standup')];
+  // The default band, 07:00 to 22:00, at the floor of 24px an hour.
+  const FLOOR = 'minmax(calc(15 * min(24px, 48px)), 1fr)';
 
   it('keeps a pixel scale and no container height at the default auto height', () => {
-    const container = renderGrid(oneEvent, buildConfig({ view: 'grid', days_to_show: 3 }));
+    const node = renderGrid(oneEvent, buildConfig({ view: 'grid', days_to_show: 3 }));
 
-    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
-    expect(containerHeight(container)).toBe('');
+    expect(bodyHeightVar(node)).toMatch(/^calc\(/);
+    expect(container(node).style.minHeight).toBe('');
+    expect(container(node).style.height).toBe('');
   });
 
-  it('switches the body row to a fraction and stretches the container under a fixed height', () => {
-    const container = renderGrid(
+  it('switches the body row to a fraction with a floor an hour under a fixed height', () => {
+    const node = renderGrid(
       oneEvent,
       buildConfig({ view: 'grid', days_to_show: 3, height: '400px' }),
     );
 
-    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
-    expect(containerHeight(container)).toBe('100%');
-    expect(
-      requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
-        '--calendar-card-grid-allday-height',
-      ),
-    ).toBe('minmax(0, auto)');
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(container(node).style.minHeight).toBe('100%');
+    expect(container(node).style.height).toBe('');
   });
 
-  it('makes a tall all-day band keyboard-scrollable without dropping its admitted banners', () => {
+  it('compresses the same way where the whole card has a height of its own', () => {
+    const node = renderGrid(
+      oneEvent,
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+      null,
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(container(node).style.minHeight).toBe('100%');
+  });
+
+  it('keeps a smaller hour_height as the floor, since it was asked for', () => {
+    const node = renderGrid(
+      oneEvent,
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        height: '400px',
+        time_grid: { hour_height: '12px' },
+      }),
+    );
+
+    expect(bodyHeightVar(node)).toBe('minmax(calc(15 * min(24px, 12px)), 1fr)');
+  });
+
+  it('keeps every all-day banner under any height, with no scroller of its own', () => {
     const events = Array.from({ length: 6 }, (_, index) =>
       allDay('2026-06-17', '2026-06-19', `Workshop ${index}`),
     );
-    const container = renderGrid(
+    const node = renderGrid(
       events,
       buildConfig({
         view: 'grid',
@@ -396,41 +427,24 @@ describe('a fixed content height compresses the band, a max height does not', ()
       }),
     );
 
-    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
-    expect(container.querySelectorAll('.grid-banner')).toHaveLength(6);
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(node.querySelectorAll('.grid-banner')).toHaveLength(6);
 
-    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
-    expect(band.tabIndex).toBe(0);
-    // A tab stop with no accessible name is announced as nothing useful, so the band is
-    // named wherever it is focusable. `group`, not `region`: the latter is a landmark and
-    // would list a card-internal strip of banners beside the page's own navigation.
-    expect(band.getAttribute('role')).toBe('group');
-    expect(band.getAttribute('aria-label')).toBe('All day');
-  });
-
-  it('leaves the band unfocusable and unlabeled when it cannot scroll', () => {
-    // The control for the case above. The name is tied to the tab stop, not to the band:
-    // an unfocusable band is read through its banners and needs no group of its own, so a
-    // role and label that appeared unconditionally would be noise on every default card.
-    const container = renderGrid(
-      [allDay('2026-06-17', '2026-06-19', 'Workshop')],
-      buildConfig({ view: 'grid' }),
-    );
-
-    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
+    const band = requireElement<HTMLElement>(node, '.grid-allday-band');
+    // The band never scrolls, so it is read through its banners and has no tab stop or group.
     expect(band.hasAttribute('tabindex')).toBe(false);
     expect(band.hasAttribute('role')).toBe(false);
     expect(band.hasAttribute('aria-label')).toBe(false);
   });
 
   it('leaves a max height on the pixel scale so it caps and scrolls rather than compresses', () => {
-    const container = renderGrid(
+    const node = renderGrid(
       oneEvent,
       buildConfig({ view: 'grid', days_to_show: 3, max_height: '400px' }),
     );
 
-    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
-    expect(containerHeight(container)).toBe('');
+    expect(bodyHeightVar(node)).toMatch(/^calc\(/);
+    expect(container(node).style.minHeight).toBe('');
   });
 });
 

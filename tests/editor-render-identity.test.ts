@@ -226,7 +226,7 @@ describe('a kept helper', () => {
     // A fixed height draws `fixed_height` where a maximum draws `maximum_height`, and both are
     // set for this layout: the Layout form's notes read the same, place by place, before and after
     // the switch, while the field in the last place is another one.
-    const editor = await mountEditor({ ...CONFIG, list: { height: '300px' } });
+    const editor = await mountEditor({ ...CONFIG, list: { card_height: '300px' } });
     await editLayout(editor, 'list');
     await openPageOf(editor, 'layout:fixed_height');
     const own = EDITOR_STRINGS['state.set'];

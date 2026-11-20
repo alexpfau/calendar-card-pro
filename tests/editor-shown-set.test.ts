@@ -601,7 +601,7 @@ describe('state words, by where they are drawn', () => {
       $(editor, `[data-field="${id}"]`)!.getAttribute('aria-label');
     // The facts carry the words, outside the slider, which keeps its own label.
     expect(stateWordOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Set');
-    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Fewest Day Columns');
+    expect(labelOf(editor, 'layout:time_grid.min_days_to_show')).toBe('Down To');
     // An event part is a chip, named by its label and its words.
     await openPageOf(editor, 'events:show_location');
     expect(chipName(editor, 'events:show_location')).toBe('Location, Set');

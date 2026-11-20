@@ -216,7 +216,8 @@ describe('editor numeric ceilings have a basis', () => {
   it('the maxima walk can find a ceiling when one is declared (control)', () => {
     // Without this, "min_day_width has no max" would also pass for a walk that
     // silently collected nothing. min_days_to_show's ceiling is derived from
-    // days_to_show, which is the one basis that makes a ceiling legitimate.
-    expect(layoutMaxima.get('min_days_to_show')).toBe(Math.floor(columnConfig.days_to_show));
+    // days_to_show, which is the one basis that makes a ceiling legitimate: a day short of it,
+    // since shedding to every day sheds none.
+    expect(layoutMaxima.get('min_days_to_show')).toBe(Math.floor(columnConfig.days_to_show) - 1);
   });
 });

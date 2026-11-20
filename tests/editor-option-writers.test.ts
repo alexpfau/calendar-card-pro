@@ -77,8 +77,17 @@ const SHARED: Readonly<Record<string, ReadonlyArray<ReadonlyArray<FieldId>>>> = 
   // A mode and the value it calls for.
   accent_color: [['events:accent_color', 'events:accent_color_mode']],
   allday_badge_color: [['events:allday_badge_color', 'events:allday_badge_color_mode']],
-  height: [['layout:fixed_height', 'layout:height_mode']],
-  max_height: [['layout:maximum_height', 'layout:height_mode']],
+  card_height: [['layout:fixed_height', 'layout:height_mode']],
+  card_max_height: [['layout:maximum_height', 'layout:height_mode']],
+  // When Too Narrow and the two it chooses over, in Columns' block and in Grid's.
+  min_days_fallback: [
+    ['layout:column.min_days_fallback', 'layout:narrow_fit'],
+    ['layout:narrow_fit', 'layout:time_grid.min_days_fallback'],
+  ],
+  min_days_to_show: [
+    ['layout:column.min_days_to_show', 'layout:narrow_fit'],
+    ['layout:narrow_fit', 'layout:time_grid.min_days_to_show'],
+  ],
   remove_location_country: [['events:location_country_mode', 'events:location_country_pattern']],
   start_date: [
     ['content:start_date_fixed', 'content:start_date_mode'],

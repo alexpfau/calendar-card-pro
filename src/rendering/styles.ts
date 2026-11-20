@@ -525,7 +525,12 @@ export const cardStyles = css`
     width: 100%;
   }
 
+  /* A card with a height of its own, a card_height or a Sections slot, gives the events area what
+     its header leaves: 1 1 0, which the card writes as --calendar-card-content-flex with the
+     events area's own height set aside (card-size.ts). Otherwise it keeps a flex item's initial
+     0 1 auto, its own height, and shrinks only under a card_max_height, where it scrolls. */
   .content-container {
+    flex: var(--calendar-card-content-flex, 0 1 auto);
     max-height: var(--calendar-card-max-height, none);
     height: var(--calendar-card-height, auto);
     overflow-x: hidden;
@@ -5703,19 +5708,16 @@ export const cardStyles = css`
 
      The body row takes its height from a custom property rather than from content,
      because a time axis has a height whether or not anything is scheduled. Under a
-     fixed content height the property is overridden with a share of the content area
-     instead, and nothing needs recomputing: every block inside is positioned as a
-     percentage.
+     fixed height the property is overridden with a share of the content area instead,
+     down to a readable floor an hour, and nothing needs recomputing: every block inside is
+     positioned as a percentage.
 
-     The all-day row is a custom property for the opposite reason. Its default of auto
-     sizes it to its banners, which is what an unconstrained card wants -- but an auto
-     track also takes min-content as its minimum, so it cannot give height back once
-     the content area is too short for both. Under a fixed height the renderer overrides it
-     with minmax(0, auto), which sizes the same way and is allowed to shrink. */
+     The all-day row is auto and keeps its banners under any height, at most
+     allday_band_max_rows rows of them, so only the hours give height back. */
   .grid-container {
     display: grid;
     grid-template-rows:
-      auto auto var(--calendar-card-grid-allday-height, auto)
+      auto auto auto
       var(--calendar-card-grid-body-height, 720px);
     width: 100%;
     /* Out to the card's edges and back in again, which nets to no change in where a
@@ -5950,14 +5952,7 @@ export const cardStyles = css`
     /* Above the vertical day rules, which now run through this row: a spanning banner has
        to paint over them or it reads as chopped into days. See the ladder above. */
     z-index: 2;
-    /* The three below only matter when the band's track is shorter than its banners,
-       which a fixed content height can force. A grid item defaults to min-height: auto
-       and would refuse to shrink below its content, so the band has to opt out before
-       its own overflow can do anything; auto then scrolls rather than clipping, keeping
-       every banner reachable; and start stops the rows sharing out surplus height back
-       when the track is the taller of the two. */
-    min-height: 0;
-    overflow-y: auto;
+    /* Keeps the rows at their own height should anything else in its row be taller. */
     align-content: start;
   }
 
