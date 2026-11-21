@@ -231,8 +231,8 @@ export const COLUMNS_AMONG_CHILDREN: DaySlot = Object.freeze({
 });
 
 /**
- * The slot of a grid's all-day band, whose day headers and bodies are its siblings. A new event
- * begun there is all-day.
+ * The slot of a grid's all-day band, whose day headers are its siblings in the grid's head. A new
+ * event begun there is all-day.
  */
 export const COLUMNS_AMONG_SIBLINGS: DaySlot = Object.freeze({
   kind: 'columns',
