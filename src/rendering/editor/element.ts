@@ -7329,23 +7329,30 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The dot's color: the entry's own accent, else the card's, where either is a color rather
-   * than a source to follow.
+   * The dot's color: the entry's own accent, else the card's, or Home Assistant's color for the
+   * calendar where the one that applies follows it.
    *
    * @param entry - The entry
    * @returns A CSS color, or `undefined` to draw the theme's
    */
   private _rowColor(entry: string | Types.EntityConfig): string | undefined {
-    for (const value of [Entities.asEntityConfig(entry).accent_color, this._config?.accent_color]) {
-      if (
-        typeof value === 'string' &&
-        value.trim() !== '' &&
-        !EntityColors.isEntityColorSentinel(value)
-      ) {
-        return value;
-      }
+    const own = Entities.asEntityConfig(entry).accent_color;
+    const card = this._config?.accent_color;
+    const given = (value: unknown): value is string =>
+      typeof value === 'string' && value.trim() !== '';
+    // Following Home Assistant, the entry's own or the card's for it, is the registry's color for
+    // the calendar, as its color control and the card draw it; without one, the card's.
+    const follows = EntityColors.isEntityColorSentinel(own)
+      ? true
+      : !given(own) && EntityColors.isEntityColorSentinel(card);
+    if (follows) {
+      this._registryWanted = true;
+      const registry = EntityColors.entityColors().get(Synthetic.entityIdOf(entry));
+      if (registry !== undefined) return registry;
+    } else if (given(own)) {
+      return own;
     }
-    return undefined;
+    return given(card) && !EntityColors.isEntityColorSentinel(card) ? card : undefined;
   }
 
   /**

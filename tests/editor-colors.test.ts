@@ -890,6 +890,46 @@ describe('Follow Home Assistant', () => {
   });
 });
 
+describe('a calendar’s dot on the overview', () => {
+  it('takes Home Assistant’s color for a calendar that follows it, as its color control does', async () => {
+    const callWS = vi.fn(async (message: { type: string }) =>
+      message.type === 'config/entity_registry/list'
+        ? [{ entity_id: 'calendar.anna', options: { calendar: { color: '#ff0000' } } }]
+        : [],
+    );
+    const editor = await mountEditor(
+      {
+        ...BASE,
+        accent_color: '#123456',
+        entities: [{ entity: 'calendar.anna', accent_color: 'home-assistant' }, 'calendar.ben'],
+      },
+      {
+        hass: fakeHass({
+          callWS,
+          connection: {
+            subscribeEvents: vi.fn(async () => () => undefined),
+            subscribeMessage: (_callback: unknown, message: { type?: string }) =>
+              message?.type === 'calendar/event/subscribe'
+                ? Promise.reject({ code: 'unknown_command' })
+                : Promise.resolve(() => undefined),
+          },
+        }),
+      },
+    );
+    const dots = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.cal-dot')].map((dot) =>
+        dot.style.getPropertyValue('--cal-dot'),
+      );
+    await vi.waitFor(() => expect(callWS).toHaveBeenCalled());
+    await vi.waitFor(async () => {
+      editor.requestUpdate();
+      await editor.updateComplete;
+      expect(dots()).toEqual(['#ff0000', '#123456']);
+    });
+    editor.remove();
+  });
+});
+
 describe('the card’s fields as drawn', () => {
   it('draws the absorbed mode as the control, and the value inside it', () => {
     const ctx = schemaCtx(
