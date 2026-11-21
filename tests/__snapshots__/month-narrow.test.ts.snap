@@ -81,7 +81,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Tuesday, November 10, 2026, 5 events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">10</span></span>
-<span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
+<span class="month-narrow-marks" aria-hidden="true" data-capped=""><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Wednesday, November 11, 2026, 3 events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">11</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
