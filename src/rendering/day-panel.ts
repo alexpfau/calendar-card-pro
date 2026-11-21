@@ -495,7 +495,9 @@ export class DayPanel extends Shell.PopoverShell {
       .join(';');
     const close = this._named(...CLOSE);
     const addLabel = params.source.addLabel?.();
-    const day = html`<span id="day-panel-day">${params.title}</span>`;
+    // Marked with the card's language, which may not be the page's; the add button around it is
+    // named in Home Assistant's.
+    const day = html`<span id="day-panel-day" lang=${params.language}>${params.title}</span>`;
 
     return html`
       <dialog

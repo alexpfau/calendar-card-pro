@@ -780,6 +780,38 @@ describe('focus on a month whose form changes', () => {
   });
 });
 
+describe('a month in another language than the page’s', () => {
+  /** Opens Tuesday the 10th's panel from its cell, named in German. */
+  async function openTenth(card: CardUnderTest): Promise<ShadowRoot> {
+    cell(card, 'Dienstag, 10.').focus();
+    await press(card, 'Enter');
+    return panel!.shadowRoot!;
+  }
+
+  /** The element's own language, as assistive technology reads it: the nearest `lang`. */
+  const langOf = (element: Element | null | undefined) =>
+    element?.closest('[lang]')?.getAttribute('lang') ?? null;
+
+  it('marks a wide month’s grid, and the day panel’s title, with the card’s language', async () => {
+    const card = await mount({ language: 'de' });
+    expect(langOf(cell(card, 'Dienstag, 10.'))).toBe('de');
+    const shown = await openTenth(card);
+    const title = shown.querySelector('#day-panel-day');
+    expect(text(title)).toBe('Dienstag, 10. November 2026');
+    expect(langOf(title)).toBe('de');
+    // Close is Home Assistant's word, in Home Assistant's language.
+    expect(langOf(shown.querySelector('.day-panel-close'))).toBeNull();
+  });
+
+  it('marks a narrow month’s grid and its list, and not the list’s add, which is Home Assistant’s', async () => {
+    const card = await mount({ language: 'de', day_tap_action: { action: 'add-event' } }, 375);
+    expect(langOf(cell(card, 'Mittwoch, 18.'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-name'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-rows > *'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-header'))).toBeNull();
+  });
+});
+
 //-----------------------------------------------------------------------------
 // A SEARCH PICK
 //-----------------------------------------------------------------------------

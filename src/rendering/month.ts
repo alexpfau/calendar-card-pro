@@ -1024,6 +1024,7 @@ export function renderMonthGroupedEvents(
     <div
       class="month-container"
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
     >
@@ -1226,6 +1227,7 @@ function renderNarrowMonth(
         'with-week-numbers': weekNumbers,
       })}
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap(tintProperties(config))}
     >
@@ -1605,7 +1607,7 @@ export function renderMonthDayList(
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
   const mark = TextDirection.languageMark(language, hass);
   const titles = monthDayTitles(day, language);
-  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing}
+  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing} lang=${language}
     ><span class="month-day-list-name">${TextDirection.inLanguageDirection(titles[0], mark)}</span
     ><span class="month-day-list-fit" aria-hidden="true"
       >${renderDayTitleFit(titles, mark)}</span
@@ -1655,7 +1657,7 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    <div class="month-day-list-rows">${rows}</div>
+    <div class="month-day-list-rows" lang=${language}>${rows}</div>
   </div>`;
 }
 
