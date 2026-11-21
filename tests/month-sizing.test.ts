@@ -165,17 +165,39 @@ describe('the card size a month resolves', () => {
     ],
   ])('%s', (_name, month, wide, narrow) => {
     const config = buildConfig(month === undefined ? {} : { month });
-    expect(ViewConfig.resolveMonthCardSize(config, 'wide')).toEqual(wide);
-    expect(ViewConfig.resolveMonthCardSize(config, 'narrow')).toEqual(narrow);
+    expect(ViewConfig.resolveCardSize(config, 'month', 'wide')).toEqual(wide);
+    expect(ViewConfig.resolveCardSize(config, 'month', 'narrow')).toEqual(narrow);
   });
 
-  it('ignores the four keys anywhere but the month block', () => {
+  it('takes the card’s own height at the top level, and the narrow pair only in the month block', () => {
     const config = buildConfig({
       card_height: '50rem',
       column: { narrow_card_height: '30rem' },
     } as unknown as Partial<Types.Config>);
-    expect(ViewConfig.resolveMonthCardSize(config, 'wide')).toEqual(AUTO);
-    expect(ViewConfig.resolveMonthCardSize(config, 'narrow')).toEqual(AUTO);
+    expect(ViewConfig.resolveCardSize(config, 'month', 'wide')).toEqual({
+      height: '50rem',
+      max: 'none',
+    });
+    expect(ViewConfig.resolveCardSize(config, 'month', 'narrow')).toEqual({
+      height: '50rem',
+      max: 'none',
+    });
+  });
+
+  it('lets the month block set its own height over the top level', () => {
+    const config = buildConfig({
+      card_height: '50rem',
+      card_max_height: '70rem',
+      month: { card_height: '40rem', narrow_card_max_height: 'none' },
+    });
+    expect(ViewConfig.resolveCardSize(config, 'month', 'wide')).toEqual({
+      height: '40rem',
+      max: '70rem',
+    });
+    expect(ViewConfig.resolveCardSize(config, 'month', 'narrow')).toEqual({
+      height: '40rem',
+      max: 'none',
+    });
   });
 });
 
@@ -208,7 +230,8 @@ describe('the four height keys', () => {
     ['card_max_height', 'auto', 'none'],
     ['card_max_height', null, 'none'],
   ] as const)('reads %s: %j as %j', (key, value, expected) => {
-    expect(ViewConfig.normalizeMonthValue(key, value)).toBe(expected);
+    const size = ViewConfig.resolveCardSize(buildConfig({ month: { [key]: value } }), 'month');
+    expect(key === 'card_height' ? size.height : size.max).toBe(expected);
   });
 
   it('says once that a height it cannot draw falls back, and the narrow form follows', () => {
@@ -254,14 +277,13 @@ describe('the four height keys', () => {
     }
   });
 
-  it('are reported where they do nothing, and not checked at the top level', () => {
+  it('report the narrow pair outside the month block, and check the card’s pair at the top level', () => {
     expect(
       ViewConfig.findMisplacedOptions({
         card_height: '50rem',
-        column: { narrow_card_max_height: '40rem' },
+        column: { card_max_height: '60rem', narrow_card_max_height: '40rem' },
       }),
     ).toEqual([
-      { kind: 'view-only', key: 'card_height', from: null, to: ['month'] },
       { kind: 'wrong-view', key: 'narrow_card_max_height', from: 'column', to: ['month'] },
     ]);
 
@@ -270,7 +292,8 @@ describe('the four height keys', () => {
       Config.validateFoldedLengths(
         buildConfig({ card_height: '50%' } as unknown as Partial<Types.Config>),
       );
-      expect(warn).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('Invalid card_height "50%"');
     } finally {
       warn.mockRestore();
     }
@@ -284,6 +307,8 @@ describe('the rows a card asks a Sections dashboard for', () => {
     ['a month with other options', { view: 'month', month: { min_day_width: 90 } }, 10],
     // A key sizes the card only where it sets a height or a maximum, in either form.
     ['a month with card_height', { view: 'month', month: { card_height: '50rem' } }, 'auto'],
+    ['a month with the card’s own card_height', { view: 'month', card_height: '50rem' }, 'auto'],
+    ['a list with card_height', { view: 'list', card_height: '50rem' }, 'auto'],
     [
       'a month with card_max_height',
       { view: 'month', month: { card_max_height: '40rem' } },

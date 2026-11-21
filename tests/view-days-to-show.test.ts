@@ -323,12 +323,12 @@ describe('the editor', () => {
     expect(Routing.valueSource(resolved, 'shared', 'days_to_show')).toBeUndefined();
   });
 
-  it('caps the column floor at the workspace’s own count', () => {
+  it('caps the column floor a day short of the workspace’s own count', () => {
     const projected = Routing.workspaceConfig(config(), 'column');
     const schema = buildLayoutSchema({ view: 'column', config: projected, language: 'en' });
     const node = find(schema, 'min_days_to_show') as { selector: { number: { max: number } } };
 
-    expect(node.selector.number.max).toBe(5);
+    expect(node.selector.number.max).toBe(4);
   });
 
   it('explains that each layout may differ and a switch never reloads', () => {

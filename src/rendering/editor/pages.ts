@@ -37,14 +37,15 @@ export type PageId =
   | 'weather'
   | 'taps_refresh';
 
-export type FamilyId =
-  'compact_mode' | 'past_days' | 'weekend_colors' | 'column_density' | 'grid_density' | 'replace';
+export type FamilyId = 'compact_mode' | 'past_days' | 'weekend_colors' | 'replace';
 
 /**
  * How a page shows a field.
  *
  * - `essential`: always live while present.
  * - `add`: live when stored, inherited and different, or added; else in its heading's Add row.
+ * - `kept`: live as `add` is, but never offered in an Add row: a setting another has replaced,
+ *   drawn only so a card that still holds it can read and clear it.
  * - `with`: a mode control's value field, live with its mode. Match Against serves two lists,
  *   so it names both, and either asks for it.
  * - `family`: shown, added and removed with its family.
@@ -66,6 +67,7 @@ export type FamilyId =
 export type Appearance =
   | 'essential'
   | 'add'
+  | 'kept'
   | { readonly with: FieldId | ReadonlyArray<FieldId> }
   | { readonly family: FamilyId }
   | { readonly chips: 'parts' | 'toolbar' }
@@ -565,29 +567,21 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         key: 'heading_card_size',
         fields: [
+          // The whole card's height, in every layout.
           ['layout:height_mode', E],
-          ['layout:card_height', withMode('layout:height_mode')],
-          ['layout:card_max_height', withMode('layout:height_mode')],
-          // Grid's height, set per hour, beside the Height a fixed one replaces.
+          ['layout:fixed_height', withMode('layout:height_mode')],
+          ['layout:maximum_height', withMode('layout:height_mode')],
+          // The events area's own pair, which Card Height replaced, drawn only where a card holds
+          // one.
+          ['layout:height', 'kept'],
+          ['layout:max_height', 'kept'],
+          // Grid's height, set per hour, beside the Card Height a fixed one fits it into.
           ['layout:time_grid.hour_height', A],
           ['layout:additional_card_spacing', A],
-          // How narrow Month's days may get before it draws its narrow form, ahead of the heights
-          // each form takes. One field rather than Columns' and Grid's density family: Month keeps
-          // its days and changes its form instead.
-          ['layout:month.min_day_width', A],
         ],
       },
       {
-        // Month's own heights, in the Height's place, which it does not read: the whole card in
-        // the wide form, each height before its cap.
-        key: 'heading_wide_month',
-        fields: [
-          ['layout:month.card_height', A],
-          ['layout:month.card_max_height', A],
-        ],
-      },
-      {
-        // The same for the narrow form, which follows the wide one's while unset.
+        // Month's narrow form, which takes Card Height while these are unset.
         key: 'heading_narrow_month',
         fields: [
           ['layout:month.narrow_card_height', A],
@@ -614,19 +608,19 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        key: 'column.density',
+        // How the card fits a narrow width: Columns and Grid give up days, fall back to List or
+        // keep their days narrower, and Month draws its narrow form below its Minimum Day Width.
+        // The fit summary and each layout's width table follow the page's headings.
+        key: 'heading_narrow_cards',
         fields: [
-          ['layout:column.min_day_width', member('column_density')],
-          ['layout:column.min_days_to_show', member('column_density')],
-          ['layout:column.min_days_fallback', member('column_density')],
-        ],
-      },
-      {
-        key: 'time_grid.density',
-        fields: [
-          ['layout:time_grid.min_day_width', member('grid_density')],
-          ['layout:time_grid.min_days_to_show', member('grid_density')],
-          ['layout:time_grid.min_days_fallback', member('grid_density')],
+          ['layout:narrow_fit', E],
+          ['layout:column.min_days_to_show', withMode('layout:narrow_fit')],
+          ['layout:time_grid.min_days_to_show', withMode('layout:narrow_fit')],
+          ['layout:column.min_days_fallback', withMode('layout:narrow_fit')],
+          ['layout:time_grid.min_days_fallback', withMode('layout:narrow_fit')],
+          ['layout:column.min_day_width', A],
+          ['layout:time_grid.min_day_width', A],
+          ['layout:month.min_day_width', A],
         ],
       },
       {
@@ -827,8 +821,6 @@ export const FAMILIES: Readonly<Record<FamilyId, { titleKey: string; helperKey?:
   compact_mode: { titleKey: 'compact_mode', helperKey: 'compact_mode.helper' },
   past_days: { titleKey: 'past_days', helperKey: 'past_days.helper' },
   weekend_colors: { titleKey: 'weekend_colors', helperKey: 'weekend_colors.helper' },
-  column_density: { titleKey: 'column.density', helperKey: 'column.density.helper' },
-  grid_density: { titleKey: 'time_grid.density', helperKey: 'time_grid.density.helper' },
   replace: { titleKey: 'heading_replace' },
 };
 

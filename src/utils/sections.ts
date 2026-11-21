@@ -4,7 +4,7 @@
  *
  * A slot is known before anything is drawn, from the configuration and the layout Home Assistant
  * hands the card, so a month in one never measures its own height: it fills the slot. Anywhere
- * else it writes the height its `month:` block asks for (`MonthRender.monthCardStyle`).
+ * else it writes the height its configuration asks for (`CardSize.cardSizeStyle`).
  */
 
 import * as Config from '../config/config';
@@ -20,7 +20,7 @@ export interface CardGridOptions {
 
 /**
  * The size the card asks a Sections dashboard for: the whole width, and for a month that opens
- * as one `UI.MONTH_SECTIONS_ROWS` rows while its `month:` block sets no height and no maximum
+ * as one `UI.MONTH_SECTIONS_ROWS` rows while its configuration sets no height and no maximum
  * (`ViewConfig.monthSetsCardSize`), more of them where it asks for a toolbar
  * (`Config.asksForToolbar`), which every other card sizes itself.
  *

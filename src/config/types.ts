@@ -75,8 +75,19 @@ export interface Config {
   event_gap: string;
   event_spacing: string;
   additional_card_spacing: string;
+  /** The events area's cap under the header, as a CSS length; `none` sets none. */
   max_height: string;
+  /** The events area's height under the header, as a CSS length; `auto` is its content's. */
   height: string;
+  /**
+   * The whole card's height, as a CSS length: its border box, the title, the toolbar and any
+   * notice included, with the events area filling what they leave. `auto` is the layout's own
+   * height: its content's, or Month's default. A row count a Sections dashboard gives the card
+   * wins over it.
+   */
+  card_height: string;
+  /** The tallest the whole card may be, as a CSS length, clamping `card_height`; `none` sets none. */
+  card_max_height: string;
 
   // Week numbers and horizontal separators
   first_day_of_week: 'sunday' | 'monday' | 'system';
@@ -405,6 +416,8 @@ export interface SharedViewOverrides {
   additional_card_spacing?: string;
   height?: string;
   max_height?: string;
+  card_height?: string;
+  card_max_height?: string;
 
   // Today indicator
   today_indicator?: string | boolean;
@@ -799,16 +812,6 @@ export type MonthPinnedKeys =
 export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSharedKeys> {
   /** Whether a timed event a full day or longer is drawn as a bar, as Grid's banners are. */
   multiday_banners?: boolean;
-
-  /**
-   * The whole card's height in the wide form, as a CSS length: its border box, the title, the
-   * toolbar and any notice included. `auto` is the month's own default. A row count a Sections
-   * dashboard gives the card wins over it.
-   */
-  card_height?: string;
-
-  /** The tallest the wide card may be, as a CSS length, clamping `card_height`; `none` sets none. */
-  card_max_height?: string;
 
   /**
    * `card_height` for the narrow form, which takes `card_height` while this is unset; `auto` is

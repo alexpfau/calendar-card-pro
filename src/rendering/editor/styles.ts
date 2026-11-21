@@ -388,6 +388,27 @@ export default css`
     color: var(--secondary-text-color);
   }
 
+  /* The fit summary's head cells: the layouts across the top, each width down the side. */
+  .fit-summary th {
+    font-weight: 400;
+    padding: 2px 8px 2px 0;
+    text-align: start;
+    vertical-align: baseline;
+  }
+
+  .fit-summary tr:first-child th {
+    color: var(--primary-text-color);
+    font-weight: 500;
+  }
+
+  .fit-summary td.width-table-layout {
+    padding-inline-end: 8px;
+  }
+
+  .width-table + .width-table {
+    margin-top: 12px;
+  }
+
   .width-table-note {
     color: var(--secondary-text-color);
     font-size: 12px;

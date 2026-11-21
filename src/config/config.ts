@@ -57,6 +57,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   additional_card_spacing: '0px',
   height: 'auto',
   max_height: 'none',
+  // The whole card's, title and toolbar included; `auto` is each layout's own height.
+  card_height: 'auto',
+  card_max_height: 'none',
 
   first_day_of_week: 'system',
   show_week_numbers: null,
@@ -959,22 +962,19 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 ]);
 
 /**
- * A month's heights, whose unusable value is folded rather than passed through: the whole card's
- * height and its cap, in the wide form and the narrow one, judged by {@link toValidCardHeight}
- * and {@link toValidCardMaxHeight}.
+ * The whole card's heights, whose unusable value is folded rather than passed through: its height
+ * and its cap, and Month's pair for its narrow form, judged by {@link toValidCardHeight} and
+ * {@link toValidCardMaxHeight}.
  *
- * The card measures how many lines fit under a date from a week's height, so a week must never
- * be sized by its events. A percentage resolves against a height the month does not have, and a
- * keyword such as `fit-content` sizes the box by what is in it. A card height takes `auto`, which
- * is the month's own default rather than its content's, and a cap takes `none`; anything else that
- * is not a length folds the same way.
+ * A month measures how many lines fit under a date from a week's height, so a week must never
+ * be sized by its events, and the other layouts fill what the card's height leaves them. A
+ * percentage resolves against a height the card does not have, and a keyword such as
+ * `fit-content` sizes the box by what is in it. A card height takes `auto`, the layout's own
+ * height, and a cap takes `none`; anything else that is not a length folds the same way.
  *
- * A wide key folds to the block's default, `auto` or `none`. A narrow key has no default of its
- * own: unusable, it counts as unset and the narrow form takes the wide value.
- *
- * Its own table, for the reason the bar width has one, and its options live in a view block only,
- * so the top-level check skips them and the block's (`validateViewOverrides`) reports them, with
- * the block's default.
+ * `card_height` and `card_max_height` fold to `auto` and `none`, at the top level and in every
+ * layout's block. A narrow key has no default of its own: unusable, it counts as unset and the
+ * narrow form takes the wide value. Its own table, for the reason the bar width has one.
  */
 export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'card_height',
@@ -1230,11 +1230,11 @@ function isKeyword(value: unknown, keyword: string): boolean {
 }
 
 /**
- * A month card's height, tidied, or `undefined` when the value cannot be one: `auto`, which is
- * the month's own default height rather than its content's, or a length a row can be drawn at by
- * {@link toValidRowHeight}'s rule, a `calc()`, a `var()` and a viewport unit such as `dvh`
- * included. A percentage and every other keyword are refused, since each would size the month by
- * its events or by a height it does not have.
+ * A whole card's height, tidied, or `undefined` when the value cannot be one: `auto`, the
+ * layout's own height, or a length a row can be drawn at by {@link toValidRowHeight}'s rule, a
+ * `calc()`, a `var()` and a viewport unit such as `dvh` included. A percentage and every other
+ * keyword are refused, since each would size the card by its events or by a height it does not
+ * have.
  *
  * @param value - Raw configured value
  * @returns `auto`, the height to use, or `undefined` when the value cannot be one
@@ -1244,7 +1244,7 @@ export function toValidCardHeight(value: unknown): string | undefined {
 }
 
 /**
- * A month card's cap, tidied, or `undefined` when the value cannot be one: `none`, no cap, or a
+ * A whole card's cap, tidied, or `undefined` when the value cannot be one: `none`, no cap, or a
  * length by {@link toValidCardHeight}'s rule.
  *
  * @param value - Raw configured value
@@ -1405,7 +1405,6 @@ export function validateFoldedLength(
  */
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
-    if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) continue;
     // A view block's own option, which the top level does not hold.
     if (!Helpers.hasOwn(DEFAULT_CONFIG, key.split('.')[0])) continue;
     validateFoldedLength(key, valueAtPath(config, key));

@@ -158,7 +158,7 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.month-narrow-marks, .month-narrow .month-day',
     {
       page: 'size_spacing',
-      heading: 'heading_card_size',
+      heading: 'heading_narrow_cards',
       scope: 'month',
       field: 'layout:month.min_day_width',
     },
@@ -176,9 +176,9 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ],
   [
     '.month-more, .month-day, .month-container',
-    { page: 'size_spacing', heading: 'heading_wide_month', scope: 'month' },
+    { page: 'size_spacing', heading: 'heading_card_size', scope: 'month' },
   ],
-  ['.day-column', { page: 'size_spacing', heading: 'column.density', scope: 'column' }],
+  ['.day-column', { page: 'size_spacing', heading: 'heading_narrow_cards', scope: 'column' }],
   ['.content-container', { page: 'size_spacing', heading: 'heading_card_size' }],
   ['.header-container, ha-card', { page: 'card_header', heading: 'heading.general' }],
 ];

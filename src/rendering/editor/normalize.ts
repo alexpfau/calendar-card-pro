@@ -35,6 +35,9 @@ export function normalizeRootValue(key: string, value: unknown): unknown {
   if (value === undefined || value === null) return value;
   // A cleared entity picker hands back an empty string, which names no entity.
   if (key === 'weather_entity' && isBlank(value)) return undefined;
+  // A whole card's height folds what it cannot use to its default, so a blank, the box cleared to
+  // retype, would read as `auto` and be written; it stays blank, for Height to hold.
+  if (Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) && isBlank(value)) return value;
   const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
   return typeof defaults[key] === 'number'
     ? (Config.toValidNumber(value) ?? value)

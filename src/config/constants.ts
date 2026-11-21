@@ -362,6 +362,14 @@ export const UI = {
    */
   MONTH_NARROW_HYSTERESIS: 4,
 
+  /**
+   * The least an hour of the time grid takes while a fixed height compresses its hours, as a CSS
+   * length (`renderGridGroupedEvents`): an hour-long event keeps a line of title at the card's
+   * default sizes. A smaller `hour_height` is kept, since it was asked for; below the floor the
+   * axis scrolls.
+   */
+  GRID_MIN_HOUR_HEIGHT: '24px',
+
   /** How many events a narrow month day's capsule draws a segment for, at most. */
   MONTH_NARROW_MARKS: 4,
 

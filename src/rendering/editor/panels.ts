@@ -71,15 +71,29 @@ export interface WidthTableRow {
   layout: string;
 }
 
+/** One row of the fit summary: a card width, then what each layout draws there. */
+export interface FitSummaryRow {
+  width: string;
+  cells: ReadonlyArray<string>;
+}
+
 /**
- * Panel content that is not a form field.
+ * Panel content that is not a form field: one layout's width table, or the fit summary, which
+ * names each layout the card can show and what it draws at a few common card widths.
  */
-export type PanelExtra = {
-  kind: 'width-table';
-  title: string;
-  rows: ReadonlyArray<WidthTableRow>;
-  note: string;
-};
+export type PanelExtra =
+  | {
+      kind: 'width-table';
+      title: string;
+      rows: ReadonlyArray<WidthTableRow>;
+      note: string;
+    }
+  | {
+      kind: 'fit-summary';
+      title: string;
+      layouts: ReadonlyArray<string>;
+      rows: ReadonlyArray<FitSummaryRow>;
+    };
 
 /**
  * A schema the panel renders itself, outside its own `<ha-form>`.
@@ -129,7 +143,8 @@ export const PANELS: ReadonlyArray<PanelDef> = [
   },
   {
     id: 'layout',
-    strings: ['width_table'],
+    // Its tables, and Month's Card Height choices, which Month labels under its own prefix.
+    strings: ['width_table', 'fit_summary', 'month.height_mode'],
     build: buildLayoutSchema,
     extras: layoutExtras,
   },

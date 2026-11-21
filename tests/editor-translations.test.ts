@@ -96,15 +96,19 @@ describe('editor strings resolve in the requested language', () => {
     // carry these keys, or that German must resolve to English, would fail a correct
     // translation. That is the gate lying rather than the translation being wrong. The
     // per-key fallback those deletions rely on is already pinned above.
-    expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
+    // It names Month's narrow form beside the List fallback: the three layouts that change with
+    // the width, and none of them alone.
+    expect(EDITOR_STRINGS['view.helper']).toContain('Columns and Grid');
+    expect(EDITOR_STRINGS['view.helper']).toContain('Month draws its narrow form');
     expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
   });
 
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
-    // `height` applies to `.content-container`; the header and card padding sit outside it.
-    // Grid compresses that content area's axis while the other views scroll it.
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('Grid compresses its hours');
-    expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
+    // Card Height sizes the whole card, and the events area takes what the header leaves. Grid
+    // fits its hours into it down to a readable size while List scrolls.
+    expect(EDITOR_STRINGS['fixed_height.helper']).toContain('Grid fits its hours');
+    expect(EDITOR_STRINGS['fixed_height.helper']).toContain('title and toolbar included');
+    expect(EDITOR_STRINGS['fixed_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
     // There were three sites; there are two. `time_grid.axis.helper` was the Time Axis

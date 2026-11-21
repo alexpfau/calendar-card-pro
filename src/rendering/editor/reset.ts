@@ -99,7 +99,7 @@ function removeRoot(draft: Draft, key: string): void {
 
 /**
  * Forgets the text a synthetic field holds for a key at one destination: a cleared Card Height is
- * held under `card_height`, not under `height`, and would otherwise stay on screen once the line
+ * held under `fixed_height`, not under `height`, and would otherwise stay on screen once the line
  * it stood for is gone.
  *
  * @param draft - What the reset builds

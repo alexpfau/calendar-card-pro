@@ -555,7 +555,7 @@ describe('editor: start_date_offset survives being typed', () => {
  * the user can transiently empty.
  *
  * Two of the six candidates were live. `today_indicator_icon`, `today_indicator_custom`,
- * `card_height` and `card_max_height` were already held; `location_country_pattern`
+ * `fixed_height` and `maximum_height` were already held; `location_country_pattern`
  * stores `''` deliberately so its mode still reads *custom*; and the empty-day fields are
  * gated on a switch rather than on a value, so they cannot reach this state at all.
  *
@@ -742,40 +742,42 @@ describe('editor: synthetic height mode', () => {
 
   it('derives the mode from which height key is set', () => {
     expect(deriveSyntheticData(buildConfig()).height_mode).toBe('auto');
-    expect(deriveSyntheticData(buildConfig({ height: '400px' })).height_mode).toBe('fixed');
-    expect(deriveSyntheticData(buildConfig({ max_height: '400px' })).height_mode).toBe('maximum');
+    expect(deriveSyntheticData(buildConfig({ card_height: '400px' })).height_mode).toBe('fixed');
+    expect(deriveSyntheticData(buildConfig({ card_max_height: '400px' })).height_mode).toBe(
+      'maximum',
+    );
   });
 
   it('clears both height keys when switching back to automatic', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const stored = toStoredConfig(change(config, 'auto').config);
 
-    expect(stored).not.toHaveProperty('height');
-    expect(stored).not.toHaveProperty('max_height');
+    expect(stored).not.toHaveProperty('card_height');
+    expect(stored).not.toHaveProperty('card_max_height');
   });
 
   it('carries a measurement across a mode switch rather than discarding it', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const viaAuto = change(config, 'auto');
     const back = change(viaAuto.config, 'fixed');
 
     // The value is gone, so the mode switch seeds a usable one instead of an empty
     // field that renders as a zero-height card.
-    expect(back.config.height).toBe('300px');
+    expect(back.config.card_height).toBe('300px');
   });
 
   it('keeps the two height keys mutually exclusive', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const maximum = change(config, 'maximum');
 
     // The measurement is not carried across, matching the editor that ships: a fixed
     // height and a maximum height are different claims about the card, and reusing
     // one as the other would silently change what a switch does.
-    expect(maximum.config.height).toBeUndefined();
-    expect(maximum.config.max_height).toBe('300px');
+    expect(maximum.config.card_height).toBeUndefined();
+    expect(maximum.config.card_max_height).toBe('300px');
   });
 });
 
@@ -796,7 +798,7 @@ describe('editor: change detection', () => {
 
   /**
    * Walking `SYNTHETIC_FIELDS` to assert something about each entry cannot notice a
-   * deleted entry — the loop simply runs one fewer time. Deleting `card_max_height`
+   * deleted entry — the loop simply runs one fewer time. Deleting `maximum_height`
    * left the whole suite green even though the field then stopped deriving its value,
    * silently discarded every edit, and wrote its own name into the stored YAML. Pin
    * the membership instead, so both a removal and an unreviewed addition fail here.
@@ -807,15 +809,16 @@ describe('editor: change detection', () => {
       'accent_event_text',
       'allday_badge_color_mode',
       'allday_badge_position',
-      'card_height',
-      'card_max_height',
       'countdown_once_per_day',
       'day_tap_action_mode',
       'filter_duplicates_mode',
+      'fixed_height',
       'height_mode',
       'language_mode',
       'location_country_mode',
       'location_country_pattern',
+      'maximum_height',
+      'narrow_fit',
       'start_date_fixed',
       'start_date_mode',
       'start_date_offset',
@@ -1383,8 +1386,6 @@ describe('editor: displayed view and the Layout panel', () => {
         .map(({ node }) => node.name);
 
     const always = [
-      'card_height',
-      'card_max_height',
       'narrow_card_height',
       'narrow_card_max_height',
       'min_day_width',
@@ -1406,7 +1407,7 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(found?.dataPath).toEqual(['column']);
   });
 
-  it('bounds the column floor by the number of days shown', () => {
+  it('bounds the column floor a day short of the number of days shown', () => {
     const found = [...walkSchema(buildLayoutSchema(ctx(columnConfig({ days_to_show: 5 }))))].find(
       ({ node }) => node.name === 'min_days_to_show',
     );
@@ -1415,17 +1416,19 @@ describe('editor: displayed view and the Layout panel', () => {
     if (!node || !('selector' in node) || !('number' in node.selector)) {
       throw new Error('min_days_to_show is expected to be a number selector');
     }
-    expect(node.selector.number?.max).toBe(5);
+    // Down To at the day count would shed nothing, which reads as Show a List and takes the
+    // field away while it is being edited.
+    expect(node.selector.number?.max).toBe(4);
   });
 
   it('shows the height field the chosen mode calls for, and only that one', () => {
-    // The two measurements are bound to synthetic fields rather than to `height` and
-    // `max_height`, so that clearing one to retype it does not delete the value and
+    // The two measurements are bound to synthetic fields rather than to `card_height` and
+    // `card_max_height`, so that clearing one to retype it does not delete the value and
     // take the field with it. See the typing tests below.
-    expect(names(buildConfig({ height: '400px' }))).toContain('card_height');
-    expect(names(buildConfig({ height: '400px' }))).not.toContain('card_max_height');
-    expect(names(buildConfig({ max_height: '400px' }))).toContain('card_max_height');
-    expect(names(buildConfig())).not.toContain('card_height');
+    expect(names(buildConfig({ card_height: '400px' }))).toContain('fixed_height');
+    expect(names(buildConfig({ card_height: '400px' }))).not.toContain('maximum_height');
+    expect(names(buildConfig({ card_max_height: '400px' }))).toContain('maximum_height');
+    expect(names(buildConfig())).not.toContain('fixed_height');
   });
 });
 
@@ -1674,7 +1677,7 @@ describe('editor: the chassis', () => {
     // Asserted wherever the router put it rather than at root. The List workspace writes
     // into `list:`, the same way Column and Grid write into theirs — pinning the location
     // here would make this a test of the routing table rather than of the synthetic key.
-    expect(block.height ?? stored.height).toBe('300px');
+    expect(block.card_height ?? stored.card_height).toBe('300px');
   });
 
   it('draws each card field in a form of its own, once, across every page', async () => {
@@ -1981,8 +1984,8 @@ describe('editor: the panel set', () => {
       allday_badge: 'allday_badge_position',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
-      height: 'height_mode',
-      max_height: 'height_mode',
+      card_height: 'height_mode',
+      card_max_height: 'height_mode',
       day_tap_action: 'day_tap_action_mode',
       filter_duplicates: 'filter_duplicates_mode',
     };
@@ -2045,6 +2048,17 @@ describe('editor: the panel set', () => {
     const configs = [
       buildConfig({ view: 'column' }),
       buildConfig({ view: 'grid' }),
+      // Below That is built only while When Too Narrow is Custom.
+      buildConfig({
+        view: 'column',
+        column: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+        time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+      }),
+      buildConfig({
+        view: 'grid',
+        column: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+        time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+      }),
       // The UV threshold is held back until UV is on, in both groups.
       buildConfig({
         weather_entity: 'weather.home',
@@ -3307,59 +3321,59 @@ describe('editor: fields that must survive being typed into', () => {
 
   /**
    * Home Assistant's text selector reports every keystroke and turns an emptied field
-   * into `undefined`, so binding `height` directly would delete the measurement the
+   * into `undefined`, so binding `card_height` directly would delete the measurement the
    * moment the box was cleared to retype it — and take the field with it, since the
    * height mode is derived from whether the key is set.
    */
   it('keeps the height field standing while its measurement is retyped', () => {
-    const start = buildConfig({ height: '500px' });
-    const cleared = type(start, 'card_height', ['']);
+    const start = buildConfig({ card_height: '500px' });
+    const cleared = type(start, 'fixed_height', ['']);
 
-    expect(cleared.config.height).toBe('500px');
-    expect(cleared.pending.card_height).toBe('');
+    expect(cleared.config.card_height).toBe('500px');
+    expect(cleared.pending.fixed_height).toBe('');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_height');
+    ).toContain('fixed_height');
 
-    const retyped = type(start, 'card_height', ['', '4', '40', '400px']);
-    expect(retyped.config.height).toBe('400px');
+    const retyped = type(start, 'fixed_height', ['', '4', '40', '400px']);
+    expect(retyped.config.card_height).toBe('400px');
   });
 
   it('keeps the maximum-height field standing on the same terms', () => {
-    const start = buildConfig({ height: 'auto', max_height: '600px' });
-    const cleared = type(start, 'card_max_height', ['']);
+    const start = buildConfig({ card_height: 'auto', card_max_height: '600px' });
+    const cleared = type(start, 'maximum_height', ['']);
 
-    expect(cleared.config.max_height).toBe('600px');
+    expect(cleared.config.card_max_height).toBe('600px');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_max_height');
+    ).toContain('maximum_height');
   });
 
   /**
    * The assertions above hold whether or not the field is synthetic at all — clearing it
    * is meant to be a no-op, so a version that never handled the key passed them too. These
    * are the three that fail when it stops being synthetic: the field renders empty over a
-   * configured maximum, a typed measurement never reaches `max_height`, and the synthetic
+   * configured maximum, a typed measurement never reaches `card_max_height`, and the synthetic
    * name itself is written into the user's YAML.
    */
   it('derives, commits and hides the maximum-height measurement', () => {
-    const config = buildConfig({ height: 'auto', max_height: '600px' });
+    const config = buildConfig({ card_height: 'auto', card_max_height: '600px' });
     const before = { ...config, ...deriveSyntheticData(config) } as Record<string, unknown>;
-    expect(before.card_max_height).toBe('600px');
+    expect(before.maximum_height).toBe('600px');
 
-    const applied = applyFormChange(config, before, { ...before, card_max_height: '900px' }, {});
+    const applied = applyFormChange(config, before, { ...before, maximum_height: '900px' }, {});
     const stored = toStoredConfig(applied.config);
 
-    expect(stored.max_height).toBe('900px');
-    expect(stored).not.toHaveProperty('card_max_height');
+    expect(stored.card_max_height).toBe('900px');
+    expect(stored).not.toHaveProperty('maximum_height');
   });
 
   it('never lets a held measurement reach the stored configuration', () => {
-    const { config, pending } = type(buildConfig({ height: '500px' }), 'card_height', ['']);
+    const { config, pending } = type(buildConfig({ card_height: '500px' }), 'fixed_height', ['']);
 
-    expect(toStoredConfig(config).height).toBe('500px');
-    expect(toStoredConfig(config)).not.toHaveProperty('card_height');
-    expect(pending.card_height).toBe('');
+    expect(toStoredConfig(config).card_height).toBe('500px');
+    expect(toStoredConfig(config)).not.toHaveProperty('fixed_height');
+    expect(pending.fixed_height).toBe('');
   });
 });
 
@@ -4952,8 +4966,11 @@ function editorOptions(): Map<string, string[]> {
   // dropdowns such as `overlap_layout` are only discoverable from here.
   const configs = [
     buildConfig({ view: 'grid' }),
+    // When Too Narrow's Custom, the one state that builds Below That.
+    buildConfig({ view: 'grid', time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 } }),
     buildConfig({}),
     buildConfig({ view: 'column' }),
+    buildConfig({ view: 'column', column: { min_days_fallback: 'cramp', min_days_to_show: 2 } }),
     buildConfig({ weather: { entity: 'weather.home' } }),
     buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
   ] as Types.Config[];
@@ -5200,6 +5217,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'height_mode',
       'language_mode',
       'location_country_mode',
+      'narrow_fit',
       'start_date_mode',
       'time_format',
       'today_indicator_style',
@@ -5207,7 +5225,9 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ]);
   });
 
-  it.each(syntheticDropdowns())(
+  // When Too Narrow answers only on Columns' and Grid's pages, which `pick` does not stand on;
+  // `editor-narrow-fit.test.ts` round-trips it there.
+  it.each(syntheticDropdowns().filter(([name]) => name !== 'narrow_fit'))(
     'shows %s back after picking it from any other value',
     (field, values) => {
       for (const from of values) {

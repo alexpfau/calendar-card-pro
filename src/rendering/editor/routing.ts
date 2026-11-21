@@ -223,7 +223,7 @@ export function workspaceFormData(
       path = path.slice(1);
     }
     // A synthetic field's text, which the derived data above took. Asked of the key, not the
-    // name alone: Month's own `card_height` shares its name with the card's Height.
+    // name alone, since a block's own option may share a synthetic field's name.
     if (Synthetic.isSyntheticKey(name) && key === pendingKey(name, workspace)) continue;
     const block = destination(name, workspace);
     if (path.length === 0 && block !== undefined) continue;
@@ -299,6 +299,19 @@ export function nestedSchema(node: HaFormSchema, dataPath: ReadonlyArray<string>
 }
 
 /**
+ * Whether an option lives only in the block of the layout a workspace edits, with no top-level
+ * counterpart: `min_days_to_show` on Columns' page, say.
+ *
+ * @param key - The option
+ * @param workspace - Editing workspace
+ * @returns `true` for a block's own option
+ */
+function isOnlyKey(key: string, workspace: EditorWorkspace): boolean {
+  const view = viewForWorkspace(workspace);
+  return view !== undefined && !!ViewConfig.viewBlockFor(view)?.onlyKeys.includes(key);
+}
+
+/**
  * The value under a key inside nested data.
  *
  * @param data - Form data or configuration
@@ -367,7 +380,11 @@ export function applyWorkspaceChange(
   const held = { ...pending };
   for (const { node, path } of workspaceFields(frame.schema)) {
     const synthetic = path.length === 0 && Synthetic.isSyntheticKey(node.name);
-    const comparisonKey = synthetic ? Synthetic.configKeysForField(node.name)[0] : node.name;
+    // A synthetic value field compares as the option it writes, so `300` and `300px` agree; a
+    // mode over several options compares as itself, since its choices are no value of theirs and
+    // an option that folds what it cannot use would read every choice as its default.
+    const writes = synthetic ? Synthetic.configKeysForField(node.name) : [node.name];
+    const comparisonKey = writes.length === 1 ? writes[0] : node.name;
     const previousRaw = atPath(frame.data, path, node.name);
     const nextRaw = atPath(incoming, path, node.name);
     if (node.name === 'past_event_opacity' && !Value.deepEqual(previousRaw, nextRaw)) {
@@ -424,11 +441,13 @@ export function applyWorkspaceChange(
           ? Config.DEFAULT_CONFIG[key as keyof Types.Config]
           : raw,
       );
-      if (
-        synthetic &&
-        Value.deepEqual(value, normalizeRootValue(key, projection[key as keyof Types.Config]))
-      )
-        continue;
+      // A block's own option is not hoisted onto the projection, so it is compared where it is
+      // stored, or a synthetic clearing one would read as no change.
+      const current =
+        block !== undefined && isOnlyKey(key, frame.workspace)
+          ? atPath(projection as unknown as Record<string, unknown>, [block], key)
+          : projection[key as keyof Types.Config];
+      if (synthetic && Value.deepEqual(value, normalizeRootValue(key, current))) continue;
       draft = writePath(draft, block ? [block] : [], key, value);
       if (key === 'weather_entity') draft = turnOnLayoutWeather(draft, frame.workspace);
     }

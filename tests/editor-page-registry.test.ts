@@ -473,23 +473,19 @@ const APPROVED_MAP: ReadonlyArray<
     'Card Size & Spacing',
     '',
     [
-      'layout:height_mode E SLCG',
-      'layout:card_height W SLCG',
-      'layout:card_max_height W SLCG',
-      // Grid's own height, beside the Height it yields to.
+      // The whole card's height, in every layout.
+      'layout:height_mode E',
+      'layout:fixed_height W',
+      'layout:maximum_height W',
+      // The events area's own pair, drawn only on a card that holds one, never offered.
+      'layout:height K SLCG',
+      'layout:max_height K SLCG',
+      // Grid's own height, beside the Card Height it fits into.
       'layout:time_grid.hour_height A G',
       'layout:additional_card_spacing A',
-      // How narrow Month's days may get before it turns narrow, ahead of each form's heights.
-      'layout:month.min_day_width A M',
     ],
   ],
-  // Month's own heights, in the Height's place: the whole card, one heading per form.
-  [
-    'Size & Spacing',
-    'Wide Month',
-    '',
-    ['layout:month.card_height A M', 'layout:month.card_max_height A M'],
-  ],
+  // Month's narrow form, which takes Card Height while its own are unset.
   [
     'Size & Spacing',
     'Narrow Month',
@@ -508,24 +504,21 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.axis_label_minutes A G',
     ],
   ],
+  // How the card fits a narrow width: Columns' and Grid's one choice and their Down To and Below
+  // That, then each layout's Minimum Day Width, Month's among them.
   [
     'Size & Spacing',
-    'Column Density',
-    'column_density',
+    'Narrow Cards',
+    '',
     [
-      'layout:column.min_day_width F C',
-      'layout:column.min_days_to_show F C',
-      'layout:column.min_days_fallback F C',
-    ],
-  ],
-  [
-    'Size & Spacing',
-    'Grid Density',
-    'grid_density',
-    [
-      'layout:time_grid.min_day_width F G',
-      'layout:time_grid.min_days_to_show F G',
-      'layout:time_grid.min_days_fallback F G',
+      'layout:narrow_fit E CG',
+      'layout:column.min_days_to_show W C',
+      'layout:time_grid.min_days_to_show W G',
+      'layout:column.min_days_fallback W C',
+      'layout:time_grid.min_days_fallback W G',
+      'layout:column.min_day_width A C',
+      'layout:time_grid.min_day_width A G',
+      'layout:month.min_day_width A M',
     ],
   ],
   [
@@ -681,16 +674,17 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 238 ids, Month's own nine, Layouts in Switcher, the three of the month's name
-    // on List's month separator and a calendar's two start hours among them, and every one of them
-    // is built under some workspace and state.
+    // map places 239 ids, Month's own seven, Layouts in Switcher, the three of the month's name
+    // on List's month separator, a calendar's two start hours, When Too Narrow and the events
+    // area's own height pair among them, and every one of them is built under some workspace and
+    // state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(238);
-    expect(PLACED).toHaveLength(238);
+    expect(BUILT.size).toBe(239);
+    expect(PLACED).toHaveLength(239);
   });
 
   it('has no field built but unplaced', () => {
@@ -734,6 +728,8 @@ describe('the page registry places every built field exactly once', () => {
     const marker = (appearance: Appearance): string => {
       if (appearance === 'essential') return 'E';
       if (appearance === 'add') return 'A';
+      // Drawn only while stored, never offered: the events area's own height pair.
+      if (appearance === 'kept') return 'K';
       if (appearance === 'button-rows') return 'B';
       // Start Date's chips.
       if (appearance === 'segmented') return 'R';
@@ -857,7 +853,7 @@ describe('the page registry is consistent with itself', () => {
 
   it('names a mode control on the same page for every mode value', () => {
     const modes = PLACED.filter(({ appearance }) => modeControls(appearance).length > 0);
-    expect(modes).toHaveLength(18);
+    expect(modes).toHaveLength(22);
     for (const { id, appearance, page } of modes) {
       for (const control of modeControls(appearance)) {
         expect(PLACED.find((placed) => placed.id === control)?.page, `${id} with ${control}`).toBe(
@@ -918,7 +914,7 @@ describe('the page registry is consistent with itself', () => {
       'layout:time_grid.weekend_background_color',
       'layout:month.weekend_background_color',
     ]);
-    expect([...members.values()].reduce((sum, count) => sum + count, 0)).toBe(18);
+    expect([...members.values()].reduce((sum, count) => sum + count, 0)).toBe(12);
   });
 
   it('resolves every string it names', () => {
@@ -1091,8 +1087,9 @@ describe('the registry heads what the builders used to', () => {
       'layout:time_grid.allday_band_max_rows',
     );
     const size = under('size_spacing', 'heading_card_size');
+    // After Card Height and the events area's own pair, which a fixed grid's hours fit into.
     expect(size.indexOf('layout:time_grid.hour_height')).toBe(
-      size.indexOf('layout:card_max_height') + 1,
+      size.indexOf('layout:max_height') + 1,
     );
     expect(under('size_spacing', 'heading_hour_labels')).toEqual([
       'layout:time_grid.axis_width',
@@ -1106,7 +1103,7 @@ describe('the registry heads what the builders used to', () => {
         spacing.indexOf('heading_card_size') + 1,
         spacing.indexOf('heading_hour_labels'),
       ),
-    ).toEqual(['heading_wide_month', 'heading_narrow_month', 'heading_event_rows']);
+    ).toEqual(['heading_narrow_month', 'heading_event_rows']);
     expect(under('day_header', 'weekend_colors')).toContain(
       'layout:time_grid.weekend_background_color',
     );

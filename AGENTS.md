@@ -2289,6 +2289,10 @@ every page, scope and entry for an empty one.
 
 Four things follow for new code:
 
+- **One appearance draws less than the builders build: `'kept'`**, a setting another has replaced,
+  drawn only while the scope holds or inherits a value of its own (`plan.ts` › `leavesKeptOut`). The
+  events area's `height` and `max_height`, which Card Height replaced, are the two. A check that
+  walks what is built against what is drawn asks `leavesKeptOut` rather than restating the rule.
 - **A new field's appearance is a decision.** `'essential'` draws it on every card, so most new
   fields are `'add'`. Placing one is the same question as under _Where a new option goes_ below.
 - **A new gate condition on anything but a switch needs a clause** (`Prereq.whenKey` or

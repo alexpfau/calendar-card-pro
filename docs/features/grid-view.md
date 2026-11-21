@@ -123,7 +123,7 @@ column. Nothing needs configuring.
 ## 📏 How Tall an Hour Is
 
 `hour_height` sets how tall one hour of the axis is, `48px` by default, and with it the
-natural height of the calendar content area: one hour times the hours shown. It is a CSS
+natural height of the events area: one hour times the hours shown. It is a CSS
 length, so `4em` works too and tracks your font size.
 
 ```yaml
@@ -131,25 +131,22 @@ time_grid:
   hour_height: 64px
 ```
 
-A fixed `height` overrides it: the axis compresses to fit the calendar content area instead.
+A fixed height overrides it: a `card_height`, a fixed `height` or rows set in a Sections
+dashboard fit the hours into the room left under the day headers and the all-day band.
 
 ```yaml
 view: grid
-height: 400px
+card_height: 600px
 ```
 
-`height` sets the calendar content area, so a header or card padding makes the outer card
-taller. Give a fixed-height grid enough room for both its all-day band and its hours.
+- **An hour is never shorter than `24px`**, or `hour_height` where that is smaller, so an hour-long
+  event keeps a line of its title. Below that, the events area scrolls.
+- **The all-day band keeps its rows**, at most [`allday_band_max_rows`](#all-day-events), and
+  never scrolls on its own.
+- **`card_height` counts the title and the toolbar**; `height` sizes the events area alone, and
+  the header comes on top of it.
 
-::: details Very Short Fixed-Height Cards
-At least half the content height stays for the hours, and a tall all-day band scrolls in
-what is left above them, under the day headers. Around `180px` the band is down to a row or
-two, and below about twice the header height it is a sliver. Its events are still there and
-reachable by scrolling or the keyboard, but the hours themselves start to be clipped by the
-bottom of the card.
-:::
-
-**→ [Height in Grid View](/features/layout-appearance#height-in-grid-view)** — how this interacts with `max_height` and the other views.
+**→ [Height in Grid View](/features/layout-appearance#height-in-grid-view)** — the whole card's height, and how a cap scrolls instead.
 
 ## 📐 Ruling the Axis
 
@@ -811,6 +808,12 @@ time_grid:
     crammed grid scrolls rather than [paging](/features/layout-appearance#paging-through-dates);
     the arrows still page.
 - The days that stay always include today, and they move on at midnight.
+
+In the visual editor these sit under **Narrow Cards** on Grid's Size & Spacing, with the same
+**When Too Narrow** choices as
+[column view's](/features/column-view#setting-it-in-the-visual-editor). Grid's **Keep the days,
+narrower** also writes `min_days_to_show` at the number of days shown, since Grid would otherwise
+drop days down to one before narrowing them.
 
 ::: warning Dropped Days Are Not Marked
 The card does not draw a marker saying days before or after the visible ones were hidden,

@@ -41,13 +41,21 @@ each renderer.
   alone. A narrow month with no height under a cap grows with its list instead
   (`monthNarrowGrows`). A month is one height
   before anything is drawn: a Sections dashboard's slot, which it fills (`utils/sections.ts`), or
-  the height its `month:` block resolves to (`ViewConfig.resolveMonthCardSize`), which the card
-  writes on `ha-card` (`monthCardStyle`). Unset, both are the same pair, taller where the
+  the `card_height` and `card_max_height` it resolves to, from `month:` or the top level
+  (`ViewConfig.resolveCardSize`), which the card writes on `ha-card` (`monthCardStyle`). Unset,
+  both are the same pair, taller where the
   configuration asks for a toolbar (`Config.asksForToolbar`), read from the configuration alone
   because Home Assistant asks for the rows again only when it changes. The six wide weeks share
   what the header leaves, each at
   least a date and one line, floors the card measures from the probes and writes on the month
   (`measureMonthFloors`); below them the content scrolls.
+- **`card-size.ts`** sizes the whole card in every layout. `card_height` and `card_max_height`,
+  from a layout's block or the top level (`ViewConfig.resolveCardSize`), are written on `ha-card`,
+  a flex column, and the events area takes what the header leaves (`FILL_CARD`), as it does in a
+  Sections slot: List scrolls in it, Columns leave room under their days, Grid compresses its
+  hours down to `UI.GRID_MIN_HOUR_HEIGHT` an hour and scrolls below that (`fillsCard`), and Month
+  writes its own (`monthCardStyle`). `height` and `max_height` still size the events area alone,
+  and a `card_height` that is a length sets `height` aside.
 - **`leaves.ts`** holds the axis-agnostic pieces: the date block, the event body, weather badges,
   the today indicator and the accent bar.
 - **`presentation.ts`** computes everything about an event that does not depend on layout: ended,

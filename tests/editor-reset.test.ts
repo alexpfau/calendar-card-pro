@@ -251,13 +251,13 @@ describe('a field', () => {
 
   it('a synthetic mode resets with its values and their held text, together (R6)', () => {
     const { state, stored } = run(
-      { height: '300px', max_height: '500px', title: 'Family' },
+      { card_height: '300px', card_max_height: '500px', title: 'Family' },
       (s) => ({
         kind: 'field',
         field: fieldOf(s, 'shared', 'layout:height_mode'),
         workspace: 'shared',
       }),
-      { pending: { card_height: '30', card_max_height: '5', title: 'Fam' } },
+      { pending: { fixed_height: '30', maximum_height: '5', title: 'Fam' } },
     );
     expect(stored).toEqual({ title: 'Family' });
     expect(state.pending).toEqual({ title: 'Fam' });
@@ -298,10 +298,13 @@ describe('a family', () => {
 
   it('reaches members nested in a layout’s block', () => {
     const { stored } = run(
-      { view: 'column', column: { min_day_width: '90px', min_days_to_show: 3, gap: '4px' } },
-      () => ({ kind: 'family', family: 'column_density', workspace: 'column' }),
+      {
+        view: 'list',
+        list: { compact_days_to_show: 3, compact_events_to_show: 5, event_font_size: '16px' },
+      },
+      () => ({ kind: 'family', family: 'compact_mode', workspace: 'list' }),
     );
-    expect(stored).toEqual({ view: 'column', column: { gap: '4px' } });
+    expect(stored).toEqual({ view: 'list', list: { event_font_size: '16px' } });
   });
 });
 
@@ -404,18 +407,18 @@ describe('a path and a whole block', () => {
   });
 
   it('a path clears the text a synthetic field holds for the same line', () => {
-    // A cleared Card Height is held as text under its synthetic name, not under `height`.
+    // A cleared Card Height is held as text under its synthetic name, not under `card_height`.
     const { state, stored } = run(
-      { height: '400px', list: { height: '300px' } },
-      () => ({ kind: 'path', path: ['list', 'height'] }),
-      { pending: { 'list.card_height': '', card_height: '4' } },
+      { card_height: '400px', list: { card_height: '300px' } },
+      () => ({ kind: 'path', path: ['list', 'card_height'] }),
+      { pending: { 'list.fixed_height': '', fixed_height: '4' } },
     );
-    expect(stored).toEqual({ height: '400px' });
-    expect(state.pending).toEqual({ card_height: '4' });
-    const root = run({ height: '400px' }, () => ({ kind: 'path', path: ['height'] }), {
-      pending: { card_height: '', 'list.card_height': '3' },
+    expect(stored).toEqual({ card_height: '400px' });
+    expect(state.pending).toEqual({ fixed_height: '4' });
+    const root = run({ card_height: '400px' }, () => ({ kind: 'path', path: ['card_height'] }), {
+      pending: { fixed_height: '', 'list.fixed_height': '3' },
     });
-    expect(root.state.pending).toEqual({ 'list.card_height': '3' });
+    expect(root.state.pending).toEqual({ 'list.fixed_height': '3' });
   });
 
   it('Reset All in Grid: the block, its held text, and every divergent key it held', () => {

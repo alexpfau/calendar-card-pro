@@ -417,7 +417,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.month.label': 'Month',
   'view.option.month.description': 'A whole month, a row per week',
   'view.helper':
-    'Side-by-side layouts can fall back to List when space is tight, with List’s own settings.',
+    'When space is tight, Columns and Grid give up columns or fall back to List, with List’s own settings, and Month draws its narrow form.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
@@ -546,6 +546,29 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'width_table.hysteresis':
     'Within {band} px of a boundary the card keeps the layout it already has, so a ' +
     'card sitting on the line settles instead of flickering.',
+  // Month's own table: its two forms, with the one-way margin it keeps once narrow.
+  'width_table.month_wide': 'the wide month',
+  'width_table.month_narrow': 'the narrow month',
+  'width_table.month_hysteresis':
+    'Once narrow, it draws the wide month again only from {width} px, so a card sitting on ' +
+    'the line settles instead of flickering.',
+
+  // --- Fit summary ----------------------------------------------------------
+  //
+  // What each layout the card can show draws at common card widths, from the same rules the
+  // card uses on a fresh load. Layout names are the Starting Layout's own.
+  'fit_summary.title': 'At Common Card Widths',
+  'fit_summary.width': '{width} px',
+  'fit_summary.width_phone': '{width} px · phone',
+  'fit_summary.width_sections': '{width} px · Sections column',
+  'fit_summary.days': '{count} days',
+  'fit_summary.days_one': '1 day',
+  'fit_summary.narrower': '{count} days, narrower',
+  'fit_summary.narrower_one': '1 day, narrower',
+  'fit_summary.list': 'List, {count} days',
+  'fit_summary.list_one': 'List, 1 day',
+  'fit_summary.month_wide': 'Wide',
+  'fit_summary.month_narrow': 'Narrow',
 
   // --- Spacing --------------------------------------------------------------
   day_spacing: 'Day Spacing',
@@ -562,30 +585,45 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // *Maximum height* — already say what it does, and a sentence restating them in prose
   // costs a line and teaches the reader that helpers are not worth reading. The two
   // measurements below say what a helper can only say there: what happens when the
-  // events do not fit.
+  // events do not fit. Month's `auto` is its own default height, so its first choice says so.
   height_mode: 'Card Height',
   'height_mode.option.auto.label': 'Fit content',
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
-  card_height: 'Height',
-  'card_height.helper':
-    'List and Columns scroll when the events do not fit; Grid compresses its hours, and Month its weeks.',
-  card_max_height: 'Maximum Height',
-  'card_max_height.helper': 'Grows with its content up to this height, then scrolls.',
+  'month.height_mode.option.auto.label': 'Default height',
+  'month.height_mode.option.fixed.label': 'Fixed height',
+  'month.height_mode.option.maximum.label': 'Maximum height',
+  fixed_height: 'Height',
+  'fixed_height.helper':
+    'The whole card, title and toolbar included: List scrolls, Grid fits its hours down to a ' +
+    'readable size, Month its weeks. Rows set in a Sections dashboard’s Layout tab win over it.',
+  maximum_height: 'Maximum Height',
+  'maximum_height.helper': 'Grows with its content up to this height, then scrolls.',
+  // The events area's own pair, which Card Height replaced: shown only on a card that holds one.
+  height: 'Events Area Height',
+  'height.helper': 'The events under the title only. Card Height takes its place once set.',
+  max_height: 'Events Area Maximum Height',
+  'max_height.helper': 'Caps the events under the title, under any Card Height too.',
 
-  // --- Column density -------------------------------------------------------
-  'column.density': 'Column Density',
-  'column.density.helper':
-    'How narrow a column may get before the card gives up a column, and what it does ' +
-    'when it runs out.',
+  // --- Fit to width ---------------------------------------------------------
+  //
+  // One choice over Down To and Below That, which stay stored in the layout's block, so a
+  // combination no choice names reads Custom and is kept as written.
+  narrow_fit: 'When Too Narrow',
+  'narrow_fit.helper': 'The list uses List’s own settings.',
+  'narrow_fit.aliases': 'fewest day columns, column density, fall back to list',
+  'narrow_fit.option.fewer.label': 'Show fewer days, then a list',
+  'narrow_fit.option.list.label': 'Show a list',
+  'narrow_fit.option.cramp.label': 'Keep the days, narrower',
+  'narrow_fit.option.custom.label': 'Custom',
+
+  // --- Columns' fit ---------------------------------------------------------
   'column.min_day_width': 'Minimum Day Width',
-  'column.min_days_to_show': 'Fewest Day Columns',
-  'column.min_days_to_show.helper':
-    'Defaults to 2, or every day when the columns are kept narrower. At the number of days shown, the card never drops a column.',
-  'column.min_days_fallback': 'When Too Narrow',
+  'column.min_days_to_show': 'Down To',
+  'column.min_days_to_show.helper': 'The fewest days side by side; 2 while unset.',
+  'column.min_days_fallback': 'Below That',
   'column.min_days_fallback.option.list.label': 'Fall back to a list',
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
-  'column.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'column.day_header_gap': 'Day Header Gap',
   'time_grid.day_header_gap': 'Day Header Gap',
 
@@ -940,9 +978,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
   heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
-  // Month's heights, one heading per form, after Minimum Day Width decides between them.
-  heading_wide_month: 'Wide Month',
+  // Month's narrow form's height, which follows Card Height while unset.
   heading_narrow_month: 'Narrow Month',
+  // When Too Narrow, each layout's Minimum Day Width, and the tables of what the card draws.
+  heading_narrow_cards: 'Narrow Cards',
   // Event Gap and Event Spacing, which Month draws only in a narrow month's day list and the panel
   // "+N more" opens, so Month names those instead.
   heading_event_rows: 'Event Rows',
@@ -1042,18 +1081,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   //
   // Options stored in `time_grid:`, labeled under its prefix (`schemas/common.ts` ›
   // `blockScope`).
-  'time_grid.density': 'Grid Density',
-  'time_grid.density.helper':
-    'How narrow a day column may get before the grid gives up a day, and what it does ' +
-    'when it runs out.',
   'time_grid.min_day_width': 'Minimum Day Width',
   'time_grid.min_day_width.helper': 'The default, 100px, fits three days at 383px.',
-  'time_grid.min_days_to_show': 'Fewest Day Columns',
-  'time_grid.min_days_to_show.helper': 'Defaults to 1: a one-day grid is still a useful day view.',
-  'time_grid.min_days_fallback': 'When Too Narrow',
+  'time_grid.min_days_to_show': 'Down To',
+  'time_grid.min_days_to_show.helper': 'The fewest days side by side; 1 while unset.',
+  'time_grid.min_days_fallback': 'Below That',
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
-  'time_grid.min_days_fallback.helper': 'The list it falls back to uses List’s own settings.',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper': 'As HH:mm. Events entirely before it are not drawn at all.',
   'time_grid.end_time': 'Last Hour',
@@ -1103,16 +1137,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- The month's own block --------------------------------------------------
   //
   // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
-  // The heights are named for their form, apart from the card's Height and Maximum Height, which
-  // share their option names, and which Month does not read.
-  'month.card_height': 'Wide Card Height',
-  'month.card_height.helper':
-    'The whole card, title and toolbar included: auto is 632px, or 760px with the toolbar, and ' +
-    'rows set in a Sections dashboard’s Layout tab win over it.',
-  'month.card_max_height': 'Wide Maximum Height',
+  // The narrow form's heights, which take Card Height's while unset.
   'month.narrow_card_height': 'Narrow Card Height',
   'month.narrow_card_height.helper':
-    'auto is 632px, or 760px with the toolbar, as in the wide month.',
+    'auto is the default height, 632px, or 760px with the toolbar, as in the wide month.',
   'month.narrow_card_max_height': 'Narrow Maximum Height',
   'month.narrow_card_max_height.helper':
     'With Narrow Card Height at auto, the card grows with the day’s list up to this.',

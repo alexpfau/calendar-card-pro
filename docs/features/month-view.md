@@ -17,7 +17,7 @@ view: month
 In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
 row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
 change how the month looks, such as its weekend and today shading under **Days**. Its height is
-set in YAML, under [How Tall the Month Is](#how-tall-the-month-is).
+on **Size & Spacing**; see [How Tall the Month Is](#how-tall-the-month-is).
 
 ## 📅 The Six Weeks
 
@@ -99,9 +99,11 @@ leaves a day out, and starts again after it, so a weekday-only trip never covers
 
 A month is one height whatever its events, so a busy month is as tall as a quiet one, and its six
 weeks share that height evenly. On a Sections dashboard it fills the rows it is given: ten unless
-you choose others, or twelve with the toolbar. Anywhere else `card_height` sets the whole card's
-height, by default the same `632px`, or `760px` with the toolbar. At the default text sizes either
-leaves a day four lines under its date, the last of a busy day being "+N more".
+you choose others, or twelve with the toolbar. Anywhere else the card's own
+[`card_height`](/features/layout-appearance#card-dimensions-scrolling) sets the whole card's
+height, by default `632px`, or `760px` with the toolbar, and `card_height` in `month:` sets one for
+Month alone. At the default text sizes either default leaves a day four lines under its date, the
+last of a busy day being "+N more".
 
 ```yaml
 # On a Sections dashboard: the month fills its rows
@@ -127,16 +129,16 @@ month:
   narrow_card_max_height: 40rem
 ```
 
-| Option                           | Type   | Default           | Description                                                                                                                                    |
-| -------------------------------- | ------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `month → card_height`            | string | `auto`            | The whole card's height in the wide month, its title, toolbar and notices included; `auto` is `632px`, `760px` with the toolbar                |
-| `month → card_max_height`        | string | `none`            | Tallest the wide month's card may be; it clamps `card_height`                                                                                  |
-| `month → narrow_card_height`     | string | `card_height`     | The same for the [narrow month](#the-narrow-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's |
-| `month → narrow_card_max_height` | string | `card_max_height` | The same cap for the narrow month; with its height `auto`, the card grows with the day's list up to it                                         |
+| Option                           | Type   | Default           | Description                                                                                                                                                     |
+| -------------------------------- | ------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `month → card_height`            | string | `auto`            | Overrides the card's own `card_height` for Month: the whole card's height, its title, toolbar and notices included; `auto` is `632px`, `760px` with the toolbar |
+| `month → card_max_height`        | string | `none`            | Overrides the card's own `card_max_height` for Month: the tallest the card may be; it clamps `card_height`                                                      |
+| `month → narrow_card_height`     | string | `card_height`     | The same for the [narrow month](#the-narrow-month), which takes `card_height` until this is set; `auto` is the same height as the wide month's                  |
+| `month → narrow_card_max_height` | string | `card_max_height` | The same cap for the narrow month; with its height `auto`, the card grows with the day's list up to it                                                          |
 
-In the visual editor these are **Wide Card Height** and **Wide Maximum Height** under **Wide
-Month**, and **Narrow Card Height** and **Narrow Maximum Height** under **Narrow Month**, on
-Month's Size & Spacing.
+In the visual editor, **Card Height** on Month's Size & Spacing chooses **Default height**,
+**Fixed height** or **Maximum height**, and writes `card_height` or `card_max_height` in `month:`. **Narrow Card Height**
+and **Narrow Maximum Height**, under **Narrow Month**, read **Same as Card Height** while unset.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks. The default makes room for the toolbar, so a day keeps its four lines with
@@ -145,14 +147,14 @@ Month's Size & Spacing.
   only with the date navigation, beside which it is drawn. The room is
   kept where a control is not drawn on one screen, such as add where no calendar can be written
   to, so the card's height never changes with it.
-- **A Sections row count wins.** While none of the four sets a height or a maximum, a month asks
-  a Sections dashboard for ten rows, or twelve with the toolbar; `auto`, `none` and a value it
-  cannot use set neither. Once
-  one does, the card sizes itself, and rows chosen in the dashboard's Layout tab always win, the
-  four then doing nothing. A card that opens as a month keeps its rows when you switch it to
-  another layout, which scrolls within them.
-- **The narrow month follows the wide one** until its own two are set, and an explicit `auto` or
-  `none` there gives it its own default back.
+- **A Sections row count wins.** While no height or maximum applies to Month, at the top level,
+  in `month:` or for the narrow month, a month asks a Sections dashboard for ten rows, or twelve
+  with the toolbar; `auto`, `none` and a value it cannot use set neither. Once one does, the card
+  sizes itself, and rows chosen in the dashboard's Layout tab always win, the heights then doing
+  nothing. A card that opens as a month keeps its rows when you switch it to another layout, which
+  fills them as it fills a `card_height`.
+- **The narrow month follows the wide one**, Month's `card_height` and `card_max_height`, until
+  its own two are set, and an explicit `auto` or `none` there gives it its own default back.
 - **A maximum lets the narrow month grow.** With its height `auto` and a maximum from either
   key, the card is as tall as its weeks and [the day's list](#the-days-list), up to the maximum,
   so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
@@ -160,7 +162,7 @@ Month's Size & Spacing.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
   scrolls rather than any text shrinking, so every day still shows its date and "+N more".
 - **`height` and `max_height` do not apply.** They size the events area of the other layouts;
-  a month takes its height from the four above.
+  a month sizes its whole card.
 
 ::: details Lengths the Heights Take
 A height takes `auto` or a length: `600px`, `50rem`, a viewport unit such as `dvh`, or a `calc()`
@@ -208,9 +210,11 @@ month:
 | ----------------------- | ------ | ------- | --------------------------------------------------------------------------------- |
 | `month → min_day_width` | number | `80`    | Narrowest a day may be, in pixels, before the month draws its narrow form instead |
 
-At the defaults, a card narrower than about 600 pixels draws the narrow form. It turns wide
-again only a little past the width it turned narrow at, so a card on the edge does not flicker
-between the two.
+At the defaults, a card narrower than 594 pixels draws the narrow form, or 616 with week numbers.
+Once narrow, it turns wide again only from 622 pixels, or 644, so a card on the edge does not
+flicker between the two. In the visual editor, **Minimum Day Width** sits under **Narrow Cards**
+on Month's Size & Spacing, where **This card renders** gives both widths for the card as it is
+set up; see [Narrow Cards](/features/editor#narrow-cards).
 
 - **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
   for Tomorrow, Start of Week or no `start_date`. Paging to another month selects today where the
@@ -442,7 +446,7 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 
 | Options                                                                                                                                        | In Month View                                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `height`, `max_height`                                                                                                                         | Month sizes the whole card with its own heights; see [How Tall the Month Is](#how-tall-the-month-is)         |
+| `height`, `max_height`                                                                                                                         | Month sizes its whole card with `card_height`; see [How Tall the Month Is](#how-tall-the-month-is)           |
 | `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                               |
 | `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill                 |
 | `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers   |

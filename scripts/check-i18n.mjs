@@ -475,8 +475,16 @@ function probeConfigs(defaults, views) {
     {},
     allOn,
     allOff,
-    { height: '300px' },
-    { max_height: '300px' },
+    // Card Height's two values, and the events area's own pair, which the Layout panel builds
+    // only on a card that holds one.
+    { card_height: '300px' },
+    { card_max_height: '300px' },
+    { height: '300px', max_height: '300px' },
+    // When Too Narrow's Custom, which alone builds Below That, in both layouts that offer it.
+    {
+      column: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+      time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+    },
     { start_date: '2026-01-01' },
     { start_date: 'today+7' },
     { language: 'de' },

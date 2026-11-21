@@ -25,7 +25,7 @@ import {
   validatePastEventOpacity,
   validateWeekMarkColor,
 } from './config';
-import { HA_CARD_KEYS } from './constants';
+import { HA_CARD_KEYS, UI } from './constants';
 import * as Types from './types';
 import { VIEWS } from './views';
 import * as EntityColors from '../utils/entity-colors';
@@ -87,6 +87,10 @@ export const COLUMN_OVERRIDE_KEYS = [
   'additional_card_spacing',
   'height',
   'max_height',
+  // The whole card's, which every layout reads, Month included, so a card that switches layouts
+  // can keep one height while each layout may still set its own.
+  'card_height',
+  'card_max_height',
   'today_indicator',
   'today_indicator_size',
   'today_indicator_color',
@@ -262,8 +266,8 @@ export const LIST_ONLY_KEYS = [] as const;
  * The shared options a month draws nothing for (`Types.MonthIgnoredSharedKeys`), each kept out of
  * it in `VIEW_SCOPE` too, which `tests/month-registry.test.ts` reconciles.
  *
- * - It sizes its whole card with the four heights in its own block, so the events area's
- *   height and cap have nothing to size.
+ * - It sizes its whole card (`card_height`, `card_max_height`, and its narrow form's pair in its
+ *   own block), so the events area's height and cap have nothing to size.
  * - It shows its six weeks whatever their events, so it has no day count and no empty-day
  *   placeholder, and its day list splits every multi-day event across its days, so neither the
  *   List splitter's switch nor the multi-day all-day time row decides anything.
@@ -396,13 +400,12 @@ export const MONTH_OVERRIDE_KEYS = [
 ] as const;
 
 /**
- * Month-only options: the whole card's height and its cap, wide and narrow, the day width below
+ * Month-only options: the whole card's height and its cap in the narrow form, the day width below
  * which the narrow form draws, the weekend's and today's tints, which are Grid's, and the font
- * sizes of the wide month's days.
+ * sizes of the wide month's days. The wide form's pair is the card's own `card_height` and
+ * `card_max_height`, which `month:` overrides like any other layout's block.
  */
 export const MONTH_ONLY_KEYS = [
-  'card_height',
-  'card_max_height',
   'narrow_card_height',
   'narrow_card_max_height',
   'min_day_width',
@@ -1256,10 +1259,9 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
 /**
  * Defaults for month-only options.
  *
- * `card_height` and `card_max_height` size the whole card in the wide form, its title, toolbar
- * and notices included: `auto` is the month's own default height and `none` no cap. The narrow
- * form's two, `narrow_card_height` and `narrow_card_max_height`, have no default here: unset,
- * each takes its wide counterpart (`resolveMonthCardSize`).
+ * The narrow form's heights, `narrow_card_height` and `narrow_card_max_height`, have no default
+ * here: unset, each takes the card's `card_height` and `card_max_height` as Month resolves them
+ * (`resolveCardSize`).
  *
  * `min_day_width` is the day width below which the month draws its narrow form. At the shipped
  * sizes a wide day 64px across cuts every title to four or five letters and drops every time,
@@ -1279,8 +1281,6 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * `event_font_size` and `time_font_size`.
  */
 export const MONTH_DEFAULTS = {
-  card_height: 'auto',
-  card_max_height: 'none',
   min_day_width: 80,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
@@ -1332,8 +1332,6 @@ export function normalizeMonthValue(
 
   // Lengths or a keyword, whose default is the keyword, so the pixel coercion below would read
   // them as strings and keep a blank value as written.
-  if (key === 'card_height') return toValidCardHeight(value) ?? fallback;
-  if (key === 'card_max_height') return toValidCardMaxHeight(value) ?? fallback;
 
   return String(coercePixelLengthAgainst(fallback, value, key));
 }
@@ -1368,35 +1366,41 @@ export function resolveMonthOption<K extends keyof typeof MONTH_DEFAULTS>(
 export type MonthCardForm = 'wide' | 'narrow';
 
 /**
- * A month card's height and its cap in one form, as the configuration resolves them: `height` is
- * `auto` or a CSS length, `max` is `none` or a CSS length.
+ * A card's whole height and its cap, as the configuration resolves them for one layout and, in
+ * Month, one form: `height` is `auto` or a CSS length, `max` is `none` or a CSS length.
  */
-export interface MonthCardSize {
+export interface CardSize {
   readonly height: string;
   readonly max: string;
 }
 
 /**
- * Resolves the height a month card is drawn at in one form, and its cap.
+ * Resolves the whole height a card is drawn at in one layout, and its cap.
  *
- * The wide form reads `card_height` and `card_max_height`, each folded to `auto` or `none` where
- * unusable. The narrow form reads `narrow_card_height` and `narrow_card_max_height`, each of
- * which counts as set by being written in the `month:` block, so an explicit `auto` or `none`
- * keeps the wide value out; written as nothing or as something unusable, it is unset, and the
- * narrow form takes the wide value. `auto` is left for the renderer, which draws it at the
- * month's own default and lets a narrow list grow under a cap. Pure: the card's layout, a Sections
- * row count, is decided elsewhere and wins over both.
+ * Every layout reads `card_height` and `card_max_height`, from its block or the top level, each
+ * folded to `auto` or `none` where unusable. A month's narrow form reads `narrow_card_height` and
+ * `narrow_card_max_height`, each of which counts as set by being written in the `month:` block, so
+ * an explicit `auto` or `none` keeps the wide value out; written as nothing or as something
+ * unusable, it is unset, and the narrow form takes the wide value. `auto` is left for the
+ * renderer: a month draws it at its own default and lets a narrow list grow under a cap, and the
+ * other layouts at their content's height. Pure: the card's layout, a Sections row count, is
+ * decided elsewhere and wins over both.
  *
  * @param config - Merged configuration, defaults already applied
- * @param form - The form drawn
+ * @param view - The layout drawn
+ * @param form - The form a month draws; ignored by the other layouts
  * @returns The height and the cap
  */
-export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm): MonthCardSize {
-  const wide: MonthCardSize = {
-    height: resolveMonthOption(config, 'card_height'),
-    max: resolveMonthOption(config, 'card_max_height'),
+export function resolveCardSize(
+  config: Types.Config,
+  view: Types.EffectiveView,
+  form: MonthCardForm = 'wide',
+): CardSize {
+  const wide: CardSize = {
+    height: toValidCardHeight(resolveViewOption(config, 'card_height', view)) ?? 'auto',
+    max: toValidCardMaxHeight(resolveViewOption(config, 'card_max_height', view)) ?? 'none',
   };
-  if (form === 'wide') return wide;
+  if (view !== 'month' || form === 'wide') return wide;
 
   const overrides = blockValues(config, 'month');
   const own = (
@@ -1414,8 +1418,8 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
 }
 
 /**
- * Whether the `month:` block sizes the card: a height other than `auto`, or a maximum other than
- * `none`, in either form, as {@link resolveMonthCardSize} resolves them. While neither form is
+ * Whether the configuration sizes a month's card: a height other than `auto`, or a maximum other
+ * than `none`, in either form, as {@link resolveCardSize} resolves them. While neither form is
  * sized a month asks a Sections dashboard for rows of its own (`Sections.cardGridOptions`); once
  * one is, it sizes itself.
  *
@@ -1428,7 +1432,7 @@ export function resolveMonthCardSize(config: Types.Config, form: MonthCardForm):
  */
 export function monthSetsCardSize(config: Types.Config): boolean {
   return (['wide', 'narrow'] as const).some((form) => {
-    const { height, max } = resolveMonthCardSize(config, form);
+    const { height, max } = resolveCardSize(config, 'month', form);
     return height !== 'auto' || max !== 'none';
   });
 }
@@ -3399,6 +3403,48 @@ export function resolveMinDaysFallback(
   return value === 'cramp' ? 'cramp' : 'list';
 }
 
+/**
+ * What a side-by-side layout does when the card is too narrow for every day, as one choice: the
+ * editor's When Too Narrow.
+ *
+ * - `fewer`: sheds days down to its floor, then falls back to List. The default, and what an unset
+ *   `min_days_to_show` reads as whatever it resolves to.
+ * - `list`: falls back to List at once, keeping every day or none: a floor written at the layout's
+ *   day count or above it.
+ * - `cramp`: keeps every day, narrower than `min_day_width`: `min_days_fallback: cramp` with the
+ *   floor unset, which then means every day, or written at the day count or above.
+ * - `custom`: any other combination, which sheds to a floor and then keeps that many narrower.
+ *
+ * Read from what is written as well as what it resolves to, so no combination reads as a choice
+ * that would write it otherwise. Pure.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - Columns or Grid
+ * @returns The choice the configuration amounts to
+ */
+export function narrowFit(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): 'fewer' | 'list' | 'cramp' | 'custom' {
+  const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
+  const floorWritten = !!overrides && Helpers.hasOwn(overrides, 'min_days_to_show');
+  const everyDay = resolveMinDaysToShow(config, view) >= configuredDays(config, view);
+  if (resolveMinDaysFallback(config, view) === 'cramp') return everyDay ? 'cramp' : 'custom';
+  return floorWritten && everyDay ? 'list' : 'fewer';
+}
+
+/**
+ * The day count a side-by-side layout draws at most: its `days_to_show`, as a whole number of at
+ * least one. What When Too Narrow's "Show a list" writes as the floor.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - The layout
+ * @returns Its day count
+ */
+export function layoutDays(config: Types.Config, view: Types.EffectiveView): number {
+  return configuredDays(config, view);
+}
+
 //-----------------------------------------------------------------------------
 // LOADED RANGE
 //-----------------------------------------------------------------------------
@@ -3952,4 +3998,80 @@ export function describeColumnLayoutBands(
     fallbackBelowPx: Math.ceil(computeColumnThresholdPxFor(config, floor, view) + halfBand),
     hysteresisPx: halfBand,
   };
+}
+
+//-----------------------------------------------------------------------------
+// FIT AT A WIDTH
+//-----------------------------------------------------------------------------
+
+/** The card widths a month changes form at, entering each form from a fresh load. */
+export interface MonthWidths {
+  /** The narrowest card that draws the wide month on a fresh load; narrower draws the narrow one. */
+  wideFromPx: number;
+  /** Once narrow, the narrowest card that draws the wide month again (`MONTH_NARROW_HYSTERESIS`). */
+  wideAgainFromPx: number;
+}
+
+/**
+ * The card widths a month changes form at, by the arithmetic the card measures with: a day is a
+ * seventh of the card less its inset and, with week numbers, their gutter
+ * (`MonthDay.monthDayWidth`), and the month is narrow below `min_day_width` a day, and once narrow
+ * until a day is `MONTH_NARROW_HYSTERESIS` wider (`MonthDay.monthNarrowAt`).
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The two widths, in whole CSS pixels
+ */
+export function describeMonthWidths(config: Types.Config): MonthWidths {
+  const weekNumbers = resolveViewOption(config, 'show_week_numbers', 'month') !== null;
+  const base = UI.TOOLBAR_ROW_INSET.month + (weekNumbers ? UI.MONTH_WEEK_GUTTER : 0);
+  const minDayWidth = resolveMonthOption(config, 'min_day_width');
+  return {
+    wideFromPx: Math.ceil(7 * minDayWidth + base),
+    wideAgainFromPx: Math.ceil(7 * (minDayWidth + UI.MONTH_NARROW_HYSTERESIS) + base),
+  };
+}
+
+/**
+ * What one layout draws at a card width on a fresh load:
+ *
+ * - `days`: that many days, in its own layout (List draws its own count at every width);
+ * - `narrower`: that many days, narrower than `min_day_width` (`min_days_fallback: cramp`);
+ * - `list`: List in its place, with List's own count of days;
+ * - `month`: a month, in the form given.
+ */
+export type LayoutFit =
+  | { readonly kind: 'days' | 'narrower' | 'list'; readonly days: number }
+  | { readonly kind: 'month'; readonly form: MonthCardForm };
+
+/**
+ * What one layout draws at a card width on a fresh load, from the same widths the editor's tables
+ * list ({@link describeColumnLayoutBands}, {@link describeMonthWidths}). A card already on screen
+ * keeps its layout a little past each width (the tables' notes), so this is the first draw, which
+ * is what a card shows when a dashboard opens at that width.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - The layout
+ * @param widthPx - The card's width, in CSS pixels
+ * @returns What it draws
+ */
+export function fitAtWidth(
+  config: Types.Config,
+  view: Types.EffectiveView,
+  widthPx: number,
+): LayoutFit {
+  if (view === 'month') {
+    return {
+      kind: 'month',
+      form: widthPx >= describeMonthWidths(config).wideFromPx ? 'wide' : 'narrow',
+    };
+  }
+  if (!VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
+    return { kind: 'days', days: configuredDays(config, view) };
+  }
+  const { bands, fallback } = describeColumnLayoutBands(config, view);
+  const band = bands.find((candidate) => widthPx >= candidate.minWidthPx);
+  if (band !== undefined) return { kind: 'days', days: band.columns };
+  return fallback === 'cramp'
+    ? { kind: 'narrower', days: bands[bands.length - 1].columns }
+    : { kind: 'list', days: configuredDays(config, 'list') };
 }

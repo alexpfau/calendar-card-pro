@@ -23,6 +23,7 @@ import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { walkSchema } from '../src/rendering/editor/panels';
+import { leavesKeptOut } from '../src/rendering/editor/plan';
 import { startingView } from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
@@ -69,7 +70,7 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
 
 /**
  * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
- * block field's own name, which may share a synthetic field's (Month's `card_height`).
+ * block field's own name, which may share a synthetic field's.
  */
 function optionKeys(schema: ReadonlyArray<HaFormSchema>, workspace: EditorWorkspace): string[] {
   const view = workspace === 'shared' ? undefined : workspace;
@@ -208,8 +209,12 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key. A Whole
     // Card page draws its keys in every workspace, saying where they do not apply instead.
+    // The events area's own height pair is drawn only on a card that holds it (`leavesKeptOut`).
+    const stored = (editor as unknown as { _rawConfig: Record<string, unknown> })._rawConfig;
+    const kept = leavesKeptOut(`layout:${key}`, stored, current);
     const expected =
-      WHOLE_CARD_KEYS.has(key) || (current === 'shared' ? scope.size > 1 : scope.has(current));
+      !kept &&
+      (WHOLE_CARD_KEYS.has(key) || (current === 'shared' ? scope.size > 1 : scope.has(current)));
     expect(main.includes(key), `${current}: ${key}`).toBe(expected);
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');

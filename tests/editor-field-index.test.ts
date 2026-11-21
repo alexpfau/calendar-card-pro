@@ -48,6 +48,7 @@ import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-fo
 import { computeLabel, lookup } from '../src/rendering/editor/localize';
 import { WHOLE_CARD_PAGES, placementOf } from '../src/rendering/editor/pages';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
+import { appearanceOf, leavesKeptOut } from '../src/rendering/editor/plan';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildToolbarButtonSchema } from '../src/rendering/editor/schemas/card';
 import { deepEqual, toStoredConfig } from '../src/rendering/editor/value';
@@ -277,11 +278,11 @@ describe('field ids', () => {
     );
     // 223 without Month or the name on List's month separator, Arrow & Chip Size and a calendar's
     // Private among them.
-    // Month adds its own ten: its four card heights, Minimum Day Width, its two shadings, the two
-    // font sizes of its days, and Layouts in Switcher. List's month separator adds three: Month
-    // Name on Rule, its color and its size. A calendar's start hours add two: Starts At or After
-    // and Starts Before.
-    expect(EVERY_FIELD.size).toBe(238);
+    // Month adds its own eight: its two narrow card heights, Minimum Day Width, its two shadings,
+    // the two font sizes of its days, and Layouts in Switcher. List's month separator adds three:
+    // Month Name on Rule, its color and its size. A calendar's start hours add two: Starts At or
+    // After and Starts Before. Then the events area's own height pair and When Too Narrow.
+    expect(EVERY_FIELD.size).toBe(239);
   });
 
   it('do not depend on the editor language', () => {
@@ -350,7 +351,7 @@ describe('indexed fields', () => {
   it('know the keys they write', () => {
     const keys = (id: FieldId) => EVERY_FIELD.get(id)!.configKeys;
     expect(keys('content:start_date_mode')).toEqual(['start_date']);
-    expect(keys('layout:height_mode')).toEqual(['height', 'max_height']);
+    expect(keys('layout:height_mode')).toEqual(['card_height', 'card_max_height']);
     expect(keys('events:countdown_once_per_day')).toEqual(['show_countdown']);
     expect(keys('layout:time_grid.start_time')).toEqual(['start_time']);
     expect(keys('card:toolbar.show')).toEqual(['show']);
@@ -727,7 +728,12 @@ describe('the index builds what the editor draws today', () => {
       await draw(config, workspace);
       const ctx = schemaCtx(config, workspace, 'en');
       const sharedCtx = schemaCtx(config, 'shared', 'en');
-      const card = inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields);
+      // All the builders build, but a kept setting the card does not hold (`leavesKeptOut`).
+      const card = new Map(
+        [...inScope(buildFieldIndex(ctx).fields, buildFieldIndex(sharedCtx).fields)].filter(
+          ([id]) => !leavesKeptOut(id, config as unknown as Record<string, unknown>, workspace),
+        ),
+      );
       // A calendar's page is built for the card's layouts and the one being edited.
       const entries = new Map(
         (config.entities ?? []).flatMap((entry) => [
@@ -903,12 +909,15 @@ describe('the index builds what the editor draws today', () => {
 
     // Every field of every workspace's universe, and each toolbar button field, was reached:
     // Whole Card's pages draw theirs in the shared scope whatever the workspace.
+    // A kept setting is drawn only where a run holds it, so it is not expected everywhere.
     const expected = WORKSPACES.flatMap((workspace) =>
       [
-        ...inScope(
-          universeIndex('en', workspace).fields,
-          universeIndex('en', 'shared').fields,
-        ).keys(),
+        ...[
+          ...inScope(
+            universeIndex('en', workspace).fields,
+            universeIndex('en', 'shared').fields,
+          ).keys(),
+        ].filter((id) => appearanceOf(id) !== 'kept'),
         ...buttonFieldIndex(buildToolbarButtonSchema()).fields.keys(),
       ].map((id) => `${workspace} ${id}`),
     );
@@ -927,6 +936,8 @@ describe('the index builds what the editor draws today', () => {
     expect(
       beyond.filter((each) => {
         const id = each.slice(each.indexOf(' ') + 1) as FieldId;
+        // A kept setting is drawn where a run holds it, and is reached there.
+        if (appearanceOf(id) === 'kept') return false;
         return (
           !id.startsWith('calendar:') ||
           !WORKSPACES.some((workspace) => universeIndex('en', workspace).fields.has(id))

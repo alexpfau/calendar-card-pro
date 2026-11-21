@@ -4,87 +4,104 @@ These options control how the card looks rather than what it shows: its dimensio
 
 ## 📐 Card Dimensions & Scrolling
 
-Calendar Card Pro offers flexible options for controlling the card's size and scroll behavior:
+`card_height` sets the height of the whole card, its title, toolbar and notices included, and the
+events fill what the header leaves. Set it once at the top level and a card that switches layouts
+keeps the same height in every one.
 
 ```yaml
-# Fixed height - card always maintains exactly this height
-height: '300px'
-
-# Maximum height - card grows with content up to this height
-max_height: '300px'
-
-# Additional padding inside the card
-additional_card_spacing: '10px'
+card_height: 600px
 ```
 
-The card offers two distinct height control mechanisms:
+| Option                    | Type   | Default | Description                                                                        |
+| ------------------------- | ------ | ------- | ---------------------------------------------------------------------------------- |
+| `card_height`             | string | `auto`  | The whole card's height; `auto` is each layout's own                               |
+| `card_max_height`         | string | `none`  | The tallest the whole card may be; it clamps `card_height`                         |
+| `height`                  | string | `auto`  | The events area's height under the header; see [The Events Area](#the-events-area) |
+| `max_height`              | string | `none`  | The tallest the events area may be; see [The Events Area](#the-events-area)        |
+| `additional_card_spacing` | string | `0px`   | Extra padding at the top and bottom of the card                                    |
 
-- **Fixed Height (`height`)**: Creates a calendar content area with exactly the specified height regardless of content amount. The full card also includes its header and card padding, so use the dashboard's layout controls when its outer height must fit a specific space.
+- **`auto`** is each layout's own height: its content's in List, Columns and Grid, and in Month
+  `632px`, or `760px` with the toolbar; see
+  [How Tall the Month Is](/features/month-view#how-tall-the-month-is).
+- **`card_max_height` alone** lets the card grow with its events up to the cap, and then the
+  events scroll.
+- **A length** is any CSS length, such as `600px`, `40rem`, `80dvh` or a `calc()` with a `var()`.
+  A bare number is read in pixels.
+- **Each layout fills the height its own way.** List scrolls within it, Columns leave room under
+  their days, Grid fits its hours to it ([Height in Grid View](#height-in-grid-view)), and Month
+  shares it among its six weeks.
+- **Rows set in a Sections dashboard's Layout tab win over both**, and every layout fills them as
+  it fills a `card_height`.
+- **In the visual editor** it is **Card Height** on a layout's Size & Spacing: **Fit content**,
+  **Fixed height** with its **Height**, or **Maximum height** with its **Maximum Height**. On a
+  layout's page it is set for that layout, and on Layout Defaults for every layout.
 
-- **Maximum Height (`max_height`)**: Allows the calendar content area to grow naturally up to the specified limit. This provides flexibility while still ensuring its event content does not become too large.
+Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the same on
+desktop and mobile.
 
-In list and column views, both options scroll when content exceeds the available space.
-In grid view a fixed `height` compresses the time axis instead — see
-[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view but month
-view, which takes neither and sizes the whole card from its own block; see
-[How Tall the Month Is](/features/month-view#how-tall-the-month-is).
+::: details Values the Card Refuses
+A percentage, or a word such as `fit-content`, would let the events size the card, so the card
+warns and uses `auto` in its place, and `none` for `card_max_height`.
+:::
 
-Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
-same on desktop and mobile.
+### A Height Per Layout
 
-### Height in Column View
-
-Both options work the same way when the card renders as columns, and both may be
-overridden inside a `column:` block. That matters more here than it looks: the same events
-laid out side by side are far shorter than they are stacked, so a `max_height` tuned for
-the list layout often never comes into play in column view — and one tuned for columns
-would truncate the list badly.
+Both options may also be set in a layout's block, `list:`, `column:`, `time_grid:` or `month:`,
+which wins over the top level. The same events are far shorter side by side than stacked, so a
+cap tuned for List often never comes into play in Columns:
 
 ```yaml
 view: column
-max_height: '600px'
+card_max_height: 600px
 column:
-  max_height: '320px'
+  card_max_height: 320px
 ```
 
-What scrolls is the **whole card**, not an individual day. The columns sit inside one
-scrolling area, so the day headers move together with their events and nothing scrolls out
-of alignment with its neighbors. The column layout is exactly as tall as its tallest day,
-which means a quiet day leaves empty space beneath its last event rather than stretching
-to match — the events stay anchored under their header.
+### Height in Column View
 
-::: tip Sizing From The Dashboard Instead
-Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
-too, and they scroll it the same way. Use them when a row height is precise enough;
-reach for `max_height` when you want an exact pixel value, or a different limit per view.
-:::
+What scrolls is the events area as a whole, never a single day, so the day headers move with their
+events and nothing scrolls out of line with its neighbors. The columns are as tall as the tallest
+day and stay at the top: a quiet day leaves space beneath its last event, and a card taller than
+its columns leaves room under them.
 
 ### Height in Grid View
 
-In grid view a fixed `height` compresses the time axis rather than scrolling, and `hour_height`
-stops applying: the hours, the events and the now line squeeze into the room left after the day
-headers and the all-day band. The header and card padding sit outside that room, so use the
-dashboard's layout controls when the outer card needs a particular size. `max_height` still caps
-and scrolls, as in the other views.
-
-Both options may be overridden inside a `time_grid:` block, so the grid can have a height of its
-own:
+A `card_height`, a fixed `height` or rows set in a Sections dashboard fit the hours into the room
+left under the day headers and the all-day band, and `hour_height` stops applying. A cap,
+`card_max_height` or `max_height`, scrolls instead, as in the other layouts.
 
 ```yaml
 view: grid
-height: 400px # List and column view
-time_grid:
-  height: 600px # Grid view only
+card_height: 600px
 ```
 
-::: details Very Short Fixed Heights
-The time body keeps at least half the configured height, and a tall all-day band scrolls in what
-the day headers leave above it. Around `180px` the band is down to a row or two. Below about
-twice the header height it is a sliver whose events are still there but reached only by
-scrolling or the keyboard, and the bottom of the card starts to clip the time axis.
-:::
+- **An hour is never shorter than `24px`**, or `hour_height` where that is smaller, so an hour-long
+  event keeps a line of its title. Below that, the events area scrolls.
+- **The all-day band keeps its rows**, at most
+  [`allday_band_max_rows`](/features/grid-view#all-day-events), and never scrolls on its own, so an
+  all-day event stays in sight however short the card.
 
 **→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
+
+### The Events Area
+
+`height` and `max_height` size only the events area under the header, so the title, the toolbar
+and the card's padding come on top of them.
+
+```yaml
+height: 300px
+```
+
+- **`height`** fixes the events area however much it holds, and **`max_height`** lets it grow with
+  its events up to the cap. Beyond either it scrolls; Grid fits its hours to a fixed `height` as it
+  does to a `card_height`.
+- **A `card_height` takes the place of `height`** in a layout where it is a length, and
+  `max_height` still caps the events area under it.
+- **Month takes neither**; it sizes the whole card.
+- **Both may be set in a layout's block**, as `card_height` may.
+- **The visual editor** shows them as **Events Area Height** and **Events Area Maximum Height**
+  only on a card that already holds one, so it can be read and cleared. Choosing **Fixed height**
+  or **Maximum height** under **Card Height** clears them in that layout.
 
 ## 🎨 Visual Styling & Colors
 

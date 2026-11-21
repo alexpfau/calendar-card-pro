@@ -228,8 +228,22 @@ describe('the shown set: each state', () => {
     expect(stateIn(list, 'separators:day_spacing')).toEqual({ kind: 'none' });
   });
 
+  it('draws the events area’s own height only on a card that holds it, every setting shown or not', () => {
+    for (const every of [false, true]) {
+      const fresh = cardCtx({}, 'column', { every });
+      expect(stateIn(fresh, 'layout:height'), String(every)).toEqual({ kind: 'none' });
+      expect(stateIn(fresh, 'layout:max_height'), String(every)).toEqual({ kind: 'none' });
+      const held = cardCtx({ column: { max_height: '400px' } }, 'column', { every });
+      expect(stateIn(held, 'layout:max_height'), String(every)).toEqual({
+        kind: 'live',
+        why: 'stored',
+      });
+      expect(stateIn(held, 'layout:height'), String(every)).toEqual({ kind: 'none' });
+    }
+  });
+
   it('keeps a mode value live with its mode, and nowhere without it', () => {
-    expect(stateIn(cardCtx({ height: '300px' }, 'shared'), 'layout:card_height')).toEqual({
+    expect(stateIn(cardCtx({ card_height: '300px' }, 'shared'), 'layout:fixed_height')).toEqual({
       kind: 'live',
       why: 'stored',
     });

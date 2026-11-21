@@ -452,13 +452,23 @@ export const GATES: Readonly<Record<string, Gate>> = {
     kind: 'mode-value',
   },
   fixed_height: {
-    fields: ['layout:card_height'],
+    fields: ['layout:fixed_height'],
     requires: [oneOf('layout:height_mode', 'fixed')],
     kind: 'mode-value',
   },
   maximum_height: {
-    fields: ['layout:card_max_height'],
+    fields: ['layout:maximum_height'],
     requires: [oneOf('layout:height_mode', 'maximum')],
+    kind: 'mode-value',
+  },
+  fewer_days: {
+    fields: ['layout:column.min_days_to_show', 'layout:time_grid.min_days_to_show'],
+    requires: [oneOf('layout:narrow_fit', 'fewer', 'custom')],
+    kind: 'mode-value',
+  },
+  custom_fit: {
+    fields: ['layout:column.min_days_fallback', 'layout:time_grid.min_days_fallback'],
+    requires: [oneOf('layout:narrow_fit', 'custom')],
     kind: 'mode-value',
   },
   accent: {

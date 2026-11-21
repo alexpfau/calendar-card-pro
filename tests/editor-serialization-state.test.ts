@@ -92,16 +92,16 @@ it.each([false, true])(
 it('keeps incomplete scoped text through a save and an echo', async () => {
   const { editor, reports } = await mount({
     view: 'grid',
-    time_grid: { height: '400px' },
+    time_grid: { card_height: '400px' },
   });
-  await changeField(editor, 'layout:card_height', '');
+  await changeField(editor, 'layout:fixed_height', '');
   expect(reports).toHaveLength(0);
   await changeField(editor, 'events:show_description', true);
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.height', '400px');
-  expect(valueOf(editor, 'layout:card_height')).toBe('');
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.card_height', '400px');
+  expect(valueOf(editor, 'layout:fixed_height')).toBe('');
   editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;
-  expect(valueOf(editor, 'layout:card_height')).toBe('');
+  expect(valueOf(editor, 'layout:fixed_height')).toBe('');
   // Over a second in a full local run; the limit is set for CI's slower runner under load
   // rather than for a hang.
 }, 30_000);

@@ -24,9 +24,9 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as PrivateLock from './private-lock';
 import * as TextScale from './text-scale';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
-import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
@@ -1620,6 +1620,9 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  * @param bandOpenForNew - Whether the card draws a new all-day event it is adding into the
  *   band (`renderNewBanner`), which opens the band, one row, on days with no all-day event of
  *   their own
+ * @param fillsCard - Whether the card has a height of its own the events area fills, a
+ *   `card_height` or a Sections slot (`CardSize.fillsCard`), which compresses the hours as a
+ *   fixed `height` does
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1635,6 +1638,7 @@ export function renderGridGroupedEvents(
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
   bandOpenForNew = false,
+  fillsCard = false,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1739,53 +1743,39 @@ export function renderGridGroupedEvents(
       : []),
   ];
 
-  // A configured `height` turns the axis from a fixed scale into a share of the content
-  // area, as both `docs/features/grid-view.md` and the `.grid-container` stylesheet
-  // comment promise.
-  // Reserve at least half the content height for time, letting the all-day band scroll
-  // in the remaining space rather than starving the body. That remainder is what the day
-  // headers leave behind, and they do not compress -- so the band's share is roughly
-  // `0.5 * height - <header height>`, measured at 40px on a 180px card.
+  // A fixed height turns the axis from a fixed scale into a share of the content area, as both
+  // `docs/features/grid-view.md` and the `.grid-container` stylesheet comment promise: a
+  // configured `height`, or a whole card with a height of its own (`card_height`, or a Sections
+  // slot) whose content area fills what its header leaves (`fillsCard`). `max_height` and
+  // `card_max_height` are deliberately excluded: they cap and scroll rather than compress, so the
+  // body keeps its natural pixel height. `height` defaults to the string `'auto'`, so a truthy
+  // check is not enough -- a fixed height is a real length, matching the editor's own
+  // `heightMode` 'fixed' predicate.
   //
-  // Two things follow, both measured in a browser rather than derived, because happy-dom
-  // computes no layout. Shrinking the card drives that share to zero at about twice the
-  // header height, but the band does not vanish there: it floors at its own 4px padding
-  // and keeps `overflow-y: auto` with its full scrollHeight (127px for six banners), so
-  // its events are still scrollable and still a labeled tab stop -- unreachable by mouse
-  // at that size, never dropped. Past the same threshold the non-compressing header plus
-  // the body's 50% floor exceed the declared height, so the container overflows and
-  // `ha-card`'s `overflow: hidden` clips the bottom of the axis (10px at 80px, 20px at
-  // 60px). Growing the card cannot starve the band in the opposite direction: the cap
-  // rises with the height, and once it passes the content the band simply stops there
-  // (126.8px of 126.8px, nothing clipped, at 400px, 800px and 1200px).
+  // Only the hours compress. The day headers and the all-day band keep their height, the band at
+  // most `allday_band_max_rows` rows of banners, so an all-day event stays in sight however short
+  // the card. The hours take what those leave, and never less than `GRID_MIN_HOUR_HEIGHT` an
+  // hour, or the configured `hour_height` where that is smaller, so an hour-long event keeps a
+  // line of title. Below that the container grows past the content area, which scrolls, as a list
+  // does.
   //
-  // There is no floor, deliberately: giving the band one guaranteed row only moves the
-  // overflow point up to roughly 146px, trading a scroll-only band for a clipped time
-  // axis, and `height` is a free-text CSS length so it cannot be clamped in JS from here.
-  //
-  // Fractional tracks only distribute space once the grid itself has a definite height --
-  // so the container is stretched to `100%` of the fixed-height `.content-container` it
-  // sits directly inside. `max_height` is deliberately excluded: it caps and scrolls rather
-  // than compresses, so its body stays the natural pixel height and only the container
-  // clips. `height` defaults to the string `'auto'`, so a truthy check is not enough -- a
-  // fixed height is a real length, matching the editor's own `heightMode` 'fixed' predicate.
-  const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
+  // Fractional tracks only distribute space once the grid has a definite height, so the
+  // container is at least `100%` of the content area it sits directly inside; `min-height` rather
+  // than `height` is what lets it grow past it once the floor binds, and the fr track still fills
+  // the content area while there is room. Measured in Chromium, since happy-dom computes no
+  // layout: 15 hours on a 400px events area hold 24px each and scroll by 39px, the band intact.
+  const fixedHeight =
+    fillsCard || (config.height != null && config.height !== '' && config.height !== 'auto');
+  const bodyFloor = `calc(${bandHours} * min(${Constants.UI.GRID_MIN_HOUR_HEIGHT}, ${hourHeight}))`;
   // Cramp trades readability for keeping days, not for losing zero-width tracks.
   // Below two root-font units per day, preserve the tracks and scroll horizontally.
   const cramp = ViewConfig.resolveMinDaysFallback(config, 'grid') === 'cramp';
 
-  // Both scroll regions are focusable so a keyboard user can reach them, and a tab stop
-  // with no accessible name is announced as nothing useful. The band is therefore named
-  // wherever it is focusable, with `group` rather than `region`: the latter is a landmark,
-  // which would list a card-internal strip of banners beside the page's own navigation.
-  // The container is deliberately left unnamed — naming it needs a new string in all 35
-  // card languages, and axe's scrollable-region-focusable is satisfied by the tab stop
-  // alone; a name there is APG best practice, not a conformance requirement.
-  //
-  // A band open only for a new event the card is adding holds nothing to reach: that banner
-  // is hidden from assistive technology and answers no press. So it is a group with a name and
-  // a tab stop only while it holds banners of its own.
-  const bandReachable = fixedHeight && bannerRows > 0;
+  // The container is a scroll region while cramped, so it is focusable for a keyboard user. It
+  // is deliberately left unnamed — naming it needs a new string in all 35 card languages, and
+  // axe's scrollable-region-focusable is satisfied by the tab stop alone; a name there is APG best
+  // practice, not a conformance requirement. The all-day band never scrolls: it keeps its rows
+  // under any height, so it is read through its banners and needs no tab stop of its own.
 
   return html`
     <div
@@ -1801,11 +1791,9 @@ export function renderGridGroupedEvents(
         // function instead of a length, and the block above stretches the container so the
         // `1fr` has room to fill.
         '--calendar-card-grid-body-height': fixedHeight
-          ? 'minmax(50%, 1fr)'
+          ? `minmax(${bodyFloor}, 1fr)`
           : `calc(${hourHeight} * ${bandHours})`,
-        ...(fixedHeight
-          ? { height: '100%', '--calendar-card-grid-allday-height': 'minmax(0, auto)' }
-          : {}),
+        ...(fixedHeight ? { minHeight: '100%' } : {}),
         '--calendar-card-column-header-gap': headerGap,
         // The band's padding is sized from the two rules it has to clear, one per edge, so
         // the banners keep the same clear space under the upper rule as above the lower one
@@ -1854,13 +1842,6 @@ export function renderGridGroupedEvents(
           ? html`
               <div
                 class="grid-allday-band"
-                role=${bandReachable ? 'group' : nothing}
-                aria-label=${
-                  bandReachable
-                    ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
-                    : nothing
-                }
-                tabindex=${bandReachable ? '0' : nothing}
                 style=${styleMap({
                   gridColumn: `1 / span ${gridDays.length + 1}`,
                   gridRow: '3',

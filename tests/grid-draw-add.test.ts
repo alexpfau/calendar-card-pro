@@ -1265,8 +1265,8 @@ describe('the all-day band while a new all-day event is drawn on days without on
     expect(opened.banners).toBe(1);
   });
 
-  it('is no group, no name and no tab stop while it holds only the new event', async () => {
-    // A fixed height is what makes a band a scrolling group of its own.
+  it('is no group, no name and no tab stop, the new event alone or with its own', async () => {
+    // A fixed height compresses only the hours: the band keeps its rows and never scrolls.
     const fixed = { ...ADD, height: '360px' };
     const { card, dialogs } = await mount(fixed, false, TIMED);
     await tapTen(card);
@@ -1281,11 +1281,11 @@ describe('the all-day band while a new all-day event is drawn on days without on
     document.body.replaceChildren();
     localStorage.clear();
 
-    // One with an all-day event of its own is all three.
+    // One with an all-day event of its own is none of the three either.
     const holding = await mount(fixed);
     expect(
       ['role', 'aria-label', 'tabindex'].map((name) => bandOf(holding.card)!.getAttribute(name)),
-    ).toEqual(['group', 'All day', '0']);
+    ).toEqual([null, null, null]);
   });
 
   it("opens no band for an event the toolbar's button or the card's own action adds", async () => {

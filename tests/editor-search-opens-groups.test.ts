@@ -131,7 +131,6 @@ describe('what a group once opened', () => {
   it.each([
     ['country set in home assistant', 'list', 'day_header:weekend_day_color'],
     ['compact dashboard slot', 'list', 'content:compact_days_to_show'],
-    ['when it runs out', 'grid', 'layout:time_grid.min_day_width'],
   ] as const)('lists the fields a family helper names, for "%s"', (query, scope, id) => {
     expect(hitIds(index(scope), query)).toContain(id);
   });

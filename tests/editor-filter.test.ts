@@ -189,11 +189,13 @@ describe('editor filter: headings and pages a query names', () => {
     const layout = PANELS.find((panel) => panel.id === 'layout')!;
     const built = layout.build({ view: 'column', config, language: 'en' });
 
-    const whole = panelHits(config, 'layout', 'Column Density').sort();
+    // Narrow Cards: When Too Narrow, the block's own fields built under it, and Below That, found
+    // while it waits for Custom.
+    const whole = panelHits(config, 'layout', 'Narrow Cards').sort();
     const density = built.find((node) => 'schema' in node && node.name === 'column');
-    const inside = fieldNames((density as { schema: ReadonlyArray<HaFormSchema> }).schema).sort();
+    const inside = fieldNames((density as { schema: ReadonlyArray<HaFormSchema> }).schema);
 
-    expect(whole).toEqual(inside);
+    expect(whole).toEqual([...inside, 'narrow_fit', 'min_days_fallback'].sort());
   });
 
   it('lists only the field a key names', () => {
@@ -353,9 +355,9 @@ describe('editor filter: the chassis', () => {
     // here: it is found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
     expect(panels().map(({ id }) => id)).toEqual([
-      'layout:month.min_day_width',
       'layout:column.min_day_width',
       'layout:time_grid.min_day_width',
+      'layout:month.min_day_width',
     ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 

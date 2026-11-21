@@ -25,6 +25,7 @@ import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/edito
 import { corpus } from '../src/rendering/editor/gates';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { TOPIC_PAGES, placementOf } from '../src/rendering/editor/pages';
+import { leavesKeptOut } from '../src/rendering/editor/plan';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 const STATES = corpus();
@@ -145,7 +146,11 @@ describe('reachability through rendered navigation', () => {
         states += 1;
 
         const ctx = schemaCtx(config, workspace, 'en');
-        const present = [...buildFieldIndex(ctx).fields.values()];
+        // Every field built, but a kept setting the card does not hold (`leavesKeptOut`).
+        const present = [...buildFieldIndex(ctx).fields.values()].filter(
+          (field) =>
+            !leavesKeptOut(field.id, config as unknown as Record<string, unknown>, workspace),
+        );
         const colors = cardColorFields(ctx).specs;
         const nodes = new Map(present.map((field) => [field.id, field.node]));
         const byPage = new Map<string, FieldId[]>();

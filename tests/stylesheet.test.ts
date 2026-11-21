@@ -2856,12 +2856,12 @@ describe('card stylesheet', () => {
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
     });
 
-    it('lets the all-day track shrink and scroll while the time track retains its floor', () => {
+    it('keeps the all-day track at its banners while the time track takes the rest', () => {
       expect(declared('.grid-container', 'grid-template-rows').replace(/\s+/g, ' ')).toBe(
-        'auto auto var(--calendar-card-grid-allday-height, auto) var(--calendar-card-grid-body-height, 720px)',
+        'auto auto auto var(--calendar-card-grid-body-height, 720px)',
       );
-      expect(declared('.grid-allday-band', 'min-height')).toBe('0');
-      expect(declared('.grid-allday-band', 'overflow-y')).toBe('auto');
+      expect(declared('.grid-allday-band', 'min-height')).toBe('');
+      expect(declared('.grid-allday-band', 'overflow-y')).toBe('');
       expect(declared('.grid-allday-band', 'align-content')).toBe('start');
     });
 

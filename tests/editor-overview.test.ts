@@ -421,8 +421,8 @@ describe('the list a side-by-side layout falls back to', () => {
   });
 
   it.each([
-    ['column', 'layout:column.min_days_fallback'],
-    ['grid', 'layout:time_grid.min_days_fallback'],
+    ['column', 'layout:narrow_fit'],
+    ['grid', 'layout:narrow_fit'],
   ])('says so under %s’s When Too Narrow', async (layout, id) => {
     const editor = await mountEditor({ ...LIST_CARD, view: layout });
     await editLayout(editor, layout);
