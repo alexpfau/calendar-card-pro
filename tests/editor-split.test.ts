@@ -183,6 +183,17 @@ describe('what Split writes', () => {
     expect(second.accent_color).toBeUndefined();
   });
 
+  it('reads a label typed for a part as written, whatever type the entry’s own had', () => {
+    for (const label_type of ['none', 'image'] as const) {
+      const entry = { entity: 'calendar.anna', label: 'A', label_type };
+      const [typed, kept] = splitEntry(entry, { kind: 'type' }, [{ label: 'Anna' }, {}]);
+      expect(typed).toMatchObject({ label: 'Anna' });
+      expect(typed).not.toHaveProperty('label_type');
+      // A part that keeps the entry's label keeps its type with it.
+      expect(kept).toMatchObject({ label: 'A', label_type });
+    }
+  });
+
   it('puts the parts in the entry’s place, part 2 right after it under a new key', () => {
     const pair = splitEntry(ben, { kind: 'type' }, [{}, {}]);
     const state = {
