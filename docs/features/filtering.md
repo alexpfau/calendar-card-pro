@@ -385,13 +385,12 @@ filter_duplicates: true
 An event counts as a duplicate of another when its original **title**, **start**, **end** and
 **location** all match. Among copies that pass their calendar's filters, the surviving copy
 is the one from the eligible entry listed **first** in `entities`, carrying that entry's own
-`color` and `accent_color`, so reordering `entities` changes which calendar's styling a shared
-event shows.
+`color` and `accent_color`.
 
 `filter_duplicates: ignore_location` leaves the location out, matching on title, start and end
-alone. It suits holiday calendars, where one holiday in two regional calendars often differs
-only in location: Home Assistant's Holiday integration gives each holiday its calendar's name
-as the location, so `true` keeps both copies and `ignore_location` shows the holiday once:
+alone. It suits holiday calendars: Home Assistant's Holiday integration gives each holiday its
+calendar's name as the location, so `true` keeps a holiday two regional calendars share twice,
+and `ignore_location` shows it once:
 
 ```yaml
 entities:
@@ -411,18 +410,26 @@ entities:
 filter_duplicates: merge_locations # One row, at "Room A · Room B"
 ```
 
-Each location is shown as its own calendar shows it: a calendar with `show_location: false` adds
-nothing, and its `replace_field: location` rewrite applies to its own location alone, as
-`remove_location_country` applies to each. A location two copies share is shown once, and the
-event's details show the kept copy's own location.
-
 Keep `true` where each location should keep a row of its own, such as one title booked in two
 rooms at once. In the visual editor, **Filter Duplicates** offers the four values as **Off**,
 **Same title, start, end and location**, **Same title, start and end** and **Same title, start
 and end, listing every location**.
 
-Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
-that excludes a date cannot remove another calendar's eligible copy:
+When the merge spans two or more **distinct** calendars, the surviving row can also name every
+calendar the event belongs to and take a color that marks it as shared; see
+[Labeling & Coloring Shared Events](#labeling-coloring-shared-events).
+
+::: warning Matching Ignores Which Calendar an Event Came From
+Any two events that share a title, start, end and location are treated as duplicates, even if
+they are genuinely separate events and even if both live in the **same** calendar.
+
+If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
+this option is the cause.
+:::
+
+::: details Calendars That Skip a Day
+Weekday restrictions and all-day expiry are applied before choosing which copy is kept. A
+calendar that excludes a date cannot remove another calendar's eligible copy:
 
 ```yaml
 filter_duplicates: true
@@ -433,19 +440,6 @@ entities:
 ```
 
 On a weekend, a shared event still appears from Ben's calendar.
-
-When the merge spans two or more **distinct** calendars, the surviving row can also name every
-calendar the event belongs to and take a color that marks it as shared; see
-[Labeling & Coloring Shared Events](#labeling-coloring-shared-events).
-
-::: warning Matching Ignores Which Calendar an Event Came From
-Any two events that share a title, start, end and location are treated as duplicates, even if
-they are genuinely separate events and even if both live in the **same** calendar. Nothing is
-hidden merely for starting at the same time — all four fields must match, or the first three
-under `ignore_location` and `merge_locations`.
-
-If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
-this option is the cause.
 :::
 
 ::: details Multi-Day Events
@@ -454,7 +448,12 @@ different contributing calendars on different days. In List and Column, a first-
 that is not split keeps its single row; lower-priority copies do not force it to split.
 :::
 
-::: details Merging Locations Within One Calendar or From a Private Calendar
+::: details How Merged Locations Are Shown
+Each location is shown as its own calendar shows it: a calendar with `show_location: false` adds
+nothing, and its `replace_field: location` rewrite applies to its own location alone, as
+`remove_location_country` applies to each. A location two copies share is shown once, and the
+event's details show the kept copy's own location.
+
 Under `merge_locations`, two events of one calendar that match merge as two calendars' copies
 do, so one booking per room lists every room. A [private calendar](/features/core-settings#keeping-a-calendar-private)'s
 copy never merges with one that is not private, so its location never reaches another
@@ -499,16 +498,7 @@ merged row — the accent bar, the row's background tint when
 theme variable such as `var(--success-color)`. Leave it unset and a shared row keeps the
 first-listed calendar's color. The
 [Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets it to the Family
-calendar's own color, so an event on more than one person's calendar reads as a family event.
-
-Every label shows on the rows of list and column view, on grid view's timed blocks, and in a
-day's list in month view. Grid view's all-day banners and month view's bars draw no label at
-all, and month view's one-line entries in its weeks draw only the label of the calendar the
-copy came from.
-
-Both need two or more **distinct** calendars. A calendar listed twice to
-[map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the first block's single
-icon and its own calendar's color.
+calendar's own color, so an event people share reads as a family event.
 
 ::: tip Pick a Label That Reads Well Beside Another One
 A person's picture, an image, an emoji or an `mdi:` icon is drawn at a fixed size, so several
@@ -516,6 +506,18 @@ in a row read as a row of faces or badges. Plain text is not combined into a phr
 calendars labeled `Anna:` and `Ben:` render as `Anna: Ben:`, not `Anna & Ben:`. If you label
 calendars with names and share events between them, prefer
 [a person's picture](/features/core-settings#showing-a-persons-picture).
+:::
+
+::: details Where the Labels Show & One Calendar Listed Twice
+
+- Every label shows on the rows of list and column view, on grid view's timed blocks, and in a
+  day's list in month view. Grid view's all-day banners and month view's bars draw no label at
+  all, and month view's one-line entries in its weeks draw only the label of the calendar the
+  copy came from.
+- Labels and color both need two or more **distinct** calendars. A calendar listed twice to
+  [map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the first block's single
+  icon and its own calendar's color.
+
 :::
 
 ### Advanced Filtering Techniques

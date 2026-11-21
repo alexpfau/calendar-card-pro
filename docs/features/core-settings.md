@@ -225,23 +225,31 @@ how it repeats, a countdown or progress bar, the weather for its hour, and the c
 label and name. Everything the event says for itself goes:
 
 - **On the card**, its title reads Private in every layout, and its location and description are
-  not drawn. A [birthday age](/features/event-content#birthday-ages-anniversary-counts), which
-  would say what the event is, is left off too.
+  not drawn.
 - **In the [event popover](/features/actions#event-details)**, the title reads Private, and so do
   the location and the description where the event has one. There is no map, and nothing is
   looked up.
 - **Nothing can be changed.** The popover offers no editing and no Delete, grid view does not drag
   the event, and it cannot be moved to another calendar. Change it on a card where the calendar is
   not private. Adding a new event to the calendar still works.
-- **Search** finds the event as Private, never by its own words.
-- **An [event action](/features/actions#using-the-events-fields-in-an-action)** gets Private in
-  `{title}`, `{location}` and `{description}`.
 
 To show a word of your own instead, add [`replace_with`](/features/filtering#hiding-what-an-event-is-about) without a
 `replace_pattern`: it takes the place of Private for its field, without the lock, so
-`replace_with: Busy` makes every title read Busy. A replaced location or description shows in the
-popover only, since the rows draw neither. A `replace_pattern` does nothing on a private calendar,
-since it would show the rest of the text.
+`replace_with: Busy` makes every title read Busy.
+
+::: details Ages, Search, Event Actions & Replaced Text
+
+- A [birthday age](/features/event-content#birthday-ages-anniversary-counts), which would say what
+  the event is, is left off the card too.
+- **Search** finds the event as Private, never by its own words.
+- **An [event action](/features/actions#using-the-events-fields-in-an-action)** gets Private in
+  `{title}`, `{location}` and `{description}`.
+- A location or description replaced with `replace_with` shows in the popover only, since the
+  rows draw neither.
+- A `replace_pattern` does nothing on a private calendar, since it would show the rest of the
+  text.
+
+:::
 
 ::: details Splitting a Calendar Into Private & Shared Events
 

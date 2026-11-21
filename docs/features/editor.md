@@ -547,21 +547,29 @@ and [Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields
 **Hide Events Containing** and **Only Show Events Containing** write `blocklist` and `allowlist`.
 Each takes one word or phrase at a time, matched as written, so punctuation needs no escaping, and
 each is ready to type in the moment it is added. They check the event title unless **Match
-Against** names another field. The **Use a Pattern** link under a list switches it to the regular
-expression the card stores, and a pattern the card cannot read is flagged at the field: the card
-ignores that pattern, so it stops filtering events.
+Against** names another field.
 
 The calendar's name and **Show in Calendar Filter** belong to the calendar, not to one entry:
 changing them on one entry changes every entry, and the page says so.
 
 A calendar's settings are stored once and apply wherever a layout uses them, so its page shows
-those any of the card's layouts use: the layout it opens in, the layouts the layout switcher
-offers while it is shown, and List where Columns or Grid fall back to it on a narrow screen. A
-setting only some of them use, as the card is set up now, says which, as in **Only in List**:
-Event Weather says so where only List shows the forecast beside events. A search result for a
-setting none of them uses opens the page with that setting's layout added, until you leave it.
-One left on **Follow the card** takes the card's value in each layout, so where those values
-differ, **Reset** reads **Reset (Follow the card)** rather than naming one of them.
+those any of the card's layouts use, and a setting only some of them use says which, as in
+**Only in List**.
+
+::: details Which Layouts an Entry Page Covers
+The page covers the layout the card opens in, the layouts the layout switcher offers while it is
+shown, and List where Columns or Grid fall back to it on a narrow screen. Event Weather, for
+example, says **Only in List** where only List shows the forecast beside events. A search result
+for a setting none of them uses opens the page with that setting's layout added, until you leave
+it. A setting left on **Follow the card** takes the card's value in each layout, so where those
+values differ, **Reset** reads **Reset (Follow the card)** rather than naming one of them.
+:::
+
+::: details Using a Pattern Instead of Words
+The **Use a Pattern** link under a list switches it to the regular expression the card stores. A
+pattern the card cannot read is flagged at the field: the card ignores that pattern, so it stops
+filtering events.
+:::
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything an entry page can set.
 

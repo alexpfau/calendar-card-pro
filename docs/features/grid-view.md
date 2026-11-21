@@ -607,34 +607,35 @@ not fit is left out whole, never cut part way.
 
 - A title needs room for one full line, the time for a full title line plus a full time line,
   and location for one more line.
+- A long title stops at the last line that fits whole, ending in "…" when more follows.
+  `title_max_lines` above `0` stops it sooner; grid draws at most three title lines however high
+  you set it, and fewer on a short block. A scrolling title
+  ([`scroll_long_titles`](/features/event-content#scrolling-long-titles)) stays on one line and
+  moves instead.
+- Event weather gets its own row under the time, as in column view, and the progress bar its
+  own row under the title. A countdown trails the time; in a lane too narrow for it, the
+  countdown gives way, not the time. Every block keeps its countdown, so
+  `show_countdown: once_per_day` reads here as `true` does.
+- Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
+  first line. That line counts toward the title's line limit, and the labels stay still while a
+  scrolling title moves.
+- All-day banners remain title-only.
+
+::: details Time Rows, Narrow Lanes, Countdowns & Other Scripts
+
 - A time row too narrow for its block gives things up in order: first the clock icon, then the
   end time moves onto a second line if the block is tall enough, then the end time goes, since
   the block's bottom edge already shows it, and only then the row. On an event running past
   midnight the end and its day count move and go together. It never shows a cut time:
   `10:00 - 1…` on a meeting ending at 12:00 would read as one o'clock, so the card shows a bare
   `10:00`, or nothing.
-- A long title stops at the last line that fits whole, ending in "…" when more follows.
-  `title_max_lines` above `0` stops it sooner; grid draws at most three title lines however high
-  you set it, and fewer on a short block. A scrolling title
-  ([`scroll_long_titles`](/features/event-content#scrolling-long-titles)) stays on one line and
-  moves instead.
 - Titles wrap only between words. A word wider than its block is cut short with "…", so
   "Quarterly review" reads "Quarte… review" rather than "Quarte rly review" over three lines. A
   hyphenated word can still wrap after its hyphen.
-- Event weather gets its own row under the time, as in column view, where its words can wrap
-  beneath the temperature; the progress bar gets its own row under the title. A countdown trails
-  the time, its words continuing on the next line where the block has room; in a lane too narrow
-  for it, the countdown gives way, not the time. A finished block
+- Event weather's words can wrap beneath the temperature. A countdown's words continue on the
+  next line where the block has room. A finished block
   [counts up](/features/event-content#counting-up-from-past-events) in the same place, and the
-  block that starts an overnight event counts from the event's end. Every block keeps its
-  countdown, so `show_countdown: once_per_day` reads here as `true` does.
-- Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
-  first line. That line counts toward the title's line limit, and the labels stay still while a
-  scrolling title moves.
-- All-day banners remain title-only.
-
-::: details Narrow Lanes, Countdowns & Other Scripts
-
+  block that starts an overnight event counts from the event's end.
 - A block left showing nothing but its title keeps it centered only while the title nearly
   fills the block; a tall, narrow one keeps it at the top.
 - If your theme or `event_font_size` makes a detail row taller than its block, the card hides

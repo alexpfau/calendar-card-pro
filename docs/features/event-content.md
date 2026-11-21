@@ -425,20 +425,14 @@ time_position: title # below, the default, keeps the time under the title
 - **A [countdown](#countdown-display) follows the time after a dot**, "14:00 - 16:00 · in 4
   hours". With
   [`show_time: false`](#time-location-information) the countdown alone sits beside the title.
-- **In list view a [weather badge on the title](/features/weather#weather-display-positions)
-  comes before the time**, set off by the same dot: "14° · 14:00 - 16:00".
 - **Everything else stays below the title**, in its order: the
   [progress bar](#progress-bar-display) on a row of its own, column view's weather row, the
   location and the description.
-- **A long title wraps as it does below the time**, its calendar labels before it. The time
-  sits at the end of the title's last line, on the title's baseline, where the line has room
-  for it, and at the end of a line of its own where it has not. Either way the title's lines stop
-  where the time ends, as far from the card's edge as every other time. The two never overlap.
 - **[`title_max_lines`](#limiting-lines-per-field) caps the title.** One that needs more lines
   ends in "…" on the last of them, with the time at the end of that line, so
   `title_max_lines: 1` keeps every title and its time on one even line.
 - **[`scroll_long_titles`](#scrolling-long-titles) keeps the title on one line beside the time
-  and scrolls it.** With the operating system's reduce-motion setting on, it ends in "…".
+  and scrolls it.**
 
 Each layout can set it on its own, and so can the line limit:
 
@@ -455,14 +449,20 @@ column:
 
 ::: warning One Line Needs a Wide Event Row
 With `title_max_lines: 1` or `scroll_long_titles`, the time takes its width from the title's
-line and never gives it back. Use them on list cards about 360px wide or day columns about 280px
-wide, or wider. Event weather, 12-hour or multi-day times, all-day badges, larger fonts and long
-text labels each need more room, and on a narrower row the title can shrink to a few characters.
-Let the title wrap where that is not acceptable.
+line. Use them on list cards about 360px wide or day columns about 280px wide, or wider; event
+weather, 12-hour or multi-day times, all-day badges, larger fonts and long text labels each need
+more. On a narrower row the title can shrink to a few characters, so let it wrap there.
 :::
 
 ::: details More About the Time Beside the Title
 
+- In list view a [weather badge on the title](/features/weather#weather-display-positions)
+  comes before the time, set off by the same dot: "14° · 14:00 - 16:00".
+- Calendar labels come before the title. The time sits on the title's baseline, and the title's
+  lines stop where the time ends, as far from the card's edge as every other time, so the two
+  never overlap.
+- With the operating system's reduce-motion setting on, a `scroll_long_titles` title beside the
+  time ends in "…" rather than scrolling.
 - A row with neither a time nor a countdown to show, such as an empty day or a running event
   with `show_time: false` and no countdown, keeps the layout it has below the title. In list
   view the progress bar of such a running event still moves to a row of its own, 80% of the

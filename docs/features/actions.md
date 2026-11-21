@@ -348,20 +348,23 @@ Whether a calendar's events can be added, changed or deleted at all is decided b
 | Read-only calendars, such as a subscribed holiday feed | No  | No   | No     |
 
 - **Local Calendar** does all three, repeating events included, which makes it a good calendar to try the popover's editing with.
-- **Google Calendar** adds events and deletes them, one occurrence of a repeating event or every occurrence from it onward included, but Home Assistant's Google integration cannot change an event. A Google calendar you can only read, or one added to Home Assistant with read-only access, offers nothing.
-- **CalDAV**, which is also how Home Assistant connects an iCloud calendar, only adds.
+- **Google Calendar** deletes one occurrence of a repeating event or every occurrence from it onward, but Home Assistant's Google integration cannot change an event. A Google calendar you can only read, or one added to Home Assistant with read-only access, offers nothing.
 - **Other integrations**, custom ones included, offer whatever they declare.
 
-**Adding** needs a calendar on the card that accepts new events: its integration allows adding, it is not [failing to load](/features/performance#when-a-calendar-fails-to-load), and its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) show it. The [calendar filter](/features/header-toolbar#showing-hiding-calendars) does not count: a calendar it hides can still be picked. That holds for the [add button](#add-event-button), a [tap on a day](#tapping-a-day-to-add-an-event), [drawing in the grid](#drawing-an-event-in-grid-view) and the [`add-event` action](#adding-an-event-from-a-tap-or-hold) alike. On a card without one, the add button is not drawn even with the toolbar shown, a tap on a day stays a tap on the card, and `add-event` does nothing and offers no tap or hold. A calendar failing to load is left out of the new event's calendar picker; where it is the card's only one, the button returns once it loads again.
+**Adding** needs a calendar on the card that accepts new events: its integration allows adding, it is not [failing to load](/features/performance#when-a-calendar-fails-to-load), and its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) show it. A calendar the [calendar filter](/features/header-toolbar#showing-hiding-calendars) hides still counts and can be picked. That holds for the [add button](#add-event-button), a [tap on a day](#tapping-a-day-to-add-an-event), [drawing in the grid](#drawing-an-event-in-grid-view) and the [`add-event` action](#adding-an-event-from-a-tap-or-hold) alike.
 
 **Changing** an event needs a calendar that allows changing, and so do [dragging it](#dragging-in-grid-view) and [moving it to another calendar](#moving-to-another-calendar). **Delete** needs one that allows deleting, and so does moving.
 
 ::: tip Changing & Deleting CalDAV Events
-The custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav) connects CalDAV calendars with adding, changing and deleting events, repeating ones included. For each calendar you can write to, it declares all three to Home Assistant, so the card offers them as it does for a Local Calendar; a calendar you can only read, or one under its own read-only option, declares none. Its calendars are entities of their own, beside any from the built-in CalDAV integration, so the card needs those in `entities`. It is not part of Home Assistant or of this card; how to install and set it up is described in its repository.
+The custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav) connects CalDAV calendars with adding, changing and deleting events, repeating ones included, so the card offers all three as it does for a Local Calendar. Its calendars are entities of their own, beside any from the built-in CalDAV integration, so the card needs those in `entities`. It is not part of Home Assistant or of this card; how to install and set it up is described in its repository.
+:::
+
+::: details When No Calendar Accepts New Events
+On a card without a calendar that accepts new events, the add button is not drawn even with the toolbar shown, a tap on a day stays a tap on the card, and `add-event` does nothing and offers no tap or hold. A calendar failing to load is left out of the new event's calendar picker; where it is the card's only one, the button returns once it loads again.
 :::
 
 ::: details Checking What a Calendar Declares
-Find the calendar in **Settings → Tools → States** (**Developer Tools** before Home Assistant 2026.8, in the sidebar before 2026.2) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them.
+Find the calendar in **Settings → Tools → States** (**Developer Tools** before Home Assistant 2026.8, in the sidebar before 2026.2) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them. CalDAV Complete declares all three only for a calendar you can write to; a calendar you can only read, or one under its own read-only option, declares none.
 :::
 
 ### Narrowing What the Popover Offers
@@ -417,21 +420,27 @@ The one exception is a [private calendar's](/features/core-settings#keeping-a-ca
 
 ### Maps & Locations
 
-When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. There is no option for the map; it is there whenever a location can be placed. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location.
+When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. The map has no option. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location.
 
 The card places two kinds of location:
 
-- **A zone.** When the location names one of your Home Assistant zones, the map shows the whole zone, zoomed so that its circle, its radius in Home Assistant, spans the map's width: a zone drawn around a city shows the city, and one drawn around a house shows its street. Nothing leaves your home to find it. A zone matches by its name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`.
+- **A zone.** When the location names one of your Home Assistant zones, the map shows the whole zone, zoomed so that its circle spans the map's width. Nothing leaves your home to find it. A zone matches by its name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`.
 - **A town or a city.** A short place name, such as `Rosenheim`, `Paris` or `Springfield, Illinois`, is looked up in [Open-Meteo](https://open-meteo.com)'s free geocoding service, which needs no account or key. A street address, a house number, a postal code, an email address or a web address is never sent, and gets the pin. So does a place the lookup does not find, or a lookup that fails.
 
 The map needs Home Assistant 2026.10 or later; on an older version the popover shows the pin.
 
 ::: info What Leaves Your Home
-Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for an event of a [private calendar](/features/core-settings#keeping-a-calendar-private); event rows, the card editor and typing a location never send anything. Each name is kept in your browser's local storage once looked up: a place found for 30 days, a name that found nothing for 7, and one whose lookup failed for an hour. Within that time, opening the same event again sends nothing. The browser keeps the 300 names looked up most recently, and one that keeps no local storage asks again each time. The map tiles come through Home Assistant, so your browser asks no map server for them.
+Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for an event of a [private calendar](/features/core-settings#keeping-a-calendar-private); event rows, the card editor and typing a location never send anything. The map tiles come through Home Assistant, so your browser asks no map server for them.
+:::
+
+::: details How Long a Lookup Is Kept
+Each name is kept in your browser's local storage once looked up: a place found for 30 days, a name that found nothing for 7, and one whose lookup failed for an hour. Within that time, opening the same event again sends nothing. The browser keeps the 300 names looked up most recently, and one that keeps no local storage asks again each time.
 :::
 
 ::: details Which Places Are Found
 
+- A zone's radius in Home Assistant sets the zoom: a zone drawn around a city shows the city, and
+  one drawn around a house shows its street.
 - Only a name of two to 60 characters, with at most four words and one comma for its country or
   region, is looked up; anything with a digit, `@`, `/` or `:` in it is never sent. Only a town
   or a city of exactly that name counts, accents aside, never a district, a park or a mountain.

@@ -242,41 +242,24 @@ A few more classes mark something the card draws only some of the time:
 | `fetch-error`       | the line below the events naming the calendars that failed                                           | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                                              |
 | `page-pending`      | `.content-container`                                                                                 | the days on screen wait for another page's events, dimmed to 50%                                                                                             |
 
-- The [date tile](/features/layout-appearance#the-date-tile) is painted from
-  `--calendar-card-today-indicator-color`, which the card writes on `ha-card` from
-  `today_indicator_color`. Its digits are colored inline on the `.day` itself, so change them
-  with `today_day_color`, or in card-mod with `!important`. The week-number pills take the same
-  wash and digit color unless `week_number_background_color` or `week_number_color` is set.
-- In a [running event](/features/event-content#the-now-indicator), `.time` holds `.now-time`,
-  with the word "Now" in `.now-indicator`. Its color, `--calendar-card-now-ink`, is mixed from
-  `now_color` and declared on `.event-now` itself, so a value set on `ha-card` does not reach it.
-  Change it with `now_color`, or in card-mod on `ha-card .event-now`. Grid view marks the present
-  with its now line instead and adds no class.
-- When events are [tap targets](/features/actions#tapping-an-event), list view's is a
-  `.event-button` inside `td.event`, so `.event-interactive` alone reaches every view, while
-  `.event.event-interactive` misses list view and a month's day list.
-- In a `.title-wrap` row the card measures `.title-aside`, sizes `.title-room` to it and places
-  the time over the room, marking the row `data-title-fit`. `data-title-cut` marks a title it
-  cut at `title_max_lines`. A theme that changes the time's size or spacing is measured with it;
-  one that moves `.title-aside` elsewhere leaves the room empty and can overlap the title.
-- `.fetch-error` holds `.fetch-error-icon` and `.fetch-error-text`, in the theme's
-  `--error-color`.
-- With [`month_separator_label`](/features/layout-appearance#naming-the-month-on-its-rule), list
-  view's month rule holds `.month-separator-label`, the month's name, and `.month-separator-line`,
-  the rule after it, inside `.month-separator-labeled`. The rule is that line's top border, no
-  longer the `border-top` of `.month-separator`. The label's color is set on the element itself
-  and its size comes from the card, so a card-mod rule changing either needs `!important`;
-  `month_separator_label_color` and `month_separator_label_font_size` are simpler.
-- `.event-title`, `.time` and `.location` are plain element classes with no state attached.
+Inside the card and its events, these parts have selectors of their own:
 
-Every event's accent bar is an element of its own, `.event-accent-bar`, the first child of the
-event in list, column, grid and month view; all-day banners, a month's bars among them, and grid's
-`+N` block have none. Its color, `--calendar-card-event-accent-bar-color`, is its calendar's,
-written on each event itself, so overriding it on `.event` needs `!important`. Its width,
-`--calendar-card-line-width-vertical`, comes from
-[`vertical_line_width`](/features/layout-appearance#visual-styling-colors), which also decides how
-far the text keeps from the bar. Style the bar through `.event-accent-bar`, or hide it with
-`vertical_line_width: 0px`.
+| Part                                                                               | Selector                                                                                                                                                                                                                                                          | To restyle it                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accent bar                                                                         | `.event-accent-bar`, the first child of the event in list, column, grid and month view; all-day banners, a month's bars among them, and grid's `+N` block have none                                                                                               | Style it through `.event-accent-bar`. Its color, `--calendar-card-event-accent-bar-color`, is its calendar's, written on each event itself, so overriding it on `.event` needs `!important`. Its width, `--calendar-card-line-width-vertical`, comes from [`vertical_line_width`](/features/layout-appearance#visual-styling-colors), which also decides how far the text keeps from the bar; `vertical_line_width: 0px` hides it |
+| [Date tile](/features/layout-appearance#the-date-tile)                             | today's `.day`, painted from `--calendar-card-today-indicator-color`, which the card writes on `ha-card` from `today_indicator_color`                                                                                                                             | Its digits are colored inline on the `.day` itself, so change them with `today_day_color`, or in card-mod with `!important`. The week-number pills take the same wash and digit color unless `week_number_background_color` or `week_number_color` is set                                                                                                                                                                         |
+| ["Now" in a running event](/features/event-content#the-now-indicator)              | `.now-time` in `.time`, with the word "Now" in `.now-indicator`; its color, `--calendar-card-now-ink`, is mixed from `now_color` and declared on `.event-now` itself                                                                                              | Set `now_color`, or in card-mod style `ha-card .event-now`; a value set on `ha-card` does not reach it. Grid view marks the present with its now line instead and adds no class                                                                                                                                                                                                                                                   |
+| [Tap target](/features/actions#tapping-an-event)                                   | in list view, a `.event-button` inside `td.event`                                                                                                                                                                                                                 | `.event-interactive` alone reaches every view, while `.event.event-interactive` misses list view and a month's day list                                                                                                                                                                                                                                                                                                           |
+| Failed calendars line                                                              | `.fetch-error`, holding `.fetch-error-icon` and `.fetch-error-text`                                                                                                                                                                                               | It is drawn in the theme's `--error-color`                                                                                                                                                                                                                                                                                                                                                                                        |
+| [Month name on the rule](/features/layout-appearance#naming-the-month-on-its-rule) | with `month_separator_label` on, list view's `.month-separator-labeled`, holding `.month-separator-label`, the month's name, and `.month-separator-line`, the rule after it; the rule is that line's top border, no longer the `border-top` of `.month-separator` | `month_separator_label_color` and `month_separator_label_font_size`. The label's color is set on the element itself and its size comes from the card, so a card-mod rule changing either needs `!important`                                                                                                                                                                                                                       |
+| Title, time & location                                                             | `.event-title`, `.time` and `.location`                                                                                                                                                                                                                           | Plain element classes with no state attached                                                                                                                                                                                                                                                                                                                                                                                      |
+
+::: details Restyling the Time Beside the Title
+In a `.title-wrap` row the card measures `.title-aside`, sizes `.title-room` to it and places the
+time over the room, marking the row `data-title-fit`. `data-title-cut` marks a title it cut at
+`title_max_lines`. A theme that changes the time's size or spacing is measured with it; one that
+moves `.title-aside` elsewhere leaves the room empty and can overlap the title.
+:::
 
 ::: details Borders & Padding on an Event
 The bar is not a border of `.event`: a rule that sets `border-left` or `border-inline-start` on
