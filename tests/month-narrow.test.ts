@@ -1710,6 +1710,46 @@ describe('the day panel', () => {
     }
   });
 
+  it('is placed beside "+N more" at the height its fitted rows give it', async () => {
+    // In Chrome a row not yet fitted wraps its title under a time it has no room beside, so a
+    // panel measured before its rows are fitted is placed for a taller panel than it draws, and
+    // keeps that top as it shrinks: centered above the "+N more" rather than on it. happy-dom
+    // lays nothing out, so the panel is given the heights Chrome gives it, 500 px unfitted and
+    // 300 px fitted, and "+N more" a box whose middle is at 410.
+    const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!;
+    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!;
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 320,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (!this.classList.contains('panel')) return 0;
+        return this.querySelector('[data-title-fit]') ? 300 : 500;
+      },
+    });
+    try {
+      const manager = playDialogManager();
+      const card = await mount({ time_position: 'below' });
+      more(card).getBoundingClientRect = () => new DOMRect(100, 400, 60, 20);
+      more(card).click();
+      await settle(card);
+      const panel = manager.panel()!;
+      await panel.updateComplete;
+      expect(
+        panel.shadowRoot!.querySelectorAll('.day-panel-rows [data-title-fit]').length,
+      ).toBeGreaterThan(0);
+      const dialog = panel.shadowRoot!.querySelector('dialog')!;
+      expect(dialog.style.top).toBe('260px');
+      const arrow = panel.shadowRoot!.querySelector<HTMLElement>('.arrow')!;
+      expect(arrow.style.top).toBe('150px');
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidth);
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
+    }
+  });
+
   it('draws a title, a time and a location, and leaves the rest to the event’s details', async () => {
     // Every part Month leaves out turned on at the top level, in its block and on a calendar:
     // `MONTH_PINNED` keeps each at its shipped value, and a calendar's own description too.

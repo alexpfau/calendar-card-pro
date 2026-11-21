@@ -276,6 +276,20 @@ export class DayPanel extends Shell.PopoverShell {
     this._syncTitleFits();
   }
 
+  /**
+   * Places the panel beside its press once its rows are fitted, at the height it is drawn at.
+   * Unfitted, a title wraps under a time it has no room beside, so the panel measures taller
+   * than it draws, and keeps the top it was placed at as it shrinks: above its "+N more" rather
+   * than beside it, where the popover of a row pressed in it then opens.
+   *
+   * @param room - The part of the screen in sight
+   * @param width - The screen's width
+   */
+  protected _placeBeside(room: Shell.Room, width: number): void {
+    this._fitTitles();
+    super._placeBeside(room, width);
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopTitleFits();
