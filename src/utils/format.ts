@@ -344,8 +344,9 @@ function shownInterval(
  * is an hour shorter than its clock readings say, and it says so. From a full day, the wall
  * clock: whole calendar days, then the clock time between the start's time of day and the
  * end's, so noon to noon is "1 day" whether the clocks changed in between or not. A full day is
- * the day counter's (`fullDaySpan`): an end on a later date at or after the start's time of
- * day. All-day events count their dates, one included.
+ * the day counter's (`reachesFullDay`, which `fullDaySpan` asks too): an end on a later date at
+ * or after the start's time of day, so midnight to midnight is "1 day" though it takes up one
+ * date, which is too few for the day counter. All-day events count their dates, one included.
  *
  * @param start Start, as Home Assistant sent it
  * @param end End, as Home Assistant sent it
@@ -361,15 +362,14 @@ function durationParts(
   }
 
   if (!start.dateTime || !end.dateTime) return null;
-  const span = fullDaySpan(start, end);
   const from = new Date(start.dateTime);
   const to = new Date(end.dateTime);
   // Written positively: an unreadable date compares false both ways, and must not pass.
   if (!(to.getTime() > from.getTime()) || isSameMinute(from, to)) return null;
 
-  if (span) {
+  if (reachesFullDay(from, to)) {
     let days = getCalendarDayDiff(from, to);
-    let clock = timeOfDay(to) - timeOfDay(from);
+    let clock = wallClock(to) - wallClock(from);
     if (clock < 0) {
       days -= 1;
       clock += 86400000;
@@ -1238,11 +1238,7 @@ export function fullDaySpan(
   } else if (start?.dateTime && end?.dateTime) {
     first = new Date(start.dateTime);
     const endInstant = new Date(end.dateTime);
-    const datesLater = getCalendarDayDiff(first, endInstant);
-    // Written positively: an unparseable date compares false both ways, and must not pass.
-    if (!(datesLater >= 2 || (datesLater === 1 && timeOfDay(endInstant) >= timeOfDay(first)))) {
-      return null;
-    }
+    if (!reachesFullDay(first, endInstant)) return null;
     last = new Date(endInstant.getTime() - 1);
   } else {
     return null;
@@ -1251,6 +1247,34 @@ export function fullDaySpan(
   const days = getCalendarDayDiff(first, last) + 1;
 
   return days >= 2 ? { first, days } : null;
+}
+
+/**
+ * Whether a timed interval is a full day or longer on the wall clock: it ends on a later date,
+ * at or after its start's time of day there. The card's one answer to that question, for the
+ * day counter and banners (`fullDaySpan`) and for a duration (`durationParts`).
+ *
+ * @param from Start
+ * @param to End
+ * @returns True from a full day on; false for anything shorter, or an unreadable date
+ */
+function reachesFullDay(from: Date, to: Date): boolean {
+  const datesLater = getCalendarDayDiff(from, to);
+  // Written positively: an unparseable date compares false both ways, and must not pass.
+  return datesLater >= 2 || (datesLater === 1 && wallClock(to) >= wallClock(from));
+}
+
+/**
+ * A wall-clock reading as the full-day rule reads it: `timeOfDay`, except that a date's first
+ * moment reads 0:00. Where the clocks go forward at midnight that moment reads 1:00, and an
+ * event from it to the next midnight is still that whole date, as midnight to midnight is.
+ *
+ * @param date An instant
+ * @returns Its local time of day, in milliseconds
+ */
+function wallClock(date: Date): number {
+  const firstMoment = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return date.getTime() === firstMoment.getTime() ? 0 : timeOfDay(date);
 }
 
 /**
