@@ -3482,6 +3482,8 @@ export class CalendarCardProEditor extends LitElement {
    * @param owner - The card, or a calendar entry
    * @param heading - The heading's key, whose title takes focus after a Remove
    * @param why - Why the plan draws it, where a heading draws it with a head row
+   * @param underDayList - Whether its heading's title names Month's day list already
+   *   (`HeadingDef.namesDayList`), so its facts leave out the marker saying so
    * @returns What it shows
    */
   private _fieldShow(
@@ -3492,11 +3494,13 @@ export class CalendarCardProEditor extends LitElement {
     owner: PlanOwner,
     heading?: string,
     why?: Extract<Plan.FieldState, { kind: 'live' }>['why'],
+    underDayList = false,
   ): FieldShow {
     const t = this._t(ctx);
     const layout = this._layoutName(ctx);
     const word = this._wordOf(field, ctx);
-    const state = Plan.stateOf(field, pctx);
+    const planned = Plan.stateOf(field, pctx);
+    const state = underDayList && planned?.dayList ? { ...planned, dayList: undefined } : planned;
     const label = fieldLabel(field, ctx.language);
     const facts = Shown.stateFacts(state, t, layout, word, this._siblingEntries(owner), (names) =>
       EditorLocalize.formatList(ctx.language, names, 'conjunction'),
@@ -3902,7 +3906,16 @@ export class CalendarCardProEditor extends LitElement {
         }
         // A color's value is drawn inside its mode's control where the page draws both: no head.
         if (this._absorbedColor(field, owner, ctx)) continue;
-        const show = this._fieldShow(field, appearance, pctx, ctx, owner, heading.key, why);
+        const show = this._fieldShow(
+          field,
+          appearance,
+          pctx,
+          ctx,
+          owner,
+          heading.key,
+          why,
+          heading.namesDayList === true,
+        );
         const head = show.head!;
         items.push({
           at,
