@@ -23,8 +23,10 @@ card_height: 600px
 - **`auto`** is each layout's own height: its content's in List, Columns and Grid, and in Month
   `632px`, or `760px` with the toolbar; see
   [How Tall the Month Is](/features/month-view#how-tall-the-month-is).
-- **`card_max_height` alone** lets the card grow with its events up to the cap, and then the
-  events scroll.
+- **`card_max_height` alone** lets a List, Columns or Grid card grow with its events up to the
+  cap, and then the events scroll. A wide month keeps its own height, clamped by the cap, and a
+  [narrow month](/features/month-view#the-narrow-month) grows with its weeks and the day's list up
+  to the cap.
 - **A length** is any CSS length, such as `600px`, `40rem`, `80dvh` or a `calc()` with a `var()`.
   A bare number is read in pixels.
 - **Each layout fills the height its own way.** List scrolls within it, Columns leave room under
@@ -34,10 +36,10 @@ card_height: 600px
   it fills a `card_height`.
 - **In the visual editor** it is **Card Height** on a layout's Size & Spacing: **Fit content**,
   **Fixed height** with its **Height**, or **Maximum height** with its **Maximum Height**. On a
-  layout's page it is set for that layout, and on Layout Defaults for every layout.
+  layout's page it is set for that layout, and on Layout Defaults for every layout. On Month's
+  page **Fit content** is called **Default height**.
 
-Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the same on
-desktop and mobile.
+Scrollbars are thin and show only while the pointer is over the events.
 
 ::: details Values the Card Refuses
 A percentage, or a word such as `fit-content`, would let the events size the card, so the card
@@ -246,7 +248,7 @@ month_separator_color: '#03a9f4'
 
 `show_week_numbers` adds a pill-shaped badge with the week number, counted one of two ways:
 
-- **`iso`**: weeks start on Monday, and the first week of the year is the one containing the first Thursday (ISO 8601).
+- **`iso`**: weeks start on Monday, and the first week of the year is the one containing the first Thursday (ISO 8601). On a card whose week starts on Sunday, each Sunday takes the number of the Monday after it, so the number changes where the card's week begins.
 - **`simple`**: weeks are counted from January 1st.
 
 The separators are horizontal lines between days, weeks and months, each with its own width and color. Where more than one could appear at once, such as on a day that starts both a week and a month, only the most significant is drawn: a month line over a week line, and a week line over a day line.
@@ -255,7 +257,9 @@ The separators are horizontal lines between days, weeks and months, each with it
 
 Left unset, the pill is drawn as the [date tile](#the-date-tile) is, from `today_indicator_color`: the same light wash, with the number in the same deeper shade, so a pill above today's tile matches it, and both follow a custom theme. An unset `week_separator_color` is the pill's background, so the line and the pill beside it are one color.
 
-A `week_number_background_color` you set is drawn as given. Its number then follows the tile's rule: while the background is a light wash, written with an opacity of at most about a third, the number is a deeper shade of it, so `'#e67c7350'` (31%) gets a deep red. That opacity can be written as an 8-digit hex color, `rgba()` or another color function with an alpha, or a `color-mix()` with `transparent`, where a theme color named in it counts as opaque. Behind a stronger or solid background the number keeps the text color, and so it does where only the browser can tell the opacity: a theme variable on its own, a mix with a `calc()` percentage or a translucent fallback, a relative color without an alpha of its own, or `light-dark()`. Browsers without relative colors (Safari before 18) keep the text color too. `week_number_color` sets the number yourself, and the week separator follows a background you set too.
+A `week_number_background_color` you set is drawn as given. While it is a light wash, such as `'#e67c7350'` (31%), its number is a deeper shade of it, here a deep red; behind a stronger or solid background the number keeps the text color. `week_number_color` sets the number yourself, and the week separator follows a background you set too.
+
+Month draws its week numbers as plain text, slightly faded, with no pill: `week_number_background_color` does not apply there, and an unset `week_number_color` is the text color. See [Month's week numbers](/features/month-view#week-numbers).
 
 ::: warning Changed In v6
 Before v6 the pill and the week separator were your theme's primary color at 31% opacity, with the number in the text color. To keep that look, add:
@@ -272,6 +276,14 @@ week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, tra
 
 ::: warning Changed In v4
 Before v4, `system` always resolved to Monday and never consulted Home Assistant. If your Home Assistant profile or language implies a different week start, your week numbers and `start_of_week` anchor will shift once you upgrade. Set `first_day_of_week: 'monday'` to keep the old behavior.
+:::
+
+::: details How the Card Reads a Background's Opacity
+
+- The opacity can be written as an 8-digit hex color, `rgba()` or another color function with an alpha, or a `color-mix()` with `transparent`, where a theme color named in it counts as opaque. Up to about a third reads as a light wash.
+- The number keeps the text color where only the browser can tell the opacity: a theme variable on its own, a mix with a `calc()` percentage or a translucent fallback, a relative color without an alpha of its own, or `light-dark()`.
+- Browsers without relative colors (Safari before 18) keep the text color too.
+
 :::
 
 ### Naming the Month on Its Rule
@@ -323,17 +335,19 @@ In column view the badge moves into the day header, on its own row directly abov
 weekday, and each column answers for itself: a column that opens a week shows its number,
 and the rest show nothing.
 
-The row is reserved in **every** column, not only the ones that start a week, so the
-weekday, day number and events below stay aligned across the whole card. When
-`show_week_numbers` is `null` — the default — no row is added at all.
+When any column shows a badge, the row is reserved in every column, not only the ones that start
+a week, so the weekday, day number and events below stay aligned across the whole card. When no
+column would show one, or `show_week_numbers` is `null`, the default, no row is added at all.
 
 `show_current_week_number` keeps its meaning: set it to `false` to hide the badge on the
 first column, which is usually a partial week. All three styling options carry over
 unchanged, so a badge you have already tuned looks the same in both views.
 
 ::: tip Per-View Week Numbers
-Every option in this section may be set inside a `column:` block, so you can leave week
-numbers off in the list layout and switch them on only when the card renders as columns.
+`show_week_numbers`, `show_current_week_number`, `week_number_font_size`, `week_number_color`
+and `week_number_background_color` may each be set inside a `column:` block, so you can leave
+week numbers off in the list layout and switch them on only when the card renders as columns.
+`first_day_of_week` is card-wide only.
 
 ```yaml
 show_week_numbers: null
@@ -411,9 +425,8 @@ misspelled unit or a word that is not a font size falls back to the option's def
 ::: details Font Sizes & the Column's Width
 
 - A space before the unit is closed up, so `26 px` reads as `26px`.
-- The date column is 1.75 times as wide as the day number, whichever form you use. A keyword
-  such as `x-large` depends on the browser's default text size, so for those the card assumes
-  the usual 16px, and the column can come out a few pixels wider than the number needs.
+- The date column widens with the day number, whichever form you use. With a keyword such as
+  `x-large` the column can come out a little wider than the number needs.
 - A `var()` is passed on as written: the date column follows it when the property it names holds
   a length, but not a percentage or a keyword.
 
@@ -468,35 +481,38 @@ Today's scale and weight are under **Days → Today**, and the past-day options 
 ## 🌟 Today Indicator
 
 Calendar Card Pro marks today out of the box: today's day number sits on a soft tile tinted
-with your theme's primary color, in list, column and grid view. You can restyle it, swap it
-for a dot, an icon, an emoji or an image, or turn it off.
+with your theme's primary color, in every layout. You can restyle it, swap it for a dot, an
+icon, an emoji or an image, or turn it off; Month draws only the tile or nothing.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="A three-day list card with today's date on a tinted tile, a progress bar on the event under way and countdowns on the events still to come" width="600"><br>
 
-Above is the default tile, tinted with `today_indicator_color`. Every other style is drawn over the date column instead, and only those take a size and, in list view, a position.
+Above is the default tile, tinted with `today_indicator_color`. Every other style is drawn over the date column instead, and only those take a size and, in list view, a position. Pick one value for `today_indicator`; the commented lines are the alternatives.
 
 ```yaml
 # Choose the indicator type
 today_indicator: tile # A soft tinted tile behind today's day number (default)
-today_indicator: false # No indicator
-today_indicator: true # Basic dot
-today_indicator: pulse # Animated pulsing dot
-today_indicator: glow # Glowing dot
-today_indicator: mdi:star # Any Material Design icon
-today_indicator: 🎯 # Emoji
-today_indicator: KW 34 # Any text — raise today_indicator_size to make words readable
-today_indicator: /local/custom-indicator.png # Image path
-today_indicator: https://example.com/today.png # Or any image URL
-
-# Position the indicator precisely with CSS-like coordinates
-list:
-  today_indicator_position: '15% 50%' # Centered at the date column's start (default)
-  today_indicator_position: '15% 15%' # Top, at the start
-  today_indicator_position: '85% 15%' # Top, at the far side
+# today_indicator: false # No indicator
+# today_indicator: true # Basic dot
+# today_indicator: pulse # Animated pulsing dot
+# today_indicator: glow # Glowing dot
+# today_indicator: mdi:star # Any Material Design icon
+# today_indicator: 🎯 # Emoji
+# today_indicator: KW 34 # Any text — raise today_indicator_size to make words readable
+# today_indicator: /local/custom-indicator.png # Image path
+# today_indicator: https://example.com/today.png # Or any image URL
 
 # Restyle the indicator
 today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons (default: your theme's primary color)
-today_indicator_size: 6px # Size of icons, emojis and images; the tile ignores it (default)
+```
+
+```yaml
+# Any style but the tile takes a size and, in list view, a position
+today_indicator: pulse
+today_indicator_size: 6px # Size of icons, emojis and images (default)
+list:
+  today_indicator_position: '15% 50%' # Centered at the date column's start (default)
+  # today_indicator_position: '15% 15%' # Top, at the start
+  # today_indicator_position: '85% 15%' # Top, at the far side
 ```
 
 The dot can also be written `dot`. Text that is none of the above is drawn as it is written, such
@@ -506,7 +522,14 @@ as a week number, a quarter or a sprint name.
 Find it under **Days → Today Indicator**, where **Style** offers **None**,
 **Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
 **An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
-an **Indicator Size**, and on List's pages an **Indicator Position**.
+an **Indicator Size**, and on List's pages an **Indicator Position**. On Month's pages **Style**
+offers only **None** and **Date Tile**.
+:::
+
+::: info Month Draws the Tile Only
+In [month view](/features/month-view#the-six-weeks) today is marked by the tile or not at all:
+any other style leaves today's number without a mark of its own, and `today_indicator_size` does
+nothing there. The wide month [fills its tile](#the-date-tile) rather than washing it.
 :::
 
 ::: warning Changed In v5

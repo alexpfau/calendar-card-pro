@@ -78,13 +78,13 @@ there, permanently; nothing needs changing by hand. On its first edit, the visua
 moves the options only List reads into `list:`. A top-level value that could mean either
 "List only" or "shared by every layout" stays List's on a List or Grid card, where the editor
 keeps it for List when it opens and offers **Use Them for Every Layout** instead; see
-[Upgrading a Card From Before v5](/features/editor#upgrading-a-card-from-before-v5).
+[Adopting the Layout Format](/features/editor#adopting-the-layout-format).
 :::
 
 ::: details What the Visual Editor Keeps in YAML
 
 - A Layout Defaults value for an option whose default differs between layouts stays in the saved
-  YAML even when it equals the card default. Removing it lets Column or Grid go back to its
+  YAML even when it equals the card default. Removing it lets Column, Grid or Month go back to its
   own default.
 - Picking Grid as the layout the card opens in copies such values into `time_grid:`, so the grid
   keeps showing them. That is something the editor does for you; the YAML precedence above is

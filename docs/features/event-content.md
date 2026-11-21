@@ -118,9 +118,9 @@ empty_day_text: 'Leftovers'
 
 ### Hiding the Card When Empty
 
-`hide_when_empty: true` removes the card from the dashboard while it has no events on the days it
-opens with, and the cards around it close the gap. It comes back on its own as soon as an event
-shows up.
+`hide_when_empty: true` removes the card from the dashboard while none of its layouts has an
+event to show on the days it opens with, after their filters, and the cards around it close the
+gap. It comes back on its own as soon as an event shows up.
 
 ```yaml
 hide_when_empty: true
@@ -131,14 +131,18 @@ hide_when_empty: true
 - Hiding wins over every empty-day placeholder: a card showing nothing but `show_empty_days`
   rows, a `show_empty_today` row or your `empty_day_text` still hides. To keep your own wording
   on screen, leave `hide_when_empty` off.
-- Events count across the card's whole date range, after past-event and per-calendar filters.
-  Events the card does not draw still count, so it stays visible when they fall outside grid
-  view's hours, on days a narrow layout drops, or beyond a compact limit.
+- Events count across the card's whole date range, after past-event and per-calendar filters,
+  so finished events keep the card while `show_past_events` shows them. Events the card does
+  not draw still count, so it stays visible when they fall outside grid view's hours, on days a
+  narrow layout drops, or beyond a compact limit.
+- In [Month](/features/month-view), events count from the day the month opens on, the start
+  date or today, to the end of its six weeks. An event earlier in the month does not keep the
+  card, even though the month shows it.
 - With `show_past_events: false`, the card goes once its last event has finished, without
   waiting for another calendar fetch.
-- In some cases the card stays visible even with nothing to show: while it is paged away from
-  its own days, while the calendar filter hides a calendar, or while a calendar cannot be
-  reached. _When the Card Stays Visible Anyway_, below, lists every case.
+- The card stays visible while a calendar cannot be reached, so an outage never empties it.
+  It also stays while it is paged away from its own days or the calendar filter hides a
+  calendar. _When the Card Stays Visible Anyway_, below, lists every case.
 
 ::: details When the Card Stays Visible Anyway
 
@@ -156,6 +160,9 @@ hide_when_empty: true
   outage. It names the calendar in a "Couldn't load: …" line and keeps showing that calendar's
   last loaded events for up to 24 hours, or shows only that line when there is nothing to fall
   back on. See [When a Calendar Fails to Load](/features/performance#when-a-calendar-fails-to-load).
+- A calendar [shown under conditions](/features/core-settings#showing-a-calendar-under-conditions)
+  that hides from the person looking counts for nothing: neither its events nor a failure to load
+  it keeps the card.
 
 :::
 
@@ -185,9 +192,14 @@ allday_badge_style: subtle # subtle, outline, tinted or filled
 allday_badge_color: accent # accent, text, or any CSS color
 ```
 
-All three are card-level, so a card shows pills for every calendar on it or for none.
+All three are card-level, so a card shows pills for every calendar on it or for none. The pill is
+drawn in List and Columns. Grid draws an all-day event as a banner holding its title alone, and
+Month writes _All day_ in a row's time, so neither draws a pill; see
+[Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view).
 
 ### Where The Pill Goes
+
+`allday_badge` names where the pill goes:
 
 | Value   | What it does                                                                     |
 | ------- | -------------------------------------------------------------------------------- |
@@ -197,14 +209,15 @@ All three are card-level, so a card shows pills for every calendar on it or for 
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
 
-Above is `time`, and the image at the top of this section is `title` — the same card, the
-same calendars and the same shape, so the only difference is where the pill goes. The
-`title` card also sets [`show_single_allday_time: false`](#hiding-the-time-row), so the pill is
-the whole statement instead of repeating _All day_ underneath it.
+Above is `time`, and the image at the top of this section is `title`. They are two example
+cards, with different events and themes. The `title` card also sets
+[`show_single_allday_time: false`](#hiding-the-time-row), so the pill is the whole statement
+instead of repeating _All day_ underneath it.
 
 ### Which Shape Draws It
 
-There are four, from quietest to loudest, and all four work at either position:
+`allday_badge_style` picks one of four shapes, from quietest to loudest, and all four work at
+either position:
 
 | Value     | What it draws                                  |
 | --------- | ---------------------------------------------- |
@@ -265,15 +278,15 @@ _are_ whole days, and those rows get a pill while its first and last days keep t
   a multi-day event runs.
 - A title pill is always a single line. A title too long for the space ends in an ellipsis
   inside the pill; it does not wrap, and it does not follow
-  [`title_max_lines`](/reference/configuration#event-column), which stays your setting for
-  every other event.
+  [`title_max_lines`](/reference/configuration#event-column), which still applies to every
+  other event.
 - Both pills size themselves from the text they wrap: the time pill from `time_font_size`, the
   title pill from `event_font_size`, whatever unit you write it in.
 
 ::: tip Pair `title` With show_single_allday_time
 Setting `show_single_allday_time: false` hides the time row of single-day all-day events, which
 at `title` leaves the pilled title alone on its row. Multi-day all-day events keep their row,
-so their end date still shows. At `time` the same setting hides the pill too, along with the
+so their end date still shows. At `time` the same option hides the pill too, along with the
 row it sits on.
 :::
 
@@ -288,13 +301,14 @@ it takes two options:
 | `show_multiday_allday_time` | boolean | `true`  | The time row on all-day events spanning several days, which reads "All day, until Monday, Jun 29" and so carries the end date |
 
 Turn only the first off to keep the end date on the events that have one, or both off for an
-event reduced to a pill. Timed events spanning several days are touched by neither; they show
-real start and end times.
+event reduced to a pill. A timed event spanning several days shows real start and end times and
+is touched by neither, except for the middle days of one that is split, described below.
 
 ::: tip With `split_multiday_events` On, Only The First Applies
-Splitting gives a multi-day event one row per day, each occupying a single day, so
-`show_single_allday_time` governs all of them. `show_multiday_allday_time` only ever applies to
-an unsplit multi-day all-day event, the only shape that still draws an end date.
+Splitting gives a multi-day event one row per day, so `show_single_allday_time` governs every
+row of a split all-day event. It also governs a timed event's all-day middle days; its first and
+last days keep their times. `show_multiday_allday_time` only ever applies to an unsplit
+multi-day all-day event, the only shape that still draws an end date.
 :::
 
 For a title pill with no supporting rows, keep the location and description options on for
@@ -391,7 +405,7 @@ Each layout can set it on its own:
 
 ```yaml
 show_duration: true
-grid:
+time_grid:
   show_duration: false # the block's height already says it
 ```
 
@@ -441,11 +455,10 @@ column:
 
 ::: warning One Line Needs a Wide Event Row
 With `title_max_lines: 1` or `scroll_long_titles`, the time takes its width from the title's
-line and never gives it back. With the default fonts, English text, 24-hour times and
-countdowns, allow about 250px of event row, a 360px list card or a 280px day column, which still
-leaves the title about 100px. Event weather, 12-hour or multi-day times, all-day badges, larger
-fonts and long text labels each need more, and on a narrower row the title can shrink to a few
-characters. Let the title wrap where that is not acceptable.
+line and never gives it back. Use them on list cards about 360px wide or day columns about 280px
+wide, or wider. Event weather, 12-hour or multi-day times, all-day badges, larger fonts and long
+text labels each need more room, and on a narrower row the title can shrink to a few characters.
+Let the title wrap where that is not acceptable.
 :::
 
 ::: details More About the Time Beside the Title
@@ -471,10 +484,9 @@ characters. Let the title wrap where that is not acceptable.
   takes the least room. Beside a text label that wraps, the title sits on the label's first
   line, level with the time.
 - In a column too narrow for a countdown word, that word breaks, as it does below the title.
-- On one line at the width in the warning, some times still run to two or three lines. On 240
-  to 300px list cards or in 145 to 200px columns, with those extras, the time can take up to six
-  lines in a 145px column and up to eight on a narrow list card with event weather, where some
-  titles keep less than a character.
+- On one line, some times run to two or three lines even at the widths in the warning. Below
+  them, with those extras, a time can take several more, and some titles keep less than a
+  character.
 
 :::
 
@@ -484,14 +496,9 @@ characters. Let the title wrap where that is not acceptable.
 reads as just its street and city. It is `false` by default and takes three forms:
 
 ```yaml
-# Option 1: Don't remove any country information
-remove_location_country: false
-
-# Option 2: Use built-in country detection
-remove_location_country: true
-
-# Option 3: Specify exactly which countries to remove (perfect for international users)
-remove_location_country: 'USA|United States|Canada'
+remove_location_country: true # built-in country detection
+# remove_location_country: false # the default: keep every country
+# remove_location_country: 'USA|United States|Canada' # only the countries named
 ```
 
 The third form is a regular expression, matched against the end of the location whatever the
@@ -535,7 +542,9 @@ entities:
 
 ## 📝 Event Description Display
 
-Display event descriptions below event titles for additional context:
+`show_description` shows each event's description below its title, in list, column and grid
+view. Month draws no description in its rows and leaves it to the event details; see
+[Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view).
 
 ```yaml
 # Description display options
@@ -565,16 +574,23 @@ entities:
   - entity: calendar.work
     show_description: true # Show descriptions for work events
   - entity: calendar.personal
-    show_description: false # Hide descriptions for personal events
+    show_description: false # No description in this calendar's rows
 ```
+
+::: warning Changed in v6
+A calendar's `show_description: false` and `show_location: false` keep those fields out of its
+rows only. The event details still show them. To keep what a
+calendar's events say off the card, use
+[`private: true`](/features/core-settings#keeping-a-calendar-private). See
+[Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
+:::
 
 ## 🎂 Birthday Ages & Anniversary Counts
 
 Put **`YEAR=1976`** anywhere in an event's description and the card appends the age to its
 title, recounted every year. It counts anniversaries the same way, and needs no option:
 
-```yaml
-# Nothing to configure — the marker in the event does the work
+```text
 Anna's Birthday  →  Anna's Birthday (50)
 ```
 
@@ -614,7 +630,7 @@ The card only ever counts **upward**. A year that matches the event's own year, 
 
 The marker never appears on your card. With `show_description: true`, a description of `Born YEAR=1996 in Bristol` is drawn as **Born in Bristol**, and a description containing nothing but the marker leaves no description line at all.
 
-Filtering still sees it: [`blocklist` and `allowlist`](/features/core-settings) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern can match the raw `YEAR=1976` and filter a birthday calendar on its markers.
+Filtering still sees it: [`blocklist` and `allowlist`](/features/filtering#matching-the-location-or-description-instead) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern can match the raw `YEAR=1976` and filter a birthday calendar on its markers.
 
 The count sits at the end of the title, so on a narrow card it is the first thing to be cut when [`title_max_lines`](#limiting-lines-per-field) truncates a long one.
 
@@ -644,6 +660,9 @@ description_max_lines: 3 # Allow descriptions up to three lines
   limits too, but fits its time row to each block itself, as
   [What a Block Shows](/features/grid-view#what-a-block-shows) describes, so `time_max_lines`
   does nothing there.
+- Month ignores all four: its lines and a narrow month's day list keep each field to one line,
+  and the panel **+N more** opens shows it in full. See
+  [Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view).
 
 Each option can be overridden inside a `list:` or `column:` block to clamp differently per view, and the title, location and description limits inside a `time_grid:` block too:
 
@@ -662,13 +681,12 @@ column:
 - Marks that Thai, Vietnamese, Arabic and other scripts stack above or below a line are drawn
   whole: "สิ้นสุดพรุ่งนี้" keeps its tone marks, and "Ể" its hook. So is a mark or letter that
   leans past the first or last letter of a field, such as a tone mark past a time's last letter
-  or the hook of a "j" at the edge of a word in grid view. Browsers older than Chrome 125 or
-  Safari 17 leave room for a pixel of it, and a font size option that names a CSS variable
-  leaves room for the card's own text size where the row holding that text cuts it, as a title
-  cut beside its time is. A field with a limit ends exactly at
-  the bottom of its last line even where its text fits, so a mark below that line can meet the
-  cut. In grid view the top edge of a block can still trim the tip of the highest marks on its
-  first line.
+  or the hook of a "j" at the edge of a word in grid view. There are three exceptions. In
+  browsers older than Chrome 125 or Safari 17, or where a font size option names a CSS variable,
+  a mark leaning far past a cut field, such as a title cut beside its time, can be clipped. A
+  mark below the last line of a field with a limit can meet the cut, even where the text fits.
+  And in grid view the top edge of a block can trim the tip of the highest marks on its first
+  line.
 - Where a title's last line would end in a hyphen and then "…", as "appoint-…", the title is
   laid out without automatic hyphens and ends "appoint…" or on the word before. Every other
   title keeps its hyphens.
@@ -736,8 +754,10 @@ time_grid:
 ## ⏳ Countdown Display
 
 `show_countdown` shows how long remains until each upcoming event starts, such as "in 20
-minutes" or "tomorrow", in every view. An event that has ended
-[counts up](#counting-up-from-past-events) instead, such as "13 days ago":
+minutes" or "tomorrow", in list, column and grid view. An event that has ended
+[counts up](#counting-up-from-past-events) instead, such as "13 days ago". Month draws no
+countdown; see
+[Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view).
 
 ```yaml
 # Enable countdown display for events
@@ -813,8 +833,8 @@ show_past_events: true # Keep finished events on the card
 - It counts from the event's end, between calendar dates as the countdown does: a trip that
   ended on Sunday reads "yesterday" all Monday. An event ending at midnight belongs to the day
   before, so at 0:05 it reads "yesterday" rather than "5 minutes ago".
-- It shows wherever the card keeps finished events: grid view does by default, and list and
-  column view with `show_past_events: true`.
+- It shows where the card keeps finished events: in grid view by default, and in list and
+  column view with `show_past_events: true`. Month keeps them but draws no count-up.
 - The countdown's other options apply to it too. `show_countdown_allday: false` leaves out
   finished all-day events, [`countdown_max_days`](#countdown-range) keeps it to events that
   ended within that many days, [`countdown_exact_days`](#counting-in-days) reads "1 day ago"
@@ -931,7 +951,7 @@ dager". Where the browser has no wording for the card's language, the days read 
 ## 🕒 Past Events Display
 
 `show_past_events` keeps events that have already ended on the card, dimmed so what is still
-ahead stands out. List and column view hide them by default; grid view shows them. The Family
+ahead stands out. List and column view hide them by default; grid and month view show them. The Family
 Hub's [Columns picture](/guide/family-calendar#see-it) shows a morning's finished events
 dimmed this way.
 
@@ -1017,6 +1037,8 @@ now_color: '#ef4444' # Mark it in red instead
 - The mark appears and disappears the moment an event starts or ends, without waiting for Home
   Assistant to send anything. With `show_past_events` off, a finished event leaves the card on
   time the same way.
+- In [month view](/features/month-view), a day's list marks an event under way as a list row
+  does, and a line in the weeks writes its time in `now_color`.
 - Grid view draws no mark: its [now line](/features/grid-view#the-now-line) already runs through
   the block that is under way, in the same `now_color`. Set `now_color` in the `time_grid` block
   to give grid view a color of its own.
@@ -1085,7 +1107,7 @@ thing and leaves the rest alone. The five are everything inside the event box:
   color, and the badge in the **day header** belongs to the day, not to any calendar on it.
 
 ::: tip Visual Editor
-**Events → Accent** opens with **Use Calendar Colors For Event Text**, which sets all five at
+**Event Appearance → Accent** opens with **Use Calendar Colors For Event Text**, which sets all five at
 once. Switching it off returns all five to their standard colors rather than to anything set
 before.
 :::
@@ -1128,8 +1150,8 @@ weekend_month_color: '#E67C73'
 | `weekend_day_color`     | string | inherits `day_color`     | Text color of the day number                           |
 | `weekend_month_color`   | string | inherits `month_color`   | Text color of the month name                           |
 
-- They color the date in every layout: the date column in list view and the day header in
-  column and grid view.
+- They color the date in every layout: the date column in list view, the day header in
+  column and grid view, and the weekday names and dates in month view.
 - Left unset, each takes the ordinary color it is named after, so you can set only the ones you
   want.
 - They apply to the whole card. Written inside a `list:`, `column:` or `time_grid:` block they
@@ -1156,16 +1178,19 @@ language: de
 | ---------- | ------ | ------------------------- | ------------------------------------------------------- |
 | `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
 
-- In the editor, **Language** on the **Card & Header** page is one dropdown: **Follow Home
-  Assistant**, then each language the card speaks, by its own name and code.
-- Dates, weekdays, months and words such as "Now", "Today", "tomorrow" and "in 3 hours" come
-  from your browser in the card's language, so they need no translation.
-- Where your browser has no data for that language, those words follow one rule: Nynorsk reads
-  in Bokmål, and any other language in English, as the card's own words do. Chrome, as tested,
-  has none for Icelandic or Nynorsk.
-- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the one exception: where
-  the browser has no data for the language, the card writes that date from its own month names,
-  so it stays in the card's language.
+- In the editor, **Language** is under **Whole Card → Events, Weather & Language → Format &
+  Language**. It is one dropdown: **Follow Home Assistant**, then each language the card speaks,
+  by its own name and code.
+- The card's own translations write the weekday and month names in each day's date, the weekday
+  names over a month's columns, and words such as "No events".
+- Your browser writes the rest in the card's language, so it needs no translation: "Now",
+  "Today" and the month in the toolbar, countdowns such as "tomorrow" and "in 3 hours", event
+  durations, a month's first day, and the date a multi-day event ends on, as in "until Friday,
+  19 Jun".
+- Where your browser has no data for that language, Nynorsk reads in Bokmål and any other
+  language in English, as the card's own words do. Chrome, as tested, has none for Icelandic or
+  Nynorsk. The date a multi-day event ends on and a month's first day are written from the
+  card's own month names instead, so they stay in the card's language.
 - The event popover follows your Home Assistant profile's language instead, since its words are
   Home Assistant's own; see [Words & Language](/features/actions#words-language).
 
@@ -1184,7 +1209,8 @@ showed before.
 
 `show_progress_bar` draws a bar on an event that is running now, filled to show how much of the
 event has already passed. An event a day or longer says which of its days it is on instead, such
-as "Day 3 of 5": see [Day Counter](/features/multi-day-events#day-counter).
+as "Day 3 of 5": see [Day Counter](/features/multi-day-events#day-counter). List, column and grid
+view draw it; month view draws neither.
 
 ```yaml
 show_progress_bar: true
@@ -1240,4 +1266,4 @@ list and column view that is an event shorter than a day, such as a night shift,
 or longer draws its [day counter](/features/multi-day-events#day-counter) instead. Grid view
 keeps the bar on each day's block.
 
-Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).
+Most options on this page are event column options — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options and `language` are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

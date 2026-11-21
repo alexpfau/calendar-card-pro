@@ -26,7 +26,7 @@ The button is `toolbar → add_event`, on by default once the toolbar is shown; 
 
 - **Adding.** Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 - **Not adding.** Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out.
-- **The calendar** is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/header-toolbar#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
+- **The calendar** is a picker offering this card's calendars that accept new events, and only those; a calendar its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) hide is left out while they hide it. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/header-toolbar#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it, though it stays in the picker. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
 - **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. A month starts it on the day it opens with, its `start_date`, or today for Tomorrow, Start of Week or no `start_date`, and paged to another month on today where the month its heading names holds it, and otherwise on its 1st, never a day of the month before that its first week shows.
 
 ::: tip Pressing the Button Is Not a Tap on the Card
@@ -184,6 +184,10 @@ Two things go further than the card itself:
 Where a calendar's events must stay private, set [`private: true`](/features/core-settings#keeping-a-calendar-private) on that calendar: its events read Private in the popover too, and cannot be edited there. To open no popover at all, set `event_tap_action: none`.
 :::
 
+::: warning Changed In v6
+Before v6, a calendar's `show_location: false` and `show_description: false`, **Never Show** in the visual editor, kept that field out of the popover too. Since v6 they hide it in the event rows only, and the popover still shows it. To keep a calendar's text off the card, use [`private: true`](/features/core-settings#keeping-a-calendar-private). See [Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
+:::
+
 ### Where You Can Tap
 
 While events open, every event is a tap target, in every layout: a list row, a column event, a grid block or all-day banner, and a month's line or bar. In list view the whole colored block answers, not only its text.
@@ -268,8 +272,8 @@ your own calendar's ID, so they fill anywhere.
 
 In `url_path` and `navigation_path` each field is percent-encoded, so a title with spaces, an
 ampersand or a slash stays a single search term and cannot add a parameter of its own. Everywhere
-else, a field goes in as plain text. A `url` action that would open anything but an `http` or
-`https` address once a field is in it does not run either. YAML reads a value that starts with a
+else, a field goes in as plain text. A `url` action with a field in it runs only where its address
+names no scheme, such as `/events?q={title}`, or names `http` or `https`. YAML reads a value that starts with a
 brace as something else, so quote it:
 
 ```yaml
@@ -312,7 +316,7 @@ The popover saves once, when it closes: with a press outside it, with Back, or w
 
 ### Dragging in Grid View
 
-In [grid view](/features/grid-view#moving-events-by-drag) you can also drag an event to another time or day wherever the popover [could change it](#what-each-integration-allows), with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
+In [grid view](/features/grid-view#moving-events-by-drag) you can also drag a timed event that starts and ends on one day to another time or day, wherever the popover [could change it](#what-each-integration-allows), with a mouse at once or after holding it on a touch screen. An all-day event, or one that runs past midnight, changes in the popover only. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
 
 ### Moving to Another Calendar
 
@@ -348,7 +352,7 @@ Whether a calendar's events can be added, changed or deleted at all is decided b
 - **CalDAV**, which is also how Home Assistant connects an iCloud calendar, only adds.
 - **Other integrations**, custom ones included, offer whatever they declare.
 
-**Adding** needs a calendar on the card that accepts new events: its integration allows adding, and it is not [failing to load](/features/performance#when-a-calendar-fails-to-load). That holds for the [add button](#add-event-button), a [tap on a day](#tapping-a-day-to-add-an-event), [drawing in the grid](#drawing-an-event-in-grid-view) and the [`add-event` action](#adding-an-event-from-a-tap-or-hold) alike. On a card without one, the add button is not drawn even with the toolbar shown, a tap on a day stays a tap on the card, and `add-event` does nothing and offers no tap or hold. A calendar failing to load is left out of the new event's calendar picker; where it is the card's only one, the button returns once it loads again.
+**Adding** needs a calendar on the card that accepts new events: its integration allows adding, it is not [failing to load](/features/performance#when-a-calendar-fails-to-load), and its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) show it. The [calendar filter](/features/header-toolbar#showing-hiding-calendars) does not count: a calendar it hides can still be picked. That holds for the [add button](#add-event-button), a [tap on a day](#tapping-a-day-to-add-an-event), [drawing in the grid](#drawing-an-event-in-grid-view) and the [`add-event` action](#adding-an-event-from-a-tap-or-hold) alike. On a card without one, the add button is not drawn even with the toolbar shown, a tap on a day stays a tap on the card, and `add-event` does nothing and offers no tap or hold. A calendar failing to load is left out of the new event's calendar picker; where it is the card's only one, the button returns once it loads again.
 
 **Changing** an event needs a calendar that allows changing, and so do [dragging it](#dragging-in-grid-view) and [moving it to another calendar](#moving-to-another-calendar). **Delete** needs one that allows deleting, and so does moving.
 
@@ -371,7 +375,7 @@ allow_event_delete: false
 
 The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no popover for them to narrow.
 
-One calendar's events can be kept out of the popover too: [`private: true`](/features/core-settings#keeping-a-calendar-private) on the calendar shows each of its events as Private, in the popover as on the card, with no map, no editing and no Delete. `show_location` and `show_description` only tidy the rows, wherever they are set, and the popover still shows what they leave out, since it is where you go to read it.
+One calendar's events can be hidden in the popover too: [`private: true`](/features/core-settings#keeping-a-calendar-private) on the calendar shows each of its events as Private, in the popover as on the card. The popover still opens, read-only, with no map, no editing and no Delete. `show_location` and `show_description` only tidy the rows, wherever they are set, and the popover still shows what they leave out, since it is where you go to read it.
 
 ```yaml
 entities:
@@ -409,6 +413,8 @@ While it is open, the page behind it does not scroll. It is light or dark as you
 
 Every word in the popover is Home Assistant's own, from its calendar translations, so the popover follows the language of your Home Assistant profile rather than the card's `language` option, as the add button's tooltip does. Dates and weekday names follow that language too, and times follow the card's 12- or 24-hour format, `time_24h`.
 
+The one exception is a [private calendar's](/features/core-settings#keeping-a-calendar-private) Private, which is the card's own word, as on the card: it follows the card's `language`, and [`replace_with`](/features/filtering#hiding-what-an-event-is-about) can put a word of your own in its place.
+
 ### Maps & Locations
 
 When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. There is no option for the map; it is there whenever a location can be placed. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location.
@@ -421,7 +427,7 @@ The card places two kinds of location:
 The map needs Home Assistant 2026.10 or later; on an older version the popover shows the pin.
 
 ::: info What Leaves Your Home
-Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for an event of a [private calendar](/features/core-settings#keeping-a-calendar-private); event rows, the card editor and typing a location never send anything. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The map tiles come through Home Assistant, so your browser asks no map server for them.
+Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for an event of a [private calendar](/features/core-settings#keeping-a-calendar-private); event rows, the card editor and typing a location never send anything. Each name is kept in your browser's local storage once looked up: a place found for 30 days, a name that found nothing for 7, and one whose lookup failed for an hour. Within that time, opening the same event again sends nothing. The browser keeps the 300 names looked up most recently, and one that keeps no local storage asks again each time. The map tiles come through Home Assistant, so your browser asks no map server for them.
 :::
 
 ::: details Which Places Are Found
@@ -476,8 +482,9 @@ open_links: true
   card with links sets `event_tap_action: none`. With either set to `details`, the links are in
   the [popover](#links) instead. In the visual editor, Open Links in Events sits under Event Hold
   Action, shown while both event actions are Nothing.
-- **In list and column view.** Grid blocks draw no links; a grid card draws them only when it
-  falls back to a list. See
+- **In list and column view, and in Month's day list.** A month's [day list](/features/month-view#the-days-list)
+  and its panel of one day link the addresses in locations; they draw no descriptions. Grid blocks
+  draw no links; a grid card draws them only when it falls back to a list. See
   [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
 - **Apart from the card's actions.** A tap on a link follows it rather than running the card's
   `tap_action`, and a hold on it is the browser's, never `hold_action`, so a card that expands
@@ -537,7 +544,7 @@ Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names 
 :::
 
 ::: info Tap & Hold Act on the Whole Card
-`tap_action` and `hold_action` belong to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
+`tap_action` and `hold_action` belong to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities` that its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) show, whichever event you tapped. Name the entity on the action to open a different one:
 
 ```yaml
 tap_action:

@@ -6,9 +6,9 @@ to its calendars, so it never polls; on older versions it asks again whenever it
 for a refresh.
 
 ```yaml
-# Cache and refresh settings
+# Cache and refresh options
 refresh_interval: 30 # Minutes between refreshes
-refresh_on_navigate: true # Refetch in the background whenever the card appears
+refresh_on_navigate: true # Load again in the background when the card appears
 ```
 
 ## 📡 Live Updates
@@ -38,17 +38,15 @@ How soon Home Assistant knows depends on the calendar's integration:
   until the card subscribes again: within 30 seconds for a card on screen, and when it comes back
   for one that was not, as while you were in Home Assistant's settings.
 
-::: details Subscriptions & What They Cost
+::: details Older Home Assistant & Several Cards
 
 - On Home Assistant before 2026.5 the card asks again at most every 30 minutes whether it can
   subscribe, in case Home Assistant was only starting up.
-- Cards showing the same calendar over the same dates share one subscription per browser tab. A
-  card that leaves the page lets go of its subscriptions a few seconds later, and subscribes
-  again when it comes back.
-- Each subscription reads the calendar's events once when it starts and again at every change
-  Home Assistant sends. A card appearing therefore costs Home Assistant one read of each
-  calendar, as a refresh on appearing did, and a calendar that changes often is read as often.
+- Cards on one page showing the same calendar over the same dates share its updates, so a second
+  card costs Home Assistant nothing more.
 
+How the subscriptions work, and what they cost Home Assistant, is described for contributors
+under [Live Updates](/architecture-data#live-updates).
 :::
 
 ## ⚡ Loading & Refreshing
@@ -57,9 +55,12 @@ How soon Home Assistant knows depends on the calendar's integration:
   dashboard or when you switch back to a dashboard view, it draws the events it last loaded, up to
   24 hours old, without waiting for Home Assistant.
 - **A background refetch on appearing.** With `refresh_on_navigate` on, which is the
-  default, the card then asks Home Assistant again and swaps in the answer, unless its data
+  default, the card then loads its events again and swaps in the answer, unless its data
   is less than 5 seconds old or a calendar is failing to load and waiting for its next
-  retry. Turn it off to keep using the cached events until they are due.
+  retry. Where another card on the page already receives a calendar's
+  [live updates](#live-updates), the answer comes from those and asks Home Assistant for
+  nothing. Turn it off to keep using the cached events until they are due; a load that found no
+  events at all is due again after 15 seconds.
 - **Where live updates are not available, a refresh every `refresh_interval` minutes**,
   counted from when the data was loaded.
   Cards showing the same calendars over the same dates share one cache, so one card's
@@ -115,17 +116,15 @@ choices made on its toolbar:
 
 ### How Search Loads
 
-The first time the toolbar's search panel opens, the card asks Home Assistant for each of its
-calendars' events over the whole two years, one request per calendar, and keeps them in memory
-for that card. Typing asks for nothing more.
+The first time the toolbar's search panel opens, the card loads each of its calendars' events
+over the whole two years and keeps them in memory for that card. Typing asks for nothing more.
 
-Later openings search the same events until one of the card's calendars is written to, Home
-Assistant pushes a change to one of them, the card's `refresh_interval` has passed or a new day
-has begun, and then ask again. A write or a pushed change while the panel is open asks again at
-once, keeping what you typed and the result you were on wherever it is still there.
+Later openings search the same events until one of the card's calendars changes, the card's
+`refresh_interval` has passed or a new day has begun, and then load them again. A change while
+the panel is open loads them again at once, keeping what you typed and the result you were on
+wherever it is still there.
 
-No Home Assistant calendar searches text, or limits how many days it is asked for, so the card
-asks for the days and searches them itself. What that costs depends on the integration:
+How long the first load takes depends on the integration:
 
 - **Local Calendar and Remote Calendar** answer from memory, quickly.
 - **Google Calendar** answers from its own copy of the calendar, which holds only about 90 days
@@ -137,13 +136,9 @@ asks for the days and searches them itself. What that costs depends on the integ
 
 ## 🖥️ Redrawing
 
-Home Assistant tells the card about every change in the house, often several a second. The
-card redraws only when something it shows has changed: one of its calendars, a label's
-person or entity, its weather entity, or your language, theme or Home Assistant settings. A
-light switching in another room costs it nothing. Nor does a calendar's live update that
-changes no event: Home Assistant also sends a calendar's events when one of them starts or
-ends, and some integrations at every sync, every minute for some, and the card compares and
-redraws only when an event changed.
+The card redraws only when something it shows has changed: one of its calendars' events, a
+label's person or entity, its weather entity, or your language, theme or Home Assistant
+settings. A light switching in another room costs it nothing.
 
 Some of what the card shows changes with time alone, and it redraws for that on its own:
 

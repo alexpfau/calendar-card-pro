@@ -55,14 +55,20 @@ block filters independently.
 An event that has no location at all, or no description, counts as not matching: an
 allowlist drops it and a blocklist keeps it, just as for an event with no title.
 
-::: details Plain Patterns & HTML in Descriptions
+::: details Case, Broken Patterns, Plain Patterns & HTML in Descriptions
 
+- Matching ignores case: `birthday` matches "Birthday" and "BIRTHDAY".
+- A pattern that is not a valid regular expression, such as `Lunch (` with an unclosed bracket,
+  is ignored rather than rejected: that list filters nothing, so every event it would have
+  judged shows. The other list on the same calendar still applies. The visual editor flags such
+  a pattern at its field.
 - A pattern has no prefix syntax: `allowlist: 'location:'` matches the literal text
   `location:` in a title.
 - The card strips HTML out of descriptions for display, but the filter reads the description
   as your calendar delivered it. With Google Calendar that usually means HTML, so a pattern
   matching a link may need to allow for the anchor markup wrapped around it.
-- `show_description: false` hides descriptions without stopping them being filtered on.
+- `show_description: false` hides descriptions from the rows without stopping them being
+  filtered on.
 
 :::
 
@@ -149,7 +155,10 @@ Every other event on the same calendar still shows its room, because the second 
 never had the option set.
 
 Swap `show_location` for `show_description` to do the same to a description, or set both
-if the URL appears twice. And if you would rather those events were gone altogether,
+if the URL appears twice. Either only tidies the rows: the
+[event details](/features/actions#event-details) a tap opens still show the URL, and only
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps it out of them; see
+[Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details). And if you would rather those events were gone altogether,
 delete the first block — a lone `blocklist` filters them out instead of quieting them.
 
 ### Separating All-Day From Timed Events
@@ -191,7 +200,7 @@ below, and it composes with the name filters: a block may set `event_type` and a
 **Split This Calendar** on the calendar's page builds both entries in one step: choose
 **All-Day vs. With a Time**, give each part its color, and check where the upcoming events
 land before you split. Undo takes it back. To add a second entry by hand, use **Duplicate**
-in the calendar's ⋮ menu, which lists it again with the same settings, ready for you to
+in the calendar's ⋮ menu, which lists it again with the same options, ready for you to
 change the one option that differs. The entries sit under their calendar in the list, and
 **Remove** on one drops it without taking the other; see
 [Split This Calendar](/features/editor#split-this-calendar) and
@@ -233,8 +242,23 @@ entities:
 ::: warning It Only Applies While Past Events Are Hidden
 `allday_expires_at` decides _when_ an all-day event becomes past. Whether past events are
 drawn at all is [`show_past_events`](/reference/configuration#event-column), which
-defaults to `false`. With `show_past_events: true` the card is being asked to show what is
-over, so this option has nothing left to do and the event stays.
+defaults to `false` in list and column view and to `true` in grid and month view. With
+`show_past_events: true` the card is being asked to show what is over, so this option has
+nothing left to do and the event stays.
+
+A top-level `show_past_events: false` does not reach grid or month view, which keep their own
+default. To retire the collection there too, set it in their blocks:
+
+```yaml
+time_grid:
+  show_past_events: false
+month:
+  show_past_events: false
+entities:
+  - entity: calendar.waste_collection
+    allday_expires_at: '10:00'
+```
+
 :::
 
 ::: details Accepted Time Formats
@@ -464,7 +488,9 @@ entities:
 
 **The labels need nothing switched on.** A merged row draws the label of every calendar it
 came from, in the order the calendars are listed. Labels that resolve to the same value, such
-as the same emoji or `mdi:` icon, are drawn **once**.
+as the same emoji or `mdi:` icon, are drawn **once**. It takes two different labels to combine
+them: with fewer, the row shows the label of the calendar its copy came from, or none where that
+calendar has no label, even when another calendar in the merge has one.
 
 **The color is the one line you switch on.** `duplicate_accent_color` replaces the accent of a
 merged row — the accent bar, the row's background tint when
@@ -474,6 +500,11 @@ theme variable such as `var(--success-color)`. Leave it unset and a shared row k
 first-listed calendar's color. The
 [Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets it to the Family
 calendar's own color, so an event on more than one person's calendar reads as a family event.
+
+Every label shows on the rows of list and column view, on grid view's timed blocks, and in a
+day's list in month view. Grid view's all-day banners and month view's bars draw no label at
+all, and month view's one-line entries in its weeks draw only the label of the calendar the
+copy came from.
 
 Both need two or more **distinct** calendars. A calendar listed twice to
 [map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the first block's single
@@ -625,6 +656,13 @@ entities:
     replace_with: '$1 🎂'
 ```
 
+::: details A Pattern That Is Not a Regular Expression
+A `replace_pattern` the card cannot read as a regular expression, such as `Lunch (` with an
+unclosed bracket, is ignored rather than rejected: the field shows as the calendar delivered it,
+and the rest of the card is unaffected. Escape a character that has a meaning in a pattern, as
+`\(`, or as `\[` in the `[AUTO]` example above.
+:::
+
 ### Hiding What an Event Is About
 
 Leave `replace_pattern` out and the whole field is replaced, whatever it said. This is the
@@ -637,7 +675,7 @@ entities:
 ```
 
 Every event from that calendar now reads `Busy`, keeping its time, its color and its place in
-the day. The calendar itself is untouched — this is a display setting, so the same calendar on
+the day. The calendar itself is untouched — this is a display option, so the same calendar on
 your own card still shows real titles.
 
 It replaces the title alone: the location and the description still show where the card shows
@@ -679,6 +717,9 @@ same block to name the icon you want and the detection stops mattering either wa
 
 ### One Field Per Block
 
+Each calendar entry rewrites one field: `replace_field` names the title, the location or the
+description, and listing the calendar a second time to rewrite another does not work.
+
 ::: warning A Calendar Cannot Be Listed Twice to Rewrite Two Fields
 This is the one place the "list the calendar twice" pattern used throughout this page does
 **not** transfer.
@@ -693,7 +734,7 @@ are identical as far as deduplication is concerned, because it compares events a
 delivered them and a replacement only changes what is drawn. The first block's copy is the one
 kept, so the second block's replacement is silently discarded along with the duplicate row.
 
-Rewrite the field that matters most on the card. The rest of a calendar's settings — colors,
+Rewrite the field that matters most on the card. The rest of a calendar's options — colors,
 icons, filters — are unaffected either way.
 :::
 

@@ -283,7 +283,7 @@ switch to Grid has to copy.
 :::
 
 See [Per-View Options](/features/layouts#per-view-options) and the
-[editor upgrade flow](/features/editor#upgrading-a-card-from-before-v5) for user-facing examples.
+[editor upgrade flow](/features/editor#adopting-the-layout-format) for user-facing examples.
 
 ## 📦 One Card, Its Editor & Its Languages
 

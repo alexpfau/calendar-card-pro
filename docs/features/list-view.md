@@ -83,12 +83,13 @@ Neither has a default: unset, there is no cap.
 entities:
   - entity: calendar.family # No cap of its own
   - entity: calendar.work
-    compact_events_to_show: 2 # At most 2 work events, the earliest
+    compact_events_to_show: 2 # At most 2 work events, from the top of the list
 ```
 
-- **Each calendar's cap comes first.** A calendar keeps its earliest events, up to its own
-  limit. The cap belongs to the entry in `entities`, so a calendar listed twice has one per
-  block. A calendar with no cap of its own keeps all of its events at this step.
+- **Each calendar's cap comes first.** A calendar keeps its events from the top of the list, up
+  to its own limit: its earliest by default, its most recent with
+  [`latest_first`](#event-order). The cap belongs to the entry in `entities`, so a calendar listed
+  twice has one per block. A calendar with no cap of its own keeps all of its events at this step.
 - **The card's cap comes second.** It counts the events left from every calendar together, in
   date and time order with each day's all-day events first, so a calendar without a cap of
   its own still counts toward it.

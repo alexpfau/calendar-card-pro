@@ -156,55 +156,74 @@ the card offers more than one layout.
 
 Each press redraws the same two days: as Columns, then as List, then as Grid again.
 
+It offers all four layouts by default. `view_switcher_layouts` offers those it names, and the
+layout in `view` always, whether the list names it or not:
+
+```yaml
+toolbar:
+  show: true
+  view_switcher_layouts: [list, grid]
+```
+
+::: warning Changed In v6
+The switcher now offers Month too. A card that can switch to Month loads its six weeks as well as
+its own days, and with `hide_when_empty` it stays on the dashboard while the month holds an event,
+even when its own days are empty. To offer only the three layouts of v5, name them:
+
+```yaml
+toolbar:
+  show: true
+  view_switcher_layouts: [list, column, grid]
+```
+
+See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
+:::
+
 - **The configured `view` is where the card starts.** Each device remembers its own switch in its
-  browser, never in the configuration. A change to the card's configuration, even resizing it in
-  a sections dashboard, returns every device to `view`, and the
-  [reset button](#resetting-the-card) returns one; see
-  [What the Card Keeps](/features/performance#what-the-card-keeps).
+  browser, never in the configuration. A change to the card's configuration returns every device
+  to `view`, and the [reset button](#resetting-the-card) returns one.
 - **The same days, nothing reloaded.** List, Columns and Grid start on the same date, since
-  `start_date` is shared, and Month opens the month holding it, or today's month for Tomorrow
-  and Start of Week. The
-  card does not reload its events to switch, except to carry you to days it has not loaded yet,
-  such as from a day picked on a narrow month, which it loads as paging does. `days_to_show` is shared too,
-  unless a layout sets its own in its block, say 14 days in List and 7 in Grid; see
+  `start_date` is shared, and Month opens the month holding it. `days_to_show` is shared too,
+  unless a layout sets its own; see
   [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
-  Options set for one layout in its own `list:`, `column:`, `time_grid:` or `month:` block come
-  with it.
+  Options set in a layout's own `list:`, `column:`, `time_grid:` or `month:` block come with it.
+- **Columns and Grid need room.** On a card too narrow for even their fewest days, two for
+  Columns and one for Grid by default, they draw as a list until the card is wide enough again.
+  See [Column View](/features/column-view) and [Grid View](/features/grid-view).
+- **In the visual editor** the View Switcher chip on Card & Header turns it on and off, and while
+  it is pressed, **View Switcher offers**, under the controls, has a checkbox per layout.
+
+::: details More About Switching
+
 - **Your place comes along.** Paged away from the card's own days, or with a day picked on a
   [narrow month](/features/month-view#the-narrow-month), the next layout opens on the same
   date: Month on the month holding it, with that day selected, and List, Columns and Grid on the
   days starting from it. With nothing picked on the card's own days, each layout opens on its
   own, and the home button takes each back there; see
   [Paging Through Months](/features/month-view#paging-through-months).
+- **Month opens today's month** when `start_date` is Tomorrow or Start of Week. The card reloads
+  its events to switch only to carry you to days it has not loaded yet, such as from a day picked on a narrow
+  month, which it loads as paging does.
 - **List draws every one of its days; Columns and Grid draw as many as fit** the card's width, as
   close to today as the range allows, or from the first day of a page the
   [date navigation](#paging-through-dates) has moved to. Month always draws six whole weeks; see
   [Month View](/features/month-view).
-- **Columns and Grid need room.** On a card too narrow for even their fewest days, two for
-  Columns and one for Grid by default, they draw as a list. The switcher still marks the layout
-  picked, and draws it once the card is wide enough again, as when a tablet is turned. Every
-  layout it offers stays pressable at any width. See [Column View](/features/column-view) and
-  [Grid View](/features/grid-view) for how much room each needs.
+- **A layout too narrow to draw stays picked.** The switcher still marks it, and draws it once the
+  card is wide enough again, as when a tablet is turned. Every layout it offers stays pressable at
+  any width.
 - **The card's height follows its layout,** so other cards on the dashboard may move when it
   switches.
-- **Which layouts it offers.** All four by default. `view_switcher_layouts` offers those it
-  names, and the layout in `view` always, whether the list names it or not:
+- **Resizing the card counts as a change.** Even resizing it in a sections dashboard returns every
+  device to `view`; see [What the Card Keeps](/features/performance#what-the-card-keeps).
+- **A layout left out is also left out of what the card loads,** so leaving `month` out keeps the
+  card's load to its own days. A list that comes to one layout, or none, draws no switcher.
+  `view_switcher: false` turns the switcher off and keeps the list for when it is turned back on.
+- **In the editor's checkboxes** the starting layout's stays checked, and so does the last other
+  one. Making the one other layout the list names the one the card opens in adds the layout it
+  leaves, so the switcher stays. A list written in YAML that offers the starting layout alone
+  shows a line under the checkboxes saying no switcher is drawn until a second layout is checked.
 
-  ```yaml
-  toolbar:
-    show: true
-    view_switcher_layouts: [list, grid]
-  ```
-
-  A layout left out is also left out of what the card loads: a card that can switch to Month
-  loads its six weeks too, so leaving `month` out keeps the card's load to its own days. A list
-  that comes to one layout, or none, draws no switcher. `view_switcher: false` turns the switcher
-  off and keeps the list for when it is turned back on. In the visual editor, the View Switcher
-  chip on Card & Header turns it on and off, and while it is pressed, **View Switcher offers**,
-  under the controls, has a checkbox per layout; the starting layout's stays checked, and so does
-  the last other one. Making the one other layout the list names the one the card opens in adds
-  the layout it leaves, so the switcher stays. A list written in YAML that offers the starting layout alone shows a line
-  under the checkboxes saying no switcher is drawn until a second layout is checked.
+:::
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
@@ -288,25 +307,23 @@ while the editor is open, else as a menu.
 - **The filter button carries a dot** while any calendar is hidden, so a card filtered behind a
   closed menu still says so.
 
-Hiding changes what is drawn, never what is loaded, so a press redraws at once and costs no
-request; a hidden calendar that fails to load is still named at the card's foot. Everything that
-counts events counts only those of the calendars shown:
-
-- **Duplicates.** With `filter_duplicates`, an event two calendars share is drawn from the first
-  calendar shown, so hiding the one that drew it hands it to the next instead of removing it.
-- **Compact limits.** `compact_events_to_show` and `compact_days_to_show` are filled from the
-  calendars shown, so hiding one lets more of the others in.
-- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the filter
-  stays, with its filter, so the calendars can be brought back.
-
 Each device remembers which calendars it hides, as it remembers its
 [layout](#switching-between-layouts). A change to the card's configuration shows every calendar
-again on every device, while opening the editor and closing it without a change forgets nothing.
-The [reset button](#resetting-the-card) shows them all again on one device. Paging and switching
-layouts keep them.
+again on every device, and the [reset button](#resetting-the-card) shows them all again on one.
 
 ::: details More About the Filter
 
+- **Hiding changes what is drawn, never what is loaded,** so a press redraws at once and costs no
+  request; a hidden calendar that fails to load is still named at the card's foot.
+- **Everything that counts events counts only those of the calendars shown.** With
+  `filter_duplicates`, an event two calendars share is drawn from the first calendar shown, so
+  hiding the one that drew it hands it to the next instead of removing it.
+  `compact_events_to_show` and `compact_days_to_show` are filled from the calendars shown, so
+  hiding one lets more of the others in.
+- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the filter
+  stays, with its filter, so the calendars can be brought back.
+- Opening the editor and closing it without a change forgets nothing, and paging and switching
+  layouts keep the hidden calendars.
 - A calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
   first entry.
 - A calendar can be left out of the filter altogether; see
@@ -360,7 +377,7 @@ blue without a chip of their own.
 
 ::: details Calendars Listed Twice
 
-The setting belongs to the calendar, not to one entry in `entities`. The
+The option belongs to the calendar, not to one entry in `entities`. The
 [visual editor](/features/editor#entry-pages) writes it to every entry for that calendar, and in
 YAML the first entry that sets it wins.
 
@@ -532,25 +549,25 @@ toolbar:
   search: false
 ```
 
-- **Typing** lists, as you type, the events whose title, location or description hold what you
-  typed, whatever the case and the accents: "zurich" finds "Zürich". Upcoming events come first,
-  soonest first, then a thin line and the past, most recent first and dimmed as the card dims
-  past events, each grouped under its month. A result shows its calendar's color, its title, and
-  its day, time and location, with what you typed marked. At most 200 are listed, the past's
-  oldest left out first.
-- **Picking a result,** with a press, or with the arrow keys and Enter, closes the panel and
-  pages the card to that day, in the layout on screen and lined up with its pages as the date
-  picker does. The event is then ringed in the theme's primary color for two seconds. Where the
-  page cannot show the event, the card turns to that day all the same and rings nothing: past a
-  compact card's limit, in a column the card is too narrow for, and for an event that has ended
-  on the days the card opens with while `show_past_events` is off. The
+- **Typing** lists the events whose title, location or description hold what you typed, whatever
+  the case and the accents: "zurich" finds "Zürich". Upcoming events come first, soonest first,
+  then the past, most recent first and dimmed, each grouped under its month. At most 200 are
+  listed, the past's oldest left out first.
+- **Picking a result,** with a press, or with the arrow keys and Enter, pages the card to that day
+  in the layout on screen and rings the event in the theme's primary color for two seconds. The
   [home button](#paging-through-dates) brings the card back, as after any page.
+- **A search finds only what the card would show** on some page, in the words it would show: a
+  calendar's own filters apply, and a calendar hidden with the
+  [calendar filter](#showing-hiding-calendars) stays hidden.
 
-A search finds only what the card would show on some page, in the words it would show:
+The first time the panel opens, the card loads two years of every calendar, which can take a
+while with CalDAV; see [How Search Loads](/features/performance#how-search-loads). Until a
+calendar answers, the search finds the events the card already holds.
+
+::: details What a Search Finds
 
 - **A calendar's own filters apply,** `blocklist`, `allowlist`, `days_of_week`, `event_type` and
-  the rest, and a calendar hidden with the [calendar filter](#showing-hiding-calendars) stays
-  hidden.
+  the rest.
 - **`filter_duplicates` lists an event two calendars share once,** as the card draws it. Where
   a calendar's `days_of_week` leaves it out of some of a multi-day event's days, the days it
   shares are listed apart, with every location `merge_locations` draws there and every calendar,
@@ -558,31 +575,38 @@ A search finds only what the card would show on some page, in the words it would
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
   `show_location` or `show_description` off, is not searched, nor is a description in
-  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none.
+  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none. The
+  event's popover still shows them; to keep a calendar's text off the card, use
+  [`private: true`](/features/core-settings#keeping-a-calendar-private).
 - **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
   layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
   outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
   unless its `time_grid` block turns `show_location` on.
 - **`show_past_events` does not apply.** A search spans its own two years, whatever days the card
   shows.
+- **A result** shows its calendar's color, its title, and its day, time and location, with what
+  you typed marked. The past is set off from the upcoming events by a thin line.
+- **Where the page cannot show a picked event,** the card turns to that day all the same and rings
+  nothing: past a compact card's limit, in a column the card is too narrow for, and for an event
+  that has ended on the days the card opens with while `show_past_events` is off. A pick closes
+  the panel and lines the card up with its pages as the date picker does.
+- Page elsewhere before the result's day has loaded, and nothing is ringed when you come back
+  to it.
 
-The first time the panel opens, the card loads two years of every calendar, which can take a
-while with CalDAV, and Google Calendar may leave out one-off events more than about 90 days old;
-see [How Search Loads](/features/performance#how-search-loads). Until a calendar answers, the
-search finds the events the card already holds. If the calendars take more than a second to
-answer, a small spinner stands in the field in place of the magnifier until they have. A calendar
-that cannot be loaded is named under the results, its events left out, and is asked again the
-next time the panel opens.
+:::
 
-::: details More About Search
+::: details Loading, Languages & Screen Readers
 
+- Google Calendar may leave out one-off events more than about 90 days old; see
+  [How Search Loads](/features/performance#how-search-loads).
+- If the calendars take more than a second to answer, a small spinner stands in the field in
+  place of the magnifier until they have. A calendar that cannot be loaded is named under the
+  results, its events left out, and is asked again the next time the panel opens.
 - On a card in Turkish, "ikea" finds "IKEA" although Turkish writes its lower case "ıkea".
 - Once you stop typing, a screen reader hears how many results there are in all. After a pick,
   focus moves to the event where a tap on it does something, and stays on the magnifier where it
   does not. With reduced motion turned on, the ring does not fade out and the spinner in the field
   stands still.
-- Page elsewhere before the result's day has loaded, and nothing is ringed when you come back
-  to it.
 - Every word the panel shows is Home Assistant's own, in its language. On a phone the panel is a
   sheet from the bottom of the screen, and while you type it stands on the on-screen keyboard,
   the field and the results above the keys. Held sideways, it moves up out of the keyboard's way.

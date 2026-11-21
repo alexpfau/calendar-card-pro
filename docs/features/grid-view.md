@@ -255,6 +255,21 @@ time_grid:
 
 The date row, the week numbers and the weekend tint are not affected by these options.
 
+::: warning Changed in v6
+Grid's lines are stronger than in v5, which drew all four in `var(--divider-color)` at 50%. To
+keep the v5 look, set the four colors in `time_grid:`. See
+[What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
+
+```yaml
+time_grid:
+  day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+```
+
+:::
+
 ::: details More About Grid Lines
 
 - The day lines cross the all-day band, and a banner over several days paints over them. Month
@@ -663,10 +678,9 @@ time_grid:
   title_max_lines: 2
 ```
 
-- Grid first tries the title on one centered line at your configured font size, with `1px` of
-  space above and below.
-- If that still does not fit, it shrinks the title and its labels together in `1px` font steps
-  to the largest size that fits, never below `10px` for the title or any text or emoji label.
+- Grid first tries the title on one centered line at your configured font size.
+- If that still does not fit, it shrinks the title and its labels together to the largest size
+  that fits, never below `10px` for the title or any text or emoji label.
   Every calendar label stays, merged labels included, and text, emoji, icons and pictures keep
   their relative sizes, colors, order and proportions.
 - A fitted title that is too long scrolls with `scroll_long_titles: true`, like any other
@@ -816,9 +830,17 @@ narrower** also writes `min_days_to_show` at the number of days shown, since Gri
 drop days down to one before narrowing them.
 
 ::: warning Dropped Days Are Not Marked
-The card does not draw a marker saying days before or after the visible ones were hidden,
-so use `min_days_fallback: cramp` if seeing the whole range matters more than preserving the
-minimum column width.
+The card does not draw a marker saying days before or after the visible ones were hidden. If
+seeing the whole range matters more than the minimum column width, set both options, using your
+day count:
+
+```yaml
+time_grid:
+  min_days_to_show: 7
+  min_days_fallback: cramp
+```
+
+`cramp` alone still sheds days down to one before it narrows them.
 :::
 
 ::: details Which Days Stay & How Wide a Card Must Be
@@ -976,10 +998,12 @@ Grid** instead. Stored values are kept for the layouts they apply to.
 | `event_spacing`, `event_gap`                                                                                                       | A grid block sets its own padding and is placed by its time. `day_spacing` still sets the gap between day columns                                                                     |
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
-The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is
-(the all-day badge controls are in **Layout Defaults** too); see
-[Options for the Selected View](/features/editor#options-for-the-selected-view).
+To edit any of these, open a layout they apply to under
+**Layouts**, which leaves the card's layout as it is (the all-day badge controls are in **Layout
+Defaults** too); see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+A calendar's own compact limit and multi-day splitting are on its page under **Calendars**,
+which holds the options of every layout the card can show and says which layouts each applies
+to, such as **Only in List**.
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
 `show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,

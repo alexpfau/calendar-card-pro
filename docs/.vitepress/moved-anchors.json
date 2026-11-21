@@ -31,6 +31,7 @@
   "/features/core-settings#showing-events-that-start-at-certain-hours": "/features/filtering#showing-events-that-start-at-certain-hours",
   "/features/core-settings#text-replacement": "/features/filtering#text-replacement",
   "/features/core-settings#what-each-combination-does": "/features/filtering#what-each-combination-does",
+  "/features/editor#upgrading-a-card-from-before-v5": "/features/editor#adopting-the-layout-format",
   "/features/layout-appearance#header-toolbar": "/features/header-toolbar",
   "/features/layout-appearance#larger-arrows-chips": "/features/header-toolbar#larger-arrows-chips",
   "/features/layout-appearance#leaving-a-calendar-out-of-the-filter": "/features/header-toolbar#leaving-a-calendar-out-of-the-filter",

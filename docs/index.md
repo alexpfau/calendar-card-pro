@@ -26,6 +26,7 @@ features:
   - icon: 🗓️
     title: List, Columns, Grid & Month
     details: An agenda, the days side by side, hour by hour with each event sized by how long it runs, or the whole month.
+    link: /features/layouts
   - icon: 🧰
     title: A Toolbar on the Card
     details: Page through the dates, switch layouts and show or hide calendars, right on the dashboard.
@@ -62,7 +63,7 @@ This motivated me to create a **dedicated calendar card**.
 
 ## ✨ Features
 
-- 🗓️ **List, Columns & Grid** – Stack the days as an agenda, lay them [side by side](/features/column-view), or draw them [hour by hour](/features/grid-view), each event sized by how long it runs.
+- 🗓️ **[Four Layouts](/features/layouts)** – Stack the days as an agenda, lay them [side by side](/features/column-view), draw them [hour by hour](/features/grid-view), each event sized by how long it runs, or show [the whole month](/features/month-view).
 - 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](/features/header-toolbar), each device remembering its layout and which calendars it shows.
 - ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card in [its own popover](/features/actions#the-event-popover), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Give each calendar its own color, label or [a person's photo](/features/core-settings#showing-a-persons-picture) and its own filters; an event on several calendars [can be merged into one](/features/filtering#labeling-coloring-shared-events).
