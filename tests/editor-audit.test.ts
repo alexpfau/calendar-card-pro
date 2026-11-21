@@ -429,11 +429,12 @@ describe('Stored Settings, its groups', () => {
     expect(row.getAttribute('aria-expanded')).toBe('false');
 
     expect(await strip(editor, 'time_grid.end_time')).toEqual([
-      { id: 'change', label: 'Change Here', name: 'Change Last Hour in Grid Here' },
+      // Each name starts with the words its button shows, so a speech user can say them.
+      { id: 'change', label: 'Change Here', name: 'Change Here: Last Hour in Grid' },
       {
         id: 'open',
         label: 'Open in Which Events',
-        name: 'Open Last Hour in Grid in Which Events',
+        name: 'Open in Which Events: Last Hour in Grid',
       },
       { id: 'reset', label: 'Reset', name: 'Reset Last Hour in Grid' },
     ]);
@@ -443,8 +444,8 @@ describe('Stored Settings, its groups', () => {
     expect(group.getAttribute('aria-label')).toBe('Actions for Last Hour in Grid');
     // A calendar's line opens on its calendar's page, and says so.
     expect((await strip(editor, 'entities[0].label')).map(({ name }) => name)).toEqual([
-      'Change Label on calendar.anna Here',
-      'Open Label on calendar.anna in calendar.anna',
+      'Change Here: Label on calendar.anna',
+      'Open in calendar.anna: Label on calendar.anna',
       // Its control leaves the page with its line, so the action is Remove.
       'Remove Label on calendar.anna',
     ]);
@@ -875,7 +876,7 @@ describe('Stored Settings, the review’s findings', () => {
     await openAudit(editor);
     expect(
       (await strip(editor, 'entities[0].accent_color')).find(({ id }) => id === 'change')!.name,
-    ).toMatch(/^Change Accent Color on .* Here$/);
+    ).toMatch(/^Change Here: Accent Color on /);
     await act(editor, 'entities[0].accent_color', 'change');
     // Edit opens the control the line's setting is drawn as, its swatches there to pick.
     const row = $(editor, '[data-audit="entities[0].accent_color"]')!;

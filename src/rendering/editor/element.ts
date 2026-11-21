@@ -7476,7 +7476,7 @@ export class CalendarCardProEditor extends LitElement {
         id: 'split',
         label: this._string(ctx, 'split.title'),
         icon: mdiCallSplit,
-        name: this._string(ctx, 'split.named', { name: entryName }),
+        name: this._string(ctx, 'split.named_row', { name: entryName }),
         onPress: () => this._openSplit(entryKey),
       });
     }
@@ -9147,7 +9147,7 @@ export class CalendarCardProEditor extends LitElement {
     return SplitView.splitRow(
       this._string(ctx, 'split.title'),
       this._string(ctx, 'split.row_helper'),
-      this._string(ctx, 'split.named', { name: this._entryName(key) }),
+      this._string(ctx, 'split.named_row', { name: this._entryName(key) }),
       () => this._openSplit(key),
     );
   }

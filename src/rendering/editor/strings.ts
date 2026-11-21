@@ -91,9 +91,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'audit.reset_all': 'Reset All in {layout}',
   'audit.reset_all_done': 'Reset every value stored for {layout}.',
   'audit.change_here': 'Change Here',
-  'audit.change_named': 'Change {label} Here',
+  'audit.change_named': 'Change Here: {label}',
   'audit.open_in': 'Open in {page}',
-  'audit.open_named': 'Open {label} in {page}',
+  'audit.open_named': 'Open in {page}: {label}',
   'audit.remove_named': 'Remove {label}',
   'audit.go_to': 'Go to {name}',
   'audit.go_setting': 'Go to Setting',
@@ -770,6 +770,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.row_helper':
     'Turn this entry into two, such as all-day events and events with a time, each with its own color.',
   'split.named': 'Split {name}',
+  // The row's and the menu item's name, which starts with the words they show (WCAG 2.5.3).
+  'split.named_row': 'Split This Calendar: {name}',
   'split.step.how': 'How',
   'split.step.colors': 'Colors',
   'split.step.review': 'Review',
