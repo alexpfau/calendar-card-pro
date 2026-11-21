@@ -285,6 +285,27 @@ describe('a kept view value is the view’s own', () => {
       time_grid: { slot_minutes: 60 },
     });
   });
+
+  /**
+   * The card reads a bare length in pixels, so `event_font_size: 14` is the layout's own 14px,
+   * held against the card-wide size moving, as a `14px` line is.
+   */
+  it('reads a bare length at its default as the layout’s own, and keeps it on a write', () => {
+    const column = { event_font_size: 14 };
+    const month = { cell_event_font_size: 12, event_font_size: '14' };
+    const config = merged({ view: 'column', column, month });
+
+    // A length only the layout reads is stored as the card reads it, as any other value of it is.
+    const stored = { column, month: { cell_event_font_size: '12px', event_font_size: '14' } };
+    expect(storedViewBlocks(config)).toEqual(stored);
+    expect(valueSource(config, 'column', 'event_font_size')).toBe('own');
+    expect(valueSource(config, 'month', 'cell_event_font_size')).toBe('own');
+    expect(stripColumnDefaults(config, column)).toEqual(stored.column);
+    expect(stripMonthDefaults(config, month)).toEqual(stored.month);
+    // Written fresh, the same lines say nothing the layout would not use anyway.
+    expect(stripColumnDefaults(config)).toBeUndefined();
+    expect(stripMonthDefaults(config)).toBeUndefined();
+  });
 });
 
 describe('the serializer’s authored baseline', () => {

@@ -117,6 +117,25 @@ function readsAsWritten(value: unknown, resolved: unknown): boolean {
 }
 
 /**
+ * Whether a value is a bare length the card reads in pixels: `14`, or `'14'` as the form hands it
+ * over, drawn as `14px`.
+ *
+ * 🚨 Asked of a held line that resolves to its default, because unlike a rejected value it still
+ * says something: `column: { event_font_size: 14 }` is the layout's own 14px, which stays put when
+ * the card-wide size moves, as a `14px` line does. Resolving to the default is no reason to drop
+ * it, and labeling it as inherited would offer no reset for a line the YAML holds.
+ *
+ * @param value - The value as written
+ * @param resolved - What the card resolves it to
+ * @returns `true` when the card draws the value as that many pixels
+ */
+function readsInPixels(value: unknown, resolved: unknown): boolean {
+  const text =
+    typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : null;
+  return text !== null && text !== '' && resolved === `${text}px`;
+}
+
+/**
  * Names the keys that differ between two form-data objects.
  *
  * @param previous - Form data as it was rendered
@@ -170,7 +189,8 @@ interface StrippedBlock {
  * Strips redundant entries from one layout's own block, `column:`, `time_grid:` or `month:`.
  *
  * One rule for all three. A line the YAML already holds, and the card reads as written, is kept as
- * written, default or not, so a save rewrites only what it changed. Any other value equal to its
+ * written, default or not, so a save rewrites only what it changed. A held bare length at its default
+ * is kept too, stored the way the block stores any other value of that option. Any other value equal to its
  * default, or to what the layout would inherit, is dropped; a value the card rejects resolves to
  * the default and goes with it. Anything else is stored as the card resolves it, which turns a
  * number typed as text, or a bare length, into what the card declares.
@@ -221,6 +241,7 @@ function stripBlockDefaults(
       // `"140"` and `140` are the same setting and neither is worth storing at the default.
       const resolved = layout.normalize(key, value);
       if (held && readsAsWritten(value, resolved)) result[key] = value;
+      else if (held && readsInPixels(value, resolved)) result[key] = resolved;
       else if (!deepEqual(layout.defaults[key], resolved)) result[key] = resolved;
       continue;
     }
@@ -232,7 +253,7 @@ function stripBlockDefaults(
       }
       const inherited = layout.defaultOverrides[key] ?? config[key as keyof Types.Config];
       const resolved = normalizeRootValue(key, value);
-      const kept = held && readsAsWritten(value, resolved);
+      const kept = held && (readsAsWritten(value, resolved) || readsInPixels(value, resolved));
       if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
       result[key] = value;
       continue;
