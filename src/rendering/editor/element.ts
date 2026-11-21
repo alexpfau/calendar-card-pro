@@ -1576,6 +1576,9 @@ export class CalendarCardProEditor extends LitElement {
       else if (!this._prepareForWriteWithoutWeather()) return;
       // A block that names no entity is left to the first write, with the list migration's.
       if (weatherDrawn) weather = this._convertWeather();
+      // Options v3.0.0 removed stay for the notices page to move, until a change of the user's.
+      const kept = Deprecated.keepOld(this._rawConfig!, before.raw ?? {});
+      if (kept !== this._rawConfig) this._adopt(kept, kept);
       this._send(this._rawConfig!);
     });
     if (keys.length === 0 && weather === undefined) return;

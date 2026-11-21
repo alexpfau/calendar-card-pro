@@ -102,3 +102,36 @@ export function moveOld(
   ) as unknown as Types.EntityConfig;
   return { ...raw, entities };
 }
+
+/**
+ * A configuration with the options v3.0.0 removed put back as `from` held them, each in its
+ * place: the card's at the top level, a calendar's in the entry at the same place. The upgrade on
+ * opening writes through the minimizing write, which removes them, and would leave nothing for
+ * the notices page to move; a later change removes them as it always has.
+ *
+ * @param config - The configuration to write
+ * @param from - The configuration as it was stored before
+ * @returns The configuration with them, or `config` itself where `from` holds none
+ */
+export function keepOld(
+  config: Readonly<Record<string, unknown>>,
+  from: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const old = oldOptions(from);
+  if (old.length === 0) return config;
+  const kept: Record<string, unknown> = { ...config };
+  const entities = Array.isArray(config.entities) ? [...(config.entities as unknown[])] : [];
+  for (const option of old) {
+    const value = (holder(from, option) as Record<string, unknown>)[option.key];
+    if (option.entry === undefined) {
+      kept[option.key] = value;
+      continue;
+    }
+    const entry = entities[option.entry];
+    // A calendar written as its id alone becomes an entry to hold its option again.
+    if (typeof entry === 'string') entities[option.entry] = { entity: entry, [option.key]: value };
+    else if (isConfigBlock(entry)) entities[option.entry] = { ...entry, [option.key]: value };
+  }
+  if (Array.isArray(config.entities)) kept.entities = entities;
+  return kept;
+}

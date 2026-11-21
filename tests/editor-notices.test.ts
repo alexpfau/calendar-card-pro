@@ -100,6 +100,26 @@ describe('the notices page', () => {
     expect(lastConfig(editor)).not.toHaveProperty('row_spacing');
   });
 
+  it('keeps old options through the upgrade on opening, for the page to move', async () => {
+    // The upgrade writes on opening; it must not take what the notices page offers to move.
+    const editor = await mountEditor({
+      entities: [{ entity: 'calendar.anna', max_events_to_show: 2 }],
+      row_spacing: '22px',
+      event_font_size: '18px',
+      weather: { entity: 'weather.anna' },
+    });
+    expect(lastConfig(editor)).toMatchObject({
+      config_version: VERSION,
+      row_spacing: '22px',
+      entities: [{ entity: 'calendar.anna', max_events_to_show: 2 }],
+    });
+    await click(editor, $(editor, '[data-focus="notices"]'));
+    expect(Object.keys(oldLines(editor))).toEqual([
+      'row_spacing',
+      'entities[0].max_events_to_show',
+    ]);
+  });
+
   it('moves a calendar’s old option onto that calendar', async () => {
     const editor = await mountEditor({
       config_version: VERSION,
