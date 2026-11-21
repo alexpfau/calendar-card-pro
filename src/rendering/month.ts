@@ -428,7 +428,8 @@ export function monthDayTitles(date: Date, language: string): string[] {
  * The cell is also the month's grid cell for the keyboard and assistive technology: named for its
  * day and how many events it holds, the month's tab stop where it is `focused`, and the owner of
  * the bars, lines and "+N more" starting on it (`aria-owns`), which are drawn beside it rather
- * than in it. The date it names is hidden, so the row holds cells alone.
+ * than in it. The date it names is hidden, so the row holds cells alone. Enter on it opens the
+ * day's panel, a dialog, which it says (`aria-haspopup`); a narrow cell selects its day instead.
  *
  * @param date - The day's local midnight
  * @param column - Its column, from 0
@@ -494,6 +495,7 @@ function renderDay(
       role="gridcell"
       tabindex=${cell.focused ? '0' : '-1'}
       aria-label=${monthCellName(date, cell.count, language)}
+      aria-haspopup="dialog"
       aria-owns=${cell.owns.length > 0 ? cell.owns.join(' ') : nothing}
       aria-current=${isToday ? 'date' : nothing}
       .calendarCardDaySlot=${Activation.daySlot(date.getTime())}
