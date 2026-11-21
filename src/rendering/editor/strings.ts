@@ -744,6 +744,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entry.duplicate_warning':
     'Both entries show the same events until one sets Event Type or a word list, so each ' +
     'event shows twice for now.',
+  'entry.duplicate_warning_in':
+    'Both entries show the same events until one sets Event Type or a word list, so in ' +
+    '{layouts} each event shows twice for now.',
+  'entry.duplicate_filtered':
+    'Duplicate filtering is on, so each event still shows once while both entries show the same events.',
   'entry.duplicated': 'Duplicated {name}.',
   'entry.repointed': '{name} now reads {calendar}.',
   'entry.repointed_adopted':

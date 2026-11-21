@@ -479,6 +479,8 @@
   "entry.calendar": "Kalendorius",
   "entry.calendar.helper": "Pasirinkus kitą, šio įrašo nustatymai išlieka.",
   "entry.duplicate_warning": "Abu įrašai rodo tuos pačius įvykius, kol viename iš jų nenustatytas „Įvykio tipas“ arba žodžių sąrašas, todėl kol kas kiekvienas įvykis rodomas du kartus.",
+  "entry.duplicate_warning_in": "Abu įrašai rodo tuos pačius įvykius, kol viename iš jų nenustatytas „Įvykio tipas“ arba žodžių sąrašas, todėl kol kas išdėstyme {layouts} kiekvienas įvykis rodomas du kartus.",
+  "entry.duplicate_filtered": "„Filtruoti dublikatus“ įjungta, todėl kol abu įrašai rodo tuos pačius įvykius, kiekvienas įvykis vis tiek rodomas vieną kartą.",
   "entry.duplicated": "Dubliuota: {name}.",
   "entry.repointed": "„{name}“ dabar rodo kalendoriaus „{calendar}“ įvykius.",
   "entry.repointed_adopted": "„{name}“ dabar rodo kalendoriaus „{calendar}“ įvykius, todėl naudoja to kalendoriaus pavadinimą ir kalendorių filtro nustatymą.",

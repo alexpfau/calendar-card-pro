@@ -478,6 +478,8 @@
   "entry.calendar": "Kalendārs",
   "entry.calendar.helper": "Izvēloties citu, šī ieraksta iestatījumi saglabājas.",
   "entry.duplicate_warning": "Abi ieraksti rāda vienus un tos pašus notikumus, līdz vienā no tiem tiek iestatīts „Notikuma veids“ vai vārdu saraksts, tāpēc pagaidām katrs notikums tiek rādīts divreiz.",
+  "entry.duplicate_warning_in": "Abi ieraksti rāda vienus un tos pašus notikumus, līdz vienā no tiem tiek iestatīts „Notikuma veids“ vai vārdu saraksts, tāpēc pagaidām izkārtojumā {layouts} katrs notikums tiek rādīts divreiz.",
+  "entry.duplicate_filtered": "„Filtrēt dublikātus“ ir ieslēgts, tāpēc, kamēr abi ieraksti rāda vienus un tos pašus notikumus, katrs notikums joprojām tiek rādīts vienreiz.",
   "entry.duplicated": "Dublēts: {name}.",
   "entry.repointed": "{name} tagad lasa kalendāru „{calendar}“.",
   "entry.repointed_adopted": "{name} tagad lasa kalendāru „{calendar}“, tāpēc izmanto tā nosaukumu un kalendāru filtra iestatījumu.",

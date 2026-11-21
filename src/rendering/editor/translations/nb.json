@@ -480,6 +480,8 @@
   "entry.calendar": "Kalender",
   "entry.calendar.helper": "Velger du en annen, beholder oppføringen innstillingene sine.",
   "entry.duplicate_warning": "Begge oppføringene viser de samme hendelsene til én av dem angir «Hendelsestype» eller en ordliste, så foreløpig vises hver hendelse to ganger.",
+  "entry.duplicate_warning_in": "Begge oppføringene viser de samme hendelsene til én av dem angir «Hendelsestype» eller en ordliste, så foreløpig vises hver hendelse to ganger i {layouts}.",
+  "entry.duplicate_filtered": "«Filtrer duplikater» er på, så hver hendelse vises fortsatt én gang mens begge oppføringene viser de samme hendelsene.",
   "entry.duplicated": "Dupliserte {name}.",
   "entry.repointed": "{name} leser nå {calendar}.",
   "entry.repointed_adopted": "{name} leser nå {calendar}, og bruker derfor navnet til den kalenderen og innstillingen for kalenderfilteret.",

@@ -478,6 +478,8 @@
   "entry.calendar": "Kalendarz",
   "entry.calendar.helper": "Wybranie innego zachowuje ustawienia tego wpisu.",
   "entry.duplicate_warning": "Oba wpisy pokazują te same wydarzenia, dopóki w jednym z nich nie zostanie ustawiony „Typ wydarzenia” lub lista słów, więc na razie każde wydarzenie pojawia się dwa razy.",
+  "entry.duplicate_warning_in": "Oba wpisy pokazują te same wydarzenia, dopóki w jednym z nich nie zostanie ustawiony „Typ wydarzenia” lub lista słów, więc na razie w układzie {layouts} każde wydarzenie pojawia się dwa razy.",
+  "entry.duplicate_filtered": "„Filtruj duplikaty” jest włączone, więc dopóki oba wpisy pokazują te same wydarzenia, każde wydarzenie nadal pojawia się raz.",
   "entry.duplicated": "Zduplikowano: {name}.",
   "entry.repointed": "Wpis {name} korzysta teraz z kalendarza {calendar}.",
   "entry.repointed_adopted": "Wpis {name} korzysta teraz z kalendarza {calendar}, więc używa nazwy tego kalendarza i jego ustawienia filtra kalendarzy.",

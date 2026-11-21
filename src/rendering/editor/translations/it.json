@@ -477,6 +477,8 @@
   "entry.calendar": "Calendario",
   "entry.calendar.helper": "Sceglierne un altro mantiene le impostazioni di questa voce.",
   "entry.duplicate_warning": "Entrambe le voci mostrano gli stessi eventi finché una non imposta il tipo di evento o una lista di parole, quindi per ora ogni evento compare due volte.",
+  "entry.duplicate_warning_in": "Entrambe le voci mostrano gli stessi eventi finché una non imposta il tipo di evento o una lista di parole, quindi per ora in {layouts} ogni evento compare due volte.",
+  "entry.duplicate_filtered": "«Filtra i duplicati» è attivo, quindi ogni evento compare ancora una volta finché entrambe le voci mostrano gli stessi eventi.",
   "entry.duplicated": "Hai duplicato {name}.",
   "entry.repointed": "{name} ora legge {calendar}.",
   "entry.repointed_adopted": "{name} ora legge {calendar}, quindi usa il nome di quel calendario e la sua impostazione del filtro calendari.",

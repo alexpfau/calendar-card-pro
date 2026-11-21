@@ -479,6 +479,8 @@
   "entry.calendar": "Kalendár",
   "entry.calendar.helper": "Ak vyberiete iný, nastavenia tejto položky sa zachovajú.",
   "entry.duplicate_warning": "Obe položky zobrazujú tie isté udalosti, kým jedna z nich nenastaví typ udalosti alebo zoznam slov, takže zatiaľ sa každá udalosť zobrazí dvakrát.",
+  "entry.duplicate_warning_in": "Obe položky zobrazujú tie isté udalosti, kým jedna z nich nenastaví typ udalosti alebo zoznam slov, takže zatiaľ sa v rozložení {layouts} každá udalosť zobrazí dvakrát.",
+  "entry.duplicate_filtered": "„Filtrovať duplicity“ je zapnuté, takže kým obe položky zobrazujú tie isté udalosti, každá udalosť sa stále zobrazí raz.",
   "entry.duplicated": "Duplikovaný kalendár {name}.",
   "entry.repointed": "Položka {name} teraz číta kalendár {calendar}.",
   "entry.repointed_adopted": "Položka {name} teraz číta kalendár {calendar}, preto používa jeho názov a nastavenie filtra kalendárov.",

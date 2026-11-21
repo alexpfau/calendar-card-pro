@@ -8330,17 +8330,40 @@ export class CalendarCardProEditor extends LitElement {
     if (!done) return;
     const ctx = this._ctx;
     this._openStrip = undefined;
-    this._entryNotice = {
-      key: copy,
-      text: this._string(ctx, 'entry.duplicate_warning'),
-      warning: true,
-    };
+    this._entryNotice = { key: copy, ...this._duplicateNotice(ctx) };
     this._say(this._string(ctx, 'entry.duplicated', { name }));
     this._open(
       { kind: 'entry', key: copy },
       `row:${key}`,
       this._nav.route.kind === 'entry' ? 'replace' : 'push',
     );
+  }
+
+  /**
+   * What a fresh duplicate's page says about its events: each shows twice for now, except in the
+   * layouts that filter duplicates, where the second entry adds none (`events.ts` ›
+   * `deduplicateEvents`). Only the layouts the card can show are counted.
+   *
+   * @param ctx - Schema context
+   * @returns The line, and whether it warns
+   */
+  private _duplicateNotice(ctx: SchemaCtx): { text: string; warning: boolean } {
+    const config = this._config!;
+    const twice = ViewConfig.reachableViews(config).filter(
+      (view) => !ViewConfig.resolveViewOption(config, 'filter_duplicates', view),
+    );
+    if (twice.length === 0) {
+      return { text: this._string(ctx, 'entry.duplicate_filtered'), warning: false };
+    }
+    if (twice.length === ViewConfig.reachableViews(config).length) {
+      return { text: this._string(ctx, 'entry.duplicate_warning'), warning: true };
+    }
+    const layouts = EditorLocalize.formatList(
+      ctx.language,
+      twice.map((view) => this._layoutTitle(view, ctx)),
+      'conjunction',
+    );
+    return { text: this._string(ctx, 'entry.duplicate_warning_in', { layouts }), warning: true };
   }
 
   /**

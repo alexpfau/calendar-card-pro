@@ -478,6 +478,8 @@
   "entry.calendar": "Kalender",
   "entry.calendar.helper": "Teise valimisel jäävad selle kirje seaded alles.",
   "entry.duplicate_warning": "Mõlemad kirjed näitavad samu sündmusi, kuni ühel neist on määratud „Sündmuse tüüp“ või sõnaloend, seega kuvatakse praegu iga sündmus kaks korda.",
+  "entry.duplicate_warning_in": "Mõlemad kirjed näitavad samu sündmusi, kuni ühel neist on määratud „Sündmuse tüüp“ või sõnaloend, seega kuvatakse praegu paigutuses {layouts} iga sündmus kaks korda.",
+  "entry.duplicate_filtered": "„Filtreeri duplikaadid“ on sees, seega kuvatakse iga sündmus endiselt üks kord, kuni mõlemad kirjed näitavad samu sündmusi.",
   "entry.duplicated": "Paljundati {name}.",
   "entry.repointed": "{name} loeb nüüd kalendrit {calendar}.",
   "entry.repointed_adopted": "{name} loeb nüüd kalendrit {calendar}, seega kasutab see selle kalendri nime ja kalendrite filtri seadet.",

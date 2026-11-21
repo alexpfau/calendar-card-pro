@@ -480,6 +480,8 @@
   "entry.calendar": "Kalender",
   "entry.calendar.helper": "Väljer du en annan behålls postens inställningar.",
   "entry.duplicate_warning": "Båda posterna visar samma händelser tills en av dem anger ”Händelsetyp” eller en ordlista, så varje händelse visas två gånger tills vidare.",
+  "entry.duplicate_warning_in": "Båda posterna visar samma händelser tills en av dem anger ”Händelsetyp” eller en ordlista, så i {layouts} visas varje händelse två gånger tills vidare.",
+  "entry.duplicate_filtered": "”Filtrera dubbletter” är på, så varje händelse visas fortfarande en gång medan båda posterna visar samma händelser.",
   "entry.duplicated": "{name} har duplicerats.",
   "entry.repointed": "{name} läser nu {calendar}.",
   "entry.repointed_adopted": "{name} läser nu {calendar}, så den använder den kalenderns namn och dess inställning för kalenderfiltret.",

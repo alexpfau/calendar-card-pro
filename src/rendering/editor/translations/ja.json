@@ -483,6 +483,8 @@
   "entry.calendar": "カレンダー",
   "entry.calendar.helper": "別のカレンダーを選んでも、このエントリの設定はそのまま残ります。",
   "entry.duplicate_warning": "どちらかのエントリで「予定の種類」か語句の一覧を設定するまでは両方に同じ予定が表示されるため、今はどの予定も2回表示されます。",
+  "entry.duplicate_warning_in": "どちらかのエントリで「予定の種類」か語句の一覧を設定するまでは両方に同じ予定が表示されるため、今は{layouts}でどの予定も2回表示されます。",
+  "entry.duplicate_filtered": "「重複を除外」がオンのため、両方のエントリに同じ予定が表示されている間も、どの予定も1回だけ表示されます。",
   "entry.duplicated": "{name}を複製しました。",
   "entry.repointed": "{name}の読み込み先を{calendar}に変更しました。",
   "entry.repointed_adopted": "{name}の読み込み先を{calendar}に変更しました。そのため、そのカレンダーの名前と「カレンダーフィルターに表示」の設定を使います。",

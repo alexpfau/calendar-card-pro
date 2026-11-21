@@ -468,6 +468,8 @@
   "entry.calendar": "캘린더 선택",
   "entry.calendar.helper": "다른 캘린더를 선택해도 이 항목의 설정은 유지됩니다.",
   "entry.duplicate_warning": "한 항목에서 이벤트 유형이나 단어 목록을 설정하기 전까지는 두 항목이 같은 이벤트를 표시하므로, 지금은 각 이벤트가 두 번 표시됩니다.",
+  "entry.duplicate_warning_in": "한 항목에서 이벤트 유형이나 단어 목록을 설정하기 전까지는 두 항목이 같은 이벤트를 표시하므로, 지금은 {layouts}에서 각 이벤트가 두 번 표시됩니다.",
+  "entry.duplicate_filtered": "‘중복 필터링’이 켜져 있으므로 두 항목이 같은 이벤트를 표시하는 동안에도 각 이벤트는 한 번만 표시됩니다.",
   "entry.duplicated": "{name}을(를) 복제했습니다.",
   "entry.repointed": "{name}: 이제 {calendar} 캘린더에서 이벤트를 가져옵니다.",
   "entry.repointed_adopted": "{name}: 이제 {calendar} 캘린더에서 이벤트를 가져오므로 그 캘린더의 이름과 캘린더 필터 설정을 사용합니다.",

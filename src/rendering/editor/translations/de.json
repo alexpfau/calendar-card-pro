@@ -480,6 +480,8 @@
   "entry.calendar": "Kalender des Eintrags",
   "entry.calendar.helper": "Wählst du einen anderen, bleiben die Einstellungen dieses Eintrags erhalten.",
   "entry.duplicate_warning": "Beide Einträge zeigen dieselben Termine, bis einer eine Terminart oder eine Wortliste festlegt. Vorerst erscheint daher jeder Termin doppelt.",
+  "entry.duplicate_warning_in": "Beide Einträge zeigen dieselben Termine, bis einer eine Terminart oder eine Wortliste festlegt. Vorerst erscheint daher in {layouts} jeder Termin doppelt.",
+  "entry.duplicate_filtered": "„Duplikate filtern“ ist an, daher erscheint jeder Termin weiterhin einmal, solange beide Einträge dieselben Termine zeigen.",
   "entry.duplicated": "{name} dupliziert.",
   "entry.repointed": "{name} liest jetzt {calendar}.",
   "entry.repointed_adopted": "{name} liest jetzt {calendar} und übernimmt daher den Namen dieses Kalenders und seine Einstellung „Im Kalenderfilter anzeigen“.",
