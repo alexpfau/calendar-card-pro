@@ -170,8 +170,8 @@ describe('Month’s widths', () => {
     const config = buildConfig({ view: 'month' });
     const table = monthWidthTable({ view: 'month', config, language: 'en' });
     expect(table.rows).toEqual([
-      { width: '\u2265 594 px', layout: 'the wide month' },
-      { width: '< 594 px', layout: 'the narrow month' },
+      { width: '\u2265 594 px', layout: 'the Wide Month' },
+      { width: '< 594 px', layout: 'the Narrow Month' },
     ]);
     expect(table.note).toContain('622 px');
   });

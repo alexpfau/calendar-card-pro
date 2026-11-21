@@ -80,10 +80,10 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.allday-badge, .allday-title-pill, .calendar-label, .label-icon',
     { page: 'events', heading: 'heading_icon_and_badge' },
   ],
-  // A title in the Wide Month's days opens the size its days draw titles at; any other title, a
-  // row's in the Day List among them, the size every row's title takes.
+  // A title in the Wide Month's days, a line's or a bar's, opens the size its days draw titles at;
+  // any other title, a row's in the Day List among them, the size every row's title takes.
   [
-    '.month-line-title',
+    '.month-line-title, .month-bar .grid-banner-title',
     {
       page: 'events',
       heading: 'heading_title',
@@ -97,10 +97,10 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ],
   ['.time-countdown, .progress-bar', { page: 'events', heading: 'progress' }],
   ['.now-indicator', { page: 'events', heading: 'heading_event_state' }],
-  // A time in the Wide Month's days opens the size its days draw times at; any other time, a row's
-  // in the Day List among them, the size every row's time takes.
+  // A time in the Wide Month's days, a line's or a bar's, and a bar's length open the size its days
+  // draw times at; any other time, a row's in the Day List among them, the size every row's takes.
   [
-    '.month-line-time',
+    '.month-line-time, .month-bar .grid-banner-time, .month-bar .grid-banner-duration',
     { page: 'events', heading: 'time', scope: 'month', field: 'layout:month.cell_time_font_size' },
   ],
   ['.time', { page: 'events', heading: 'time', field: 'events:time_font_size' }],
