@@ -548,6 +548,8 @@
   "row.expires": "{time}에 만료",
   "row.conditions": "조건부 표시",
   "row.name": "{name}, 항목 {position}, {part}",
+  "row.invalid": "잘못된 캘린더, 항목 {position}",
+  "row.invalid_calendar": "잘못된 캘린더",
   "row.same_events": "항목 {position}과(와) 같은 이벤트",
   "entity.occurrence": "항목 {position} / {total}",
   "entity.copy": "설정 복사",

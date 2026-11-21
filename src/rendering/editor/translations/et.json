@@ -558,6 +558,8 @@
   "row.expires": "Aegub kell {time}",
   "row.conditions": "Näidatakse tingimustel",
   "row.name": "{name}, kirje {position}, {part}",
+  "row.invalid": "Vigane kalender, kirje {position}",
+  "row.invalid_calendar": "Vigane kalender",
   "row.same_events": "Samad sündmused mis kirjel {position}",
   "entity.occurrence": "Kirje {position} / {total}",
   "entity.copy": "Kopeeri seaded",

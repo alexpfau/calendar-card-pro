@@ -557,6 +557,8 @@
   "row.expires": "Wygasa o {time}",
   "row.conditions": "Pokazywane warunkowo",
   "row.name": "{name}, wpis {position}, {part}",
+  "row.invalid": "Nieprawidłowy kalendarz, wpis {position}",
+  "row.invalid_calendar": "Nieprawidłowy kalendarz",
   "row.same_events": "Te same wydarzenia co wpis {position}",
   "entity.occurrence": "Wpis {position} z {total}",
   "entity.copy": "Kopiuj ustawienia",

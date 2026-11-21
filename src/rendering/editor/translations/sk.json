@@ -559,6 +559,8 @@
   "row.expires": "Končí o {time}",
   "row.conditions": "Zobrazené za určitých podmienok",
   "row.name": "{name}, položka {position}, {part}",
+  "row.invalid": "Neplatný kalendár, položka {position}",
+  "row.invalid_calendar": "Neplatný kalendár",
   "row.same_events": "Rovnaké udalosti ako položka {position}",
   "entity.occurrence": "Položka {position} z {total}",
   "entity.copy": "Kopírovať nastavenia",

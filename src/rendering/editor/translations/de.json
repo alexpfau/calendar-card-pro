@@ -560,6 +560,8 @@
   "row.expires": "Endet um {time}",
   "row.conditions": "Unter Bedingungen angezeigt",
   "row.name": "{name}, Eintrag {position}, {part}",
+  "row.invalid": "Ungültiger Kalender, Eintrag {position}",
+  "row.invalid_calendar": "Ungültiger Kalender",
   "row.same_events": "Dieselben Termine wie Eintrag {position}",
   "entity.occurrence": "Eintrag {position} von {total}",
   "entity.copy": "Einstellungen kopieren",

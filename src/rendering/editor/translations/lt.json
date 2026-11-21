@@ -558,6 +558,8 @@
   "row.expires": "Baigiasi {time}",
   "row.conditions": "Rodoma pagal sąlygas",
   "row.name": "{name}, įrašas {position}, {part}",
+  "row.invalid": "Netinkamas kalendorius, įrašas {position}",
+  "row.invalid_calendar": "Netinkamas kalendorius",
   "row.same_events": "Tie patys įvykiai kaip įraše {position}",
   "entity.occurrence": "Įrašas {position} iš {total}",
   "entity.copy": "Kopijuoti nustatymus",

@@ -558,6 +558,8 @@
   "row.expires": "Beidzas plkst. {time}",
   "row.conditions": "Rāda ar nosacījumiem",
   "row.name": "{name}, ieraksts {position}, {part}",
+  "row.invalid": "Nederīgs kalendārs, ieraksts {position}",
+  "row.invalid_calendar": "Nederīgs kalendārs",
   "row.same_events": "Tie paši notikumi, kas ierakstā {position}",
   "entity.occurrence": "Ieraksts {position} no {total}",
   "entity.copy": "Kopēt iestatījumus",

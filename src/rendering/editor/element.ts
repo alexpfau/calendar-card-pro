@@ -7309,6 +7309,10 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The name
    */
   private _calendarName(entityId: string): string {
+    // An entry naming no calendar: its page and its rows say so rather than show nothing.
+    if (typeof entityId !== 'string' || entityId.trim() === '') {
+      return this._string(this._ctx, 'row.invalid_calendar');
+    }
     return (
       configuredCalendarName(this._config?.entities ?? [], entityId) ??
       Entities.entityDisplayName(entityId, this.hass)

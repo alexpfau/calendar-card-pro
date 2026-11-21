@@ -320,6 +320,18 @@ describe('focus and announcements', () => {
     expect(lastConfig(editor)?.entities).toEqual([BEN, ANNA]);
   });
 
+  it('names an entry that names no calendar as invalid, by its place', async () => {
+    const editor = await mount([{ label: 'A' }, ANNA]);
+    const [invalid] = keysOf(editor, 'entry');
+    expect(control(editor, `more:entry:${invalid}`)!.getAttribute('aria-label')).toBe(
+      'Actions for Invalid calendar, entry 1',
+    );
+    await goEntry(editor, invalid);
+    expect(editor.shadowRoot!.querySelector('.entry-page .page-title')?.textContent).toBe(
+      'Invalid calendar',
+    );
+  });
+
   it('says each event still shows once on Duplicate where duplicates are filtered', async () => {
     const notice = async (card: Record<string, unknown>) => {
       const editor = await mountEditor(

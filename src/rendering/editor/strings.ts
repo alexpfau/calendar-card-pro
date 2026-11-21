@@ -882,6 +882,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // An entry's name inside a calendar with several, as its controls are named: "Remove Family,
   // entry 2, All-day events". A template, so a language can order the three its own way.
   'row.name': '{name}, entry {position}, {part}',
+  // An entry that names no calendar, which the YAML can hold and the card cannot draw.
+  'row.invalid': 'Invalid calendar, entry {position}',
+  'row.invalid_calendar': 'Invalid calendar',
   // Under an entry that keeps exactly the events an earlier entry of its calendar keeps.
   'row.same_events': 'Same events as entry {position}',
 

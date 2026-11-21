@@ -556,6 +556,8 @@
   "row.expires": "Scade alle {time}",
   "row.conditions": "Visibile con condizioni",
   "row.name": "{name}, voce {position}, {part}",
+  "row.invalid": "Calendario non valido, voce {position}",
+  "row.invalid_calendar": "Calendario non valido",
   "row.same_events": "Stessi eventi della voce {position}",
   "entity.occurrence": "Voce {position} di {total}",
   "entity.copy": "Copia impostazioni",

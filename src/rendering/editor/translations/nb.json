@@ -560,6 +560,8 @@
   "row.expires": "Utløper klokken {time}",
   "row.conditions": "Vises med betingelser",
   "row.name": "{name}, oppføring {position}, {part}",
+  "row.invalid": "Ugyldig kalender, oppføring {position}",
+  "row.invalid_calendar": "Ugyldig kalender",
   "row.same_events": "Samme hendelser som oppføring {position}",
   "entity.occurrence": "Oppføring {position} av {total}",
   "entity.copy": "Kopier innstillinger",

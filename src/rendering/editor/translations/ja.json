@@ -564,6 +564,8 @@
   "row.expires": "{time}に期限切れ",
   "row.conditions": "条件付きで表示",
   "row.name": "{name}、エントリ{position}、{part}",
+  "row.invalid": "無効なカレンダー、エントリ{position}",
+  "row.invalid_calendar": "無効なカレンダー",
   "row.same_events": "エントリ{position}と同じ予定",
   "entity.occurrence": "エントリ{position}/{total}",
   "entity.copy": "設定をコピー",

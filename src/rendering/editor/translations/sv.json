@@ -559,6 +559,8 @@
   "row.expires": "Upphör klockan {time}",
   "row.conditions": "Visas under villkor",
   "row.name": "{name}, post {position}, {part}",
+  "row.invalid": "Ogiltig kalender, post {position}",
+  "row.invalid_calendar": "Ogiltig kalender",
   "row.same_events": "Samma händelser som post {position}",
   "entity.occurrence": "Post {position} av {total}",
   "entity.copy": "Kopiera inställningar",
