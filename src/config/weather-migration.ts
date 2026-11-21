@@ -76,9 +76,10 @@ function layoutWeather(
  *   fill List, Columns and Grid where they have none, as it would have been read with
  *   `weather_entity` as its entity. That can turn weather on in a configuration that was half
  *   converted by hand, which is what its author meant; the editor names those layouts.
- * - A block with no entity anywhere drew nothing and named nothing to draw, so it is removed and
- *   no layout takes its options: listed as dropped where it held any. Choosing an entity later
- *   turns weather on in the layout it is chosen for, as on any card.
+ * - A block with no entity anywhere drew nothing and named nothing to draw. Its options are still
+ *   what its author prepared, so List, Columns and Grid take them where they have none, as above,
+ *   and draw nothing until an entity is chosen, which then draws them as prepared. Where every
+ *   one of those holds its own, the block's options are listed as dropped.
  * - Anything else, including `weather: null`, a scalar, or no block at all, is left as written.
  *
  * Converting a converted configuration changes nothing: it holds no top-level block.
@@ -141,7 +142,7 @@ export function migrateWeatherFormat(
         }
         continue;
       }
-    } else if (holds || !draws || !hasOptions || resulting === undefined) {
+    } else if (holds || !draws || !hasOptions) {
       continue;
     }
 
@@ -152,7 +153,7 @@ export function migrateWeatherFormat(
     filled.push(view);
   }
 
-  if (!asBefore && resulting === undefined && hasOptions) dropped.push('weather');
+  if (!asBefore && hasOptions && filled.length === 0) dropped.push('weather');
   return { config, converted: true, drawn: asBefore, filled, dropped };
 }
 

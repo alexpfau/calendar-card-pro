@@ -72,9 +72,14 @@ describe('what the conversion writes', () => {
       },
     ],
     [
-      'options naming no entity anywhere, which drew nothing and named nothing to draw',
+      'options naming no entity anywhere, kept for the layouts until an entity is chosen',
       { title: 'Family', weather: { position: 'event' }, list: { show_location: false } },
-      { title: 'Family', list: { show_location: false } },
+      {
+        title: 'Family',
+        list: { show_location: false, weather: { position: 'event' } },
+        column: { weather: { position: 'event' } },
+        time_grid: { weather: { position: 'event' } },
+      },
     ],
     [
       'a layout’s own weather, which the old block made the card ignore',
@@ -161,14 +166,25 @@ describe('what the conversion writes', () => {
     });
   });
 
-  it('names a block of options that named no entity anywhere as dropped, and fills nothing', () => {
+  it('keeps a block of options that named no entity anywhere for the layouts that drew it', () => {
     for (const weather_entity of [undefined, '', '  ']) {
       const result = migrateWeatherFormat({ weather: { position: 'both' }, weather_entity });
-      expect(result.filled).toEqual([]);
-      expect(result.dropped).toEqual(['weather']);
+      expect(result.filled).toEqual(['list', 'column', 'grid']);
+      expect(result.dropped).toEqual([]);
       expect(result.config).not.toHaveProperty('weather');
+      expect(result.config).toMatchObject({ column: { weather: { position: 'both' } } });
     }
     expect(migrateWeatherFormat({ weather: {} }).dropped).toEqual([]);
+    // Where every one of them has its own, the block's options are what goes.
+    const own = { weather: { position: 'none' } };
+    expect(
+      migrateWeatherFormat({
+        weather: { position: 'both' },
+        list: own,
+        column: own,
+        time_grid: own,
+      }).dropped,
+    ).toEqual(['weather']);
   });
 
   it('converts on opening only a block that names weather the card draws from', () => {
