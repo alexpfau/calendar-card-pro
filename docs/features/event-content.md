@@ -118,8 +118,8 @@ empty_day_text: 'Leftovers'
 
 ### Hiding the Card When Empty
 
-`hide_when_empty: true` removes the card from the dashboard while none of its layouts has an
-event to show on the days it opens with, after their filters, and the cards around it close the
+`hide_when_empty: true` removes the card from the dashboard while the layout on screen has no
+event to show on the days it opens with, after its filters, and the cards around it close the
 gap. It comes back on its own as soon as an event shows up.
 
 ```yaml
@@ -150,8 +150,12 @@ hide_when_empty: true
   from its own days stays, so its arrows can bring it back.
 - A card with a calendar hidden by the
   [calendar filter](/features/header-toolbar#showing-hiding-calendars) stays, with its filter.
-- With a [different number of days in each layout](/features/layouts#showing-a-different-number-of-days-in-each-layout),
-  the card hides only when none of the layouts it can show has an event.
+- The card hides for the layout on screen, even where another layout it can switch to, with
+  [more days](/features/layouts#showing-a-different-number-of-days-in-each-layout), would draw an
+  event. A layout picked with the
+  [view switcher](/features/header-toolbar#switching-between-layouts) is the exception: while it
+  is on screen, events in the card's own layout keep the card too, so the switcher back to it
+  stays.
 - Compact mode limits never hide it: a card limited to zero events with
   `compact_events_to_show: 0` stays visible so it can still be expanded.
 - A configuration error, such as a missing calendar entity, stays visible so the problem is not
@@ -354,6 +358,9 @@ location_icon_size: '14px'
 - An event that starts and ends in the same minute, such as a reminder, shows its time once:
   `9:41` rather than `9:41 - 9:41`, whatever `show_end_time` says. An event that runs into a
   later minute keeps its range.
+- With a 12-hour clock, Japanese, Korean and Chinese write the day period in their own words and
+  before the time, as in `午前11:00` and `오전 11:00`. Every other language writes AM and PM, and
+  so does grid view's hour axis in every language.
 - `show_location_allday: false` hides locations on all-day events only. Timed events keep
   theirs as long as `show_location` is on.
 - The font and icon sizes take the forms described under
@@ -381,7 +388,8 @@ show_duration: true
 - **Shorter than a day, it is the time that passes**: "(45 min)", "(1 hr, 45 min)". A night
   when the clocks go forward reads an hour shorter than its clock times suggest, because it is.
 - **From a full day, it is days and the clock time left over**: "(1 day, 8 hr)". Noon to noon
-  the next day is "(1 day)", even across a change of clocks.
+  the next day is "(1 day)", even across a change of clocks, and so is a timed event from
+  midnight to midnight.
 - **An all-day event counts its days**: "(1 day)", "(3 days)".
 - **An event drawn on several days shows its whole length on each of them, marked as a
   total.** Split into a row per day, a night shift reads "20:30 - 23:59 (8 hr total)" and
@@ -1181,6 +1189,8 @@ language: de
 - In the editor, **Language** is under **Whole Card → Events, Weather & Language → Format &
   Language**. It is one dropdown: **Follow Home Assistant**, then each language the card speaks,
   by its own name and code.
+- Home Assistant set to Chinese, which it names `zh-Hans` and `zh-Hant`, shows the card in
+  Simplified (`zh-cn`) or Traditional (`zh-tw`) Chinese. `language` takes either form.
 - The card's own translations write the weekday and month names in each day's date, the weekday
   names over a month's columns, and words such as "No events".
 - Your browser writes the rest in the card's language, so it needs no translation: "Now",
@@ -1192,7 +1202,9 @@ language: de
   Nynorsk. The date a multi-day event ends on and a month's first day are written from the
   card's own month names instead, so they stay in the card's language.
 - The event popover follows your Home Assistant profile's language instead, since its words are
-  Home Assistant's own; see [Words & Language](/features/actions#words-language).
+  Home Assistant's own; see [Words & Language](/features/actions#words-language). So do the
+  other words the card borrows from Home Assistant, whatever `language` says: the names of
+  buttons such as Search, Close, Previous, Next and Refresh, and "Today" in search results.
 
 ::: details When Home Assistant Itself Is in Icelandic or Nynorsk
 

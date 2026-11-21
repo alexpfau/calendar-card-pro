@@ -355,6 +355,16 @@ that, the date row simply omits what the forecast does not cover.
 
 Event-position weather works the same way in grid as in column — see the section above.
 
+## 🔄 When the Forecast Stops Updating
+
+The card shows each forecast as Home Assistant sends it. When no update arrives for more than 2
+hours for the hourly forecast, or 48 hours for the daily one, the card dims its weather, so an
+old forecast does not read as current. The next update draws it at full strength again.
+
+After Home Assistant restarts, the card subscribes to the forecast again by itself, trying again
+until the weather entity has loaded, so the forecast does not stay frozen until the dashboard is
+reloaded.
+
 ## ✨ Benefits & Use Cases
 
 Choose the position by the decision the forecast helps with:
