@@ -7131,20 +7131,23 @@ export class CalendarCardProEditor extends LitElement {
       return html`
         <div class="width-table fit-summary">
           <div class="width-table-title">${extra.title}</div>
-          <table>
-            <tr>
-              <td></td>
-              ${extra.layouts.map((layout) => html`<th scope="col">${layout}</th>`)}
-            </tr>
-            ${extra.rows.map(
-              (row) => html`
-                <tr>
-                  <th scope="row" class="width-table-width">${row.width}</th>
-                  ${row.cells.map((cell) => html`<td class="width-table-layout">${cell}</td>`)}
-                </tr>
-              `,
-            )}
-          </table>
+          <!-- Four layouts across outgrow a narrow pane: it scrolls, by keyboard too, under a name. -->
+          <div class="width-table-scroll" role="region" tabindex="0" aria-label=${extra.title}>
+            <table>
+              <tr>
+                <td></td>
+                ${extra.layouts.map((layout) => html`<th scope="col">${layout}</th>`)}
+              </tr>
+              ${extra.rows.map(
+                (row) => html`
+                  <tr>
+                    <th scope="row" class="width-table-width">${row.width}</th>
+                    ${row.cells.map((cell) => html`<td class="width-table-layout">${cell}</td>`)}
+                  </tr>
+                `,
+              )}
+            </table>
+          </div>
         </div>
       `;
     }

@@ -292,3 +292,23 @@ describe('Card Height on Month’s page', () => {
     editor.remove();
   });
 });
+
+describe('At Common Card Widths', () => {
+  it('scrolls inside a named region the keyboard reaches, so four layouts fit a narrow pane', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'grid',
+      toolbar: { show: true, view_switcher_layouts: ['list', 'column', 'grid', 'month'] },
+    });
+    await editLayout(editor, 'grid');
+    await openPageOf(editor, 'layout:height_mode');
+    const region = editor.shadowRoot!.querySelector<HTMLElement>(
+      '.fit-summary .width-table-scroll',
+    );
+    expect(region?.getAttribute('role')).toBe('region');
+    expect(region?.getAttribute('tabindex')).toBe('0');
+    expect(region?.getAttribute('aria-label')).toBe('At Common Card Widths');
+    expect(region?.querySelector('table th[scope="col"]')).not.toBeNull();
+    editor.remove();
+  });
+});

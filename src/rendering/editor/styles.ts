@@ -405,6 +405,16 @@ export default css`
     padding-inline-end: 8px;
   }
 
+  /* Four layouts across outgrow a 320px pane: the table scrolls inside its own region. */
+  .width-table-scroll {
+    overflow-x: auto;
+  }
+
+  .width-table-scroll:focus-visible {
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
+    outline-offset: 2px;
+  }
+
   .width-table + .width-table {
     margin-top: 12px;
   }

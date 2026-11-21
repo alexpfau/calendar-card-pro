@@ -319,6 +319,8 @@ describe('the editor’s focus rings', () => {
       `.story-tile:focus-visible | outline: 2px solid ${ring}`,
       '.story-tile:focus-visible | outline-offset: -2px',
       ".story-tile[aria-pressed='true'] .story-radio | box-shadow: inset 0 0 0 3px var(--card-background-color, #fff)",
+      `.width-table-scroll:focus-visible | outline: 2px solid ${ring}`,
+      '.width-table-scroll:focus-visible | outline-offset: 2px',
       '.text-button:not(.filled, .add-action):focus-visible, .strip-button:focus-visible | outline: none',
       `.text-button:not(.filled, .add-action):focus-visible::before, .strip-button:focus-visible::before | box-shadow: 0 0 0 2px ${ring}`,
       // High-contrast modes drop shadows: the same buttons keep a ring as an outline there.
