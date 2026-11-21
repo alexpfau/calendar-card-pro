@@ -649,6 +649,33 @@ describe('the line pitch and the date line the card measures', () => {
       content: 'none',
     });
   });
+
+  it('keeps a touch screen’s lines, bars and "+N more" 24px apart, and its probes as tall', () => {
+    const TOUCH = '@media (pointer: coarse)';
+    const touch = (selector: string): Record<string, string> =>
+      Object.fromEntries(
+        declarations(cardStyles.cssText)
+          .filter((d) => d.at.join() === TOUCH && d.selectors.includes(selector))
+          .map((d) => [d.property, d.value]),
+      );
+    // Every probe a line's pitch is read from is at least 24px, so the card counts the lines
+    // that fit by the height a touch screen draws them at.
+    for (const probe of ['title', 'time', 'scaled-title', 'scaled-time']) {
+      expect(touch(`.month-probe[data-probe='${probe}']`)).toEqual({
+        height: 'max(calc(1.2em + 2px), 24px)',
+      });
+    }
+    // Each item's border box at least 24px less its margins above and below: 24px apart.
+    const blockMargin = (selector: string) => {
+      const [block] = rule(selector).margin.split(' ');
+      return 2 * parseFloat(block);
+    };
+    for (const selector of ['.month-line', '.month-bar', '.month-more']) {
+      const declared = touch(selector);
+      expect(declared['box-sizing'], selector).toBe('border-box');
+      expect(parseFloat(declared['min-height']) + blockMargin(selector), selector).toBe(24);
+    }
+  });
 });
 
 describe('an event set larger by text_scale', () => {

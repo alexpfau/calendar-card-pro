@@ -7893,6 +7893,30 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  /* On a touch screen a month's bars, lines and "+N more" are at least 24px from one to the
+     next, the least target WCAG 2.5.8 asks for, so a finger meant for one does not land on its
+     neighbor. Each is that tall less its margins, its text centered in it, and the probes are as
+     tall as a line, so the card counts the lines that fit by the height they are drawn at. A
+     mouse's lines keep their own height. */
+  @media (pointer: coarse) {
+    .month-probe[data-probe='title'],
+    .month-probe[data-probe='scaled-title'],
+    .month-probe[data-probe='time'],
+    .month-probe[data-probe='scaled-time'] {
+      height: max(calc(1.2em + 2px), 24px);
+    }
+
+    .month-line,
+    .month-bar {
+      box-sizing: border-box;
+      min-height: 22.5px;
+    }
+
+    .month-more {
+      box-sizing: border-box;
+      min-height: 24px;
+    }
+  }
   @supports not (color: color-mix(in srgb, red, blue)) {
     .month-container {
       --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
