@@ -614,6 +614,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'readable size, Month its weeks. Rows set in a Sections dashboard’s Layout tab win over it.',
   maximum_height: 'Maximum Height',
   'maximum_height.helper': 'Grows with its content up to this height, then scrolls.',
+  'month.maximum_height': 'Maximum Height',
+  'month.maximum_height.helper':
+    'Its weeks fit within this height. Narrow, it grows with the day\u2019s events up to it, then scrolls.',
   // The events area's own pair, which Card Height replaced: shown only on a card that holds one.
   height: 'Events Area Height',
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
@@ -1572,6 +1575,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Such as “(1 hr, 45 min)”. A split event shows its whole length on each day.',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper': 'Multi-day all-day events have their own setting below.',
+  'month.show_single_allday_time': 'Show Time For All-Day Events',
+  'month.show_single_allday_time.helper':
+    'Month splits a multi-day all-day event into its days, so this covers each of them.',
   show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
   'show_multiday_allday_time.helper':
     'Their time row reads “All day, until …” and carries the end date.',

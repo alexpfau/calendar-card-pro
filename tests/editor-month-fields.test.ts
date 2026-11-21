@@ -264,6 +264,23 @@ describe('Card Height on Month’s page', () => {
     editor.remove();
   });
 
+  it('describes Maximum Height and all-day times as Month draws them', async () => {
+    const card = { ...CARD, card_max_height: '500px' };
+    const editor = await mountEditor(card);
+    await openPageOf(editor, 'layout:maximum_height');
+    expect(helperOf(editor, 'layout:maximum_height')).toMatch(/^Its weeks fit within this height/);
+    await openPageOf(editor, 'events:show_single_allday_time');
+    expect(helperOf(editor, 'events:show_single_allday_time')).toMatch(/^Month splits/);
+    editor.remove();
+    // List keeps its own: it grows to the cap, and has the multi-day setting below.
+    const list = await mountEditor({ ...card, view: 'list' });
+    await openPageOf(list, 'layout:maximum_height');
+    expect(helperOf(list, 'layout:maximum_height')).toMatch(/^Grows with its content/);
+    await openPageOf(list, 'events:show_single_allday_time');
+    expect(helperOf(list, 'events:show_single_allday_time')).toMatch(/their own setting below/);
+    list.remove();
+  });
+
   it('leaves the events area’s own height at the top level, which Month never reads', async () => {
     const editor = await monthEditor({ ...CARD, height: '300px', max_height: '500px' });
     await openPageOf(editor, 'layout:height_mode');
