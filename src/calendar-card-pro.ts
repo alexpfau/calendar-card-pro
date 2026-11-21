@@ -1384,6 +1384,28 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Runs what a hold on an event runs, as pointer-up does: the event's own hold where one runs,
+   * else the card's. For a hold that ends elsewhere than on the card, in the day panel.
+   *
+   * @param target - The event and the accent color it is drawn in
+   * @param origin - Where the press was, for the cue while the dialog loads
+   */
+  private _runEventHold(target: Activation.EventTapTarget, origin?: Feedback.PressOrigin): void {
+    if (this._eventHoldRuns) {
+      this._runEventAction(target, 'hold', origin);
+    } else if (this._hasHoldAction) {
+      Logger.debug('Executing hold action');
+      Actions.handleAction(
+        this,
+        this.config,
+        'hold',
+        this._cardActions(null, origin),
+        this._shownEntries,
+      );
+    }
+  }
+
+  /**
    * The tappable event an input event started on, or undefined.
    *
    * Read from the composed path rather than the target, because a pointer-down's target is
@@ -4289,7 +4311,8 @@ class CalendarCardPro extends LitElement {
    * magnifier does. From a wide month that is the day's cell, which becomes the month's tab stop:
    * its "+N more" is out of the Tab order. From a narrow month's list it is the list's
    * "+N more" itself, a stop of its own (`returnToAnchor`). A row pressed in the panel closes it
-   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`). A
+   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`), and
+   * a row held runs what a hold on it runs there (`_runEventHold`). A
    * search's pick behind "+N more" rings its row there, and starts focus on it. Nothing opens
    * while the card is being edited.
    *
@@ -4367,7 +4390,11 @@ class CalendarCardPro extends LitElement {
             if (this._dayPanel === panel) this._dayPanel = null;
           };
         },
-        activate: (target, origin) => this._activate({ event: target }, origin),
+        activate: (target, origin, gesture) =>
+          gesture === 'hold'
+            ? this._runEventHold(target, origin)
+            : this._activate({ event: target }, origin),
+        holds: () => this._eventHoldRuns || this._hasHoldAction,
         addLabel: () => this._dayAddButtons?.label,
         add: (origin) => this._activate({ day: day.getTime() }, origin),
       },
