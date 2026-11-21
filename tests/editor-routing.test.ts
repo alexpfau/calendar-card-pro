@@ -476,6 +476,9 @@ async function mount(extra: Record<string, unknown> = {}) {
       event_font_size: '17px',
       column: { event_font_size: '19px' },
       time_grid: { event_font_size: '23px' },
+      // The merged top-level weather names no entity; the first write would hand its options to
+      // the layouts (`migrateWeatherFormat`), which these cases are not about.
+      weather: undefined,
       ...extra,
     }),
     // Every setting a page can draw: these read forms the shown set would leave in Add rows.
