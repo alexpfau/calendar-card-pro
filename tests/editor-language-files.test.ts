@@ -208,6 +208,18 @@ describe('the editor drawn in a language that loads', () => {
     editor.remove();
   });
 
+  it('says in English that German could not load, and that a reload fetches it again', async () => {
+    setLanguageImporter(() => Promise.reject(new Error('offline')));
+    const editor = await mountEditor(CONFIG, { hass: fakeHass({ language: 'de' }) });
+    await vi.waitFor(() => expect(formsOf(editor).length).toBeGreaterThan(0));
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('.language-failed')?.textContent?.trim()).toBe(
+      'The editor could not load Deutsch (de), so it shows English. Reload the page once the ' +
+        'connection is back.',
+    );
+    editor.remove();
+  });
+
   it('draws exactly what an editor that held German from the start draws', async () => {
     EDITOR_HELD_STRINGS.de = GERMAN;
     const held = await mountEditor(CONFIG, { hass: fakeHass({ language: 'de' }) });

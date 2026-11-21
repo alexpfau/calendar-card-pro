@@ -61,6 +61,7 @@
   "audit.ha_own": "Paša Home Assistant vērtība no cilnes „Izkārtojums“",
   "notices.ignored": "Opcijas, ko karte ignorē: {count}",
   "notices.old": "Novecojušas opcijas: {count}",
+  "notices.language_failed": "Redaktors nevarēja ielādēt valodu {language}, tāpēc rāda angļu valodu. Kad savienojums ir atjaunots, pārlādējiet lapu.",
   "notices.old_title": "Novecojušas opcijas",
   "notices.old_note": "Nākamās izmaiņas tās noņems.",
   "notices.replaced": "Aizstāta ar „{label}“.",

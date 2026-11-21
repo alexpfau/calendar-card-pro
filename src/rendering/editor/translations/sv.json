@@ -61,6 +61,7 @@
   "audit.ha_own": "Home Assistants egen, från fliken ”Layout”",
   "notices.ignored": "Inställningar som kortet ignorerar: {count}",
   "notices.old": "Gamla inställningar: {count}",
+  "notices.language_failed": "Redigeraren kunde inte läsa in {language}, så den visar engelska. Läs in sidan igen när anslutningen är tillbaka.",
   "notices.old_title": "Gamla inställningar",
   "notices.old_note": "Nästa ändring tar bort dessa.",
   "notices.replaced": "Ersatt av {label}.",

@@ -61,6 +61,7 @@
   "audit.ha_own": "Home Assistant 자체 값, 레이아웃 탭에서 설정",
   "notices.ignored": "카드가 무시하는 옵션: {count}",
   "notices.old": "이전 옵션: {count}",
+  "notices.language_failed": "편집기가 {language}을(를) 불러오지 못해 영어로 표시합니다. 연결이 돌아오면 페이지를 새로 고치세요.",
   "notices.old_title": "이전 옵션",
   "notices.old_note": "다음에 변경하면 이 옵션들이 제거됩니다.",
   "notices.replaced": "{label} 설정으로 대체되었습니다.",

@@ -61,6 +61,7 @@
   "audit.ha_own": "Priklauso Home Assistant, iš skirtuko „Išdėstymas“",
   "notices.ignored": "Parinktys, kurių kortelė nepaiso: {count}",
   "notices.old": "Senos parinktys: {count}",
+  "notices.language_failed": "Redaktorius negalėjo įkelti kalbos {language}, todėl rodo anglų kalbą. Kai ryšys atsistatys, iš naujo įkelkite puslapį.",
   "notices.old_title": "Senos parinktys",
   "notices.old_note": "Kitas pakeitimas jas pašalins.",
   "notices.replaced": "Pakeista į „{label}“.",

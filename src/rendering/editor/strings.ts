@@ -106,6 +106,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'audit.ha_own': 'Home Assistant’s own, from the Layout tab',
   'notices.ignored': 'Options the Card Ignores: {count}',
   'notices.old': 'Old Options: {count}',
+  // Shown in English, as the editor is once the card's language could not load.
+  'notices.language_failed':
+    'The editor could not load {language}, so it shows English. Reload the page once the connection is back.',
   'notices.old_title': 'Old Options',
   'notices.old_note': 'The next change removes these.',
   'notices.replaced': 'Replaced by {label}.',

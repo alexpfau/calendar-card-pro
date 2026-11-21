@@ -61,6 +61,7 @@
   "audit.ha_own": "Ustawienia Home Assistant z zakładki „Układ”",
   "notices.ignored": "Opcje ignorowane przez kartę: {count}",
   "notices.old": "Stare opcje: {count}",
+  "notices.language_failed": "Edytor nie mógł wczytać języka {language}, więc pokazuje angielski. Odśwież stronę, gdy połączenie wróci.",
   "notices.old_title": "Stare opcje",
   "notices.old_note": "Następna zmiana je usunie.",
   "notices.replaced": "Zastąpione przez „{label}”.",

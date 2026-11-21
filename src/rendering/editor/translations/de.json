@@ -61,6 +61,7 @@
   "audit.ha_own": "Von Home Assistant selbst, aus dem Tab „Layout“",
   "notices.ignored": "Optionen, die die Karte ignoriert: {count}",
   "notices.old": "Veraltete Optionen: {count}",
+  "notices.language_failed": "Der Editor konnte {language} nicht laden und zeigt daher Englisch. Lade die Seite neu, sobald die Verbindung wieder steht.",
   "notices.old_title": "Veraltete Optionen",
   "notices.old_note": "Die nächste Änderung entfernt sie.",
   "notices.replaced": "Ersetzt durch „{label}“.",

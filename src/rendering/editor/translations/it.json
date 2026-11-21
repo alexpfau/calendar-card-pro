@@ -61,6 +61,7 @@
   "audit.ha_own": "Gestito da Home Assistant, nel tab «Layout»",
   "notices.ignored": "Opzioni ignorate dalla scheda: {count}",
   "notices.old": "Opzioni obsolete: {count}",
+  "notices.language_failed": "L’editor non ha potuto caricare {language}, quindi mostra l’inglese. Ricarica la pagina quando la connessione torna disponibile.",
   "notices.old_title": "Opzioni obsolete",
   "notices.old_note": "La prossima modifica le rimuove.",
   "notices.replaced": "Sostituita da {label}.",

@@ -61,6 +61,7 @@
   "audit.ha_own": "Home Assistanti enda seade, vahekaardilt „Paigutus“",
   "notices.ignored": "Valikud, mida kaart eirab: {count}",
   "notices.old": "Vanad valikud: {count}",
+  "notices.language_failed": "Redaktor ei saanud keelt {language} laadida, seega kuvab ta inglise keelt. Laadi leht uuesti, kui ühendus on taas olemas.",
   "notices.old_title": "Vanad valikud",
   "notices.old_note": "Järgmine muudatus eemaldab need.",
   "notices.replaced": "Asendatud seadega „{label}“.",

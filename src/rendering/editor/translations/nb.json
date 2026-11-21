@@ -61,6 +61,7 @@
   "audit.ha_own": "Home Assistants egen, fra fanen «Layout»",
   "notices.ignored": "Innstillinger som kortet ignorerer: {count}",
   "notices.old": "Gamle innstillinger: {count}",
+  "notices.language_failed": "Redigeringsprogrammet kunne ikke laste inn {language}, så det viser engelsk. Last inn siden på nytt når tilkoblingen er tilbake.",
   "notices.old_title": "Gamle innstillinger",
   "notices.old_note": "Neste endring fjerner disse.",
   "notices.replaced": "Erstattet av «{label}».",

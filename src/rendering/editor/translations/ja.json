@@ -61,6 +61,7 @@
   "audit.ha_own": "Home Assistantの設定（「レイアウト」タブ）",
   "notices.ignored": "カードが無視するオプション: {count}",
   "notices.old": "古いオプション: {count}",
+  "notices.language_failed": "エディターは{language}を読み込めなかったため、英語で表示しています。接続が戻ったらページを再読み込みしてください。",
   "notices.old_title": "古いオプション",
   "notices.old_note": "次に変更すると削除されます。",
   "notices.replaced": "「{label}」に置き換えられました。",

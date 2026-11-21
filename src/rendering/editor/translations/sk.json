@@ -61,6 +61,7 @@
   "audit.ha_own": "Vlastné nastavenie Home Assistanta z karty „Rozloženie“",
   "notices.ignored": "Možnosti, ktoré karta ignoruje: {count}",
   "notices.old": "Staré možnosti: {count}",
+  "notices.language_failed": "Editor nemohol načítať jazyk {language}, preto zobrazuje angličtinu. Keď sa pripojenie obnoví, stránku znova načítajte.",
   "notices.old_title": "Staré možnosti",
   "notices.old_note": "Pri ďalšej zmene sa odstránia.",
   "notices.replaced": "Nahrádza ju: {label}.",

@@ -5846,6 +5846,24 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
+   * The line saying the card's language could not load, so the editor shows English: its file is
+   * missing, stale or out of reach (`translations/loader.ts`). A reload once the connection is back
+   * asks for it again.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderLanguageFailed(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const asked = LanguageCodes.getEffectiveLanguage(this._config!.language, this.hass?.locale);
+    if (!EditorLanguages.editorLanguageFailed(asked)) return nothing;
+    const name =
+      EditorLocalize.lookup(ctx.language, `language_mode.option.${asked}.label`) ?? asked;
+    return html`<p class="hint language-failed" role="status">
+      ${this._string(ctx, 'notices.language_failed', { language: name })}
+    </p>`;
+  }
+
+  /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
    * grouped by page, or Calendars, Whole Card's rows, Layouts and More.
    *
@@ -5856,7 +5874,8 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present } = this._drawing!;
-    const head = html`${this._renderUpgrade(ctx)} ${this._renderNoticesRow(ctx)}
+    const head = html`${this._renderLanguageFailed(ctx)} ${this._renderUpgrade(ctx)}
+    ${this._renderNoticesRow(ctx)}
     ${
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
