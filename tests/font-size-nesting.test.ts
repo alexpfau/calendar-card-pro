@@ -627,6 +627,19 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
     },
   ],
   ['no time', { show_time: false }],
+  // One calendar drawn larger: its events write their scaled sizes on themselves, and a wide
+  // month draws a pair of probes in those sizes to count the lines such an event takes.
+  [
+    'a calendar drawn larger',
+    {
+      entities: [
+        { entity: 'calendar.icon', label: 'mdi:star' },
+        { entity: 'calendar.image', label: '/local/picture.png' },
+        { entity: 'calendar.emoji', label: '🎉' },
+        { entity: 'calendar.text', label: 'Work', text_scale: 1.5 },
+      ],
+    },
+  ],
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],
   ['all-day pill', { allday_badge: 'title' }],

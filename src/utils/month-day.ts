@@ -7,7 +7,8 @@
  * way List groups them, so its rows are List's rows: all-day events first, then timed ones by
  * start, a multi-day event as the part of it that day holds. It keeps List's per-event rules
  * (the calendar filter is applied before it, then each calendar's `days_of_week`, past events
- * as Month resolves `show_past_events`, duplicates) and drops the rules that shape a list as a
+ * as Month resolves `show_past_events`, an event drawn as a bar past only once all of it is, as
+ * the bar is, duplicates) and drops the rules that shape a list as a
  * whole: skipped events, compact limits, latest first and empty days. Every multi-day event is
  * split, whatever `split_multiday_events` says on the card or a calendar, so the list of a day
  * holds exactly the events the grid draws across it.
@@ -115,20 +116,26 @@ export function dayListConfig(config: Types.Config, start: Date, days: number): 
  * (`ViewConfig.MONTH_PINNED`). The list groups as List does, which pins nothing, so the month's
  * rule is applied here, as `groupEventsByDay` applies it for Month's own grouping
  * (`ViewConfig.isPinned`). A calendar's own `show_description: false` stays as it is, since it
- * draws nothing either way; the details show every description whatever it says. Only an event
- * whose entry says otherwise is copied.
+ * draws nothing either way; the details show every description whatever it says.
+ *
+ * An event the month draws as a bar is marked to be past only as a whole (`_pastAsWhole`), as
+ * the bar is, rather than a day at a time, as List's split days are.
+ *
+ * Only an event whose entry says otherwise, or that is a bar, is copied.
  *
  * @param event - A source event, matched to its entry
+ * @param bar - Whether the month draws it as a bar across its days
  * @returns The event, or a copy whose entry splits it and draws no description
  */
-function asMonthListsIt(event: Types.CalendarEventData): Types.CalendarEventData {
+function asMonthListsIt(event: Types.CalendarEventData, bar: boolean): Types.CalendarEventData {
+  const marked = bar ? { ...event, _pastAsWhole: true } : event;
   const entry = event._matchedConfig;
   if (!entry || (entry.split_multiday_events !== false && entry.show_description !== true)) {
-    return event;
+    return marked;
   }
   const { show_description: description, ...rest } = entry;
   return {
-    ...event,
+    ...marked,
     _matchedConfig: {
       ...rest,
       split_multiday_events: true,
@@ -161,8 +168,10 @@ export function monthDayLists(
   hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Types.CalendarEventData[][] {
   if (days <= 0) return [];
+  // Bars, as the month draws them: every all-day event, and the timed ones it draws as banners.
+  const banners = EventUtils.resolveGridBanners(events, config);
   const grouped = EventUtils.groupEventsByDay(
-    events.map(asMonthListsIt),
+    events.map((event) => asMonthListsIt(event, !event.start.dateTime || banners.has(event))),
     dayListConfig(config, start, days),
     // Expanded, so no compact limit applies whatever a calendar entry sets.
     true,

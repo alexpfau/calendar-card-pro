@@ -343,3 +343,44 @@ describe('a capacity', () => {
     ]);
   });
 });
+
+describe('an item set in larger text', () => {
+  /** Each item as `title columns@first line+lines`, hidden ones marked. */
+  const spans = (layout: MonthWeekLayout): string[] =>
+    layout.placements.map(
+      ({ item, line, lines, visible }) =>
+        `${item.event.summary} ${item.placement.columnIndex}@${line}+${lines}${visible ? '' : ' hidden'}`,
+    );
+  const big = (event: Types.CalendarEventData) => (event.summary?.startsWith('Big') ? 2 : 1);
+
+  it('takes as many lines as it is tall, and shows only where all of them fit', () => {
+    const layout = layoutMonthWeek(
+      row([allDay('Big one', 2), allDay('Big two', 2), allDay('Small', 2)]),
+      STARTS,
+      4,
+      big,
+    );
+    // Lines 0 and 1, then 2 and 3, then 4. The small one does not fit, so Wednesday keeps line 3
+    // for "+N more", which the second big one reaches into.
+    expect(spans(layout)).toEqual(['Big one 2@0+2', 'Big two 2@2+2 hidden', 'Small 2@4+1 hidden']);
+    expect(more(layout)).toEqual([0, 0, 2, 0, 0, 0, 0]);
+  });
+
+  it('keeps its lines from the items of the days it shares a line with', () => {
+    const layout = layoutMonthWeek(
+      row([
+        allDay('Big trip', 1, 2),
+        timed('Gym', 1, '18:00', '19:00'),
+        timed('Swim', 2, '18:00', '19:00'),
+        timed('Call', 3, '09:00', '09:30'),
+      ]),
+      STARTS,
+      4,
+      big,
+    );
+    // The bar covers Tuesday and Wednesday on lines 0 and 1, so their lines start under it;
+    // Thursday's starts at the top.
+    expect(spans(layout)).toEqual(['Big trip 1@0+2', 'Gym 1@2+1', 'Swim 2@2+1', 'Call 3@0+1']);
+    expect(more(layout)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+  });
+});

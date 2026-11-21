@@ -22,6 +22,8 @@
   "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",
   "loadFailed": "Kunde inte läsas in:",
   "newEvent": "Ny händelse",
+  "movedTo": "Flyttad till {time}",
+  "undo": "Ångra",
   "showAll": "Visa alla",
   "hideAll": "Göm alla",
   "private": "Privat"

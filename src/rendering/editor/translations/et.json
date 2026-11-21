@@ -266,6 +266,7 @@
   "misplaced.message": "Need valikud on kirjutatud kohta, kust kaart neid ei loe. Teisalda iga valik sinna, kus see töötab, või muuda seda YAML-is.",
   "misplaced.fetch_time": "Määrab, milliseid sündmusi laaditakse, seega töötab see ainult kogu kaardi jaoks, ülemisel tasemel.",
   "misplaced.card_wide": "Töötab ainult kogu kaardi jaoks, ülemisel tasemel.",
+  "misplaced.no_effect": "Ei mõju selles paigutuses, ei siin ega ülemisel tasemel.",
   "misplaced.wrong_view": "Kuulub teisele paigutusele: {places}.",
   "misplaced.view_only": "Töötab ainult paigutuse enda seadetes: {places}.",
   "misplaced.calendar": "Töötab ainult ühe kalendri jaoks: määra see jaotises entities sellele kalendrile, mille jaoks see on mõeldud.",

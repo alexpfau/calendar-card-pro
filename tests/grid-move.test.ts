@@ -97,12 +97,15 @@ async function mount(
 
   const dialogs: PopoverRequest[] = [];
   const notes: string[] = [];
+  const toasts: Toast[] = [];
   card.addEventListener('show-dialog', (ev) =>
     dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
-  card.addEventListener('hass-notification', (ev) =>
-    notes.push((ev as Event & { detail: { message: string } }).detail.message),
-  );
+  card.addEventListener('hass-notification', (ev) => {
+    const detail = (ev as Event & { detail: Toast }).detail;
+    notes.push(detail.message);
+    toasts.push(detail);
+  });
   document.body.appendChild(card);
   const first = (events[0] as { summary: string }).summary;
   await vi.waitFor(() => expect(card.shadowRoot?.textContent).toContain(first));
@@ -111,7 +114,14 @@ async function mount(
     callWS.mock.calls
       .map(([message]) => message)
       .filter((message) => String(message.type).startsWith('calendar/event/'));
-  return { card, dialogs, notes, writes, callWS };
+  return { card, dialogs, notes, toasts, writes, callWS };
+}
+
+/** What Home Assistant's `hass-notification` is handed. */
+interface Toast {
+  message: string;
+  action?: { text: string; action: () => void };
+  duration?: number;
 }
 
 function stubGeometry(card: Card) {
@@ -290,6 +300,66 @@ describe('moving an event in a grid by drag', () => {
     drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)]);
     await settle();
     expect(writes()).toEqual([dentistMovedTo('2026-06-17T11:00:00Z', '2026-06-17T12:00:00Z')]);
+  });
+
+  it('says where it moved it, and Undo writes it back to the times it had', async () => {
+    const { card, writes, toasts } = await mount(DETAILS);
+    holdFetches(card, [DENTIST]);
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)]);
+    await settle();
+    expect(writes()).toEqual([dentistMovedTo('2026-06-17T11:00:00Z', '2026-06-17T12:00:00Z')]);
+    expect(drawn(card)).toEqual([bodies(card)[0]]);
+    expect(toasts).toEqual([
+      {
+        message: 'Moved to 11:00',
+        action: { text: 'Undo', action: expect.any(Function) },
+        duration: Constants.TIMING.MOVE_UNDO_TOAST,
+      },
+    ]);
+
+    toasts[0].action!.action();
+    await settle();
+    expect(writes()).toEqual([
+      dentistMovedTo('2026-06-17T11:00:00Z', '2026-06-17T12:00:00Z'),
+      dentistMovedTo('2026-06-17T14:00:00Z', '2026-06-17T15:00:00Z'),
+    ]);
+    // Moved back before the refresh after the move brought it: the block drawn where it was
+    // dropped goes, and the event is drawn where it was.
+    await card.updateComplete;
+    expect(drawn(card)).toEqual([]);
+    expect(all(card, '[data-move-origin]')).toEqual([]);
+    expect(toasts).toHaveLength(1);
+  });
+
+  it('names the day in what it says where the move took the event to another day', async () => {
+    const { card, notes } = await mount({ ...DETAILS, time_24h: false });
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(1), Y(16, 30)]);
+    await settle();
+    expect(notes).toEqual(['Moved to Thu 4:00 PM']);
+  });
+
+  it("says it in the card's language", async () => {
+    const { card, toasts } = await mount({ ...DETAILS, language: 'de' });
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)]);
+    await settle();
+    expect(toasts.map(({ message, action }) => [message, action?.text])).toEqual([
+      ['Verschoben auf 11:00', 'Rückgängig'],
+    ]);
+  });
+
+  it("shows Home Assistant's reason when moving it back is refused", async () => {
+    let refuse = false;
+    const { card, writes, notes, toasts } = await mount(DETAILS, [DENTIST], async () => {
+      if (refuse) throw { code: 'invalid_format', message: 'Event overlaps a locked slot' };
+      return undefined;
+    });
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(0), Y(11, 30)]);
+    await settle();
+    refuse = true;
+    toasts[0].action!.action();
+    await settle();
+    expect(writes()).toHaveLength(2);
+    expect(notes).toEqual(['Moved to 11:00', 'Event overlaps a locked slot']);
   });
 
   it('keeps the minute within its quarter, and the length, as it moves', async () => {
@@ -531,11 +601,13 @@ describe('moving an event in a grid by drag', () => {
 
   describe('a repeating event', () => {
     it('opens its popover at the new times on release, and writes nothing itself', async () => {
-      const { card, writes, dialogs } = await mount(DETAILS, [SWIM]);
+      const { card, writes, dialogs, notes } = await mount(DETAILS, [SWIM]);
       drag(block(card, 'Swim'), [X(1), Y(9, 30)], [X(2), Y(10, 30)]);
       await settle();
 
       expect(writes()).toEqual([]);
+      // Nothing was moved yet, so nothing to undo: the popover asks first.
+      expect(notes).toEqual([]);
       expect(dialogs).toHaveLength(1);
       const params = dialogs[0].dialogParams;
       expect(params.mode).toBe('event');

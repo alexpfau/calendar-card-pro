@@ -437,6 +437,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'misplaced.fetch_time':
     'Decides which events are loaded, so it works only for the whole card, at the top level.',
   'misplaced.card_wide': 'Works only for the whole card, at the top level.',
+  'misplaced.no_effect': 'Has no effect in this layout, here or at the top level.',
   'misplaced.wrong_view': 'Belongs to another layout: {places}.',
   'misplaced.view_only': 'Works only in a layout’s own settings: {places}.',
   'misplaced.calendar': 'Works only on a calendar: set it on the one it is for, under entities.',

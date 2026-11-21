@@ -152,6 +152,13 @@ export const TIMING = {
    */
   NEW_EVENT_HOLD: 5000,
 
+  /**
+   * How long Home Assistant shows the notification a drag's move leaves, with its Undo. Longer
+   * than its own default of three seconds, which is short for reading the time and reaching the
+   * button.
+   */
+  MOVE_UNDO_TOAST: 8000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
@@ -172,6 +179,12 @@ export const TIMING = {
    * silently stopped refreshing until the page was reloaded.
    */
   CALENDAR_FETCH_TIMEOUT: 30000,
+
+  /**
+   * How much of `CALENDAR_FETCH_TIMEOUT` is kept for the REST request a load makes after a
+   * calendar's live subscription stayed silent, so the two together stay within it.
+   */
+  CALENDAR_REST_RESERVE: 5000,
 
   /** Shortest delay the refresh timer is armed with, so it can never spin. */
   REFRESH_MIN_DELAY: 1000,

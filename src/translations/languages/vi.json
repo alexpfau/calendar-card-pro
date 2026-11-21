@@ -22,6 +22,8 @@
   "error": "Lỗi: Không tìm thấy lịch hoặc cấu hình không đúng",
   "loadFailed": "Không tải được:",
   "newEvent": "Sự kiện mới",
+  "movedTo": "Đã chuyển sang {time}",
+  "undo": "Hoàn tác",
   "showAll": "Hiện tất cả",
   "hideAll": "Ẩn tất cả",
   "private": "Riêng tư"

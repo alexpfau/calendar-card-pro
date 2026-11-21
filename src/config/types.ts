@@ -548,7 +548,8 @@ export interface ColumnOverrides extends SharedViewOverrides {
    * Fewest day columns the card may reduce to when the width will not carry
    * `days_to_show` of them.
    *
-   * Defaults dynamically to `days_to_show`, so `resolveMinDaysToShow` owns it.
+   * Defaults dynamically, to two on a card that pages and to `days_to_show` elsewhere, so
+   * `resolveMinDaysToShow` owns it.
    */
   min_days_to_show?: number;
 
@@ -1043,7 +1044,8 @@ export interface EntityConfig {
    * calendar's color, label and name, and nothing it says. Its title reads Private behind a lock,
    * and its location and description are not drawn; in the event popover, a field the event has
    * reads Private behind a lock too (`utils/private-events.ts`). Unset or `false`, the events
-   * show as usual.
+   * show as usual. It is the one option that keeps a field out of the popover: the entry's
+   * `show_location: false` and `show_description: false` leave a field out of its rows only.
    *
    * Read at render time from the event's matched block, as the text replacement is, so a calendar
    * listed twice can keep one block private and not the other. A whole-field `replace_with` takes
@@ -1315,6 +1317,14 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   /**
+   * Set by a month's day model (`MonthDay.monthDayLists`) on an event a wide month draws as one
+   * bar across its days: an all-day event, or a timed one it draws as a banner. The model splits
+   * it as List does, and each day of it is then past only once the whole event is, read from
+   * `_sourceEnd`, as a bar's days are, so a day's panel and the narrow day list hold what the
+   * day's cell draws under `show_past_events: false`. Read by the past-event filter only.
+   */
+  _pastAsWhole?: boolean;
+  /**
    * Where the event came in the list Home Assistant sent, stamped by `processEvents`. Only for a
    * calendar listed more than once, `groupEventsByDay` puts that calendar's events back in this
    * order before sorting, so events sharing a start are drawn as the calendar listed once would
@@ -1356,7 +1366,8 @@ export interface CalendarEventData {
    *
    * `location` stays the kept copy's own. The display copy draws the list in its place, each
    * location through its own calendar's options, a text two calendars draw alike once
-   * (`mergedLocationText`).
+   * (`mergedLocationText`), and carries the list on: the popover shows every location in it,
+   * those a calendar leaves out of the rows included (`EventDetails.displayText`).
    */
   _mergedLocations?: ReadonlyArray<MergedLocation>;
   /**
@@ -1784,6 +1795,15 @@ export interface Translations {
   loadFailed: string;
   /** The title a new event drawn in a grid shows until it has one of its own. */
   newEvent: string;
+  /**
+   * Home Assistant's notification once a drag in a grid has moved an event, with `{time}` where
+   * its new start goes: "Moved to 13:45", or with the weekday before it where the event moved to
+   * another day, "Moved to Thu 13:45". A language whose preposition would have to agree with
+   * either reading writes a form that takes both, as Italian does with "Nuovo orario: {time}".
+   */
+  movedTo: string;
+  /** The notification's button that moves the event back where it was. */
+  undo: string;
   allDay: string;
   multiDay: string;
   /**

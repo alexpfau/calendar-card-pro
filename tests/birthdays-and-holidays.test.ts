@@ -241,9 +241,9 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       [...shadow(card).querySelectorAll('.date-column .month')].map((month) => text(month));
 
     const card = await mountStory(CARD, SEASON);
-    expect(rules(card)).toEqual(['Jul 2026', 'Aug 2026']);
+    // The first month's rule heads the list, under the toolbar that names it as well.
+    expect(rules(card)).toEqual(['Jun 2026', 'Jul 2026', 'Aug 2026']);
     expect(datedMonths(card)).toEqual([]);
-    // The first month has no rule above it; the toolbar names it.
     expect(text(shadow(card).querySelector('.toolbar-month-button'))).toContain('June');
 
     // Controls. Without `month_separator_label` the rules stay and say nothing; without

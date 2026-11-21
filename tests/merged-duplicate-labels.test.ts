@@ -37,8 +37,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
+import * as Month from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as FormatUtils from '../src/utils/format';
 
 /** The same event, as two calendars each return it. Identical on every signature field. */
 function sharedEvent(entityId: string, matched?: Types.EntityConfig): Types.CalendarEventData {
@@ -279,6 +282,55 @@ describe('labels on a merged duplicate', () => {
     expect(summary?.querySelectorAll('.calendar-label')).toHaveLength(1);
     expect(summary?.querySelectorAll('.label-icon')).toHaveLength(1);
     expect(labelsDrawn(container)).toEqual(['👩', 'mdi:briefcase']);
+  });
+});
+
+describe('labels on a merged duplicate in a month', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Each wide month line's labels, in document order. */
+  function monthLabels(entities: Types.Config['entities']): string[][] {
+    const config = ViewConfig.resolveEffectiveConfig(
+      buildConfig({ view: 'month', entities, filter_duplicates: true }),
+      'month',
+    );
+    const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+    const days = EventUtils.groupEventsByDay(
+      [sharedEvent('calendar.anna'), sharedEvent('calendar.ben')],
+      { ...config, start_date: FormatUtils.getLocalDateKey(rowsStart), days_to_show: 42 },
+      false,
+      'en',
+      'month',
+    );
+    const container = document.createElement('div');
+    litRender(Month.renderMonthGroupedEvents(days, rowsStart, config, 'en', 4), container);
+    return [...container.querySelectorAll('.month-line')].map((line) =>
+      [...line.querySelectorAll('.month-line-label > *')]
+        .filter((node) => node.matches('.calendar-label, .label-icon, .label-image'))
+        .map((node) => node.getAttribute('icon') ?? node.textContent?.trim() ?? ''),
+    );
+  }
+
+  it('draws one label per contributing calendar on a timed line, as a row does', () => {
+    expect(
+      monthLabels([
+        { entity: 'calendar.anna', label: '👩' },
+        { entity: 'calendar.ben', label: '👨' },
+      ]),
+    ).toEqual([['👩', '👨']]);
+  });
+
+  it('keeps the winner alone where only it carries a label', () => {
+    expect(
+      monthLabels([{ entity: 'calendar.anna', label: '👩' }, { entity: 'calendar.ben' }]),
+    ).toEqual([['👩']]);
   });
 });
 

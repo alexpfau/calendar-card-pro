@@ -43,6 +43,8 @@
   "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud",
   "loadFailed": "Laadimine ebaõnnestus:",
   "newEvent": "Uus sündmus",
+  "movedTo": "Teisaldatud: {time}",
+  "undo": "Võta tagasi",
   "showAll": "Näita kõiki",
   "hideAll": "Peida kõik",
   "private": "Privaatne"

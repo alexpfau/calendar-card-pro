@@ -20,14 +20,22 @@ const LAYOUTS = [
   ['grid', 'time_grid'],
 ] as const;
 
-/** A card on the layout, three days unless said, with `block` as its block. */
+/**
+ * A card on the layout, three days unless said, with `block` as its block, and the date navigation,
+ * where Columns sheds to two by default.
+ */
 function card(
   view: 'column' | 'grid',
   block: Record<string, unknown> = {},
   days = 3,
 ): Types.Config {
   const key = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
-  return buildConfig({ view, days_to_show: days, [key]: block });
+  return buildConfig({
+    view,
+    days_to_show: days,
+    [key]: block,
+    toolbar: { show: true, navigation: true },
+  });
 }
 
 /** Columns keeps every day under `cramp` while no floor is written; Grid's floor stays one. */
@@ -120,6 +128,17 @@ describe.each(LAYOUTS)('When Too Narrow on %s', (view, blockKey) => {
         : { min_days_fallback: 'cramp', min_days_to_show: 2 },
     );
     expect(shown(pick(card(view), view, 'custom'), view)).toBe('custom');
+  });
+
+  it('starts Custom at the layout’s own floor whether or not the card pages', () => {
+    // Columns' unset floor is every day on a card that does not page, which is no floor to
+    // start Custom from; it starts at the two it sheds to where the card does.
+    const week = buildConfig({ view, days_to_show: 7 });
+    expect(toStoredConfig(pick(week, view, 'custom'))[blockKey]).toEqual(
+      SHEDS_UNSET[view]
+        ? { min_days_fallback: 'cramp' }
+        : { min_days_fallback: 'cramp', min_days_to_show: 2 },
+    );
   });
 
   it('keeps a floor below the days between Custom and fewer days, and drops one that sheds none', () => {

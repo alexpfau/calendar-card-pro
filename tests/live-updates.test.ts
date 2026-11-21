@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
+import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as EventUtils from '../src/utils/events';
 import * as Live from '../src/utils/live-calendars';
@@ -699,6 +700,34 @@ describe('a calendar Home Assistant reads slowly', () => {
 
     expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
     expect(ha.restCalls()).toBe(0);
+  });
+});
+
+describe('a calendar that never answers', () => {
+  it('counts as failed 30 seconds after the load began, its REST request included', async () => {
+    // Subscribed, and silent: the first push waits, then REST is asked, and neither answers.
+    // The two waits share one budget, so the card says so after 30 seconds rather than 60.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    ha.readMs['calendar.ben'] = 10 * 60_000;
+    const card = attach(ha.hass);
+
+    try {
+      await settleFor(card, 29_000);
+      expect(card.isLoading).toBe(true);
+      expect(drawn(card)).toEqual(['Anna swim']);
+
+      await settleFor(card, 1_100);
+      expect(ha.restCalls('calendar.ben')).toBe(1);
+      expect(card.isLoading).toBe(false);
+      expect(failureNotice(card)).toContain('calendar.ben');
+    } finally {
+      // Nothing left out for the next case to join, should the budget ever not be shared.
+      card.remove();
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.CALENDAR_FETCH_TIMEOUT);
+    }
   });
 });
 
