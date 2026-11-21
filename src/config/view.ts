@@ -339,7 +339,8 @@ export const MONTH_IGNORED_SHARED_KEYS = [
  * Applied last by both resolvers (`resolveEffectiveConfig`, `resolveViewOption`), so the month's
  * grouping, its rows and the custom properties its stylesheet reads all see these values. A
  * calendar's own `show_description: true` is set aside in the day's list as well
- * (`MonthDay.monthDayLists`); its `false` still keeps the description out of the event's details.
+ * (`MonthDay.monthDayLists`). The event's details show the description either way: only a
+ * calendar's `private` keeps it out of them.
  * Each is `DEFAULT_CONFIG`'s value, which `tests/month-registry.test.ts` pins.
  */
 export const MONTH_PINNED: {
