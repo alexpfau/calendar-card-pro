@@ -3211,6 +3211,14 @@ export const cardStyles = css`
     margin-inline-end: 12px;
   }
 
+  /* A forecast that has gone twice its interval without an update, as when the connection to
+     Home Assistant came back without it: still drawn, since it is the best the card has, but
+     dimmed so it does not read as current. */
+  .weather-stale .weather,
+  .weather-stale .event-weather {
+    opacity: 0.5;
+  }
+
   .event-weather ha-icon {
     margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);

@@ -698,6 +698,12 @@ class CalendarCardPro extends LitElement {
    */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * When each forecast type was last known current: its last push, or a subscription set up
+   * since, which pushes within moments. The card dims a forecast that goes too long without
+   * one (`Weather.forecastStaleAt`).
+   */
+  private _weatherCurrentAt: Partial<Record<'daily' | 'hourly', number>> = {};
   /** What the weather subscriptions were last set up for (`_weatherPlan`). */
   private _weatherPlanned: { entity: string | undefined; types: Array<'daily' | 'hourly'> } = {
     entity: undefined,
@@ -3335,15 +3341,28 @@ class CalendarCardPro extends LitElement {
    * A minute from now while a countdown or count-up that names minutes or hours, or a progress
    * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
    * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
-   * a past all-day event or empty day, on every card. Null where the now line's own tick repaints
-   * every minute anyway.
+   * a past all-day event or empty day, on every card. Sooner where the forecast turns stale
+   * before then (`_weatherStale`). Null where the now line's own tick repaints every minute
+   * anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
    */
   private _nextClockRepaint(now: number): number | null {
     if (this._wantsNowLine) return null;
+    const next = this._nextClockTextRepaint(now);
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    // A moment past, so the render reads the forecast as stale even if the timer fires early.
+    return staleAt !== null && staleAt >= now && staleAt + 1000 < next ? staleAt + 1000 : next;
+  }
 
+  /**
+   * When the clock text, the marks of today included, next changes (`_nextClockRepaint`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns Epoch milliseconds
+   */
+  private _nextClockTextRepaint(now: number): number {
     const today = new Date(now);
     // One second past, so the render reads the new day even if the timer fires a little early.
     // Built from local fields, so a DST night is as long as it really is.
@@ -5121,6 +5140,7 @@ class CalendarCardPro extends LitElement {
     // back until that ticket moves. Bump and unsubscribe here so the blank sticks.
     if (weatherEntityChanged) {
       this.weatherForecasts = { daily: {}, hourly: {} };
+      this._weatherCurrentAt = {};
       this._weatherSetupVersion++;
       this._cleanupWeatherSubscriptions();
     }
@@ -5939,6 +5959,13 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    // A forecast held from before is about to be answered again, so it does not dim for the
+    // moment that takes, as on coming back to a dashboard view after a while.
+    const now = Date.now();
+    this._weatherCurrentAt = Object.fromEntries(
+      Object.keys(this._weatherCurrentAt).map((type) => [type, now]),
+    );
+
     for (const type of forecastTypes) {
       if (this._weatherSetupVersion !== version) {
         return;
@@ -5959,6 +5986,7 @@ class CalendarCardPro extends LitElement {
             ...this.weatherForecasts,
             [type]: forecasts,
           };
+          this._weatherCurrentAt = { ...this._weatherCurrentAt, [type]: Date.now() };
           this.requestUpdate();
         },
       );
@@ -8910,7 +8938,19 @@ class CalendarCardPro extends LitElement {
       this._refreshPhase,
       this._swipeAvailable,
       this._tapControl(),
+      this._weatherStale(Date.now()),
     );
+  }
+
+  /**
+   * Whether the forecast drawn is out of date (`Weather.forecastStaleAt`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns True once any forecast type subscribed to has gone too long without an update
+   */
+  private _weatherStale(now: number): boolean {
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    return staleAt !== null && staleAt <= now;
   }
 
   /**

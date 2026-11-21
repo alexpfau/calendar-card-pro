@@ -293,6 +293,37 @@ export function resetUntranslatedConditions(): void {
 //-----------------------------------------------------------------------------
 
 /**
+ * How long a forecast stays current without an update: twice the interval Home Assistant
+ * forecasts in, so one late update does not dim it.
+ */
+export const FORECAST_STALE_AFTER: Readonly<Record<'daily' | 'hourly', number>> = {
+  hourly: 2 * 60 * 60_000,
+  daily: 48 * 60 * 60_000,
+};
+
+/**
+ * The moment the forecast drawn first counts as stale: the earliest moment any of its types has
+ * gone `FORECAST_STALE_AFTER` without being known current.
+ *
+ * @param currentAt When each forecast type was last known current, in epoch milliseconds
+ * @param types The forecast types the card subscribes to; one never known current is left out
+ * @returns Epoch milliseconds, or null where no type has been known current
+ */
+export function forecastStaleAt(
+  currentAt: Readonly<Partial<Record<'daily' | 'hourly', number>>>,
+  types: ReadonlyArray<'daily' | 'hourly'>,
+): number | null {
+  let at: number | null = null;
+  for (const type of types) {
+    const known = currentAt[type];
+    if (known === undefined) continue;
+    const stale = known + FORECAST_STALE_AFTER[type];
+    if (at === null || stale < at) at = stale;
+  }
+  return at;
+}
+
+/**
  * How long after the connection to Home Assistant came back a forecast subscription may stay
  * silent before it is made again. The websocket library subscribes again by itself, and Home
  * Assistant answers with a forecast at once; but one that fails then fails silently, as after a
