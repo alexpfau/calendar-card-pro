@@ -196,8 +196,10 @@ export interface StateWords {
    * "Only in List".
    */
   readonly onlyIn?: ReadonlyArray<Types.EffectiveView>;
-  /** On Month's pages, a setting Month reads in a day's list and its panel alone. */
+  /** On Month's pages, a setting Month reads in the Day List and the Day Panel alone. */
   readonly dayList?: true;
+  /** On Month's pages, a setting Month reads in the Wide Month's days alone. */
+  readonly wideMonth?: true;
 }
 
 /**
@@ -240,6 +242,45 @@ export const MONTH_DAY_LIST_ENTRY_OPTIONS: ReadonlySet<string> = new Set([
   'location_icon',
   'show_weather',
 ]);
+
+/**
+ * The options Month reads in the Wide Month's days alone: the bars long timed events are drawn as,
+ * and the month's name beside a 1st, which only a wide day draws. The Narrow Month's dots, the Day
+ * List and the Day Panel read none of them. Measured by rendering each in both forms, with the
+ * panel open from each, and pinned in `tests/editor-month-day-list.test.ts`. The two font sizes
+ * of the wide days (`month.cell_event_font_size`, `month.cell_time_font_size`) act there alone
+ * too, and say so in their labels, so they carry no mark.
+ */
+export const MONTH_WIDE_ONLY_OPTIONS: ReadonlySet<string> = new Set([
+  'multiday_banners',
+  'show_month',
+  'month_font_size',
+  'month_color',
+  'today_month_color',
+  'weekend_month_color',
+]);
+
+/** A calendar's options Month reads in the Wide Month's days alone ({@link MONTH_WIDE_ONLY_OPTIONS}). */
+export const MONTH_WIDE_ONLY_ENTRY_OPTIONS: ReadonlySet<string> = new Set(['multiday_banners']);
+
+/**
+ * Whether a field acts on the Wide Month's days alone: every option it writes is one Month reads
+ * nowhere else.
+ *
+ * @param field - The field
+ * @returns `true` for a Wide Month setting
+ */
+export function readsInWideMonthOnly(
+  field: Pick<IndexedField, 'id' | 'dataPath' | 'configKeys'>,
+): boolean {
+  if (field.configKeys.length === 0) return false;
+  if (isEntryField(field.id)) {
+    return field.configKeys.every((key) => MONTH_WIDE_ONLY_ENTRY_OPTIONS.has(key));
+  }
+  return field.configKeys.every((key) =>
+    MONTH_WIDE_ONLY_OPTIONS.has([...field.dataPath, key].join('.')),
+  );
+}
 
 /**
  * Whether a field acts on Month's day list and panel alone: every option it writes is one Month
@@ -1209,10 +1250,13 @@ function overridingEntries(field: IndexedField, ctx: PlanCtx): number[] {
  * @returns The words, or `undefined` while nothing is stored and nothing else applies
  */
 export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefined {
-  const dayList =
-    viewForWorkspace(ctx.workspace) === 'month' && readsInMonthDayListOnly(field)
+  const month = viewForWorkspace(ctx.workspace) === 'month';
+  const monthMark =
+    month && readsInMonthDayListOnly(field)
       ? ({ dayList: true } as const)
-      : {};
+      : month && readsInWideMonthOnly(field)
+        ? ({ wideMonth: true } as const)
+        : {};
   if (isEntryField(field.id)) {
     // A calendar's option some of the card's layouts do not apply says where it does.
     const layouts = entryLayouts(field, ctx);
@@ -1226,17 +1270,19 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
       const shared =
         field.configKeys.some(Entities.isCalendarOption) &&
         place.entities.filter((entry) => entityIdOf(entry) === id).length > 1;
-      return { words: { kind: 'set-entry', shared }, ...onlyIn, ...dayList };
+      return { words: { kind: 'set-entry', shared }, ...onlyIn, ...monthMark };
     }
     if (inheritedDifferent(field, ctx)) {
       const { name } = parseFieldId(field.id);
       return {
         words: { kind: 'follows-card', value: cardValuesBehind(field, name, ctx.config, ctx)[0] },
         ...onlyIn,
-        ...dayList,
+        ...monthMark,
       };
     }
-    return 'onlyIn' in onlyIn || 'dayList' in dayList ? { ...onlyIn, ...dayList } : undefined;
+    return 'onlyIn' in onlyIn || Object.keys(monthMark).length > 0
+      ? { ...onlyIn, ...monthMark }
+      : undefined;
   }
 
   const view = viewForWorkspace(ctx.workspace);
@@ -1298,7 +1344,7 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     layoutsOwn === undefined &&
     calendars.length === 0 &&
     notIn === undefined &&
-    !('dayList' in dayList)
+    Object.keys(monthMark).length === 0
   ) {
     return undefined;
   }
@@ -1307,7 +1353,7 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
     ...(layoutsOwn ? { layoutsOwn } : {}),
     ...(calendars.length > 0 ? { calendars } : {}),
     ...(notIn ? { notIn } : {}),
-    ...dayList,
+    ...monthMark,
   };
 }
 

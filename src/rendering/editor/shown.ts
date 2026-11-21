@@ -151,6 +151,7 @@ export function stateFacts(
     });
   }
   if (state?.dayList) facts.push({ kind: 'layout', view: 'month', text: t('state.day_list') });
+  if (state?.wideMonth) facts.push({ kind: 'layout', view: 'month', text: t('state.wide_month') });
   for (const own of state?.layoutsOwn ?? []) {
     const text = own.stored ? t('state.layout_own') : t('state.layout_default');
     facts.push({

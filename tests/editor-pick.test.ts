@@ -307,13 +307,14 @@ describe('Pick From Preview', () => {
 
   // A Whole Card page edits the shared scope, which is Layout Defaults' too, so a part that names
   // no layout of its own has to open under the layout the preview draws there, the one the card
-  // opens in: where the same pick lands from that layout's own page.
+  // opens in: where the same pick lands from that layout's own page. A part that names its layout,
+  // as a time in the Wide Month's days does, opens in that layout from any page.
   it('opens a part picked from a Whole Card page under the layout the preview draws', async () => {
     const month = { ...CONFIG, view: 'month' };
-    const pickTime = async (from: string) => {
+    const pick = async (from: string, part: string, heading: string) => {
       const { editor, card } = await dialog({ card: month, editor: month });
-      // The preview is configured, not redrawn: it keeps drawing Month's time on another
-      // layout's page, where happy-dom trips over focus in a redraw.
+      // The preview is configured, not redrawn: it keeps drawing Month on another layout's page,
+      // where happy-dom trips over focus in a redraw.
       vi.spyOn(card, 'setConfig').mockImplementation(() => undefined);
       $(editor, `[data-focus="${from}"]`)!.click();
       await settle(editor, card);
@@ -324,37 +325,50 @@ describe('Pick From Preview', () => {
       pickButton(editor)!.click();
       await settle(editor, card);
       const said = listen(editor);
-      fire(card.shadowRoot!.querySelector('.month-line-time')!, 'click');
+      fire(card.shadowRoot!.querySelector(part)!, 'click');
       await settle(editor, card);
       const landed = {
         page: $(editor, '.page')?.getAttribute('data-page'),
         sub: text($(editor, '.page-sub')),
-        field: $(editor, '.page-group[data-heading="time"] .jump [data-field]')?.getAttribute(
-          'data-field',
-        ),
+        field: $(
+          editor,
+          `.page-group[data-heading="${heading}"] .jump [data-field]`,
+        )?.getAttribute('data-field'),
         said,
       };
       document.body.replaceChildren();
       vi.restoreAllMocks();
       return { start, landed };
     };
-    // From Month's own page, under Month, at Time's first setting in Month's order.
-    const control = await pickTime('layout:month');
+    // A date names no layout: from Month's own page, under Month, at Date's first setting.
+    const date = (from: string) => pick(from, '.month-date', 'heading.date');
+    const control = await date('layout:month');
     expect(control.start).toEqual({ page: null, sub: 'Layout' });
-    expect(control.landed).toEqual({
-      page: 'events',
+    expect(control.landed).toMatchObject({
+      page: 'day_header',
       sub: 'Month',
-      field: 'events:time_two_digit_hours',
-      said: ['Showing Event Appearance › Time.'],
+      said: ['Showing Days › Date.'],
     });
     // From a layout the card does not open in, under that layout, so "the layout the preview
     // draws" is not simply the one the card opens in.
-    expect((await pickTime('layout:grid')).landed).toMatchObject({ page: 'events', sub: 'Grid' });
+    expect((await date('layout:grid')).landed).toMatchObject({ page: 'day_header', sub: 'Grid' });
     for (const page of ['card_header', 'events_weather_language', 'taps_refresh']) {
-      const from = await pickTime(`nav:${page}`);
+      const from = await date(`nav:${page}`);
       expect(from.start, page).toEqual({ page, sub: 'Whole Card' });
       expect(from.landed, page).toEqual(control.landed);
     }
+    // A time in the Wide Month's days is Month's own: at the size its days draw times at, under
+    // Month, from Month's page and from another layout's alike.
+    const time = (from: string) => pick(from, '.month-line-time', 'time');
+    const own = {
+      page: 'events',
+      sub: 'Month',
+      field: 'layout:month.cell_time_font_size',
+      said: ['Showing Event Appearance › Time.'],
+    };
+    expect((await time('layout:month')).landed).toEqual(own);
+    expect((await time('layout:grid')).landed).toEqual(own);
+    expect((await time('nav:card_header')).landed).toEqual(own);
   });
 
   it('opens a part picked while Stored Settings changes a layout’s line under that layout', async () => {

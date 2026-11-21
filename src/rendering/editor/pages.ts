@@ -98,10 +98,12 @@ export interface HeadingDef {
   readonly keyByView?: Partial<Record<Types.EffectiveView, string>>;
   /** The line under the heading, as Countdown & Progress has today; a family's is its own. */
   readonly helperKey?: string;
+  /** A different line under the heading in one layout: Card Size & Spacing's in Month. */
+  readonly helperKeyByView?: Partial<Record<Types.EffectiveView, string>>;
   /**
-   * Whether the heading's title in Month already says its settings act on a narrow month's day
-   * list and the panel "+N more" opens, so they leave out the marker that says the same
-   * (`plan.ts` › `MONTH_DAY_LIST_OPTIONS`). Search results and Month's other pages keep it.
+   * Whether the heading's title in Month already says its settings act on the Day List and the
+   * Day Panel alone, so they leave out the marker that says the same (`plan.ts` ›
+   * `MONTH_DAY_LIST_OPTIONS`). Search results and Month's other pages keep it.
    */
   readonly namesDayList?: true;
   readonly fields: ReadonlyArray<readonly [FieldId, Appearance]>;
@@ -572,6 +574,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
     headings: [
       {
         key: 'heading_card_size',
+        // Month's Card Height is both forms' until the Narrow Month's own is set, below.
+        helperKeyByView: { month: 'heading_card_size.month_note' },
         fields: [
           // The whole card's height, in every layout.
           ['layout:height_mode', E],
@@ -595,8 +599,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        // The room between and inside a day's events. Month draws them only in a narrow month's
-        // day list and in the panel "+N more" opens, never in its weeks, so its heading says so.
+        // The room between and inside a day's events. Month draws them only in the Day List and the
+        // Day Panel, never in its weeks, so its heading says so.
         key: 'heading_event_rows',
         keyByView: { month: 'heading_day_list_panel' },
         namesDayList: true,
@@ -616,9 +620,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
       },
       {
         // How the card fits a narrow width: Columns and Grid give up days, fall back to List or
-        // keep their days narrower, and Month draws its narrow form below its Minimum Day Width.
-        // The fit summary and each layout's width table follow the page's headings.
+        // keep their days narrower, and Month draws the Narrow Month below its Minimum Day Width,
+        // so Month's title names the choice between its two forms. The fit summary and each
+        // layout's width table follow the page's headings.
         key: 'heading_narrow_cards',
+        keyByView: { month: 'heading_month_forms' },
         fields: [
           ['layout:narrow_fit', E],
           ['layout:column.min_days_to_show', withMode('layout:narrow_fit')],
@@ -666,7 +672,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
     id: 'weather',
     titleKey: 'panel.weather',
     iconPath: mdiWeatherPartlyCloudy,
-    noteKeyByView: { month: 'page.month_rows.note' },
+    noteKeyByView: { month: 'page.month_weather.note' },
     descriptionKey: 'panel.weather.description',
     headings: [
       {
@@ -691,7 +697,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Month draws the forecast beside events in the Day List and the Day Panel alone, so its
+        // title names those, and its settings leave out the marker that says the same.
         key: 'weather.event',
+        keyByView: { month: 'heading_day_list_panel' },
+        namesDayList: true,
         helperKey: 'weather.event.helper',
         extras: ['weather-calendar-links'],
         fields: [

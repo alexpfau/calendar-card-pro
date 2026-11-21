@@ -29,14 +29,14 @@ const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> 
     'layout:month.narrow_card_height',
     'size_spacing',
     'heading_narrow_month',
-    'Narrow Card Height',
+    'Narrow Month Height',
     '30rem',
   ],
   [
     'layout:month.narrow_card_max_height',
     'size_spacing',
     'heading_narrow_month',
-    'Narrow Maximum Height',
+    'Narrow Month Maximum Height',
     '40rem',
   ],
   [
@@ -57,10 +57,10 @@ const FIELDS: ReadonlyArray<readonly [FieldId, string, string, string, string]> 
     'layout:month.cell_event_font_size',
     'events',
     'heading_title',
-    'Event Font Size in Days',
+    'Event Font Size in Wide Month',
     '15px',
   ],
-  ['layout:month.cell_time_font_size', 'events', 'time', 'Time Font Size in Days', '11px'],
+  ['layout:month.cell_time_font_size', 'events', 'time', 'Time Font Size in Wide Month', '11px'],
 ];
 
 /** The page and heading the registry places a field under. */
@@ -268,7 +268,7 @@ describe('Card Height on Month’s page', () => {
     const card = { ...CARD, card_max_height: '500px' };
     const editor = await mountEditor(card);
     await openPageOf(editor, 'layout:maximum_height');
-    expect(helperOf(editor, 'layout:maximum_height')).toMatch(/^Its weeks fit within this height/);
+    expect(helperOf(editor, 'layout:maximum_height')).toMatch(/^The Wide Month fits its weeks within this height/);
     await openPageOf(editor, 'events:show_single_allday_time');
     expect(helperOf(editor, 'events:show_single_allday_time')).toMatch(/^Month splits/);
     editor.remove();

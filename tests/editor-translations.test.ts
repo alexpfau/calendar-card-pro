@@ -96,10 +96,10 @@ describe('editor strings resolve in the requested language', () => {
     // carry these keys, or that German must resolve to English, would fail a correct
     // translation. That is the gate lying rather than the translation being wrong. The
     // per-key fallback those deletions rely on is already pinned above.
-    // It names Month's narrow form beside the List fallback: the three layouts that change with
-    // the width, and none of them alone.
+    // It names the Narrow Month beside the List fallback: the three layouts that change with the
+    // width, and none of them alone.
     expect(EDITOR_STRINGS['view.helper']).toContain('Columns and Grid');
-    expect(EDITOR_STRINGS['view.helper']).toContain('Month draws its narrow form');
+    expect(EDITOR_STRINGS['view.helper']).toContain('Month draws the Narrow Month');
     expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
   });
 

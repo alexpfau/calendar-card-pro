@@ -4210,8 +4210,8 @@ export class CalendarCardProEditor extends LitElement {
           ),
         );
       }
-      const helper =
-        heading.helperKey === undefined ? undefined : this._string(ctx, heading.helperKey);
+      const helperKey = heading.helperKeyByView?.[ctx.view] ?? heading.helperKey;
+      const helper = helperKey === undefined ? undefined : this._string(ctx, helperKey);
       const crossLink =
         this._crossLink(heading, ctx) ?? this._pointer(heading, owner, ctx, labelOf);
       // One line per condition the stored values of settings not in use wait on.
@@ -7188,6 +7188,10 @@ export class CalendarCardProEditor extends LitElement {
       ${PageView.pageLine(
         layout === 'shared' ? t('settings_for.help_shared') : t('layouts.page_note'),
       )}
+      ${
+        // Month names its two forms, its Day List and its Day Panel once, before its topics use them.
+        layout === 'month' ? PageView.pageLine(t('layouts.month_note')) : nothing
+      }
       ${this._renderPreviewLine(ctx)}
       <section class="row-group"><div class="rows">${rows}</div></section>
       ${PageView.footBack(t, this._back)}

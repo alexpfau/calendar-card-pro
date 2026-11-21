@@ -925,6 +925,7 @@ describe('the page registry is consistent with itself', () => {
     for (const heading of HEADINGS) {
       if (heading.key) keys.push(heading.key);
       if (heading.helperKey) keys.push(heading.helperKey);
+      keys.push(...Object.values(heading.helperKeyByView ?? {}));
       keys.push(...Object.values(heading.keyByView ?? {}));
     }
     for (const family of Object.values(FAMILIES)) {

@@ -350,6 +350,20 @@ function fieldTexts(
     ],
     [EditorLocalize.computeAliases(language, node, labelPath), 'alias'],
   );
+  // Month's marks find what they mark, as they read under it: "day panel", "wide month".
+  if (ctx.view === 'month' && ctx.workspace !== 'shared' && owner !== 'button') {
+    const mark = Plan.readsInMonthDayListOnly(field)
+      ? 'state.day_list'
+      : Plan.readsInWideMonthOnly(field)
+        ? 'state.wide_month'
+        : undefined;
+    if (mark !== undefined) {
+      text.push(
+        [EditorLocalize.lookup(language, mark), 'alias'],
+        [EditorLocalize.lookup('en', mark), 'alias'],
+      );
+    }
+  }
   if ('value' in node && typeof node.value === 'string') text.push([node.value, 'label']);
   if ('select' in node.selector && node.selector.select !== null) {
     for (const option of node.selector.select.options) {
@@ -709,6 +723,9 @@ function cardRow(place: Placed, ctx: SearchCtx): SearchEntry | undefined {
     heading?.key;
   // A family's helper line is the family's, not the heading's (`pages.ts` › `FAMILIES`).
   const helperKey =
+    (views === undefined
+      ? heading?.helperKeyByView?.[ctx.view]
+      : heading?.helperKeyByView?.[views[0]]) ??
     heading?.helperKey ??
     Object.values(FAMILIES).find((family) => family.titleKey === heading?.key)?.helperKey;
   const crumbs = page

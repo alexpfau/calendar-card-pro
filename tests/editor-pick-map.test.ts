@@ -368,9 +368,9 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The parts that name their setting: the switcher, Layouts in Switcher; Grid's own parts,
-    // each at the setting it is, where its topic keeps it; and a narrow month's day list, Events
-    // in Day List.
+    // The parts that name their setting: the switcher, Layouts in Switcher; a title and a time,
+    // each at the size it is drawn at, the Wide Month's days at theirs; Grid's own parts, each at
+    // the setting it is, where its topic keeps it; and the Narrow Month's dots and Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
@@ -378,6 +378,10 @@ describe('Pick From Preview part map', () => {
     ).toEqual([
       '.view-switcher card:toolbar.view_switcher_layouts',
       '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
+      '.month-line-title layout:month.cell_event_font_size',
+      '.event-title, .grid-banner-title events:event_font_size',
+      '.month-line-time layout:month.cell_time_font_size',
+      '.time events:time_font_size',
       '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',
       '.grid-event-overflow layout:time_grid.max_simultaneous_events',
       '.grid-allday-band layout:time_grid.allday_band_max_rows',

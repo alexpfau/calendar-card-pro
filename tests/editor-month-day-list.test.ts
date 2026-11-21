@@ -6,7 +6,7 @@
  * a length; a day's list and the panel draw List's rows, with a title, a time, a location and a
  * forecast (`ViewConfig.MONTH_PINNED` keeps the rest at their shipped values). So a setting that
  * styles one of those row parts acts on Month, but nowhere a user looking at the weeks would see
- * it, and Month's pages say "Narrow Day List & +N Panel" under it. Which settings those are is
+ * it, and Month's pages say "Day List & Day Panel" under it. Which settings those are is
  * `plan.ts` › `MONTH_DAY_LIST_OPTIONS`, measured by rendering each against Month's value in both
  * forms. The fields marked are pinned here by value, over the whole gate corpus, and reconciled
  * against what Month's pages offer, so a table entry Month's pages stop offering fails, and so does
@@ -107,7 +107,7 @@ const ids = (
   keep: (field: IndexedField, ctx: PlanCtx) => boolean,
 ): string[] => [...new Set(fields.filter(([f, c]) => keep(f, c)).map(([f]) => f.id))].sort();
 
-describe('Narrow Day List & +N Panel on Month’s pages', () => {
+describe('Day List & Day Panel on Month’s pages', () => {
   const month = drawn('month');
 
   it('marks exactly the settings Month reads in a day’s list and the panel alone', () => {
@@ -167,7 +167,7 @@ describe('Narrow Day List & +N Panel on Month’s pages', () => {
     expect(stateFacts(stateOf(field, ctx), t, String, String)).toContainEqual({
       kind: 'layout',
       view: 'month',
-      text: 'Narrow Day List & +N Panel',
+      text: 'Day List & Day Panel',
     });
     // The control: the same field on List's pages, and on Layout Defaults.
     for (const workspace of ['list', 'shared'] as const) {
@@ -189,12 +189,12 @@ describe('Narrow Day List & +N Panel on Month’s pages', () => {
     const heading = editor.shadowRoot!.querySelector(
       '.page-group[data-heading="heading_event_rows"]',
     );
-    expect(heading?.textContent).toContain('Day List & +N Panel');
-    expect(factsOf(editor, 'layout:event_gap')).not.toContain('Narrow Day List & +N Panel');
-    expect(factsOf(editor, 'layout:event_spacing')).not.toContain('Narrow Day List & +N Panel');
+    expect(heading?.textContent).toContain('Day List & Day Panel');
+    expect(factsOf(editor, 'layout:event_gap')).not.toContain('Day List & Day Panel');
+    expect(factsOf(editor, 'layout:event_spacing')).not.toContain('Day List & Day Panel');
 
     await openPageOf(editor, 'events:event_font_size');
-    expect(factsOf(editor, 'events:event_font_size')).toContain('Narrow Day List & +N Panel');
+    expect(factsOf(editor, 'events:event_font_size')).toContain('Day List & Day Panel');
 
     // Search names no heading, so its Edit Here keeps the marker.
     await searchFor(editor, 'event gap');
@@ -205,7 +205,7 @@ describe('Narrow Day List & +N Panel on Month’s pages', () => {
       '.result--edit [data-field="layout:event_gap"] .setting-facts > .fact',
     );
     expect([...found].map((fact) => fact.textContent?.trim())).toContain(
-      'Narrow Day List & +N Panel',
+      'Day List & Day Panel',
     );
     document.body.replaceChildren();
   });
@@ -355,14 +355,14 @@ describe('Accent Text on Month’s page', () => {
       await openPageOf(editor, 'events:event_font_size');
       const month = workspace === 'month';
       expect(
-        factsOf(editor, 'events:event_font_size').includes('Narrow Day List & +N Panel'),
+        factsOf(editor, 'events:event_font_size').includes('Day List & Day Panel'),
         workspace,
       ).toBe(month);
-      expect(lines(editor).includes('Narrow Day List & +N Panel: Location.'), workspace).toBe(
+      expect(lines(editor).includes('Day List & Day Panel: Location.'), workspace).toBe(
         month,
       );
       expect(
-        lines(editor).some((line) => line.startsWith('Month’s weeks draw each event’s title')),
+        lines(editor).some((line) => line.startsWith('A mark under a setting says where Month draws it')),
         workspace,
       ).toBe(month);
       // The parts Month draws nowhere say so, as any layout's absent parts do.
@@ -371,7 +371,7 @@ describe('Accent Text on Month’s page', () => {
         workspace,
       ).toBe(month);
       // A setting acting on the weeks as well carries no such fact.
-      expect(factsOf(editor, 'events:event_color')).not.toContain('Narrow Day List & +N Panel');
+      expect(factsOf(editor, 'events:event_color')).not.toContain('Day List & Day Panel');
       document.body.replaceChildren();
     }
   });
@@ -473,7 +473,7 @@ describe('the order of Month’s pages', () => {
     return out;
   }
 
-  it('draws no Narrow Day List & +N Panel setting ahead of one the weeks read, on any Month page', () => {
+  it('draws no Day List & Day Panel setting ahead of one the weeks read, on any Month page', () => {
     let headings = 0;
     let reordered = 0;
     for (const { heading, present } of headingsOver('month')) {

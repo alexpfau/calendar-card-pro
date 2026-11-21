@@ -38,9 +38,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
-  // Month's Event Appearance and Weather pages, over the settings marked Narrow Day List & +N Panel.
+  // Month's Event Appearance page: where its marks say a setting acts, in the four names Month's
+  // pages use for what it draws (Wide Month, Narrow Month, Day List, Day Panel).
   'page.month_rows.note':
-    'Month’s weeks draw each event’s title and start time. Narrow Day List & +N Panel settings act on the list under a narrow month’s weeks and on the panel “+N more” opens.',
+    'A mark under a setting says where Month draws it: Wide Month in the wide form’s days only; Day List & Day Panel in the Narrow Month’s list and in what “+N more” opens in either form. Unmarked settings act in both forms.',
+  // Month's Weather page: the forecast is drawn beside a day's events, never in the weeks.
+  'page.month_weather.note':
+    'Month draws the forecast beside each event in the Day List and the Day Panel, never in its weeks.',
   // Whole Card's page for a first setup's questions, in the order its headings ask them.
   'page.events_weather_language': 'Events, Weather & Language',
   // The line under each page's row: what to expect there, the same whatever the card holds.
@@ -162,6 +166,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Under a layout's name on its page, and the line there.
   'layouts.layout': 'Layout',
   'layouts.page_note': "This layout's own settings. Opening them changes nothing on the card.",
+  // Under it on Month's page: the four names Month's pages use for what it draws.
+  'layouts.month_note':
+    'Month draws one of two forms, chosen by the card’s width. The Wide Month shows events in its days; the Narrow Month shows a dot per event and the chosen day’s Day List under its weeks. “+N more” opens the Day Panel in both.',
   // A topic page under a layout: the jump to the same topic in another layout, and the walk on.
   'layouts.also_for': 'Also for:',
   'layouts.continue_with': 'Continue with',
@@ -197,9 +204,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Under a setting some layout draws nothing for: "Not in Grid". A whole-card one says it on
   // every page, a per-layout one on Layout Defaults.
   'state.not_in': 'Not in {layouts}',
-  // Under a Month setting that acts on a narrow month's day list and the panel "+N more" opens,
-  // not the weeks.
-  'state.day_list': 'Narrow Day List & +N Panel',
+  // Under a Month setting that acts only on the rows of a day: the Day List under the Narrow Month's
+  // weeks and the Day Panel "+N more" opens in either form, never the weeks.
+  'state.day_list': 'Day List & Day Panel',
+  // Under a Month setting that acts only on the Wide Month's days: nothing in the Narrow Month, the
+  // Day List or the Day Panel draws it.
+  'state.wide_month': 'Wide Month',
   // A calendar option the calendar's entries share, naming the other entries by number.
   'state.shared_entry': 'Also Applies to Entry {entries}',
   'state.shared_entries': 'Also Applies to Entries {entries}',
@@ -428,7 +438,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.month.label': 'Month',
   'view.option.month.description': 'A whole month, a row per week',
   'view.helper':
-    'When space is tight, Columns and Grid give up columns or fall back to List, with List’s own settings, and Month draws its narrow form.',
+    'When space is tight, Columns and Grid give up columns or fall back to List, with List’s own settings, and Month draws the Narrow Month.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.reset': 'Reset {option}',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
@@ -575,10 +585,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Within {band} px of a boundary the card keeps the layout it already has, so a ' +
     'card sitting on the line settles instead of flickering.',
   // Month's own table: its two forms, with the one-way margin it keeps once narrow.
-  'width_table.month_wide': 'the wide month',
-  'width_table.month_narrow': 'the narrow month',
+  'width_table.month_wide': 'the Wide Month',
+  'width_table.month_narrow': 'the Narrow Month',
   'width_table.month_hysteresis':
-    'Once narrow, it draws the wide month again only from {width} px, so a card sitting on ' +
+    'Once narrow, it draws the Wide Month again only from {width} px, so a card sitting on ' +
     'the line settles instead of flickering.',
 
   // --- Fit summary ----------------------------------------------------------
@@ -629,7 +639,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'maximum_height.helper': 'Grows with its content up to this height, then scrolls.',
   'month.maximum_height': 'Maximum Height',
   'month.maximum_height.helper':
-    'Its weeks fit within this height. Narrow, it grows with the day\u2019s events up to it, then scrolls.',
+    'The Wide Month fits its weeks within this height; the Narrow Month grows with its Day List up to it, then scrolls.',
   // The events area's own pair, which Card Height replaced: shown only on a card that holds one.
   height: 'Events Area Height',
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
@@ -731,9 +741,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Each event shows the parts that are pressed. A pressed part's settings follow below.",
   'chip.needs': 'Needs {part}',
   'chip.not_in': 'Not in {layout}: {names}.',
-  // Month's parts that act on a narrow month's day list and the panel "+N more" opens, never on
-  // its weeks.
-  'chip.day_list': 'Narrow Day List & +N Panel: {names}.',
+  // Month's parts that act only on the Day List and the Day Panel, never on its weeks.
+  'chip.day_list': 'Day List & Day Panel: {names}.',
   // The chips stored in the scope the page edits, under the chips with where the others come from.
   'chip.chosen_here': 'Chosen Here: {names}',
   // A part in those lines, with whether it is on: "Countdown (Off)".
@@ -1021,12 +1030,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_card_size: 'Card Size & Spacing',
   // Month's narrow form's height, which follows Card Height while unset.
   heading_narrow_month: 'Narrow Month',
+  // Under Card Size & Spacing on Month's page: its height is both forms' until the Narrow Month's
+  // own is set.
+  'heading_card_size.month_note':
+    'Both forms. Once set, Narrow Month Height below takes its place in the Narrow Month.',
   // When Too Narrow, each layout's Minimum Day Width, and the tables of what the card draws.
   heading_narrow_cards: 'Narrow Cards',
-  // Event Gap and Event Spacing, which Month draws only in a narrow month's day list and the panel
-  // "+N more" opens, so Month names those instead.
+  // Month's title for it: Minimum Day Width, which decides between its two forms, and its tables.
+  heading_month_forms: 'Wide or Narrow Month',
+  // Event Gap and Event Spacing, which Month draws only in the Day List and the Day Panel, so Month
+  // names those instead; Month's forecast beside events is drawn there too.
   heading_event_rows: 'Event Rows',
-  heading_day_list_panel: 'Day List & +N Panel',
+  heading_day_list_panel: 'Day List & Day Panel',
   heading_accent: 'Accent',
   heading_title: 'Title',
   heading_icon_and_badge: 'Icon & Badge',
@@ -1180,26 +1195,26 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   //
   // Options stored in `month:`, labeled under its prefix (`schemas/common.ts` › `blockScope`).
   // The narrow form's heights, which take Card Height's while unset.
-  'month.narrow_card_height': 'Narrow Card Height',
+  'month.narrow_card_height': 'Narrow Month Height',
   'month.narrow_card_height.helper':
-    'auto is the default height, 632px, or 760px with the toolbar, as in the wide month.',
-  'month.narrow_card_max_height': 'Narrow Maximum Height',
+    'Unset, it follows Card Height. auto is the default height, 632px, or 760px with the toolbar, as in the Wide Month.',
+  'month.narrow_card_max_height': 'Narrow Month Maximum Height',
   'month.narrow_card_max_height.helper':
-    'With Narrow Card Height at auto, the card grows with the day’s list up to this.',
+    'With Narrow Month Height at auto, the card grows with the Day List up to this.',
   'month.weekend_background_color': 'Weekend Shading',
   'month.weekend_background_color.helper':
     'Any CSS color, or transparent for none; weekend days follow the country set in Home Assistant.',
   'month.today_background_color': 'Today Shading',
   'month.today_background_color.helper': 'On a weekend it replaces the weekend shading.',
-  'month.cell_event_font_size': 'Event Font Size in Days',
+  'month.cell_event_font_size': 'Event Font Size in Wide Month',
   'month.cell_event_font_size.helper':
-    'Titles and “+N more” in the wide month’s days; Event Font Size sets a day’s list and the panel.',
-  'month.cell_time_font_size': 'Time Font Size in Days',
+    'Titles and “+N more” in the Wide Month’s days. Event Font Size sets the Day List and the Day Panel.',
+  'month.cell_time_font_size': 'Time Font Size in Wide Month',
   'month.cell_time_font_size.helper':
-    'Times in the wide month’s days; Time Font Size sets a day’s list and the panel.',
+    'Times in the Wide Month’s days. Time Font Size sets the Day List and the Day Panel.',
   'month.min_day_width': 'Minimum Day Width',
   'month.min_day_width.helper':
-    'Narrower days draw the narrow month: a dot per event, and the tapped day’s events under the weeks.',
+    'Narrower days draw the Narrow Month: a dot per event, and the chosen day’s Day List under the weeks.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
