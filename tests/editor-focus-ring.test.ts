@@ -319,8 +319,13 @@ describe('the editor’s focus rings', () => {
       `.story-tile:focus-visible | outline: 2px solid ${ring}`,
       '.story-tile:focus-visible | outline-offset: -2px',
       ".story-tile[aria-pressed='true'] .story-radio | box-shadow: inset 0 0 0 3px var(--card-background-color, #fff)",
+      `.width-table-scroll:focus-visible | outline: 2px solid ${ring}`,
+      '.width-table-scroll:focus-visible | outline-offset: 2px',
       '.text-button:not(.filled, .add-action):focus-visible, .strip-button:focus-visible | outline: none',
       `.text-button:not(.filled, .add-action):focus-visible::before, .strip-button:focus-visible::before | box-shadow: 0 0 0 2px ${ring}`,
+      // High-contrast modes drop shadows: the same buttons keep a ring as an outline there.
+      `@media (forced-colors: active) .text-button:not(.filled, .add-action):focus-visible, .strip-button:focus-visible | outline: 2px solid ${ring}`,
+      '@media (forced-colors: active) .text-button:not(.filled, .add-action):focus-visible, .strip-button:focus-visible | outline-offset: -4px',
       `.icon-button:focus-visible, .audit-edit:focus-visible, .nav-row:focus-visible, .text-button:focus-visible, .link:focus-visible, .field:focus-visible, .heading:focus-visible, .page-title:focus-visible, .wizard-title:focus-visible, .display-choice:has(input:focus-visible), .chip-choice:has(input:focus-visible) | outline: 2px solid ${ring}`,
       '.icon-button:focus-visible, .audit-edit:focus-visible, .nav-row:focus-visible, .text-button:focus-visible, .link:focus-visible, .field:focus-visible, .heading:focus-visible, .page-title:focus-visible, .wizard-title:focus-visible, .display-choice:has(input:focus-visible), .chip-choice:has(input:focus-visible) | outline-offset: 2px',
       '.heading:focus:not(:focus-visible), .page-title:focus:not(:focus-visible), .wizard-title:focus:not(:focus-visible), .field:focus:not(:focus-visible) | outline: none',

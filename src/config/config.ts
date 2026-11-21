@@ -13,7 +13,15 @@ import { normalizeVisibility } from '../utils/visibility';
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
-export const CURRENT_CONFIG_VERSION = 5;
+/**
+ * The configuration format the editor writes. Version 6 changed no option's shape: it marks a
+ * card whose calendars the editor has checked for the event details v6 shows (`hidden-details.ts`
+ * in the editor), so a card saved by the v5 editor is told once.
+ */
+export const CURRENT_CONFIG_VERSION = 6;
+
+/** The first format with layout blocks: a card at this version or later needs no list migration. */
+export const LAYERED_CONFIG_VERSION = 5;
 
 export const DEFAULT_CONFIG: Types.Config = {
   config_version: undefined,

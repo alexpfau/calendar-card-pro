@@ -247,7 +247,7 @@ renders through the second. A change to the rule changes both.
   `data-field` and a reference does not, so Pick From Preview, landing on the page a part opens,
   finds a copy there and passes over a reference. `routing.ts` captures
   the destination with each rendered form, so a delayed event cannot write into another scope.
-- **Format marker.** `config_version: 5` records editor adoption, not renderer precedence.
+- **Format marker.** `config_version: 6` records editor adoption, not renderer precedence.
   `configVersionState` reads a missing marker or an older nonnegative integer as legacy, accepts
   the current version, and blocks visual-editor writes for a future version or any other value,
   negative, fractional or not a number; it does not coerce `'5'` to a number.

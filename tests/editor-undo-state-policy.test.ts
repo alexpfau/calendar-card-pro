@@ -49,13 +49,18 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_swallowClick',
     '_announcer',
     '_spoken',
-    // A color draft is never written, and Undo leaves it as it does the text in any field.
+    // A color draft is never written; Undo and Reset drop it, so the control reads what came back.
     '_colorDrafts',
     '_openColor',
     // A word list's presentation, and the terms its form last sent, as a color draft is kept.
     '_wordModes',
     '_wordDrafts',
     '_registryHeld',
+    // Home Assistant's error for a title template, which follows the title whatever put it there.
+    '_titleCheck',
+    '_titleError',
+    // The line a starting layout leaves about the switcher, until the next change.
+    '_layoutsNotice',
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',

@@ -14,7 +14,7 @@ Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Today & Tomorrow
 view: grid
 days_to_show: 2

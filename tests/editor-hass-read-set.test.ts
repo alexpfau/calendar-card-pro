@@ -50,6 +50,8 @@ const recorder = vi.hoisted(() => {
     armed: 0,
     /** How often an editor subscribed to Home Assistant's calendar colors (`ensureEntityColors`). */
     registry: 0,
+    /** How often an editor checked its title template (`TemplateSubscription.update`). */
+    templates: 0,
     members: new Set<string>(),
     states: new Set<string>(),
     /** Runs a wrapper's copy with the recorder disarmed. */
@@ -133,6 +135,20 @@ vi.mock('../src/utils/entity-colors', async (importOriginal) => {
       return recorder.disarmed(() => original.ensureEntityColors(...args));
     },
   };
+});
+
+// The title template check reads `connection` to subscribe, as the registry does; what the editor
+// draws from it, Home Assistant's error under Title, comes through its callbacks into the editor's
+// own state, never through `hass`. Its reads are left out, counted.
+vi.mock('../src/utils/templates', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/utils/templates')>();
+  class TemplateSubscription extends original.TemplateSubscription {
+    override update(hass: Types.Hass | undefined, value: unknown): void {
+      recorder.templates += 1;
+      recorder.disarmed(() => super.update(hass, value));
+    }
+  }
+  return { ...original, TemplateSubscription };
 });
 
 /** An editor. */
@@ -288,6 +304,7 @@ afterEach(() => {
   recorder.members.clear();
   recorder.states.clear();
   recorder.registry = 0;
+  recorder.templates = 0;
 });
 
 describe('what the editor reads of hass while it renders', () => {
@@ -332,6 +349,7 @@ describe('what the editor reads of hass while it renders', () => {
       );
       // An entry's page drew a color control, which subscribed: the exemption above was used.
       expect(recorder.registry).toBeGreaterThan(0);
+      expect(recorder.templates).toBeGreaterThan(0);
       // The recorder sees what the editor reads: the language and a calendar's name at least.
       expect(recorder.members).toContain('locale');
       expect(recorder.states).toContain('calendar.anna');

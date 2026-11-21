@@ -72,11 +72,15 @@ const FRESH_KEYS: ReadonlySet<string> = new Set([
   'config_version',
 ]);
 
+/** The day count the card picker's stub writes (`getStubConfig`). */
+const STUB_DAYS = Config.getStubConfig({}).days_to_show;
+
 /**
  * Whether a card is fresh, so the overview offers Quick Setup's banner: at most one calendar,
  * no layout block, and nothing stored beyond what the card picker's stub writes (`type`,
  * `entities`, `days_to_show`, `config_version`, and its `_description` note), besides keys
  * the card does not own, which Home Assistant or the user add (`grid_options`, `visibility`).
+ * A day count other than the stub's was chosen by someone, so that card is theirs.
  *
  * @param raw - Configuration as the YAML holds it
  * @returns `true` for a fresh card
@@ -84,6 +88,7 @@ const FRESH_KEYS: ReadonlySet<string> = new Set([
 export function isFreshCard(raw: Readonly<Record<string, unknown>>): boolean {
   const entries = raw.entities;
   if (entries !== undefined && (!Array.isArray(entries) || entries.length > 1)) return false;
+  if (Helpers.hasOwn(raw, 'days_to_show') && raw.days_to_show !== STUB_DAYS) return false;
   return Object.keys(raw).every(
     (key) => FRESH_KEYS.has(key) || key.startsWith('_') || !ownedByCard(key),
   );

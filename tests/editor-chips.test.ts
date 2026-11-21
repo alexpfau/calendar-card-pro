@@ -69,7 +69,7 @@ function mount(extra: Record<string, unknown> = {}): Promise<Editor> {
  * The chips of a group the open page draws, by the group's name.
  *
  * @param editor - The editor
- * @param group - "Event Details" or "Controls"
+ * @param group - "Visible Event Parts" or "Controls"
  * @returns The chips, in order
  */
 function chips(editor: Editor, group: string): HTMLButtonElement[] {
@@ -111,7 +111,7 @@ function resets(editor: Editor): string[] {
 }
 
 /**
- * The lines the Event Details heading draws under its chips.
+ * The lines the Visible Event Parts heading draws under its chips.
  *
  * @param editor - The editor
  * @returns Each line's text
@@ -189,7 +189,7 @@ describe('the event-part chips', () => {
     const editor = await mount();
     await goPage(editor, 'events');
 
-    expect(read(editor, 'Event Details')).toEqual([
+    expect(read(editor, 'Visible Event Parts')).toEqual([
       'Time ✓',
       'End Time ✓',
       'Location ✓',
@@ -200,8 +200,10 @@ describe('the event-part chips', () => {
       'Now ✓',
     ]);
     // Native toggle buttons: focusable, never disabled, so every reason is read where it is.
-    expect(chips(editor, 'Event Details').every((chip) => chip.localName === 'button')).toBe(true);
-    expect(chips(editor, 'Event Details').some((chip) => chip.disabled)).toBe(false);
+    expect(chips(editor, 'Visible Event Parts').every((chip) => chip.localName === 'button')).toBe(
+      true,
+    );
+    expect(chips(editor, 'Visible Event Parts').some((chip) => chip.disabled)).toBe(false);
     // Nothing is stored, so no line says where.
     expect(lines(editor)).toEqual([
       "Each event shows the parts that are pressed. A pressed part's settings follow below.",
@@ -212,7 +214,7 @@ describe('the event-part chips', () => {
     const editor = await mount({ view: 'grid' });
     await goPage(editor, 'events');
 
-    expect(read(editor, 'Event Details').map((chip) => chip.replace(' ✓', ''))).toEqual([
+    expect(read(editor, 'Visible Event Parts').map((chip) => chip.replace(' ✓', ''))).toEqual([
       'Time',
       'End Time',
       'Location',
@@ -226,7 +228,7 @@ describe('the event-part chips', () => {
     // In All Layouts, which offers every part, no line.
     await editLayout(editor, 'shared');
     await goPage(editor, 'events');
-    expect(chips(editor, 'Event Details')).toHaveLength(8);
+    expect(chips(editor, 'Visible Event Parts')).toHaveLength(8);
     expect(lines(editor).some((line) => line.startsWith('Not in'))).toBe(false);
   });
 
@@ -235,20 +237,22 @@ describe('the event-part chips', () => {
   it('names the parts a layout defaults otherwise, until one is stored for it', async () => {
     const editor = await mount({ view: 'grid' });
     await goPage(editor, 'events');
-    expect(read(editor, 'Event Details')[2]).toBe('Location');
+    expect(read(editor, 'Visible Event Parts')[2]).toBe('Location');
     // Each part says whether it is on, so its source never reads as "on".
     expect(lines(editor)).toContain('Grid Default: Location (Off)');
 
     const stored = await mount({ view: 'grid', time_grid: { show_location: true } });
     await goPage(stored, 'events');
-    expect(read(stored, 'Event Details')[2]).toBe('Location ✓');
+    expect(read(stored, 'Visible Event Parts')[2]).toBe('Location ✓');
     expect(lines(stored).some((line) => line.includes('Default:'))).toBe(false);
   });
 
   it('wraps the chips in rows, never stacked one per line by another control’s rule', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
-    const group = editor.shadowRoot!.querySelector('.chip-group[aria-label="Event Details"]')!;
+    const group = editor.shadowRoot!.querySelector(
+      '.chip-group[aria-label="Visible Event Parts"]',
+    )!;
     const style = getComputedStyle(group);
     // Start Date's radio chips are a column (.chips); a shared class stacked these one per line.
     expect([style.display, style.flexWrap]).toEqual(['flex', 'wrap']);
@@ -259,13 +263,13 @@ describe('the event-part chips', () => {
     const editor = await mount({ show_end_time: true });
     await changeField(editor, 'events:show_time', false);
 
-    expect(read(editor, 'Event Details').slice(0, 3)).toEqual([
+    expect(read(editor, 'Visible Event Parts').slice(0, 3)).toEqual([
       'Time',
       'End Time (Needs Time)',
       'Location ✓',
     ]);
-    expect(read(editor, 'Event Details')[6]).toBe('Duration (Needs Time)');
-    const end = chips(editor, 'Event Details')[1];
+    expect(read(editor, 'Visible Event Parts')[6]).toBe('Duration (Needs Time)');
+    const end = chips(editor, 'Visible Event Parts')[1];
     // Still focusable, and not pressed, though its own value is on.
     expect(end.disabled).toBe(false);
     expect(end.getAttribute('aria-pressed')).toBe('false');
@@ -280,28 +284,30 @@ describe('the event-part chips', () => {
 
     await editLayout(editor, 'shared');
     await goPage(editor, 'events');
-    expect(read(editor, 'Event Details')[2]).toBe('Location');
+    expect(read(editor, 'Visible Event Parts')[2]).toBe('Location');
     expect(lines(editor)[0]).toBe('Chosen Here: Location (Off)');
 
     await editLayout(editor, 'column');
     await goPage(editor, 'events');
-    expect(read(editor, 'Event Details')[2]).toBe('Location ✓');
+    expect(read(editor, 'Visible Event Parts')[2]).toBe('Location ✓');
     expect(lines(editor)[0]).toBe('Chosen Here: Location (On)');
     // A chip's name carries its state words, as any field's does.
-    expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe('Location, Set');
+    expect(chips(editor, 'Visible Event Parts')[2].getAttribute('aria-label')).toBe(
+      'Location, Set',
+    );
 
     await editLayout(editor, 'list');
     await goPage(editor, 'events');
-    expect(read(editor, 'Event Details')[2]).toBe('Location');
+    expect(read(editor, 'Visible Event Parts')[2]).toBe('Location');
     expect(lines(editor)[0]).toBe('From Layout Defaults: Location (Off)');
-    expect(chips(editor, 'Event Details')[2].getAttribute('aria-label')).toBe(
+    expect(chips(editor, 'Visible Event Parts')[2].getAttribute('aria-label')).toBe(
       'Location, From Layout Defaults',
     );
     // Nothing is stored for List, so nothing here resets.
     expect(resets(editor)).toEqual([]);
 
     // A press writes the other value for the scope, in its own block: one write, one step.
-    chips(editor, 'Event Details')[4].click();
+    chips(editor, 'Visible Event Parts')[4].click();
     await editor.updateComplete;
     expect(lastConfig(editor)).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
@@ -339,14 +345,14 @@ describe('the event-part chips', () => {
       entities: ['calendar.anna'],
       show_description: false,
     });
-    expect(read(editor, 'Event Details').slice(2, 5)).toEqual([
+    expect(read(editor, 'Visible Event Parts').slice(2, 5)).toEqual([
       'Location ✓',
       'Description',
       'Countdown',
     ]);
     expect(resets(editor)).toEqual([]);
     // Focus lands on the group's first chip, since the button is gone.
-    expect(editor.shadowRoot!.activeElement).toBe(chips(editor, 'Event Details')[0]);
+    expect(editor.shadowRoot!.activeElement).toBe(chips(editor, 'Visible Event Parts')[0]);
     expect(
       editor.shadowRoot!.querySelector('[data-focus="undo"]')?.getAttribute('aria-label'),
     ).toBe('Undo: Reset Parts');
@@ -364,16 +370,16 @@ describe('the event-part chips', () => {
   it('puts focus back on the chip a press changed when Undo restores it', async () => {
     const editor = await mount();
     await goPage(editor, 'events');
-    chips(editor, 'Event Details')[3].click();
+    chips(editor, 'Visible Event Parts')[3].click();
     await editor.updateComplete;
-    expect(read(editor, 'Event Details')[3]).toBe('Description ✓');
+    expect(read(editor, 'Visible Event Parts')[3]).toBe('Description ✓');
 
     editor.shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="undo"]')!.click();
     await editor.updateComplete;
     await editor.updateComplete;
 
-    expect(read(editor, 'Event Details')[3]).toBe('Description');
-    expect(editor.shadowRoot!.activeElement).toBe(chips(editor, 'Event Details')[3]);
+    expect(read(editor, 'Visible Event Parts')[3]).toBe('Description');
+    expect(editor.shadowRoot!.activeElement).toBe(chips(editor, 'Visible Event Parts')[3]);
   });
 });
 

@@ -40,6 +40,19 @@ const settled = new Set<string>();
 /** Loads under way, by language. */
 const pending = new Map<string, Promise<void>>();
 
+/** Languages whose file could not be used, which the editor shows in English. */
+const failed = new Set<string>();
+
+/**
+ * Whether a language's file could not be used, so the editor shows English in its place.
+ *
+ * @param language - Effective language code
+ * @returns True once its file has failed
+ */
+export function editorLanguageFailed(language: string): boolean {
+  return failed.has(language.toLowerCase());
+}
+
 /**
  * Whether the editor can draw in a language now.
  *
@@ -108,6 +121,7 @@ async function fetchLanguage(code: string, editorUrl: string): Promise<void> {
     ]);
     EDITOR_HELD_STRINGS[code] = decodeLanguageFile(loaded, Object.keys(EDITOR_STRINGS));
   } catch (error) {
+    failed.add(code);
     const detail = error instanceof Error ? error.message : String(error);
     Logger.error(
       `The editor's '${code}' strings could not be used (${detail}), so it ` +
@@ -174,5 +188,6 @@ export function forgetEditorLanguage(language: string): void {
   const code = language.toLowerCase();
   settled.delete(code);
   pending.delete(code);
+  failed.delete(code);
   delete EDITOR_HELD_STRINGS[code];
 }

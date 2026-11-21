@@ -189,18 +189,34 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 describe('the editor drawn in a language that loads', () => {
   const CONFIG = { type: 'custom:calendar-card-pro-dev', entities: ['calendar.anna'] };
 
-  it('draws nothing until German arrives, then draws in German', async () => {
+  it('draws only a loading line until German arrives, then draws in German', async () => {
     const file = deferred<unknown>();
     setLanguageImporter(() => file.promise);
     const editor = await mountEditor(CONFIG, { hass: fakeHass({ language: 'de' }) });
 
-    expect(editor.shadowRoot!.childElementCount).toBe(0);
+    // Not blank, which on a slow connection reads as broken: one line, read out as a status.
+    const status = [...editor.shadowRoot!.children];
+    expect(status.map((each) => [each.getAttribute('role'), each.textContent])).toEqual([
+      ['status', 'Loading…'],
+    ]);
     expect(formsOf(editor)).toHaveLength(0);
 
     file.resolve(fileFor(GERMAN));
     await vi.waitFor(() => expect(formsOf(editor).length).toBeGreaterThan(0));
     await openPageOf(editor, 'events:show_time');
     expect(labelOf(editor, 'events:show_time')).toBe(GERMAN[KEY]);
+    editor.remove();
+  });
+
+  it('says in English that German could not load, and that a reload fetches it again', async () => {
+    setLanguageImporter(() => Promise.reject(new Error('offline')));
+    const editor = await mountEditor(CONFIG, { hass: fakeHass({ language: 'de' }) });
+    await vi.waitFor(() => expect(formsOf(editor).length).toBeGreaterThan(0));
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('.language-failed')?.textContent?.trim()).toBe(
+      'The editor could not load Deutsch (de), so it shows English. Reload the page once the ' +
+        'connection is back.',
+    );
     editor.remove();
   });
 

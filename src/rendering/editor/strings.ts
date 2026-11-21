@@ -91,9 +91,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'audit.reset_all': 'Reset All in {layout}',
   'audit.reset_all_done': 'Reset every value stored for {layout}.',
   'audit.change_here': 'Change Here',
-  'audit.change_named': 'Change {label} Here',
+  'audit.change_named': 'Change Here: {label}',
   'audit.open_in': 'Open in {page}',
-  'audit.open_named': 'Open {label} in {page}',
+  'audit.open_named': 'Open in {page}: {label}',
   'audit.remove_named': 'Remove {label}',
   'audit.go_to': 'Go to {name}',
   'audit.go_setting': 'Go to Setting',
@@ -106,6 +106,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'audit.ha_own': 'Home Assistant’s own, from the Layout tab',
   'notices.ignored': 'Options the Card Ignores: {count}',
   'notices.old': 'Old Options: {count}',
+  // Shown in English, as the editor is once the card's language could not load.
+  'notices.language_failed':
+    'The editor could not load {language}, so it shows English. Reload the page once the connection is back.',
   'notices.old_title': 'Old Options',
   'notices.old_note': 'The next change removes these.',
   'notices.replaced': 'Replaced by {label}.',
@@ -147,6 +150,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
   'layouts.help_pick': 'The circle picks the layout the card opens in.',
   'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
+  // After a starting layout the switcher did not offer is picked: it offers it now too.
+  'layouts.offered': 'The layout switcher now offers {layouts}.',
   'layouts.help_switch_link': 'layout switcher',
   'layouts.help_open': 'Select a layout to change its own settings.',
   // The row and page of the values every layout starts from; a layout's own name is its option
@@ -183,6 +188,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Default".
   'state.set': 'Set',
   'state.default': 'Default',
+  // Drawn alone while the editor's language is on its way, where Home Assistant has no word.
+  'state.loading': 'Loading…',
   'state.whole_card': 'Whole Card',
   // Under a Grid setting while Layout Defaults stores a value Grid's own default overrides.
   'state.ignored': "Uses {layout}'s Default, Not {value} From Layout Defaults",
@@ -267,6 +274,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'pick.button': 'Pick From Preview',
   'pick.banner': 'Click a part of the preview to open its settings.',
   'pick.banner_touch': 'Tap a part of the preview below to open its settings.',
+  'pick.keyboard': 'From the keyboard, search the settings or open their pages instead.',
   'pick.click': '{label} · Click to Edit',
   'pick.tap': '{label} · Tap to Edit',
   // The line a removal or an applied story leaves, beside its Undo, until the next change.
@@ -321,6 +329,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Any color the card can draw: #e91e63, a CSS name, or a theme variable',
   'color.custom_field': 'Custom {setting}',
   'color.invalid': 'Not a color the card can draw',
+  // A size typed in a unit the card cannot use is held, not written, and the stored one stays.
+  'value.size_held': 'Not a size the card can use, so it stays {value}.',
+  'value.size_held_unset': 'Not a size the card can use, so nothing is saved.',
   'color.kept': 'Kept until the text above is a color',
   'color.yaml_none': 'Not in the YAML',
   'color.not_set': 'Not Set',
@@ -500,6 +511,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.review.calendars': 'Calendars',
   'quick_setup.review.colors': 'Colors From the Example',
   'quick_setup.review.layout': 'Layout',
+  'quick_setup.review.layouts': 'Layouts',
+  'quick_setup.review.days_note':
+    'Each layout keeps its own number of days. Change one on that layout\u2019s Which Events page once applied.',
+  'quick_setup.review.toolbar': 'Toolbar',
   'quick_setup.review.days': '{count} days',
   'quick_setup.review.days_one': '1 day',
   'quick_setup.review.title': 'Title',
@@ -521,6 +536,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.list_one': '{options} now applies to List, as before. The card looks the same.',
   'upgrade.shared': '{options} now apply to every layout, unless a layout has its own.',
   'upgrade.shared_one': '{options} now applies to every layout, unless a layout has its own.',
+  'upgrade.same': 'The card looks the same.',
   'upgrade.weather':
     'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
   'upgrade.weather_some':
@@ -529,6 +545,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',
   'upgrade.share_one': 'Use It for Every Layout',
+  // A calendar's show_location or show_description false keeps the field out of the agenda, and
+  // no longer out of an event's details, which only Private does (`hidden-details.ts`).
+  'upgrade.details_title': 'Event details changed.',
+  'upgrade.details_location':
+    '{name} hides event locations, but an event\u2019s details now show them.',
+  'upgrade.details_description':
+    '{name} hides event descriptions, but an event\u2019s details now show them.',
+  'upgrade.details_both':
+    '{name} hides event locations and descriptions, but an event\u2019s details now show them.',
+  'upgrade.make_private': 'Make It Private',
+  'upgrade.made_private': '{name} is private now.',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
   'config_migration.future_message':
     'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',
@@ -600,6 +627,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'readable size, Month its weeks. Rows set in a Sections dashboard’s Layout tab win over it.',
   maximum_height: 'Maximum Height',
   'maximum_height.helper': 'Grows with its content up to this height, then scrolls.',
+  'month.maximum_height': 'Maximum Height',
+  'month.maximum_height.helper':
+    'Its weeks fit within this height. Narrow, it grows with the day\u2019s events up to it, then scrolls.',
   // The events area's own pair, which Card Height replaced: shown only on a card that holds one.
   height: 'Events Area Height',
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
@@ -730,6 +760,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entry.duplicate_warning':
     'Both entries show the same events until one sets Event Type or a word list, so each ' +
     'event shows twice for now.',
+  'entry.duplicate_warning_in':
+    'Both entries show the same events until one sets Event Type or a word list, so in ' +
+    '{layouts} each event shows twice for now.',
+  'entry.duplicate_filtered':
+    'Duplicate filtering is on, so each event still shows once while both entries show the same events.',
   'entry.duplicated': 'Duplicated {name}.',
   'entry.repointed': '{name} now reads {calendar}.',
   'entry.repointed_adopted':
@@ -746,6 +781,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'split.row_helper':
     'Turn this entry into two, such as all-day events and events with a time, each with its own color.',
   'split.named': 'Split {name}',
+  // The row's and the menu item's name, which starts with the words they show (WCAG 2.5.3).
+  'split.named_row': 'Split This Calendar: {name}',
   'split.step.how': 'How',
   'split.step.colors': 'Colors',
   'split.step.review': 'Review',
@@ -855,6 +892,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // An entry's name inside a calendar with several, as its controls are named: "Remove Family,
   // entry 2, All-day events". A template, so a language can order the three its own way.
   'row.name': '{name}, entry {position}, {part}',
+  // An entry that names no calendar, which the YAML can hold and the card cannot draw.
+  'row.invalid': 'Invalid calendar, entry {position}',
+  'row.invalid_calendar': 'Invalid calendar',
   // Under an entry that keeps exactly the events an earlier entry of its calendar keeps.
   'row.same_events': 'Same events as entry {position}',
 
@@ -999,7 +1039,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // all-day events Grid's band holds. A calendar's page keeps `heading_multiday`.
   heading_allday_multiday: 'All-Day & Multi-Day',
   heading_nothing: 'Empty Days',
-  heading_details: 'Event Details',
+  // The parts each event shows; "Event Details" names the dialog an event opens.
+  heading_details: 'Visible Event Parts',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
 
@@ -1024,8 +1065,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.event_type.option.timed.label': 'Only events with a time',
   'entity.event_type.option.all_day.label': 'Only all-day events',
   'entity.event_type.helper':
-    'List the same calendar twice \u2014 once on each of the last two \u2014 to give ' +
-    'its all-day and timed events different colors.',
+    'To give its all-day and timed events different colors, use Split This Calendar under ' +
+    'Which Events.',
 
   'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper': 'Left empty, the card’s limit applies.',
@@ -1553,6 +1594,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Such as “(1 hr, 45 min)”. A split event shows its whole length on each day.',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper': 'Multi-day all-day events have their own setting below.',
+  'month.show_single_allday_time': 'Show Time For All-Day Events',
+  'month.show_single_allday_time.helper':
+    'Month splits a multi-day all-day event into its days, so this covers each of them.',
   show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
   'show_multiday_allday_time.helper':
     'Their time row reads “All day, until …” and carries the end date.',
@@ -1689,6 +1733,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Actions & Refresh ----------------------------------------------------
   tap_action: 'Tap Action',
   hold_action: 'Hold Action',
+  // The card's own two, on Taps & Refresh, named for it: an event's and a day's run first.
+  card_tap_action: 'Card Tap Action',
+  'card_tap_action.helper': 'An event\u2019s or a day\u2019s own tap action comes first.',
+  card_hold_action: 'Card Hold Action',
+  'card_hold_action.helper': 'An event\u2019s own hold action comes first.',
   // Home Assistant names its own actions; this is the one the card adds, and both
   // dropdowns resolve it through the same key. See `hass-localize.ts` for how it reaches
   // HA's action editor at all.
