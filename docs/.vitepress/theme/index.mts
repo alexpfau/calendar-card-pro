@@ -1,7 +1,28 @@
 import DefaultTheme from 'vitepress/theme';
-import { useRoute, type Theme } from 'vitepress';
+import { inBrowser, useRoute, useRouter, type Theme } from 'vitepress';
 import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, watch } from 'vue';
 import './custom.css';
+import MOVED from '../moved-anchors.json';
+
+/**
+ * Where a section that moved to another page now lives, for a link written before it moved: the
+ * release notes on GitHub, issue comments, and the Documentation links in an editor already
+ * installed. `moved-anchors.json` maps `/page#anchor` to the new `/page#anchor`, or to a bare
+ * `/page` where the section became the page. It only fires for an anchor the page no longer has,
+ * so a heading that comes back wins over its forward. `check:docs` holds the map to that rule
+ * and resolves every target.
+ *
+ * @param path - The route, as the router reports it
+ * @param hash - `location.hash`, with its `#`
+ * @returns The address to go to instead, or `undefined`
+ */
+function movedTo(path: string, hash: string): string | undefined {
+  if (hash.length < 2) return undefined;
+  const anchor = decodeURIComponent(hash.slice(1));
+  if (document.getElementById(anchor) !== null) return undefined;
+  const page = path.replace(/\.html$/, '').replace(/\/index$/, '/');
+  return (MOVED as Record<string, string>)[`${page}#${anchor}`];
+}
 
 /**
  * Start and stop the feature pages' clips (`video.clip`). The markup carries no autoplay, so
@@ -78,15 +99,28 @@ function wireClips(): () => void {
 const Layout = defineComponent({
   setup(_, { slots }) {
     const route = useRoute();
+    const router = useRouter();
+    const forward = (): void => {
+      if (!inBrowser) return;
+      const target = movedTo(route.path, window.location.hash);
+      if (target !== undefined) void router.go(target);
+    };
     let unwire = (): void => undefined;
     const rewire = (): void => {
       unwire();
       unwire = wireClips();
     };
-    onMounted(rewire);
+    onMounted(() => {
+      rewire();
+      forward();
+    });
     watch(
       () => route.path,
-      () => nextTick(rewire),
+      () =>
+        nextTick(() => {
+          rewire();
+          forward();
+        }),
       { flush: 'post' },
     );
     onBeforeUnmount(() => unwire());

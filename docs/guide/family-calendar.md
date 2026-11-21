@@ -93,7 +93,7 @@ month:
 
 ## 🧭 Across Different Screens
 
-`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
+`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/header-toolbar#switching-between-layouts).
 
 <video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
@@ -103,7 +103,7 @@ On Home Assistant 2026.5 or later, every screen shows a change as soon as Home A
 
 ### Grid, Columns & List
 
-`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 Grid sheds days one at a time as the card narrows, always keeping today, so the same card fits a narrow dashboard section. See [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
@@ -117,12 +117,12 @@ With `show: true`, `toolbar` adds two rows of controls:
 
 - **Add** opens a new event in the card's popover, on the first calendar in `entities` that accepts new events and is not hidden on this device: Anna's while hers is shown, not the Family calendar. With every such calendar hidden, it starts on the first of them anyway. Where more than one calendar accepts new events, the popover lets you pick another before saving. Add appears only while some calendar [accepts new events](/features/actions#what-each-integration-allows). See [Add Event Button](/features/actions#add-event-button).
 - **Refresh** loads the events now.
-- **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/layout-appearance#searching-the-card).
-- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
-- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
-- **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
+- **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/header-toolbar#searching-the-card).
+- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/header-toolbar#paging-through-dates).
+- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/header-toolbar#showing-hiding-calendars).
+- **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/header-toolbar#resetting-the-card).
 
-`size: large` draws the arrows, the house and the chips nearly as large as the buttons above them, so a finger finds them on the wall, and on a phone too. Larger chips fold into the filter button sooner on a narrow card. See [Larger Arrows & Chips](/features/layout-appearance#larger-arrows-chips).
+`size: large` draws the arrows, the house and the chips nearly as large as the buttons above them, so a finger finds them on the wall, and on a phone too. Larger chips fold into the filter button sooner on a narrow card. See [Larger Arrows & Chips](/features/header-toolbar#larger-arrows-chips).
 
 ### Adding & Moving on the Wall
 
@@ -156,9 +156,9 @@ Home Assistant stores a person's photo square, and the card draws it as stored, 
 
 ### Gold Means the Whole Family
 
-Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan only when their title, start, end and location all match, as they do when the same event is added to each calendar.
+Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan only when their title, start, end and location all match, as they do when the same event is added to each calendar.
 
-[`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold.
+[`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold.
 
 ### A Birthday That Counts Itself
 
@@ -237,14 +237,14 @@ entities:
   # calendar.family and calendar.trash_pickup as above
 ```
 
-[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/filtering#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
 
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 
 ## 📚 Next Steps
 
 - [Family Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
-- [Header Toolbar](/features/layout-appearance#header-toolbar) — the switcher, the chips, paging and Reset in full
+- [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens
 - [Actions](/features/actions) — the event popover, editing, deleting and the add button

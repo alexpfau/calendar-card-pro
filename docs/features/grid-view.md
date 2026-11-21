@@ -66,7 +66,7 @@ time_grid:
   not only how it looks.
 - These are the grid's hours, the same for every calendar. To leave out one calendar's events
   that start outside some hours, in every layout, use
-  [`starts_after` and `starts_before`](/features/core-settings#showing-events-that-start-at-certain-hours).
+  [`starts_after` and `starts_before`](/features/filtering#showing-events-that-start-at-certain-hours).
 - A timed event that runs across more than one day but lasts less than a full day, such as a
   night shift, gets one block per day column; a longer one is
   [one banner above the hours](#long-timed-events-as-banners) instead. The block where it
@@ -105,7 +105,7 @@ omitted bound is different: it uses its own default and keeps the other valid bo
   Even with `hour_line_width: 0`, two touching events from one calendar still read as two.
 - A day a continuing event runs through is not empty: `show_empty_days: false` keeps its
   column, for timed and all-day events alike.
-- A calendar's [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+- A calendar's [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only)
   filter judges each day an event covers on its own, so an event that starts on an excluded
   day can still appear on a later one.
 
@@ -255,6 +255,21 @@ time_grid:
 
 The date row, the week numbers and the weekend tint are not affected by these options.
 
+::: warning Changed in v6
+Grid's lines are stronger than in v5, which drew all four in `var(--divider-color)` at 50%. To
+keep the v5 look, set the four colors in `time_grid:`. See
+[What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
+
+```yaml
+time_grid:
+  day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+  hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)'
+```
+
+:::
+
 ::: details More About Grid Lines
 
 - The day lines cross the all-day band, and a banner over several days paints over them. Month
@@ -331,11 +346,11 @@ time_grid:
 - The tint runs from just under the date row, through the all-day band and down the hours, as
   one continuous column. The date row itself stays clear.
 - Which days are shaded comes from the
-  [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+  [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only),
   so this is Friday and Saturday in Israel and Sunday alone in India, whatever language Home
   Assistant runs in. With no country set, Home Assistant's language decides instead. The
   [`weekend_*` date colors](/features/layout-appearance#date-column-customization) and
-  [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) use the same
+  [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only) use the same
   definition.
 
 ::: details Where Two Weekend Days Meet
@@ -406,7 +421,7 @@ time_grid:
 - A per-calendar weekday/weekend filter can leave gaps in a banner. The banner joins adjacent
   visible columns where that event qualifies, but never crosses an excluded column that another
   calendar keeps visible. Its arrows still refer to the original event.
-- With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), only
+- With [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events), only
   eligible calendar copies contribute on each date. If those contributors change, the banner
   separates into runs, so a shared-event color does not extend into dates where only one
   calendar qualifies.
@@ -592,34 +607,35 @@ not fit is left out whole, never cut part way.
 
 - A title needs room for one full line, the time for a full title line plus a full time line,
   and location for one more line.
+- A long title stops at the last line that fits whole, ending in "…" when more follows.
+  `title_max_lines` above `0` stops it sooner; grid draws at most three title lines however high
+  you set it, and fewer on a short block. A scrolling title
+  ([`scroll_long_titles`](/features/event-content#scrolling-long-titles)) stays on one line and
+  moves instead.
+- Event weather gets its own row under the time, as in column view, and the progress bar its
+  own row under the title. A countdown trails the time; in a lane too narrow for it, the
+  countdown gives way, not the time. Every block keeps its countdown, so
+  `show_countdown: once_per_day` reads here as `true` does.
+- Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
+  first line. That line counts toward the title's line limit, and the labels stay still while a
+  scrolling title moves.
+- All-day banners remain title-only.
+
+::: details Time Rows, Narrow Lanes, Countdowns & Other Scripts
+
 - A time row too narrow for its block gives things up in order: first the clock icon, then the
   end time moves onto a second line if the block is tall enough, then the end time goes, since
   the block's bottom edge already shows it, and only then the row. On an event running past
   midnight the end and its day count move and go together. It never shows a cut time:
   `10:00 - 1…` on a meeting ending at 12:00 would read as one o'clock, so the card shows a bare
   `10:00`, or nothing.
-- A long title stops at the last line that fits whole, ending in "…" when more follows.
-  `title_max_lines` above `0` stops it sooner; grid draws at most three title lines however high
-  you set it, and fewer on a short block. A scrolling title
-  ([`scroll_long_titles`](/features/event-content#scrolling-long-titles)) stays on one line and
-  moves instead.
 - Titles wrap only between words. A word wider than its block is cut short with "…", so
   "Quarterly review" reads "Quarte… review" rather than "Quarte rly review" over three lines. A
   hyphenated word can still wrap after its hyphen.
-- Event weather gets its own row under the time, as in column view, where its words can wrap
-  beneath the temperature; the progress bar gets its own row under the title. A countdown trails
-  the time, its words continuing on the next line where the block has room; in a lane too narrow
-  for it, the countdown gives way, not the time. A finished block
+- Event weather's words can wrap beneath the temperature. A countdown's words continue on the
+  next line where the block has room. A finished block
   [counts up](/features/event-content#counting-up-from-past-events) in the same place, and the
-  block that starts an overnight event counts from the event's end. Every block keeps its
-  countdown, so `show_countdown: once_per_day` reads here as `true` does.
-- Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
-  first line. That line counts toward the title's line limit, and the labels stay still while a
-  scrolling title moves.
-- All-day banners remain title-only.
-
-::: details Narrow Lanes, Countdowns & Other Scripts
-
+  block that starts an overnight event counts from the event's end.
 - A block left showing nothing but its title keeps it centered only while the title nearly
   fills the block; a tall, narrow one keeps it at the top.
 - If your theme or `event_font_size` makes a detail row taller than its block, the card hides
@@ -663,10 +679,9 @@ time_grid:
   title_max_lines: 2
 ```
 
-- Grid first tries the title on one centered line at your configured font size, with `1px` of
-  space above and below.
-- If that still does not fit, it shrinks the title and its labels together in `1px` font steps
-  to the largest size that fits, never below `10px` for the title or any text or emoji label.
+- Grid first tries the title on one centered line at your configured font size.
+- If that still does not fit, it shrinks the title and its labels together to the largest size
+  that fits, never below `10px` for the title or any text or emoji label.
   Every calendar label stays, merged labels included, and text, emoji, icons and pictures keep
   their relative sizes, colors, order and proportions.
 - A fitted title that is too long scrolls with `scroll_long_titles: true`, like any other
@@ -805,7 +820,7 @@ time_grid:
   - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`. At extreme
     widths each day keeps a `2rem` floor and the grid scrolls sideways rather than collapsing
     days to nothing; the axis and day gaps keep their sizes. On a touch screen a swipe across a
-    crammed grid scrolls rather than [paging](/features/layout-appearance#paging-through-dates);
+    crammed grid scrolls rather than [paging](/features/header-toolbar#paging-through-dates);
     the arrows still page.
 - The days that stay always include today, and they move on at midnight.
 
@@ -816,9 +831,17 @@ narrower** also writes `min_days_to_show` at the number of days shown, since Gri
 drop days down to one before narrowing them.
 
 ::: warning Dropped Days Are Not Marked
-The card does not draw a marker saying days before or after the visible ones were hidden,
-so use `min_days_fallback: cramp` if seeing the whole range matters more than preserving the
-minimum column width.
+The card does not draw a marker saying days before or after the visible ones were hidden. If
+seeing the whole range matters more than the minimum column width, set both options, using your
+day count:
+
+```yaml
+time_grid:
+  min_days_to_show: 7
+  min_days_fallback: cramp
+```
+
+`cramp` alone still sheds days down to one before it narrows them.
 :::
 
 ::: details Which Days Stay & How Wide a Card Must Be
@@ -863,7 +886,7 @@ time_grid:
   days_to_show: 7
 ```
 
-See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 ### A Full Week Without Dimming
 
@@ -976,10 +999,12 @@ Grid** instead. Stored values are kept for the layouts they apply to.
 | `event_spacing`, `event_gap`                                                                                                       | A grid block sets its own padding and is placed by its time. `day_spacing` still sets the gap between day columns                                                                     |
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
 
-The editor also leaves out the per-calendar compact limit and multi-day splitting. To edit any
-of these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is
-(the all-day badge controls are in **Layout Defaults** too); see
-[Options for the Selected View](/features/editor#options-for-the-selected-view).
+To edit any of these, open a layout they apply to under
+**Layouts**, which leaves the card's layout as it is (the all-day badge controls are in **Layout
+Defaults** too); see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+A calendar's own compact limit and multi-day splitting are on its page under **Calendars**,
+which holds the options of every layout the card can show and says which layouts each applies
+to, such as **Only in List**.
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
 `show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,

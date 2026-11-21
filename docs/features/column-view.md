@@ -51,6 +51,13 @@ narrows, and only falls back to the list layout once even three columns will not
 `min_days_to_show` to the number of days shown to keep every day: the card then draws all of
 them as columns, or as a list where they do not fit.
 
+::: warning Changed in v6
+Before v6, a card without `min_days_to_show` kept every day as columns, or turned into a list.
+Now it drops columns down to two first. To keep the old behavior, set `column.min_days_to_show`
+to your `days_to_show`. See
+[What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
+:::
+
 The columns that stay always include today. They start at today and run forward, reaching
 back to earlier days only when the range ends before the columns are full. So a week that
 starts on Monday, three columns wide on a Wednesday, shows Wednesday to Friday; on a Sunday
@@ -59,7 +66,7 @@ that lies entirely behind keeps its last. The columns move on at midnight.
 
 ::: warning Dropped Days Are Not Marked
 A card showing two of seven days looks exactly like a card configured for two days: nothing
-says days were dropped. With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates),
+says days were dropped. With the toolbar's [date navigation](/features/header-toolbar#paging-through-dates),
 the arrows and a swipe page through them by the days drawn; without it, the dropped days cannot
 be reached in Columns. To see every day, set `min_days_to_show` to the number of days shown.
 :::
@@ -88,7 +95,7 @@ which is what you want when your events have long titles. Lowering it keeps more
 narrower cards, at the cost of more wrapping.
 
 The list shows List's own `days_to_show`, not the column layout's; see
-[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+[Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 ## ⚠️ When Even the Fewest Columns Will Not Fit
 
@@ -179,8 +186,8 @@ with nothing to do in column view, since today is already on the card. It takes 
 once `show_empty_days: false` is set in `column:` as well.
 
 `show_past_events` is different: Column inherits its top-level value unless `column:`
-overrides it. Grid substitutes `true` for both options. The editor guide includes the
-[comparison across the layouts](/features/editor#yaml-view-defaults).
+overrides it. Grid substitutes `true` for both `show_empty_days` and `show_past_events`. The
+editor guide includes the [comparison across the layouts](/features/editor#yaml-view-defaults).
 
 ## 🚫 Options That Cannot Be Overridden
 
@@ -189,7 +196,7 @@ ignored inside `list:`, `column:`, `time_grid:` or `month:`. Set them at the top
 
 Which events and forecasts the card loads:
 
-`entities` · `start_date` · `first_day_of_week` · `weather_entity` · `weather` · `refresh_interval` · `refresh_on_navigate`
+`entities` · `start_date` · `first_day_of_week` · `weather_entity` · `refresh_interval` · `refresh_on_navigate`
 
 Its actions and its toolbar:
 
@@ -205,17 +212,18 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above. The visual editor names every such option under **Options the Card Ignores** at the top of its overview and offers to move it; see [Options the Card Ignores](/features/editor#options-the-card-ignores).
 
-Two of them need a word. `weather_entity` is the one entity every layout draws its forecast
-from; how a layout draws it is that layout's own `weather:`, which belongs in its block. The
-top-level `weather:` is weather as written before v6, which decides every layout's while it
-names an entity. See [Weather Per Layout](/features/weather#weather-per-layout).
+`weather_entity` needs a word. It is the one entity every layout draws its forecast from; how a
+layout draws it is that layout's own `weather:`, which belongs in its block. A top-level
+`weather:` that names an entity is weather as written before v6, and overrides the layout
+blocks: List, Columns and Grid draw it, Month draws none, and every block's `weather:` and
+`weather_entity` are ignored. See [Weather Per Layout](/features/weather#weather-per-layout).
 
 Three options sound as though they belong in the first list, and do not:
 
 - **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
   six weeks, may set its own: the card loads the longest count among the layouts it can show,
   with Month's weeks where it can show Month, and each draws its own days out of that load. See
-  [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+  [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
   so they can differ per view — and often want to, because a column is a narrow space where a
   finished event or a second copy of the same meeting costs more than it does in a full-width
@@ -263,15 +271,16 @@ continue anything.
 **`month_separator_label_color` and `month_separator_label_font_size`** style it. A column's month
 rule is a vertical line in the gap between two days, with no room for words.
 
-**`multiday_banners`** draws a long timed event as a banner in grid view's all-day band. A
-column has no such band: each day of the event is a row in its column, as
+**`multiday_banners`** draws a long timed event as a banner in grid view's all-day band, and as a
+bar in month view. A column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls on Columns' pages, including the per-calendar compact limit and
-grid banner setting. Stored values are preserved and still apply where they are read: in List,
-which the card falls back to, and the banner setting in Grid. To change them, open that layout
-under **Layouts**; the card keeps opening in its own layout.
+Columns' pages leave these controls out. Stored values are preserved and still apply where they
+are read: in List, which the card falls back to, and the banner option in Grid and Month. To
+change them, open that layout under **Layouts**; the card keeps opening in its own layout.
+A calendar's own compact limit and banner option are on its page under **Calendars**, which
+holds the options of every layout the card can show and says which layouts each applies to.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
@@ -346,7 +355,8 @@ column:
 Within a column, a day's events touch and read as one block. Where several in a row share a
 calendar color, they run together into one block of that color, and
 [`event_gap`](/features/layout-appearance#gaps-between-events) holds each event apart
-instead. Set inside `column:`, it gaps the columns and leaves the list layout joined:
+instead. Set inside `column:`, it separates the events within each column and leaves the list
+layout joined:
 
 ```yaml
 column:

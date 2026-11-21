@@ -9,7 +9,7 @@ the calendar filter, the menus, refresh and reset. No control writes the card's 
 change only what this device shows, while add and the configuration's own buttons run actions (a
 new event, or any Home Assistant action), so this page is mostly about which state each control
 owns. Users'
-documentation is [Header Toolbar](/features/layout-appearance#header-toolbar); the map of the whole
+documentation is [Header Toolbar](/features/header-toolbar); the map of the whole
 card is the [architecture overview](/architecture).
 
 ## 🧰 Structure

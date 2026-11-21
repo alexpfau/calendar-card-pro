@@ -16,8 +16,8 @@ export type DocsPage = PageId | 'entry' | 'audit' | 'notices';
 
 /** Each page's documentation, as a path and anchor on the site. */
 export const PAGE_DOCS: Readonly<Record<DocsPage, string>> = {
-  which_events: '/features/core-settings#event-filtering',
-  card_header: '/features/layout-appearance#header-toolbar',
+  which_events: '/features/filtering#event-filtering',
+  card_header: '/features/header-toolbar',
   events_weather_language: '/features/editor#events-weather-language',
   day_header: '/features/layout-appearance#date-column-customization',
   events: '/features/event-content',
