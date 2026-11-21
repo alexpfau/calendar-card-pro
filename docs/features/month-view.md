@@ -12,7 +12,13 @@ entities:
   - calendar.anna
   - calendar.ben
 view: month
+toolbar:
+  show: true # the month's heading, and paging by month
 ```
+
+The month's heading and paging by month, with the arrows, a swipe or Page Up and Page Down,
+come with the [toolbar](/features/header-toolbar); without it the card shows the six weeks of
+the month it opens on.
 
 In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
 row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
@@ -32,21 +38,23 @@ today, and `start_date: 2027-01-15` opens January 2027.
 - **Always six rows.** Six weeks hold any month, whichever day its 1st falls on: the 1st is
   always in the first row, and the weeks after the month's last are drawn below it. The six share
   the card's height, which paging never changes.
-- **The heading names one month:** the one with the most days on screen. Its tooltip gives the
-  exact dates the six weeks span.
+- **The toolbar's heading names one month:** the one with the most days on screen. Its tooltip
+  gives the exact dates the six weeks span.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
   carries its month's name, such as "1 Dec".
 - **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), filled with
   `today_indicator_color` and its number in white by default, so it stands out among the events,
   as a [narrow month](#the-narrow-month) draws it while today is the selected day.
   `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
-  tile and none. Past days are dimmed. Past events are shown
-  by default in month view; see
+  tile and none.
+- **Finished events are shown, dimmed**, by default in month view; see
   [Options That Start From a Different Default](#options-that-start-from-a-different-default).
+  Past dates keep their full strength; to dim them too, set
+  [`past_date_opacity`](/features/layout-appearance#today-past-days) below `100`.
 
 ### Paging Through Months
 
-With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates), the
+With the toolbar's [date navigation](/features/header-toolbar#paging-through-dates), the
 arrows and a sideways swipe move a whole month, the date picker jumps to the month of the date
 you pick, and the home button returns to the month the card opens with. It is called "Today"
 while that month is today's, and otherwise by the month it goes to, such as "January 2027".
@@ -76,6 +84,16 @@ across them, as Grid's all-day band draws it.
 - **Bars come first**, then each day's lines by their start time, so a bar keeps one line across
   its week.
 
+Bars are filled, as Grid's banners are, so they start from two values of their own:
+
+- **A tint.** Where `event_background_opacity` is `0`, the default, a bar is filled at `20`. Any
+  other value reaches the bars as it reaches the lines.
+- **Text in the calendar's color.** Where `event_color` and `time_color` hold their default
+  values, a bar's title and times take its calendar's color, even when those defaults are
+  written out. Any other color reaches the bars as written.
+
+Set either at the top level or in `month:`.
+
 ### Long Timed Events
 
 A timed event a full day or longer, such as an on-call week, is a bar too, with its start time
@@ -91,7 +109,7 @@ month:
 A calendar's own `multiday_banners` wins, as it does in Grid.
 
 ::: details Days a Calendar Leaves Out
-A bar breaks where a calendar's [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+A bar breaks where a calendar's [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only)
 leaves a day out, and starts again after it, so a weekday-only trip never covers the weekend.
 :::
 
@@ -219,7 +237,7 @@ set up; see [Narrow Cards](/features/editor#narrow-cards).
 - **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
   for Tomorrow, Start of Week or no `start_date`. Paging to another month selects today where the
   heading's month holds it, and otherwise the 1st, and the home and
-  [reset](/features/layout-appearance#resetting-the-card) buttons go back to the day the month
+  [reset](/features/header-toolbar#resetting-the-card) buttons go back to the day the month
   opens with.
 - **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
@@ -244,51 +262,55 @@ See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maxi
 
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.
-- **The day's name keeps to one line** as well: where it does not fit in full, the weekday is
-  shortened first ("Wed, November 18, 2026"), then the month, then the year is left out, then the
-  weekday ("Nov 18"), and last the month ("18"), so the day's number shows on any card wide
-  enough for its weeks.
 - **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",
-  the forecast sits on the title's line, before the time, and the location takes a line of its
-  own. The panel shows them in full.
-- **Each event is a block of its own**, with its own accent bar, 6px from the next: Month starts
-  [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`; see
-  [below](#options-that-start-from-a-different-default).
-- **A row holds a title, a time, a location and a forecast.** The weeks draw an event as its
-  title and start time, and a bar as its title and length, so `show_location`, its styling and
-  the [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone;
-  the editor marks those settings **Narrow Day List & +N Panel** on Month's pages and lists them after the
-  settings the weeks read, under each heading. The description, the
-  countdown, the progress bar and the all-day badge are left to the
-  [event details](/features/actions#event-details) a tap on an event opens, whatever the card
-  says; see [below](#options-that-do-nothing-in-month-view).
+  or scrolls with [`scroll_long_titles`](/features/event-content#scrolling-long-titles), the
+  forecast sits on the title's line, before the time, and the location takes a line of its own.
+  The panel shows them in full.
+- **A row holds a title, a time, a location and a forecast.** The description, the countdown,
+  the progress bar and the all-day badge are left to the
+  [event details](/features/actions#event-details) a tap on an event opens; see
+  [below](#options-that-do-nothing-in-month-view).
 - **"+N more" is a button** in the tab order, after the month. Closing the panel it opens brings
   you back to it.
-- **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
-  list scroll as one inside the card; nothing inside the list scrolls.
 
 The panel "+N more" opens, here or on a wide month, lists a day the same way, without the one-line
 limit.
 
-::: details How the List Decides What Fits
-The card measures the day's own events, drawn out of sight exactly as the list draws them, and
-lists the first ones that fit with "+N more" after them. It keeps their order, so a later, shorter
-event never jumps ahead of an earlier one that does not fit. It fits again whenever the room or the
-events change size, as when a font loads or the card is resized, before the change is drawn. Where
-not even one event fits beside "+N more", the list shows "+N more" alone, and a day with no events
-shows "No events".
+::: details More About the Day's List
+
+- **The day's name keeps to one line.** Where it does not fit in full, the weekday is shortened
+  first ("Wed, November 18, 2026"), then the month, then the year is left out, then the weekday
+  ("Nov 18"), and last the month ("18"), so the day's number shows on any card wide enough for
+  its weeks.
+- **Each event is a block of its own**, with its own accent bar, 6px from the next: Month starts
+  [`event_gap`](/features/layout-appearance#gaps-between-events) from `6px`; see
+  [below](#options-that-start-from-a-different-default).
+- **Options only the list reads.** The weeks draw an event as its title and start time, and a bar
+  as its title and length, so `show_location`, its styling and the
+  [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone. The
+  editor marks those options **Narrow Day List & +N Panel** on Month's pages and lists them after
+  the ones the weeks read, under each heading.
+- **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
+  list scroll as one inside the card; nothing inside the list scrolls.
+- **What fits.** The list keeps the day's order, so a later, shorter event never jumps ahead of
+  an earlier one that does not fit. It fits again when the room or the events change size, as
+  when the card is resized. Where not even one event fits beside "+N more", the list shows
+  "+N more" alone, and a day with no events shows "No events".
+
 :::
 
 ## ⌨️ Keyboard
 
-The month is one stop in the tab order. The arrow keys move a day or a week, Home and End go to
-the ends of the week, and Page Up and Page Down go to the month before or after the one shown, on
-the same date where it has one. Enter or Space opens the day's list in a panel, or on a narrow
-month selects the day. Each day is announced with its full date and how many events it holds.
+The month is one stop in the tab order. The arrow keys move a day or a week, and Home and End go
+to the ends of the week. With the toolbar's
+[date navigation](/features/header-toolbar#paging-through-dates), Page Up and Page Down go to the
+month before or after the one shown, on the same date where it has one, and an arrow past the
+weeks drawn pages there too. Enter or Space opens the day's list in a panel, or on a narrow month
+selects the day. Each day is announced with its full date and how many events it holds.
 
-On a wide month the keys open the panel whatever a press on the day's empty part does, and what
-that press does stays in reach: with `day_tap_action: add-event` the day's name at the top of the
-panel adds, as a narrow day's name over its list does, and `tap_action` has
+On a wide month the keys always open the panel, whatever a press on the day's empty part does.
+That press stays in reach: with `day_tap_action: add-event`, the day's name at the top of the
+panel adds an event, as a narrow day's name over its list does. A `tap_action` has
 [the card's own tap button](/features/actions#where-you-can-tap), first in the card's Tab order.
 
 The events in a wide month's days are not stops of their own, so a busy month does not hold
@@ -297,9 +319,23 @@ hundreds of them; the day's list reaches each one.
 ## 🔢 Week Numbers
 
 `show_week_numbers` draws each week's number in the corner of its first day, or beside the row on
-a narrow month, where the current week's stands out. As in List, the first row's number shows
-only with `show_current_week_number`. `week_number_color` and `week_number_font_size` apply;
-`week_number_background_color` does not, since the numbers are plain text.
+a narrow month, where the current week's stands out:
+
+```yaml
+view: month
+month:
+  show_week_numbers: iso
+```
+
+| Option                     | Type    | Default | Description                                                                 |
+| -------------------------- | ------- | ------- | --------------------------------------------------------------------------- |
+| `show_week_numbers`        | string  | `null`  | `iso`, `simple`, or `null` for none                                         |
+| `show_current_week_number` | boolean | `true`  | Numbers the first row as well; `false` starts the numbers at the second row |
+
+`iso` and `simple` count weeks as in the list layout; see
+[Week Numbers & Visual Separators](/features/layout-appearance#week-numbers-visual-separators).
+`week_number_color` and `week_number_font_size` apply; `week_number_background_color` does not,
+since the numbers are plain text.
 
 ## 🎨 Shading the Weekend & Today
 
@@ -329,7 +365,7 @@ In the visual editor they are **Weekend Shading** and **Today Shading** on Month
 - **Today on a weekend** takes today's color in place of the weekend shading rather than mixing
   the two.
 - **Which days are the weekend** follows the
-  [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or
+  [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only), or
   its language where no country is set, as in [Grid](/features/grid-view#shading-the-weekend).
 - **Grid shades apart**: its own two options live in `time_grid:`, so each layout keeps its own
   colors.
@@ -372,7 +408,7 @@ Days** on Month's Event Appearance, beside the sizes a day's list takes.
 
 ## 🧰 Month in the View Switcher
 
-The toolbar's [view switcher](/features/layout-appearance#switching-between-layouts) offers Month
+The toolbar's [view switcher](/features/header-toolbar#switching-between-layouts) offers Month
 with the other layouts by default. Month shows six weeks, so a card that can switch to it loads
 those six weeks with its own days. To keep a card's loading small, name the layouts the switcher
 offers in `view_switcher_layouts` and leave Month out:
@@ -406,11 +442,27 @@ month:
 There `event_font_size` sets the rows of [a day's list](#the-days-list) and the panel; the lines in
 the days take [their own sizes](#text-sizes).
 
-Anything the block does not mention keeps its top-level value, except the six options below.
+Anything the block does not mention keeps its top-level value, except the seven options below and
+the bars' [tint and text colors](#bars-lines).
 Options that decide which events the card loads, such as `start_date` and `entities`, and others
 that act on the card as a whole, such as the actions and the `toolbar`, are card-wide and ignored
 inside `month:`; see
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+
+::: details Other Shared Options in Month
+
+- **Finished events** fade by
+  [`past_event_opacity`](/features/event-content#past-events-display), `60` by default: a line's
+  title, label and time, and a row of the day's list, while the color stripe stays.
+- **An event under way** writes its time on its line in
+  [`now_color`](/features/event-content#the-now-indicator) while `show_now_indicator` is on, and
+  the day's list marks it as a list row does.
+- **A long title in the day's list** scrolls with
+  [`scroll_long_titles`](/features/event-content#scrolling-long-titles); a line in the weeks is
+  always cut short.
+
+Set any of them in `month:` to change it for Month alone.
+:::
 
 ## 🔀 Options That Start From a Different Default
 
@@ -429,15 +481,13 @@ Seven shared options do not inherit their top-level value in month view:
 A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
 `show_past_events: false` inside `month:` to hide them.
 
-A [day's list](#the-days-list) holds one day under its name, so its events read better apart than
-joined into one block beside a date, as the list layout keeps them. Set `event_gap: 0px` inside
-`month:` to join them; a top-level `event_gap` changes the list and column layouts alone.
+The events of a [day's list](#the-days-list) stand apart, 6px from each other. Set
+`event_gap: 0px` inside `month:` to join them; a top-level `event_gap` changes the list and column
+layouts alone.
 
-A day's number sits in its cell's corner over the lines, so it is sized with the month's 12px
-titles rather than a list's 26px date, and the weekday names, the week numbers and a 1st's month
-with it, the month at the number's size so the two read as one label. Beside text that small a 2px
-color stripe reads as a hairline, so a month's is 3px, in its days, its day list and the panel
-alike. Set any of the five inside `month:` to change it.
+A day's number, the weekday names, the week numbers and a 1st's month are set to suit the
+month's 12px titles rather than a list's 26px date, and the color stripe is 3px, in the days, the
+day's list and the panel alike. Set any of the five inside `month:` to change it.
 
 ## 🚫 Options That Do Nothing in Month View
 
@@ -467,11 +517,20 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 | `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                                     | An all-day event says "All day" in its time and comes first, so it carries no badge                          |
 | `title_max_lines`, `time_max_lines`, `location_max_lines`, `event_icon_vertical_alignment`                                                     | Each part keeps to one line in [the day's list](#the-days-list) and runs in full in the panel                |
 
-The editor also leaves out the per-calendar compact limit, multi-day splitting and Show
-Description. A calendar's `show_description: false` still keeps its descriptions out of the
-event details. To edit any of
-these, open a layout they apply to under **Layouts**, which leaves the card's layout as it is; see
-[Options for the Selected View](/features/editor#options-for-the-selected-view).
+To edit any of these, open a layout they apply to under **Layouts**, which leaves the card's
+layout as it is; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
+A calendar's own options, such as its compact limit, multi-day splitting and Show Description,
+are on its page under **Calendars**, which holds the options of every layout the card can show
+and says which layouts an option applies to, such as **Only in List**. On a card that can show
+only Month, those three are not offered.
+
+::: warning Changed in v6
+The event details show a calendar's descriptions and locations whatever its `show_description`
+and `show_location` say: those options hide them in the rows alone. To keep what a calendar's
+events say off the card, use
+[`private: true`](/features/core-settings#keeping-a-calendar-private). See
+[Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
+:::
 
 Month's weather is its own, set in `month → weather`, and shows only beside events, in the day's
 list and the panel: `position: event` or `both` shows it there, and the `date` options do
