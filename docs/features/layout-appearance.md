@@ -320,8 +320,10 @@ All three belong inside `list:`.
   `month_separator_label_font_size` takes any CSS font size; a value that is not one, such as
   `14pz`, falls back to `12px`.
 - The first month shown is named too, on a rule of its own at the top of the list, so every block
-  of days sits under its own month's name, even where it differs from the month a
-  [toolbar](/features/header-toolbar) names.
+  of days sits under its own month's name, unless a [toolbar](/features/header-toolbar) right above
+  already names that month. The toolbar names the month of the page's first day, or of its last
+  day in a list read latest first, so with a toolbar the first month is labeled only when that
+  month has no days on screen.
 - With week numbers on, a month that starts a week draws its label just after the week number.
 - It applies in list view only. In column and grid view the month rule is a vertical line between
   two days, with no room for words, and month view draws no month rule at all.

@@ -792,11 +792,26 @@ export function renderDay(
 }
 
 /**
+ * Whether a heading names the month a day falls in.
+ *
+ * @param heading - A day in the month the heading names, or undefined for no heading
+ * @param timestamp - The day, in epoch milliseconds
+ * @returns True for the same month of the same year
+ */
+function namesMonthOf(heading: Date | undefined, timestamp: number): boolean {
+  if (!heading) return false;
+  const day = new Date(timestamp);
+  return day.getFullYear() === heading.getFullYear() && day.getMonth() === heading.getMonth();
+}
+
+/**
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  *
  * @param eventsTappable - Whether each event is a tap target of its own
  * @param dayAdd - How to draw each day's add button, or undefined while a tap on a day adds
  *   nothing
+ * @param headingMonth - A day in the month the toolbar's heading names right above the list, or
+ *   undefined while no heading is drawn there
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -806,6 +821,7 @@ export function renderGroupedEvents(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
+  headingMonth?: Date,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -836,9 +852,10 @@ export function renderGroupedEvents(
       // Built only where a month rule is drawn; both paths below draw it at the rule's start. The
       // first day has no rule above it, and gets one with its month's name all the same, so every
       // block of days sits under its own month's name: a list whose first days have no events
-      // otherwise read under the month of the page's first day, which a toolbar names.
+      // otherwise read under the month of the page's first day, which a toolbar names. Not where
+      // the toolbar's heading right above already names that month, which would say it twice.
       const monthLabel =
-        (isNewMonth || isFirstWeek) &&
+        (isNewMonth || (isFirstWeek && !namesMonthOf(headingMonth, day.timestamp))) &&
         config.month_separator_label === true &&
         !ViewConfig.isZeroLength(config.month_separator_width)
           ? renderMonthLabel(new Date(day.timestamp), config, language, hass)
