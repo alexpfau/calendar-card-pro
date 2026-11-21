@@ -418,7 +418,7 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
-/** The window a complete load was asked for (`_loadedWindowShown`), as its load config names it. */
+/** The window a load drawn was asked for (`_loadedWindowShown`), as its load config names it. */
 interface LoadedWindow {
   /** The load's `start_date`: the configuration's own, or for a month's load its first day. */
   readonly startDate: string | undefined;
@@ -647,6 +647,7 @@ class CalendarCardPro extends LitElement {
     partial: Types.EventFetchResult;
     instanceId: string;
     page: string | null;
+    loaded: Types.Config;
     generation: number;
   } | null = null;
 
@@ -1783,9 +1784,11 @@ class CalendarCardPro extends LitElement {
    *
    * Lags the configuration while a wider load is out, as `_pageShown` lags a page: raising
    * `days_to_show` past the days loaded keeps the days on screen those the events cover, rather
-   * than adding days that read as empty before anything has been asked about them. Only a
-   * complete load moves it, failures included, since the card names a calendar that failed; a
-   * partial one has not heard from every calendar yet.
+   * than adding days that read as empty before anything has been asked about them. A complete
+   * load moves it, failures included, since the card names a calendar that failed. A partial one
+   * (`_schedulePartialCommit`) moves it only for a window starting elsewhere, such as the next
+   * month: it has not heard from every calendar yet, but measured against the window before, a
+   * page would draw only the days the two share.
    */
   private _loadedWindowShown: LoadedWindow | null = null;
 
@@ -8281,7 +8284,8 @@ class CalendarCardPro extends LitElement {
           afterWrite,
           store,
           cold
-            ? (partial) => this._schedulePartialCommit(partial, instanceId, page, generation)
+            ? (partial) =>
+                this._schedulePartialCommit(partial, instanceId, page, config, generation)
             : undefined,
         );
       } finally {
@@ -8397,7 +8401,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records the window a complete load was asked for, keeping the record already held where the
+   * Records the window a load was asked for, keeping the record already held where the
    * window is the same, so the drawn configuration it clamps stays the same object.
    *
    * @param loaded The configuration the load was made with
@@ -8495,17 +8499,20 @@ class CalendarCardPro extends LitElement {
    * @param partial The events of every calendar that has answered
    * @param instanceId Query identity the events were loaded for
    * @param page The page they belong to, null for home
+   * @param loaded The configuration they were loaded with, which names the window
+   *   (`_loadedWindowShown`)
    * @param generation The request they belong to; a newer one discards them
    */
   private _schedulePartialCommit(
     partial: Types.EventFetchResult,
     instanceId: string,
     page: string | null,
+    loaded: Types.Config,
     generation: number,
   ): void {
     // A request a newer one replaced must not take the newer one's place in the queue.
     if (generation !== this._eventRequestGeneration) return;
-    this._partialCommit = { partial, instanceId, page, generation };
+    this._partialCommit = { partial, instanceId, page, loaded, generation };
     if (this._partialTimer !== null) return;
 
     this._partialTimer = window.setTimeout(() => {
@@ -8521,6 +8528,18 @@ class CalendarCardPro extends LitElement {
       this._drawnLoadedAt = pending.partial.lastSuccess ?? {};
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
+      // A wider load from the same first day keeps the days drawn until every calendar has
+      // answered, since one still out may have events on the days it adds. A load starting
+      // elsewhere, the next month above all, is measured against its own window: against the
+      // one before, it would draw only the days the two share.
+      const shown = this._loadedWindowShown;
+      if (
+        shown === null ||
+        shown.startDate !== pending.loaded.start_date ||
+        shown.spansMonth !== ViewConfig.reachesMonth(pending.loaded)
+      ) {
+        this._recordLoadedWindow(pending.loaded);
+      }
       this._eventsFetchedAt = pending.partial.fetchedAt;
       this._setFailures([]);
       this.isInitialLoad = false;
