@@ -5364,10 +5364,22 @@ export class CalendarCardProEditor extends LitElement {
       restore = moved.restore;
     }
     // The query stays typed while a result's field shows, so the results come back with it.
-    if (restore?.search) this._editHere = restore.search.editHere;
+    this._restoreSearch(restore?.search);
     this._jump = this._resultsLeft = undefined;
     void this._afterMove(restore);
   };
+
+  /**
+   * Puts back the results a place was left from: the query, which Search Settings and its Back
+   * may have cleared since, and Edit Here.
+   *
+   * @param search - The search the place was left with, if any
+   */
+  private _restoreSearch(search: Navigation.TrailEntry['search']): void {
+    if (search === undefined) return;
+    this._applyFilter({ ...this._filter, query: search.query });
+    this._editHere = search.editHere;
+  }
 
   /**
    * Return to Results, and a jump's "Back to …" line: one step back along the trail, to the place
@@ -5381,7 +5393,7 @@ export class CalendarCardProEditor extends LitElement {
     this._closeDisclosures();
     const moved = Navigation.returnTo(this._nav);
     this._nav = moved.nav;
-    if (moved.restore?.search) this._editHere = moved.restore.search.editHere;
+    this._restoreSearch(moved.restore?.search);
     this._jump = this._resultsLeft = undefined;
     void this._afterMove(moved.restore);
   };

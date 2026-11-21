@@ -508,6 +508,19 @@ describe('Search Settings in a page header', () => {
     }
   });
 
+  it('leaves Return to Results its query after a search begun from the result’s page', async () => {
+    const editor = await mount();
+    await jump(editor, 'time', 'events:time_font_size');
+    $(editor, '.page-head [data-focus="search-open"]')!.click();
+    await frames(editor);
+    $(editor, '[data-focus="search-back"]')!.click();
+    await frames(editor);
+    $(editor, '[data-focus="return"]')!.click();
+    await frames(editor);
+    expect(valueOf(editor, 'filter:search')).toBe('time');
+    expect(resultRows(editor).length).toBeGreaterThan(0);
+  });
+
   it('opens the overview with focus in the search field; Back returns to the page and to it', async () => {
     const editor = await mount();
     $(editor, '[data-focus="nav:card_header"]')!.click();
