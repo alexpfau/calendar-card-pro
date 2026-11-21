@@ -18,6 +18,8 @@
   "viewColumns": "Столбцы",
   "viewGrid": "Сетка",
   "viewMonth": "Месяц",
+  "layout": "Макет",
+  "layoutCurrent": "Макет: {view}",
   "moreEvents": "Ещё +{count}",
   "eventCount": "Событий: {count}",
   "eventCountOne": "{count} событие",

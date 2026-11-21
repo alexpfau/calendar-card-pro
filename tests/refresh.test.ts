@@ -254,7 +254,8 @@ describe('the refresh button', () => {
         element.className.split(' ').slice(0, 2).join(' '),
       );
 
-    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
+    // Not measured, the card draws its switcher collapsed, still the row's middle part.
+    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher-collapsed', 'toolbar-end']);
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',

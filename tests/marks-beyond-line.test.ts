@@ -389,7 +389,7 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   '.toolbar-range-text': 'the dates read out, never drawn',
   '.toolbar-legend': "the chips' box, whose padding and the chips' own keep their names off it",
   '.legend-chip-label': [OUTSIDE_TEXT],
-  '.legend-menu, .custom-menu': 'a menu, whose own padding is its room',
+  '.legend-menu, .custom-menu, .layout-menu': 'a menu, whose own padding is its room',
   '.column-date-content .weather': [OUTSIDE_TEXT],
   [CONDITION]: [CONDITION],
   '.grid-axis': 'its own padding is its room (pinned below)',

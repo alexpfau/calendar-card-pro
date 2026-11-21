@@ -1659,16 +1659,28 @@ class CalendarCardPro extends LitElement {
   private _toolbarRow: ToolbarFold.ActionRow | null = null;
 
   /**
-   * The fewest of the start group's controls to fold at the width where the row the plan drew did
-   * not fit on one line, and what the row held then. See `_syncStartFoldFit`.
+   * The folds to make at the width where the row the plan drew did not fit on one line, and what
+   * the row held then: the fewest of the start group's controls, then the switcher collapsed. See
+   * `_syncStartFoldFit`.
    */
-  private _startFoldGuard: { widthPx: number; signature: string; atLeast: number } | null = null;
+  private _startFoldGuard: {
+    widthPx: number;
+    signature: string;
+    request: ToolbarFold.FoldRequest;
+  } | null = null;
 
   /**
    * The start group's control that held focus as the coming render began, which the menu button
    * takes over where that render folds it (`_handFocusToMenu`).
    */
   private _focusBeforeFold: ToolbarFold.StartControl | null = null;
+
+  /**
+   * The view switcher's form that held focus as the coming render began, a segment or the
+   * collapsed switcher's button, which the other form takes over where that render swaps them
+   * (`_handFocusAcrossSwitcher`).
+   */
+  private _switcherFocusBefore: 'segment' | 'pill' | null = null;
 
   /**
    * Whether the card's tap held focus as the coming render began, on the card itself or on the
@@ -3089,7 +3101,7 @@ class CalendarCardPro extends LitElement {
     const band = (width: number | null): string =>
       width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
-    const replanned = this._startHidden(widthPx) !== this._startHidden(this._toolbarWidthPx);
+    const replanned = this._rowPlanKey(widthPx) !== this._rowPlanKey(this._toolbarWidthPx);
     // Words that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
     const outgrew =
@@ -5195,6 +5207,9 @@ class CalendarCardPro extends LitElement {
     if (Menu.hasOpenMenu(this.renderRoot, 'overflow') && !this._startMenuMayStayOpen()) {
       Menu.closeMenus(this.renderRoot, 'overflow');
     }
+    if (Menu.hasOpenMenu(this.renderRoot, 'layout') && !this._layoutMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'layout');
+    }
     // The search panel, likewise, before the card is edited or hidden, or loses its magnifier.
     if (this._search?.isOpen && (this._isBeingEdited || this.hidden || !this._searchButton())) {
       this._search.close();
@@ -5213,6 +5228,7 @@ class CalendarCardPro extends LitElement {
       this._dayPanel.close();
     }
     this._focusBeforeFold = this._focusedStartControl();
+    this._switcherFocusBefore = this._focusedSwitcherForm();
     this._tapFocusBefore = this._focusedTapTarget();
     this._monthListFocus = this._focusedMonthListPart();
 
@@ -5371,6 +5387,7 @@ class CalendarCardPro extends LitElement {
     this._syncHeadingMiddle();
     this._syncLegendFit(false);
     this._handFocusToMenu();
+    this._handFocusAcrossSwitcher();
     this._syncStartFoldFit();
     this._syncSearchRing();
     this._syncMonthFocus();
@@ -9295,9 +9312,14 @@ class CalendarCardPro extends LitElement {
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
     };
-    // Last, because which of the start group's controls fold depends on all the row holds.
+    // Last, because which of the start group's controls fold, and whether the switcher
+    // collapses, depends on all the row holds.
     this._toolbarRow = this._actionRow(controls);
-    controls.startFold = this._startFold(this._toolbarRow);
+    const plan = this._rowPlan(this._toolbarRow, this._toolbarWidthPx);
+    controls.startFold = this._startFold(plan);
+    if (controls.viewSwitcher && plan.collapsed) {
+      controls.viewSwitcher = { ...controls.viewSwitcher, collapsed: true };
+    }
     this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
 
     return {
@@ -10943,8 +10965,9 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Which of the start group's controls the action row draws at the card's width, and which fold
-   * into its menu (`ToolbarFold.planStartGroup`).
+   * The action row's plan at a card width: which of the start group's controls it draws and which
+   * fold into its menu, and whether the view switcher collapses into one button
+   * (`ToolbarFold.planRow`).
    *
    * Decided at render, from the width the resize observer last reported, by arithmetic alone:
    * every control the plan reckons with is as wide as the stylesheet makes it, and every plan is
@@ -10952,65 +10975,77 @@ class CalendarCardPro extends LitElement {
    * it before anything is painted. The switcher's words give way first, since they are drawn only
    * where every control fits beside them (`_toolbarLabelMinWidth`).
    *
-   * A card not measured yet draws the narrowest start group, its first control and the menu
-   * button, as the switcher draws its pictograms. Not every control: the observer's first report
-   * would then find a row too wide for a narrow card, wrapped onto a second line, and the plan
-   * drawn in its callback would change the card's height while the browser delivered that report,
-   * which it reports as an error. From the narrowest group the first report only gives controls
-   * back, and the row stays one line throughout.
+   * A card not measured yet draws the narrowest row: the start group's first control and the menu
+   * button, and the switcher collapsed, as it draws its pictograms. Not every control: the
+   * observer's first report would then find a row too wide for a narrow card, wrapped onto a
+   * second line, and the plan drawn in its callback would change the card's height while the
+   * browser delivered that report, which it reports as an error. From the narrowest row the first
+   * report only gives controls back, and the row stays one line throughout.
    *
    * @param row - What the row holds
+   * @param widthPx - A card width, or null for none yet
+   * @returns The plan
+   */
+  private _rowPlan(row: ToolbarFold.ActionRow, widthPx: number | null): ToolbarFold.RowPlan {
+    const width = widthPx ?? 0;
+    return ToolbarFold.planRow(row, width, this._foldRequest(row, width));
+  }
+
+  /**
+   * The start group's fold, from the row's plan.
+   *
+   * @param plan - The row's plan
    * @returns The fold, or undefined where every control fits
    */
-  private _startFold(row: ToolbarFold.ActionRow): Toolbar.StartFold | undefined {
-    const widthPx = this._toolbarWidthPx ?? 0;
-    const plan = ToolbarFold.planStartGroup(row, widthPx, this._startFoldAtLeast(row, widthPx));
+  private _startFold(plan: ToolbarFold.StartPlan): Toolbar.StartFold | undefined {
     if (plan.overflow.length === 0) return undefined;
     return { plan, menuName: this._haString('ui.common.menu'), inert: this._isBeingEdited };
   }
 
   /**
-   * How many of the start group's controls the plan folds at a card width, for the row drawn
-   * last; as many as can fold before the card has a width (`_startFold`).
+   * What the plan draws at a card width for the row drawn last, in a form a resize compares: how
+   * many controls the menu holds and whether the switcher collapses.
    *
    * @param widthPx - A card width, or null for none yet
-   * @returns How many controls the menu holds there
+   * @returns A string that changes whenever the plan does
    */
-  private _startHidden(widthPx: number | null): number {
+  private _rowPlanKey(widthPx: number | null): string {
     const row = this._toolbarRow;
-    if (row === null) return 0;
-    const width = widthPx ?? 0;
-    return ToolbarFold.planStartGroup(row, width, this._startFoldAtLeast(row, width)).overflow
-      .length;
+    if (row === null) return '';
+    const plan = this._rowPlan(row, widthPx);
+    return `${plan.overflow.length}:${plan.collapsed ? 'collapsed' : 'segments'}`;
   }
 
   /**
-   * The fewest controls the guard folds at a card width: what it recorded at exactly that width
-   * for exactly this row, and none anywhere else (`_syncStartFoldFit`).
+   * The folds the guard asks for at a card width: what it recorded at exactly that width for
+   * exactly this row, and none anywhere else (`_syncStartFoldFit`).
    *
    * @param row - What the row holds
    * @param widthPx - A card width
-   * @returns The fewest controls to fold
+   * @returns The folds to make
    */
-  private _startFoldAtLeast(row: ToolbarFold.ActionRow, widthPx: number): number {
+  private _foldRequest(row: ToolbarFold.ActionRow, widthPx: number): ToolbarFold.FoldRequest {
     const guard = this._startFoldGuard;
-    if (guard === null || guard.widthPx !== widthPx) return 0;
-    return guard.signature === JSON.stringify(row) ? guard.atLeast : 0;
+    if (guard === null || guard.widthPx !== widthPx || guard.signature !== JSON.stringify(row)) {
+      return { atLeast: 0, collapse: false };
+    }
+    return guard.request;
   }
 
   /**
-   * Folds one more of the start group's controls into the menu where the action row, drawn by
-   * the plan, still wraps or reaches past its edge: a theme's border, a card-mod rule or a zoom's
-   * rounding the arithmetic cannot see.
+   * Folds one more step of the action row where the row, drawn by the plan, still wraps or
+   * reaches past its edge: a theme's border, a card-mod rule or a zoom's rounding the arithmetic
+   * cannot see. A step is one more of the start group's controls into its menu, and once none is
+   * left to fold, the switcher collapsed.
    *
-   * One way only. It records, for the width the row was drawn at and what the row held, one more
-   * control to fold than the row drew there, and never fewer. So at one width the count only
-   * grows, up to every control that can fold, and the passes at a width end. Nothing but the
-   * width brings a control back, through the arithmetic alone, since a new width clears the record
-   * (`_syncToolbarLabels`). So it cannot oscillate, and needs no hysteresis. Neither can it move the width it was
-   * recorded at: every fold it adds leaves the row one line tall, never taller, and is drawn before
-   * the browser looks at the card's size again, so the row it corrected never reaches the resize
-   * observer, and every one-line row is as tall as every other.
+   * One way only. It records, for the width the row was drawn at and what the row held, one step
+   * more than the row drew there, and never fewer. So at one width the folds only grow, up to
+   * every control that can fold and the switcher collapsed, and the passes at a width end. Nothing
+   * but the width brings a control back, through the arithmetic alone, since a new width clears the
+   * record (`_syncToolbarLabels`). So it cannot oscillate, and needs no hysteresis. Neither can it
+   * move the width it was recorded at: every fold it adds leaves the row one line tall, never
+   * taller, and is drawn before the browser looks at the card's size again, so the row it
+   * corrected never reaches the resize observer, and every one-line row is as tall as every other.
    *
    * The switcher's words give way first: while it draws them, their own check decides
    * (`_syncToolbarLabelFit`), and the row is judged again once it draws its pictograms. Only
@@ -11037,12 +11072,21 @@ class CalendarCardPro extends LitElement {
     const wraps = boxes.some((box) => box.top > firstLineEnds - 0.5);
     if (!overflows && !wraps) return;
 
-    // Everything that can fold has: the end group wraps, as it does with no menu at all.
-    const folded = this._startHidden(widthPx);
-    if (folded >= row.start.length - 1 || row.start.length < 3) return;
+    const plan = this._rowPlan(row, widthPx);
+    const folded = plan.overflow.length;
+    const canFold = row.start.length >= 3 && folded < row.start.length - 1;
+    let request: ToolbarFold.FoldRequest;
+    if (canFold) {
+      request = { atLeast: folded + 1, collapse: false };
+    } else if (row.views > 0 && !plan.collapsed) {
+      request = { atLeast: folded, collapse: true };
+    } else {
+      // Everything that can fold has: the end group wraps, as it does with no menu at all.
+      return;
+    }
 
-    Logger.debug(`Toolbar row does not fit on one line at ${widthPx}px; folding one more control`);
-    this._startFoldGuard = { widthPx, signature: JSON.stringify(row), atLeast: folded + 1 };
+    Logger.debug(`Toolbar row does not fit on one line at ${widthPx}px; folding one more step`);
+    this._startFoldGuard = { widthPx, signature: JSON.stringify(row), request };
     this.requestUpdate();
   }
 
@@ -11104,11 +11148,7 @@ class CalendarCardPro extends LitElement {
     const widthPx = this._toolbarWidthPx;
     if (focused === null || row === null || widthPx === null) return;
 
-    const { overflow } = ToolbarFold.planStartGroup(
-      row,
-      widthPx,
-      this._startFoldAtLeast(row, widthPx),
-    );
+    const { overflow } = this._rowPlan(row, widthPx);
     const folded = overflow.some(
       (control) =>
         control.kind === focused.kind &&
@@ -11120,6 +11160,46 @@ class CalendarCardPro extends LitElement {
         .querySelector<HTMLElement>('.custom-menu-button')
         ?.focus({ preventScroll: true });
     }
+  }
+
+  /**
+   * The view switcher's form holding focus: one of its segments, or the button it collapses into.
+   *
+   * @returns The form, or null where focus is elsewhere
+   */
+  private _focusedSwitcherForm(): 'segment' | 'pill' | null {
+    const active = this._focusedInCard();
+    if (!(active instanceof HTMLElement)) return null;
+    if (active.classList.contains('view-switcher-segment')) return 'segment';
+    if (active.classList.contains('view-switcher-pill')) return 'pill';
+    return null;
+  }
+
+  /**
+   * Hands focus across where the render just made swapped the switcher's forms while one held
+   * it: a segment's to the button it collapsed into, the button's to the selected segment, so a
+   * keyboard is not dropped at the start of the page.
+   */
+  private _handFocusAcrossSwitcher(): void {
+    const before = this._switcherFocusBefore;
+    this._switcherFocusBefore = null;
+    if (before === null || this._focusedSwitcherForm() !== null) return;
+    const target =
+      before === 'segment'
+        ? this.renderRoot.querySelector<HTMLElement>('.view-switcher-pill')
+        : this.renderRoot.querySelector<HTMLElement>('.view-switcher-segment.selected');
+    target?.focus({ preventScroll: true });
+  }
+
+  /**
+   * Whether an open menu of the collapsed switcher still has its button after the coming render.
+   *
+   * @returns False where the switcher draws its segments again or goes, the card is being edited,
+   *   or hidden
+   */
+  private _layoutMenuMayStayOpen(): boolean {
+    if (this._isBeingEdited || this.hidden) return false;
+    return this._headerToolbar().viewSwitcher?.collapsed === true;
   }
 
   //-----------------------------------------------------------------------------
@@ -11164,9 +11244,14 @@ class CalendarCardPro extends LitElement {
       label: translations[Toolbar.VIEW_LABEL_KEYS[view]],
     }));
 
+    const selected = this._isBeingEdited ? this.config.view : this.requestedView;
+    const current = views.find((option) => option.view === selected)?.label ?? '';
     return {
       views,
-      selected: this._isBeingEdited ? this.config.view : this.requestedView,
+      selected,
+      name: translations.layout,
+      currentName: translations.layoutCurrent.replace('{view}', () => current),
+      inert: this._isBeingEdited,
       onSelect: (view) => this._chooseView(view),
     };
   }

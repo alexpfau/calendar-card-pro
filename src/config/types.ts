@@ -1858,6 +1858,16 @@ export interface Translations {
   viewGrid: string;
   viewMonth: string;
   /**
+   * The view switcher's name, which its group carries for assistive technology, and the name of
+   * the menu it opens where a narrow card collapses it into one button: "Layout".
+   */
+  layout: string;
+  /**
+   * That button's name and tooltip, with `{view}` where the selected view's name goes:
+   * "Layout: {view}", "Layout: Month".
+   */
+  layoutCurrent: string;
+  /**
    * What a month day says in its last line about the events it has no room for, with `{count}`
    * where their number goes: "+{count} more", "+2 more".
    */

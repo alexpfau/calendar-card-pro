@@ -18,6 +18,8 @@
   "viewColumns": "Dálkar",
   "viewGrid": "Tímatafla",
   "viewMonth": "Mánuður",
+  "layout": "Útlit",
+  "layoutCurrent": "Útlit: {view}",
   "moreEvents": "+{count} í viðbót",
   "eventCount": "{count} viðburðir",
   "eventCountOne": "{count} viðburður",

@@ -31,6 +31,8 @@
   "viewColumns": "คอลัมน์",
   "viewGrid": "ตาราง",
   "viewMonth": "เดือน",
+  "layout": "เค้าโครง",
+  "layoutCurrent": "เค้าโครง: {view}",
   "moreEvents": "อีก {count} รายการ",
   "eventCount": "{count} เหตุการณ์",
   "eventCountOne": "{count} เหตุการณ์",
