@@ -621,6 +621,30 @@ describe('a row’s fill inside a rounded frame', () => {
 });
 
 describe('Quick Setup banner', () => {
+  it('leaves focus on the search field once dismissed, not at the top of the page', async () => {
+    const editor = await mountEditor({
+      type: 'custom:calendar-card-pro',
+      config_version: 5,
+      entities: ['calendar.anna'],
+      days_to_show: 3,
+    });
+    const dismiss = editor.shadowRoot!.querySelector<HTMLButtonElement>('.quick-setup-dismiss')!;
+    dismiss.focus();
+    // Home Assistant draws the search box inside its form a frame or two later.
+    editor
+      .shadowRoot!.querySelector('ha-form.filter-form')!
+      .appendChild(document.createElement('input'));
+    dismiss.click();
+    for (let frame = 0; frame < 3; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await editor.updateComplete;
+    }
+    expect(editor.shadowRoot!.querySelector('.quick-setup-dismiss')).toBeNull();
+    const focused = editor.shadowRoot!.activeElement;
+    expect(focused?.tagName).toBe('INPUT');
+    expect(focused?.closest('ha-form.filter-form')).toBeTruthy();
+  });
+
   it('shows on a card fresh from the card picker', () => {
     expect(
       isFreshCard({

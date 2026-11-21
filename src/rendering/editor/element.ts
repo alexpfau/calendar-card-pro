@@ -5832,6 +5832,9 @@ export class CalendarCardProEditor extends LitElement {
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
             this._banner = false;
+            // The banner leaves with the button pressed: focus goes to what follows it, the
+            // search field, rather than back to the top of the page.
+            void this._focusSearchField();
           })
         : nothing
     }
