@@ -109,11 +109,10 @@ function unchangedFromAuthored(authored: unknown, key: string, value: unknown): 
  */
 function readsAsWritten(value: unknown, resolved: unknown): boolean {
   if (deepEqual(value, resolved)) return true;
-  return (
-    typeof value === 'string' &&
-    (typeof resolved === 'number' || typeof resolved === 'boolean') &&
-    value.trim() === String(resolved)
-  );
+  if (typeof value !== 'string') return false;
+  // A number in any notation the card parses as that number: `140.0`, `0140`, `+140`.
+  if (typeof resolved === 'number') return value.trim() !== '' && Number(value) === resolved;
+  return typeof resolved === 'boolean' && value.trim() === String(resolved);
 }
 
 /**
