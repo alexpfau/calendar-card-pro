@@ -9060,6 +9060,9 @@ class CalendarCardPro extends LitElement {
     // A narrow month's selected day and every day's list, decided once the events are in.
     let monthNarrow: MonthRender.MonthNarrow | undefined;
     this._monthListDrawn = null;
+    // Built once per render, the first time either the list or the header asks for it.
+    let headerToolbar: Toolbar.HeaderToolbar | undefined;
+    const toolbarNow = () => (headerToolbar ??= this._headerToolbar());
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
@@ -9116,6 +9119,7 @@ class CalendarCardPro extends LitElement {
             this.safeHass,
             this._eventsActivatable,
             dayAdd,
+            this._headingMonth(toolbarNow()),
           );
     };
 
@@ -9172,7 +9176,7 @@ class CalendarCardPro extends LitElement {
         Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
     }
 
-    const toolbar = this._headerToolbar();
+    const toolbar = toolbarNow();
 
     return Render.renderMainCardStructure(
       customStyles,
@@ -9696,6 +9700,17 @@ class CalendarCardPro extends LitElement {
       range: Paging.rangeLabel(page, language, now),
       languageMark: TextDirection.languageMark(language, this.hass),
     };
+  }
+
+  /**
+   * A day in the month the toolbar's heading names, while the toolbar draws it.
+   *
+   * @param toolbar - The toolbar this render draws
+   * @returns The day, or undefined without a heading on screen
+   */
+  private _headingMonth(toolbar: Toolbar.HeaderToolbar): Date | undefined {
+    if (!toolbar.heading || !Toolbar.drawsToolbar(toolbar)) return undefined;
+    return this._headerMonth(this._pageRange(this._pageRequested, new Date()));
   }
 
   /**
