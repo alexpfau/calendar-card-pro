@@ -397,6 +397,16 @@ describe('a month as a grid', () => {
     },
   );
 
+  it('says a wide cell opens a dialog, and a narrow one, which selects its day, does not', async () => {
+    const wide = await mount();
+    expect(new Set(cells(wide).map((element) => element.getAttribute('aria-haspopup')))).toEqual(
+      new Set(['dialog']),
+    );
+    document.body.replaceChildren();
+    const narrow = await mount({}, 375);
+    expect(cells(narrow).some((element) => element.hasAttribute('aria-haspopup'))).toBe(false);
+  });
+
   it('counts in the language’s own plural forms', () => {
     const count = (language: string, values: number[]) =>
       values.map((value) => MonthRender.eventCountText(value, language));

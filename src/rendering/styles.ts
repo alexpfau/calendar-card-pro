@@ -7899,6 +7899,41 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  /* The same two at each text_scale a calendar sets, whose probes carry that scale's sizes. */
+  .month-probe[data-probe='scaled-title'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-probe[data-probe='scaled-time'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-time);
+  }
+
+  /* On a touch screen a month's bars, lines and "+N more" are at least 24px from one to the
+     next, the least target WCAG 2.5.8 asks for, so a finger meant for one does not land on its
+     neighbor. Each is that tall less its margins, its text centered in it, and the probes are as
+     tall as a line, so the card counts the lines that fit by the height they are drawn at. A
+     mouse's lines keep their own height. */
+  @media (pointer: coarse) {
+    .month-probe[data-probe='title'],
+    .month-probe[data-probe='scaled-title'],
+    .month-probe[data-probe='time'],
+    .month-probe[data-probe='scaled-time'] {
+      height: max(calc(1.2em + 2px), 24px);
+    }
+
+    .month-line,
+    .month-bar {
+      box-sizing: border-box;
+      min-height: 22.5px;
+    }
+
+    .month-more {
+      box-sizing: border-box;
+      min-height: 24px;
+    }
+  }
   @supports not (color: color-mix(in srgb, red, blue)) {
     .month-container {
       --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
@@ -7929,8 +7964,8 @@ export const cardStyles = css`
   /* One row: seven day columns, and the lines the renderer writes inline: the date line, then
      one per line the capacity holds, then whatever is left. Each line is as tall as what is on
      it, a line everywhere empty taking none. Every cell, date, bar, line and "+N" is placed on
-     it explicitly. Clipped, so a row the card has not measured yet, or one whose events
-     text_scale draws larger, never grows past its height. */
+     it explicitly. An event text_scale draws larger takes as many lines as it is tall. Clipped
+     even so, so a row the card has not measured yet never grows past its height. */
   .month-week {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -8441,6 +8476,37 @@ export const cardStyles = css`
   .month-narrow-mark {
     flex: none;
     width: 6px;
+  }
+
+  /* A day with more events than its capsule shows: a small plus beside the capsule, outside its
+     box, so the capsule stays centered where every other day's is. Its end segments round
+     themselves, since the capsule no longer clips them, to let the plus out. Nudged up a little,
+     since a plus sits below the middle of its em box. */
+  .month-narrow-marks[data-capped] {
+    position: relative;
+    overflow: visible;
+  }
+
+  .month-narrow-marks[data-capped] > .month-narrow-mark:first-child {
+    border-start-start-radius: 999px;
+    border-end-start-radius: 999px;
+  }
+
+  .month-narrow-marks[data-capped] > .month-narrow-mark:last-child {
+    border-start-end-radius: 999px;
+    border-end-end-radius: 999px;
+  }
+
+  .month-narrow-marks[data-capped]::after {
+    content: '+';
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: calc(100% + 2px);
+    transform: translateY(-60%);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--secondary-text-color);
   }
 
   /* The week number, centered in its gutter beside its week, the current week's at full

@@ -1219,7 +1219,8 @@ function renderOverflow(
  *   banner in a grid of its own: Grid's first day column is its second, after the hour axis,
  *   and Month's is its first, with `month-bar`. Month also gives it an id, which its day's cell
  *   owns it by, and takes a tappable banner out of the Tab order (`tabIndex: '-1'`), since its
- *   day's panel is the keyboard's way to it
+ *   day's panel is the keyboard's way to it, and the lines a bar set in larger text takes
+ *   (`rows`)
  * @returns Rendered banner
  */
 export function renderBanner(
@@ -1231,7 +1232,13 @@ export function renderBanner(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
-  layout: { firstColumn: number; className?: string; id?: string; tabIndex?: string } = {
+  layout: {
+    firstColumn: number;
+    className?: string;
+    id?: string;
+    tabIndex?: string;
+    rows?: number;
+  } = {
     firstColumn: 2,
   },
 ): TemplateResult {
@@ -1268,7 +1275,11 @@ export function renderBanner(
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + layout.firstColumn} / span ${placement.span}`,
-        ...(row === undefined ? {} : { gridRow: String(row) }),
+        ...(row === undefined
+          ? {}
+          : layout.rows && layout.rows > 1
+            ? { gridRow: `${row} / span ${layout.rows}`, alignSelf: 'start' }
+            : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
         ...presentation.textScaleProperties,

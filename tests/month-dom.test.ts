@@ -649,6 +649,86 @@ describe('the line pitch and the date line the card measures', () => {
       content: 'none',
     });
   });
+
+  it('keeps a touch screen’s lines, bars and "+N more" 24px apart, and its probes as tall', () => {
+    const TOUCH = '@media (pointer: coarse)';
+    const touch = (selector: string): Record<string, string> =>
+      Object.fromEntries(
+        declarations(cardStyles.cssText)
+          .filter((d) => d.at.join() === TOUCH && d.selectors.includes(selector))
+          .map((d) => [d.property, d.value]),
+      );
+    // Every probe a line's pitch is read from is at least 24px, so the card counts the lines
+    // that fit by the height a touch screen draws them at.
+    for (const probe of ['title', 'time', 'scaled-title', 'scaled-time']) {
+      expect(touch(`.month-probe[data-probe='${probe}']`)).toEqual({
+        height: 'max(calc(1.2em + 2px), 24px)',
+      });
+    }
+    // Each item's border box at least 24px less its margins above and below: 24px apart.
+    const blockMargin = (selector: string) => {
+      const [block] = rule(selector).margin.split(' ');
+      return 2 * parseFloat(block);
+    };
+    for (const selector of ['.month-line', '.month-bar', '.month-more']) {
+      const declared = touch(selector);
+      expect(declared['box-sizing'], selector).toBe('border-box');
+      expect(parseFloat(declared['min-height']) + blockMargin(selector), selector).toBe(24);
+    }
+  });
+});
+
+describe('an event set larger by text_scale', () => {
+  /** The lines drawn in the second row's Tuesday, the 10th, as `title gridRow`. */
+  const tuesday = (card: CardUnderTest) =>
+    linesIn(month(card).querySelectorAll('.month-week')[2], '2').map(
+      (line) => `${text(line.querySelector('.month-line-title'))} ${line.style.gridRow}`,
+    );
+  const moreOnTuesday = (card: CardUnderTest) =>
+    [...month(card).querySelectorAll('.month-week')[2].querySelectorAll('.month-more')].map(
+      (button) => text(button),
+    );
+
+  it('takes as many lines as its scale before the card has measured one, never fewer', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 2 }] });
+    // Four lines: Standup takes two, Review's two would leave none for "+N more".
+    expect(tuesday(card)).toEqual(['Standup 2 / span 2']);
+    expect(moreOnTuesday(card)).toEqual(['+4 more']);
+  });
+
+  it('takes the lines its scale measures, from probes set in that scale’s sizes', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 2 }] });
+    const probes = [...month(card).querySelectorAll<HTMLElement>('.month-probe[data-scale]')];
+    expect(probes.map((probe) => [probe.dataset.probe, probe.dataset.scale])).toEqual([
+      ['scaled-title', '2'],
+      ['scaled-time', '2'],
+    ]);
+    expect(
+      probes.every((probe) => probe.style.getPropertyValue('--calendar-card-font-size-event')),
+    ).toBe(true);
+
+    // A week of six 20px lines under a 22px date line, and a line at twice the size 50px tall:
+    // three lines.
+    layOut(card, { week: 143 });
+    const [scaledTitle, scaledTime] = probes;
+    scaledTitle.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 50, height: 50, width: 0 }) as DOMRect;
+    scaledTime.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 30, height: 30, width: 0 }) as DOMRect;
+    expect(MonthRender.measureMonthScaleLines(card.shadowRoot!)).toEqual(new Map([[2, 3]]));
+
+    card.requestUpdate();
+    await card.updateComplete;
+    await card.updateComplete;
+    expect(tuesday(card)).toEqual(['Standup 2 / span 3']);
+    expect(moreOnTuesday(card)).toEqual(['+4 more']);
+  });
+
+  it('keeps one line for text set smaller, and draws no probe for it', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 0.5 }] });
+    expect(month(card).querySelectorAll('.month-probe[data-scale]')).toHaveLength(0);
+    expect(tuesday(card)).toEqual(['Standup 2', 'Review 3', 'Lunch 4']);
+  });
 });
 
 describe('the sizes a month’s text is set in', () => {

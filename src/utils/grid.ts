@@ -1685,29 +1685,34 @@ export function resolveBannerRuns(
  *
  * Greedy first fit, the same shape as the timed lane packing: a span takes the first row in
  * which nothing placed before it overlaps its columns, or opens a row below the others. Shared
- * by Grid's all-day band and Month's lines.
+ * by Grid's all-day band and Month's lines. A span `rows` tall, as Month's line of larger text
+ * is, takes the first run of that many rows all free across its columns.
  *
- * @param spans - Column ranges, each from `start` up to `end`, exclusive
+ * @param spans - Column ranges, each from `start` up to `end`, exclusive, and how many rows
+ *   each takes, 1 where it does not say
  * @param maxRows - Rows that may be opened; a span finding none free past them gets none
- * @returns Each span's row, from 0, index-aligned with `spans`; -1 for a span left out
+ * @returns Each span's first row, from 0, index-aligned with `spans`; -1 for a span left out
  */
 export function lowestFreeRows(
-  spans: ReadonlyArray<{ readonly start: number; readonly end: number }>,
+  spans: ReadonlyArray<{ readonly start: number; readonly end: number; readonly rows?: number }>,
   maxRows = Infinity,
 ): number[] {
   const rowSpans: Array<Array<[number, number]>> = [];
-  return spans.map(({ start, end }) => {
-    let row = rowSpans.findIndex((occupied) =>
-      occupied.every(([from, to]) => end <= from || start >= to),
-    );
-
-    if (row < 0) {
-      if (rowSpans.length >= maxRows) return -1;
-      row = rowSpans.length;
-      rowSpans.push([]);
+  const free = (row: number, start: number, end: number) =>
+    (rowSpans[row] ?? []).every(([from, to]) => end <= from || start >= to);
+  return spans.map(({ start, end, rows = 1 }) => {
+    let row = 0;
+    while (
+      Array.from({ length: rows }, (_, offset) => row + offset).some((at) => !free(at, start, end))
+    ) {
+      row++;
     }
 
-    rowSpans[row].push([start, end]);
+    if (row + rows > maxRows) return -1;
+    for (let at = row; at < row + rows; at++) {
+      while (rowSpans.length <= at) rowSpans.push([]);
+      rowSpans[at].push([start, end]);
+    }
     return row;
   });
 }

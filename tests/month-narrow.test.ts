@@ -604,6 +604,23 @@ describe('a narrow day', () => {
     ]);
   });
 
+  it('marks a day with more events than segments, and only such a day, for its "+"', async () => {
+    const card = await mount({}, 375);
+    const capped = (date: number) =>
+      day(card, date).querySelector('.month-narrow-marks')!.hasAttribute('data-capped');
+    // Five events on the 10th, four on the 18th: the same capsule, told apart by the mark.
+    expect(day(card, 10).getAttribute('aria-label')).toMatch(/, 5 events$/);
+    expect(day(card, 18).getAttribute('aria-label')).toMatch(/, 4 events$/);
+    expect([10, 11, 12, 13, 18, 19].map(capped)).toEqual([true, false, false, false, false, false]);
+    const rule = declarations(cardStyles.cssText).find(
+      (d) =>
+        d.at.length === 0 &&
+        d.selectors.includes('.month-narrow-marks[data-capped]::after') &&
+        d.property === 'content',
+    );
+    expect(rule?.value).toBe("'+'");
+  });
+
   it('draws a single event as a dot: a segment as wide as the capsule is tall, rounded', () => {
     const rule = (selector: string) =>
       Object.fromEntries(
