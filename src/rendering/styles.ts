@@ -5510,10 +5510,19 @@ export const cardStyles = css`
   }
 
   /* Column separators sit under the header because the grid gap already
-   * separates days horizontally. The bottom margin centers the rule in the
-   * header-to-events gap instead of shifting events downward. */
+   * separates days horizontally. The rule is drawn inside the header-to-events gap the
+   * header's own padding already supplies, centered in it, and takes no room of its own:
+   * pulled up by half the gap and half its width, it hands back the rest below, so the
+   * three add up to nothing and the events stay where they are with the rule off. The
+   * width comes from the element's own style (renderSharedDayHeader), because a border
+   * is the one thing here no CSS can measure. Until v6 the rule sat below the gap with
+   * a second gap after it, so turning it on moved every event down by the gap and the
+   * rule's width. */
   .column-header-separator {
-    margin-bottom: var(--calendar-card-column-header-gap, 8px);
+    --rule-gap: var(--calendar-card-column-header-gap, 8px);
+    --rule-width: var(--calendar-card-column-header-separator-width, 0px);
+    margin-top: calc(var(--rule-gap) / -2 - var(--rule-width) / 2);
+    margin-bottom: calc(var(--rule-gap) / 2 - var(--rule-width) / 2);
   }
 
   /* Week numbers occupy the grid's own band row. Every column emits the cell and

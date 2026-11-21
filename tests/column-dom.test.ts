@@ -8,6 +8,7 @@ import { COLUMN_DEFAULTS } from '../src/config/view';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Render from '../src/rendering/render';
+import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 
 /**
@@ -907,6 +908,54 @@ describe('column view DOM', () => {
         requireElement(container, '.column-header-separator').getAttribute('style') ?? '';
 
       expect(style).toContain(COLUMN_DEFAULTS.day_header_separator_color);
+    });
+
+    // Turning the rule on must not move the events: it is drawn inside the gap the header's
+    // padding already supplies. The two margins and the rule's own width are evaluated from the
+    // stylesheet for several gaps and widths, so they must sum to nothing and center the rule
+    // in the gap. Chrome 157 measured the first event at the same offset with the rule off, at
+    // 2px and at 6px, for the default gap and a 20px one; before, 2px moved it down 10px.
+    it('draws the rule inside the header gap, so turning it on moves no event', () => {
+      const config = buildConfig();
+      config.column = { day_header_separator_width: '3px' };
+      const style =
+        requireElement(
+          renderColumnContainer(EVENTS, config),
+          '.column-header-separator',
+        ).getAttribute('style') ?? '';
+      expect(style.replace(/\s/g, '')).toContain(
+        '--calendar-card-column-header-separator-width:3px',
+      );
+
+      const rule = cardStyles.cssText.match(/\.column-header-separator \{([^}]*)\}/)?.[1] ?? '';
+      const declared = (name: string) =>
+        rule.match(new RegExp(`(?:^|;)\\s*${name}:\\s*([^;]+);`))?.[1].trim() ?? '';
+      const px = (expression: string, gap: number, width: number): number =>
+        Function(
+          `return ${expression
+            .replace(/var\(--rule-gap\)/g, String(gap))
+            .replace(/var\(--rule-width\)/g, String(width))
+            .replace(/calc/g, '')};`,
+        )() as number;
+
+      expect(declared('--rule-gap')).toBe('var(--calendar-card-column-header-gap, 8px)');
+      expect(declared('--rule-width')).toBe(
+        'var(--calendar-card-column-header-separator-width, 0px)',
+      );
+      for (const [gap, width] of [
+        [8, 2],
+        [20, 6],
+        [12, 1],
+      ]) {
+        const top = px(declared('margin-top'), gap, width);
+        const bottom = px(declared('margin-bottom'), gap, width);
+        expect(top + width + bottom).toBeCloseTo(0);
+        // Centered: the header's content ends a gap above where the events start, so the space
+        // over the rule is the gap plus its (negative) top margin, and the space under it is
+        // what the margin below hands back.
+        expect(gap + top).toBeCloseTo(bottom);
+        expect(bottom).toBeCloseTo((gap - width) / 2);
+      }
     });
 
     it('honors a configured color', () => {
