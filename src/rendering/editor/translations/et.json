@@ -107,6 +107,7 @@
   "announce.removed_setting": "„{label}“ eemaldati ja lähtestati.",
   "state.set": "Määratud",
   "state.default": "Vaikimisi",
+  "state.loading": "Laadimine…",
   "state.whole_card": "Kogu kaart",
   "state.ignored": "Kasutab paigutuse {layout} vaikeväärtust, mitte väärtust {value} paigutuste vaikeväärtustest",
   "state.from_all_layouts": "Paigutuste vaikeväärtustest",

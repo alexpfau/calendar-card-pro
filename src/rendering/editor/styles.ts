@@ -1192,6 +1192,12 @@ export default css`
     line-height: 1.4;
   }
 
+  /* What the editor draws while its language is on its way. */
+  .loading {
+    margin: 16px 0;
+    color: var(--secondary-text-color);
+  }
+
   /* The line a removal or an applied story leaves, until the next change. */
   .status-bar {
     display: flex;

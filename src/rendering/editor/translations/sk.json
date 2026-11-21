@@ -107,6 +107,7 @@
   "announce.removed_setting": "Odstránené a resetované: {label}.",
   "state.set": "Nastavené",
   "state.default": "Predvolené",
+  "state.loading": "Načítava sa…",
   "state.whole_card": "Celá karta",
   "state.ignored": "Používa predvolenú hodnotu rozloženia {layout}, nie {value} z predvolených hodnôt rozložení",
   "state.from_all_layouts": "Z predvolených hodnôt rozložení",

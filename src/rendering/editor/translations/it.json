@@ -107,6 +107,7 @@
   "announce.removed_setting": "Hai rimosso e ripristinato {label}.",
   "state.set": "Impostato",
   "state.default": "Predefinito",
+  "state.loading": "Caricamento…",
   "state.whole_card": "Intera scheda",
   "state.ignored": "Usa il predefinito di {layout}, non {value} dai predefiniti dei layout",
   "state.from_all_layouts": "Dai predefiniti dei layout",

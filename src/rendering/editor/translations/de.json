@@ -107,6 +107,7 @@
   "announce.removed_setting": "„{label}“ entfernt und zurückgesetzt.",
   "state.set": "Festgelegt",
   "state.default": "Standard",
+  "state.loading": "Wird geladen…",
   "state.whole_card": "Ganze Karte",
   "state.ignored": "Nutzt den Standard von „{layout}“, nicht {value} aus den Layout-Standards",
   "state.from_all_layouts": "Aus den Layout-Standards",

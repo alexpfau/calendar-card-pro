@@ -10097,8 +10097,16 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
-    // The card's language is still on its way, and nothing has been drawn yet (`_language`).
-    if (this._drawnLanguage === undefined) return nothing;
+    // The card's language is still on its way, and nothing has been drawn yet (`_language`): a
+    // line that says so, in Home Assistant's words where it has them, so the dialog is not blank.
+    if (this._drawnLanguage === undefined) {
+      const word = this.hass.localize?.('ui.common.loading');
+      const loading =
+        typeof word === 'string' && word !== '' && word !== 'ui.common.loading'
+          ? word
+          : this._string(ctx, 'state.loading');
+      return html`<p class="loading" role="status">${loading}</p>`;
+    }
     if (this._migration.kind === 'future') {
       return this._renderMigrationBlock(
         ctx,

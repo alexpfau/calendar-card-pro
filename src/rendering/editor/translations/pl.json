@@ -107,6 +107,7 @@
   "announce.removed_setting": "Usunięto i zresetowano: {label}.",
   "state.set": "Ustawione",
   "state.default": "Domyślny",
+  "state.loading": "Wczytywanie…",
   "state.whole_card": "Cała karta",
   "state.ignored": "Używa domyślnej wartości układu {layout}, a nie {value} z ustawień domyślnych układów",
   "state.from_all_layouts": "Z ustawień domyślnych układów",

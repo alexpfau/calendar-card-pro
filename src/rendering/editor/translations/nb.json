@@ -107,6 +107,7 @@
   "announce.removed_setting": "Fjernet «{label}» og tilbakestilte den.",
   "state.set": "Angitt",
   "state.default": "Standard",
+  "state.loading": "Laster inn…",
   "state.whole_card": "Hele kortet",
   "state.ignored": "Bruker standarden for «{layout}», ikke {value} fra standardverdier for layouter",
   "state.from_all_layouts": "Fra standardverdier for layouter",

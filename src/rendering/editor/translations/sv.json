@@ -107,6 +107,7 @@
   "announce.removed_setting": "{label} har tagits bort och återställts.",
   "state.set": "Inställd",
   "state.default": "Standard",
+  "state.loading": "Läser in…",
   "state.whole_card": "Hela kortet",
   "state.ignored": "Använder standardvärdet för {layout}, inte {value} från standardvärden för layouter",
   "state.from_all_layouts": "Från standardvärden för layouter",

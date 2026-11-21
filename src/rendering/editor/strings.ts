@@ -183,6 +183,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Default".
   'state.set': 'Set',
   'state.default': 'Default',
+  // Drawn alone while the editor's language is on its way, where Home Assistant has no word.
+  'state.loading': 'Loading…',
   'state.whole_card': 'Whole Card',
   // Under a Grid setting while Layout Defaults stores a value Grid's own default overrides.
   'state.ignored': "Uses {layout}'s Default, Not {value} From Layout Defaults",

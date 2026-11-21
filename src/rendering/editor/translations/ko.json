@@ -107,6 +107,7 @@
   "announce.removed_setting": "{label}을(를) 제거하고 초기화했습니다.",
   "state.set": "설정됨",
   "state.default": "기본값",
+  "state.loading": "불러오는 중…",
   "state.whole_card": "카드 전체",
   "state.ignored": "레이아웃 기본값의 {value} 대신 {layout} 기본값 사용",
   "state.from_all_layouts": "레이아웃 기본값에서 가져옴",

@@ -107,6 +107,7 @@
   "announce.removed_setting": "Nustatymas „{label}“ pašalintas ir atkurtas.",
   "state.set": "Nustatyta",
   "state.default": "Numatytoji",
+  "state.loading": "Įkeliama…",
   "state.whole_card": "Visa kortelė",
   "state.ignored": "Naudojama išdėstymo „{layout}“ numatytoji, ne {value} iš išdėstymų numatytųjų reikšmių",
   "state.from_all_layouts": "Iš išdėstymų numatytųjų reikšmių",

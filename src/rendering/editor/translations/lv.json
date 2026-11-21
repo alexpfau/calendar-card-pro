@@ -107,6 +107,7 @@
   "announce.removed_setting": "Noņemts un atiestatīts: {label}.",
   "state.set": "Iestatīts",
   "state.default": "Noklusējums",
+  "state.loading": "Notiek ielāde…",
   "state.whole_card": "Visa karte",
   "state.ignored": "Izmanto izkārtojuma „{layout}“ noklusējumu, nevis vērtību {value} no izkārtojumu noklusējumiem",
   "state.from_all_layouts": "No izkārtojumu noklusējumiem",
