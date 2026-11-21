@@ -568,6 +568,16 @@ export default css`
     box-shadow: 0 0 0 2px var(--calendar-card-editor-focus-ring);
   }
 
+  /* High-contrast modes drop every box shadow, and with it the ring above: an outline there,
+     whose color the system then chooses. */
+  @media (forced-colors: active) {
+    .text-button:not(.filled, .add-action):focus-visible,
+    .strip-button:focus-visible {
+      outline: 2px solid var(--calendar-card-editor-focus-ring);
+      outline-offset: -4px;
+    }
+  }
+
   /* A filled button keeps its color under the pointer, a shade darker. */
   .text-button.filled:hover:not(:disabled) {
     background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12));
