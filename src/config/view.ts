@@ -14,6 +14,7 @@ import {
   normalizeEntities,
   normalizeLengthOptions,
   normalizeNumericOptions,
+  resolveToolbar,
   switcherOffers,
   toFontWeightCss,
   toValidCardHeight,
@@ -878,9 +879,11 @@ export const COLUMN_DEFAULTS = {
 } as const;
 
 /**
- * The fewest day columns Columns sheds to while `min_days_to_show` is unset: two. One column is
- * a single day, which the list draws better, with every day, so below two the card falls back to
- * it. Never more than the layout's own `days_to_show`.
+ * The fewest day columns Columns sheds to while `min_days_to_show` is unset and the card pages:
+ * two. One column is a single day, which the list draws better, with every day, so below two the
+ * card falls back to it. Never more than the layout's own `days_to_show`. A card without the date
+ * navigation keeps every day or falls back to the list instead, since nothing would reach a day it
+ * shed (`resolveMinDaysToShow`).
  *
  * Not in {@link COLUMN_DEFAULTS}, because it is not the default everywhere: under
  * `min_days_fallback: cramp` an unset floor is every day, so "keep the columns, narrower" keeps
@@ -3343,12 +3346,28 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
 }
 
 /**
+ * Whether the card can page to days a side-by-side layout sheds: the toolbar's date navigation,
+ * which a swipe comes with. Read from the configuration, so a card being edited, whose arrows do
+ * nothing for now, draws as it will once it is not.
+ *
+ * @param config - Merged configuration
+ * @returns True where the toolbar is shown with its date navigation
+ */
+function pagesToShedDays(config: Types.Config): boolean {
+  const toolbar = resolveToolbar(config);
+  return toolbar.show && toolbar.navigation;
+}
+
+/**
  * Resolves the fewest columns the card may reduce to.
  *
  * Unset, Grid's is its `TIME_GRID_DEFAULTS` entry, and Columns' is
- * {@link COLUMN_MIN_DAYS_DEFAULT}, or its own `days_to_show` under `min_days_fallback: cramp`,
- * which keeps every day. That makes Columns' default dynamic, so it cannot live in
- * `COLUMN_DEFAULTS`. The result is clamped into `[1, days_to_show]`.
+ * {@link COLUMN_MIN_DAYS_DEFAULT} on a card whose toolbar pages, where the arrows and a swipe
+ * reach the days it sheds. Elsewhere it is its own `days_to_show`, so a card with no way to reach
+ * a shed day keeps every day or falls back to the list, as Columns always did before it shed;
+ * and so it is under `min_days_fallback: cramp`, which keeps every day. That makes Columns'
+ * default dynamic, so it cannot live in `COLUMN_DEFAULTS`. The result is clamped into
+ * `[1, days_to_show]`.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Column floor, within `[1, days_to_show]`
@@ -3363,7 +3382,9 @@ export function resolveMinDaysToShow(
   const defaultValue =
     typeof fallback === 'number' && Number.isFinite(fallback)
       ? Math.floor(fallback)
-      : view === 'column' && resolveMinDaysFallback(config, view) !== 'cramp'
+      : view === 'column' &&
+          resolveMinDaysFallback(config, view) !== 'cramp' &&
+          pagesToShedDays(config)
         ? COLUMN_MIN_DAYS_DEFAULT
         : days;
 

@@ -548,7 +548,8 @@ export interface ColumnOverrides extends SharedViewOverrides {
    * Fewest day columns the card may reduce to when the width will not carry
    * `days_to_show` of them.
    *
-   * Defaults dynamically to `days_to_show`, so `resolveMinDaysToShow` owns it.
+   * Defaults dynamically, to two on a card that pages and to `days_to_show` elsewhere, so
+   * `resolveMinDaysToShow` owns it.
    */
   min_days_to_show?: number;
 
