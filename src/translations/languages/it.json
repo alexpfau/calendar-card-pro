@@ -10,6 +10,8 @@
   "viewColumns": "Colonne",
   "viewGrid": "Griglia oraria",
   "viewMonth": "Mese",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} in più",
   "eventCount": "{count} eventi",
   "eventCountOne": "{count} evento",

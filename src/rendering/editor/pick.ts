@@ -44,9 +44,11 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.legend-chip', { calendar: true }],
   ['.custom-button', { page: 'card_header', heading: 'toolbar.buttons.heading' }],
   ['.card-header', { page: 'card_header', heading: 'heading.general' }],
-  // The switcher opens Layouts in Switcher, under the Controls that hold its on and off.
+  // The switcher opens Layouts in Switcher, under the Controls that hold its on and off, in
+  // either form: its segments, or the button a narrow card collapses it into and that button's
+  // menu.
   [
-    '.view-switcher',
+    '.view-switcher, .view-switcher-collapsed',
     {
       page: 'card_header',
       heading: 'heading_toolbar',

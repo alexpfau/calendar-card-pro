@@ -294,6 +294,8 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     // Controls. The toolbar with its defaults draws the filter, add, the switcher and refresh too,
     // so the list above can tell what the page turned off; without it there is nothing. The
     // filter's closed menu holds Show all, unavailable with every calendar shown, and Hide all.
+    // Not measured, the card draws the switcher collapsed: its button, then its closed menu's
+    // rows, one per layout.
     expect(
       controls(await mountStory(withOptions(CARD, { toolbar: { show: true } }), writable)),
     ).toEqual([
@@ -301,10 +303,11 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       'legend-menu-action unavailable',
       'legend-menu-action',
       'Add event',
-      'List',
-      'Columns',
-      'Grid',
-      'Month',
+      'Layout: List',
+      'layout-menu-row selected',
+      'layout-menu-row',
+      'layout-menu-row',
+      'layout-menu-row',
       'Refresh',
       'Search',
       'toolbar-month-button',

@@ -10,6 +10,8 @@
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",
   "viewMonth": "Lună",
+  "layout": "Aspect",
+  "layoutCurrent": "Aspect: {view}",
   "moreEvents": "+{count} în plus",
   "eventCount": "Evenimente: {count}",
   "eventCountOne": "{count} eveniment",

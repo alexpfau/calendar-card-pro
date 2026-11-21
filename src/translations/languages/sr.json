@@ -10,6 +10,8 @@
   "viewColumns": "Колоне",
   "viewGrid": "Мрежа",
   "viewMonth": "Месец",
+  "layout": "Распоред",
+  "layoutCurrent": "Распоред: {view}",
   "moreEvents": "Још +{count}",
   "eventCount": "{count} догађаја",
   "eventCountOne": "{count} догађај",

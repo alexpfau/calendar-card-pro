@@ -10,6 +10,8 @@
   "viewColumns": "Sütunlar",
   "viewGrid": "Izgara",
   "viewMonth": "Ay",
+  "layout": "Düzen",
+  "layoutCurrent": "Düzen: {view}",
   "moreEvents": "+{count} daha",
   "eventCount": "{count} etkinlik",
   "eventCountOne": "{count} etkinlik",

@@ -10,6 +10,8 @@
   "viewColumns": "Columns",
   "viewGrid": "Grid",
   "viewMonth": "Month",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} more",
   "eventCount": "{count} events",
   "eventCountOne": "{count} event",

@@ -10,6 +10,8 @@
   "viewColumns": "Kolonner",
   "viewGrid": "Tidsrutenett",
   "viewMonth": "Måned",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} til",
   "eventCount": "{count} hendelser",
   "eventCountOne": "{count} hendelse",

@@ -18,6 +18,8 @@
   "viewColumns": "Stulpeliai",
   "viewGrid": "Laiko tinklelis",
   "viewMonth": "Mėnuo",
+  "layout": "Išdėstymas",
+  "layoutCurrent": "Išdėstymas: {view}",
   "moreEvents": "Dar +{count}",
   "eventCount": "Įvykių: {count}",
   "eventCountOne": "{count} įvykis",

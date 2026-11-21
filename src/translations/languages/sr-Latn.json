@@ -10,6 +10,8 @@
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",
   "viewMonth": "Mesec",
+  "layout": "Raspored",
+  "layoutCurrent": "Raspored: {view}",
   "moreEvents": "Još +{count}",
   "eventCount": "{count} događaja",
   "eventCountOne": "{count} događaj",

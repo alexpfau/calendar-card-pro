@@ -10,6 +10,8 @@
   "viewColumns": "Stolpci",
   "viewGrid": "Mreža",
   "viewMonth": "Mesec",
+  "layout": "Postavitev",
+  "layoutCurrent": "Postavitev: {view}",
   "moreEvents": "+{count} več",
   "eventCount": "Dogodki: {count}",
   "eventCountOne": "{count} dogodek",

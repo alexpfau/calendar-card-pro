@@ -23,6 +23,8 @@
   "viewColumns": "欄",
   "viewGrid": "網格",
   "viewMonth": "月",
+  "layout": "版面配置",
+  "layoutCurrent": "版面配置：{view}",
   "moreEvents": "還有 {count} 項",
   "eventCount": "{count} 項活動",
   "eventCountOne": "{count} 項活動",

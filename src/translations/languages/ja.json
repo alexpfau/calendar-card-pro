@@ -10,6 +10,8 @@
   "viewColumns": "列",
   "viewGrid": "グリッド",
   "viewMonth": "月",
+  "layout": "レイアウト",
+  "layoutCurrent": "レイアウト：{view}",
   "moreEvents": "他{count}件",
   "eventCount": "{count}件の予定",
   "eventCountOne": "{count}件の予定",

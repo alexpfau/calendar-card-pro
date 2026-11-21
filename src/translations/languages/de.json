@@ -18,6 +18,8 @@
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",
   "viewMonth": "Monat",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} mehr",
   "eventCount": "{count} Termine",
   "eventCountOne": "{count} Termin",

@@ -10,6 +10,8 @@
   "viewColumns": "Stĺpce",
   "viewGrid": "Časová mriežka",
   "viewMonth": "Mesiac",
+  "layout": "Rozloženie",
+  "layoutCurrent": "Rozloženie: {view}",
   "moreEvents": "+{count} navyše",
   "eventCount": "Udalosti: {count}",
   "eventCountOne": "{count} udalosť",

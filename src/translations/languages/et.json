@@ -31,6 +31,8 @@
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",
   "viewMonth": "Kuu",
+  "layout": "Paigutus",
+  "layoutCurrent": "Paigutus: {view}",
   "moreEvents": "Veel +{count}",
   "eventCount": "{count} sündmust",
   "eventCountOne": "{count} sündmus",

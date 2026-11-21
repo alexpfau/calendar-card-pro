@@ -10,6 +10,8 @@
   "viewColumns": "Cột",
   "viewGrid": "Lưới",
   "viewMonth": "Tháng",
+  "layout": "Bố cục",
+  "layoutCurrent": "Bố cục: {view}",
   "moreEvents": "+{count} nữa",
   "eventCount": "{count} sự kiện",
   "eventCountOne": "{count} sự kiện",

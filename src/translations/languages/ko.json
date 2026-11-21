@@ -10,6 +10,8 @@
   "viewColumns": "열",
   "viewGrid": "그리드",
   "viewMonth": "월",
+  "layout": "레이아웃",
+  "layoutCurrent": "레이아웃: {view}",
   "moreEvents": "+{count}개 더",
   "eventCount": "일정 {count}개",
   "eventCountOne": "일정 {count}개",

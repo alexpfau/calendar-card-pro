@@ -23,6 +23,8 @@
   "viewColumns": "Колони",
   "viewGrid": "Решетка",
   "viewMonth": "Месец",
+  "layout": "Оформление",
+  "layoutCurrent": "Оформление: {view}",
   "moreEvents": "Още +{count}",
   "eventCount": "{count} събития",
   "eventCountOne": "{count} събитие",

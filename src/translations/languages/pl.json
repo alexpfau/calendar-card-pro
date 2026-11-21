@@ -18,6 +18,8 @@
   "viewColumns": "Kolumny",
   "viewGrid": "Siatka czasu",
   "viewMonth": "Miesiąc",
+  "layout": "Układ",
+  "layoutCurrent": "Układ: {view}",
   "moreEvents": "+{count} więcej",
   "eventCount": "Wydarzenia: {count}",
   "eventCountOne": "{count} wydarzenie",

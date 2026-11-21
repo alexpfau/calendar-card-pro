@@ -18,6 +18,8 @@
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",
   "viewMonth": "Μήνας",
+  "layout": "Διάταξη",
+  "layoutCurrent": "Διάταξη: {view}",
   "moreEvents": "+{count} ακόμη",
   "eventCount": "{count} γεγονότα",
   "eventCountOne": "{count} γεγονός",

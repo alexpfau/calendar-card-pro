@@ -10,6 +10,8 @@
   "viewColumns": "Colonnes",
   "viewGrid": "Grille",
   "viewMonth": "Mois",
+  "layout": "Disposition",
+  "layoutCurrent": "Disposition : {view}",
   "moreEvents": "+{count} de plus",
   "eventCount": "{count} événements",
   "eventCountOne": "{count} événement",

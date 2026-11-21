@@ -1422,10 +1422,15 @@ describe('the all-day band while a new all-day event is drawn on days without on
         'switching to the list view and back',
         BOTH,
         async ({ card }) => {
-          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="list"]')[0].click();
+          // A card not measured draws its switcher collapsed, a menu of views.
+          const pick = (view: string) => {
+            all<HTMLButtonElement>(card, '.view-switcher-pill')[0].click();
+            all<HTMLButtonElement>(card, `.layout-menu-row[data-view="${view}"]`)[0].click();
+          };
+          pick('list');
           await land(card);
           expect(card.shadowRoot!.querySelector('.grid-container')).toBeNull();
-          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="grid"]')[0].click();
+          pick('grid');
           await land(card);
         },
       ],
