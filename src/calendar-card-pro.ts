@@ -1930,6 +1930,12 @@ class CalendarCardPro extends LitElement {
    */
   private _monthFocusPending = false;
 
+  /**
+   * Whether the month's form changed while a part of it held focus, so the render drawing the new
+   * form gives focus to the cell of the day that part belonged to (`_keepMonthFormFocus`).
+   */
+  private _monthFormFocus = false;
+
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
@@ -3945,8 +3951,48 @@ class CalendarCardPro extends LitElement {
     );
     if (next === this._monthNarrow) return false;
     Logger.debug(`Month ${next ? 'narrow' : 'wide'} at ${Math.round(widthPx)}px`);
+    this._holdMonthFocus();
     this._monthNarrow = next;
     return true;
+  }
+
+  /**
+   * Notes the day of the month's part that holds focus as its form is about to change, which
+   * draws every part afresh: a day's cell, a wide day's line or "+N more", or anything in a narrow
+   * month's list, which belongs to the day selected. That day becomes the tab stop, and its cell
+   * takes focus once the new form is drawn (`_keepMonthFormFocus`). Nothing when focus is anywhere
+   * else, in the card or out of it.
+   */
+  private _holdMonthFocus(): void {
+    if (this.effectiveView !== 'month') return;
+    const active = this._focusedInCard();
+    if (!(active instanceof HTMLElement)) return;
+    let day: Date | null = null;
+    const cell = Activation.monthCellOn(active);
+    if (cell !== undefined) {
+      day = new Date(cell);
+    } else if (active.closest('.month-day-list')) {
+      day = this._monthSelectedDay();
+    } else if (active.closest('.month-container')) {
+      const key = MonthRender.monthItemDay(active.id);
+      day = key === null ? null : Paging.pageStart(key);
+    }
+    if (day === null) return;
+    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    this._monthFormFocus = true;
+  }
+
+  /**
+   * Gives focus to the cell of the day whose part held it as the month's form changed
+   * (`_holdMonthFocus`), where the new form's render left focus nowhere in the card. The cell is
+   * drawn in either form, as the rows are the same six weeks. Called after every update.
+   */
+  private _keepMonthFormFocus(): void {
+    if (!this._monthFormFocus) return;
+    this._monthFormFocus = false;
+    if (this.effectiveView !== 'month' || this._monthFocusDay === null) return;
+    if (this._focusedInCard()) return;
+    this._monthCellFor(Paging.pageStart(this._monthFocusDay))?.focus({ preventScroll: true });
   }
 
   /** Whether the card draws a narrow month now. */
@@ -5077,6 +5123,7 @@ class CalendarCardPro extends LitElement {
     this._syncMonthCapacity();
     this._watchMonthProbes();
     this._keepMonthListFocus();
+    this._keepMonthFormFocus();
     this._syncMonthListFit();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.

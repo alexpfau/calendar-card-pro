@@ -353,6 +353,16 @@ export function monthItemId(date: Date, line: number | 'more'): string {
 }
 
 /**
+ * The day a wide month's line or "+N more" is drawn on, read back from its id (`monthItemId`).
+ *
+ * @param id - An element's id
+ * @returns The day, `YYYY-MM-DD`, or null where the id is no month item's
+ */
+export function monthItemDay(id: string): string | null {
+  return /^month-item-(\d{4}-\d{2}-\d{2})-/.exec(id)?.[1] ?? null;
+}
+
+/**
  * A day named in full with its year, as a day's list is titled: "Wednesday, November 18, 2026".
  *
  * @param date - The day
