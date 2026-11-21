@@ -130,7 +130,6 @@ describe('the House Log card behaves as its page describes', () => {
       show_countdown: true,
       show_time: false,
       time_position: 'title',
-      event_tap_action: { action: 'details' },
       list: { event_order: 'latest_first' },
     });
   });

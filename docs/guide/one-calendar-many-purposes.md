@@ -41,16 +41,16 @@ allday_badge_style: filled
 time_position: title
 show_single_allday_time: false
 show_location_allday: false
-weather:
-  entity: weather.home
+weather_entity: weather.home
 toolbar:
   show: true
   view_switcher: false
-event_tap_action:
-  action: details
+  size: large
 list:
   date_vertical_alignment: top
   day_separator_width: 1px
+  weather:
+    position: date
 
 entities:
   # Anna's own calendar, under her face
@@ -184,9 +184,9 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list.
+**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list, and `size: large` draws the arrows and the house beside the month nearly as large as the buttons above them, for a finger on its way past. See [Larger Arrows & Chips](/features/layout-appearance#larger-arrows-chips).
 
-**Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
+**Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and [`weather_entity`](/features/weather#weather-per-layout) with `position: date` in the `list:` block puts the forecast under each date.
 
 **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it. A hallway list is read in passing, so the three days take less height, and the times line up at the right, where a glance can run down them. A title too long for its line wraps, and a time that no longer fits beside it takes a line of its own.
 

@@ -131,7 +131,6 @@ describe('the Bin Day card behaves as its page describes', () => {
       allday_badge: 'title',
       allday_badge_style: 'tinted',
       hide_when_empty: true,
-      event_tap_action: { action: 'details' },
     });
   });
 

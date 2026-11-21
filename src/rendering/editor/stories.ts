@@ -79,8 +79,7 @@ export const STORIES: ReadonlyArray<Story> = [
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
       weather_entity: 'weather.home',
-      toolbar: { show: true, legend: 'chips', reset: true },
-      event_tap_action: { action: 'details' },
+      toolbar: { show: true, legend: 'chips', reset: true, size: 'large' },
       day_tap_action: { action: 'add-event' },
       list: { days_to_show: 3, weather: { position: 'date' } },
       column: {
@@ -128,7 +127,6 @@ export const STORIES: ReadonlyArray<Story> = [
       show_progress_bar: true,
       weather_entity: 'weather.home',
       toolbar: { show: true, view_switcher: false, legend: false },
-      event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
       // A phone shows the list in the grid's place, with the same forecast.
       list: { weather: { position: 'both', event: { show_conditions: false } } },
@@ -148,12 +146,13 @@ export const STORIES: ReadonlyArray<Story> = [
     show_countdown: true,
     countdown_exact_days: true,
     show_single_allday_time: false,
+    show_month: false,
     month_separator_width: '1px',
     day_spacing: '4px',
     event_gap: '4px',
     vertical_line_width: '4px',
     toolbar: { show: true, legend: false, add_event: false, refresh: false, view_switcher: false },
-    event_tap_action: { action: 'details' },
+    list: { month_separator_label: true },
   }),
   story('house_log', '/guide/house-log', ['#8d6e63'], {
     title: 'House Log',
@@ -164,7 +163,6 @@ export const STORIES: ReadonlyArray<Story> = [
     show_countdown: true,
     show_time: false,
     time_position: 'title',
-    event_tap_action: { action: 'details' },
     list: { event_order: 'latest_first' },
   }),
 ];

@@ -85,6 +85,9 @@ function problems(card: Card): string[] {
     }
   };
   weatherProblems('weather', card.weather, true);
+  // The same card still draws, but the editor converts it the moment a reader opens what they
+  // have just pasted, with an upgrade receipt; a story writes `weather_entity` and each layout's.
+  if ('weather' in card) out.push('weather written before v6');
   for (const [block, allowed] of Object.entries(VIEW_BLOCK_KEYS)) {
     for (const key of keysOf(card[block])) {
       if (key === 'weather')
@@ -148,6 +151,7 @@ describe('the Example Stories cards', () => {
         'unknown tint',
         'unknown toolbar.labels',
         'unknown weather.event.show_temperature',
+        'weather written before v6',
         'unknown column.weather.entity',
         'unknown column.weather.date.show_low',
         'list.start_time is not read there',
