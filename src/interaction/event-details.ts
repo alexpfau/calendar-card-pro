@@ -146,7 +146,8 @@ export function detailPermissions(
  * location the grid hides, or any description while `show_description` is off, would be
  * empty there, and the title would carry an age count the card appended. So the popover shows
  * every field the event has, whatever the card, a layout or the calendar leaves out of the rows.
- * A description keeps its markup, so the popover can keep its links, unless a replacement
+ * A calendar's `show_location: false` and `show_description: false` tidy its rows and nothing
+ * else; only `private` keeps a field out of the popover. A description keeps its markup, so the popover can keep its links, unless a replacement
  * rewrites it, which the row applies to its plain text.
  *
  * A private entry's event shows Private in place of each field it has (`private-events.ts`).

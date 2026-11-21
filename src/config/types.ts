@@ -1043,7 +1043,8 @@ export interface EntityConfig {
    * calendar's color, label and name, and nothing it says. Its title reads Private behind a lock,
    * and its location and description are not drawn; in the event popover, a field the event has
    * reads Private behind a lock too (`utils/private-events.ts`). Unset or `false`, the events
-   * show as usual.
+   * show as usual. It is the one option that keeps a field out of the popover: the entry's
+   * `show_location: false` and `show_description: false` leave a field out of its rows only.
    *
    * Read at render time from the event's matched block, as the text replacement is, so a calendar
    * listed twice can keep one block private and not the other. A whole-field `replace_with` takes
