@@ -130,7 +130,7 @@ import * as PageView from './views/page';
 import * as PickView from './views/pick';
 import * as QuickSetupView from './views/quick-setup';
 import * as ReorderView from './views/reorder';
-import { ScopePreview } from './views/scope-preview';
+import { ScopePreview, type ScopePreviewWant } from './views/scope-preview';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
 import * as ShownView from './views/shown';
@@ -1306,8 +1306,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @returns The layout and the configuration it is laid over, or `undefined`
    */
-  private _previewedScope():
-    { view: Types.EffectiveView; config: Record<string, unknown> } | undefined {
+  private _previewedScope(): ScopePreviewWant | undefined {
     if (!this._config) return undefined;
     if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
     const kind = this._nav.route.kind;
@@ -1317,7 +1316,11 @@ export class CalendarCardProEditor extends LitElement {
         : this._workspace;
     const view = Workspace.viewForWorkspace(edited);
     if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
-    return { view, config: this._previewConfig(this._rawConfig, view) };
+    return {
+      view,
+      config: this._previewConfig(this._rawConfig, view),
+      authored: this._rawConfig,
+    };
   }
 
   /**

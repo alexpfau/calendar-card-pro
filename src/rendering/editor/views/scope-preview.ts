@@ -26,8 +26,10 @@ type ConfigurableCard = HTMLElement & { setConfig?: (config: unknown) => void };
 export interface ScopePreviewWant {
   /** The layout to draw. */
   readonly view: Types.EffectiveView;
-  /** The configuration as written, which `view` is laid over. */
+  /** The configuration `view` is laid over: as written, but for what the layout cannot show. */
   readonly config: Readonly<Record<string, unknown>>;
+  /** The configuration as written, which the card is handed back once released. */
+  readonly authored: Readonly<Record<string, unknown>>;
 }
 
 /** Keeps the preview's card in the layout asked for. */
@@ -71,7 +73,8 @@ export class ScopePreview {
     this._watch = this._card = this._shown = undefined;
     this._roots = [];
     // A card Home Assistant has already replaced is gone, and its replacement was never touched.
-    if (card?.isConnected && shown !== undefined) card.setConfig?.(shown.config);
+    // As written, not as laid under the layout: that may have left out the view switcher.
+    if (card?.isConnected && shown !== undefined) card.setConfig?.(shown.authored);
   }
 
   /** Configures the card found now, where it is not already showing what is wanted. */
@@ -90,7 +93,8 @@ export class ScopePreview {
     if (
       card === this._card &&
       this._shown?.view === want.view &&
-      this._shown.config === want.config
+      this._shown.config === want.config &&
+      this._shown.authored === want.authored
     ) {
       return;
     }
