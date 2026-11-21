@@ -222,7 +222,6 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       duplicate_accent_color: '#ffb74d',
       show_progress_bar: true,
       weather_entity: 'weather.home',
-      event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
       time_grid: {
         start_time: '07:00',

@@ -131,6 +131,7 @@ days_to_show: 60
 show_countdown: true
 countdown_exact_days: true
 show_single_allday_time: false
+show_month: false
 month_separator_width: 1px
 day_spacing: 4px
 event_gap: 4px
@@ -141,13 +142,13 @@ toolbar:
   add_event: false
   refresh: false
   view_switcher: false
-event_tap_action:
-  action: details
 entities:
   - entity: calendar.birthdays
     accent_color: '#f06292'
   - entity: calendar.holidays
     accent_color: '#26a69a'
+list:
+  month_separator_label: true
 ```
 
 | Step                  | What it asks                                                                                                                                                                                                                                                  |

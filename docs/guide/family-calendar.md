@@ -44,8 +44,7 @@ toolbar:
   show: true
   legend: chips
   reset: true
-event_tap_action:
-  action: details
+  size: large
 day_tap_action:
   action: add-event
 entities:
@@ -108,7 +107,7 @@ On Home Assistant 2026.5 or later, every screen shows a change as soon as Home A
 
 Grid sheds days one at a time as the card narrows, always keeping today, so the same card fits a narrow dashboard section. See [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
-The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `min_days_to_show: 3` lets Columns drop days on a narrower screen, down to three, before it turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
+The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
 `event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 
@@ -122,6 +121,8 @@ With `show: true`, `toolbar` adds two rows of controls:
 - **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
 - **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 - **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
+
+`size: large` draws the arrows, the house and the chips nearly as large as the buttons above them, so a finger finds them on the wall, and on a phone too. Larger chips fold into the filter button sooner on a narrow card. See [Larger Arrows & Chips](/features/layout-appearance#larger-arrows-chips).
 
 ### Adding & Moving on the Wall
 
@@ -189,7 +190,7 @@ The wall is a 1280 × 800 tablet. A [panel view](https://www.home-assistant.io/d
 
 ## 🔒 Shared-Screen Safety
 
-`event_tap_action: details` opens a tapped event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
+A tap opens an event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
 
 Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the event can also be changed right there, and **Delete** removes it: a Local Calendar allows both, a Google calendar only Delete. Neither is offered on a merged shared plan. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card. Adding still works; to keep new events off it too, leave `day_tap_action` out and set `add_event: false` under `toolbar`.
 
