@@ -10,7 +10,7 @@
   "viewColumns": "Стовпці",
   "viewGrid": "Сітка",
   "viewMonth": "Місяць",
-  "moreEvents": "+{count} ще",
+  "moreEvents": "Ще +{count}",
   "eventCount": "Подій: {count}",
   "eventCountOne": "{count} подія",
   "endsToday": "закінчується сьогодні",

@@ -10,7 +10,7 @@
   "viewColumns": "Kolone",
   "viewGrid": "Mreža",
   "viewMonth": "Mesec",
-  "moreEvents": "+{count} još",
+  "moreEvents": "Još +{count}",
   "eventCount": "{count} događaja",
   "eventCountOne": "{count} događaj",
   "endsToday": "završava se danas",

@@ -18,7 +18,7 @@
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",
   "viewMonth": "Monat",
-  "moreEvents": "+{count} weitere",
+  "moreEvents": "+{count} mehr",
   "eventCount": "{count} Termine",
   "eventCountOne": "{count} Termin",
   "endsToday": "endet heute",

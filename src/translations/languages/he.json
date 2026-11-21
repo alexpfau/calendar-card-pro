@@ -14,7 +14,7 @@
   "viewColumns": "עמודות",
   "viewGrid": "רשת",
   "viewMonth": "חודש",
-  "moreEvents": "+{count} נוספים",
+  "moreEvents": "עוד +{count}",
   "eventCount": "{count} אירועים",
   "eventCountOne": "{count} אירוע",
   "noEvents": "אין אירועים",
