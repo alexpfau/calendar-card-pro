@@ -520,6 +520,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.list_one': '{options} now applies to List, as before. The card looks the same.',
   'upgrade.shared': '{options} now apply to every layout, unless a layout has its own.',
   'upgrade.shared_one': '{options} now applies to every layout, unless a layout has its own.',
+  'upgrade.same': 'The card looks the same.',
   'upgrade.weather':
     'Weather is now set per layout: List, Columns and Grid keep what the card showed, and Month is off.',
   'upgrade.weather_some':

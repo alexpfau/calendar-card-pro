@@ -338,6 +338,7 @@
   "upgrade.list_one": "{options} kehtib nagu varem loetelule. Kaart näeb välja samasugune.",
   "upgrade.shared": "{options} kehtivad nüüd igale paigutusele, välja arvatud seal, kus paigutusel on oma väärtus.",
   "upgrade.shared_one": "{options} kehtib nüüd igale paigutusele, välja arvatud seal, kus paigutusel on oma väärtus.",
+  "upgrade.same": "Kaart näeb välja samasugune.",
   "upgrade.weather": "Ilm seatakse nüüd iga paigutuse jaoks eraldi: loetelupaigutus, veerupaigutus ja ajaraster näitavad edasi seda, mida kaart varem näitas, ning kuupaigutuses on ilm välja lülitatud.",
   "upgrade.weather_some": "Ilm seatakse nüüd iga paigutuse jaoks eraldi. Ülemise taseme ilmavalikud kehtivad nüüd paigutustes: {layouts}.",
   "upgrade.weather_none": "Ilm seatakse nüüd iga paigutuse jaoks eraldi.",

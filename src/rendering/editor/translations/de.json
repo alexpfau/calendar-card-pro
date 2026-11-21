@@ -340,6 +340,7 @@
   "upgrade.list_one": "{options} gilt wie bisher für die Liste. Die Karte sieht gleich aus.",
   "upgrade.shared": "{options} gelten jetzt für jedes Layout, außer wo ein Layout eigene Werte hat.",
   "upgrade.shared_one": "{options} gilt jetzt für jedes Layout, außer wo ein Layout einen eigenen Wert hat.",
+  "upgrade.same": "Die Karte sieht gleich aus.",
   "upgrade.weather": "Das Wetter wird jetzt je Layout eingestellt: Liste, Spalten und Zeitraster zeigen weiter, was die Karte bisher gezeigt hat, und im Monat ist es aus.",
   "upgrade.weather_some": "Das Wetter wird jetzt je Layout eingestellt. Die Wetteroptionen der obersten Ebene gelten jetzt für folgende Layouts: {layouts}.",
   "upgrade.weather_none": "Das Wetter wird jetzt je Layout eingestellt.",

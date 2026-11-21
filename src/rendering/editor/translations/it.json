@@ -337,6 +337,7 @@
   "upgrade.list_one": "{options} ora vale per Lista, come prima. La scheda ha lo stesso aspetto.",
   "upgrade.shared": "{options} valgono ora per ogni layout, tranne dove un layout ha valori propri.",
   "upgrade.shared_one": "{options} vale ora per ogni layout, tranne dove un layout ha un valore proprio.",
+  "upgrade.same": "La scheda ha lo stesso aspetto.",
   "upgrade.weather": "Il meteo ora si imposta per ogni layout: Lista, Colonne e Griglia oraria mostrano ciò che la scheda mostrava già, e in Mese è disattivato.",
   "upgrade.weather_some": "Il meteo ora si imposta per ogni layout: le opzioni meteo del livello principale ora valgono per {layouts}.",
   "upgrade.weather_none": "Il meteo ora si imposta per ogni layout.",

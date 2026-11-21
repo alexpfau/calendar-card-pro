@@ -340,6 +340,7 @@
   "upgrade.list_one": "Inställningen {options} gäller nu för listan, som tidigare. Kortet ser likadant ut.",
   "upgrade.shared": "{options} gäller nu för alla layouter, utom där en layout har egna värden.",
   "upgrade.shared_one": "{options} gäller nu för alla layouter, utom där en layout har ett eget värde.",
+  "upgrade.same": "Kortet ser likadant ut.",
   "upgrade.weather": "Vädret ställs nu in per layout: Lista, Kolumner och Tidsrutnät visar samma sak som kortet visade tidigare, och i Månad är det av.",
   "upgrade.weather_some": "Vädret ställs nu in per layout: Väderinställningarna på översta nivån gäller nu för {layouts}.",
   "upgrade.weather_none": "Vädret ställs nu in per layout.",

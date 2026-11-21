@@ -338,6 +338,7 @@
   "upgrade.list_one": "Iestatījums {options} kā līdz šim attiecas uz sarakstu. Karte izskatās tāpat.",
   "upgrade.shared": "{options} tagad attiecas uz katru izkārtojumu, izņemot tos, kam ir savas vērtības.",
   "upgrade.shared_one": "{options} tagad attiecas uz katru izkārtojumu, izņemot tos, kam ir sava vērtība.",
+  "upgrade.same": "Karte izskatās tāpat.",
   "upgrade.weather": "Laikapstākļi tagad tiek iestatīti katram izkārtojumam atsevišķi: saraksts, kolonnas un laika režģis rāda to pašu, ko karte rādīja līdz šim, bet mēneša izkārtojumā laikapstākļi ir izslēgti.",
   "upgrade.weather_some": "Laikapstākļi tagad tiek iestatīti katram izkārtojumam atsevišķi. Augšējā līmeņa laikapstākļu opcijas tagad attiecas uz izkārtojumiem: {layouts}.",
   "upgrade.weather_none": "Laikapstākļi tagad tiek iestatīti katram izkārtojumam atsevišķi.",

@@ -339,6 +339,7 @@
   "upgrade.list_one": "Sąrašui, kaip ir anksčiau, taikoma: {options}. Kortelė atrodo taip pat.",
   "upgrade.shared": "Dabar kiekvienam išdėstymui, nebent jis turi savo reikšmę, taikoma: {options}.",
   "upgrade.shared_one": "Dabar kiekvienam išdėstymui, nebent jis turi savo reikšmę, taikoma: {options}.",
+  "upgrade.same": "Kortelė atrodo taip pat.",
   "upgrade.weather": "Orai dabar nustatomi kiekvienam išdėstymui atskirai: sąrašas, stulpeliai ir laiko tinklelis rodo tai, ką kortelė rodė iki šiol, o mėnesio išdėstyme orai išjungti.",
   "upgrade.weather_some": "Orai dabar nustatomi kiekvienam išdėstymui atskirai. Viršutinio lygio orų parinktys dabar taikomos išdėstymams: {layouts}.",
   "upgrade.weather_none": "Orai dabar nustatomi kiekvienam išdėstymui atskirai.",

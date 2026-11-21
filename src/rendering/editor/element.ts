@@ -472,6 +472,8 @@ interface StatusLine {
     readonly keys: ReadonlyArray<string>;
     readonly before: Snapshot;
     readonly shared: boolean;
+    /** Whether the card looks as it did: so after the upgrade, and no longer once shared since. */
+    readonly same: boolean;
     /** What converting the weather written before v6 did, where the upgrade converted it. */
     readonly weather?: WeatherMigration.WeatherMigrationResult;
   };
@@ -1515,9 +1517,23 @@ export class CalendarCardProEditor extends LitElement {
       return false;
     }
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
-    if (kind === 'ambiguous') this._adoptMigration(this._migrationResult('keep-list'));
+    if (kind === 'ambiguous') this._adoptMigration(this._migrationResult(this._upgradeMode()));
     this._convertWeather();
     return true;
+  }
+
+  /**
+   * What the upgrade does with the root options v5 split: keeps them List's, where every layout
+   * the card can show looks the same for it, or shares them with every layout, which changes none
+   * (`Value.upgradeMode`).
+   *
+   * @returns The migration mode
+   */
+  private _upgradeMode(): Value.ListMigrationMode {
+    return Value.upgradeMode(
+      Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
+      this._rawConfig ?? {},
+    );
   }
 
   /**
@@ -1554,15 +1570,16 @@ export class CalendarCardProEditor extends LitElement {
     const before = this._snapshot();
     const ctx = this._ctx;
     let weather: WeatherMigration.WeatherMigrationResult | undefined;
+    const mode = keys.length > 0 ? this._upgradeMode() : 'keep-list';
     this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
-      if (keys.length > 0) this._adoptMigration(this._migrationResult('keep-list'));
+      if (keys.length > 0) this._adoptMigration(this._migrationResult(mode));
       else if (!this._prepareForWriteWithoutWeather()) return;
       // A block that names no entity is left to the first write, with the list migration's.
       if (weatherDrawn) weather = this._convertWeather();
       this._send(this._rawConfig!);
     });
     if (keys.length === 0 && weather === undefined) return;
-    const upgrade = { keys, before, shared: false, weather };
+    const upgrade = { keys, before, shared: mode === 'shared-root', same: true, weather };
     this._status = { kind: 'upgrade', text: '', at: 0, upgrade };
     this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, upgrade)}`);
   }
@@ -1598,7 +1615,7 @@ export class CalendarCardProEditor extends LitElement {
       this._convertWeather();
       this._send(this._rawConfig!);
     });
-    const shared = { ...upgrade, shared: true };
+    const shared = { ...upgrade, shared: true, same: false };
     this._showStatus(
       { kind: 'upgrade', text: '', at: 0, upgrade: shared },
       `${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, shared)}`,
@@ -1617,6 +1634,8 @@ export class CalendarCardProEditor extends LitElement {
     const sentences: string[] = [];
     if (upgrade.keys.length > 0) {
       sentences.push(this._upgradeText(ctx, upgrade.keys, upgrade.shared));
+      // The List sentences say it themselves; shared on opening, the roots stayed where they were.
+      if (upgrade.shared && upgrade.same) sentences.push(this._string(ctx, 'upgrade.same'));
     }
     const weather = upgrade.weather;
     if (weather !== undefined) {

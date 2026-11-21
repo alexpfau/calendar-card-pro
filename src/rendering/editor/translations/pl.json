@@ -338,6 +338,7 @@
   "upgrade.list_one": "{options} dotyczy układu Lista, tak jak wcześniej. Karta wygląda tak samo.",
   "upgrade.shared": "{options} dotyczą teraz każdego układu, chyba że układ ma własne wartości.",
   "upgrade.shared_one": "{options} dotyczy teraz każdego układu, chyba że układ ma własną wartość.",
+  "upgrade.same": "Karta wygląda tak samo.",
   "upgrade.weather": "Pogoda jest teraz ustawiana osobno dla każdego układu: Lista, Kolumny i Siatka czasu pokazują to samo co wcześniej, a w układzie Miesiąc jest wyłączona.",
   "upgrade.weather_some": "Pogoda jest teraz ustawiana osobno dla każdego układu. Opcje pogody z poziomu głównego obowiązują teraz w układach: {layouts}.",
   "upgrade.weather_none": "Pogoda jest teraz ustawiana osobno dla każdego układu.",

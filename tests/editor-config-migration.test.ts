@@ -109,6 +109,59 @@ describe('ambiguous legacy configurations', () => {
     ]);
   });
 
+  it.each([
+    {
+      name: 'List and Columns',
+      toolbar: { show: true, view_switcher_layouts: ['list', 'column'] },
+    },
+    {
+      name: 'Grid and Columns',
+      view: 'grid',
+      toolbar: { show: true, view_switcher_layouts: ['column'] },
+    },
+  ])(
+    'shares the roots on opening where $name are offered, so every layout looks the same',
+    async (card) => {
+      const authored = {
+        entities: ['calendar.anna'],
+        event_font_size: '18px',
+        show_past_events: false,
+        ...(card.view === undefined ? {} : { view: card.view }),
+        toolbar: card.toolbar,
+      };
+      const { editor, reports } = await mount(authored);
+      const stored = reports[0]!;
+
+      expect(stored).toMatchObject({ event_font_size: '18px', show_past_events: false });
+      expect(stored).not.toHaveProperty('list');
+      for (const view of ['list', 'column', 'grid'] as const) {
+        const before = View.resolveEffectiveConfig(merged(authored), view);
+        const after = View.resolveEffectiveConfig(merged(stored), view);
+        expect([view, after.event_font_size, after.show_past_events]).toEqual([
+          view,
+          before.event_font_size,
+          before.show_past_events,
+        ]);
+      }
+      expect(receipt(editor)!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+        'Upgraded. Event Font Size and Show Past Events now apply to every layout, unless a layout ' +
+          'has its own. The card looks the same. Undo',
+      );
+    },
+  );
+
+  it('keeps the roots for List on opening where the other offered layout has its own', async () => {
+    // Grid starts from a default of its own for both, so it draws neither root either way.
+    const { reports } = await mount({
+      event_font_size: '18px',
+      show_past_events: false,
+      toolbar: { show: true, view_switcher_layouts: ['list', 'grid'] },
+    });
+    expect(reports[0]).toMatchObject({
+      list: { event_font_size: '18px', show_past_events: false },
+    });
+  });
+
   it('upgrades nothing when the card has no divergent root', async () => {
     const { editor, reports } = await mount({ view: 'list', title: 'Family' });
     expect(receipt(editor)).toBeNull();
