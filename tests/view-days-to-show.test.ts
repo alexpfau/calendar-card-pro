@@ -278,10 +278,12 @@ describe('the layout fits each view by its own count', () => {
     });
   });
 
-  it('defaults column’s floor to two, and under cramp to column’s own count', () => {
-    expect(ViewConfig.resolveMinDaysToShow(config(), 'column')).toBe(2);
+  it('defaults column’s floor to two where the card pages, and else to column’s own count', () => {
+    const paging = { toolbar: { show: true, navigation: true } };
+    expect(ViewConfig.resolveMinDaysToShow(config(paging), 'column')).toBe(2);
+    expect(ViewConfig.resolveMinDaysToShow(config(), 'column')).toBe(5);
 
-    const cramped = config();
+    const cramped = config(paging);
     cramped.column = { ...cramped.column, min_days_fallback: 'cramp' };
     expect(ViewConfig.resolveMinDaysToShow(cramped, 'column')).toBe(5);
   });

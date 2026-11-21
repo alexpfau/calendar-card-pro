@@ -13,7 +13,7 @@
  * observable. A gate promise lets a subscription be held open mid-await, which is the
  * only way to reach the two staleness guards.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { buildConfig } from './fixtures';
@@ -48,11 +48,16 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
  */
 function makeConnection() {
   const subs: SubRecord[] = [];
+  const ready = new Set<() => void>();
   let gate: Promise<void> | null = null;
   let openGate: (() => void) | null = null;
 
   return {
     subs,
+    /** The connection came back: Home Assistant's library fires `ready`. */
+    fireReady() {
+      for (const listener of ready) listener();
+    },
     hold() {
       gate = new Promise<void>((resolve) => {
         openGate = resolve;
@@ -64,6 +69,10 @@ function makeConnection() {
       openGate = null;
     },
     connection: {
+      connected: true,
+      addEventListener(type: string, listener: () => void) {
+        if (type === 'ready') ready.add(listener);
+      },
       async subscribeMessage(
         callback: (message: { forecast: Array<Record<string, unknown>> }) => void,
         payload: { type: string; forecast_type: string; entity_id: string },
@@ -337,5 +346,101 @@ describe('weather subscriptions: forecast delivery', () => {
     // this — assigning a fresh object, which Lit sees as a change, and the explicit
     // `requestUpdate()` — so each masks the other and only breaking both stops the redraw.
     expect(renders).toBeGreaterThan(0);
+  });
+});
+
+describe('weather subscriptions: across a reconnect', () => {
+  const FORECAST = [{ datetime: '2026-06-17T00:00:00.000Z', condition: 'sunny', temperature: 21 }];
+  const LATER = [{ datetime: '2026-06-17T00:00:00.000Z', condition: 'rainy', temperature: 9 }];
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  async function mountLive() {
+    const mounted = mount({ entity: 'weather.home', position: 'date' });
+    await vi.advanceTimersByTimeAsync(10);
+    const { card, conn } = await mounted;
+    conn.subs[0].emit(FORECAST);
+    await card.updateComplete;
+    return { card, conn };
+  }
+
+  const condition = (card: CardElement) =>
+    Object.values(card.weatherForecasts.daily ?? {})[0]?.condition;
+
+  it('subscribes again when the subscription stays silent after the connection came back', async () => {
+    // The library subscribes again by itself; after a restart before the weather entity has
+    // loaded, Home Assistant refuses that, and the library drops it without a word.
+    const { card, conn } = await mountLive();
+
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(conn.subs).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(conn.subs).toHaveLength(2);
+    // The silent one keeps the id it had on the old connection; unsubscribing with it could
+    // close some other subscription.
+    expect(conn.subs[0].unsubscribed).toBe(0);
+    conn.subs[1].emit(LATER);
+    await card.updateComplete;
+    expect(condition(card)).toBe('rainy');
+  });
+
+  it('does not subscribe twice when the library subscribed again by itself', async () => {
+    const { conn } = await mountLive();
+
+    conn.fireReady();
+    conn.subs[0].emit(FORECAST);
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(conn.subs).toHaveLength(1);
+  });
+
+  it('drops and unsubscribes a silent subscription that pushes after it was replaced', async () => {
+    const { card, conn } = await mountLive();
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(30_000);
+    conn.subs[1].emit(LATER);
+
+    conn.subs[0].emit(FORECAST);
+    await vi.advanceTimersByTimeAsync(10);
+    await card.updateComplete;
+
+    expect(condition(card)).toBe('rainy');
+    expect(conn.subs[0].unsubscribed).toBe(1);
+    expect(conn.subs[1].unsubscribed).toBe(0);
+  });
+
+  it('stops asking once the card has left the page', async () => {
+    const { card, conn } = await mountLive();
+
+    card.remove();
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(conn.subs).toHaveLength(1);
+  });
+});
+
+describe('weather subscriptions: a connection that cannot subscribe', () => {
+  // A weather stream that fails must not take the card down with it (host-guards.test.ts). The
+  // reconnect handling built the request outside the try that catches a refusal, so a connection
+  // without `subscribeMessage` threw an unhandled rejection where it used to be logged.
+  it('resolves to no subscription rather than rejecting', async () => {
+    const { subscribeToWeatherForecast } = await import('../src/utils/weather');
+    const hass = { connection: {} } as unknown as Types.Hass;
+    const config = buildConfig({ weather_entity: 'weather.home' } as Partial<Types.Config>);
+
+    await expect(subscribeToWeatherForecast(hass, config, 'daily', () => {})).resolves.toBe(
+      undefined,
+    );
   });
 });

@@ -272,6 +272,7 @@
   "misplaced.message": "Te opcje są zapisane tam, gdzie karta ich nie odczytuje. Przenieś każdą z nich tam, gdzie działa, albo zmień ją w YAML.",
   "misplaced.fetch_time": "Decyduje, które wydarzenia są wczytywane, więc działa tylko dla całej karty, na poziomie głównym.",
   "misplaced.card_wide": "Działa tylko dla całej karty, na poziomie głównym.",
+  "misplaced.no_effect": "Nie działa w tym układzie ani tutaj, ani na poziomie głównym.",
   "misplaced.wrong_view": "Należy do innego układu: {places}.",
   "misplaced.view_only": "Działa tylko we własnych ustawieniach układu: {places}.",
   "misplaced.calendar": "Działa tylko dla jednego kalendarza: ustaw ją w sekcji entities, przy kalendarzu, którego dotyczy.",

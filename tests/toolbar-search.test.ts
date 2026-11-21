@@ -317,6 +317,16 @@ function found(term: string): Array<[string, string]> {
     .groups.flatMap((group) => group.hits.map(({ row }): [string, string] => [row.title, row.day]));
 }
 
+/** The hit for the event with `title` among what `term` finds: its row, and what is marked. */
+function hitFor(term: string, title: string): Search.SearchHit {
+  const hit = source()
+    .find(term)
+    .groups.flatMap((group) => group.hits)
+    .find(({ row }) => row.title === title);
+  if (!hit) throw new Error(`"${term}" does not find "${title}"`);
+  return hit;
+}
+
 function rowFor(term: string, title: string): Search.SearchRow {
   const row = source()
     .find(term)
@@ -733,7 +743,7 @@ describe('what a term finds', () => {
     expect(found('cleaning')).toEqual([['Dentist cleaning', '2026-01-10']]);
   });
 
-  it('reads the location as drawn, its country removed, and the description where it is shown', async () => {
+  it('draws the location as the rows do, its country removed, and marks a match only there', async () => {
     const card = await mount(
       configFor({
         show_location: true,
@@ -745,18 +755,88 @@ describe('what a term finds', () => {
 
     const row = rowFor('high street', 'Dentist check-up');
     expect(row.location).toBe('Dental Clinic, 12 High Street');
-    expect(found('germany')).toEqual([]);
+    expect(hitFor('high street', 'Dentist check-up').location).toEqual([18, 29]);
+    // The popover shows the country, so a search finds it there, with nothing in the row to mark.
+    expect(found('germany')).toEqual([['Dentist check-up', '2026-12-08']]);
+    expect(hitFor('germany', 'Dentist check-up').location).toBeUndefined();
     expect(found('recital')).toEqual([['Piano', '2026-09-02']]);
   });
 
-  it('does not look in a location or a description the card does not draw', async () => {
+  it('finds a location and a description the card does not draw, as the popover shows them', async () => {
     const card = await mount(
       configFor({ show_location: false, show_description: false } as Partial<Types.Config>),
     );
     await openSearch(card);
 
+    expect(found('high street')).toEqual([['Dentist check-up', '2026-12-08']]);
+    expect(found('recital')).toEqual([['Piano', '2026-09-02']]);
+    // Nothing drawn, so nothing to mark.
+    expect(rowFor('high street', 'Dentist check-up').location).toBe('');
+    expect(hitFor('high street', 'Dentist check-up').location).toBeUndefined();
+  });
+
+  it('finds a hidden location as the calendar’s replacement writes it', async () => {
+    const card = await mount(
+      configFor({
+        entities: [
+          {
+            entity: ANNA,
+            show_location: false,
+            replace_field: 'location',
+            replace_pattern: 'Dental Clinic',
+            replace_with: 'Smile Studio',
+          },
+          BEN,
+        ],
+      } as Partial<Types.Config>),
+    );
+    await openSearch(card);
+
+    expect(found('smile studio')).toEqual([['Dentist check-up', '2026-12-08']]);
+    expect(found('dental clinic')).toEqual([]);
+  });
+
+  it('finds every location of a merged row, one its calendar keeps off the rows included', async () => {
+    const review = (location: string, uid: string) =>
+      timed('2026-06-20T09:00:00Z', '2026-06-20T10:00:00Z', 'Review', { uid, location });
+    calendars[ANNA].push(review('Hall A', 'review-a'));
+    calendars[BEN].push(review('Hall B', 'review-b'));
+    const card = await mount(
+      configFor({
+        show_location: true,
+        filter_duplicates: 'merge_locations',
+        entities: [ANNA, { entity: BEN, show_location: false }],
+      } as Partial<Types.Config>),
+    );
+    await openSearch(card);
+
+    expect(rowFor('review', 'Review').location).toBe('Hall A');
+    expect(found('hall b')).toEqual([['Review', '2026-06-20']]);
+  });
+
+  it('never finds a private calendar’s location or description, drawn or not', async () => {
+    const card = await mount(
+      configFor({
+        show_location: true,
+        show_description: true,
+        entities: [
+          { entity: ANNA, private: true },
+          { entity: BEN, private: true },
+        ],
+      } as Partial<Types.Config>),
+    );
+    await openSearch(card);
+
     expect(found('high street')).toEqual([]);
     expect(found('recital')).toEqual([]);
+    // Control: the same card finds both once the calendars are not private.
+    await closeSearch(card);
+    card.remove();
+    manager.panel = null;
+    const open = await mount(configFor({ show_location: false, show_description: false }));
+    await openSearch(open);
+    expect(found('high street')).toHaveLength(1);
+    expect(found('recital')).toHaveLength(1);
   });
 
   it('reads a title with the calendar’s replacements made, as its rows draw it', async () => {
@@ -903,7 +983,8 @@ describe('what a term finds', () => {
       // Across midnight, inside them on its second day only, which the grid draws as a day of
       // its own.
       timed('2026-06-22T23:00:00Z', '2026-06-23T19:00:00Z', 'Overnight drive', { uid: 'g-5' }),
-      // Inside them, at a place the grid does not show unless its block asks it to.
+      // Inside them, at a place the grid does not show unless its block asks it to, and found
+      // there all the same, as the popover shows it.
       timed('2026-06-23T19:30:00Z', '2026-06-23T20:30:00Z', 'Quiz night', {
         uid: 'g-6',
         location: 'Harbor tavern',
@@ -917,7 +998,7 @@ describe('what a term finds', () => {
     const grid = await mount(configFor({ ...config, view: 'grid' }), { width: 1100 });
     expect((grid as unknown as { effectiveView: string }).effectiveView).toBe('grid');
     await openSearch(grid);
-    expect(terms.map((term) => found(term).length)).toEqual([1, 0, 0, 1, 1, 0]);
+    expect(terms.map((term) => found(term).length)).toEqual([1, 0, 0, 1, 1, 1]);
     await closeSearch(grid);
     grid.remove();
     manager.panel = null;
@@ -939,7 +1020,7 @@ describe('what a term finds', () => {
       }),
     );
     for (const view of ['list', 'grid'] as const) {
-      // The grid hides locations by default, and search finds only what is drawn.
+      // The grid hides locations by default; drawn, each result shows its own.
       const card = await mount(
         configFor({
           view,

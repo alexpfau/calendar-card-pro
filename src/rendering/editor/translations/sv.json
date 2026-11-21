@@ -274,6 +274,7 @@
   "misplaced.message": "De här inställningarna står där kortet inte läser dem. Flytta var och en dit den fungerar, eller ändra den i YAML.",
   "misplaced.fetch_time": "Avgör vilka händelser som läses in, så den fungerar bara för hela kortet, på översta nivån.",
   "misplaced.card_wide": "Fungerar bara för hela kortet, på översta nivån.",
+  "misplaced.no_effect": "Har ingen effekt i den här layouten, varken här eller på översta nivån.",
   "misplaced.wrong_view": "Hör till en annan layout: {places}.",
   "misplaced.view_only": "Fungerar bara i en layouts egna inställningar: {places}.",
   "misplaced.calendar": "Fungerar bara för en enskild kalender: ange den under entities, på kalendern den är avsedd för.",

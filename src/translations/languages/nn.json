@@ -22,6 +22,8 @@
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig",
   "loadFailed": "Kunne ikkje lastast:",
   "newEvent": "Ny hending",
+  "movedTo": "Flytta til {time}",
+  "undo": "Angre",
   "showAll": "Vis alle",
   "hideAll": "Skjul alle",
   "private": "Privat"

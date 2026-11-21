@@ -273,6 +273,7 @@
   "misplaced.message": "Tieto možnosti sú zapísané tam, kde ich karta nečíta. Presuňte každú tam, kde funguje, alebo ju zmeňte v YAML.",
   "misplaced.fetch_time": "Určuje, ktoré udalosti sa načítajú, preto funguje len pre celú kartu, na najvyššej úrovni.",
   "misplaced.card_wide": "Funguje len pre celú kartu, na najvyššej úrovni.",
+  "misplaced.no_effect": "V tomto rozložení nemá žiadny účinok, ani tu, ani na najvyššej úrovni.",
   "misplaced.wrong_view": "Patrí do iného rozloženia: {places}.",
   "misplaced.view_only": "Funguje len vo vlastných nastaveniach rozloženia: {places}.",
   "misplaced.calendar": "Funguje len pre jeden kalendár: nastavte ju v časti entities pri kalendári, pre ktorý je určená.",

@@ -11,6 +11,7 @@ import {
   computeBannerPlacement,
   computeEventPlacement,
   computeNowLinePct,
+  headPins,
   isRuledMinute,
   layoutLanes,
   overflowStripWidth,
@@ -893,6 +894,23 @@ describe('layoutLanes', () => {
 
   it('returns nothing for no events', () => {
     expect(layoutLanes([], 3)).toEqual({ placed: [], overflows: [] });
+  });
+});
+
+describe('headPins', () => {
+  // The grid's head pins to the top of the events area only while the area scrolls at all, and
+  // only while it leaves the hours room: a head over half the area would leave a short card
+  // little or nothing of the hours to scroll through.
+  it.each([
+    ['a head under half of an area that scrolls', 80, 228, 800, true],
+    ['a head at exactly half', 100, 200, 800, true],
+    ['a head over half', 101, 200, 800, false],
+    ['a head taller than the whole area', 79, 68, 440, false],
+    ['an area that does not scroll', 80, 800, 800, false],
+    ['an area not laid out', 80, 0, 0, false],
+    ['a head not laid out', 0, 228, 800, false],
+  ])('%s', (_case, headPx, areaPx, contentPx, expected) => {
+    expect(headPins(headPx, areaPx, contentPx)).toBe(expected);
   });
 });
 

@@ -649,14 +649,25 @@ describe('narrow cards', () => {
     }
   });
 
-  it('draws Columns with its default floor on a phone, two days of seven', async () => {
-    // Columns sheds days down to two before it falls back, so without the fixture's floor a
-    // phone draws it rather than a list.
-    const card = await mount({ view: 'column', column: {} });
+  it('draws Columns with its default floor on a phone that pages, two days of seven', async () => {
+    // Columns sheds days down to two before it falls back where the arrows reach the rest, so
+    // without the fixture's floor a phone draws it rather than a list.
+    const card = await mount({
+      view: 'column',
+      column: {},
+      toolbar: { ...SWITCHER_ONLY, navigation: true },
+    });
     await measure(card, NARROW);
 
     expect(drawnView(card)).toBe('column');
     expect(card._columnCount).toBe(2);
+  });
+
+  it('falls back to the list on a phone where nothing pages to the days Columns would shed', async () => {
+    const card = await mount({ view: 'column', column: {} });
+    await measure(card, NARROW);
+
+    expect(drawnView(card)).toBe('list');
   });
 });
 

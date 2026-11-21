@@ -651,6 +651,59 @@ describe('the line pitch and the date line the card measures', () => {
   });
 });
 
+describe('an event set larger by text_scale', () => {
+  /** The lines drawn in the second row's Tuesday, the 10th, as `title gridRow`. */
+  const tuesday = (card: CardUnderTest) =>
+    linesIn(month(card).querySelectorAll('.month-week')[2], '2').map(
+      (line) => `${text(line.querySelector('.month-line-title'))} ${line.style.gridRow}`,
+    );
+  const moreOnTuesday = (card: CardUnderTest) =>
+    [...month(card).querySelectorAll('.month-week')[2].querySelectorAll('.month-more')].map(
+      (button) => text(button),
+    );
+
+  it('takes as many lines as its scale before the card has measured one, never fewer', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 2 }] });
+    // Four lines: Standup takes two, Review's two would leave none for "+N more".
+    expect(tuesday(card)).toEqual(['Standup 2 / span 2']);
+    expect(moreOnTuesday(card)).toEqual(['+4 more']);
+  });
+
+  it('takes the lines its scale measures, from probes set in that scale’s sizes', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 2 }] });
+    const probes = [...month(card).querySelectorAll<HTMLElement>('.month-probe[data-scale]')];
+    expect(probes.map((probe) => [probe.dataset.probe, probe.dataset.scale])).toEqual([
+      ['scaled-title', '2'],
+      ['scaled-time', '2'],
+    ]);
+    expect(
+      probes.every((probe) => probe.style.getPropertyValue('--calendar-card-font-size-event')),
+    ).toBe(true);
+
+    // A week of six 20px lines under a 22px date line, and a line at twice the size 50px tall:
+    // three lines.
+    layOut(card, { week: 143 });
+    const [scaledTitle, scaledTime] = probes;
+    scaledTitle.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 50, height: 50, width: 0 }) as DOMRect;
+    scaledTime.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 30, height: 30, width: 0 }) as DOMRect;
+    expect(MonthRender.measureMonthScaleLines(card.shadowRoot!)).toEqual(new Map([[2, 3]]));
+
+    card.requestUpdate();
+    await card.updateComplete;
+    await card.updateComplete;
+    expect(tuesday(card)).toEqual(['Standup 2 / span 3']);
+    expect(moreOnTuesday(card)).toEqual(['+4 more']);
+  });
+
+  it('keeps one line for text set smaller, and draws no probe for it', async () => {
+    const card = await mount({ entities: [{ entity: 'calendar.anna', text_scale: 0.5 }] });
+    expect(month(card).querySelectorAll('.month-probe[data-scale]')).toHaveLength(0);
+    expect(tuesday(card)).toEqual(['Standup 2', 'Review 3', 'Lunch 4']);
+  });
+});
+
 describe('the sizes a month’s text is set in', () => {
   /** A custom property as an element's own style writes it, or undefined. */
   const own = (element: Element, property: string): string | undefined =>

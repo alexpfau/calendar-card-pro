@@ -1478,11 +1478,10 @@ function dayPassesWeekFilter(
  *   where every reader takes them from.
  * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
  *   (`Search.ringIn`), so no event reaching the copy carries one.
- * - `_mergedLocations` is drawn into the copy's own `location` (`mergedLocationText`), so no
- *   renderer needs the parts apart.
+ * - `_pastAsWhole` is read by the past-event filter, which runs before the copy is made.
  */
 type LeftOffDisplayCopy =
-  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
+  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_pastAsWhole';
 
 /**
  * The location a row `filter_duplicates: merge_locations` merged draws: each listed location as
@@ -1562,8 +1561,8 @@ export function drawsAsGridBanner(event: Types.CalendarEventData, config: Types.
  * @param config Configuration resolved for grid view
  * @returns The source events to draw as banners
  */
-function resolveGridBanners(
-  events: Types.CalendarEventData[],
+export function resolveGridBanners(
+  events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): ReadonlySet<Types.CalendarEventData> {
   const wantsBanner = (event: Types.CalendarEventData) => drawsAsGridBanner(event, config);
@@ -1741,7 +1740,15 @@ export function groupEventsByDay(
       return false;
     }
 
-    if (!config.show_past_events) {
+    // A day a month's day model lists of an event the month draws as a bar: past only once the
+    // whole event is, as the bar's days are (`_pastAsWhole`). A timed event's whole end is an
+    // instant, whichever shape the split gave this day; an all-day event's is its last day,
+    // taken through the all-day expiry below.
+    const whole = event._pastAsWhole ? event._sourceEnd : undefined;
+
+    if (!config.show_past_events && whole?.dateTime) {
+      if (new Date(whole.dateTime) < now) return false;
+    } else if (!config.show_past_events) {
       // A day of a banner is past only once the whole event is, as an all-day banner's is:
       // the banner stands for the event, so on Wednesday it still starts on Monday.
       const pastAt =
@@ -1773,8 +1780,9 @@ export function groupEventsByDay(
         ? undefined
         : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
 
-      const allDayEnd = event._gridSource?.end.date
-        ? Grid.addDays(FormatUtils.parseAllDayDate(event._gridSource.end.date), -1)
+      const wholeEndDate = event._gridSource?.end.date ?? whole?.date;
+      const allDayEnd = wholeEndDate
+        ? Grid.addDays(FormatUtils.parseAllDayDate(wholeEndDate), -1)
         : endDate;
       if (isAllDayEvent && now >= allDayExpiryInstant(allDayEnd, configuredExpiry)) {
         return false;
@@ -2013,6 +2021,9 @@ export function groupEventsByDay(
         // `tsc` error; a member left out on purpose goes in `LeftOffDisplayCopy`, with its
         // reason.
         _mergedFrom: event._mergedFrom,
+        // Drawn into `location` above for the row; carried on for what the row does not draw,
+        // which the popover shows (`EventDetails.displayText`) and a search finds.
+        _mergedLocations: event._mergedLocations,
         _source: event._source,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
@@ -3443,8 +3454,10 @@ export function eventHasStarted(event: Types.CalendarEventData, now: Date): bool
  * request of every calendar listed after it. Results are still assembled in config order,
  * so nothing downstream sees a difference.
  *
- * Each request is bounded by `CALENDAR_FETCH_TIMEOUT`. A calendar that does not answer in
- * time counts as failed; its late response, if one ever arrives, is ignored.
+ * Each calendar is bounded by `CALENDAR_FETCH_TIMEOUT`, its wait for a live subscription's
+ * first push and the REST request after it together; REST is always left at least
+ * `CALENDAR_REST_RESERVE`. A calendar that does not answer in time counts as failed; its late
+ * response, if one ever arrives, is ignored.
  *
  * @param hass Home Assistant instance
  * @param entities Configured calendars; a calendar listed more than once is fetched once
@@ -3471,6 +3484,7 @@ export async function fetchEvents(
       .map(async (entityId) => {
         const path = `calendars/${entityId}?${query}`;
 
+        const deadline = Date.now() + Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
         try {
           const pushed = release ? await LiveCalendars.load(hass, entityId, timeWindow) : undefined;
           if (pushed) Logger.info(`Using live events for ${entityId}`);
@@ -3479,7 +3493,7 @@ export async function fetchEvents(
             pushed ??
             (await withTimeout(
               hass.callApi('GET', path),
-              Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+              Math.max(Constants.TIMING.CALENDAR_REST_RESERVE, deadline - Date.now()),
               `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
             ));
 
@@ -3814,11 +3828,13 @@ function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Da
 /**
  * Calculate the week number using the majority-day rule.
  *
- * ISO weeks are anchored on Monday, so on a Sunday-start card a plain ISO number leaves
- * Sunday in the outgoing week and breaks the week before Monday instead of before Sunday.
- * Rolling Sunday forward onto the following Monday's number puts the boundary where the
- * configured first day says it belongs, and gives the week the six days that are already
- * the majority of it.
+ * ISO weeks run Monday to Sunday, so a week starting on any other day straddles two of them,
+ * and a plain ISO number per day changes on Monday, in the middle of the configured week. Every
+ * day of the configured week is therefore given the ISO number of its fourth day, the start
+ * plus three: that ISO week holds at least four of the seven days, the majority of them,
+ * whichever weekday the week starts on. On a Monday start it is the ISO week itself; on a
+ * Sunday start it is the following Monday's; on a Saturday start a week starting Saturday
+ * 2 January 2027 is week 1, as five of its days are, where the day's own ISO number said 53.
  *
  * The method is resolved through {@link FormatUtils.resolveWeekNumberMethod} rather than
  * read off the config, because `show_week_numbers: null` hides the number while still
@@ -3836,15 +3852,13 @@ export function calculateWeekNumberWithMajorityRule(
   config: Types.Config,
   firstDayOfWeek: number,
 ): number | null {
-  let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
-
-  const method = FormatUtils.resolveWeekNumberMethod(config.show_week_numbers);
-
-  if (method === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    weekNumber = FormatUtils.getISOWeekNumber(nextDay);
+  if (FormatUtils.resolveWeekNumberMethod(config.show_week_numbers) === 'iso') {
+    const intoWeek = (date.getDay() - firstDayOfWeek + 7) % 7;
+    // Built from the date's fields, so the step is in calendar days whatever the offset does.
+    return FormatUtils.getISOWeekNumber(
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() - intoWeek + 3, 12),
+    );
   }
 
-  return weekNumber;
+  return FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 }

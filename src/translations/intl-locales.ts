@@ -123,3 +123,16 @@ export function forgetIntlFormats(): void {
 export function intlGeneration(): number {
   return generation;
 }
+
+/**
+ * A local calendar day as noon UTC on the same date, for a cached format made with
+ * `timeZone: 'UTC'` to write: a format keeps the zone it was made in, and a cached one is kept
+ * for as long as the page is open, so one reading local time would name the day before or after
+ * once the device's zone changed. Noon keeps the date whatever offset a reader assumes.
+ *
+ * @param date - Any moment of the day, read in the local zone
+ * @returns The same date, at noon UTC
+ */
+export function utcCalendarDay(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+}

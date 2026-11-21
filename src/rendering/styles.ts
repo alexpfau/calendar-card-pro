@@ -3211,6 +3211,14 @@ export const cardStyles = css`
     margin-inline-end: 12px;
   }
 
+  /* A forecast that has gone twice its interval without an update, as when the connection to
+     Home Assistant came back without it: still drawn, since it is the best the card has, but
+     dimmed so it does not read as current. */
+  .weather-stale .weather,
+  .weather-stale .event-weather {
+    opacity: 0.5;
+  }
+
   .event-weather ha-icon {
     margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
@@ -5510,10 +5518,19 @@ export const cardStyles = css`
   }
 
   /* Column separators sit under the header because the grid gap already
-   * separates days horizontally. The bottom margin centers the rule in the
-   * header-to-events gap instead of shifting events downward. */
+   * separates days horizontally. The rule is drawn inside the header-to-events gap the
+   * header's own padding already supplies, centered in it, and takes no room of its own:
+   * pulled up by half the gap and half its width, it hands back the rest below, so the
+   * three add up to nothing and the events stay where they are with the rule off. The
+   * width comes from the element's own style (renderSharedDayHeader), because a border
+   * is the one thing here no CSS can measure. Until v6 the rule sat below the gap with
+   * a second gap after it, so turning it on moved every event down by the gap and the
+   * rule's width. */
   .column-header-separator {
-    margin-bottom: var(--calendar-card-column-header-gap, 8px);
+    --rule-gap: var(--calendar-card-column-header-gap, 8px);
+    --rule-width: var(--calendar-card-column-header-separator-width, 0px);
+    margin-top: calc(var(--rule-gap) / -2 - var(--rule-width) / 2);
+    margin-bottom: calc(var(--rule-gap) / 2 - var(--rule-width) / 2);
   }
 
   /* Week numbers occupy the grid's own band row. Every column emits the cell and
@@ -5885,6 +5902,10 @@ export const cardStyles = css`
        .grid-separator  z-index 1         the vertical day rules, above the blocks
        .grid-allday-band z-index 2        banners paint over the rules crossing the band
        .grid-boundary   z-index 3         the band's own rules, never covered by a banner
+       .grid-head       z-index 4         the rows above the hours while pinned, over all
+                                          of the above as the hours scroll under it; the
+                                          band, its rules and their pieces of the tints and
+                                          day rules keep their own rungs inside it
 
      The band's rung is what lets the day rules run through it: without it a spanning
      banner would be crossed by them and read as chopped into days, which is why they used
@@ -5920,11 +5941,86 @@ export const cardStyles = css`
 
   /* ----- Day headers ----- */
 
+  /* The rows above the hours -- week numbers, day headers and the all-day band, with the
+     band's piece of each tint and day rule and the band's own rules -- in one box that stays
+     at the top of the scrolling events area while the hours scroll under it. A card with a
+     card_height, a card_max_height or a max_height scrolls its whole grid once the hours reach
+     their floor, and without this the dates and the all-day events scrolled away with them.
+
+     One box rather than a sticky header row and a sticky band, because each row would need a
+     top offset equal to the height of the rows above it, which is content: a header grows with
+     its weather, its font sizes and its today tile. Both axes are subgrids spanning the same
+     three rows and every column, so every item inside lands on the track it had as a child of
+     .grid-container, and the unscrolled card is drawn as before.
+
+     Unpinned it has no z-index and makes no stacking context, so its children paint on the
+     rungs of the grid's own ladder as they did before it existed, among them a now dot at the
+     band's lower edge that overlaps the band's piece of a tint. */
+  .grid-head {
+    grid-column: 1 / -1;
+    grid-row: 1 / span 3;
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+  }
+
+  /* Pinned only while it leaves the hours room, which the card measures and marks with
+     data-pinned (headPins in utils/grid.ts): a head taller than half the area would leave a
+     short card little or nothing of the hours to scroll through.
+
+     z-index 4 puts it above every rung of the painting ladder in the body (the separators at
+     1, the now dot at 2, the closing rule at 3), which scroll under it. It also makes the head a
+     stacking context, in which its own children keep the same ladder among themselves.
+
+     The ground is the card's own background, the same value ha-card paints, so nothing
+     scrolled under the head shows through it, the corner over the hour axis included, which
+     is why the head spans that column too.
+
+     A crammed grid is never pinned and scrolls its head with the hours as before: it scrolls
+     sideways, which makes .grid-container a scroll container in both axes, and a sticky box
+     sticks to its nearest scroll container, which here never scrolls vertically. */
+  .grid-head[data-pinned] {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background-color: var(--calendar-card-background-color, var(--card-background-color));
+  }
+
+  /* The ground goes on only once the area has scrolled, where the browser can say so: from
+     transparent at the top of the area to the card's background one pixel down. So an
+     unscrolled card on a translucent card background is not darkened by a second coat of it.
+     A scroll timeline that cannot scroll is inactive and leaves the transparent value. Without
+     scroll timelines the ground is painted always, which an opaque background cannot tell
+     apart from none. */
+  @supports (animation-timeline: scroll()) {
+    .grid-head[data-pinned] {
+      background-color: transparent;
+      animation: calendar-card-grid-head-ground linear both;
+      animation-timeline: scroll(nearest block);
+      animation-range: 0px 1px;
+    }
+  }
+
+  @keyframes calendar-card-grid-head-ground {
+    to {
+      background-color: var(--calendar-card-background-color, var(--card-background-color));
+    }
+  }
+
+  /* What the hours hold is brought into view below the pinned head, by focus or by a search
+     ring, rather than at the area's top edge under it. A margin on the hours rather than a
+     padding on the area, which would also apply to what sits in the head and scroll the area
+     back to its top whenever the head's day button or a banner took focus. The card writes the
+     head's height on the area while it is pinned. */
+  .grid-head[data-pinned] ~ .grid-day-body * {
+    scroll-margin-top: var(--calendar-card-grid-head-height, 0px);
+  }
+
   .grid-day-header {
     min-width: 0;
   }
 
-  .grid-container > .column-week-number {
+  .grid-head > .column-week-number {
     justify-self: start;
     margin-bottom: 2px;
   }
@@ -7882,6 +7978,17 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  /* The same two at each text_scale a calendar sets, whose probes carry that scale's sizes. */
+  .month-probe[data-probe='scaled-title'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-probe[data-probe='scaled-time'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-time);
+  }
+
   @supports not (color: color-mix(in srgb, red, blue)) {
     .month-container {
       --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
@@ -7912,8 +8019,8 @@ export const cardStyles = css`
   /* One row: seven day columns, and the lines the renderer writes inline: the date line, then
      one per line the capacity holds, then whatever is left. Each line is as tall as what is on
      it, a line everywhere empty taking none. Every cell, date, bar, line and "+N" is placed on
-     it explicitly. Clipped, so a row the card has not measured yet, or one whose events
-     text_scale draws larger, never grows past its height. */
+     it explicitly. An event text_scale draws larger takes as many lines as it is tall. Clipped
+     even so, so a row the card has not measured yet never grows past its height. */
   .month-week {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -8034,8 +8141,9 @@ export const cardStyles = css`
      primary color for the digits in the same weight, as the narrow form marks today while it is
      the selected day. Among a day's colored lines and bars the wash, at 1.2 to 1.5 to 1 against
      the card, does not stand out; the fill, at 3.3 to 1 in Home Assistant's light theme and 5.2 to
-     1 in its dark one, does. Light digits read thinner on a fill than dark ones on a wash, hence
-     the weight. The ink is redefined rather than the color set, since the digits
+     1 in its dark one, does; where the browser has relative colors the fill is darkened for its
+     digits' sake (Month's two filled tiles, below). Light digits read thinner on a fill than dark
+     ones on a wash, hence the weight. The ink is redefined rather than the color set, since the digits
      take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
      week-number pill and the week separators, keeps the list's tile.
@@ -8380,6 +8488,35 @@ export const cardStyles = css`
     font-weight: 600;
   }
 
+  /* Month's two filled tiles, darkened until white digits pass WCAG's 4.5 to 1. The digits are
+     16px at 600, which is not large text, and Home Assistant's own light-blue primary gave them
+     3.3 to 1. A color lighter than 0.54 in OKLab lightness is scaled toward black until it
+     reaches it, its a and b by the same factor: that is its linear RGB times one number, so it
+     keeps its hue and stays inside sRGB, where lowering the lightness alone pushed a saturated
+     green out of gamut and back up to 4.1 to 1 once clipped. A color already that dark is left
+     exactly as it is. White then measures at least 4.7 to 1 on every sRGB color
+     (tests/today-tile.test.ts sweeps them). The digits are white rather than the theme's text on
+     its primary, because a theme that set that dark for a pale primary would now be drawing it on
+     a darkened fill. A browser without relative colors keeps the plain fill above. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
+    .month-container:not(.month-narrow) .month-date > .day.today-tile,
+    .month-narrow .month-day.month-selected.today .month-date > .day {
+      background: oklab(
+        from var(--calendar-card-today-indicator-color) calc(l * 0.54 / max(l, 0.54))
+          calc(a * 0.54 / max(l, 0.54)) calc(b * 0.54 / max(l, 0.54)) / alpha
+      );
+    }
+
+    .month-container:not(.month-narrow) .month-date > .day.today-tile {
+      --calendar-card-today-indicator-ink: #fff;
+    }
+
+    .month-narrow .month-day.month-selected.today .month-date > .day {
+      color: #fff;
+    }
+  }
+
   .month-narrow .month-day.other-month > * {
     opacity: 0.45;
   }
@@ -8394,6 +8531,37 @@ export const cardStyles = css`
   .month-narrow-mark {
     flex: none;
     width: 6px;
+  }
+
+  /* A day with more events than its capsule shows: a small plus beside the capsule, outside its
+     box, so the capsule stays centered where every other day's is. Its end segments round
+     themselves, since the capsule no longer clips them, to let the plus out. Nudged up a little,
+     since a plus sits below the middle of its em box. */
+  .month-narrow-marks[data-capped] {
+    position: relative;
+    overflow: visible;
+  }
+
+  .month-narrow-marks[data-capped] > .month-narrow-mark:first-child {
+    border-start-start-radius: 999px;
+    border-end-start-radius: 999px;
+  }
+
+  .month-narrow-marks[data-capped] > .month-narrow-mark:last-child {
+    border-start-end-radius: 999px;
+    border-end-end-radius: 999px;
+  }
+
+  .month-narrow-marks[data-capped]::after {
+    content: '+';
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: calc(100% + 2px);
+    transform: translateY(-60%);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--secondary-text-color);
   }
 
   /* The week number, centered in its gutter beside its week, the current week's at full

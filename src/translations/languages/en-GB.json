@@ -22,6 +22,8 @@
   "error": "Error: Calendar entity not found or improperly configured",
   "loadFailed": "Couldn't load:",
   "newEvent": "New event",
+  "movedTo": "Moved to {time}",
+  "undo": "Undo",
   "showAll": "Show all",
   "hideAll": "Hide all",
   "private": "Private"

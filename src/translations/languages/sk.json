@@ -22,6 +22,8 @@
   "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
   "loadFailed": "Nepodarilo sa načítať:",
   "newEvent": "Nová udalosť",
+  "movedTo": "Presunuté na {time}",
+  "undo": "Späť",
   "showAll": "Zobraziť všetky",
   "hideAll": "Skryť všetky",
   "private": "Súkromné"

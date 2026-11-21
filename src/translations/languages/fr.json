@@ -22,6 +22,8 @@
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
   "loadFailed": "Échec du chargement:",
   "newEvent": "Nouvel événement",
+  "movedTo": "Déplacé : {time}",
+  "undo": "Annuler",
   "showAll": "Tout afficher",
   "hideAll": "Tout masquer",
   "private": "Privé"

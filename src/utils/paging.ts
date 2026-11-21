@@ -13,7 +13,7 @@
  */
 
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
-import { intlCache, intlLocales } from '../translations/intl-locales';
+import { intlCache, intlLocales, utcCalendarDay } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -206,7 +206,8 @@ export function majorityMonth(range: PageRange): Date {
 const dateFormats = intlCache<string, Intl.DateTimeFormat>();
 
 /**
- * A cached date format for a language and a set of fields.
+ * A cached date format for a language and a set of fields. It reads its days in UTC: hand it
+ * `utcCalendarDay`'s, so it names the same day after the device's zone changes.
  *
  * @param language - Card language
  * @param withYear - Whether the year is part of it
@@ -226,6 +227,7 @@ function dateFormat(
       month: 'short',
       day: 'numeric',
       ...(withYear ? { year: 'numeric' as const } : {}),
+      timeZone: 'UTC',
     });
     dateFormats.set(key, format);
   }
@@ -273,21 +275,21 @@ export function rangeLabel(range: PageRange, language: string, now: Date): strin
   const year = now.getFullYear();
 
   if (range.days <= 1) {
-    return dateFormat(language, start.getFullYear() !== year, true).format(start);
+    return dateFormat(language, start.getFullYear() !== year, true).format(utcCalendarDay(start));
   }
 
   if (start.getFullYear() === end.getFullYear()) {
     const format = dateFormat(language, start.getFullYear() !== year, false) as RangeFormat;
     const separator = rangeSeparator(dateFormat(language, false, false) as RangeFormat);
     return typeof format.formatRange === 'function'
-      ? format.formatRange(start, end)
-      : `${format.format(start)}${separator}${format.format(end)}`;
+      ? format.formatRange(utcCalendarDay(start), utcCalendarDay(end))
+      : `${format.format(utcCalendarDay(start))}${separator}${format.format(utcCalendarDay(end))}`;
   }
 
   const withYear = end.getFullYear() !== nearestNewYear(now);
   const startFormat = dateFormat(language, false, false) as RangeFormat;
   const endFormat = dateFormat(language, withYear, false);
-  return `${startFormat.format(start)}${rangeSeparator(startFormat)}${endFormat.format(end)}`;
+  return `${startFormat.format(utcCalendarDay(start))}${rangeSeparator(startFormat)}${endFormat.format(utcCalendarDay(end))}`;
 }
 
 /**
@@ -318,7 +320,10 @@ function rangeSeparator(format: RangeFormat): string {
   if (separator === undefined) {
     const parts =
       typeof format.formatRangeToParts === 'function'
-        ? format.formatRangeToParts(new Date(2000, 0, 31), new Date(2000, 1, 1))
+        ? format.formatRangeToParts(
+            new Date(Date.UTC(2000, 0, 31, 12)),
+            new Date(Date.UTC(2000, 1, 1, 12)),
+          )
         : [];
     const lastStart = parts.map((part) => part.source).lastIndexOf('startRange');
     const firstEnd = parts.findIndex((part) => part.source === 'endRange');
@@ -351,7 +356,11 @@ function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
   const key = `${language}|month|${form}`;
   let format = dateFormats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(intlLocales(language), { month: form, year: 'numeric' });
+    format = new Intl.DateTimeFormat(intlLocales(language), {
+      month: form,
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
     dateFormats.set(key, format);
   }
   return format;
@@ -403,8 +412,9 @@ export function monthHeadingParts(
   form: MonthForm = 'long',
 ): MonthHeadingText {
   const format = monthFormat(language, form);
-  const parts = format.formatToParts(date);
-  let text = format.format(date);
+  const day = utcCalendarDay(date);
+  const parts = format.formatToParts(day);
+  let text = format.format(day);
   if (parts[0]?.type === 'month') {
     const locale = format.resolvedOptions().locale;
     text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
@@ -468,7 +478,7 @@ export function monthHeadingText(heading: MonthHeadingText): string {
  */
 function namesMonth(date: Date, language: string, form: MonthForm): boolean {
   const month = monthFormat(language, form)
-    .formatToParts(date)
+    .formatToParts(utcCalendarDay(date))
     .find((part) => part.type === 'month');
   return month !== undefined && /\p{L}/u.test(month.value);
 }
@@ -530,7 +540,7 @@ export function monthHeadings(
  * @returns The day's name
  */
 export function dayName(date: Date, language: string): string {
-  return dateFormat(language, false, true).format(date);
+  return dateFormat(language, false, true).format(utcCalendarDay(date));
 }
 
 const todayWords = intlCache<string, string>();
