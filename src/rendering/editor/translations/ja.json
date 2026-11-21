@@ -827,6 +827,7 @@
   "event_type.aliases": "終日の予定, 時刻指定の予定, 時間指定, 終日, イベントの種類",
   "event_type.helper": "予定の長さではなく、終日か時刻指定かで区別します。カレンダーごとに選ぶこともできます。",
   "language_mode": "言語",
+  "language_mode.option.system.label": "Home Assistantに従う",
   "time_format": "時間形式",
   "time_format.aliases": "12h, 24h, 12時間制, 24時間制, 午前, 午後, AM/PM, 時刻の表示",
   "time_format.option.system.label": "Home Assistantに従う",
