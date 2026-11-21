@@ -90,6 +90,7 @@
   "layouts.help_pick": "Kółko wybiera układ, w którym otwiera się karta.",
   "layouts.help_switch": "Gdy {link} jest włączony, można przełączać układy na karcie.",
   "layouts.help_switch_link": "przełącznik układu",
+  "layouts.offered": "Przełącznik układu oferuje teraz: {layouts}.",
   "layouts.help_open": "Wybierz układ, aby zmienić jego własne ustawienia.",
   "layouts.settings_named": "Ustawienia układu {layout}",
   "layouts.layout": "Układ",

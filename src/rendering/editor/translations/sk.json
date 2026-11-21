@@ -90,6 +90,7 @@
   "layouts.help_pick": "Krúžok vyberá rozloženie, v ktorom sa karta otvára.",
   "layouts.help_switch": "Keď je {link} zapnutý, na karte sa dá prepínať rozloženie.",
   "layouts.help_switch_link": "prepínač rozloženia",
+  "layouts.offered": "Prepínač rozloženia teraz ponúka: {layouts}.",
   "layouts.help_open": "Vyberte rozloženie, ak chcete zmeniť jeho vlastné nastavenia.",
   "layouts.settings_named": "Nastavenia rozloženia {layout}",
   "layouts.layout": "Rozloženie",

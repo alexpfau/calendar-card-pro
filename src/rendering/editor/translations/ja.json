@@ -90,6 +90,7 @@
   "layouts.help_pick": "丸印でカードの初期レイアウトを選びます。",
   "layouts.help_switch": "{link}をオンにすると、カード上でレイアウトを切り替えられます。",
   "layouts.help_switch_link": "レイアウト切り替え",
+  "layouts.offered": "レイアウト切り替えで{layouts}を選べるようになりました。",
   "layouts.help_open": "レイアウトを選ぶと、その個別設定を変更できます。",
   "layouts.defaults": "レイアウト共通設定",
   "layouts.settings_named": "{layout}の設定",

@@ -90,6 +90,7 @@
   "layouts.help_pick": "Der Kreis wählt das Layout, mit dem die Karte startet.",
   "layouts.help_switch": "Ist der {link} eingeschaltet, kann man auf der Karte das Layout wechseln.",
   "layouts.help_switch_link": "Layout-Umschalter",
+  "layouts.offered": "Der Layout-Umschalter bietet jetzt {layouts} an.",
   "layouts.help_open": "Wähle ein Layout, um seine eigenen Einstellungen zu ändern.",
   "layouts.settings_named": "Einstellungen für „{layout}“",
   "layouts.layout": "Layout",

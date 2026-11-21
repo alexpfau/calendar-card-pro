@@ -90,6 +90,7 @@
   "layouts.help_pick": "원을 눌러 카드가 처음 열릴 레이아웃을 선택합니다.",
   "layouts.help_switch": "{link}를 켜면 카드에서 레이아웃을 전환할 수 있습니다.",
   "layouts.help_switch_link": "레이아웃 전환기",
+  "layouts.offered": "이제 레이아웃 전환기에서 {layouts}을(를) 선택할 수 있습니다.",
   "layouts.help_open": "레이아웃을 선택하면 해당 레이아웃의 자체 설정을 변경할 수 있습니다.",
   "layouts.settings_named": "{layout} 설정",
   "layouts.layout": "레이아웃",

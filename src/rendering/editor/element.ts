@@ -1884,6 +1884,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (Value.equalConfigs(before.raw, this._rawConfig)) return false;
     if (this._entryNotice === notice) this._entryNotice = undefined;
+    this._layoutsNotice = undefined;
     this._history.record(
       { label, before, after: this._snapshot(), where },
       coalesceKey,
@@ -5686,6 +5687,11 @@ export class CalendarCardProEditor extends LitElement {
             `layout:${view}`,
           ),
       )}
+      ${
+        this._layoutsNotice === undefined
+          ? nothing
+          : html`<p class="hint layouts-offered">${this._layoutsNotice}</p>`
+      }
       ${this._renderGridReconciliation(ctx)}
     </section>`;
   }
@@ -5706,8 +5712,9 @@ export class CalendarCardProEditor extends LitElement {
   ): void {
     const data = { view: value };
     const kept = Chips.layoutsKeptOnStart(this._config!, value, view as Types.EffectiveView);
+    const offered = Config.switcherOffers(this._config!);
     // The view, the Grid notice it brings and the switcher's list it keeps are one step.
-    this._commit(
+    const done = this._commit(
       this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
       undefined,
       () => {
@@ -5727,7 +5734,21 @@ export class CalendarCardProEditor extends LitElement {
         }
       },
     );
+    // The starting layout is always one the switcher offers, so picking another can add it to
+    // what the switcher offers: a line says which layouts it offers now.
+    const now = Config.switcherOffers(this._config!);
+    if (!done || now.length === 0 || now.every((each) => offered.includes(each))) return;
+    const layouts = EditorLocalize.formatList(
+      ctx.language,
+      now.map((each) => this._layoutTitle(each, ctx)),
+      'conjunction',
+    );
+    this._layoutsNotice = this._string(ctx, 'layouts.offered', { layouts });
+    this._say(this._layoutsNotice);
   }
+
+  /** The line saying which layouts the switcher offers after a pick added one, until a change. */
+  @state() private _layoutsNotice?: string;
 
   /** The help's link: Card & Header, at the View Switcher chip, as a search result opens it. */
   private _openSwitcher = (): void => {

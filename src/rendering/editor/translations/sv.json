@@ -90,6 +90,7 @@
   "layouts.help_pick": "Cirkeln väljer layouten som kortet öppnas i.",
   "layouts.help_switch": "Med {link} på kan man byta layout på kortet.",
   "layouts.help_switch_link": "layoutväljaren",
+  "layouts.offered": "Layoutväljaren erbjuder nu {layouts}.",
   "layouts.help_open": "Välj en layout för att ändra dess egna inställningar.",
   "layouts.settings_named": "Inställningar för {layout}",
   "layouts.layout": "Layout",

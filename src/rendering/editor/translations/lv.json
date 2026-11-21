@@ -90,6 +90,7 @@
   "layouts.help_pick": "Ar apli var izvēlēties izkārtojumu, kurā karte atveras.",
   "layouts.help_switch": "Ja {link} ir ieslēgts, kartē var pārslēgt izkārtojumus.",
   "layouts.help_switch_link": "izkārtojuma pārslēdzējs",
+  "layouts.offered": "Izkārtojuma pārslēdzējs tagad piedāvā: {layouts}.",
   "layouts.help_open": "Izvēlieties izkārtojumu, lai mainītu tā iestatījumus.",
   "layouts.settings_named": "Izkārtojuma „{layout}“ iestatījumi",
   "layouts.layout": "Izkārtojums",

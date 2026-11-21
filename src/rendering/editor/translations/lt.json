@@ -90,6 +90,7 @@
   "layouts.help_pick": "Apskritimas parenka išdėstymą, kuriuo atsidaro kortelė.",
   "layouts.help_switch": "Įjungus {link}, kortelėje galima perjungti išdėstymus.",
   "layouts.help_switch_link": "išdėstymo perjungiklį",
+  "layouts.offered": "Išdėstymo perjungiklis dabar siūlo: {layouts}.",
   "layouts.help_open": "Pasirinkite išdėstymą, kad pakeistumėte jo nustatymus.",
   "layouts.settings_named": "Išdėstymo „{layout}“ nustatymai",
   "layouts.layout": "Išdėstymas",

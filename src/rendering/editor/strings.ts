@@ -147,6 +147,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
   'layouts.help_pick': 'The circle picks the layout the card opens in.',
   'layouts.help_switch': 'With the {link} on, people can switch layouts on the card.',
+  // After a starting layout the switcher did not offer is picked: it offers it now too.
+  'layouts.offered': 'The layout switcher now offers {layouts}.',
   'layouts.help_switch_link': 'layout switcher',
   'layouts.help_open': 'Select a layout to change its own settings.',
   // The row and page of the values every layout starts from; a layout's own name is its option

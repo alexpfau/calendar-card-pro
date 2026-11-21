@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { declarations } from './helpers/css-declarations';
 import {
+  changeField,
   chooseResult,
   editLayout,
   goEntry,
@@ -721,5 +722,22 @@ describe('section row descriptions', () => {
       title: 'Family',
     });
     expect(editor.shadowRoot!.textContent).not.toMatch(/Set: \d/);
+  });
+});
+
+describe('the starting layout', () => {
+  it('says which layouts the switcher offers once a pick adds one to them', async () => {
+    const editor = await mountEditor({
+      type: 'custom:calendar-card-pro',
+      config_version: 5,
+      entities: ['calendar.anna'],
+      toolbar: { show: true, view_switcher_layouts: ['list', 'grid'] },
+    });
+    await changeField(editor, 'display:view', 'column');
+    const notice = () => editor.shadowRoot!.querySelector('.layouts-offered')?.textContent?.trim();
+    expect(notice()).toBe('The layout switcher now offers List, Columns, and Grid.');
+    // Back to a layout it already offers: nothing new to say.
+    await changeField(editor, 'display:view', 'grid');
+    expect(notice()).toBeUndefined();
   });
 });

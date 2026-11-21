@@ -59,6 +59,8 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     // Home Assistant's error for a title template, which follows the title whatever put it there.
     '_titleCheck',
     '_titleError',
+    // The line a starting layout leaves about the switcher, until the next change.
+    '_layoutsNotice',
     // The field a search result showed, and the results it left.
     '_jump',
     '_resultsLeft',

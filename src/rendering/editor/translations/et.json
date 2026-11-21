@@ -90,6 +90,7 @@
   "layouts.help_pick": "Ring valib paigutuse, millega kaart avaneb.",
   "layouts.help_switch": "Kui {link} on sees, saab kaardil paigutust vahetada.",
   "layouts.help_switch_link": "paigutuse vahetaja",
+  "layouts.offered": "Paigutuse vahetaja pakub nüüd: {layouts}.",
   "layouts.help_open": "Vali paigutus, et muuta selle oma seadeid.",
   "layouts.settings_named": "Paigutuse {layout} seaded",
   "layouts.layout": "Paigutus",

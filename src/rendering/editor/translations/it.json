@@ -90,6 +90,7 @@
   "layouts.help_pick": "Il cerchio sceglie il layout in cui si apre la scheda.",
   "layouts.help_switch": "Con il {link} attivo, si può cambiare layout sulla scheda.",
   "layouts.help_switch_link": "selettore di layout",
+  "layouts.offered": "Ora il selettore di layout offre {layouts}.",
   "layouts.help_open": "Seleziona un layout per modificarne le impostazioni proprie.",
   "layouts.settings_named": "Impostazioni per {layout}",
   "layouts.layout": "Layout",
