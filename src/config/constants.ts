@@ -173,6 +173,12 @@ export const TIMING = {
    */
   CALENDAR_FETCH_TIMEOUT: 30000,
 
+  /**
+   * How much of `CALENDAR_FETCH_TIMEOUT` is kept for the REST request a load makes after a
+   * calendar's live subscription stayed silent, so the two together stay within it.
+   */
+  CALENDAR_REST_RESERVE: 5000,
+
   /** Shortest delay the refresh timer is armed with, so it can never spin. */
   REFRESH_MIN_DELAY: 1000,
 
