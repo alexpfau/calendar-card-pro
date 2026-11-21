@@ -267,6 +267,7 @@ function timeTextParts(
       config.show_end_time,
       use24h,
       config.time_two_digit_hours,
+      language,
     ),
   };
 }
@@ -1267,21 +1268,112 @@ function timeOfDay(date: Date): number {
 }
 
 /**
+ * Languages whose 12-hour clock is written with their own day period rather than AM and PM.
+ *
+ * Japanese, Korean and Chinese put it before the time, in their own script: `午前11:00`,
+ * `오전 11:00`, `上午11:00`. AM and PM after the time read as a foreign word in the wrong place
+ * there. Every other language keeps the card's AM and PM, and so does Grid's hour axis in every
+ * language: two or three letters of these scripts are wider than the room `view.ts` reserves for
+ * the axis before it knows the language (`GRID_MAX_CONTENT_AXIS_PX`).
+ */
+const NATIVE_DAY_PERIOD_LANGUAGES: ReadonlySet<string> = new Set(['ja', 'ko', 'zh-cn', 'zh-tw']);
+
+/** A language's 12-hour day period, and where it goes. */
+interface DayPeriods {
+  am: string;
+  pm: string;
+  /** Whether it is written before the hour. */
+  before: boolean;
+  /** What stands between it and the time: a space, or nothing. */
+  gap: string;
+}
+
+const dayPeriodCache = intlCache<string, DayPeriods | null>();
+
+/**
+ * The day period a language writes a 12-hour time with, taken from `Intl`, or null where the
+ * card writes AM and PM (`NATIVE_DAY_PERIOD_LANGUAGES`). Only the words and their side come
+ * from `Intl`; the digits, their padding and the colon stay the card's own.
+ *
+ * @param language Card language code
+ * @returns Its day periods, or null
+ */
+function nativeDayPeriods(language: string | undefined): DayPeriods | null {
+  const code = language?.toLowerCase();
+  if (!code || !NATIVE_DAY_PERIOD_LANGUAGES.has(code)) return null;
+
+  const cached = dayPeriodCache.get(code);
+  if (cached !== undefined) return cached;
+
+  const format = new Intl.DateTimeFormat(intlLocales(code), {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const partsAt = (hour: number) => format.formatToParts(new Date(2000, 0, 1, hour, 5));
+  const period = (parts: Intl.DateTimeFormatPart[]) =>
+    parts.find((part) => part.type === 'dayPeriod')?.value;
+  const morning = partsAt(9);
+  const am = period(morning);
+  const pm = period(partsAt(21));
+  const periodAt = morning.findIndex((part) => part.type === 'dayPeriod');
+  const hourAt = morning.findIndex((part) => part.type === 'hour');
+
+  let periods: DayPeriods | null = null;
+  if (am && pm && periodAt !== -1 && hourAt !== -1) {
+    const before = periodAt < hourAt;
+    const between = morning.slice(Math.min(periodAt, hourAt) + 1, Math.max(periodAt, hourAt));
+    // A space of any width is the card's plain one, as after AM and PM.
+    const gap = between.some((part) => /\s/.test(part.value)) ? ' ' : '';
+    periods = { am, pm, before, gap };
+  }
+  dayPeriodCache.set(code, periods);
+  return periods;
+}
+
+/**
+ * Put a 12-hour time and its day period together the way a language writes them: `11:00 AM`,
+ * or `午前11:00` in Japanese.
+ *
+ * @param time The digits, as the card writes them
+ * @param afternoon Whether the time is noon or later
+ * @param language Card language code; AM and PM without one
+ * @returns The reading
+ */
+function withDayPeriod(time: string, afternoon: boolean, language?: string): string {
+  const periods = nativeDayPeriods(language);
+  if (!periods) return `${time} ${afternoon ? 'PM' : 'AM'}`;
+  const period = afternoon ? periods.pm : periods.am;
+  return periods.before ? `${period}${periods.gap}${time}` : `${time}${periods.gap}${period}`;
+}
+
+/**
  * Format a time with the configured hour style.
  *
  * @param date Date to format
  * @param use24h Whether to use 24-hour time
  * @param twoDigitHours Whether to pad hours to two digits
+ * @param language Card language code, for the day period of a 12-hour time
+ *   (`NATIVE_DAY_PERIOD_LANGUAGES`); AM and PM without one
  * @returns Formatted time string
  */
-export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
+export function formatTime(
+  date: Date,
+  use24h = true,
+  twoDigitHours = false,
+  language?: string,
+): string {
   let hours = date.getHours();
   const minutes = date.getMinutes();
 
   if (!use24h) {
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const afternoon = hours >= 12;
     hours = hours % 12 || 12;
-    return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)} ${ampm}`;
+    return withDayPeriod(
+      `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`,
+      afternoon,
+      language,
+    );
   }
 
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
@@ -1289,11 +1381,13 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
 
 /**
  * A 12-hour clock reading as the card writes one: "9:41 AM" and "09:41 PM" from `formatTime`,
- * and the grid axis's hour-only "9 AM". The 24-hour form has no letter in it and is
- * deliberately not matched. No translation writes AM or PM, so nothing else in a time row can
- * match.
+ * and the grid axis's hour-only "9 AM", or with a day period before it in Japanese, Korean and
+ * Chinese ("午前9:41", "오후 9:41", "上午9:41", `NATIVE_DAY_PERIOD_LANGUAGES`). The 24-hour form
+ * has no letter in it and is deliberately not matched. No translation writes AM or PM, or one of
+ * those day periods, so nothing else in a time row can match.
  */
-const CLOCK_READING_12H = /\d{1,2}(?::\d{2})? [AP]M/g;
+const CLOCK_READING_12H =
+  /(?:午前|午後|上午|下午|오전|오후) ?\d{1,2}:\d{2}|\d{1,2}(?::\d{2})? [AP]M/g;
 
 /** Letters the bidi algorithm reads right to left: Hebrew through NKo, and the presentation forms. */
 const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
@@ -1618,6 +1712,7 @@ function isSameMinute(a: Date, b: Date): boolean {
  * @param showEndTime Whether the end time is drawn at all
  * @param use24h Whether to format on a 24-hour clock
  * @param twoDigitHours Whether to pad the hour
+ * @param language Card language code, for a 12-hour day period
  * @returns The time text, and its droppable end where it has one
  */
 function formatSingleDayTime(
@@ -1626,14 +1721,15 @@ function formatSingleDayTime(
   showEndTime: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
+  language?: string,
 ): Pick<EventTimeParts, 'text' | 'end'> {
-  const start = formatTime(startDate, use24h, twoDigitHours);
+  const start = formatTime(startDate, use24h, twoDigitHours, language);
 
   if (!showEndTime || isSameMinute(startDate, endDate)) {
     return { text: start };
   }
 
-  const end = ` - ${formatTime(endDate, use24h, twoDigitHours)}`;
+  const end = ` - ${formatTime(endDate, use24h, twoDigitHours, language)}`;
 
   return { text: `${start}${end}`, end };
 }
@@ -1709,7 +1805,7 @@ function formatMultiDayTime(
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours);
+  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours, language);
 
   let endPart: string;
 
