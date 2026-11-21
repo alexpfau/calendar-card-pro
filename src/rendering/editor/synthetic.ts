@@ -512,14 +512,22 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
+  /**
+   * Height, while Card Height is fixed. A cap stored beside it from YAML is not drawn, yet the card
+   * still applies it, so a height written here clears it: the height set is the height drawn.
+   */
   fixed_height: {
     configKeys: ['card_height'],
+    clears: ['card_max_height'],
     derive: (config) => (heightMode(config) === 'fixed' ? String(config.card_height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
       return text === ''
         ? { changes: {}, pending: { fixed_height: text } }
-        : { changes: { card_height: text }, pending: { fixed_height: null } };
+        : {
+            changes: { card_height: text, card_max_height: undefined },
+            pending: { fixed_height: null },
+          };
     },
   },
 

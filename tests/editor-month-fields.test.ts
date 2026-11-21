@@ -233,6 +233,21 @@ describe('Card Height on Month’s page', () => {
     editor.remove();
   });
 
+  it('clears a cap stored beside a fixed height once the height is changed', async () => {
+    // The cap is not drawn while the height is fixed, and the card still applies it.
+    const editor = await mountEditor({
+      ...CARD,
+      list: { card_height: '400px', card_max_height: '200px' },
+    });
+    await editLayout(editor, 'list');
+    await openPageOf(editor, 'layout:height_mode');
+    expect(valueOf(editor, 'layout:height_mode')).toBe('fixed');
+    await changeField(editor, 'layout:fixed_height', '500px');
+    // In a layout's block, no cap is written as none, which a cap at the top level cannot reach.
+    expect(lastConfig(editor)!.list).toEqual({ card_height: '500px', card_max_height: 'none' });
+    editor.remove();
+  });
+
   it('leaves the events area’s own height at the top level, which Month never reads', async () => {
     const editor = await monthEditor({ ...CARD, height: '300px', max_height: '500px' });
     await openPageOf(editor, 'layout:height_mode');
