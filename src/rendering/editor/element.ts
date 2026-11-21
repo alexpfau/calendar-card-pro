@@ -1210,6 +1210,12 @@ export class CalendarCardProEditor extends LitElement {
     const route = this._nav.route;
     const scope = Navigation.routeScope(route);
     if (scope !== undefined) return scope;
+    // A query qualified by a layout's block (`column.day_spacing`) is that layout's.
+    const qualified =
+      route.kind === 'overview' && Filter.hasQuery(this._filter)
+        ? Search.qualifiedLayout(this._filter.query)
+        : undefined;
+    if (qualified !== undefined) return qualified;
     const searched = this._searchFrom && Navigation.routeScope(this._searchFrom.nav.route);
     if (route.kind === 'overview' && searched !== undefined) return searched;
     if (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page)) return 'shared';

@@ -1077,6 +1077,20 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
   return rows;
 }
 
+/**
+ * The layout a query names by its YAML block, as a YAML path does: `column.day_spacing` is
+ * Columns' Day Spacing, whatever layout the search began in, so its value is read and written
+ * there. Anything else names no layout.
+ *
+ * @param query - The query as typed
+ * @returns The layout, or `undefined`
+ */
+export function qualifiedLayout(query: string): Types.EffectiveView | undefined {
+  const block = /^([a-z_]+)\.[a-z_]/.exec(query.trim())?.[1];
+  if (block === undefined) return undefined;
+  return ViewConfig.VIEWS.find((view) => ViewConfig.viewBlockFor(view)?.blockKey === block);
+}
+
 /** How a match ranks within its tier, highest first (the prototype's `search`). */
 const SCORE = {
   exact: 100,

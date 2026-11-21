@@ -22,6 +22,7 @@ import {
   fakeHass,
   goOverview,
   goPage,
+  lastConfig,
   mountEditor,
   openResultGroup,
   resultRows,
@@ -280,6 +281,22 @@ async function jump(
 }
 
 describe('choosing a result', () => {
+  it('reads a YAML path qualified by a layout block as that layout’s, and opens it there', async () => {
+    const editor = await mountEditor(
+      { ...CARD, list: { day_spacing: '10px' }, column: { day_spacing: '20px' } },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    await searchFor(editor, 'column.day_spacing');
+    expect(row(editor, 'layout:day_spacing').meta).toMatch(/^Columns: 20px/);
+    await chooseResult(editor, 'result:layout:day_spacing');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    await changeField(editor, 'layout:day_spacing', '30px');
+    expect(lastConfig(editor)).toMatchObject({
+      list: { day_spacing: '10px' },
+      column: { day_spacing: '30px' },
+    });
+  });
+
   it('opens its page at the field: focused on its wrapper, highlighted, announced', async () => {
     const editor = await mount();
     await jump(editor, 'time', 'events:time_font_size');
