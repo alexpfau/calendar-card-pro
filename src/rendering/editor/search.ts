@@ -1094,6 +1094,8 @@ export function qualifiedLayout(query: string): Types.EffectiveView | undefined 
 /** How a match ranks within its tier, highest first (the prototype's `search`). */
 const SCORE = {
   exact: 100,
+  // An alias that is the query, a tier of its own: below a label that is, above one holding it.
+  aliasExact: 97,
   prefix: 95,
   wordStart: 90,
   substring: 80,
@@ -1271,7 +1273,9 @@ function match(
   }
   // An alias that is the query exactly names the setting as surely as its label would: German's
   // "Wochennummern" is Numbering's, ahead of the font sizes and colors whose labels start with it.
-  if (best < SCORE.exact && aliasIs(entry, wanted)) return { source: 'alias', score: SCORE.exact };
+  if (best < SCORE.exact && aliasIs(entry, wanted)) {
+    return { source: 'alias', score: SCORE.aliasExact };
+  }
   if (best > 0) return { source: 'label', score: best };
 
   const first = (sources: ReadonlyArray<MatchSource>): MatchSource =>
