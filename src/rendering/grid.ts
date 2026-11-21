@@ -1097,7 +1097,12 @@ function gridTimedEventContentParts(
     const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
     return {
       ...parts,
-      eventTime: FormatUtils.formatTime(segmentStart, use24h, config.time_two_digit_hours),
+      eventTime: FormatUtils.formatTime(
+        segmentStart,
+        use24h,
+        config.time_two_digit_hours,
+        language,
+      ),
       eventTimeEnd: undefined,
     };
   }
@@ -1108,7 +1113,7 @@ function gridTimedEventContentParts(
   const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
+  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours, language);
   const duration = config.show_duration
     ? FormatUtils.formatEventDuration({ ...event, start: source.start, end: source.end }, language)
     : null;
@@ -1131,7 +1136,7 @@ function gridTimedEventContentParts(
     readsMidnight(end) &&
     !readsMidnight(start);
   const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
-  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}${lasts}`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours, language)}${count}${lasts}`;
 
   return {
     ...counted,
@@ -1234,7 +1239,7 @@ export function renderBanner(
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const timed = event.start.dateTime !== undefined;
   const times = timed
-    ? bannerTimes(event, placement, presentation.contentParts, config, hass)
+    ? bannerTimes(event, placement, presentation.contentParts, config, language, hass)
     : null;
   // The whole event's length, after the title, marked as such where the banner shows only part
   // of it. It goes with the time, as on every row. Only `show_duration` and the calendar's
@@ -1349,6 +1354,7 @@ interface BannerTimes {
  * @param placement - The days it spans on screen
  * @param parts - Its shared content, for whether it shows a time at all
  * @param config - Card configuration
+ * @param language - Card language code, for a 12-hour day period
  * @param hass - Home Assistant instance
  * @returns The start and end texts, and whether they are 12-hour readings
  */
@@ -1357,6 +1363,7 @@ function bannerTimes(
   placement: Grid.BannerPlacement,
   parts: Leaves.EventContentParts,
   config: Types.Config,
+  language: string,
   hass?: Types.Hass | null,
 ): BannerTimes {
   const none = { start: null, end: null, long: false };
@@ -1370,7 +1377,7 @@ function bannerTimes(
     date.getTime() === Grid.startOfDay(date).getTime()
       ? null
       : FormatUtils.isolateClockReadings(
-          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours, language),
         );
   return {
     start: placement.continuesBefore ? null : reading(start),

@@ -548,14 +548,14 @@ function barConfig(config: Types.Config): Types.Config {
  *
  * @param item - The line
  * @param config - Card configuration, resolved for month
- * @param translations - Card strings
+ * @param language - Card language code, for its strings and a 12-hour day period
  * @param hass - Home Assistant, for the time format
  * @returns The text, or null
  */
 function lineTime(
   item: MonthLayout.MonthItem,
   config: Types.Config,
-  translations: Types.Translations,
+  language: string,
   hass?: Types.Hass | null,
 ): string | null {
   const { event, placement } = item;
@@ -563,13 +563,13 @@ function lineTime(
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const reading = (date: Date) =>
     FormatUtils.isolateClockReadings(
-      FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+      FormatUtils.formatTime(date, use24h, config.time_two_digit_hours, language),
     );
   if (!placement.continuesBefore) return reading(new Date(event.start.dateTime));
   const end = new Date(event.end.dateTime);
   return end.getTime() === Grid.startOfDay(end).getTime()
     ? null
-    : `${translations.multiDay} ${reading(end)}`;
+    : `${Localize.getTranslations(language).multiDay} ${reading(end)}`;
 }
 
 /**
@@ -604,9 +604,7 @@ function renderLine(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const parts = presentation.contentParts;
-  const time = parts.shouldShowTime
-    ? lineTime(item, config, Localize.getTranslations(language), hass)
-    : null;
+  const time = parts.shouldShowTime ? lineTime(item, config, language, hass) : null;
   const label = Leaves.renderLabel(
     parts.entityLabel,
     event._matchedConfig?.label_icon_color,

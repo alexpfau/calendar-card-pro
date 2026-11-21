@@ -82,6 +82,21 @@ describe('findMisplacedOptions', () => {
     ]);
   });
 
+  it('sends a card-wide option nowhere where the layout ignores it at the top level too', () => {
+    // `today_weekday_color` reaches List, Columns and Grid, never Month, so moving it out of
+    // `month:` to the top level would change nothing Month draws.
+    expect(
+      findMisplacedOptions({
+        month: { today_weekday_color: '#e91e63', event_tap_action: { action: 'details' } },
+        time_grid: { today_weekday_color: '#e91e63' },
+      }),
+    ).toEqual([
+      { kind: 'card-wide', key: 'today_weekday_color', from: 'time_grid', to: [null] },
+      { kind: 'no-effect', key: 'today_weekday_color', from: 'month', to: [] },
+      { kind: 'card-wide', key: 'event_tap_action', from: 'month', to: [null] },
+    ]);
+  });
+
   it('leaves a layout’s weather alone where the card sets weather per layout', () => {
     expect(
       findMisplacedOptions({
@@ -211,6 +226,18 @@ describe('the card warns from the same findings', () => {
       expect.stringContaining('"list.toolbar"'),
       expect.stringContaining('"column.shwo_location": not a recognized option'),
       expect.stringContaining('"time_grid.weather"'),
+    ]);
+  });
+
+  it('says a card-wide option has no effect in a layout that ignores it everywhere', () => {
+    validateColumnOverrides({
+      ...DEFAULT_CONFIG,
+      month: { today_weekday_color: '#e91e63' },
+    } as unknown as Types.Config);
+
+    expect(warnMock.mock.calls.map((call) => call[0])).toEqual([
+      'Ignoring "month.today_weekday_color": it has no effect in month view, here or at the top ' +
+        'level.',
     ]);
   });
 

@@ -3817,11 +3817,13 @@ function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Da
 /**
  * Calculate the week number using the majority-day rule.
  *
- * ISO weeks are anchored on Monday, so on a Sunday-start card a plain ISO number leaves
- * Sunday in the outgoing week and breaks the week before Monday instead of before Sunday.
- * Rolling Sunday forward onto the following Monday's number puts the boundary where the
- * configured first day says it belongs, and gives the week the six days that are already
- * the majority of it.
+ * ISO weeks run Monday to Sunday, so a week starting on any other day straddles two of them,
+ * and a plain ISO number per day changes on Monday, in the middle of the configured week. Every
+ * day of the configured week is therefore given the ISO number of its fourth day, the start
+ * plus three: that ISO week holds at least four of the seven days, the majority of them,
+ * whichever weekday the week starts on. On a Monday start it is the ISO week itself; on a
+ * Sunday start it is the following Monday's; on a Saturday start a week starting Saturday
+ * 2 January 2027 is week 1, as five of its days are, where the day's own ISO number said 53.
  *
  * The method is resolved through {@link FormatUtils.resolveWeekNumberMethod} rather than
  * read off the config, because `show_week_numbers: null` hides the number while still
@@ -3839,15 +3841,13 @@ export function calculateWeekNumberWithMajorityRule(
   config: Types.Config,
   firstDayOfWeek: number,
 ): number | null {
-  let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
-
-  const method = FormatUtils.resolveWeekNumberMethod(config.show_week_numbers);
-
-  if (method === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    weekNumber = FormatUtils.getISOWeekNumber(nextDay);
+  if (FormatUtils.resolveWeekNumberMethod(config.show_week_numbers) === 'iso') {
+    const intoWeek = (date.getDay() - firstDayOfWeek + 7) % 7;
+    // Built from the date's fields, so the step is in calendar days whatever the offset does.
+    return FormatUtils.getISOWeekNumber(
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() - intoWeek + 3, 12),
+    );
   }
 
-  return weekNumber;
+  return FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 }
