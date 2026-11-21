@@ -1,8 +1,9 @@
 /**
  * What the event popover edits, kept apart from how it draws it.
  *
- * The popover opens on one event, or on a new one, and keeps the changes as a draft until it
- * closes: saving happens once, on close, never per keystroke (see `event-popover.ts`). This
+ * The popover opens on one event, or on a new one, and keeps the changes as a draft: saving
+ * happens once, on Save, never per keystroke, and closing it any other way throws the draft away
+ * (see `event-popover.ts`). This
  * module builds the draft from what the card hands over, tells whether anything changed and
  * whether Home Assistant would accept it, and turns it into the write command's event. No DOM,
  * no Lit.

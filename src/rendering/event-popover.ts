@@ -222,15 +222,18 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   /**
-   * Closes the popover for Home Assistant's Back, saving what changed.
+   * Closes the popover for Home Assistant's Back, as Cancel and Escape do: what changed is thrown
+   * away, since Save is a button of its own and Back is no answer to it. While it asks which
+   * occurrences, Back backs out of the question, as Escape does.
    *
    * Home Assistant reads the answer at once rather than waiting on it, so it is a boolean.
    *
-   * @returns True once the popover is gone. False keeps it open: to ask which occurrences, to
-   *   show why a change was refused, or while a save is under way, which closes it when done
+   * @returns True once the popover is gone. False keeps it open: backed out of a question to the
+   *   event, or while a write is under way, which closes it when done
    */
   public closeDialog(): boolean {
-    return this._requestClose('save');
+    if (this._phase === 'update' || this._phase === 'delete') return this._backOut();
+    return this._requestClose('discard');
   }
 
   //---------------------------------------------------------------------------
@@ -291,13 +294,13 @@ export class EventPopover extends Shell.PopoverShell {
   /**
    * Backs out of a question: back to the event, or, for the question a drop asks, out of the
    * popover with the move thrown away, since the move was all there was to answer for.
+   *
+   * @returns Whether the popover closed
    */
-  private _backOut(): void {
-    if (this._phase === 'update' && this._dropped) {
-      this._requestClose('discard');
-      return;
-    }
+  private _backOut(): boolean {
+    if (this._phase === 'update' && this._dropped) return this._requestClose('discard');
     this._phase = 'edit';
+    return false;
   }
 
   /** Whether a save or a delete is waiting on Home Assistant. */
@@ -521,8 +524,9 @@ export class EventPopover extends Shell.PopoverShell {
   };
 
   /**
-   * A press that starts and ends on the backdrop closes the popover, saving. Both ends count, so
-   * the click a press on the card derives from the gesture that opened it cannot close it.
+   * A press that starts and ends on the backdrop closes the popover, as Cancel does. Both ends
+   * count, so the click a press on the card derives from the gesture that opened it cannot close
+   * it.
    */
   private readonly _onPointerDown = (ev: PointerEvent): void => {
     this._backdropDown = ev.target === this._dialog;
@@ -567,14 +571,14 @@ export class EventPopover extends Shell.PopoverShell {
 
   /**
    * A click: the derived one of the opening touch, swallowed (`_ghostGuard`), or one on the
-   * backdrop, which closes the popover, saving. In the capture phase, so the guard runs before
-   * any field's own click.
+   * backdrop, which closes the popover as Cancel does, throwing away what changed. In the capture
+   * phase, so the guard runs before any field's own click.
    */
   private readonly _onClick = {
     handleEvent: (ev: MouseEvent): void => {
       this._ghostGuard.handleEvent(ev);
       if (ev.defaultPrevented) return;
-      if (this._isBackdropPress(ev)) this._requestClose('save');
+      if (this._isBackdropPress(ev)) this._requestClose('discard');
     },
     capture: true,
   };
@@ -768,7 +772,7 @@ export class EventPopover extends Shell.PopoverShell {
           >
             ${titleText || this._t('summary')}
           </h2>
-          <button class="btn reveal" @click=${() => this._requestClose('save')}>
+          <button class="btn reveal" @click=${() => this._requestClose('discard')}>
             ${this._t('close')}
           </button>
           <div class="group">
@@ -1296,8 +1300,8 @@ export class EventPopover extends Shell.PopoverShell {
   /**
    * The row under the cells: Delete for a stored event, on the left, and once anything was
    * changed Cancel and Save on the right, Add for a new event. Cancel throws the changes away
-   * and closes, as Escape does where there is no Escape key; Save does what closing does, so a
-   * change can be confirmed where a person looks for it. A new event has nothing to delete.
+   * and closes, as Escape, Back, Close and a press on the backdrop do; Save, or Return in the
+   * title, is the one way to write a change. A new event has nothing to delete.
    */
   private _renderFoot(): TemplateResult | typeof nothing {
     const params = this._params!;

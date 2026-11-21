@@ -120,6 +120,18 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
   return { el, root, callWS, updated, closed, writes, buttons, button, type, press };
 }
 
+/**
+ * Saves as the Save button, or Return in the title, does, and answers as closing does: false
+ * while it asks which occurrences, says why a change was refused, or writes. Reaches into the
+ * popover because the button is drawn only once something changed, and answers nothing.
+ *
+ * @param el - The popover
+ * @returns Whether it closed at once
+ */
+function save(el: Popover): boolean {
+  return (el as unknown as { _requestClose(mode: 'save'): boolean })._requestClose('save');
+}
+
 // A location that reads as a place name is looked up in Open-Meteo, and tests must never reach
 // the network: every test starts with a fetch that finds nothing, and one that wants a place
 // stubs its own. The places kept in local storage go with each test.
@@ -345,7 +357,7 @@ describe('telling the card', () => {
   });
 });
 
-describe('saving on close', () => {
+describe('saving and closing', () => {
   it('closes without writing when nothing changed, even after a field was focused', async () => {
     const { el, root, writes, closed, updated } = await open({});
     root.querySelector('input.title')!.dispatchEvent(new Event('focus'));
@@ -356,7 +368,7 @@ describe('saving on close', () => {
     expect(closed).toHaveBeenCalledWith({ dialog: EVENT_POPOVER_TAG });
   });
 
-  it('writes a changed title once, on close, and refreshes the calendar', async () => {
+  it('writes a changed title once, on Save, and refreshes the calendar', async () => {
     const { el, type, writes, closed, updated } = await open({});
     await type('input.title', 'Swim lesson');
     await type('input.plain', '12 Mill Road');
@@ -364,7 +376,7 @@ describe('saving on close', () => {
 
     // Home Assistant reads the answer at once, so a save under way is a plain false, and the
     // popover closes itself, through dialog-closed, once Home Assistant has saved.
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
     expect(writes()).toEqual([
       {
@@ -395,10 +407,10 @@ describe('saving on close', () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 
-  it('saves on a press that starts and ends on the backdrop, but not on the one that opened it', async () => {
+  it('throws the changes away on a press that starts and ends on the backdrop, but not on the one that opened it', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-03T08:00:00Z'));
-    const { root, type, writes } = await open({});
+    const { root, type, writes, closed } = await open({});
     await type('input.title', 'Swim lesson');
     const dialog = root.querySelector('dialog')!;
     const backdropPress = () => {
@@ -408,17 +420,67 @@ describe('saving on close', () => {
 
     backdropPress();
     await Promise.resolve();
-    expect(writes()).toEqual([]);
+    expect(closed).not.toHaveBeenCalled();
 
     vi.setSystemTime(new Date('2026-11-03T08:00:01Z'));
     // A press that started inside the panel and ended on the backdrop is not one.
     root.querySelector('.panel')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     dialog.dispatchEvent(new MouseEvent('click'));
     await Promise.resolve();
-    expect(writes()).toEqual([]);
+    expect(closed).not.toHaveBeenCalled();
 
     backdropPress();
-    await vi.waitFor(() => expect(writes()).toHaveLength(1));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([]);
+  });
+
+  it("throws the changes away on Home Assistant's Back, as Cancel does", async () => {
+    const { el, type, writes, closed, updated } = await open({});
+    await type('input.title', 'Swim lesson');
+    expect(el.closeDialog()).toBe(true);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([]);
+    expect(updated).not.toHaveBeenCalled();
+  });
+
+  it('throws the changes away on its Close button, which the keyboard reaches first', async () => {
+    const { root, type, writes, closed, press } = await open({});
+    await type('input.title', 'Swim lesson');
+    await press(root.querySelector('button.reveal')!);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([]);
+  });
+
+  it('throws a new event away on Back, adding nothing', async () => {
+    const { el, type, writes, closed } = await open({
+      mode: 'new',
+      entry: undefined,
+      display: undefined,
+      times: {
+        allDay: false,
+        start: new Date('2026-11-03T16:00:00Z'),
+        end: new Date('2026-11-03T17:00:00Z'),
+      },
+    });
+    await type('input.title', 'Swim lesson');
+    expect(el.closeDialog()).toBe(true);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([]);
+  });
+
+  it('keeps it open on Back while a save is under way, and closes once it is saved', async () => {
+    let answer!: () => void;
+    const { el, type, writes, closed } = await open(
+      {},
+      { write: () => new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) },
+    );
+    await type('input.title', 'Swim lesson');
+    expect(save(el)).toBe(false);
+    expect(el.closeDialog()).toBe(false);
+    expect(closed).not.toHaveBeenCalled();
+    answer();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toHaveLength(1);
   });
 
   it("keeps the popover open and says why when Home Assistant refuses, in its words or HA's own", async () => {
@@ -429,14 +491,14 @@ describe('saving on close', () => {
     );
     await type('input.title', 'Swim lesson');
 
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await vi.waitFor(() =>
       expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only'),
     );
     expect(root.querySelector('dialog')?.open).toBe(true);
 
     answer = { code: 'failed' };
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await vi.waitFor(() =>
       expect(root.querySelector('[role="alert"]')?.textContent).toBe('Unknown error'),
     );
@@ -451,7 +513,7 @@ describe('saving on close', () => {
     endTime.dispatchEvent(new Event('change'));
     await el.updateComplete;
 
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('[role="alert"]')?.textContent).toBe(
       'The duration of the event is not valid. Please check start and end date.',
@@ -467,7 +529,7 @@ describe('saving on close', () => {
     startTime.dispatchEvent(new Event('change'));
     await el.updateComplete;
 
-    el.closeDialog();
+    save(el);
     expect(writes()[0].event).toMatchObject({
       dtstart: '2026-11-03T18:30:00Z',
       dtend: '2026-11-03T19:30:00Z',
@@ -488,7 +550,7 @@ describe('a repeating event', () => {
     });
     await type('input.title', 'Swim lesson');
 
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('.ask')).not.toBeNull();
     expect(writes()).toEqual([]);
@@ -511,13 +573,27 @@ describe('a repeating event', () => {
   it('goes back to editing on Escape while it asks, closing nothing', async () => {
     const { el, root, type, closed } = await open({ entry: WEEKLY, display });
     await type('input.title', 'Swim lesson');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
 
     root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
     await el.updateComplete;
     expect(root.querySelector('.ask')).toBeNull();
     expect(closed).not.toHaveBeenCalled();
+  });
+
+  it("goes back to editing on Home Assistant's Back while it asks, as Escape does", async () => {
+    const { el, root, type, writes, closed } = await open({ entry: WEEKLY, display });
+    await type('input.title', 'Swim lesson');
+    save(el);
+    await el.updateComplete;
+    expect(root.querySelector('.ask')).not.toBeNull();
+
+    expect(el.closeDialog()).toBe(false);
+    await el.updateComplete;
+    expect(root.querySelector('.ask')).toBeNull();
+    expect(closed).not.toHaveBeenCalled();
+    expect(writes()).toEqual([]);
   });
 
   describe('dropped by a drag in a grid', () => {
@@ -573,6 +649,7 @@ describe('a repeating event', () => {
         (root: ShadowRoot) =>
           root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true })),
       ],
+      ["Home Assistant's Back", (root: ShadowRoot) => (root.host as Popover).closeDialog()],
     ])('throws the move away on %s, writing nothing', async (_name, back) => {
       const { el, root, writes, closed, updated } = await open({
         entry: WEEKLY,
@@ -611,7 +688,7 @@ describe('a repeating event', () => {
     it('leaves a question asked about an ordinary change as it was', async () => {
       const { el, root, type, closed } = await open({ entry: WEEKLY, display });
       await type('input.title', 'Swim lesson');
-      el.closeDialog();
+      save(el);
       await el.updateComplete;
       lastAsk(root).click();
       await el.updateComplete;
@@ -761,7 +838,7 @@ describe('a new event', () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 
-  it('adds it on close, to the calendar picked', async () => {
+  it('adds it on Save, to the calendar picked', async () => {
     const { el, root, type, writes, updated } = await open(fresh);
     const picker = root.querySelector<HTMLSelectElement>('select')!;
     expect(Array.from(picker.options).map((o) => o.textContent?.trim())).toEqual(['Ben', 'Anna']);
@@ -769,7 +846,7 @@ describe('a new event', () => {
     picker.dispatchEvent(new Event('change'));
     await type('input.title', 'Piano');
 
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await vi.waitFor(() => expect(updated).toHaveBeenCalledWith('calendar.anna'));
     expect(writes()).toEqual([
       {
@@ -1088,7 +1165,7 @@ describe('while Home Assistant is saving', () => {
     const { write, settle } = deferredWrite();
     const { el, root, type, writes, closed } = await open({}, { write });
     await type('input.title', 'First');
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('.panel')?.hasAttribute('inert')).toBe(true);
 
@@ -1127,7 +1204,7 @@ describe('while Home Assistant is saving', () => {
     const { write, settle } = deferredWrite();
     const { el, root, type, updated, closed } = await open({}, { write });
     await type('input.title', 'Swim lesson');
-    el.closeDialog();
+    save(el);
 
     // Home Assistant reuses the element for the next event before the first save is back.
     el.showDialog({
@@ -1177,7 +1254,7 @@ describe('a new event changed but not titled', () => {
     picker.dispatchEvent(new Event('change'));
     await el.updateComplete;
 
-    expect(el.closeDialog()).toBe(false);
+    expect(save(el)).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('[role="alert"]')?.textContent).toBe(
       'Not all required fields are filled in',
@@ -1238,7 +1315,7 @@ describe('switching All day off again', () => {
 
     expect(shown()).toEqual(['2026-11-04', '15:30', '2026-11-04', '16:30']);
     await type('input.title', 'Swim');
-    el.closeDialog();
+    save(el);
     expect(writes()[0].event).toMatchObject({
       dtstart: new Date(2026, 10, 4, 15, 30).toISOString().slice(0, 19) + 'Z',
       dtend: new Date(2026, 10, 4, 16, 30).toISOString().slice(0, 19) + 'Z',
@@ -1336,7 +1413,7 @@ describe('moving a repeating event', () => {
     await el.updateComplete;
     await type('input.title', 'Swim lesson');
 
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     await press(button('This and all future events'));
     await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
@@ -1351,7 +1428,7 @@ describe('the keyboard', () => {
   it('lands on the choices of a question, and back where it started once it is backed out of', async () => {
     const { el, root, type } = await open({ entry: WEEKLY });
     await type('input.title', 'Swim lesson');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     await el.updateComplete;
     expect(root.activeElement).toBe(root.querySelector('.ask button'));
@@ -1674,7 +1751,7 @@ describe('moving to another calendar', () => {
   it('adds the event to the new calendar, then deletes it from its own, and refreshes both', async () => {
     const { el, root, writes, updated, closed } = await open({ calendars: [BEN, ANNA] });
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
     expect(writes()).toEqual([
       {
@@ -1699,7 +1776,7 @@ describe('moving to another calendar', () => {
       calendars: [BEN, ANNA],
     });
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     await press(button('Only this event'));
     await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
@@ -1723,7 +1800,7 @@ describe('moving to another calendar', () => {
       calendars: [BEN, ANNA],
     });
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     await press(button('This and all future events'));
     await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
@@ -1743,7 +1820,7 @@ describe('moving to another calendar', () => {
       calendars: [BEN, ANNA],
     });
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
       'Only this event',
@@ -1784,7 +1861,7 @@ describe('moving to another calendar', () => {
     end.value = 'on';
     end.dispatchEvent(new Event('change'));
     await el.updateComplete;
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     expect(buttons('.ask button').map((b) => b.textContent?.trim())).toContain(
       'This and all future events',
@@ -1803,7 +1880,7 @@ describe('moving to another calendar', () => {
       calendars: [BEN, ANNA],
     });
     await type('input.title', 'Swim lesson');
-    el.closeDialog();
+    save(el);
     await el.updateComplete;
     expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
       'This and all future events',
@@ -1823,7 +1900,7 @@ describe('moving to another calendar', () => {
       },
     );
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await vi.waitFor(() =>
       expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only'),
     );
@@ -1843,7 +1920,7 @@ describe('moving to another calendar', () => {
       },
     );
     await pick(root, el, 'calendar.anna');
-    el.closeDialog();
+    save(el);
     await vi.waitFor(() =>
       expect(root.querySelector('[role="alert"]')?.textContent).toBe('Not found'),
     );
@@ -1851,7 +1928,7 @@ describe('moving to another calendar', () => {
     expect(root.querySelectorAll('input, textarea, select')).toHaveLength(0);
     expect(root.querySelector('.foot')).toBeNull();
 
-    expect(el.closeDialog()).toBe(true);
+    expect(save(el)).toBe(true);
     expect(writes().map((w) => w.type)).toEqual(['calendar/event/create', 'calendar/event/delete']);
     expect(closed).toHaveBeenCalledTimes(1);
   });
