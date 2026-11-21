@@ -1306,6 +1306,26 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
 }
 
 /**
+ * Whether the header toolbar is drawn at all: only while it holds a control. Its heading row, and
+ * the month in it, come with it.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns True when `renderHeaderToolbar` draws it
+ */
+export function drawsToolbar(toolbar: HeaderToolbar): boolean {
+  return Boolean(
+    toolbar.addEvent ||
+    toolbar.customButtons?.length ||
+    toolbar.viewSwitcher ||
+    toolbar.navigation ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.search ||
+    toolbar.legend,
+  );
+}
+
+/**
  * Render the header toolbar, or nothing when it would hold no control.
  *
  * Where it sits is the layout rule. With no control the header is exactly as it was before
@@ -1323,18 +1343,7 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   title: TemplateResult,
 ): TemplateResult | undefined {
-  if (
-    !toolbar.addEvent &&
-    !toolbar.customButtons?.length &&
-    !toolbar.viewSwitcher &&
-    !toolbar.navigation &&
-    !toolbar.reset &&
-    !toolbar.refresh &&
-    !toolbar.search &&
-    !toolbar.legend
-  ) {
-    return undefined;
-  }
+  if (!drawsToolbar(toolbar)) return undefined;
 
   const labeled = toolbar.labeled === true;
   return html`${renderActionRow(toolbar, labeled)}${renderHeadingRow(toolbar, title)}`;

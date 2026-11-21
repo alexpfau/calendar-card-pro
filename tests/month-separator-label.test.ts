@@ -63,6 +63,7 @@ function render(
   view: Types.EffectiveView = 'list',
   hass: Types.Hass | null = null,
   language = 'en',
+  headingMonth?: Date,
 ): HTMLElement {
   const config = buildConfig({
     view,
@@ -78,7 +79,16 @@ function render(
       ? Grid.renderGridGroupedEvents(days, effective, language, undefined, hass, FROZEN_NOW)
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, language, undefined, hass)
-        : Render.renderGroupedEvents(days, effective, language, undefined, hass),
+        : Render.renderGroupedEvents(
+            days,
+            effective,
+            language,
+            undefined,
+            hass,
+            false,
+            undefined,
+            headingMonth,
+          ),
     container,
   );
   return container;
@@ -216,6 +226,47 @@ describe('the month rule names its month', () => {
     expect(row.querySelector('.week-number')?.textContent).toBe('49');
     expect(row.querySelector('.month-separator-label')?.textContent).toBe('Dec 2026');
     expect(property(row.querySelector('.separator-cell'), '--separator-display')).toBe('block');
+  });
+
+  it('leaves the first month to a toolbar heading that names it, on every path', () => {
+    // The toolbar's month sits right above the list: labeling the first block as well named the
+    // same month twice, one under the other.
+    const nextMonth = eventsOn(['2026-12-02', '2026-12-03', '2027-01-04']);
+    const start = { start_date: '2026-11-21', days_to_show: 50 };
+    const paths: Array<[string, Partial<Types.Config>]> = [
+      ['plain', { ...RULES, ...start, month_separator_label: true }],
+      ['first week', { ...WEEKS, ...start, show_current_week_number: false }],
+      ['week row', { ...WEEKS, ...start, show_current_week_number: true }],
+    ];
+    const strip = (html: string) => html.replace(/<!--[^>]*-->/g, '');
+    const firstDay = (container: HTMLElement) =>
+      strip(container.innerHTML.split(/<table class="\s*day-table/)[0]);
+
+    for (const [path, config] of paths) {
+      const december = new Date(2026, 11, 1);
+      const named = render(config, nextMonth, 'list', null, 'en', december);
+      // Later months keep theirs.
+      expect(labels(named), path).toEqual(['Jan 2027']);
+      // The first day opens as it does with the label off; on the week row path, with its row.
+      expect(firstDay(named).includes('week-row-table'), path).toBe(path === 'week row');
+      expect(firstDay(named), path).toBe(
+        firstDay(render({ ...config, month_separator_label: false }, nextMonth)),
+      );
+      // Controls: a heading naming another month, the page's November, leaves the label, as does
+      // no heading at all.
+      const november = new Date(2026, 10, 21);
+      expect(labels(render(config, nextMonth, 'list', null, 'en', november)), path).toEqual([
+        'Dec 2026',
+        'Jan 2027',
+      ]);
+      expect(labels(render(config, nextMonth)), path).toEqual(['Dec 2026', 'Jan 2027']);
+      // The same month of another year is another month.
+      const lastYear = new Date(2025, 11, 1);
+      expect(labels(render(config, nextMonth, 'list', null, 'en', lastYear)), path).toEqual([
+        'Dec 2026',
+        'Jan 2027',
+      ]);
+    }
   });
 
   it('marks the label with the card language', () => {
