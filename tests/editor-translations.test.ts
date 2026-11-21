@@ -221,3 +221,31 @@ describe('the mined translations carry meaning, not just key names', () => {
     expect(EDITOR_LANGUAGE_STRINGS.en).toBeUndefined();
   });
 });
+
+describe('one English phrase, one decision per language', () => {
+  it('translates every option worded Follow Home Assistant where a language translates one', () => {
+    // An option left out reads in English among its translated siblings: Japanese once offered
+    // Home Assistantに従う for colors and Follow Home Assistant for the language.
+    const keys = Object.keys(EDITOR_STRINGS).filter(
+      (key) => EDITOR_STRINGS[key] === 'Follow Home Assistant',
+    );
+    expect(keys.length).toBeGreaterThan(3);
+    const gaps = Object.entries(EDITOR_LANGUAGE_STRINGS).flatMap(([language, table]) =>
+      keys.some((key) => key in table)
+        ? keys.filter((key) => !(key in table)).map((key) => `${language}: ${key}`)
+        : [],
+    );
+    expect(gaps).toEqual([]);
+  });
+});
+
+describe('Event Type’s helper on a calendar’s page', () => {
+  it('points to Split This Calendar by the name its row shows, in every language', () => {
+    // It once taught listing a calendar twice by hand, which Split does in one step.
+    for (const language of ['en', ...Object.keys(EDITOR_LANGUAGE_STRINGS)]) {
+      const helper = lookup(language, 'entity.event_type.helper') ?? '';
+      expect(helper, language).toContain(lookup(language, 'split.title'));
+      expect(helper, language).toContain(lookup(language, 'page.which_events'));
+    }
+  });
+});

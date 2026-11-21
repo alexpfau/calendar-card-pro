@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { declarations } from './helpers/css-declarations';
-import { fakeHass, mountEditor } from './helpers/editor-host';
+import { changeField, entry, fakeHass, lastConfig, mountEditor } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { resolvedLabel } from '../src/rendering/editor/entities';
@@ -206,5 +206,46 @@ describe('the calendar list’s geometry', () => {
 
     expect(single).toBe(48);
     expect(entry).toBe(single);
+  });
+});
+
+describe('an edit to another field of a calendar keeps what it did not touch', () => {
+  const edited = async (fields: Record<string, unknown>, id: string, value: unknown) => {
+    const editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: [{ entity: 'calendar.anna', ...fields }],
+    });
+    await changeField(editor, id, value, entry(0));
+    const kept = (lastConfig(editor)!.entities as unknown[])[0];
+    editor.remove();
+    return kept;
+  };
+
+  it('keeps a literal label and a label under label_type: none', async () => {
+    // `label_type: text` is how the word home-assistant is meant literally, not as the sentinel.
+    expect(
+      await edited({ label: 'home-assistant', label_type: 'text' }, 'calendar:name', 'Anna'),
+    ).toEqual({
+      entity: 'calendar.anna',
+      name: 'Anna',
+      label: 'home-assistant',
+      label_type: 'text',
+    });
+    expect(await edited({ label: 'Anna', label_type: 'none' }, 'calendar:name', 'Anna')).toEqual({
+      entity: 'calendar.anna',
+      name: 'Anna',
+      label: 'Anna',
+      label_type: 'none',
+    });
+  });
+
+  it('keeps a visibility the card reads as unknown, which keeps the calendar hidden', async () => {
+    for (const visibility of [{}, []]) {
+      expect(await edited({ label: 'A', visibility }, 'calendar:label', 'B')).toEqual({
+        entity: 'calendar.anna',
+        label: 'B',
+        visibility,
+      });
+    }
   });
 });

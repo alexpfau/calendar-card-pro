@@ -36,10 +36,10 @@ describe('the preview of the layout being edited', () => {
     parent.append(card);
     const preview = new ScopePreview(() => parent.firstElementChild as HTMLElement);
 
-    preview.sync({ view: 'list', config: written });
+    preview.sync({ view: 'list', config: written, authored: written });
     expect(card.calls).toEqual([{ ...written, view: 'list' }]);
     // A render that changes nothing configures nothing.
-    preview.sync({ view: 'list', config: written });
+    preview.sync({ view: 'list', config: written, authored: written });
     expect(card.calls).toHaveLength(1);
 
     preview.sync(undefined);
@@ -47,6 +47,25 @@ describe('the preview of the layout being edited', () => {
     // Released again is no change.
     preview.sync(undefined);
     expect(card.calls).toHaveLength(2);
+  });
+
+  it('hands the card back the configuration as written, not as laid under the layout', () => {
+    // Columns, which the switcher does not offer, is drawn without the switcher; released, the
+    // card as it opens has its switcher again.
+    document.body.innerHTML = '';
+    const parent = document.createElement('div');
+    document.body.append(parent);
+    const card = fakeCard();
+    parent.append(card);
+    const preview = new ScopePreview(() => parent.firstElementChild as HTMLElement);
+    const authored = {
+      ...written,
+      toolbar: { show: true, view_switcher_layouts: ['grid', 'list'] },
+    };
+    const laid = { ...authored, toolbar: { ...authored.toolbar, view_switcher: false } };
+    preview.sync({ view: 'column', config: laid, authored });
+    preview.sync(undefined);
+    expect(card.calls).toEqual([{ ...laid, view: 'column' }, authored]);
   });
 
   /**
@@ -81,7 +100,7 @@ describe('the preview of the layout being edited', () => {
     const { editor, build, find } = dialog();
     const first = build();
     const preview = new ScopePreview(find, editor);
-    preview.sync({ view: 'column', config: written });
+    preview.sync({ view: 'column', config: written, authored: written });
     expect(first.calls).toEqual([written, { ...written, view: 'column' }]);
 
     // A sections dashboard builds the element around the card anew too, so its parent is gone.
@@ -102,7 +121,7 @@ describe('the preview of the layout being edited', () => {
 
   it('does nothing where no preview is found', () => {
     const preview = new ScopePreview(() => undefined);
-    expect(() => preview.sync({ view: 'list', config: written })).not.toThrow();
+    expect(() => preview.sync({ view: 'list', config: written, authored: written })).not.toThrow();
     expect(() => preview.sync(undefined)).not.toThrow();
   });
 });

@@ -377,6 +377,10 @@ export function rowName(
 
   const entry = state.entities[index];
   const id = entityIdOf(entry);
+  // An entry naming no calendar would read as nothing: "Actions for , entry 1".
+  if (typeof id !== 'string' || id.trim() === '') {
+    return interpolate(lookup(language, 'row.invalid')!, { position: String(index + 1) });
+  }
   const name = configuredCalendarName(state.entities, id) ?? entityDisplayName(id, hass);
   const total = state.entities.filter((other) => entityIdOf(other) === id).length;
   if (total < 2) return name;

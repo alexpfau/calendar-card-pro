@@ -14,7 +14,7 @@ Replace the `calendar.*` ids with your own calendars and the `person.*` labels w
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 days_to_show: 2
 filter_duplicates: true
 show_empty_today: true

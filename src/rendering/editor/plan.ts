@@ -306,6 +306,13 @@ const blankMeans = new Map<string, boolean>();
  */
 function holdsRoot(key: string, value: unknown): boolean {
   if (holdsValue(value)) return true;
+  // An action written as `null` runs nothing, where its default runs one: `event_tap_action:
+  // null` leaves an event's details shut. A null anywhere else is the editor's own clearing.
+  if (value === null) {
+    const action = (Reflect.get(Config.DEFAULT_CONFIG, key) as { action?: unknown } | undefined)
+      ?.action;
+    return typeof action === 'string' && action !== 'none';
+  }
   if (value !== '') return false;
   let means = blankMeans.get(key);
   if (means === undefined) {

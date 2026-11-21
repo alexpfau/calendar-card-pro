@@ -11,6 +11,7 @@ import {
   fakeHass,
   formOf,
   formsOf,
+  lastConfig,
   mountEditor,
   openPageOf,
   openPanels,
@@ -296,6 +297,27 @@ describe('typed lengths keep their raw text in the form', () => {
     }
   });
 
+  it('holds an axis width the card would read as max-content, keeping the last one that parsed', async () => {
+    // Grid reads anything but a pixel length as max-content, so `6p` on the way to `60px` would
+    // otherwise remove the line, and the card fall back for as long as the typing pauses there.
+    const editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      view: 'grid',
+      entities: ['calendar.anna'],
+      time_grid: { axis_width: '80px' },
+    });
+    await editLayout(editor, 'grid');
+    for (const [text, stored] of [
+      ['6', '6px'],
+      ['6p', '6px'],
+      ['60px', '60px'],
+    ] as const) {
+      await changeField(editor, 'layout:time_grid.axis_width', text);
+      expect(valueOf(editor, 'layout:time_grid.axis_width'), text).toBe(text);
+      expect(lastConfig(editor)!.time_grid, text).toEqual({ axis_width: stored });
+    }
+  });
+
   it('does not leak List text into a view with an equal explicit value', () => {
     const config = buildConfig({
       event_font_size: '2px',
@@ -476,6 +498,9 @@ async function mount(extra: Record<string, unknown> = {}) {
       event_font_size: '17px',
       column: { event_font_size: '19px' },
       time_grid: { event_font_size: '23px' },
+      // The merged top-level weather names no entity; the first write would hand its options to
+      // the layouts (`migrateWeatherFormat`), which these cases are not about.
+      weather: undefined,
       ...extra,
     }),
     // Every setting a page can draw: these read forms the shown set would leave in Add rows.

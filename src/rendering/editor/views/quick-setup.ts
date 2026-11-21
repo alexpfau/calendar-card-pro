@@ -14,6 +14,7 @@ import {
   mdiWrenchClock,
 } from '@mdi/js';
 import { type TemplateResult, html } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
 
 import type { StoryId } from '../stories';
 import { icon } from './icon';
@@ -83,4 +84,25 @@ export function storyOptions(stories: ReadonlyArray<StoryChoice>): TemplateResul
         </div>`,
     )}
   </div>`;
+}
+
+/**
+ * The calendars an example colors, each with its swatch: "● Anna ● Ben", on the calendars step and
+ * in the review, so the colors are seen before Apply rather than found after it.
+ *
+ * @param items - Each calendar's name and the color the example gives it
+ * @returns The list
+ */
+export function swatches(
+  items: ReadonlyArray<{ readonly name: string; readonly color: string }>,
+): TemplateResult {
+  return html`<ul class="quick-setup-swatches">
+    ${items.map(
+      ({ name, color }) =>
+        html`<li>
+          <span class="cal-dot" aria-hidden="true" style=${styleMap({ '--cal-dot': color })}></span
+          >${name}
+        </li>`,
+    )}
+  </ul>`;
 }

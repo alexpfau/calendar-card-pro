@@ -878,6 +878,16 @@ describe('gate lines and stored values not in use', () => {
   });
 });
 
+describe('names a part’s settings wait on', () => {
+  it('never drops the part’s word where it ends a name, as a preposition governs it there', async () => {
+    const editor = await mount({ language: 'nb', show_location: false });
+    await goPage(editor, 'events');
+    const summary = $(editor, '.page-group[data-heading="location"] .gate-summary')!.textContent!;
+    expect(summary.split(' · ')).toContain('Linjegrense for sted');
+    expect(summary.split(' · ')).not.toContain('Linjegrense for');
+  });
+});
+
 describe('a heading with nothing to edit', () => {
   const turnOns = (editor: MountedEditor): Array<[string, string | null]> =>
     [...editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-focus^="turn-on:"]')].map(

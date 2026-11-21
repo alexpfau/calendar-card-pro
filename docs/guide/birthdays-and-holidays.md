@@ -14,7 +14,7 @@ Replace the two `calendar.*` ids with your own birthday and holiday calendars. T
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Coming Up
 days_to_show: 60
 show_countdown: true

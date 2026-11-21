@@ -351,7 +351,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Event Appearance',
-    'Event Details',
+    'Visible Event Parts',
     '',
     [
       'events:show_time P',
@@ -653,7 +653,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Calendar Entry',
-    'Event Details',
+    'Visible Event Parts',
     '',
     [
       'calendar:show_time A',
@@ -788,7 +788,7 @@ const BORROWED_MAP: ReadonlyArray<string> = [
   'Which Events › Selection & Order: content:event_type reference',
   'Which Events › Empty Days: content:hide_when_empty reference',
   'Days › Weeks: content:first_day_of_week reference',
-  'Event Appearance › Event Details: content:time_format reference',
+  'Event Appearance › Visible Event Parts: content:time_format reference',
   'Weather › Forecast: weather:weather_entity copy',
 ];
 

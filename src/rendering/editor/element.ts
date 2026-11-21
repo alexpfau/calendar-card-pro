@@ -64,10 +64,12 @@ import { whenText } from './gates';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
+import * as HiddenDetails from './hidden-details';
 import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
+import { foldsWhileTyped, optionPath } from './normalize';
 import {
   type Appearance,
   CALENDARS_BLOCK,
@@ -92,6 +94,7 @@ import * as QuickSetup from './quick-setup';
 import * as Reorder from './reorder';
 import * as Reset from './reset';
 import * as Routing from './routing';
+import { LABELED_ACTIONS, cardActionLabelKey } from './schemas/actions';
 import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import { ENTITY_TRISTATE_STORED, VISIBILITY, buildEntitySchema } from './schemas/entity';
 import {
@@ -127,7 +130,7 @@ import * as PageView from './views/page';
 import * as PickView from './views/pick';
 import * as QuickSetupView from './views/quick-setup';
 import * as ReorderView from './views/reorder';
-import { ScopePreview } from './views/scope-preview';
+import { ScopePreview, type ScopePreviewWant } from './views/scope-preview';
 import { scrollContainer } from './views/scroll';
 import * as SearchView from './views/search';
 import * as ShownView from './views/shown';
@@ -147,6 +150,7 @@ import { configuredCalendarName } from '../../utils/calendar-names';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
+import * as Templates from '../../utils/templates';
 
 /** How many entries the list holds before Filter Calendars appears above it. */
 const CALENDAR_FILTER_ROWS = 8;
@@ -472,6 +476,15 @@ interface StatusLine {
     readonly keys: ReadonlyArray<string>;
     readonly before: Snapshot;
     readonly shared: boolean;
+    /** Whether the card looks as it did: so after the upgrade, and no longer once shared since. */
+    readonly same: boolean;
+    /** Whether the upgrade wrote anything, which Undo then takes back. */
+    readonly wrote: boolean;
+    /** The calendars that hide a field an event's details now show, by entry key. */
+    readonly hidden: ReadonlyArray<{
+      readonly key: number;
+      readonly fields: ReadonlyArray<HiddenDetails.DetailField>;
+    }>;
     /** What converting the weather written before v6 did, where the upgrade converted it. */
     readonly weather?: WeatherMigration.WeatherMigrationResult;
   };
@@ -599,6 +612,8 @@ export class CalendarCardProEditor extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._widthObserver?.disconnect();
+    this._titleCheck.destroy();
+    this._titleError = undefined;
     // Leaving the visual editor, for the code editor or by closing the dialog, cancels a split
     // that has not been made, so the preview is never what is kept.
     this._cancelSplit(false);
@@ -768,6 +783,8 @@ export class CalendarCardProEditor extends LitElement {
   protected override updated(): void {
     // A switch row is fitted once Home Assistant has drawn it, as the observer reports its size.
     this._watchSizes();
+    // A title that is a template is rendered by Home Assistant, which says what is wrong with it.
+    if (this.isConnected) this._titleCheck.update(this.hass ?? undefined, this._config?.title);
     // Written once attached, where Home Assistant hears it: `setConfig` comes while detached.
     if (this._pendingUpgrade && this.hass && this.isConnected) {
       this._pendingUpgrade = false;
@@ -1053,7 +1070,7 @@ export class CalendarCardProEditor extends LitElement {
    * The color controls' state outside the configuration, by `colors.ts` › `draftKey`: Custom
    * chosen, and the text typed there that the card cannot draw, which is kept here and never
    * written. Kept across closing a control and changing pages; cleared by another choice in the
-   * control and by a configuration the editor did not send.
+   * control, by Undo, Redo and Reset, and by a configuration the editor did not send.
    */
   @state() private _colorDrafts: ReadonlyMap<string, { readonly text?: string }> = new Map();
 
@@ -1200,6 +1217,12 @@ export class CalendarCardProEditor extends LitElement {
     const route = this._nav.route;
     const scope = Navigation.routeScope(route);
     if (scope !== undefined) return scope;
+    // A query qualified by a layout's block (`column.day_spacing`) is that layout's.
+    const qualified =
+      route.kind === 'overview' && Filter.hasQuery(this._filter)
+        ? Search.qualifiedLayout(this._filter.query)
+        : undefined;
+    if (qualified !== undefined) return qualified;
     const searched = this._searchFrom && Navigation.routeScope(this._searchFrom.nav.route);
     if (route.kind === 'overview' && searched !== undefined) return searched;
     if (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page)) return 'shared';
@@ -1245,10 +1268,15 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The layout the preview draws where the editor is: the one being edited, or, on Whole Card's
    * pages, which edit in the shared scope, the layout the card opens in, as the preview shows it.
-   * A topic opened from there opens under it.
+   * On Stored Settings, the scope of the line being changed in place, as `_previewedScope` draws
+   * it. A topic opened from there opens under it.
    */
   private get _layoutInView(): Workspace.EditorWorkspace {
     const route = this._nav.route;
+    const edited = this._auditEdit?.group.workspace;
+    if ((route.kind === 'audit' || route.kind === 'notices') && edited !== undefined) {
+      return edited;
+    }
     const whole = route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page);
     return whole ? this._viewForConfig(this._config!) : this._workspace;
   }
@@ -1283,8 +1311,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @returns The layout and the configuration it is laid over, or `undefined`
    */
-  private _previewedScope():
-    { view: Types.EffectiveView; config: Record<string, unknown> } | undefined {
+  private _previewedScope(): ScopePreviewWant | undefined {
     if (!this._config) return undefined;
     if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
     const kind = this._nav.route.kind;
@@ -1294,7 +1321,11 @@ export class CalendarCardProEditor extends LitElement {
         : this._workspace;
     const view = Workspace.viewForWorkspace(edited);
     if (view === undefined || view === this._viewForConfig(this._config)) return undefined;
-    return { view, config: this._previewConfig(this._rawConfig, view) };
+    return {
+      view,
+      config: this._previewConfig(this._rawConfig, view),
+      authored: this._rawConfig,
+    };
   }
 
   /**
@@ -1410,7 +1441,10 @@ export class CalendarCardProEditor extends LitElement {
     this._migration = this._migrationState(rawConfig);
     if (!isEcho) {
       this._pendingUpgrade =
-        this._migration.kind === 'ambiguous' || WeatherMigration.convertsDrawnWeather(rawConfig);
+        this._migration.kind === 'ambiguous' ||
+        WeatherMigration.convertsDrawnWeather(rawConfig) ||
+        ((this._migration.kind === 'automatic' || this._migration.kind === 'stamp') &&
+          HiddenDetails.hiddenDetails(rawConfig).length > 0);
     }
     // Found once, where the walk over every state is not part of a render the key could skip.
     if (!isEcho) this._pickerCalendar = QuickSetup.firstCalendar(this.hass?.states);
@@ -1460,6 +1494,9 @@ export class CalendarCardProEditor extends LitElement {
     if (version.kind === 'current') return { kind: 'current' };
     if (version.kind === 'future') return version;
     if (version.kind === 'invalid') return version;
+    if (version.version !== undefined && version.version >= Config.LAYERED_CONFIG_VERSION) {
+      return { kind: 'stamp' };
+    }
 
     // Blocks only the layered format has: a card carrying one was written for it already.
     const alreadyLayered =
@@ -1502,6 +1539,19 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Stamps a card saved in the layered format before the current version with the current one,
+   * and moves nothing else: its options already mean what they say.
+   */
+  private _adoptStamp(): void {
+    const stamped = {
+      ...Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
+      config_version: Config.CURRENT_CONFIG_VERSION,
+    };
+    this._adopt(stamped, stamped);
+    this._migration = { kind: 'current' };
+  }
+
+  /**
    * Accepts a write and prepares any pending migration: a card without layout blocks shares its
    * root options, and one whose root options v5 split keeps them for List, as the upgrade on
    * opening does (`_upgradeOnOpen`), here after an Undo of it.
@@ -1514,10 +1564,25 @@ export class CalendarCardProEditor extends LitElement {
       Logger.debug('Ignoring an editor write while migration is blocked', kind);
       return false;
     }
+    if (kind === 'stamp') this._adoptStamp();
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
-    if (kind === 'ambiguous') this._adoptMigration(this._migrationResult('keep-list'));
+    if (kind === 'ambiguous') this._adoptMigration(this._migrationResult(this._upgradeMode()));
     this._convertWeather();
     return true;
+  }
+
+  /**
+   * What the upgrade does with the root options v5 split: keeps them List's, where every layout
+   * the card can show looks the same for it, or shares them with every layout, which changes none
+   * (`Value.upgradeMode`).
+   *
+   * @returns The migration mode
+   */
+  private _upgradeMode(): Value.ListMigrationMode {
+    return Value.upgradeMode(
+      Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
+      this._rawConfig ?? {},
+    );
   }
 
   /**
@@ -1545,26 +1610,143 @@ export class CalendarCardProEditor extends LitElement {
    * Upgrades a card whose root options v5 split between List and every layout, once the editor
    * is attached and Home Assistant listens: they stay List's, as they were written, so the card
    * looks the same, in one undo step. The receipt says what was kept, offers to share them with
-   * every layout, and Undo; nothing moves focus, and the receipt is read out once.
+   * every layout, and Undo; nothing moves focus, and the receipt is read out once. It also names
+   * each calendar whose hidden location or description an event's details now show; a card the
+   * v5 editor saved is stamped with the current version as it does, so it is told once.
    */
   private _upgradeOnOpen(): void {
     const keys = this._migration.kind === 'ambiguous' ? this._migration.keys : [];
     const weatherDrawn = WeatherMigration.convertsDrawnWeather(this._rawConfig ?? {});
-    if (keys.length === 0 && !weatherDrawn) return;
+    const kind = this._migration.kind;
+    const legacy = kind === 'ambiguous' || kind === 'automatic' || kind === 'stamp';
+    const writes = keys.length > 0 || weatherDrawn;
+    // Taken before writing: the upgrade keeps every entry where it was, and so its key.
+    const entryKeys = this._entryKeysFor((this._config?.entities ?? []).length);
+    const hidden =
+      writes || legacy
+        ? HiddenDetails.hiddenDetails(this._rawConfig ?? {}).map(({ entry, fields }) => ({
+            key: entryKeys[entry],
+            fields,
+          }))
+        : [];
+    if (!writes && hidden.length === 0) return;
+    // A card the v5 editor saved has nothing else to upgrade: stamped as it opens, it is told once.
+    if (!writes && kind === 'stamp') {
+      this._adoptStamp();
+      this._send(this._rawConfig!);
+    }
     const before = this._snapshot();
     const ctx = this._ctx;
     let weather: WeatherMigration.WeatherMigrationResult | undefined;
-    this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
-      if (keys.length > 0) this._adoptMigration(this._migrationResult('keep-list'));
-      else if (!this._prepareForWriteWithoutWeather()) return;
-      // A block that names no entity is left to the first write, with the list migration's.
-      if (weatherDrawn) weather = this._convertWeather();
-      this._send(this._rawConfig!);
-    });
-    if (keys.length === 0 && weather === undefined) return;
-    const upgrade = { keys, before, shared: false, weather };
+    const mode = keys.length > 0 ? this._upgradeMode() : 'keep-list';
+    const wrote =
+      writes &&
+      this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
+        if (keys.length > 0) this._adoptMigration(this._migrationResult(mode));
+        else if (!this._prepareForWriteWithoutWeather()) return;
+        // A block that names no entity is left to the first write, with the list migration's.
+        if (weatherDrawn) weather = this._convertWeather();
+        // Options v3.0.0 removed stay for the notices page to move, until a change of the user's.
+        const kept = Deprecated.keepOld(this._rawConfig!, before.raw ?? {});
+        if (kept !== this._rawConfig) this._adopt(kept, kept);
+        this._send(this._rawConfig!);
+      });
+    if (keys.length === 0 && weather === undefined && hidden.length === 0) return;
+    const upgrade = {
+      keys,
+      before,
+      shared: mode === 'shared-root',
+      same: true,
+      wrote,
+      hidden,
+      weather,
+    };
     this._status = { kind: 'upgrade', text: '', at: 0, upgrade };
-    this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, upgrade)}`);
+    this._say(this._upgradeSaid(ctx, upgrade));
+  }
+
+  /**
+   * What the upgrade receipt reads out: its title and every sentence in it.
+   *
+   * @param ctx - Schema context
+   * @param upgrade - The upgrade
+   * @returns The words
+   */
+  private _upgradeSaid(ctx: SchemaCtx, upgrade: NonNullable<StatusLine['upgrade']>): string {
+    return [
+      this._upgradeTitle(ctx, upgrade),
+      this._upgradeSentences(ctx, upgrade),
+      ...upgrade.hidden.map(({ key, fields }) => this._hiddenSentence(ctx, key, fields)),
+    ]
+      .filter((part) => part !== '')
+      .join(' ');
+  }
+
+  /**
+   * The receipt's title: "Upgraded." where the upgrade wrote, else "Event details changed." for
+   * a card it only has calendars to name for.
+   *
+   * @param ctx - Schema context
+   * @param upgrade - The upgrade
+   * @returns The title
+   */
+  private _upgradeTitle(ctx: SchemaCtx, upgrade: NonNullable<StatusLine['upgrade']>): string {
+    return this._string(ctx, upgrade.wrote ? 'upgrade.title' : 'upgrade.details_title');
+  }
+
+  /**
+   * The sentence naming a calendar that hides a field an event's details now show: "Anna hides
+   * event locations, but an event's details now show them."
+   *
+   * @param ctx - Schema context
+   * @param key - The entry's key
+   * @param fields - What it hides
+   * @returns The sentence
+   */
+  private _hiddenSentence(
+    ctx: SchemaCtx,
+    key: number,
+    fields: ReadonlyArray<HiddenDetails.DetailField>,
+  ): string {
+    const which = fields.length === 1 ? fields[0] : 'both';
+    return this._string(ctx, `upgrade.details_${which}`, { name: this._entryName(key) });
+  }
+
+  /**
+   * Makes a calendar the upgrade named private, as one undo step, and keeps the receipt with the
+   * calendars still to answer: focus goes to the next one's button, else to Undo.
+   *
+   * @param key - The entry's key
+   */
+  private _makePrivate(key: number): void {
+    const upgrade = this._status?.kind === 'upgrade' ? this._status.upgrade : undefined;
+    const entry = this._entryOf(key);
+    if (upgrade === undefined || entry === undefined) return;
+    const ctx = this._ctx;
+    const name = this._entryName(key);
+    const done = this._commit(
+      this._string(ctx, 'history.change_for', {
+        setting: this._string(ctx, 'entity.private'),
+        name,
+      }),
+      undefined,
+      () => this._writeFieldValue({ kind: 'entry', key }, 'calendar:private', true),
+      `entry:${key}`,
+    );
+    if (!done) return;
+    const hidden = upgrade.hidden.filter((line) => line.key !== key);
+    this._status = {
+      kind: 'upgrade',
+      text: '',
+      at: 0,
+      upgrade: { ...upgrade, wrote: true, hidden },
+    };
+    this._say(this._string(ctx, 'upgrade.made_private', { name }));
+    this._focusSoon(
+      hidden.length > 0
+        ? [Focus.byFocusKey(`upgrade-private-${hidden[0].key}`)]
+        : [Focus.byFocusKey('status-undo')],
+    );
   }
 
   /**
@@ -1576,6 +1758,7 @@ export class CalendarCardProEditor extends LitElement {
   private _prepareForWriteWithoutWeather(): boolean {
     const kind = this._migration.kind;
     if (kind === 'future' || kind === 'invalid') return false;
+    if (kind === 'stamp') this._adoptStamp();
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
     return true;
   }
@@ -1598,10 +1781,10 @@ export class CalendarCardProEditor extends LitElement {
       this._convertWeather();
       this._send(this._rawConfig!);
     });
-    const shared = { ...upgrade, shared: true };
+    const shared = { ...upgrade, shared: true, same: false, wrote: true };
     this._showStatus(
       { kind: 'upgrade', text: '', at: 0, upgrade: shared },
-      `${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, shared)}`,
+      this._upgradeSaid(ctx, shared),
     );
   };
 
@@ -1617,6 +1800,8 @@ export class CalendarCardProEditor extends LitElement {
     const sentences: string[] = [];
     if (upgrade.keys.length > 0) {
       sentences.push(this._upgradeText(ctx, upgrade.keys, upgrade.shared));
+      // The List sentences say it themselves; shared on opening, the roots stayed where they were.
+      if (upgrade.shared && upgrade.same) sentences.push(this._string(ctx, 'upgrade.same'));
     }
     const weather = upgrade.weather;
     if (weather !== undefined) {
@@ -1726,6 +1911,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (Value.equalConfigs(before.raw, this._rawConfig)) return false;
     if (this._entryNotice === notice) this._entryNotice = undefined;
+    this._layoutsNotice = undefined;
     this._history.record(
       { label, before, after: this._snapshot(), where },
       coalesceKey,
@@ -1754,6 +1940,8 @@ export class CalendarCardProEditor extends LitElement {
     this._status = undefined;
     this._entryNotice = undefined;
     this._splitDone = undefined;
+    // Custom and its text were the value as it was; what comes back reads from the YAML.
+    this._colorDrafts = new Map();
     const config = structuredClone(snapshot.raw) as Record<string, unknown>;
     this._lastDispatched = config;
     this.dispatchEvent(
@@ -2040,10 +2228,12 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPickBanner(ctx: SchemaCtx): TemplateResult | typeof nothing {
     if (this._pickingAt === undefined) return nothing;
-    return PickView.pickBanner(
-      this._string(ctx, PickView.touchOnly() ? 'pick.banner_touch' : 'pick.banner'),
-      this._string(ctx, 'calendars.cancel'),
-      () => this._endPick(true),
+    // A pick takes a pointer; the keyboard reaches every part through search and the pages.
+    const text = PickView.touchOnly()
+      ? this._string(ctx, 'pick.banner_touch')
+      : `${this._string(ctx, 'pick.banner')} ${this._string(ctx, 'pick.keyboard')}`;
+    return PickView.pickBanner(text, this._string(ctx, 'calendars.cancel'), () =>
+      this._endPick(true),
     );
   }
 
@@ -2220,8 +2410,14 @@ export class CalendarCardProEditor extends LitElement {
     if (upgrade === undefined) return nothing;
     const { keys, shared } = upgrade;
     return HistoryView.upgradeReceipt({
-      title: this._string(ctx, 'upgrade.title'),
+      title: this._upgradeTitle(ctx, upgrade),
       text: this._upgradeSentences(ctx, upgrade),
+      details: upgrade.hidden.map(({ key, fields }) => ({
+        key,
+        text: this._hiddenSentence(ctx, key, fields),
+        label: this._string(ctx, 'upgrade.make_private'),
+        onPress: () => this._makePrivate(key),
+      })),
       share:
         shared || keys.length === 0
           ? undefined
@@ -2230,7 +2426,7 @@ export class CalendarCardProEditor extends LitElement {
               onPress: this._shareUpgraded,
             },
       undoLabel: this._haWord(ctx, 'ui.common.undo', 'history.undo'),
-      onUndo: this._undo,
+      onUndo: upgrade.wrote ? this._undo : undefined,
     });
   }
 
@@ -2986,7 +3182,11 @@ export class CalendarCardProEditor extends LitElement {
           class="field-form"
           data-hass=${feed}
           .hass=${hass}
-          .error=${this._patternError(slot, field, data, ctx)}
+          .error=${
+            this._patternError(slot, field, data, ctx) ??
+            this._heldError(slot, field, workspace, ctx) ??
+            this._titleTemplateError(slot, field)
+          }
           .data=${data}
           .schema=${schema}
           .computeLabel=${text.label}
@@ -3423,7 +3623,12 @@ export class CalendarCardProEditor extends LitElement {
     };
     return (value) =>
       Summary.wordValue(field, asOption(value), ctx.language, this._describe) ??
-      (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
+      (value === undefined || value === null
+        ? this._string(ctx, 'search.not_set')
+        : // An object nothing words, an action Home Assistant has not named yet, has no words.
+          typeof value === 'object'
+          ? ''
+          : String(value));
   }
 
   /**
@@ -4192,17 +4397,16 @@ export class CalendarCardProEditor extends LitElement {
         },
       };
     });
-    // A card waiting on one part drops that part's word where a name starts or ends with it:
-    // "Location Font Size" reads "Font Size" under Location. A name with the word inside it, or in
-    // a language that puts it elsewhere, stays whole.
+    // A card waiting on one part drops that part's word where a name starts with it: "Location
+    // Font Size" reads "Font Size" under Location. Never where it ends one: there the word is what
+    // a preposition or a case ending before it governs, and Norwegian "Linjegrense for sted" would
+    // read "Linjegrense for". A name with the word anywhere else stays whole.
     const only = !weather && opens.size === 1 ? partOf([...opens.keys()][0]) : undefined;
     const shorten = (name: string): string => {
       if (only === undefined || name.length <= only.length + 1) return name;
       const lower = name.toLocaleLowerCase(ctx.language);
       const word = only.toLocaleLowerCase(ctx.language);
-      if (lower.startsWith(`${word} `)) return name.slice(word.length + 1);
-      if (lower.endsWith(` ${word}`)) return name.slice(0, name.length - word.length - 1);
-      return name;
+      return lower.startsWith(`${word} `) ? name.slice(word.length + 1) : name;
     };
     const names = plan.gated.filter((each) => !isChip(each.id)).map((each) => labelOf(each.id));
     return {
@@ -4768,6 +4972,8 @@ export class CalendarCardProEditor extends LitElement {
     this._pending = { ...state.pending };
     this._authoredRootKeys = new Set(state.authoredRootKeys);
     this._gridResetKeys = new Set(state.gridResetKeys);
+    // A reset value is read from the YAML again, not from Custom or the text held for it.
+    this._colorDrafts = new Map();
     const gone = new Set([...clearAdded, ...retire]);
     const kept = [...this._added].filter((key) => !gone.has(key));
     if (kept.length !== this._added.size) this._added = new Set(kept);
@@ -5196,10 +5402,22 @@ export class CalendarCardProEditor extends LitElement {
       restore = moved.restore;
     }
     // The query stays typed while a result's field shows, so the results come back with it.
-    if (restore?.search) this._editHere = restore.search.editHere;
+    this._restoreSearch(restore?.search);
     this._jump = this._resultsLeft = undefined;
     void this._afterMove(restore);
   };
+
+  /**
+   * Puts back the results a place was left from: the query, which Search Settings and its Back
+   * may have cleared since, and Edit Here.
+   *
+   * @param search - The search the place was left with, if any
+   */
+  private _restoreSearch(search: Navigation.TrailEntry['search']): void {
+    if (search === undefined) return;
+    this._applyFilter({ ...this._filter, query: search.query });
+    this._editHere = search.editHere;
+  }
 
   /**
    * Return to Results, and a jump's "Back to …" line: one step back along the trail, to the place
@@ -5213,7 +5431,7 @@ export class CalendarCardProEditor extends LitElement {
     this._closeDisclosures();
     const moved = Navigation.returnTo(this._nav);
     this._nav = moved.nav;
-    if (moved.restore?.search) this._editHere = moved.restore.search.editHere;
+    this._restoreSearch(moved.restore?.search);
     this._jump = this._resultsLeft = undefined;
     void this._afterMove(moved.restore);
   };
@@ -5496,6 +5714,11 @@ export class CalendarCardProEditor extends LitElement {
             `layout:${view}`,
           ),
       )}
+      ${
+        this._layoutsNotice === undefined
+          ? nothing
+          : html`<p class="hint layouts-offered">${this._layoutsNotice}</p>`
+      }
       ${this._renderGridReconciliation(ctx)}
     </section>`;
   }
@@ -5516,8 +5739,9 @@ export class CalendarCardProEditor extends LitElement {
   ): void {
     const data = { view: value };
     const kept = Chips.layoutsKeptOnStart(this._config!, value, view as Types.EffectiveView);
+    const offered = Config.switcherOffers(this._config!);
     // The view, the Grid notice it brings and the switcher's list it keeps are one step.
-    this._commit(
+    const done = this._commit(
       this._string(ctx, 'history.change', { setting: this._string(ctx, 'view') }),
       undefined,
       () => {
@@ -5537,7 +5761,21 @@ export class CalendarCardProEditor extends LitElement {
         }
       },
     );
+    // The starting layout is always one the switcher offers, so picking another can add it to
+    // what the switcher offers: a line says which layouts it offers now.
+    const now = Config.switcherOffers(this._config!);
+    if (!done || now.length === 0 || now.every((each) => offered.includes(each))) return;
+    const layouts = EditorLocalize.formatList(
+      ctx.language,
+      now.map((each) => this._layoutTitle(each, ctx)),
+      'conjunction',
+    );
+    this._layoutsNotice = this._string(ctx, 'layouts.offered', { layouts });
+    this._say(this._layoutsNotice);
   }
+
+  /** The line saying which layouts the switcher offers after a pick added one, until a change. */
+  @state() private _layoutsNotice?: string;
 
   /** The help's link: Card & Header, at the View Switcher chip, as a search result opens it. */
   private _openSwitcher = (): void => {
@@ -5605,11 +5843,24 @@ export class CalendarCardProEditor extends LitElement {
       return Colors.describeColor(value, spec, ctx.language, { haName: this._haColorName });
     }
     if ('ui_action' in selector) {
+      // An explicit `null` runs nothing, as the card reads it: worded Nothing, as Home Assistant
+      // words the action that does nothing.
+      if (value === null) {
+        const key = `${HA_ACTION_LABEL_PREFIX}none`;
+        const words = this.hass?.localize?.(key);
+        return typeof words === 'string' && words !== '' && words !== key
+          ? words
+          : this._string(ctx, 'day_tap_action_mode.option.none.label');
+      }
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
       if (typeof action !== 'string') return undefined;
       const key = `${HA_ACTION_LABEL_PREFIX}${action}`;
       const words = withCardActionLabels(this.hass, this._ctx.language)?.localize?.(key);
-      return typeof words === 'string' && words !== '' && words !== key ? words : undefined;
+      if (typeof words === 'string' && words !== '' && words !== key) return words;
+      // Before Home Assistant has named it, the card's own action by the editor's name for it.
+      return LABELED_ACTIONS.includes(action)
+        ? this._string(ctx, cardActionLabelKey(action))
+        : undefined;
     }
     if ('entity' in selector && typeof value === 'string' && value !== '') {
       return Entities.entityDisplayName(value, this.hass);
@@ -5622,6 +5873,24 @@ export class CalendarCardProEditor extends LitElement {
   };
 
   /**
+   * The line saying the card's language could not load, so the editor shows English: its file is
+   * missing, stale or out of reach (`translations/loader.ts`). A reload once the connection is back
+   * asks for it again.
+   *
+   * @param ctx - Schema context
+   * @returns The line, or nothing
+   */
+  private _renderLanguageFailed(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const asked = LanguageCodes.getEffectiveLanguage(this._config!.language, this.hass?.locale);
+    if (!EditorLanguages.editorLanguageFailed(asked)) return nothing;
+    const name =
+      EditorLocalize.lookup(ctx.language, `language_mode.option.${asked}.label`) ?? asked;
+    return html`<p class="hint language-failed" role="status">
+      ${this._string(ctx, 'notices.language_failed', { language: name })}
+    </p>`;
+  }
+
+  /**
    * The overview: notices, Quick Setup's banner, the filter bar, then either what a query finds,
    * grouped by page, or Calendars, Whole Card's rows, Layouts and More.
    *
@@ -5632,11 +5901,15 @@ export class CalendarCardProEditor extends LitElement {
   private _renderOverview(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const t = this._t(ctx);
     const { present } = this._drawing!;
-    const head = html`${this._renderUpgrade(ctx)} ${this._renderNoticesRow(ctx)}
+    const head = html`${this._renderLanguageFailed(ctx)} ${this._renderUpgrade(ctx)}
+    ${this._renderNoticesRow(ctx)}
     ${
       this._banner
         ? Overview.quickSetupBanner(t, this._openQuickSetup, () => {
             this._banner = false;
+            // The banner leaves with the button pressed: focus goes to what follows it, the
+            // search field, rather than back to the top of the page.
+            void this._focusSearchField();
           })
         : nothing
     }
@@ -6933,20 +7206,23 @@ export class CalendarCardProEditor extends LitElement {
       return html`
         <div class="width-table fit-summary">
           <div class="width-table-title">${extra.title}</div>
-          <table>
-            <tr>
-              <td></td>
-              ${extra.layouts.map((layout) => html`<th scope="col">${layout}</th>`)}
-            </tr>
-            ${extra.rows.map(
-              (row) => html`
-                <tr>
-                  <th scope="row" class="width-table-width">${row.width}</th>
-                  ${row.cells.map((cell) => html`<td class="width-table-layout">${cell}</td>`)}
-                </tr>
-              `,
-            )}
-          </table>
+          <!-- Four layouts across outgrow a narrow pane: it scrolls, by keyboard too, under a name. -->
+          <div class="width-table-scroll" role="region" tabindex="0" aria-label=${extra.title}>
+            <table>
+              <tr>
+                <td></td>
+                ${extra.layouts.map((layout) => html`<th scope="col">${layout}</th>`)}
+              </tr>
+              ${extra.rows.map(
+                (row) => html`
+                  <tr>
+                    <th scope="row" class="width-table-width">${row.width}</th>
+                    ${row.cells.map((cell) => html`<td class="width-table-layout">${cell}</td>`)}
+                  </tr>
+                `,
+              )}
+            </table>
+          </div>
         </div>
       `;
     }
@@ -7100,6 +7376,10 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The name
    */
   private _calendarName(entityId: string): string {
+    // An entry naming no calendar: its page and its rows say so rather than show nothing.
+    if (typeof entityId !== 'string' || entityId.trim() === '') {
+      return this._string(this._ctx, 'row.invalid_calendar');
+    }
     return (
       configuredCalendarName(this._config?.entities ?? [], entityId) ??
       Entities.entityDisplayName(entityId, this.hass)
@@ -7148,23 +7428,30 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * The dot's color: the entry's own accent, else the card's, where either is a color rather
-   * than a source to follow.
+   * The dot's color: the entry's own accent, else the card's, or Home Assistant's color for the
+   * calendar where the one that applies follows it.
    *
    * @param entry - The entry
    * @returns A CSS color, or `undefined` to draw the theme's
    */
   private _rowColor(entry: string | Types.EntityConfig): string | undefined {
-    for (const value of [Entities.asEntityConfig(entry).accent_color, this._config?.accent_color]) {
-      if (
-        typeof value === 'string' &&
-        value.trim() !== '' &&
-        !EntityColors.isEntityColorSentinel(value)
-      ) {
-        return value;
-      }
+    const own = Entities.asEntityConfig(entry).accent_color;
+    const card = this._config?.accent_color;
+    const given = (value: unknown): value is string =>
+      typeof value === 'string' && value.trim() !== '';
+    // Following Home Assistant, the entry's own or the card's for it, is the registry's color for
+    // the calendar, as its color control and the card draw it; without one, the card's.
+    const follows = EntityColors.isEntityColorSentinel(own)
+      ? true
+      : !given(own) && EntityColors.isEntityColorSentinel(card);
+    if (follows) {
+      this._registryWanted = true;
+      const registry = EntityColors.entityColors().get(Synthetic.entityIdOf(entry));
+      if (registry !== undefined) return registry;
+    } else if (given(own)) {
+      return own;
     }
-    return undefined;
+    return given(card) && !EntityColors.isEntityColorSentinel(card) ? card : undefined;
   }
 
   /**
@@ -7271,7 +7558,7 @@ export class CalendarCardProEditor extends LitElement {
         id: 'split',
         label: this._string(ctx, 'split.title'),
         icon: mdiCallSplit,
-        name: this._string(ctx, 'split.named', { name: entryName }),
+        name: this._string(ctx, 'split.named_row', { name: entryName }),
         onPress: () => this._openSplit(entryKey),
       });
     }
@@ -8149,17 +8436,40 @@ export class CalendarCardProEditor extends LitElement {
     if (!done) return;
     const ctx = this._ctx;
     this._openStrip = undefined;
-    this._entryNotice = {
-      key: copy,
-      text: this._string(ctx, 'entry.duplicate_warning'),
-      warning: true,
-    };
+    this._entryNotice = { key: copy, ...this._duplicateNotice(ctx) };
     this._say(this._string(ctx, 'entry.duplicated', { name }));
     this._open(
       { kind: 'entry', key: copy },
       `row:${key}`,
       this._nav.route.kind === 'entry' ? 'replace' : 'push',
     );
+  }
+
+  /**
+   * What a fresh duplicate's page says about its events: each shows twice for now, except in the
+   * layouts that filter duplicates, where the second entry adds none (`events.ts` ›
+   * `deduplicateEvents`). Only the layouts the card can show are counted.
+   *
+   * @param ctx - Schema context
+   * @returns The line, and whether it warns
+   */
+  private _duplicateNotice(ctx: SchemaCtx): { text: string; warning: boolean } {
+    const config = this._config!;
+    const twice = ViewConfig.reachableViews(config).filter(
+      (view) => !ViewConfig.resolveViewOption(config, 'filter_duplicates', view),
+    );
+    if (twice.length === 0) {
+      return { text: this._string(ctx, 'entry.duplicate_filtered'), warning: false };
+    }
+    if (twice.length === ViewConfig.reachableViews(config).length) {
+      return { text: this._string(ctx, 'entry.duplicate_warning'), warning: true };
+    }
+    const layouts = EditorLocalize.formatList(
+      ctx.language,
+      twice.map((view) => this._layoutTitle(view, ctx)),
+      'conjunction',
+    );
+    return { text: this._string(ctx, 'entry.duplicate_warning_in', { layouts }), warning: true };
   }
 
   /**
@@ -8524,6 +8834,70 @@ export class CalendarCardProEditor extends LitElement {
     return this._jumpedEntryField(ctx, key, field, wrapper);
   }
 
+  /** Home Assistant's error for a title that is a template it cannot render, while there is one. */
+  @state() private _titleError?: string;
+
+  /** The title template, rendered by Home Assistant only for what it says is wrong with it. */
+  private _titleCheck = new Templates.TemplateSubscription({
+    onResult: () => {
+      this._titleError = undefined;
+    },
+    onError: (error) => {
+      this._titleError = error;
+    },
+  });
+
+  /**
+   * Home Assistant's own error message under the Title field, as it renders the template typed
+   * there, through `ha-form`'s error map.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @returns The map; undefined for any other field, or a title that renders
+   */
+  private _titleTemplateError(
+    slot: string,
+    field: IndexedField,
+  ): Record<string, string> | undefined {
+    const error = this._titleError;
+    if (field.id !== 'card:title' || error === undefined) return undefined;
+    if (!Templates.isTemplate(this._config?.title)) return undefined;
+    return this._intern(`${slot}.template`, { [field.node.name]: error });
+  }
+
+  /**
+   * The line under a size held rather than written because the card cannot use it, `50%` for a
+   * height (`routing.ts` › `applyWorkspaceChange`): it says the stored size stays, so text that
+   * reads as set is not taken for saved. Drawn through `ha-form`'s own error map.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @param workspace - The scope it is drawn in
+   * @param ctx - Schema context
+   * @returns The map; undefined where nothing is held, or what is held is a size still typed
+   */
+  private _heldError(
+    slot: string,
+    field: IndexedField,
+    workspace: Workspace.EditorWorkspace,
+    ctx: SchemaCtx,
+  ): Record<string, string> | undefined {
+    const name = field.node.name;
+    const held = this._pending[Routing.pendingKey(name, workspace, field.dataPath)];
+    const writes = Synthetic.configKeysForField(name);
+    if (typeof held !== 'string' || held.trim() === '' || writes.length !== 1) return undefined;
+    if (!foldsWhileTyped(optionPath(field.dataPath, writes[0]), held)) return undefined;
+    const stored = Routing.atPath(
+      this._formDataFor(this._config!, workspace, {}),
+      field.dataPath,
+      name,
+    );
+    const message = Synthetic.isSet(stored)
+      ? this._string(ctx, 'value.size_held', { value: String(stored) })
+      : this._string(ctx, 'value.size_held_unset');
+    return this._intern(`${slot}.held`, { [name]: message });
+  }
+
   /**
    * The line under a word list the card cannot read: Blocklist and Allowlist, built
    * as the card builds them, and Countries To Remove, which the card wraps (`formatLocation`).
@@ -8886,7 +9260,7 @@ export class CalendarCardProEditor extends LitElement {
     return SplitView.splitRow(
       this._string(ctx, 'split.title'),
       this._string(ctx, 'split.row_helper'),
-      this._string(ctx, 'split.named', { name: this._entryName(key) }),
+      this._string(ctx, 'split.named_row', { name: this._entryName(key) }),
       () => this._openSplit(key),
     );
   }
@@ -9838,8 +10212,16 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
-    // The card's language is still on its way, and nothing has been drawn yet (`_language`).
-    if (this._drawnLanguage === undefined) return nothing;
+    // The card's language is still on its way, and nothing has been drawn yet (`_language`): a
+    // line that says so, in Home Assistant's words where it has them, so the dialog is not blank.
+    if (this._drawnLanguage === undefined) {
+      const word = this.hass.localize?.('ui.common.loading');
+      const loading =
+        typeof word === 'string' && word !== '' && word !== 'ui.common.loading'
+          ? word
+          : this._string(ctx, 'state.loading');
+      return html`<p class="loading" role="status">${loading}</p>`;
+    }
     if (this._migration.kind === 'future') {
       return this._renderMigrationBlock(
         ctx,
@@ -10167,7 +10549,35 @@ export class CalendarCardProEditor extends LitElement {
           ? Wizard.wizardNote(this._string(ctx, 'quick_setup.calendars_needed'), 'quick-setup-note')
           : nothing
       }
+      ${session.step === 'calendars' ? this._renderStoryColors(ctx, session, answers) : nothing}
     `;
+  }
+
+  /**
+   * The colors the example gives the calendars chosen, beside their names, under the calendars
+   * step, where they can still be changed by choosing others.
+   *
+   * @param ctx - Current editor context
+   * @param session - The run in progress
+   * @param answers - What Quick Setup has been told
+   * @returns The swatches, or nothing where the example colors none
+   */
+  private _renderStoryColors(
+    ctx: SchemaCtx,
+    session: QuickSetupSession,
+    answers: QuickSetup.QuickSetupAnswers,
+  ): TemplateResult | typeof nothing {
+    const colored = QuickSetup.storyColors(session.opening, answers);
+    if (colored.length === 0) return nothing;
+    return html`<div class="quick-setup-colors">
+      <p class="hint">${this._string(ctx, 'quick_setup.review.colors')}</p>
+      ${QuickSetupView.swatches(
+        colored.map(({ calendar, color }) => ({
+          name: Entities.entityDisplayName(calendar, this.hass),
+          color,
+        })),
+      )}
+    </div>`;
   }
 
   /**
@@ -10192,28 +10602,64 @@ export class CalendarCardProEditor extends LitElement {
     const built = QuickSetup.buildQuickSetupConfig(session.opening, answers);
     const merged = { ...Config.DEFAULT_CONFIG, ...built } as unknown as Types.Config;
     const view = this._viewForConfig(merged);
-    const days = ViewConfig.resolveEffectiveConfig(merged, view).days_to_show;
-    const colored = QuickSetup.storyColors(session.opening, answers).map(({ calendar }) =>
-      name(calendar),
-    );
+    const colored = QuickSetup.storyColors(session.opening, answers).map(({ calendar, color }) => ({
+      name: name(calendar),
+      color,
+    }));
     const weather = answers.weather.trim();
-    const rows: Array<[string, string]> = [
+    // Every layout the card can show, the one it opens in first, each with its own day count:
+    // Month draws its six weeks whatever the count says.
+    const layouts = [view, ...ViewConfig.reachableViews(merged).filter((each) => each !== view)];
+    const daysOf = (each: Types.EffectiveView): number | undefined =>
+      each === 'month' ? undefined : ViewConfig.resolveEffectiveConfig(merged, each).days_to_show;
+    const counts = new Set(layouts.map(daysOf).filter((each) => each !== undefined));
+    const layoutLine = (each: Types.EffectiveView): string => {
+      const days = daysOf(each);
+      const named = this._layoutName(ctx)(each);
+      if (days === undefined) return named;
+      const words =
+        days === 1
+          ? t('quick_setup.review.days_one')
+          : t('quick_setup.review.days', { count: days });
+      return `${named}${Summary.SUMMARY_SEPARATOR}${words}`;
+    };
+    // Show Toolbar turns on every control the example's toolbar holds, not the switcher alone.
+    const toolbar = Config.resolveToolbar(merged);
+    const controls = toolbar.show
+      ? (
+          [
+            [toolbar.navigation, 'toolbar.navigation'],
+            [toolbar.navigation && toolbar.search, 'toolbar.controls.search'],
+            [toolbar.addEvent, 'toolbar.controls.add_event'],
+            [Config.switcherOffers(merged).length > 0, 'toolbar.view_switcher'],
+            [toolbar.legend !== false, 'toolbar.legend'],
+            [toolbar.reset, 'toolbar.controls.reset'],
+            [toolbar.refresh, 'toolbar.controls.refresh'],
+          ] as const
+        ).flatMap(([on, key]) => (on ? [t(key)] : []))
+      : [];
+    const rows: Array<[string, string | TemplateResult]> = [
       [t('quick_setup.review.example'), t(`quick_setup.story.${answers.story}`)],
       [t('quick_setup.review.calendars'), list(answers.calendars.map(name))],
       ...(colored.length > 0
-        ? [[t('quick_setup.review.colors'), list(colored)] as [string, string]]
+        ? [
+            [t('quick_setup.review.colors'), QuickSetupView.swatches(colored)] as [
+              string,
+              TemplateResult,
+            ],
+          ]
         : []),
       [
-        t('quick_setup.review.layout'),
-        [
-          this._layoutName(ctx)(view),
-          days === 1
-            ? t('quick_setup.review.days_one')
-            : t('quick_setup.review.days', { count: days }),
-        ].join(Summary.SUMMARY_SEPARATOR),
+        layouts.length > 1 ? t('quick_setup.review.layouts') : t('quick_setup.review.layout'),
+        layouts.length > 1
+          ? html`<ul class="quick-setup-layouts">
+              ${layouts.map((each) => html`<li>${layoutLine(each)}</li>`)}
+            </ul>`
+          : layoutLine(view),
       ],
       [t('quick_setup.review.title'), answers.title.trim() || none],
       [t('quick_setup.review.weather'), weather === '' ? none : name(weather)],
+      [t('quick_setup.review.toolbar'), controls.length > 0 ? list(controls) : none],
     ];
     const replaced = QuickSetup.replacements(session.opening, built);
     const shown = this._reviewAll ? replaced : replaced.slice(0, REVIEW_SHOWN);
@@ -10228,6 +10674,7 @@ export class CalendarCardProEditor extends LitElement {
             </div>`,
         )}
       </dl>
+      ${counts.size > 1 ? html`<p class="hint">${t('quick_setup.review.days_note')}</p>` : nothing}
       ${
         replaced.length > 0
           ? html`<div class="quick-setup-replaced wizard-card" data-quick-setup-replaced>
