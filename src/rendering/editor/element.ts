@@ -69,7 +69,7 @@ import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
-import { optionPath } from './normalize';
+import { foldsWhileTyped, optionPath } from './normalize';
 import {
   type Appearance,
   CALENDARS_BLOCK,
@@ -8749,7 +8749,7 @@ export class CalendarCardProEditor extends LitElement {
     const held = this._pending[Routing.pendingKey(name, workspace, field.dataPath)];
     const writes = Synthetic.configKeysForField(name);
     if (typeof held !== 'string' || held.trim() === '' || writes.length !== 1) return undefined;
-    if (!Config.foldsToDefault(optionPath(field.dataPath, writes[0]), held)) return undefined;
+    if (!foldsWhileTyped(optionPath(field.dataPath, writes[0]), held)) return undefined;
     const stored = Routing.atPath(
       this._formDataFor(this._config!, workspace, {}),
       field.dataPath,
