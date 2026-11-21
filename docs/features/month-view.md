@@ -43,7 +43,8 @@ today, and `start_date: 2027-01-15` opens January 2027.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
   carries its month's name, such as "1 Dec".
 - **Today** sits on the [date tile](/features/layout-appearance#the-date-tile), filled with
-  `today_indicator_color` and its number in white by default, so it stands out among the events,
+  `today_indicator_color`, a deeper shade of it where the color is too light, and its number in
+  white, so it stands out among the events,
   as a [narrow month](#the-narrow-month) draws it while today is the selected day.
   `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
   tile and none.
@@ -76,7 +77,8 @@ across them, as Grid's all-day band draws it.
 - **A line** is a timed event: its calendar's accent bar, its title, cut short where it is too
   long, and its start time at the line's end, with the calendar's
   [label](/features/core-settings#available-options-for-entity-configuration-objects) where it
-  has one. An event that runs past midnight but less than a day has a line on each day it
+  has one, and every calendar's label on an event
+  [`filter_duplicates`](/features/filtering#filtering-duplicate-events) merged. An event that runs past midnight but less than a day has a line on each day it
   touches, the later one reading "until 01:30".
 - **A bar** is an all-day or multi-day event, in its calendar's color. One all-day day is a short
   bar of its own; a longer event spans its days and starts again, with its title, at the start
@@ -202,7 +204,8 @@ month:
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
 opens the day in a panel: every event that day, drawn as in [the day's list](#the-days-list) of a
 narrow month, with their times, locations and the other details the card shows. A press on an
-event there closes the panel and does what a press on it in the month would. With
+event there closes the panel and does what a press on it in the month would, and a hold runs
+`event_hold_action`, else the card's `hold_action`. With
 `day_tap_action: add-event`, a press on the day's name at the top of the panel adds an event on
 that day, as the selected day's name does over a narrow month's list.
 
@@ -215,8 +218,8 @@ the compact limits, `event_order` and `show_empty_days` shape a list card, not a
 
 Where a day is too narrow for titles, as on a phone, the month draws its narrow form:
 under each day's number a small capsule with a segment per event in its calendar's color,
-up to four, or a dot for a single event, and the events of the day you choose listed under the
-weeks.
+up to four, with a small "+" beside it on a day that has more, or a dot for a single event, and
+the events of the day you choose listed under the weeks.
 
 ```yaml
 view: month
@@ -306,7 +309,9 @@ to the ends of the week. With the toolbar's
 [date navigation](/features/header-toolbar#paging-through-dates), Page Up and Page Down go to the
 month before or after the one shown, on the same date where it has one, and an arrow past the
 weeks drawn pages there too. Enter or Space opens the day's list in a panel, or on a narrow month
-selects the day. Each day is announced with its full date and how many events it holds.
+selects the day. Each day is announced with its full date and how many events it holds, and on a
+wide month as opening a dialog. Rotating or zooming between the wide and narrow month keeps focus
+on your day.
 
 On a wide month the keys always open the panel, whatever a press on the day's empty part does.
 That press stays in reach: with `day_tap_action: add-event`, the day's name at the top of the
@@ -404,7 +409,8 @@ Days** on Month's Event Appearance, beside the sizes a day's list takes.
   shrinks to fit. The lines' spacing and color stripe are drawn for the 12px titles, so a line
   set larger stays as compact as its text allows.
 - **`text_scale`** on a calendar multiplies the cell sizes in its days: at `1.5` its lines are
-  `18px` where the others are `12px`.
+  `18px` where the others are `12px`. Each of its lines gets the room it needs, and what no longer
+  fits goes behind "+N more".
 
 ## 🧰 Month in the View Switcher
 
@@ -479,7 +485,8 @@ Seven shared options do not inherit their top-level value in month view:
 | `vertical_line_width`   | string  | `2px`   | `3px`         |
 
 A month shows its past days with their events, dimmed, rather than empty weeks behind today. Set
-`show_past_events: false` inside `month:` to hide them.
+`show_past_events: false` inside `month:` to hide them. An event drawn as a [bar](#bars-lines)
+then keeps all its days, in the weeks, the day's list and the panel, until the whole event is past.
 
 The events of a [day's list](#the-days-list) stand apart, 6px from each other. Set
 `event_gap: 0px` inside `month:` to join them; a top-level `event_gap` changes the list and column

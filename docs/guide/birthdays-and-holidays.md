@@ -44,7 +44,7 @@ list:
 
 The toolbar is there for its magnifier: a search answers _when is Clara's birthday?_ a year back or ahead, beyond the 60 days on screen. Search comes with the date navigation, so the arrows and a swipe page through the days too, and the title becomes a small label over the month. Every other toolbar control is turned off. See [Searching the Card](/features/header-toolbar#searching-the-card).
 
-The month on the toolbar is the first month shown, and each rule after it names the next, so `show_month: false` takes the month out of every date without leaving a day unplaced. See [Naming the Month on Its Rule](/features/layout-appearance#naming-the-month-on-its-rule).
+The toolbar names the first month, and each month after it opens under a rule with its name, so `show_month: false` takes the month out of every date without leaving a day unplaced. See [Naming the Month on Its Rule](/features/layout-appearance#naming-the-month-on-its-rule).
 
 ::: tip Build It in the Editor
 [Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its two colors, in order. Add the 🎂 and 🎉 labels yourself.
