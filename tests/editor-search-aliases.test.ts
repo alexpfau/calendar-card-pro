@@ -249,6 +249,13 @@ describe('aliases in each editor language', () => {
     expect(hits('en', 'Wochennummern', 'card')).toEqual([]);
   });
 
+  it('put a setting an alias names exactly ahead of the settings whose labels start with it', () => {
+    // Wochennummern-Schriftgröße and the week number colors start with the word; the alias
+    // names Numbering itself.
+    expect(hits('de', 'Wochennummern', 'card')[0]).toBe('week_number_mode');
+    expect(hits('de', 'kw', 'card')[0]).toBe('week_number_mode');
+  });
+
   it.each(LANGUAGES)(
     '%s searches its own words, and the English ones where it has none',
     (code) => {

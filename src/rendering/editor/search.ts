@@ -1269,6 +1269,9 @@ function match(
                 : 0;
     best = Math.max(best, score);
   }
+  // An alias that is the query exactly names the setting as surely as its label would: German's
+  // "Wochennummern" is Numbering's, ahead of the font sizes and colors whose labels start with it.
+  if (best < SCORE.exact && aliasIs(entry, wanted)) return { source: 'alias', score: SCORE.exact };
   if (best > 0) return { source: 'label', score: best };
 
   const first = (sources: ReadonlyArray<MatchSource>): MatchSource =>
@@ -1298,6 +1301,21 @@ function match(
         )
       : undefined,
   };
+}
+
+/**
+ * Whether one of a row's aliases, each a phrase of its comma-separated list, is the query.
+ *
+ * @param entry - The row
+ * @param wanted - The folded query
+ * @returns `true` when one is
+ */
+function aliasIs(entry: SearchEntry, wanted: string): boolean {
+  // Split as written: folding turns the commas between them into spaces.
+  return entry.text.some(
+    ([, source, written]) =>
+      source === 'alias' && written.split(',').some((alias) => fold(alias) === wanted),
+  );
 }
 
 /**
