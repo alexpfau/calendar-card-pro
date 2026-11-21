@@ -65,7 +65,7 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Calendars › Which Events                   | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`                   | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day      |
 | Calendars › Name & Look · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                                        | A bin icon in the bin's color; the feed's prefix removed                                                       |
-| Events                                     | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown: once_per_day`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day", once on a day two bins go out together |
+| Event Appearance                           | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown: once_per_day`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day", once on a day two bins go out together |
 | List › Which Events                        | `days_to_show: 31`, `hide_when_empty`                                                                                 | A month ahead, so a monthly bin still shows; no pickups, no card                                               |
 
 ## 🔀 Adapt It
@@ -76,8 +76,8 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 
 ## 📚 Next Steps
 
-- [Entity-Level vs. Global Event Limits](/features/core-settings#entity-level-vs-global-event-limits) — a limit for each block
-- [Retiring All-Day Events During the Day](/features/core-settings#retiring-all-day-events-during-the-day) — when a pickup leaves the card
+- [Entity-Level vs. Global Event Limits](/features/list-view#entity-level-vs-global-event-limits) — a limit for each block
+- [Retiring All-Day Events During the Day](/features/filtering#retiring-all-day-events-during-the-day) — when a pickup leaves the card
 - [Repeated Countdowns](/features/event-content#repeated-countdowns) — one "tomorrow" for two bins on the same day
-- [Text Replacement](/features/core-settings#text-replacement) and [The All-Day Badge](/features/event-content#the-all-day-badge) — the prefix and the pill
+- [Text Replacement](/features/filtering#text-replacement) and [The All-Day Badge](/features/event-content#the-all-day-badge) — the prefix and the pill
 - [Configuration Reference](/reference/configuration) — every option

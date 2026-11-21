@@ -103,8 +103,10 @@ describe('the visual editor page’s Quick Setup example', () => {
       resolve(__dirname, '..', 'docs', 'features', 'editor.md'),
       'utf8',
     );
-    const intro = 'Starting from Birthdays & Holidays on two calendars\nwrites this:';
-    const from = markdown.indexOf(intro);
+    // Matched across any line break, so reflowing the prose cannot fail this.
+    const from = markdown.search(
+      /Starting from Birthdays & Holidays on two calendars\s+writes this:/,
+    );
     expect(from, 'the example’s introduction moved').toBeGreaterThan(-1);
     const block = /^```yaml\n([\s\S]*?)^```$/m.exec(markdown.slice(from));
     expect(block, 'no YAML block after the introduction').not.toBeNull();

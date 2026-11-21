@@ -11,19 +11,19 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
    - Click the three-dot menu (⋮) → **Edit Dashboard**
 3. **Add Calendar Card Pro**
    - Click the ➕ **Add Card** button
-   - Search for `"Calendar"` or scroll to find `"Calendar Card Pro"`
-   - Select the card to add it to your dashboard
+   - Switch to the **By card** tab, and search for `"Calendar"` or scroll to find `"Calendar Card Pro"`
+   - Select the card, and its [visual editor](/features/editor) opens
 4. **Configure with the Visual Editor**
-   - Click the three dots (⋮) in the top-right corner of the card
-   - Select **"Configure"** to open the [visual editor](/features/editor)
-   - Choose **Quick Setup** there to start from an [example card](/features/editor#quick-setup) on your own calendars
+   - Choose **Quick Setup** in the banner at the top of the editor to start from an [example card](/features/editor#quick-setup) on your own calendars. Where there is no banner, use **More → Start From an Example**
+   - **Apply** sets the card up in the editor without saving it. Press Home Assistant's **Save** to put it on the dashboard, then **Done** to leave the dashboard's edit mode
+   - To change the card later, edit the dashboard again and choose the card's **Edit**
 
 ::: tip Shortcut (Home Assistant 2026.6+)
-In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events, so you can skip straight to step 4. Nothing needs to be enabled for this. Five starting points are offered:
+In the card picker, stay on the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events. Picking one puts it straight on the dashboard; choose the card's **Edit** to continue with step 4. Nothing needs to be enabled for this. Five starting points are offered:
 
 - **Calendar Card Pro - Interactive List**: the list layout, ready to page, open and add events
 - **Calendar Card Pro - Interactive Time Grid**: the same in the grid layout
-- **Calendar Card Pro**: the default [list layout](/features/layout-appearance)
+- **Calendar Card Pro**: the default [list layout](/features/list-view)
 - **Calendar Card Pro - Columns**: the same days [side by side](/features/column-view)
 - **Calendar Card Pro - Time Grid**: the days on [an hour axis](/features/grid-view)
 
@@ -36,7 +36,7 @@ day_tap_action:
   action: add-event
 ```
 
-They turn on the [header toolbar](/features/layout-appearance#header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [add an event on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view). On every card a tap [opens an event](/features/actions#tapping-an-event) in the card's popover, and in the grid you can drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows the toolbar, and the forecast where there is one, but nothing a tap does.
+They turn on the [header toolbar](/features/header-toolbar), which pages through dates, switches layouts, searches and adds events, and let a tap [add an event on a day](/features/actions#tapping-a-day-to-add-an-event). In the grid you can also [draw an event](/features/actions#drawing-an-event-in-grid-view). On every card a tap [opens an event](/features/actions#tapping-an-event) in the card's popover, and in the grid you can drag one to another time. What you can add, change or delete depends on the calendar: on one that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it. Taps do nothing while the card is being edited, so the picker's preview shows the toolbar, and the forecast where there is one, but nothing a tap does.
 
 When your Home Assistant has exactly one weather entity, the two interactive ones also show its [forecast](/features/weather) beside each day, in each layout with a day header:
 
@@ -60,7 +60,7 @@ The other three differ only in `view`, so you can switch layouts later. The grid
 
 ## 🚀 Your First Card
 
-If you prefer YAML — or want to see what the editor is producing — this is a **complete, working configuration**. Paste it into the card's YAML editor as-is:
+If you prefer YAML — or want to see what the editor is producing — this is a **complete, working configuration**. Replace `calendar.family` with one of your own `calendar.*` entities, then paste it into the card's YAML editor:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -73,10 +73,8 @@ show_month: false
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_native.png" alt="Basic Configuration" width="600">
 
-Replace `calendar.family` with one of your own `calendar.*` entities and you have a working card.
-
 ::: info Reading Examples in These Docs
-Configuration snippets on the feature pages usually show **only the options being discussed**, so the relevant setting is easy to spot. To use one, add it to a card that already has `type:` and `entities:` — like the one above.
+Configuration snippets on the feature pages usually show **only the options being discussed**, so the relevant option is easy to spot. To use one, add it to a card that already has `type:` and `entities:` — like the one above.
 :::
 
 ## ⚙️ Customizing the Card
@@ -84,7 +82,7 @@ Configuration snippets on the feature pages usually show **only the options bein
 Calendar Card Pro offers two ways to customize your card, and both edit the same configuration:
 
 1. **[Visual Editor](/features/editor) (Recommended)**
-   - An overview holds the essentials and opens a page for each part of the card, and a search box finds any setting by name or YAML key
+   - An overview holds the essentials and opens a page for each part of the card, and a search box finds any option by its label or YAML key
    - Changes are previewed in real time
    - Smart validation prevents configuration errors
 
@@ -103,6 +101,6 @@ The feature pages explain what each feature does and show it at work. [Configura
   - [Today & Tomorrow](/guide/today-and-tomorrow) - two days by the hour, from a phone to a kitchen tablet
   - [Birthdays & Holidays](/guide/birthdays-and-holidays) and [Bin Day](/guide/bin-day) - what is coming up, and which bin goes out next
   - [House Log](/guide/house-log) - a log of household jobs, newest first, each with how long ago it was
-- **Learn a Feature** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first. From there, add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
-- **Use the Card on the Dashboard** - The [header toolbar](/features/layout-appearance#header-toolbar) with its [date navigation](/features/layout-appearance#paging-through-dates), [calendar filter](/features/layout-appearance#showing-hiding-calendars), layout switcher and add-event button, and [the event popover](/features/actions#tapping-an-event) a tap on an event opens
+- **Learn a Feature** - [Calendars](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first. From there, add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/filtering), or set up [tap and hold actions](/features/actions)
+- **Use the Card on the Dashboard** - The [header toolbar](/features/header-toolbar) with its [date navigation](/features/header-toolbar#paging-through-dates), [calendar filter](/features/header-toolbar#showing-hiding-calendars), layout switcher and add-event button, and [the event popover](/features/actions#tapping-an-event) a tap on an event opens
 - **Get Involved** - See [Contributing & Roadmap](/contributing) to report a bug, translate the card, contribute code or see where plans are tracked

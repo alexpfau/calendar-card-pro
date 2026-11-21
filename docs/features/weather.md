@@ -53,16 +53,16 @@ those for each position under `date` or `event`:
 | `date → show_high_temp`           | boolean | `true`                        | Whether to show high temperature in the day header                                                                                                                                                                                                |
 | `date → show_low_temp`            | boolean | `false`                       | Whether to show low temperature in the day header. The UV index takes this place on days it is shown                                                                                                                                              |
 | `date → show_uv_index`            | boolean | `false`                       | Whether to show UV index in the day header                                                                                                                                                                                                        |
-| `date → uv_index_threshold`       | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                                                                                                                                      |
+| `date → uv_index_threshold`       | number  | `0`                           | Only show UV index when it is at least this value (0 = always show when enabled)                                                                                                                                                                  |
 | `date → icon_size`                | string  | `14px`                        | Size of weather icons in the day header, as a CSS length such as `14px` or `1em`. A percentage, negative size, keyword or misspelled unit falls back to `14px`                                                                                    |
 | `date → font_size`                | string  | `12px`                        | Size of weather text in the day header, as a CSS font size such as `12px`, `1em` or `90%`. A negative size, misspelled unit or word that is not a font size falls back to `12px`                                                                  |
 | `date → color`                    | string  | `var(--primary-text-color)`   | Color of weather text and icons in the day header. Matches the weekday, day number and month it sits beside                                                                                                                                       |
-| `event → show_conditions`         | boolean | `true`                        | List layout: whether to show the condition icon. Column and grid layouts: whether to state the condition in words — the icon is always shown                                                                                                      |
+| `event → show_conditions`         | boolean | `true`                        | List and month layouts: whether to show the condition icon. Column and grid layouts: whether to state the condition in words — the icon is always shown                                                                                           |
 | `event → show_temp`               | boolean | `true`                        | Whether to show temperature in the event row                                                                                                                                                                                                      |
 | `event → show_uv_index`           | boolean | `false`                       | Whether to show UV index in the event row                                                                                                                                                                                                         |
-| `event → uv_index_threshold`      | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                                                                                                                                      |
-| `event → daily_forecast_fallback` | boolean | `true`                        | Fall back to the daily forecast for timed events beyond the hourly forecast horizon                                                                                                                                                               |
-| `event → max_lines`               | number  | `0`                           | Maximum number of lines the event weather row may use (0 = unlimited). Truncated text shows `...`                                                                                                                                                 |
+| `event → uv_index_threshold`      | number  | `0`                           | Only show UV index when it is at least this value (0 = always show when enabled)                                                                                                                                                                  |
+| `event → daily_forecast_fallback` | boolean | `true`                        | Fall back to the daily forecast for a timed event on a date the hourly forecast does not reach                                                                                                                                                    |
+| `event → max_lines`               | number  | `0`                           | Column and grid layouts: maximum number of lines the condition words may take (0 = unlimited). Truncated words show `...`. List and month draw no words, so it does nothing there                                                                 |
 | `event → icon_size`               | string  | `14px`                        | Size of weather icons in the event row, as a CSS length such as `14px` or `1em`. A percentage, negative size, keyword or misspelled unit falls back to `14px`                                                                                     |
 | `event → font_size`               | string  | `12px`                        | Size of weather text in the event row, as a CSS font size such as `12px`, `1em` or `90%`. A negative size, misspelled unit or word that is not a font size falls back to `12px`                                                                   |
 | `event → color`                   | string  | `var(--secondary-text-color)` | Color of weather text and icons beside events. Matches the time and location it sits beside. Accepts `accent` for a readable shade of each event's calendar color; unset, it takes that shade wherever `event_color` is `accent`, as in grid view |
@@ -123,18 +123,28 @@ written that way keeps working as it always has: while the top-level `weather:` 
 entity, List, Columns and Grid show it as before, Month shows none, and each layout's own
 `weather:` and `weather_entity` are ignored, which the browser console reports.
 
-To set weather per layout, move the entity to `weather_entity` and copy the other options into
-each layout that should show them. A `position` the old block left out meant `date`, so write it
-out:
+Opening such a card in the visual editor converts it for you: the entity moves to
+`weather_entity`, List, Columns and Grid each take the old options, the card looks the same, and
+the editor says so with **Undo**. See
+[Upgrading Weather From v5](/features/editor#upgrading-weather-from-v5) and
+[What the Editor Does on Opening](/guide/upgrading#what-the-editor-does-on-opening).
+
+To convert it by hand, move the entity to `weather_entity` and copy the other options into each
+layout that should show them. A `position` the old block left out meant `date`, so write it out.
+Replace the whole block; a card holding both keeps reading the old one.
+
+Before:
 
 ```yaml
-# Before v6
 weather:
   entity: weather.forecast_home
   event:
     show_temp: false
+```
 
-# Per layout, showing the same
+After, showing the same:
+
+```yaml
 weather_entity: weather.forecast_home
 list:
   weather:
@@ -169,11 +179,20 @@ A layout's `position` decides where the forecast appears in it:
 ::: info How Far Forecasts Reach
 Home Assistant weather entities typically provide hourly forecasts for about two days
 ahead, while daily forecasts reach much further (six days or more, depending on the
-provider). Beyond the hourly horizon, timed events fall back to that day's daily
-forecast so weather keeps appearing across the whole calendar. Set
-`event → daily_forecast_fallback: false` if you would rather show nothing than a daily
-value. All-day events always use the daily forecast.
+provider). A timed event takes, in this order:
+
+1. the hourly forecast for the hour it starts in;
+2. else the nearest hourly forecast on the same date, even one several hours away, such as that
+   date's last hourly forecast for an evening event past the hourly horizon;
+3. else, on a date the hourly forecast does not reach, that date's daily forecast, so weather
+   keeps appearing across the whole calendar.
+
+Set `event → daily_forecast_fallback: false` if you would rather show nothing than a daily
+value; the first two steps still apply. All-day events always use the daily forecast.
 :::
+
+A timed event that has ended loses its forecast, even where the card still shows it as a past
+event.
 
 Beside an event, a sunny or partly cloudy hour is drawn with a moon after dark. Weather taken
 from the daily forecast describes the whole day, so it keeps the day icon.
@@ -189,8 +208,9 @@ it, 18:00 to 06:00 counts as night, in the same local time the card shows events
 `date` and `event` are set independently, so the day header and the event rows can show
 different parts of the forecast, at different sizes and in different colors. Only the day header
 has the high and low temperatures, and only an event row has `show_temp`,
-`daily_forecast_fallback` and `max_lines`; its temperature is for the event's hour where the
-hourly forecast reaches it. Every option and its default is in the
+`daily_forecast_fallback` and `max_lines`; its temperature is for the event's hour, or the
+nearest hour that date has, where the hourly forecast reaches it (see
+[How Far Forecasts Reach](#weather-display-positions)). Every option and its default is in the
 [table above](#weather-configuration-options).
 
 ## 🌂 Turning Weather Off for One Calendar
@@ -225,27 +245,31 @@ its events get weather at all, so where it is `date` or `none` this changes noth
 draws what the layout draws anyway.
 
 ::: tip Visual Editor
-**Event Weather** is the last setting under **Event Details** on each calendar's page. It appears
-once the layout the page is open for shows the forecast beside events.
+**Event Weather** is the last setting under **Event Details** on each calendar's page. A
+calendar's page holds the options of every layout the card can show, so it appears once any of
+those layouts shows the forecast beside events, and names the layouts it applies to where only
+some of them do.
 :::
 
 ::: details Calendars Listed Twice & Merged Rows
 
 - The option belongs to the entry, not the calendar. A calendar
-  [listed twice to split its events by type](/features/core-settings#separating-all-day-from-timed-events)
+  [listed twice to split its events by type](/features/filtering#separating-all-day-from-timed-events)
   can keep the weather on its all-day events and leave it off its timed ones.
-- A row [merged from several calendars](/features/core-settings#filtering-duplicate-events)
+- A row [merged from several calendars](/features/filtering#filtering-duplicate-events)
   follows the calendar listed first among them.
 
 :::
 
 ## 🧭 Weather In The Column Layout
 
+Column and grid layouts give each event's forecast a row of its own, beneath the time and
+above the location, instead of putting it on the title row.
+
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_weather.png" alt="Weather on both the day header and each event in column view"><br>
 
-Column and grid layouts give each event's forecast a row of its own, beneath the time and
-above the location, instead of putting it on the title row. **The condition icon is always shown
-there**, and `show_conditions` decides whether the condition is also stated in words:
+**The condition icon is always shown there**, and `show_conditions` decides whether the
+condition is also stated in words:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -289,19 +313,21 @@ there is no separator after the icon.
   the condition in Home Assistant's language, so on a card set to another language the very
   first paint may show that wording for a moment.
 - A word wider than its whole line is split mid-word rather than spilling out of the column.
-  `Sunny` stays whole at the default `min_day_width` of `140` and splits only at roughly half
-  that, which takes a lowered `min_day_width` or `min_days_fallback: cramp`.
+  At the default `min_day_width` short words such as `Sunny` stay whole; they split only in
+  columns made much narrower with a lower `min_day_width` or `min_days_fallback: cramp`.
 - The words are never hyphenated.
 
 :::
 
 ## 🌤️ Weather In The Grid Layout
 
+Grid view puts day-header weather in the date row above each column, where it reads as a
+label for the whole day rather than for any one event.
+
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_weather.png" alt="Weather on the day headers of a four-day grid card"><br>
 
-Grid view puts day-header weather in the date row above each column, where it reads as a
-label for the whole day rather than for any one event. The header has more room than a
-column track, so the condition, the high and the low all fit side by side:
+The header has more room than a column track, so the condition, the high and the low all fit
+side by side:
 
 ```yaml
 type: custom:calendar-card-pro

@@ -56,7 +56,7 @@ Nothing on the card says that more events are waiting. Tap it to see them all, a
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | List › Which Events        | `days_to_show: 2`, `list.compact_events_to_show: 4`, `show_empty_today`, `filter_duplicates`                              | Today and tomorrow, four events until tapped; a free today still says so; a shared plan appears once                                                                                                     |
 | Taps & Refresh             | `tap_action: expand`, `event_tap_action: none`, `event_hold_action: details`                                              | A tap shows the rest, another folds it back; a hold opens an event                                                                                                                                       |
-| Events                     | `show_countdown: once_per_day`, `show_progress_bar`, `show_location: false`, `show_end_time: false`, `scroll_long_titles` | "in 2 hours", and "tomorrow" once rather than on every row of the day; how far along a running event is, or which day of a longer one; two short lines per event; long titles scroll instead of wrapping |
+| Event Appearance           | `show_countdown: once_per_day`, `show_progress_bar`, `show_location: false`, `show_end_time: false`, `scroll_long_titles` | "in 2 hours", and "tomorrow" once rather than on every row of the day; how far along a running event is, or which day of a longer one; two short lines per event; long titles scroll instead of wrapping |
 | Size & Spacing · Calendars | `event_gap: 4px`, `person.*` labels                                                                                       | Separate bars; a face per person, in the theme's accent                                                                                                                                                  |
 
 ::: info Tap to Expand, Hold for an Event
@@ -72,7 +72,7 @@ By default a tap on an event opens it, and wins over the card's tap. Events cove
 ## 📚 Next Steps
 
 - [Expandable Calendar Card](/features/actions#expandable-calendar-card) — compact mode and the expand action
-- [Compact Mode & Event Limits](/features/core-settings#compact-mode-event-limits) — card-wide and per-calendar limits
+- [Compact Mode & Event Limits](/features/list-view#compact-mode-event-limits) — card-wide and per-calendar limits
 - [Countdown Display](/features/event-content#countdown-display), [Repeated Countdowns](/features/event-content#repeated-countdowns), [Progress Bar Display](/features/event-content#progress-bar-display) and [Scrolling Long Titles](/features/event-content#scrolling-long-titles) — the event options
 - [Day Counter](/features/multi-day-events#day-counter) — "Day 1 of 2" on an event a day or longer
 - [Configuration Reference](/reference/configuration) — every option
