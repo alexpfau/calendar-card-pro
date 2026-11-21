@@ -647,6 +647,15 @@ describe('Quick Setup banner', () => {
     ).toBe(false);
     expect(isFreshCard({ type: 'custom:calendar-card-pro', show_past_events: false })).toBe(false);
   });
+
+  it('does not take a day count other than the card picker’s for the stub', () => {
+    // Quick Setup reads a fresh card's one calendar as the picker's, and replaces it.
+    const card = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'] };
+    expect(isFreshCard({ ...card, days_to_show: 60 })).toBe(false);
+    expect(isFreshCard({ ...card, days_to_show: '3' })).toBe(false);
+    expect(isFreshCard({ ...card, days_to_show: 3 })).toBe(true);
+    expect(isFreshCard(card)).toBe(true);
+  });
 });
 
 describe('section row descriptions', () => {
