@@ -150,6 +150,7 @@ import { configuredCalendarName } from '../../utils/calendar-names';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
+import * as Templates from '../../utils/templates';
 
 /** How many entries the list holds before Filter Calendars appears above it. */
 const CALENDAR_FILTER_ROWS = 8;
@@ -611,6 +612,8 @@ export class CalendarCardProEditor extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._widthObserver?.disconnect();
+    this._titleCheck.destroy();
+    this._titleError = undefined;
     // Leaving the visual editor, for the code editor or by closing the dialog, cancels a split
     // that has not been made, so the preview is never what is kept.
     this._cancelSplit(false);
@@ -780,6 +783,8 @@ export class CalendarCardProEditor extends LitElement {
   protected override updated(): void {
     // A switch row is fitted once Home Assistant has drawn it, as the observer reports its size.
     this._watchSizes();
+    // A title that is a template is rendered by Home Assistant, which says what is wrong with it.
+    if (this.isConnected) this._titleCheck.update(this.hass ?? undefined, this._config?.title);
     // Written once attached, where Home Assistant hears it: `setConfig` comes while detached.
     if (this._pendingUpgrade && this.hass && this.isConnected) {
       this._pendingUpgrade = false;
@@ -3149,7 +3154,8 @@ export class CalendarCardProEditor extends LitElement {
           .hass=${hass}
           .error=${
             this._patternError(slot, field, data, ctx) ??
-            this._heldError(slot, field, workspace, ctx)
+            this._heldError(slot, field, workspace, ctx) ??
+            this._titleTemplateError(slot, field)
           }
           .data=${data}
           .schema=${schema}
@@ -8753,6 +8759,37 @@ export class CalendarCardProEditor extends LitElement {
       ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
+  }
+
+  /** Home Assistant's error for a title that is a template it cannot render, while there is one. */
+  @state() private _titleError?: string;
+
+  /** The title template, rendered by Home Assistant only for what it says is wrong with it. */
+  private _titleCheck = new Templates.TemplateSubscription({
+    onResult: () => {
+      this._titleError = undefined;
+    },
+    onError: (error) => {
+      this._titleError = error;
+    },
+  });
+
+  /**
+   * Home Assistant's own error message under the Title field, as it renders the template typed
+   * there, through `ha-form`'s error map.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @returns The map; undefined for any other field, or a title that renders
+   */
+  private _titleTemplateError(
+    slot: string,
+    field: IndexedField,
+  ): Record<string, string> | undefined {
+    const error = this._titleError;
+    if (field.id !== 'card:title' || error === undefined) return undefined;
+    if (!Templates.isTemplate(this._config?.title)) return undefined;
+    return this._intern(`${slot}.template`, { [field.node.name]: error });
   }
 
   /**
