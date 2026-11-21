@@ -452,7 +452,7 @@ column:
   time_position: below # the columns stay as they are
 ```
 
-[Month view](/features/month-view#the-days-list) always lists a day this way, whatever
+[Month view](/features/month-view#the-day-list) always lists a day this way, whatever
 `time_position` says.
 
 ::: warning One Line Needs a Wide Event Row

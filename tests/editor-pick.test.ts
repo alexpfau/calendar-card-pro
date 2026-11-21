@@ -330,10 +330,9 @@ describe('Pick From Preview', () => {
       const landed = {
         page: $(editor, '.page')?.getAttribute('data-page'),
         sub: text($(editor, '.page-sub')),
-        field: $(
-          editor,
-          `.page-group[data-heading="${heading}"] .jump [data-field]`,
-        )?.getAttribute('data-field'),
+        field: $(editor, `.page-group[data-heading="${heading}"] .jump [data-field]`)?.getAttribute(
+          'data-field',
+        ),
         said,
       };
       document.body.replaceChildren();

@@ -492,7 +492,7 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     ['layout:month.narrow_card_height A M', 'layout:month.narrow_card_max_height A M'],
   ],
-  // Day List & +N Panel in Month, whose weeks draw neither.
+  // Day List & Day Panel in Month, whose weeks draw neither.
   ['Size & Spacing', 'Event Rows', '', ['layout:event_gap A SLCM', 'layout:event_spacing A SLCM']],
   [
     'Size & Spacing',

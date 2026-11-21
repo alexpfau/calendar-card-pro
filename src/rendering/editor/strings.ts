@@ -1235,7 +1235,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Month layout shows past events whatever this is set to, dimmed, so that its past days ' +
     'are not left blank. Change it in Month’s own settings.',
   'view_default.month.event_gap':
-    'Month layout keeps the events of a day’s list apart whatever this is set to, so that ' +
+    'Month layout keeps the events in its Day List and Day Panel apart whatever this is set to, so that ' +
     'each reads as a block of its own. Change it in Month’s own settings.',
   'view_default.month.day_font_size':
     'Month layout sets its day numbers at 16px whatever this is set to, so that each fits ' +

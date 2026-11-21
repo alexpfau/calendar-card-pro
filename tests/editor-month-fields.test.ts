@@ -268,7 +268,9 @@ describe('Card Height on Month’s page', () => {
     const card = { ...CARD, card_max_height: '500px' };
     const editor = await mountEditor(card);
     await openPageOf(editor, 'layout:maximum_height');
-    expect(helperOf(editor, 'layout:maximum_height')).toMatch(/^The Wide Month fits its weeks within this height/);
+    expect(helperOf(editor, 'layout:maximum_height')).toMatch(
+      /^The Wide Month fits its weeks within this height/,
+    );
     await openPageOf(editor, 'events:show_single_allday_time');
     expect(helperOf(editor, 'events:show_single_allday_time')).toMatch(/^Month splits/);
     editor.remove();

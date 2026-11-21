@@ -43,6 +43,8 @@ import { ENTRY_GROUPS, type HeadingDef, topicsFor } from '../src/rendering/edito
 import {
   MONTH_DAY_LIST_ENTRY_OPTIONS,
   MONTH_DAY_LIST_OPTIONS,
+  MONTH_WIDE_ONLY_ENTRY_OPTIONS,
+  MONTH_WIDE_ONLY_OPTIONS,
   type PlanCtx,
   fieldsInDrawOrder,
   readsInMonthDayListOnly,
@@ -179,7 +181,7 @@ describe('Day List & Day Panel on Month’s pages', () => {
   });
 
   /**
-   * On Month's Size & Spacing page, Event Gap and Event Spacing sit under Day List & +N Panel,
+   * On Month's Size & Spacing page, Event Gap and Event Spacing sit under Day List & Day Panel,
    * which says what the marker would; elsewhere the marker is the only place that says it.
    */
   it('leaves it out under a heading that already says it, and nowhere else', async () => {
@@ -204,10 +206,150 @@ describe('Day List & Day Panel on Month’s pages', () => {
     const found = editor.shadowRoot!.querySelectorAll(
       '.result--edit [data-field="layout:event_gap"] .setting-facts > .fact',
     );
-    expect([...found].map((fact) => fact.textContent?.trim())).toContain(
+    expect([...found].map((fact) => fact.textContent?.trim())).toContain('Day List & Day Panel');
+    document.body.replaceChildren();
+  });
+});
+
+describe('Wide Month on Month’s pages', () => {
+  const month = drawn('month');
+
+  it('marks exactly the settings Month reads in the Wide Month’s days alone', () => {
+    expect(ids(month, (field, ctx) => stateOf(field, ctx)?.wideMonth === true)).toEqual([
+      'calendar:multiday_banners',
+      'content:multiday_banners',
+      'day_header:month_color',
+      'day_header:month_font_size',
+      'day_header:show_month',
+      'day_header:today_month_color',
+      'day_header:weekend_month_color',
+    ]);
+    // A setting is marked one way at most.
+    expect(
+      ids(month, (field, ctx) => {
+        const state = stateOf(field, ctx);
+        return state?.wideMonth === true && state.dayList === true;
+      }),
+    ).toEqual([]);
+  });
+
+  it('names only options Month’s pages offer', () => {
+    const card = new Set(
+      month
+        .filter(([field]) => !field.id.startsWith('calendar:'))
+        .flatMap(([field]) => field.configKeys.map((key) => [...field.dataPath, key].join('.'))),
+    );
+    const entry = new Set(
+      month
+        .filter(([field]) => field.id.startsWith('calendar:'))
+        .flatMap(([field]) => field.configKeys),
+    );
+    expect([...MONTH_WIDE_ONLY_OPTIONS].filter((path) => !card.has(path))).toEqual([]);
+    expect([...MONTH_WIDE_ONLY_ENTRY_OPTIONS].filter((key) => !entry.has(key))).toEqual([]);
+  });
+
+  it('says it under the setting, and nowhere but on Month’s pages', async () => {
+    const editor = await mountEditor({ entities: ['calendar.anna'], view: 'month' });
+    await editLayout(editor, 'month');
+    await openPageOf(editor, 'day_header:show_month');
+    expect(factsOf(editor, 'day_header:show_month')).toContain('Wide Month');
+    // The control: a date setting both forms draw.
+    expect(factsOf(editor, 'day_header:day_font_size')).not.toContain('Wide Month');
+    document.body.replaceChildren();
+    for (const workspace of ['list', 'shared'] as const) {
+      expect(
+        ids(drawn(workspace), (each, c) => stateOf(each, c)?.wideMonth === true),
+        workspace,
+      ).toEqual([]);
+    }
+  });
+});
+
+describe('Month’s four names on its pages', () => {
+  afterEach(() => document.body.replaceChildren());
+
+  const titles = (editor: Awaited<ReturnType<typeof mountEditor>>) =>
+    [...editor.shadowRoot!.querySelectorAll('.page-group > h3')].map((each) =>
+      (each.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    );
+
+  it('titles Size & Spacing’s headings by the form they act on, in Month alone', async () => {
+    const month = await mountEditor({ entities: ['calendar.anna'], view: 'month' });
+    await editLayout(month, 'month');
+    await openPageOf(month, 'layout:month.min_day_width');
+    expect(titles(month)).toEqual([
+      'Card Size & Spacing',
+      'Narrow Month',
+      'Day List & Day Panel',
+      'Wide or Narrow Month',
+    ]);
+    const note = month.shadowRoot!.querySelector(
+      '.page-group[data-heading="heading_card_size"]',
+    )?.textContent;
+    expect(note).toContain('Both forms.');
+    document.body.replaceChildren();
+    // The control: Columns keeps the titles every other layout reads.
+    const columns = await mountEditor({ entities: ['calendar.anna'], view: 'column' });
+    await editLayout(columns, 'column');
+    await openPageOf(columns, 'layout:column.min_day_width');
+    expect(titles(columns)).toContain('Narrow Cards');
+    expect(titles(columns)).toContain('Event Rows');
+    expect(
+      columns.shadowRoot!.querySelector('.page-group[data-heading="heading_card_size"]')
+        ?.textContent,
+    ).not.toContain('Both forms.');
+  });
+
+  it('names the forecast’s place in its heading, and leaves the mark out under it', async () => {
+    const config = {
+      entities: ['calendar.anna'],
+      view: 'month',
+      weather_entity: 'weather.home',
+      month: { weather: { position: 'event' } },
+    };
+    const editor = await mountEditor(config);
+    await editLayout(editor, 'month');
+    await openPageOf(editor, 'weather:weather.event.font_size');
+    expect(titles(editor)).toEqual(['Forecast', 'Day List & Day Panel']);
+    expect(factsOf(editor, 'weather:weather.event.font_size')).not.toContain(
       'Day List & Day Panel',
     );
-    document.body.replaceChildren();
+    // Above it, where no heading says so, the mark stays.
+    expect(factsOf(editor, 'weather:weather_entity')).toContain('Day List & Day Panel');
+  });
+
+  it('names the forms, the Day List and the Day Panel once, on Month’s page', async () => {
+    const lines = async (view: string) => {
+      const editor = await mountEditor({ entities: ['calendar.anna'], view });
+      editor.shadowRoot!.querySelector<HTMLElement>(`[data-focus="layout:${view}"]`)!.click();
+      await editor.updateComplete;
+      const found = [...editor.shadowRoot!.querySelectorAll('.page-line')].map((each) =>
+        (each.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      );
+      document.body.replaceChildren();
+      return found;
+    };
+    const month = (await lines('month')).find((line) => line.startsWith('Month draws one of'));
+    for (const name of ['Wide Month', 'Narrow Month', 'Day List', 'Day Panel']) {
+      expect(month).toContain(name);
+    }
+    expect((await lines('list')).some((line) => line.startsWith('Month draws one of'))).toBe(false);
+  });
+
+  it('finds a marked setting by its mark’s words, in Month alone', async () => {
+    const found = async (view: string, query: string) => {
+      const editor = await mountEditor({ entities: ['calendar.anna'], view });
+      await editLayout(editor, view);
+      await searchFor(editor, query);
+      const rows = resultRows(editor).map((each) => each.id);
+      document.body.replaceChildren();
+      return rows;
+    };
+    expect(await found('month', 'day panel')).toContain('events:event_font_size');
+    expect(await found('month', 'wide month')).toContain('content:multiday_banners');
+    // The control: List draws no Day Panel and no Wide Month.
+    expect(await found('list', 'day panel')).not.toContain('events:event_font_size');
+    expect(await found('list', 'wide month')).not.toContain('content:multiday_banners');
   });
 });
 
@@ -358,11 +500,11 @@ describe('Accent Text on Month’s page', () => {
         factsOf(editor, 'events:event_font_size').includes('Day List & Day Panel'),
         workspace,
       ).toBe(month);
-      expect(lines(editor).includes('Day List & Day Panel: Location.'), workspace).toBe(
-        month,
-      );
+      expect(lines(editor).includes('Day List & Day Panel: Location.'), workspace).toBe(month);
       expect(
-        lines(editor).some((line) => line.startsWith('A mark under a setting says where Month draws it')),
+        lines(editor).some((line) =>
+          line.startsWith('A mark under a setting says where Month draws it'),
+        ),
         workspace,
       ).toBe(month);
       // The parts Month draws nowhere say so, as any layout's absent parts do.
