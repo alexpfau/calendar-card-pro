@@ -1391,6 +1391,28 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Runs what a hold on an event runs, as pointer-up does: the event's own hold where one runs,
+   * else the card's. For a hold that ends elsewhere than on the card, in the day panel.
+   *
+   * @param target - The event and the accent color it is drawn in
+   * @param origin - Where the press was, for the cue while the dialog loads
+   */
+  private _runEventHold(target: Activation.EventTapTarget, origin?: Feedback.PressOrigin): void {
+    if (this._eventHoldRuns) {
+      this._runEventAction(target, 'hold', origin);
+    } else if (this._hasHoldAction) {
+      Logger.debug('Executing hold action');
+      Actions.handleAction(
+        this,
+        this.config,
+        'hold',
+        this._cardActions(null, origin),
+        this._shownEntries,
+      );
+    }
+  }
+
+  /**
    * The tappable event an input event started on, or undefined.
    *
    * Read from the composed path rather than the target, because a pointer-down's target is
@@ -1938,6 +1960,12 @@ class CalendarCardPro extends LitElement {
    * maybe onto another page (`_moveMonthFocus`). Any other page asked for ends it.
    */
   private _monthFocusPending = false;
+
+  /**
+   * Whether the month's form changed while a part of it held focus, so the render drawing the new
+   * form gives focus to the cell of the day that part belonged to (`_keepMonthFormFocus`).
+   */
+  private _monthFormFocus = false;
 
   private _gridScaleRaf: number | null = null;
 
@@ -3986,8 +4014,48 @@ class CalendarCardPro extends LitElement {
     );
     if (next === this._monthNarrow) return false;
     Logger.debug(`Month ${next ? 'narrow' : 'wide'} at ${Math.round(widthPx)}px`);
+    this._holdMonthFocus();
     this._monthNarrow = next;
     return true;
+  }
+
+  /**
+   * Notes the day of the month's part that holds focus as its form is about to change, which
+   * draws every part afresh: a day's cell, a wide day's line or "+N more", or anything in a narrow
+   * month's list, which belongs to the day selected. That day becomes the tab stop, and its cell
+   * takes focus once the new form is drawn (`_keepMonthFormFocus`). Nothing when focus is anywhere
+   * else, in the card or out of it.
+   */
+  private _holdMonthFocus(): void {
+    if (this.effectiveView !== 'month') return;
+    const active = this._focusedInCard();
+    if (!(active instanceof HTMLElement)) return;
+    let day: Date | null = null;
+    const cell = Activation.monthCellOn(active);
+    if (cell !== undefined) {
+      day = new Date(cell);
+    } else if (active.closest('.month-day-list')) {
+      day = this._monthSelectedDay();
+    } else if (active.closest('.month-container')) {
+      const key = MonthRender.monthItemDay(active.id);
+      day = key === null ? null : Paging.pageStart(key);
+    }
+    if (day === null) return;
+    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    this._monthFormFocus = true;
+  }
+
+  /**
+   * Gives focus to the cell of the day whose part held it as the month's form changed
+   * (`_holdMonthFocus`), where the new form's render left focus nowhere in the card. The cell is
+   * drawn in either form, as the rows are the same six weeks. Called after every update.
+   */
+  private _keepMonthFormFocus(): void {
+    if (!this._monthFormFocus) return;
+    this._monthFormFocus = false;
+    if (this.effectiveView !== 'month' || this._monthFocusDay === null) return;
+    if (this._focusedInCard()) return;
+    this._monthCellFor(Paging.pageStart(this._monthFocusDay))?.focus({ preventScroll: true });
   }
 
   /** Whether the card draws a narrow month now. */
@@ -4284,7 +4352,8 @@ class CalendarCardPro extends LitElement {
    * magnifier does. From a wide month that is the day's cell, which becomes the month's tab stop:
    * its "+N more" is out of the Tab order. From a narrow month's list it is the list's
    * "+N more" itself, a stop of its own (`returnToAnchor`). A row pressed in the panel closes it
-   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`). A
+   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`), and
+   * a row held runs what a hold on it runs there (`_runEventHold`). A
    * search's pick behind "+N more" rings its row there, and starts focus on it. Nothing opens
    * while the card is being edited.
    *
@@ -4350,6 +4419,8 @@ class CalendarCardPro extends LitElement {
           };
         },
         styles: () => this._customProperties(),
+        title: () => MonthRender.monthDayTitle(day, this.effectiveLanguage),
+        language: () => this.effectiveLanguage,
         titleColor: () => {
           const color = this.effectiveConfig.weekday_color;
           return color === Config.DEFAULT_CONFIG.weekday_color ? undefined : color;
@@ -4360,7 +4431,11 @@ class CalendarCardPro extends LitElement {
             if (this._dayPanel === panel) this._dayPanel = null;
           };
         },
-        activate: (target, origin) => this._activate({ event: target }, origin),
+        activate: (target, origin, gesture) =>
+          gesture === 'hold'
+            ? this._runEventHold(target, origin)
+            : this._activate({ event: target }, origin),
+        holds: () => this._eventHoldRuns || this._hasHoldAction,
         addLabel: () => this._dayAddButtons?.label,
         add: (origin) => this._activate({ day: day.getTime() }, origin),
       },
@@ -5118,6 +5193,7 @@ class CalendarCardPro extends LitElement {
     this._syncMonthCapacity();
     this._watchMonthProbes();
     this._keepMonthListFocus();
+    this._keepMonthFormFocus();
     this._syncMonthListFit();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.

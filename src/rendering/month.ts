@@ -44,7 +44,7 @@ import { DEFAULT_CONFIG, asksForToolbar } from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
-import { intlCache, intlLocales, intlSpeaks } from '../translations/intl-locales';
+import { intlCache, intlLocales, intlSpeaks, utcCalendarDay } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
@@ -195,6 +195,8 @@ export function monthDrawsRing(
 // WORDS
 //-----------------------------------------------------------------------------
 
+// Every date format here reads its day in UTC, from `utcCalendarDay`, so a format made before the
+// device's zone changed names the same day after it.
 const firstOfMonthFormats = intlCache<string, Intl.DateTimeFormat | null>();
 const dayNameFormats = intlCache<string, Intl.DateTimeFormat>();
 const fullDateFormats = intlCache<string, Intl.DateTimeFormat>();
@@ -216,7 +218,7 @@ function weekdayName(date: Date, language: string): string {
   if (format === undefined) {
     try {
       format = intlSpeaks(Intl.DateTimeFormat, language)
-        ? new Intl.DateTimeFormat(intlLocales(language), { weekday: 'long' })
+        ? new Intl.DateTimeFormat(intlLocales(language), { weekday: 'long', timeZone: 'UTC' })
         : null;
     } catch {
       format = null;
@@ -224,7 +226,7 @@ function weekdayName(date: Date, language: string): string {
     weekdayFormats.set(language, format);
   }
   return format
-    ? format.format(date)
+    ? format.format(utcCalendarDay(date))
     : Localize.getTranslations(language).daysOfWeek[date.getDay()];
 }
 
@@ -248,7 +250,11 @@ function firstOfMonthParts(
   if (format === undefined) {
     try {
       format = intlSpeaks(Intl.DateTimeFormat, language)
-        ? new Intl.DateTimeFormat(intlLocales(language), { day: 'numeric', month: 'short' })
+        ? new Intl.DateTimeFormat(intlLocales(language), {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
+          })
         : null;
     } catch {
       format = null;
@@ -263,7 +269,7 @@ function firstOfMonthParts(
   }
   // The month and the literals around it are one part, so a space or a dot stays with its word.
   const parts: Array<{ day: boolean; text: string }> = [];
-  for (const part of format.formatToParts(date)) {
+  for (const part of format.formatToParts(utcCalendarDay(date))) {
     const day = part.type === 'day';
     const previous = parts[parts.length - 1];
     if (!day && previous && !previous.day) previous.text += part.value;
@@ -286,10 +292,11 @@ function dayName(date: Date, language: string): string {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     });
     dayNameFormats.set(language, format);
   }
-  return format.format(date);
+  return format.format(utcCalendarDay(date));
 }
 
 /**
@@ -353,6 +360,16 @@ export function monthItemId(date: Date, line: number | 'more'): string {
 }
 
 /**
+ * The day a wide month's line or "+N more" is drawn on, read back from its id (`monthItemId`).
+ *
+ * @param id - An element's id
+ * @returns The day, `YYYY-MM-DD`, or null where the id is no month item's
+ */
+export function monthItemDay(id: string): string | null {
+  return /^month-item-(\d{4}-\d{2}-\d{2})-/.exec(id)?.[1] ?? null;
+}
+
+/**
  * A day named in full with its year, as a day's list is titled: "Wednesday, November 18, 2026".
  *
  * @param date - The day
@@ -367,10 +384,11 @@ export function monthDayTitle(date: Date, language: string): string {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     });
     fullDateFormats.set(language, format);
   }
-  return format.format(date);
+  return format.format(utcCalendarDay(date));
 }
 
 /**
@@ -400,13 +418,13 @@ export function monthDayTitles(date: Date, language: string): string[] {
   let formats = shorterTitleFormats.get(language);
   if (!formats) {
     formats = SHORTER_DAY_TITLES.map(
-      (options) => new Intl.DateTimeFormat(intlLocales(language), options),
+      (options) => new Intl.DateTimeFormat(intlLocales(language), { ...options, timeZone: 'UTC' }),
     );
     shorterTitleFormats.set(language, formats);
   }
   const titles = [monthDayTitle(date, language)];
   for (const format of formats) {
-    const title = format.format(date);
+    const title = format.format(utcCalendarDay(date));
     if (title !== titles[titles.length - 1]) titles.push(title);
   }
   return titles;
@@ -1004,6 +1022,7 @@ export function renderMonthGroupedEvents(
     <div
       class="month-container"
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
     >
@@ -1206,6 +1225,7 @@ function renderNarrowMonth(
         'with-week-numbers': weekNumbers,
       })}
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap(tintProperties(config))}
     >
@@ -1585,7 +1605,7 @@ export function renderMonthDayList(
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
   const mark = TextDirection.languageMark(language, hass);
   const titles = monthDayTitles(day, language);
-  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing}
+  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing} lang=${language}
     ><span class="month-day-list-name">${TextDirection.inLanguageDirection(titles[0], mark)}</span
     ><span class="month-day-list-fit" aria-hidden="true"
       >${renderDayTitleFit(titles, mark)}</span
@@ -1635,7 +1655,7 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    <div class="month-day-list-rows">${rows}</div>
+    <div class="month-day-list-rows" lang=${language}>${rows}</div>
   </div>`;
 }
 

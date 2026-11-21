@@ -66,6 +66,9 @@ vi.mock('../src/utils/logger', () => ({
 const Logger = await import('../src/utils/logger');
 const warnMock = vi.mocked(Logger.warn);
 
+/** A toolbar with the date navigation, which reaches the days a narrow Columns card sheds. */
+const PAGING = { toolbar: { show: true, navigation: true } } as const;
+
 describe('resolveViewOption — E4, both directions', () => {
   it('honors an override of false against a top-level true', () => {
     const config = buildConfig({
@@ -858,12 +861,13 @@ describe('column view config surface', () => {
     }
   });
 
-  it('defaults min_days_to_show to two, or to days_to_show under cramp', () => {
+  it('defaults min_days_to_show to two on a card that pages, else to days_to_show', () => {
     // The other half of the exemption above. Without this the dynamic default would
     // be unasserted, and the loop's `continue` would be a hole rather than a
     // redirection.
-    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(2);
-    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 1 })).toBe(1);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, ...PAGING, days_to_show: 7 })).toBe(2);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(7);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, ...PAGING, days_to_show: 1 })).toBe(1);
     expect(
       resolveMinDaysToShow({
         ...DEFAULT_CONFIG,
@@ -1365,7 +1369,7 @@ describe('computeColumnThresholdPxFor', () => {
 
 describe('resolveMinDaysToShow', () => {
   it('defaults Columns to two columns, never more than its own days', () => {
-    const config = buildConfig();
+    const config = buildConfig(PAGING);
 
     for (const [days, floor] of [
       [7, 2],
@@ -1379,11 +1383,24 @@ describe('resolveMinDaysToShow', () => {
   });
 
   it('reads the two against the layout’s own days, not the card’s', () => {
-    const config = buildConfig();
+    const config = buildConfig(PAGING);
     config.days_to_show = 1;
     config.column = { days_to_show: 7 };
 
     expect(resolveMinDaysToShow(config)).toBe(2);
+  });
+
+  it('keeps every day by default where nothing pages to a day it would shed', () => {
+    // No toolbar, a toolbar without the date navigation, and the navigation asked for on a
+    // toolbar that is not shown: none has an arrow or a swipe, so Columns keeps every day or
+    // falls back to the list, as before it shed. A floor written is kept as written.
+    for (const toolbar of [undefined, { show: true, navigation: false }, { navigation: true }]) {
+      const config = buildConfig(toolbar ? { toolbar } : {});
+      config.days_to_show = 7;
+      expect(resolveMinDaysToShow(config), JSON.stringify(toolbar)).toBe(7);
+      config.column = { min_days_to_show: 3 };
+      expect(resolveMinDaysToShow(config), JSON.stringify(toolbar)).toBe(3);
+    }
   });
 
   it('keeps every day by default where the card squeezes rather than falls back', () => {
@@ -1452,7 +1469,7 @@ describe('resolveMinDaysToShow', () => {
   it('falls back to the default floor for a value that is not a number', () => {
     // The column block is raw user input and never passes through normalizeConfig's
     // numeric sweep, so a string reaches this function intact.
-    const config = buildConfig();
+    const config = buildConfig(PAGING);
     config.days_to_show = 7;
 
     for (const value of ['banana', '', Number.NaN, Number.POSITIVE_INFINITY]) {
@@ -1568,7 +1585,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView, every day 
 describe('resolveColumnFit — reduction', () => {
   it('sheds down to two columns by default, then falls back to the list', () => {
     // Two columns need 140 * 2 + 32 + 10 = 322px, entered at 322 + 16.
-    const config = buildConfig();
+    const config = buildConfig(PAGING);
     config.days_to_show = 7;
 
     for (const [width, fit] of [
@@ -1578,6 +1595,21 @@ describe('resolveColumnFit — reduction', () => {
       [390, { view: 'column', columns: 2 }],
       [338, { view: 'column', columns: 2 }],
       [337, { view: 'list', columns: 0 }],
+    ] as const) {
+      expect(resolveColumnFit('column', config, width, null), `${width}px`).toEqual(fit);
+    }
+  });
+
+  it('keeps every day or falls back to the list by default where nothing pages', () => {
+    // Seven columns need 140 * 7 + 32 + 60 = 1072px, entered at 1072 + 16.
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    for (const [width, fit] of [
+      [2000, { view: 'column', columns: 7 }],
+      [1088, { view: 'column', columns: 7 }],
+      [1087, { view: 'list', columns: 0 }],
+      [390, { view: 'list', columns: 0 }],
     ] as const) {
       expect(resolveColumnFit('column', config, width, null), `${width}px`).toEqual(fit);
     }
@@ -2101,7 +2133,8 @@ describe('resolveColumnFitIfPicked', () => {
       days: 7,
       floor: 7,
     },
-    { name: 'seven columns by default', view: 'column', overrides: {}, days: 7, floor: 2 },
+    { name: 'seven columns by default', view: 'column', overrides: PAGING, days: 7, floor: 2 },
+    { name: 'seven columns without paging', view: 'column', overrides: {}, days: 7, floor: 7 },
     {
       name: 'seven columns down to three',
       view: 'column',

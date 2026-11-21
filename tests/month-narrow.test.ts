@@ -895,7 +895,11 @@ describe('the list fitted to its room', () => {
     ]);
     // One height, whatever the day holds: the card's, and a list whose rows take the room.
     expect([...heights].map((each) => JSON.parse(each))).toEqual([
-      { card: '760px', list: 'month-day-list', rows: '<div class="month-day-list-rows">' },
+      {
+        card: '760px',
+        list: 'month-day-list',
+        rows: '<div class="month-day-list-rows" lang="en">',
+      },
     ]);
 
     // Another month's day, fitted the same way.
@@ -1686,6 +1690,64 @@ describe('the day panel', () => {
       .click();
     await afterClose(card);
     expect(hassActions.map(({ config }) => config.entity)).toEqual([ANNA]);
+  });
+
+  describe('a row held', () => {
+    const NAVIGATE = { action: 'navigate', navigation_path: '/lovelace/family' };
+
+    /** A press on a row that lasts a while, then lets go, and the click a browser derives. */
+    async function press(card: CardUnderTest, panel: PanelUnderTest, ms: number) {
+      const review = [...panel.shadowRoot!.querySelectorAll<HTMLElement>('.event-button')].find(
+        (button) => text(button).startsWith('Review'),
+      )!;
+      pointer(review, 'pointerdown');
+      vi.advanceTimersByTime(ms);
+      pointer(review, 'pointerup');
+      review.click();
+      await afterClose(card);
+    }
+
+    const popovers = () => dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG);
+
+    it('runs event_hold_action, as a hold on the event in the card does', async () => {
+      const { card, panel } = await open({
+        event_tap_action: { action: 'details' },
+        event_hold_action: NAVIGATE,
+      });
+      await press(card, panel!, 600);
+      expect(isOpen(panel)).toBe(false);
+      expect(popovers()).toEqual([]);
+      expect(hassActions.map(({ action, config }) => [action, config.hold_action])).toEqual([
+        ['hold', NAVIGATE],
+      ]);
+    });
+
+    it('runs the card’s hold_action where the event has no hold of its own', async () => {
+      const { card, panel } = await open({
+        event_tap_action: { action: 'details' },
+        hold_action: NAVIGATE,
+      });
+      await press(card, panel!, 600);
+      expect(popovers()).toEqual([]);
+      expect(hassActions.map(({ action }) => action)).toEqual(['hold']);
+    });
+
+    it('is a tap where it lets go before a hold, and where nothing holds', async () => {
+      const short = await open({
+        event_tap_action: { action: 'details' },
+        event_hold_action: NAVIGATE,
+      });
+      await press(short.card, short.panel!, 200);
+      expect(popovers()).toHaveLength(1);
+      expect(hassActions).toEqual([]);
+
+      document.body.replaceChildren();
+      dialogs = [];
+      const none = await open({ event_tap_action: { action: 'details' } });
+      await press(none.card, none.panel!, 600);
+      expect(popovers()).toHaveLength(1);
+      expect(hassActions).toEqual([]);
+    });
   });
 
   it('fits each row’s time beside its title, as the card fits its own rows', async () => {
