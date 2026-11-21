@@ -24,6 +24,8 @@
   "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",
   "loadFailed": "Nu s-a putut încărca:",
   "newEvent": "Eveniment nou",
+  "movedTo": "Mutat la {time}",
+  "undo": "Anulează",
   "showAll": "Arată toate",
   "hideAll": "Ascunde toate",
   "private": "Privat"

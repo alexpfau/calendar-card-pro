@@ -14,6 +14,7 @@ import {
   normalizeEntities,
   normalizeLengthOptions,
   normalizeNumericOptions,
+  resolveToolbar,
   switcherOffers,
   toFontWeightCss,
   toValidCardHeight,
@@ -338,7 +339,8 @@ export const MONTH_IGNORED_SHARED_KEYS = [
  * Applied last by both resolvers (`resolveEffectiveConfig`, `resolveViewOption`), so the month's
  * grouping, its rows and the custom properties its stylesheet reads all see these values. A
  * calendar's own `show_description: true` is set aside in the day's list as well
- * (`MonthDay.monthDayLists`); its `false` still keeps the description out of the event's details.
+ * (`MonthDay.monthDayLists`). The event's details show the description either way: only a
+ * calendar's `private` keeps it out of them.
  * Each is `DEFAULT_CONFIG`'s value, which `tests/month-registry.test.ts` pins.
  */
 export const MONTH_PINNED: {
@@ -878,9 +880,11 @@ export const COLUMN_DEFAULTS = {
 } as const;
 
 /**
- * The fewest day columns Columns sheds to while `min_days_to_show` is unset: two. One column is
- * a single day, which the list draws better, with every day, so below two the card falls back to
- * it. Never more than the layout's own `days_to_show`.
+ * The fewest day columns Columns sheds to while `min_days_to_show` is unset and the card pages:
+ * two. One column is a single day, which the list draws better, with every day, so below two the
+ * card falls back to it. Never more than the layout's own `days_to_show`. A card without the date
+ * navigation keeps every day or falls back to the list instead, since nothing would reach a day it
+ * shed (`resolveMinDaysToShow`).
  *
  * Not in {@link COLUMN_DEFAULTS}, because it is not the default everywhere: under
  * `min_days_fallback: cramp` an unset floor is every day, so "keep the columns, narrower" keeps
@@ -2851,6 +2855,8 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
  * - `fetch-time`: in a view block, but it decides which events are loaded, so every view
  *   shares it.
  * - `card-wide`: in a view block, but it is a top-level option that view cannot override.
+ * - `no-effect`: in a view block, and a top-level option that view ignores there too
+ *   (`VIEW_SCOPE`), so there is nowhere it would work for that view.
  * - `wrong-view`: in a view block, but it belongs to another view's block.
  * - `view-only`: at the top level, but it exists only inside a view's block.
  * - `calendar`: in a view block or at the top level, but it is an option of one calendar, set
@@ -2858,7 +2864,7 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
  * - `unknown`: in a view block, and no view or top level knows it.
  */
 export type MisplacedKind =
-  'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
+  'fetch-time' | 'card-wide' | 'no-effect' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
 
 /**
  * One option written where the card ignores it.
@@ -2919,6 +2925,18 @@ function calendarOnlyKeySet(): ReadonlySet<string> {
 }
 
 /**
+ * The view a block key belongs to: `time_grid` is Grid's.
+ *
+ * @param blockKey - A view block's key
+ * @returns Its view
+ */
+function viewOfBlock(blockKey: string): Types.EffectiveView {
+  return (Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]).find(
+    (view) => VIEW_BLOCKS[view]?.blockKey === blockKey,
+  )!;
+}
+
+/**
  * The misplaced options inside one view's block.
  *
  * @param config - Configuration to inspect, raw or merged; only the block is read
@@ -2949,7 +2967,16 @@ function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): Mi
     } else if (owners.length > 0) {
       findings.push({ kind: 'wrong-view', key, from, to: owners });
     } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
-      findings.push({ kind: 'card-wide', key, from, to: [null] });
+      // Sent to the top level only where the view reads it there: `month.today_weekday_color`
+      // moved up would still change nothing Month draws.
+      const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key)
+        ? VIEW_SCOPE[key]
+        : undefined;
+      findings.push(
+        scope && !scope.has(viewOfBlock(from))
+          ? { kind: 'no-effect', key, from, to: [] }
+          : { kind: 'card-wide', key, from, to: [null] },
+      );
     } else if (calendarOnlyKeySet().has(key)) {
       findings.push({ kind: 'calendar', key, from, to: [] });
     } else {
@@ -3034,6 +3061,12 @@ function warnAboutMisplacedOption(finding: MisplacedOption): void {
       Logger.warn(
         `Ignoring "${where}": "${key}" is a valid top-level option but cannot be overridden ` +
           `per view. Set it at the top level instead.`,
+      );
+      return;
+    case 'no-effect':
+      Logger.warn(
+        `Ignoring "${where}": it has no effect in ${viewOfBlock(from!)} view, ` +
+          `here or at the top level.`,
       );
       return;
     case 'wrong-view':
@@ -3343,12 +3376,28 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
 }
 
 /**
+ * Whether the card can page to days a side-by-side layout sheds: the toolbar's date navigation,
+ * which a swipe comes with. Read from the configuration, so a card being edited, whose arrows do
+ * nothing for now, draws as it will once it is not.
+ *
+ * @param config - Merged configuration
+ * @returns True where the toolbar is shown with its date navigation
+ */
+function pagesToShedDays(config: Types.Config): boolean {
+  const toolbar = resolveToolbar(config);
+  return toolbar.show && toolbar.navigation;
+}
+
+/**
  * Resolves the fewest columns the card may reduce to.
  *
  * Unset, Grid's is its `TIME_GRID_DEFAULTS` entry, and Columns' is
- * {@link COLUMN_MIN_DAYS_DEFAULT}, or its own `days_to_show` under `min_days_fallback: cramp`,
- * which keeps every day. That makes Columns' default dynamic, so it cannot live in
- * `COLUMN_DEFAULTS`. The result is clamped into `[1, days_to_show]`.
+ * {@link COLUMN_MIN_DAYS_DEFAULT} on a card whose toolbar pages, where the arrows and a swipe
+ * reach the days it sheds. Elsewhere it is its own `days_to_show`, so a card with no way to reach
+ * a shed day keeps every day or falls back to the list, as Columns always did before it shed;
+ * and so it is under `min_days_fallback: cramp`, which keeps every day. That makes Columns'
+ * default dynamic, so it cannot live in `COLUMN_DEFAULTS`. The result is clamped into
+ * `[1, days_to_show]`.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Column floor, within `[1, days_to_show]`
@@ -3363,7 +3412,9 @@ export function resolveMinDaysToShow(
   const defaultValue =
     typeof fallback === 'number' && Number.isFinite(fallback)
       ? Math.floor(fallback)
-      : view === 'column' && resolveMinDaysFallback(config, view) !== 'cramp'
+      : view === 'column' &&
+          resolveMinDaysFallback(config, view) !== 'cramp' &&
+          pagesToShedDays(config)
         ? COLUMN_MIN_DAYS_DEFAULT
         : days;
 

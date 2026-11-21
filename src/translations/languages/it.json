@@ -24,6 +24,8 @@
   "error": "Errore: entità calendario non trovata o configurata in modo errato",
   "loadFailed": "Impossibile caricare:",
   "newEvent": "Nuovo evento",
+  "movedTo": "Nuovo orario: {time}",
+  "undo": "Annulla",
   "showAll": "Mostra tutti",
   "hideAll": "Nascondi tutti",
   "private": "Privato"

@@ -37,6 +37,8 @@
   "error": "错误：找不到日历实体或配置不正确",
   "loadFailed": "无法加载：",
   "newEvent": "新活动",
+  "movedTo": "已移至 {time}",
+  "undo": "撤销",
   "showAll": "全部显示",
   "hideAll": "全部隐藏",
   "private": "私人"

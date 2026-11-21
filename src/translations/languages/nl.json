@@ -32,6 +32,8 @@
   "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
   "loadFailed": "Laden mislukt:",
   "newEvent": "Nieuwe afspraak",
+  "movedTo": "Verplaatst naar {time}",
+  "undo": "Ongedaan maken",
   "showAll": "Alles weergeven",
   "hideAll": "Alles verbergen",
   "private": "Privé"

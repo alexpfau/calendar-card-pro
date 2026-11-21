@@ -24,6 +24,8 @@
   "error": "Greška: Entitet kalendara nije pronađen ili je neispravno konfigurisan",
   "loadFailed": "Neuspešno učitavanje:",
   "newEvent": "Novi događaj",
+  "movedTo": "Premešteno na {time}",
+  "undo": "Opozovi",
   "showAll": "Prikaži sve",
   "hideAll": "Sakrij sve",
   "private": "Privatno"

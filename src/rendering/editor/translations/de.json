@@ -268,6 +268,7 @@
   "misplaced.message": "Diese Optionen stehen an einer Stelle, an der die Karte sie nicht liest. Verschiebe jede dorthin, wo sie wirkt, oder ändere sie in YAML.",
   "misplaced.fetch_time": "Bestimmt, welche Termine geladen werden, und wirkt daher nur für die ganze Karte, auf der obersten Ebene.",
   "misplaced.card_wide": "Wirkt nur für die ganze Karte, auf der obersten Ebene.",
+  "misplaced.no_effect": "Wirkt in diesem Layout nicht, weder hier noch auf der obersten Ebene.",
   "misplaced.wrong_view": "Gehört zu einem anderen Layout: {places}.",
   "misplaced.view_only": "Wirkt nur in den eigenen Einstellungen eines Layouts: {places}.",
   "misplaced.calendar": "Wirkt nur für einen einzelnen Kalender: Lege sie unter entities bei dem Kalender fest, für den sie gedacht ist.",

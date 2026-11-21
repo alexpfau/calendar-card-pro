@@ -267,6 +267,7 @@
   "misplaced.message": "Šios parinktys įrašytos ten, kur kortelė jų neskaito. Perkelkite kiekvieną ten, kur ji veikia, arba pakeiskite ją YAML konfigūracijoje.",
   "misplaced.fetch_time": "Lemia, kurie įvykiai įkeliami, todėl veikia tik visai kortelei, viršutiniame lygyje.",
   "misplaced.card_wide": "Veikia tik visai kortelei, viršutiniame lygyje.",
+  "misplaced.no_effect": "Šiame išdėstyme neveikia nei čia, nei viršutiniame lygyje.",
   "misplaced.wrong_view": "Priklauso kitam išdėstymui: {places}.",
   "misplaced.view_only": "Veikia tik konkretaus išdėstymo nustatymuose: {places}.",
   "misplaced.calendar": "Veikia tik vienam kalendoriui: nustatykite ją skiltyje entities tam kalendoriui, kuriam ji skirta.",

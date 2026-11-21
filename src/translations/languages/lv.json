@@ -32,6 +32,8 @@
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",
   "loadFailed": "Neizdevās ielādēt:",
   "newEvent": "Jauns notikums",
+  "movedTo": "Pārvietots uz {time}",
+  "undo": "Atsaukt",
   "showAll": "Rādīt visus",
   "hideAll": "Paslēpt visus",
   "private": "Privāts"

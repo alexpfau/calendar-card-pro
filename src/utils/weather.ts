@@ -293,7 +293,100 @@ export function resetUntranslatedConditions(): void {
 //-----------------------------------------------------------------------------
 
 /**
- * Subscribe to weather forecast data from Home Assistant
+ * How long a forecast stays current without an update: twice the interval Home Assistant
+ * forecasts in, so one late update does not dim it.
+ */
+export const FORECAST_STALE_AFTER: Readonly<Record<'daily' | 'hourly', number>> = {
+  hourly: 2 * 60 * 60_000,
+  daily: 48 * 60 * 60_000,
+};
+
+/**
+ * The moment the forecast drawn first counts as stale: the earliest moment any of its types has
+ * gone `FORECAST_STALE_AFTER` without being known current.
+ *
+ * @param currentAt When each forecast type was last known current, in epoch milliseconds
+ * @param types The forecast types the card subscribes to; one never known current is left out
+ * @returns Epoch milliseconds, or null where no type has been known current
+ */
+export function forecastStaleAt(
+  currentAt: Readonly<Partial<Record<'daily' | 'hourly', number>>>,
+  types: ReadonlyArray<'daily' | 'hourly'>,
+): number | null {
+  let at: number | null = null;
+  for (const type of types) {
+    const known = currentAt[type];
+    if (known === undefined) continue;
+    const stale = known + FORECAST_STALE_AFTER[type];
+    if (at === null || stale < at) at = stale;
+  }
+  return at;
+}
+
+/**
+ * How long after the connection to Home Assistant came back a forecast subscription may stay
+ * silent before it is made again. The websocket library subscribes again by itself, and Home
+ * Assistant answers with a forecast at once; but one that fails then fails silently, as after a
+ * restart before the weather entity has loaded, and the forecast would stay frozen until reload.
+ */
+export const RECONNECT_TIMEOUT = 30_000;
+
+/** The longest wait between two attempts to make a lost forecast subscription again. */
+const RESUBSCRIBE_MAX_WAIT = 30 * 60_000;
+
+type Connection = NonNullable<Types.Hass['connection']>;
+
+/** What each connection tells its forecast subscriptions when it comes back. */
+const readyListeners = new WeakMap<Connection, Set<() => void>>();
+
+/**
+ * Listen for a connection coming back, through one listener per connection.
+ *
+ * @param connection Home Assistant connection
+ * @param listener Called on every `ready`
+ * @returns A function that stops listening
+ */
+function onReady(connection: Connection, listener: () => void): () => void {
+  let listeners = readyListeners.get(connection);
+  if (!listeners) {
+    const created = new Set<() => void>();
+    listeners = created;
+    readyListeners.set(connection, created);
+    connection.addEventListener?.('ready', () => {
+      for (const each of [...created]) each();
+    });
+  }
+  const set = listeners;
+  set.add(listener);
+  return () => {
+    set.delete(listener);
+  };
+}
+
+/** One `weather/subscribe_forecast` sent for a subscription. */
+interface ForecastAttempt {
+  /** Resolves to its unsubscribe function, or null where Home Assistant refused it. */
+  unsubscribe: Promise<(() => void) | null>;
+  /** The unsubscribe function, once Home Assistant has answered, so it can be called at once. */
+  answered?: (() => void) | null;
+  /** The connection's `ready` count when it was sent (`epoch`). */
+  epoch: number;
+  /** Replaced by a newer attempt, or closed with the subscription: its pushes are dropped. */
+  stale: boolean;
+  /** Unsubscribed already. */
+  released: boolean;
+}
+
+/**
+ * Subscribe to weather forecast data from Home Assistant, and keep subscribed across a
+ * reconnect.
+ *
+ * After the connection comes back, a subscription that does not push within
+ * `RECONNECT_TIMEOUT` is made again, with longer waits between further attempts, until one
+ * pushes. One the library subscribed again by itself pushes first, so it is never doubled. One
+ * made before the reconnect is not unsubscribed while silent: the library would send the id it
+ * had on the old connection, which may name another subscription by then. Should it push after
+ * all, it is unsubscribed then.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration, naming the entity (`weatherEntityOf`)
@@ -308,27 +401,68 @@ export async function subscribeToWeatherForecast(
   callback: (forecasts: Record<string, Types.WeatherData>) => void,
 ): Promise<(() => void) | undefined> {
   const entityId = weatherEntityOf(config);
-  if (!hass?.connection || !entityId) {
+  const connection = hass?.connection;
+  if (!connection || !entityId) {
     return undefined;
   }
 
-  try {
-    const unsubscribe = await hass.connection.subscribeMessage(
-      (message: { forecast: Array<Types.WeatherForecast> }) => {
-        if (message && Array.isArray(message.forecast)) {
-          const processedForecasts = processForecastData(message.forecast, forecastType);
+  const message = {
+    type: 'weather/subscribe_forecast',
+    forecast_type: forecastType,
+    entity_id: entityId,
+  };
+  let closed = false;
+  let epoch = 0;
+  let pushedSinceReady = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let wait = RECONNECT_TIMEOUT;
 
-          callback(processedForecasts);
-        }
-      },
-      {
-        type: 'weather/subscribe_forecast',
-        forecast_type: forecastType,
-        entity_id: entityId,
-      },
+  const release = (attempt: ForecastAttempt): void => {
+    if (attempt.released) return;
+    attempt.released = true;
+    if (attempt.answered !== undefined) {
+      attempt.answered?.();
+      return;
+    }
+    attempt.unsubscribe.then(
+      (unsubscribe) => unsubscribe?.(),
+      () => undefined,
     );
+  };
 
-    return unsubscribe;
+  const send = (): ForecastAttempt => {
+    const attempt: ForecastAttempt = {
+      unsubscribe: Promise.resolve(null),
+      epoch,
+      stale: false,
+      released: false,
+    };
+    attempt.unsubscribe = connection
+      .subscribeMessage((push: { forecast: Array<Types.WeatherForecast> }) => {
+        if (attempt.stale) {
+          // In a task of its own: after a reconnect the library takes the new id only once the
+          // answer it is still processing has been handled.
+          setTimeout(() => release(attempt), 0);
+          return;
+        }
+        pushedSinceReady = true;
+        wait = RECONNECT_TIMEOUT;
+        clearTimeout(timer);
+        timer = undefined;
+        if (push && Array.isArray(push.forecast)) {
+          callback(processForecastData(push.forecast, forecastType));
+        }
+      }, message)
+      .then((unsubscribe) => (attempt.answered = unsubscribe ?? null));
+    return attempt;
+  };
+
+  let current: ForecastAttempt;
+  try {
+    // Inside the try, as the request was before: a connection that cannot subscribe throws here
+    // rather than rejecting, and the card goes on without a forecast.
+    current = send();
+    await current.unsubscribe;
   } catch (error) {
     Logger.error('Failed to subscribe to weather forecast', {
       entity: entityId,
@@ -338,4 +472,46 @@ export async function subscribeToWeatherForecast(
 
     return undefined;
   }
+
+  const retire = (attempt: ForecastAttempt): void => {
+    attempt.stale = true;
+    // Safe to unsubscribe only where the library holds its current id: one sent on this
+    // connection, or one that has pushed since it came back.
+    if (connection.connected !== false && (attempt.epoch === epoch || pushedSinceReady)) {
+      release(attempt);
+    }
+  };
+
+  const arm = (): void => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = undefined;
+      if (connection.connected === false) return;
+      Logger.warn(`No weather forecast for ${entityId} since reconnecting; subscribing again`);
+      retire(current);
+      const attempt = send();
+      current = attempt;
+      attempt.unsubscribe.catch((error: unknown) => {
+        attempt.stale = true;
+        Logger.debug('Could not subscribe to the weather forecast again', error);
+      });
+      wait = Math.min(wait * 2, RESUBSCRIBE_MAX_WAIT);
+      arm();
+    }, wait);
+  };
+
+  const stopListening = onReady(connection, () => {
+    epoch += 1;
+    pushedSinceReady = false;
+    wait = RECONNECT_TIMEOUT;
+    arm();
+  });
+
+  return () => {
+    if (closed) return;
+    closed = true;
+    clearTimeout(timer);
+    stopListening();
+    retire(current);
+  };
 }

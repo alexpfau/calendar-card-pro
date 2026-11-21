@@ -24,6 +24,8 @@
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált",
   "loadFailed": "Nem sikerült betölteni:",
   "newEvent": "Új esemény",
+  "movedTo": "Áthelyezve: {time}",
+  "undo": "Visszavonás",
   "showAll": "Összes megjelenítése",
   "hideAll": "Összes elrejtése",
   "private": "Privát"

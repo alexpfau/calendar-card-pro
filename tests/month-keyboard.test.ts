@@ -397,6 +397,16 @@ describe('a month as a grid', () => {
     },
   );
 
+  it('says a wide cell opens a dialog, and a narrow one, which selects its day, does not', async () => {
+    const wide = await mount();
+    expect(new Set(cells(wide).map((element) => element.getAttribute('aria-haspopup')))).toEqual(
+      new Set(['dialog']),
+    );
+    document.body.replaceChildren();
+    const narrow = await mount({}, 375);
+    expect(cells(narrow).some((element) => element.hasAttribute('aria-haspopup'))).toBe(false);
+  });
+
   it('counts in the language’s own plural forms', () => {
     const count = (language: string, values: number[]) =>
       values.map((value) => MonthRender.eventCountText(value, language));
@@ -727,6 +737,103 @@ describe('the keyboard on a month', () => {
     day.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 0 }));
     await settle(card);
     expect(dialogs.map(({ dialogTag }) => dialogTag)).toEqual([DAY_PANEL_TAG]);
+  });
+});
+
+describe('focus on a month whose form changes', () => {
+  /** Reports a new width to the card, as a rotation or a zoom does, and lets it draw. */
+  async function resize(card: CardUnderTest, width: number): Promise<void> {
+    for (const observer of RecordingResizeObserver.instances) {
+      observer.callback([{ contentRect: { width } }]);
+    }
+    await settle(card);
+  }
+
+  it('keeps focus on a wide day’s cell as the month turns narrow, and the arrows working', async () => {
+    const card = await mount({}, 1000);
+    cell(card, 'Tuesday, November 10').focus();
+    await settle(card);
+    await resize(card, 375);
+    expect(root(card).querySelector('.month-day-list')).not.toBeNull();
+    expect(focusedDay()).toBe('Tuesday, November 10, 2026');
+    await press(card, 'ArrowRight');
+    expect(focusedDay()).toBe('Wednesday, November 11, 2026');
+  });
+
+  it('gives a wide day’s "+N more" focus back to its day’s cell in the narrow form', async () => {
+    const card = await mount({}, 1000);
+    root(card).querySelector<HTMLElement>('.month-more')!.focus();
+    await settle(card);
+    await resize(card, 375);
+    expect(focusedDay()).toBe('Tuesday, November 10, 2026');
+  });
+
+  it('gives a narrow list’s "+N more" focus to its day’s cell in the wide form', async () => {
+    const card = await mount({}, 375);
+    cell(card, 'Tuesday, November 10').focus();
+    await settle(card);
+    await press(card, 'Enter');
+    root(card).querySelector<HTMLElement>('.month-day-list-more')!.focus();
+    await settle(card);
+    await resize(card, 1000);
+    expect(root(card).querySelector('.month-day-list')).toBeNull();
+    expect(focusedDay()).toBe('Tuesday, November 10, 2026');
+    expect(tabStops(card)).toEqual(['Tuesday, November 10, 2026, 5 events']);
+  });
+
+  it('takes no focus where the card held none as its form changed', async () => {
+    const card = await mount({}, 1000);
+    const outside = document.body.appendChild(document.createElement('button'));
+    outside.focus();
+    await resize(card, 375);
+    expect(document.activeElement).toBe(outside);
+  });
+});
+
+describe('a month in another language than the page’s', () => {
+  /** Opens Tuesday the 10th's panel from its cell, named in German. */
+  async function openTenth(card: CardUnderTest): Promise<ShadowRoot> {
+    cell(card, 'Dienstag, 10.').focus();
+    await press(card, 'Enter');
+    return panel!.shadowRoot!;
+  }
+
+  /** The element's own language, as assistive technology reads it: the nearest `lang`. */
+  const langOf = (element: Element | null | undefined) =>
+    element?.closest('[lang]')?.getAttribute('lang') ?? null;
+
+  it('marks a wide month’s grid, and the day panel’s title, with the card’s language', async () => {
+    const card = await mount({ language: 'de' });
+    expect(langOf(cell(card, 'Dienstag, 10.'))).toBe('de');
+    const shown = await openTenth(card);
+    const title = shown.querySelector('#day-panel-day');
+    expect(text(title)).toBe('Dienstag, 10. November 2026');
+    expect(langOf(title)).toBe('de');
+    // Close is Home Assistant's word, in Home Assistant's language.
+    expect(langOf(shown.querySelector('.day-panel-close'))).toBeNull();
+  });
+
+  it('marks a narrow month’s grid and its list, and not the list’s add, which is Home Assistant’s', async () => {
+    const card = await mount({ language: 'de', day_tap_action: { action: 'add-event' } }, 375);
+    expect(langOf(cell(card, 'Mittwoch, 18.'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-name'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-rows > *'))).toBe('de');
+    expect(langOf(root(card).querySelector('.month-day-list-header'))).toBeNull();
+  });
+
+  it('renames an open day panel, and marks it again, when the language changes', async () => {
+    const card = await mount();
+    card.hass = { ...card.hass, locale: { ...card.hass.locale!, language: 'de' } };
+    await settle(card);
+    const shown = await openTenth(card);
+    expect(text(shown.querySelector('#day-panel-day'))).toBe('Dienstag, 10. November 2026');
+
+    card.hass = { ...card.hass, locale: { ...card.hass.locale!, language: 'fr' } };
+    await settle(card);
+    const title = shown.querySelector('#day-panel-day');
+    expect(text(title)).toBe('mardi 10 novembre 2026');
+    expect(langOf(title)).toBe('fr');
+    expect(shown.querySelector('.day-panel-rows')!.getAttribute('lang')).toBe('fr');
   });
 });
 

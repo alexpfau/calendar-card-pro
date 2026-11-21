@@ -4,6 +4,7 @@ import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
+import { GRID_HEAD_HEIGHT_PROPERTY } from '../src/rendering/grid';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
 
@@ -2187,6 +2188,83 @@ describe('card stylesheet', () => {
       expect(declared('.grid-now-line', 'z-index')).toBe('');
       expect(declared('.grid-now-line', 'position')).toBe('absolute');
       expect(declared('.grid-now-dot', 'z-index')).toBe('2');
+    });
+
+    it('pins the rows above the hours over them, and only while the card marks it pinned', () => {
+      // D54: under a card_height, a card_max_height or a max_height the whole grid scrolled,
+      // and the dates and the all-day band went with the hours. The rows above the hours are
+      // one box, both axes subgrids over the same three rows and every column, so each item
+      // inside keeps the track it had as a child of .grid-container.
+      const head = Object.fromEntries(
+        [
+          'display',
+          'grid-template-columns',
+          'grid-template-rows',
+          'grid-column',
+          'grid-row',
+          'position',
+          'z-index',
+          'background-color',
+        ].map((prop) => [prop, declared('.grid-head', prop)]),
+      );
+      expect(head).toEqual({
+        display: 'grid',
+        'grid-template-columns': 'subgrid',
+        'grid-template-rows': 'subgrid',
+        'grid-column': '1 / -1',
+        'grid-row': '1 / span 3',
+        // Unpinned it paints on the grid's own ladder, as its children did before it existed.
+        position: '',
+        'z-index': '',
+        'background-color': '',
+      });
+
+      // Pinned, it sticks to the top of the scrolling area above every rung the hours paint
+      // on, read from the ladder rather than restated, so a rung that climbs past it fails.
+      const pinned = '.grid-head[data-pinned]';
+      expect(declared(pinned, 'position')).toBe('sticky');
+      expect(declared(pinned, 'top')).toBe('0');
+      const rungs = [
+        '.grid-separator',
+        '.grid-allday-band',
+        '.grid-boundary',
+        '.grid-now-dot',
+        '.grid-day-body',
+      ].map((selector) => Number(declared(selector, 'z-index') || 0));
+      expect(Number(declared(pinned, 'z-index'))).toBeGreaterThan(Math.max(...rungs));
+
+      // Its ground is the card's own background, so nothing scrolled under it shows through.
+      const card = declared('ha-card', 'background');
+      expect(card).not.toBe('');
+      expect(declared(pinned, 'background-color')).toBe(card);
+
+      // Where scroll timelines exist the ground goes on only once the area has scrolled, so an
+      // unscrolled card on a translucent background is not given a second coat of it. Read
+      // from the text: the scanner skips at-rules.
+      const supports = /@supports \(animation-timeline: scroll\(\)\)\s*\{([\s\S]*?\})\s*\}/.exec(
+        CSS,
+      );
+      expect(supports, 'no scroll-timeline block').not.toBeNull();
+      const timed = supports![1].replace(/\s+/g, ' ');
+      expect(timed).toContain('.grid-head[data-pinned] {');
+      expect(timed).toContain('background-color: transparent;');
+      expect(timed).toContain('animation-timeline: scroll(nearest block);');
+      const ground =
+        /@keyframes calendar-card-grid-head-ground\s*\{\s*to\s*\{\s*background-color:\s*([^;]+);/.exec(
+          CSS,
+        );
+      expect(ground?.[1].replace(/\s+/g, ' ')).toBe(card);
+
+      // What the hours hold scrolls into view below the pinned head, by the height the card
+      // writes, and nothing in the head takes the margin, or its own focus would scroll the
+      // area back to the top.
+      expect(declared('.grid-head[data-pinned] ~ .grid-day-body *', 'scroll-margin-top')).toBe(
+        `var(${GRID_HEAD_HEIGHT_PROPERTY}, 0px)`,
+      );
+
+      // The week numbers moved into the head with their row.
+      expect(declared('.grid-head > .column-week-number', 'margin-bottom')).toBe('2px');
+      expect(declared('.grid-container > .column-week-number', 'margin-bottom')).toBe('');
     });
 
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {

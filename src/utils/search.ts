@@ -95,8 +95,13 @@ export interface SearchRow {
   location: string;
   /** Whether its title is a private event's Private, which the panel draws after a lock. */
   privateTitle?: boolean;
-  /** Its words folded for matching: the title, the location, and the description as drawn. */
-  folded: { title: FoldedText; location: FoldedText; description: string };
+  /**
+   * Its words folded for matching: the title and the location as drawn, which a match is marked
+   * in, and the words found without a mark, which the panel does not draw: the location and the
+   * description as the event popover shows them, whatever the rows leave out, and nothing for a
+   * private entry's event.
+   */
+  folded: { title: FoldedText; location: FoldedText; unmarked: string };
   /** When it starts and ends, in epoch milliseconds; an all-day event at local midnights. */
   start: number;
   end: number;
@@ -477,7 +482,8 @@ export function matchIn(words: FoldedText, term: string): TextRange | undefined 
 
 /**
  * What a term finds among the rows: every row whose title, location or description holds it from
- * its first letter on, ignoring case and accents. Upcoming first, every event that has not ended
+ * its first letter on, ignoring case and accents, a location or a description the rows leave out
+ * included (`SearchRow.folded`). Upcoming first, every event that has not ended
  * yet by when it starts, then the past, the most recent first; each grouped by the month it
  * starts in. At most `limit` are drawn, and `total` counts them all. No term finds nothing.
  *
@@ -503,7 +509,7 @@ export function findRows(
   for (const row of rows) {
     const title = matchIn(row.folded.title, query);
     const location = matchIn(row.folded.location, query);
-    if (!title && !location && !row.folded.description.includes(query)) continue;
+    if (!title && !location && !row.folded.unmarked.includes(query)) continue;
     (row.end > now ? upcoming : past).push({ row, title, location });
   }
   upcoming.sort((a, b) => a.row.start - b.row.start || a.row.end - b.row.end);

@@ -145,7 +145,7 @@ describe('a date in an end phrase', () => {
   it('writes a Korean date month first, with its units', () => {
     expect(ends('ko')).toEqual([
       '9:00 ~ 10월 23일 금요일 17:00',
-      '~ 11월 15일 일요일 5:00 PM',
+      '~ 11월 15일 일요일 오후 5:00',
       '종일, ~ 11월 15일 일요일',
     ]);
   });

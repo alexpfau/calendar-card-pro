@@ -82,10 +82,54 @@ export function languageDirection(language: string): 'ltr' | 'rtl' {
 const languageCache = new Map<string, string>();
 
 /**
+ * Chinese tags that name no card language of their own, mapped to the one written in the same
+ * script. The card's two Chinese languages are keyed by region (`zh-cn`, `zh-tw`) while Home
+ * Assistant names its own by script (`zh-Hans`, `zh-Hant`), so without this a Home Assistant in
+ * Chinese drew the card in English. Hong Kong and Macao write Traditional, Singapore Simplified,
+ * and a bare `zh` is Simplified, as `Intl` reads it.
+ */
+const LANGUAGE_ALIASES: Readonly<Record<string, CardLanguage>> = {
+  zh: 'zh-cn',
+  'zh-hans': 'zh-cn',
+  'zh-sg': 'zh-cn',
+  'zh-hant': 'zh-tw',
+  'zh-hk': 'zh-tw',
+  'zh-mo': 'zh-tw',
+};
+
+/**
+ * The card language a tag names, directly or through `LANGUAGE_ALIASES`.
+ *
+ * A configured language must name one whole, so a code the card does not speak, `pt-br` among
+ * them, still defers to Home Assistant's. Home Assistant's is tried whole and then without its
+ * last subtag in turn, so its regions read in their language: `sr-Latn-RS` is `sr-latn`,
+ * `zh-Hant-HK` is `zh-tw`, `pt_BR` is `pt`.
+ *
+ * @param tag - A language tag, in any casing, with `-` or `_` between subtags
+ * @param shorten - Whether to try the tag without its trailing subtags as well
+ * @returns A card language, or undefined where the tag names none
+ */
+function resolveLanguage(tag: string, shorten: boolean): string | undefined {
+  const subtags = tag.trim().toLowerCase().split(/[-_]/);
+  const shortest = shorten ? 1 : subtags.length;
+  for (let length = subtags.length; length >= shortest; length -= 1) {
+    const candidate = subtags.slice(0, length).join('-');
+    if (SUPPORTED.has(candidate)) return candidate;
+    if (Object.prototype.hasOwnProperty.call(LANGUAGE_ALIASES, candidate)) {
+      return LANGUAGE_ALIASES[candidate];
+    }
+  }
+  return undefined;
+}
+
+/**
  * Determine the effective language based on priority order:
- * 1. User config language (if specified and supported)
- * 2. HA system language (if available and supported)
+ * 1. User config language (if it names a card language)
+ * 2. HA system language (if it names a card language)
  * 3. Default language fallback
+ *
+ * Both read Home Assistant's `zh-Hans` and `zh-Hant` as the card's own Chinese
+ * (`resolveLanguage`).
  *
  * @param configLanguage - Language from user configuration
  * @param hassLocale - Home Assistant locale information
@@ -97,38 +141,13 @@ export function getEffectiveLanguage(
 ): string {
   const cacheKey = `${configLanguage || ''}:${hassLocale?.language || ''}`;
 
-  if (languageCache.has(cacheKey)) {
-    return languageCache.get(cacheKey)!;
-  }
+  const cached = languageCache.get(cacheKey);
+  if (cached !== undefined) return cached;
 
-  let effectiveLanguage: string;
-
-  if (configLanguage && configLanguage.trim() !== '') {
-    const configLang = configLanguage.toLowerCase();
-    if (SUPPORTED.has(configLang)) {
-      effectiveLanguage = configLang;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-  }
-
-  if (hassLocale?.language) {
-    const sysLang = hassLocale.language.toLowerCase();
-    if (SUPPORTED.has(sysLang)) {
-      effectiveLanguage = sysLang;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-
-    const langPart = sysLang.split(/[-_]/)[0];
-    if (langPart !== sysLang && SUPPORTED.has(langPart)) {
-      effectiveLanguage = langPart;
-      languageCache.set(cacheKey, effectiveLanguage);
-      return effectiveLanguage;
-    }
-  }
-
-  effectiveLanguage = DEFAULT_LANGUAGE;
+  const effectiveLanguage =
+    (configLanguage ? resolveLanguage(configLanguage, false) : undefined) ??
+    (hassLocale?.language ? resolveLanguage(hassLocale.language, true) : undefined) ??
+    DEFAULT_LANGUAGE;
   languageCache.set(cacheKey, effectiveLanguage);
   return effectiveLanguage;
 }

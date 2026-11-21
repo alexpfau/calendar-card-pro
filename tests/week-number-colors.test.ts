@@ -449,10 +449,16 @@ describe('the stylesheet', () => {
         '--calendar-card-today-indicator-wash',
         '--calendar-card-today-indicator-ink',
       ]) {
+        // Month's filled tile redefines its own ink in the relative tier, for white digits on its
+        // darkened fill; it is set on that tile alone, so the pill keeps reading the card's.
+        const monthTile =
+          pattern === RELATIVE && property === '--calendar-card-today-indicator-ink'
+            ? [['.month-container:not(.month-narrow) .month-date > .day.today-tile']]
+            : [];
         expect(
           tier(pattern, property).map((d) => d.selectors),
           `${pattern} ${property}`,
-        ).toEqual([['ha-card', '.day.today-tile']]);
+        ).toEqual([['ha-card', '.day.today-tile'], ...monthTile]);
       }
     }
     // Nothing declares the wash for a browser without color-mix(): there the pill falls back to

@@ -24,6 +24,8 @@
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",
   "loadFailed": "Nepodařilo se načíst:",
   "newEvent": "Nová událost",
+  "movedTo": "Přesunuto na {time}",
+  "undo": "Zpět",
   "showAll": "Zobrazit všechny",
   "hideAll": "Skrýt všechny",
   "private": "Soukromé"

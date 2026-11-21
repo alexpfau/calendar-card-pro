@@ -250,7 +250,12 @@ export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | '
  * @returns The floor
  */
 function narrowFitDefaultFloor(view: Types.EffectiveView): number {
-  return resolveMinDaysToShow({ ...Config.DEFAULT_CONFIG, days_to_show: 7 } as Types.Config, view);
+  // On a card that pages: Custom keeps a floor below the day count whatever the toolbar shows.
+  const paging = { show: true, navigation: true };
+  return resolveMinDaysToShow(
+    { ...Config.DEFAULT_CONFIG, days_to_show: 7, toolbar: paging } as Types.Config,
+    view,
+  );
 }
 
 /**
