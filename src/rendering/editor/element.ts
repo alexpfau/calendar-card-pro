@@ -4361,17 +4361,16 @@ export class CalendarCardProEditor extends LitElement {
         },
       };
     });
-    // A card waiting on one part drops that part's word where a name starts or ends with it:
-    // "Location Font Size" reads "Font Size" under Location. A name with the word inside it, or in
-    // a language that puts it elsewhere, stays whole.
+    // A card waiting on one part drops that part's word where a name starts with it: "Location
+    // Font Size" reads "Font Size" under Location. Never where it ends one: there the word is what
+    // a preposition or a case ending before it governs, and Norwegian "Linjegrense for sted" would
+    // read "Linjegrense for". A name with the word anywhere else stays whole.
     const only = !weather && opens.size === 1 ? partOf([...opens.keys()][0]) : undefined;
     const shorten = (name: string): string => {
       if (only === undefined || name.length <= only.length + 1) return name;
       const lower = name.toLocaleLowerCase(ctx.language);
       const word = only.toLocaleLowerCase(ctx.language);
-      if (lower.startsWith(`${word} `)) return name.slice(word.length + 1);
-      if (lower.endsWith(` ${word}`)) return name.slice(0, name.length - word.length - 1);
-      return name;
+      return lower.startsWith(`${word} `) ? name.slice(word.length + 1) : name;
     };
     const names = plan.gated.filter((each) => !isChip(each.id)).map((each) => labelOf(each.id));
     return {
