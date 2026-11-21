@@ -32,6 +32,7 @@ import {
   lineOf,
   mountEditor,
   openPageOf,
+  resetButton,
   stateWordOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -473,6 +474,33 @@ describe('a draft, not a write', () => {
     at = await openColor(editor, 'card:title_color');
     expect(textField(at)!.data.title_color).toBe('#654321');
     expect(at.querySelector('.color-invalid')).toBeNull();
+  });
+
+  it('forgets Custom and its text once Undo or Reset puts a value back', async () => {
+    const editor = await mountEditor({ ...BASE, title_color: 'var(--pink-color)' });
+    let at = await openColor(editor, 'card:title_color');
+    await pick(editor, at, '[data-color-row="custom"]');
+    await type(editor, control(editor, 'card:title_color'), 'title_color', '#123456');
+    internals(editor)._undo();
+    await editor.updateComplete;
+    at = await openColor(editor, 'card:title_color');
+    expect(lastConfig(editor)?.title_color).toBe('var(--pink-color)');
+    expect(at.querySelector<HTMLInputElement>('[data-color-row="custom"] input')!.checked).toBe(
+      false,
+    );
+
+    document.body.replaceChildren();
+    const other = await mountEditor({ ...BASE, title_color: 'red' });
+    at = await openColor(other, 'card:title_color');
+    await pick(other, at, '[data-color-row="custom"]');
+    await type(other, control(other, 'card:title_color'), 'title_color', 'hot pink');
+    expect(control(other, 'card:title_color').querySelector('.color-invalid')).not.toBeNull();
+    (await resetButton(other, 'title_color'))!.click();
+    await other.updateComplete;
+    expect(lastConfig(other)).not.toHaveProperty('title_color');
+    at = await openColor(other, 'card:title_color');
+    expect(at.querySelector('.color-invalid')).toBeNull();
+    expect(textField(at)?.data.title_color ?? '').not.toBe('hot pink');
   });
 
   it('flags a stored value the card cannot draw, and never rewrites it for an unrelated edit', async () => {

@@ -1064,7 +1064,7 @@ export class CalendarCardProEditor extends LitElement {
    * The color controls' state outside the configuration, by `colors.ts` › `draftKey`: Custom
    * chosen, and the text typed there that the card cannot draw, which is kept here and never
    * written. Kept across closing a control and changing pages; cleared by another choice in the
-   * control and by a configuration the editor did not send.
+   * control, by Undo, Redo and Reset, and by a configuration the editor did not send.
    */
   @state() private _colorDrafts: ReadonlyMap<string, { readonly text?: string }> = new Map();
 
@@ -1903,6 +1903,8 @@ export class CalendarCardProEditor extends LitElement {
     this._status = undefined;
     this._entryNotice = undefined;
     this._splitDone = undefined;
+    // Custom and its text were the value as it was; what comes back reads from the YAML.
+    this._colorDrafts = new Map();
     const config = structuredClone(snapshot.raw) as Record<string, unknown>;
     this._lastDispatched = config;
     this.dispatchEvent(
@@ -4928,6 +4930,8 @@ export class CalendarCardProEditor extends LitElement {
     this._pending = { ...state.pending };
     this._authoredRootKeys = new Set(state.authoredRootKeys);
     this._gridResetKeys = new Set(state.gridResetKeys);
+    // A reset value is read from the YAML again, not from Custom or the text held for it.
+    this._colorDrafts = new Map();
     const gone = new Set([...clearAdded, ...retire]);
     const kept = [...this._added].filter((key) => !gone.has(key));
     if (kept.length !== this._added.size) this._added = new Set(kept);
