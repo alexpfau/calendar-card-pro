@@ -529,6 +529,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'upgrade.weather_dropped': 'Lines the card ignored are gone: {lines}.',
   'upgrade.share': 'Use Them for Every Layout',
   'upgrade.share_one': 'Use It for Every Layout',
+  // A calendar's show_location or show_description false keeps the field out of the agenda, and
+  // no longer out of an event's details, which only Private does (`hidden-details.ts`).
+  'upgrade.details_title': 'Event details changed.',
+  'upgrade.details_location':
+    '{name} hides event locations, but an event\u2019s details now show them.',
+  'upgrade.details_description':
+    '{name} hides event descriptions, but an event\u2019s details now show them.',
+  'upgrade.details_both':
+    '{name} hides event locations and descriptions, but an event\u2019s details now show them.',
+  'upgrade.make_private': 'Make It Private',
+  'upgrade.made_private': '{name} is private now.',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
   'config_migration.future_message':
     'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',

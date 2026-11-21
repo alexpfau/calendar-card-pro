@@ -1224,6 +1224,25 @@ export default css`
     margin-inline-start: -12px;
   }
 
+  /* Each calendar whose hidden field the details now show, with Make It Private under it. */
+  .upgrade-details {
+    flex-basis: 100%;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .upgrade-details li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 4px;
+  }
+
+  .upgrade-details .text-button {
+    margin-inline-start: -12px;
+  }
+
   .page-head .icon-button:not(.head-search):dir(rtl),
   .page-foot .icon:dir(rtl) {
     transform: scaleX(-1);

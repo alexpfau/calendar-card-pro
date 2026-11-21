@@ -64,6 +64,7 @@ import { whenText } from './gates';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
 import { HA_ACTION_LABEL_PREFIX, withCardActionLabels } from './hass-localize';
+import * as HiddenDetails from './hidden-details';
 import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
@@ -474,6 +475,13 @@ interface StatusLine {
     readonly shared: boolean;
     /** Whether the card looks as it did: so after the upgrade, and no longer once shared since. */
     readonly same: boolean;
+    /** Whether the upgrade wrote anything, which Undo then takes back. */
+    readonly wrote: boolean;
+    /** The calendars that hide a field an event's details now show, by entry key. */
+    readonly hidden: ReadonlyArray<{
+      readonly key: number;
+      readonly fields: ReadonlyArray<HiddenDetails.DetailField>;
+    }>;
     /** What converting the weather written before v6 did, where the upgrade converted it. */
     readonly weather?: WeatherMigration.WeatherMigrationResult;
   };
@@ -1412,7 +1420,9 @@ export class CalendarCardProEditor extends LitElement {
     this._migration = this._migrationState(rawConfig);
     if (!isEcho) {
       this._pendingUpgrade =
-        this._migration.kind === 'ambiguous' || WeatherMigration.convertsDrawnWeather(rawConfig);
+        this._migration.kind === 'ambiguous' ||
+        WeatherMigration.convertsDrawnWeather(rawConfig) ||
+        (this._migration.kind === 'automatic' && HiddenDetails.hiddenDetails(rawConfig).length > 0);
     }
     // Found once, where the walk over every state is not part of a render the key could skip.
     if (!isEcho) this._pickerCalendar = QuickSetup.firstCalendar(this.hass?.states);
@@ -1566,25 +1576,130 @@ export class CalendarCardProEditor extends LitElement {
   private _upgradeOnOpen(): void {
     const keys = this._migration.kind === 'ambiguous' ? this._migration.keys : [];
     const weatherDrawn = WeatherMigration.convertsDrawnWeather(this._rawConfig ?? {});
-    if (keys.length === 0 && !weatherDrawn) return;
+    const legacy = this._migration.kind === 'ambiguous' || this._migration.kind === 'automatic';
+    const writes = keys.length > 0 || weatherDrawn;
+    // Taken before writing: the upgrade keeps every entry where it was, and so its key.
+    const entryKeys = this._entryKeysFor((this._config?.entities ?? []).length);
+    const hidden =
+      writes || legacy
+        ? HiddenDetails.hiddenDetails(this._rawConfig ?? {}).map(({ entry, fields }) => ({
+            key: entryKeys[entry],
+            fields,
+          }))
+        : [];
+    if (!writes && hidden.length === 0) return;
     const before = this._snapshot();
     const ctx = this._ctx;
     let weather: WeatherMigration.WeatherMigrationResult | undefined;
     const mode = keys.length > 0 ? this._upgradeMode() : 'keep-list';
-    this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
-      if (keys.length > 0) this._adoptMigration(this._migrationResult(mode));
-      else if (!this._prepareForWriteWithoutWeather()) return;
-      // A block that names no entity is left to the first write, with the list migration's.
-      if (weatherDrawn) weather = this._convertWeather();
-      // Options v3.0.0 removed stay for the notices page to move, until a change of the user's.
-      const kept = Deprecated.keepOld(this._rawConfig!, before.raw ?? {});
-      if (kept !== this._rawConfig) this._adopt(kept, kept);
-      this._send(this._rawConfig!);
-    });
-    if (keys.length === 0 && weather === undefined) return;
-    const upgrade = { keys, before, shared: mode === 'shared-root', same: true, weather };
+    const wrote =
+      writes &&
+      this._commit(this._string(ctx, 'history.upgrade'), undefined, () => {
+        if (keys.length > 0) this._adoptMigration(this._migrationResult(mode));
+        else if (!this._prepareForWriteWithoutWeather()) return;
+        // A block that names no entity is left to the first write, with the list migration's.
+        if (weatherDrawn) weather = this._convertWeather();
+        // Options v3.0.0 removed stay for the notices page to move, until a change of the user's.
+        const kept = Deprecated.keepOld(this._rawConfig!, before.raw ?? {});
+        if (kept !== this._rawConfig) this._adopt(kept, kept);
+        this._send(this._rawConfig!);
+      });
+    if (keys.length === 0 && weather === undefined && hidden.length === 0) return;
+    const upgrade = {
+      keys,
+      before,
+      shared: mode === 'shared-root',
+      same: true,
+      wrote,
+      hidden,
+      weather,
+    };
     this._status = { kind: 'upgrade', text: '', at: 0, upgrade };
-    this._say(`${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, upgrade)}`);
+    this._say(this._upgradeSaid(ctx, upgrade));
+  }
+
+  /**
+   * What the upgrade receipt reads out: its title and every sentence in it.
+   *
+   * @param ctx - Schema context
+   * @param upgrade - The upgrade
+   * @returns The words
+   */
+  private _upgradeSaid(ctx: SchemaCtx, upgrade: NonNullable<StatusLine['upgrade']>): string {
+    return [
+      this._upgradeTitle(ctx, upgrade),
+      this._upgradeSentences(ctx, upgrade),
+      ...upgrade.hidden.map(({ key, fields }) => this._hiddenSentence(ctx, key, fields)),
+    ]
+      .filter((part) => part !== '')
+      .join(' ');
+  }
+
+  /**
+   * The receipt's title: "Upgraded." where the upgrade wrote, else "Event details changed." for
+   * a card it only has calendars to name for.
+   *
+   * @param ctx - Schema context
+   * @param upgrade - The upgrade
+   * @returns The title
+   */
+  private _upgradeTitle(ctx: SchemaCtx, upgrade: NonNullable<StatusLine['upgrade']>): string {
+    return this._string(ctx, upgrade.wrote ? 'upgrade.title' : 'upgrade.details_title');
+  }
+
+  /**
+   * The sentence naming a calendar that hides a field an event's details now show: "Anna hides
+   * event locations, but an event's details now show them."
+   *
+   * @param ctx - Schema context
+   * @param key - The entry's key
+   * @param fields - What it hides
+   * @returns The sentence
+   */
+  private _hiddenSentence(
+    ctx: SchemaCtx,
+    key: number,
+    fields: ReadonlyArray<HiddenDetails.DetailField>,
+  ): string {
+    const which = fields.length === 1 ? fields[0] : 'both';
+    return this._string(ctx, `upgrade.details_${which}`, { name: this._entryName(key) });
+  }
+
+  /**
+   * Makes a calendar the upgrade named private, as one undo step, and keeps the receipt with the
+   * calendars still to answer: focus goes to the next one's button, else to Undo.
+   *
+   * @param key - The entry's key
+   */
+  private _makePrivate(key: number): void {
+    const upgrade = this._status?.kind === 'upgrade' ? this._status.upgrade : undefined;
+    const entry = this._entryOf(key);
+    if (upgrade === undefined || entry === undefined) return;
+    const ctx = this._ctx;
+    const name = this._entryName(key);
+    const done = this._commit(
+      this._string(ctx, 'history.change_for', {
+        setting: this._string(ctx, 'entity.private'),
+        name,
+      }),
+      undefined,
+      () => this._writeFieldValue({ kind: 'entry', key }, 'calendar:private', true),
+      `entry:${key}`,
+    );
+    if (!done) return;
+    const hidden = upgrade.hidden.filter((line) => line.key !== key);
+    this._status = {
+      kind: 'upgrade',
+      text: '',
+      at: 0,
+      upgrade: { ...upgrade, wrote: true, hidden },
+    };
+    this._say(this._string(ctx, 'upgrade.made_private', { name }));
+    this._focusSoon(
+      hidden.length > 0
+        ? [Focus.byFocusKey(`upgrade-private-${hidden[0].key}`)]
+        : [Focus.byFocusKey('status-undo')],
+    );
   }
 
   /**
@@ -1618,10 +1733,10 @@ export class CalendarCardProEditor extends LitElement {
       this._convertWeather();
       this._send(this._rawConfig!);
     });
-    const shared = { ...upgrade, shared: true, same: false };
+    const shared = { ...upgrade, shared: true, same: false, wrote: true };
     this._showStatus(
       { kind: 'upgrade', text: '', at: 0, upgrade: shared },
-      `${this._string(ctx, 'upgrade.title')} ${this._upgradeSentences(ctx, shared)}`,
+      this._upgradeSaid(ctx, shared),
     );
   };
 
@@ -2242,8 +2357,14 @@ export class CalendarCardProEditor extends LitElement {
     if (upgrade === undefined) return nothing;
     const { keys, shared } = upgrade;
     return HistoryView.upgradeReceipt({
-      title: this._string(ctx, 'upgrade.title'),
+      title: this._upgradeTitle(ctx, upgrade),
       text: this._upgradeSentences(ctx, upgrade),
+      details: upgrade.hidden.map(({ key, fields }) => ({
+        key,
+        text: this._hiddenSentence(ctx, key, fields),
+        label: this._string(ctx, 'upgrade.make_private'),
+        onPress: () => this._makePrivate(key),
+      })),
       share:
         shared || keys.length === 0
           ? undefined
@@ -2252,7 +2373,7 @@ export class CalendarCardProEditor extends LitElement {
               onPress: this._shareUpgraded,
             },
       undoLabel: this._haWord(ctx, 'ui.common.undo', 'history.undo'),
-      onUndo: this._undo,
+      onUndo: upgrade.wrote ? this._undo : undefined,
     });
   }
 
