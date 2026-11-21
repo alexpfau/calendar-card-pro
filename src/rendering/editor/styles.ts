@@ -323,6 +323,34 @@ export default css`
     color: var(--secondary-text-color);
   }
 
+  /* The example's colors, and every layout with its days, one to a line. */
+  .quick-setup-swatches,
+  .quick-setup-layouts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .quick-setup-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .quick-setup-swatches li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .quick-setup-review .quick-setup-swatches {
+    justify-content: flex-end;
+  }
+
+  .quick-setup-colors {
+    margin-top: 12px;
+  }
+
   .quick-setup-review dd,
   .quick-setup-change {
     margin: 0;

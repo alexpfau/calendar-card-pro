@@ -510,6 +510,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.review.calendars': 'Calendars',
   'quick_setup.review.colors': 'Colors From the Example',
   'quick_setup.review.layout': 'Layout',
+  'quick_setup.review.layouts': 'Layouts',
+  'quick_setup.review.days_note':
+    'Each layout keeps its own number of days. Change one on that layout\u2019s Which Events page once applied.',
+  'quick_setup.review.toolbar': 'Toolbar',
   'quick_setup.review.days': '{count} days',
   'quick_setup.review.days_one': '1 day',
   'quick_setup.review.title': 'Title',

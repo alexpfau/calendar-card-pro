@@ -10522,7 +10522,35 @@ export class CalendarCardProEditor extends LitElement {
           ? Wizard.wizardNote(this._string(ctx, 'quick_setup.calendars_needed'), 'quick-setup-note')
           : nothing
       }
+      ${session.step === 'calendars' ? this._renderStoryColors(ctx, session, answers) : nothing}
     `;
+  }
+
+  /**
+   * The colors the example gives the calendars chosen, beside their names, under the calendars
+   * step, where they can still be changed by choosing others.
+   *
+   * @param ctx - Current editor context
+   * @param session - The run in progress
+   * @param answers - What Quick Setup has been told
+   * @returns The swatches, or nothing where the example colors none
+   */
+  private _renderStoryColors(
+    ctx: SchemaCtx,
+    session: QuickSetupSession,
+    answers: QuickSetup.QuickSetupAnswers,
+  ): TemplateResult | typeof nothing {
+    const colored = QuickSetup.storyColors(session.opening, answers);
+    if (colored.length === 0) return nothing;
+    return html`<div class="quick-setup-colors">
+      <p class="hint">${this._string(ctx, 'quick_setup.review.colors')}</p>
+      ${QuickSetupView.swatches(
+        colored.map(({ calendar, color }) => ({
+          name: Entities.entityDisplayName(calendar, this.hass),
+          color,
+        })),
+      )}
+    </div>`;
   }
 
   /**
@@ -10547,28 +10575,64 @@ export class CalendarCardProEditor extends LitElement {
     const built = QuickSetup.buildQuickSetupConfig(session.opening, answers);
     const merged = { ...Config.DEFAULT_CONFIG, ...built } as unknown as Types.Config;
     const view = this._viewForConfig(merged);
-    const days = ViewConfig.resolveEffectiveConfig(merged, view).days_to_show;
-    const colored = QuickSetup.storyColors(session.opening, answers).map(({ calendar }) =>
-      name(calendar),
-    );
+    const colored = QuickSetup.storyColors(session.opening, answers).map(({ calendar, color }) => ({
+      name: name(calendar),
+      color,
+    }));
     const weather = answers.weather.trim();
-    const rows: Array<[string, string]> = [
+    // Every layout the card can show, the one it opens in first, each with its own day count:
+    // Month draws its six weeks whatever the count says.
+    const layouts = [view, ...ViewConfig.reachableViews(merged).filter((each) => each !== view)];
+    const daysOf = (each: Types.EffectiveView): number | undefined =>
+      each === 'month' ? undefined : ViewConfig.resolveEffectiveConfig(merged, each).days_to_show;
+    const counts = new Set(layouts.map(daysOf).filter((each) => each !== undefined));
+    const layoutLine = (each: Types.EffectiveView): string => {
+      const days = daysOf(each);
+      const named = this._layoutName(ctx)(each);
+      if (days === undefined) return named;
+      const words =
+        days === 1
+          ? t('quick_setup.review.days_one')
+          : t('quick_setup.review.days', { count: days });
+      return `${named}${Summary.SUMMARY_SEPARATOR}${words}`;
+    };
+    // Show Toolbar turns on every control the example's toolbar holds, not the switcher alone.
+    const toolbar = Config.resolveToolbar(merged);
+    const controls = toolbar.show
+      ? (
+          [
+            [toolbar.navigation, 'toolbar.navigation'],
+            [toolbar.navigation && toolbar.search, 'toolbar.controls.search'],
+            [toolbar.addEvent, 'toolbar.controls.add_event'],
+            [Config.switcherOffers(merged).length > 0, 'toolbar.view_switcher'],
+            [toolbar.legend !== false, 'toolbar.legend'],
+            [toolbar.reset, 'toolbar.controls.reset'],
+            [toolbar.refresh, 'toolbar.controls.refresh'],
+          ] as const
+        ).flatMap(([on, key]) => (on ? [t(key)] : []))
+      : [];
+    const rows: Array<[string, string | TemplateResult]> = [
       [t('quick_setup.review.example'), t(`quick_setup.story.${answers.story}`)],
       [t('quick_setup.review.calendars'), list(answers.calendars.map(name))],
       ...(colored.length > 0
-        ? [[t('quick_setup.review.colors'), list(colored)] as [string, string]]
+        ? [
+            [t('quick_setup.review.colors'), QuickSetupView.swatches(colored)] as [
+              string,
+              TemplateResult,
+            ],
+          ]
         : []),
       [
-        t('quick_setup.review.layout'),
-        [
-          this._layoutName(ctx)(view),
-          days === 1
-            ? t('quick_setup.review.days_one')
-            : t('quick_setup.review.days', { count: days }),
-        ].join(Summary.SUMMARY_SEPARATOR),
+        layouts.length > 1 ? t('quick_setup.review.layouts') : t('quick_setup.review.layout'),
+        layouts.length > 1
+          ? html`<ul class="quick-setup-layouts">
+              ${layouts.map((each) => html`<li>${layoutLine(each)}</li>`)}
+            </ul>`
+          : layoutLine(view),
       ],
       [t('quick_setup.review.title'), answers.title.trim() || none],
       [t('quick_setup.review.weather'), weather === '' ? none : name(weather)],
+      [t('quick_setup.review.toolbar'), controls.length > 0 ? list(controls) : none],
     ];
     const replaced = QuickSetup.replacements(session.opening, built);
     const shown = this._reviewAll ? replaced : replaced.slice(0, REVIEW_SHOWN);
@@ -10583,6 +10647,7 @@ export class CalendarCardProEditor extends LitElement {
             </div>`,
         )}
       </dl>
+      ${counts.size > 1 ? html`<p class="hint">${t('quick_setup.review.days_note')}</p>` : nothing}
       ${
         replaced.length > 0
           ? html`<div class="quick-setup-replaced wizard-card" data-quick-setup-replaced>
