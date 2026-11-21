@@ -1603,7 +1603,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'In List and Columns, an event lasting a day or longer shows a day counter, such as “Day 2 of 3”, instead.',
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':
-    'Puts a green “Now” before the time of events that are happening right now.',
+    'Puts a green “Now” before the time of events that are happening right now and are shorter than a full day.',
   now_color: 'Now Color',
   'now_color.helper':
     'The color of an event that is happening right now, and of the now line in grid view.',

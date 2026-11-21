@@ -1027,7 +1027,7 @@
   "show_progress_bar": "Fortschrittsbalken anzeigen",
   "show_progress_bar.helper": "In Liste und Spalten zeigt ein Termin, der einen Tag oder länger dauert, stattdessen einen Tageszähler, etwa „Tag 2 von 3“.",
   "show_now_indicator": "Jetzt-Markierung anzeigen",
-  "show_now_indicator.helper": "Setzt ein grünes „Jetzt“ vor die Uhrzeit von Terminen, die gerade laufen.",
+  "show_now_indicator.helper": "Setzt ein grünes „Jetzt“ vor die Uhrzeit von Terminen, die gerade laufen und kürzer als ein ganzer Tag sind.",
   "now_color": "Jetzt-Farbe",
   "now_color.helper": "Die Farbe von Terminen, die gerade laufen, und der Jetzt-Linie im Zeitraster.",
   "progress_bar_color": "Fortschrittsbalken-Farbe",

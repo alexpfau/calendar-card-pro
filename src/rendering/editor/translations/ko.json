@@ -935,7 +935,7 @@
   "show_progress_bar": "진행률 막대 표시",
   "show_progress_bar.helper": "목록 및 열 레이아웃에서 하루 이상인 이벤트는 대신 ‘3일 중 2일째’처럼 일수를 표시합니다.",
   "show_now_indicator": "지금 표시기 표시",
-  "show_now_indicator.helper": "진행 중인 일정의 시간 앞에 녹색 ‘지금’을 표시합니다.",
+  "show_now_indicator.helper": "진행 중이며 하루 미만인 일정의 시간 앞에 녹색 ‘지금’을 표시합니다.",
   "now_color": "지금 색상",
   "now_color.helper": "지금 진행 중인 이벤트와 그리드 레이아웃의 현재 시각 표시선 색상입니다.",
   "progress_bar_color": "진행률 막대 색상",

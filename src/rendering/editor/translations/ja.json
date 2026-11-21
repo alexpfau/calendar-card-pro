@@ -1031,7 +1031,7 @@
   "show_progress_bar": "プログレスバーを表示",
   "show_progress_bar.helper": "リストと列レイアウトでは、1日以上続く予定には代わりに「2日目（全3日）」のように何日目かを表示します。",
   "show_now_indicator": "「今」を表示",
-  "show_now_indicator.helper": "進行中の予定の時刻の前に、緑色の「今」を表示します。",
+  "show_now_indicator.helper": "進行中で丸1日未満の予定の時刻の前に、緑色の「今」を表示します。",
   "now_color": "「今」の色",
   "now_color.helper": "進行中の予定の色と、グリッドレイアウトの現在時刻の線の色です。",
   "progress_bar_color": "プログレスバーの色",

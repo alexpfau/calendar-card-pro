@@ -1025,7 +1025,7 @@
   "show_progress_bar": "Pokaż pasek postępu",
   "show_progress_bar.helper": "Na Liście i w Kolumnach wydarzenie trwające co najmniej dzień pokazuje zamiast tego licznik dni, np. „Dzień 2 z 3”.",
   "show_now_indicator": "Pokaż wskaźnik „Teraz”",
-  "show_now_indicator.helper": "Dodaje zielone „Teraz” przed godziną wydarzeń, które właśnie trwają.",
+  "show_now_indicator.helper": "Dodaje zielone „Teraz” przed godziną wydarzeń, które właśnie trwają i są krótsze niż cały dzień.",
   "now_color": "Kolor „Teraz”",
   "now_color.helper": "Kolor wydarzeń, które właśnie trwają, i linii bieżącego czasu w siatce czasu.",
   "progress_bar_color": "Kolor paska postępu",
