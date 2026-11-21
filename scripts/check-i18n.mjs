@@ -1439,6 +1439,12 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'lv:toolbar.buttons.icon',
   'pl:toolbar.buttons.icon',
   'sk:toolbar.buttons.icon',
+
+  // A heading names the topic with the noun (`Atsvaidzināšana`), where the toolbar's button keeps
+  // the decided verb.
+  'lv:heading.refresh',
+  // A color's Default agrees with the feminine `farba`; the decided `Predvolené` is a setting's.
+  'sk:color.default',
 ]);
 
 /**

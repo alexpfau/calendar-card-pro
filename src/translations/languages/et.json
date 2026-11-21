@@ -31,7 +31,7 @@
   "viewColumns": "Veerud",
   "viewGrid": "Ajaraster",
   "viewMonth": "Kuu",
-  "moreEvents": "+{count} veel",
+  "moreEvents": "Veel +{count}",
   "eventCount": "{count} sündmust",
   "eventCountOne": "{count} sündmus",
   "endsToday": "lõpeb täna",

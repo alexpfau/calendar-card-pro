@@ -10,7 +10,7 @@
   "viewColumns": "Sloupce",
   "viewGrid": "Mřížka",
   "viewMonth": "Měsíc",
-  "moreEvents": "+{count} další",
+  "moreEvents": "+{count} navíc",
   "eventCount": "Události: {count}",
   "eventCountOne": "{count} událost",
   "endsToday": "končí dnes",

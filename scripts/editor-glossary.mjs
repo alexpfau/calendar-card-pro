@@ -228,6 +228,7 @@ export const GLOSSARY_TERMS = [
       et: 'Silt',
       it: 'Etichetta',
       ja: 'ラベル',
+      ko: '레이블',
       lt: 'Etiketė',
       lv: 'Etiķete',
       nb: 'Etikett',
@@ -236,6 +237,7 @@ export const GLOSSARY_TERMS = [
       sv: 'Etikett',
     },
     rejected: {
+      ko: ['라벨'],
       sk: ['Menovka'],
     },
   },
@@ -265,6 +267,7 @@ export const GLOSSARY_TERMS = [
       et: 'Mitmepäevane',
       it: 'Su più giorni',
       ja: '複数日',
+      ko: '여러 날에 걸친',
       lt: 'Kelių dienų',
       lv: 'Vairāku dienu',
       nb: 'Flerdags',
@@ -284,6 +287,7 @@ export const GLOSSARY_TERMS = [
     // calque will not reach for that character.
     rejected: {
       it: ['Multi\u2011giorno', 'Multi-giorno', 'Multigiorno'],
+      ko: ['다중 일자'],
       sk: ['Niekoľkodňov'],
     },
   },
@@ -399,24 +403,24 @@ export const GLOSSARY_TERMS = [
     name: 'narrow',
     sense: "Month's narrow form, a capsule per day and the chosen day's list under the weeks",
     decided: {
-      de: 'schmal',
+      de: 'Schmal',
       et: 'kitsas',
-      it: 'stretta',
-      ja: '幅の狭い',
-      ko: '좁은',
-      lt: 'siaura',
-      lv: 'šaura',
-      nb: 'smalt',
-      pl: 'wąska',
-      sk: 'úzka',
-      sv: 'smalt',
+      it: 'Stretto',
+      ja: '幅の狭い表示',
+      ko: '좁은 형식',
+      lt: 'Siauras',
+      lv: 'Šaurs',
+      nb: 'Smal',
+      pl: 'Wąski',
+      sk: 'Úzky',
+      sv: 'Smal',
     },
     rejected: {
       de: ['kompakt'],
       et: ['kompakt'],
       it: ['compatt'],
       ja: ['コンパクト'],
-      ko: ['컴팩트'],
+      ko: ['컴팩트', '좁은 월 보기'],
       lt: ['suglaud'],
       lv: ['kompakt'],
       nb: ['kompakt'],
@@ -794,7 +798,9 @@ export const GLOSSARY_TERMS = [
       sk: 'Skryť',
       sv: 'Dölj',
     },
-    rejected: {},
+    rejected: {
+      lv: ['Slēpt'],
+    },
   },
   {
     name: 'none',
@@ -825,7 +831,7 @@ export const GLOSSARY_TERMS = [
       lv: 'Noklusējums',
       nb: 'Standard',
       pl: 'Domyślny',
-      sk: 'Predvolený',
+      sk: 'Predvolené',
       sv: 'Standard',
     },
     rejected: {},
@@ -1107,21 +1113,23 @@ export const GLOSSARY_TERMS = [
     rejected: {},
   },
   {
-    // German and Polish follow the words their files already used for a custom value ("Eigene",
-    // "Własny") rather than Home Assistant's "Benutzerdefiniert" and "Niestandardowy".
+    // Polish follows the word its file already used for a custom value ("Własny") rather than Home
+    // Assistant's "Niestandardowy". German used "Eigene" until the v6 review: standing alone, as an
+    // option label, the adjective has no noun to agree with, so it takes Home Assistant's
+    // "Benutzerdefiniert"; "Eigene Farbe" and the other phrases with a noun keep "Eigene".
     name: 'custom',
     sense: 'a color or value the user types rather than picks',
     decided: {
-      de: 'Eigene',
+      de: 'Benutzerdefiniert',
       et: 'Kohandatud',
       it: 'Personalizzato',
       ja: 'カスタム',
       ko: '사용자 지정',
       lt: 'Pasirinktinė',
-      lv: 'Pielāgota',
+      lv: 'Pielāgots',
       nb: 'Egendefinert',
       pl: 'Własny',
-      sk: 'Vlastná',
+      sk: 'Vlastné',
       sv: 'Anpassad',
     },
     rejected: {},
@@ -1196,6 +1204,50 @@ export const GLOSSARY_TERMS = [
     rejected: {
       lv: ['informācijas panel'],
       sv: ['instrumentpanel'],
+    },
+  },
+  {
+    // Decided in the v6 translation review. German had used the word Refresh already holds.
+    name: 'upgrade',
+    sense: 'the editor converting a card written before v5 to the current configuration',
+    decided: {
+      de: 'umstellen',
+    },
+    rejected: {
+      de: ['aktualisier'],
+    },
+  },
+  {
+    // Decided in the v6 translation review. Estonian follows Home Assistant’s own word for Duplicate.
+    name: 'duplicate',
+    sense: 'a calendar entry’s Duplicate action, which lists the calendar on the card again',
+    decided: {
+      et: 'Paljunda',
+    },
+    rejected: {
+      et: ['Dubleeri'],
+    },
+  },
+  {
+    // Decided in the v6 translation review. Estonian follows Home Assistant’s word for the long press.
+    name: 'hold',
+    sense: 'the long-press gesture (Hold Action, Event Hold Action), never keeping something',
+    decided: {
+      et: 'pikk vajutus',
+    },
+    rejected: {
+      et: ['hoidmi'],
+    },
+  },
+  {
+    // Decided in the v6 translation review. Latvian had two words for it, one of which also means restore.
+    name: 'refresh',
+    sense: 'fetching the calendars’ events again: the toolbar’s Refresh, the refresh interval',
+    decided: {
+      lv: 'Atsvaidzināt',
+    },
+    rejected: {
+      lv: ['Atjaunošan', 'Atjaunot'],
     },
   },
 ];

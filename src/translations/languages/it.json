@@ -10,7 +10,7 @@
   "viewColumns": "Colonne",
   "viewGrid": "Griglia oraria",
   "viewMonth": "Mese",
-  "moreEvents": "+{count} altri",
+  "moreEvents": "+{count} in più",
   "eventCount": "{count} eventi",
   "eventCountOne": "{count} evento",
   "endsToday": "termina oggi",
