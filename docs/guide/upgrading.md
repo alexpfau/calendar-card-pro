@@ -153,16 +153,19 @@ the editor keeps working as it is.
   [weather per layout](/features/weather#weather-per-layout): the entity moves to
   `weather_entity`, and List, Columns and Grid each take the old options as their own
   `weather:`. The card looks the same.
-- **Top-level values on a List or Grid card** that could mean List or every layout are kept for
-  List, as v5 drew them, and the editor offers **Use Them for Every Layout** instead.
+- **Top-level values on a List or Grid card** that could mean List or every layout are read the
+  way that leaves every layout the card can show as it was: kept for List where every layout
+  draws them the same either way, with **Use Them for Every Layout** offered, and shared with
+  every layout otherwise.
 - **The options only List reads** move into `list:`.
+- **A card the v5 editor saved** (`config_version: 5`) is checked once as it opens: the editor names each calendar with `show_location: false` or `show_description: false`, offers **Make It Private**, and saves `config_version: 6` with nothing else changed.
 
 See [Upgrading Weather From v5](/features/editor#upgrading-weather-from-v5) and
 [Adopting the Layout Format](/features/editor#adopting-the-layout-format) for the details.
 
 ## ↩️ Going Back to v5.3
 
-v5.3 reads a card v6 saved without breaking, but leaves out what it does not know. Four things
+v5.3 reads a card v6 saved without breaking, but leaves out what it does not know. Five things
 need attention.
 
 1. **Private calendars are shown in full.** v5.3 ignores `private: true`, so every title,
@@ -204,6 +207,7 @@ need attention.
 4. **Start hours are ignored.** v5.3 has no `starts_after` or `starts_before`, so a calendar
    narrowed by them shows all its events again, and a calendar listed twice to divide its events
    by hour shows every event in both entries.
+5. **The visual editor will not open the card.** v6's editor saves `config_version: 6`, and v5.3's editor shows This Card Uses a Newer Configuration for it. After going back to v5.3, set `config_version: 5` in YAML to edit with v5.3's editor; the card itself keeps working.
 
 A card set to `view: month` opens as a list in v5.3. Everything else v6 added stays in the YAML,
 unused, and v5.3's editor keeps it, apart from the top-level heights in point 3.

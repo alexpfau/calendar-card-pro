@@ -245,7 +245,7 @@ its events get weather at all, so where it is `date` or `none` this changes noth
 draws what the layout draws anyway.
 
 ::: tip Visual Editor
-**Event Weather** is the last setting under **Event Details** on each calendar's page. A
+**Event Weather** is the last setting under **Visible Event Parts** on each calendar's page. A
 calendar's page holds the options of every layout the card can show, so it appears once any of
 those layouts shows the forecast beside events, and names the layouts it applies to where only
 some of them do.

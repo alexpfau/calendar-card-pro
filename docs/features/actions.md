@@ -581,7 +581,7 @@ To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-eve
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. An action Home Assistant adds in a future release may not appear there straight away; it still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Card Tap Action and Card Hold Action dropdowns, on **Taps & Refresh**, offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. An action Home Assistant adds in a future release may not appear there straight away; it still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
