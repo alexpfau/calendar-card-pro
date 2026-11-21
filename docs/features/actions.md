@@ -24,8 +24,8 @@ toolbar:
 
 The button is `toolbar → add_event`, on by default once the toolbar is shown; set it to `false` for a toolbar without it. It is a plus icon with Home Assistant's own "Add event" as its tooltip and its name for screen readers, and it opens the [event popover](#the-event-popover) on a new, empty event, ready for a title.
 
-- **Adding.** Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
-- **Not adding.** Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out.
+- **Adding.** Type a title and press **Add**, or Return. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events). **Add** without a title keeps the popover open and asks for one, so a date or calendar you picked is not lost.
+- **Not adding.** Press **Cancel** or Escape, press Back, or press outside the popover, and nothing is added, whatever you typed.
 - **The calendar** is a picker offering this card's calendars that accept new events, and only those; a calendar its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions) hide is left out while they hide it. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/header-toolbar#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it, though it stays in the picker. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
 - **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. A month starts it on the day it opens with, its `start_date`, or today for Tomorrow, Start of Week or no `start_date`, and paged to another month on today where the month its heading names holds it, and otherwise on its 1st, never a day of the month before that its first week shows.
 
@@ -97,7 +97,7 @@ current hour, as the add button does, and a tap on another day at the same hour 
 grid view a tap in the time grid starts at the quarter hour you tapped instead, rounded down,
 whatever `slot_minutes` the grid draws its lines at, and a tap in the all-day band adds an
 all-day event on that day. A timed one lasts an hour. That is only a starting point: the popover
-lets you change the start, the end and All day before you close it.
+lets you change the start, the end and All day before you add it.
 
 The calendar is the one [the add button](#add-event-button) would preselect: the first in
 `entities` that accepts new events and that the calendar filter shows.
@@ -118,7 +118,7 @@ The block starts as an hour from the quarter hour you pressed. Drag down to move
 move its start, or sideways to run it across days, in quarter-hour steps. It looks as the event
 will once saved, in its calendar's colors. Let go and the popover opens beside it with those
 times, ready for a title; the block follows what you change there. Escape throws it away, while
-you draw or once the popover is open, and so does Cancel.
+you draw or once the popover is open, and so do Cancel, Back and a press outside the popover.
 
 **All-day events** are drawn the same way in the all-day band, sideways for several days. The
 band is there whenever the days shown hold an all-day event. On other days, tap the time grid
@@ -175,6 +175,8 @@ The popover shows the whole event, whichever part of it you tapped: a multi-day 
 
 The title, location and description read as they do on the card, with the calendar's [text replacement](/features/filtering#text-replacement) applied, so a title you masked or reworded stays that way, and a [private calendar's](/features/core-settings#keeping-a-calendar-private) read Private. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
 
+An event [`filter_duplicates`](/features/filtering#filtering-duplicate-events) merged from several calendars names every one of them, each with its own color. Under `merge_locations` the popover lists every copy's location, each as its own calendar shows it, so a private calendar's reads Private. Such an event is [read-only](#when-the-card-leaves-them-out).
+
 ::: warning What the Popover Reveals
 Two things go further than the card itself:
 
@@ -229,6 +231,11 @@ editor's Event Hold Action dropdown offers what its Event Tap Action dropdown do
 An event that has either is a button for keyboard users and screen readers. The keyboard has no
 hold, so Enter or Space on an event runs its tap action, or its hold action when its tap action is
 `none`.
+
+In Month's [day panel](/features/month-view#more-than-fits), a hold on an event does what it does
+on the card: it closes the panel and runs `event_hold_action`, or the card's `hold_action` where
+that is `none`. Where neither does anything, a hold there is a tap. A finger that moves while it
+holds is scrolling the panel, and holds nothing.
 
 ### Using the Event's Fields in an Action
 
@@ -292,7 +299,7 @@ Event Tap Action and Event Hold Action dropdowns take field names in braces as Y
 
 ## ✏️ Editing & Deleting Events
 
-The popover that opens an event is also where you change it, wherever its calendar [allows it](#what-each-integration-allows). There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
+The popover that opens an event is also where you change it, wherever its calendar [allows it](#what-each-integration-allows). There is no Edit button: each part of the event is edited where it is shown, and the change is saved when you press **Save**.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.mp4#t=0.001" width="740" height="744" loop muted playsinline controls preload="auto" aria-label="A tap on Grandpa visits on Saturday opens the popover beside it; a tap on its date line opens the start, the end, All day and Repeat, All day is switched on, and Save turns the event into an all-day banner"></video><br>
 
@@ -307,20 +314,27 @@ Repeat offers what Home Assistant's own event editor offers: daily, weekly on th
 
 ### Saving & Discarding
 
-The popover saves once, when it closes: with a press outside it, with Back, or with **Save**, which appears at the bottom right beside **Cancel** once you have changed something. Return in the title saves too. A part you only looked at, or tapped into without changing, writes nothing.
+The popover saves once, with **Save**, which appears at the bottom right beside **Cancel** once you have changed something. Return in the title saves too. A part you only looked at, or tapped into without changing, writes nothing.
 
-- **Discarding.** **Cancel**, or Escape on a keyboard, throws every change away.
-- **While saving,** the popover takes no input and stays open, and it closes by itself once Home Assistant has saved the change. The card then [shows the change at once](#changes-appear-at-once).
-- **A repeating event.** For one occurrence, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to.
+- **Discarding.** Every other way of closing the popover throws every change away: **Cancel**, Escape on a keyboard, Back, a press outside it, and its [Close button](#keyboard-screen-readers) for keyboard users.
+- **While saving,** the popover takes no input and stays open, even for Back, and it closes by itself once Home Assistant has saved the change. The card then [shows the change at once](#changes-appear-at-once).
+- **A repeating event.** For one occurrence, **Save** asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel**, Escape or Back goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to.
 - **A refused change.** If Home Assistant refuses it, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
+
+::: warning Changed in v6
+Before v6, closing the popover with Back, a press outside it or its Close button saved what you had changed, and added a new event that had a title. Since v6 only **Save**, **Add** or Return in the title writes anything. See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
+:::
 
 ### Dragging in Grid View
 
-In [grid view](/features/grid-view#moving-events-by-drag) you can also drag a timed event that starts and ends on one day to another time or day, wherever the popover [could change it](#what-each-integration-allows), with a mouse at once or after holding it on a touch screen. An all-day event, or one that runs past midnight, changes in the popover only. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
+In [grid view](/features/grid-view#moving-events-by-drag) you can also drag a timed event that starts and ends on one day to another time or day, wherever the popover [could change it](#what-each-integration-allows), with a mouse at once or after holding it on a touch screen. An all-day event, or one that runs past midnight, changes in the popover only. `allow_event_edit: false` turns dragging off along with editing.
+
+- **A single event** is saved when you let go. Home Assistant's notification at the foot of the screen then says where it went, such as "Moved to 13:45", with the weekday where it moved to another day, and offers **Undo** for eight seconds, which puts the event back at its old times.
+- **A repeating event** opens the popover at its new times instead, to ask which occurrences move, and nothing is written until you answer. Cancel, Escape, Back or a press outside it throws the move away. It gets no notification.
 
 ### Moving to Another Calendar
 
-Tap the calendar to pick another, and the event moves there when the popover closes, with anything else you changed. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). The card moves an event by adding it to the new calendar and then deleting it from its own, so moving needs the event's own calendar to allow both changing and deleting it, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on.
+Tap the calendar to pick another, and the event moves there when you save, with anything else you changed. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). The card moves an event by adding it to the new calendar and then deleting it from its own, so moving needs the event's own calendar to allow both changing and deleting it, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on.
 
 A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on. It is offered only where the series can move whole: not for a series that ends after a number of occurrences, whose count would start again in the new calendar, so set its end to a date first, in the same popover; and not for an occurrence you changed on its own.
 
@@ -403,7 +417,7 @@ An event's details and a new event both open in the card's own popover: from an 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;
 - the location, with a [map or a pin](#maps-locations);
-- the calendar's name, with its color: its [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card where it has one, else Home Assistant's, and the same for each calendar it can move to;
+- the calendar's name, with its color: its [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card where it has one, else Home Assistant's, and the same for each calendar it can move to, or for each calendar a [merged duplicate](#event-details) came from;
 - the description, with its web addresses as [links](#links).
 
 On a wide screen it opens beside the event you pressed, with its arrow pointing at it, to the right where there is room and to the left otherwise: beside the edge of an event drawn as a tinted box, such as a grid block or any event under `event_background_opacity`, and beside the end of the text of one drawn without. A tap on a day, or on an empty slot of the grid, opens it right where you tapped, and the add button opens it below the button. On a screen narrower than 600 pixels it rises from the bottom as a sheet.
@@ -416,11 +430,13 @@ While it is open, the page behind it does not scroll. It is light or dark as you
 
 Every word in the popover is Home Assistant's own, from its calendar translations, so the popover follows the language of your Home Assistant profile rather than the card's `language` option, as the add button's tooltip does. Dates and weekday names follow that language too, and times follow the card's 12- or 24-hour format, `time_24h`.
 
-The one exception is a [private calendar's](/features/core-settings#keeping-a-calendar-private) Private, which is the card's own word, as on the card: it follows the card's `language`, and [`replace_with`](/features/filtering#hiding-what-an-event-is-about) can put a word of your own in its place.
+The one exception is a [private calendar's](/features/core-settings#keeping-a-calendar-private) Private, which is the card's own word, as on the card: it follows the card's `language`, and [`replace_with`](/features/filtering#hiding-what-an-event-is-about) can put a word of your own in its place. The notification after [dragging an event](#dragging-in-grid-view) is the card's own too, and follows its `language`.
+
+The card's `language` reaches only the card's own words. Wherever the card uses Home Assistant's, such as Search, Today and Close, they stay in the language of your Home Assistant profile.
 
 ### Maps & Locations
 
-When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. The map has no option. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location.
+When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. The map has no option. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location. A [merged duplicate's](#event-details) location that lists several places gets neither.
 
 The card places two kinds of location:
 
@@ -463,7 +479,7 @@ Web addresses in the description are links, and so are those in a location you c
 
 ### Keyboard & Screen Readers
 
-The popover is a modal dialog, named by the event's title. It opens with focus on that title, so no field starts editing until you choose one. A new event added with a mouse or the keyboard opens in its title field instead, ready for you to type; one added by touch or pen does not, so a phone raises no keyboard until you tap the title. Letters you type in the popover stay in it rather than reaching Home Assistant's keyboard shortcuts. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
+The popover is a modal dialog, named by the event's title. It opens with focus on that title, so no field starts editing until you choose one. A new event added with a mouse or the keyboard opens in its title field instead, ready for you to type; one added by touch or pen does not, so a phone raises no keyboard until you tap the title. Letters you type in the popover stay in it rather than reaching Home Assistant's keyboard shortcuts. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, throws the changes away and closes, as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
 
 ### Changes Appear at Once
 
