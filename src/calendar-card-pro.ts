@@ -1996,6 +1996,10 @@ class CalendarCardPro extends LitElement {
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
+  /** Watches the grid's head and the events area it pins to (`_syncGridHeadPin`). */
+  private _gridHeadObserver: ResizeObserver | null = null;
+  private _gridHeadWatched: { head: HTMLElement; grid: HTMLElement; area: HTMLElement } | null =
+    null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   private _gridDisclosureReleaseRaf: number | null = null;
@@ -2933,6 +2937,7 @@ class CalendarCardPro extends LitElement {
     this._syncTitleScroll();
     this._syncTitleFits();
     this._syncGridDisclosureSafety();
+    this._syncGridHeadPin();
   }
 
   disconnectedCallback() {
@@ -2940,6 +2945,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
+    this._stopGridHeadObserver();
     this._stopTitleScrollObserver();
     this._stopTitleFits();
     this._stopMonthList();
@@ -3690,6 +3696,69 @@ class CalendarCardPro extends LitElement {
       cancelAnimationFrame(this._gridScaleRaf);
       this._gridScaleRaf = null;
     }
+  }
+
+  //-----------------------------------------------------------------------------
+  // GRID HEAD
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Keeps the grid's head pinned to the top of the events area while the area scrolls and the
+   * head leaves the hours room (`GridUtils.headPins`), and lets it scroll with them otherwise,
+   * by `data-pinned` on `.grid-head`, which the stylesheet makes sticky.
+   *
+   * While it is pinned the head's height is written on the area as
+   * `--calendar-card-grid-head-height`, which the stylesheet gives the hours as a scroll margin,
+   * so an event that takes focus, or that a search rings, is scrolled into view below the head
+   * rather than under it. The area carries no style binding of its own, so nothing else writes
+   * the property.
+   *
+   * Read by a resize observer on the head, the grid and the area rather than once per render:
+   * the head grows with weather and fonts that arrive after it is drawn, the grid with its
+   * hours, and the area with the card. Bound again only when one of them is replaced, which the
+   * observer then reads at once. Pinning moves nothing in the layout, so a reading cannot change
+   * the sizes it was taken from.
+   */
+  private _syncGridHeadPin(): void {
+    const head =
+      this.isConnected && this.effectiveView === 'grid'
+        ? this.renderRoot.querySelector<HTMLElement>('.grid-head')
+        : null;
+    const grid = head?.parentElement ?? null;
+    const area = head?.closest<HTMLElement>('.content-container') ?? null;
+    if (!head || !grid || !area || typeof ResizeObserver === 'undefined') {
+      this._stopGridHeadObserver();
+      return;
+    }
+    const watched = this._gridHeadWatched;
+    if (watched?.head === head && watched.grid === grid && watched.area === area) return;
+
+    this._stopGridHeadObserver();
+    this._gridHeadWatched = { head, grid, area };
+    this._gridHeadObserver = new ResizeObserver(() => {
+      const current = this._gridHeadWatched;
+      if (!current) return;
+      const headPx = current.head.getBoundingClientRect().height;
+      // A crammed grid scrolls sideways itself (`renderGridGroupedEvents`), which makes it the
+      // head's nearest scroll container, and it never scrolls the way the head would stick.
+      const pinned =
+        current.grid.style.overflowX !== 'auto' &&
+        GridUtils.headPins(headPx, current.area.clientHeight, current.area.scrollHeight);
+      current.head.toggleAttribute('data-pinned', pinned);
+      if (pinned)
+        current.area.style.setProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY, `${headPx}px`);
+      else current.area.style.removeProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY);
+    });
+    this._gridHeadObserver.observe(head);
+    this._gridHeadObserver.observe(grid);
+    this._gridHeadObserver.observe(area);
+  }
+
+  private _stopGridHeadObserver(): void {
+    this._gridHeadObserver?.disconnect();
+    this._gridHeadObserver = null;
+    this._gridHeadWatched?.area.style.removeProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY);
+    this._gridHeadWatched = null;
   }
 
   //-----------------------------------------------------------------------------
@@ -5223,6 +5292,7 @@ class CalendarCardPro extends LitElement {
     // that request belongs to the next update, not to this one.
     this._bareUpdateRequestsSeen = this._bareUpdateRequests;
     this._syncGridDisclosureSafety(gridChanged);
+    this._syncGridHeadPin();
     if (gridChanged) {
       this._syncCascadeThreshold();
       this._syncOverflowStrip();
