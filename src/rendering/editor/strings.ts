@@ -1026,7 +1026,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // all-day events Grid's band holds. A calendar's page keeps `heading_multiday`.
   heading_allday_multiday: 'All-Day & Multi-Day',
   heading_nothing: 'Empty Days',
-  heading_details: 'Event Details',
+  // The parts each event shows; "Event Details" names the dialog an event opens.
+  heading_details: 'Visible Event Parts',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
 

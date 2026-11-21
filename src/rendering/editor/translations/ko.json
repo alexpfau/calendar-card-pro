@@ -615,7 +615,7 @@
   "heading_multiday": "여러 날에 걸친 이벤트",
   "heading_allday_multiday": "종일 및 여러 날에 걸친 이벤트",
   "heading_nothing": "빈 날짜",
-  "heading_details": "이벤트 상세 정보",
+  "heading_details": "표시할 이벤트 항목",
   "entity.visibility": "조건 목록",
   "entity.visibility.aliases": "볼 수 있는 사람, 특정 사용자, 사용자별, 사람별, 사용자, 표시 조건, 가시성",
   "entity.visibility.helper": "이 조건이 모두 충족되는 동안에만 이 캘린더의 이벤트를 표시합니다. 카드를 편집하는 동안에는 적용되지 않습니다.",

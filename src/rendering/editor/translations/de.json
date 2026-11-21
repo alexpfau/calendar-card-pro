@@ -647,7 +647,7 @@
   "heading_multiday": "Mehrtägige Termine",
   "heading_allday_multiday": "Ganztägige & mehrtägige Termine",
   "heading_nothing": "Leere Tage",
-  "heading_details": "Termindetails",
+  "heading_details": "Sichtbare Terminteile",
   "heading_event_state": "Terminstatus",
   "heading_toolbar": "Symbolleiste",
   "entity.visibility": "Bedingungen",

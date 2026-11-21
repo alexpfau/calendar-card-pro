@@ -176,7 +176,7 @@ describe('the results', () => {
     [
       'show_location',
       'events:show_location',
-      'Event Appearance › Event Details',
+      'Event Appearance › Visible Event Parts',
       'List: On · YAML: list.show_location',
     ],
     // At home on a Whole Card page, where no setting says Whole Card.

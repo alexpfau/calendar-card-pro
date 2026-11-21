@@ -645,7 +645,7 @@
   "heading_multiday": "Mitme päeva sündmused",
   "heading_allday_multiday": "Terve päeva ja mitme päeva sündmused",
   "heading_nothing": "Tühjad päevad",
-  "heading_details": "Sündmuse üksikasjad",
+  "heading_details": "Nähtavad sündmuse osad",
   "heading_event_state": "Sündmuse olek",
   "heading_toolbar": "Tööriistariba",
   "entity.visibility": "Tingimused",

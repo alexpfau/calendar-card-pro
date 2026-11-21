@@ -646,7 +646,7 @@
   "heading_multiday": "Flerdagshändelser",
   "heading_allday_multiday": "Heldags- och flerdagshändelser",
   "heading_nothing": "Tomma dagar",
-  "heading_details": "Händelsedetaljer",
+  "heading_details": "Synliga händelsedelar",
   "heading_event_state": "Händelsestatus",
   "heading_toolbar": "Verktygsfält",
   "entity.visibility": "Villkor",

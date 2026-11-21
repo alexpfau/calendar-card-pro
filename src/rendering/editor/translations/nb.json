@@ -647,7 +647,7 @@
   "heading_multiday": "Flerdagshendelser",
   "heading_allday_multiday": "Heldags- og flerdagshendelser",
   "heading_nothing": "Tomme dager",
-  "heading_details": "Hendelsesdetaljer",
+  "heading_details": "Synlige hendelsesdeler",
   "heading_event_state": "Hendelsesstatus",
   "heading_toolbar": "Verktøylinje",
   "entity.visibility": "Betingelser",

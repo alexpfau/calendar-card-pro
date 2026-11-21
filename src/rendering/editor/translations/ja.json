@@ -651,7 +651,7 @@
   "heading_multiday": "複数日の予定",
   "heading_allday_multiday": "終日と複数日",
   "heading_nothing": "予定のない日",
-  "heading_details": "予定の詳細",
+  "heading_details": "表示する予定の項目",
   "heading_event_state": "予定の状態",
   "heading_toolbar": "ツールバー",
   "entity.visibility": "条件",

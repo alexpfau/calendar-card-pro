@@ -643,7 +643,7 @@
   "heading_multiday": "Eventi su più giorni",
   "heading_allday_multiday": "Eventi di tutto il giorno e su più giorni",
   "heading_nothing": "Giorni vuoti",
-  "heading_details": "Dettagli evento",
+  "heading_details": "Parti visibili dell’evento",
   "heading_event_state": "Stato evento",
   "heading_toolbar": "Barra strumenti",
   "entity.visibility": "Condizioni",

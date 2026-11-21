@@ -645,7 +645,7 @@
   "heading_multiday": "Kelių dienų įvykiai",
   "heading_allday_multiday": "Visos dienos ir kelių dienų įvykiai",
   "heading_nothing": "Tuščios dienos",
-  "heading_details": "Įvykio informacija",
+  "heading_details": "Rodomos įvykio dalys",
   "heading_event_state": "Įvykio būsena",
   "heading_toolbar": "Įrankių juosta",
   "entity.visibility": "Sąlygos",
