@@ -93,6 +93,7 @@ import * as QuickSetup from './quick-setup';
 import * as Reorder from './reorder';
 import * as Reset from './reset';
 import * as Routing from './routing';
+import { LABELED_ACTIONS, cardActionLabelKey } from './schemas/actions';
 import { TOOLBAR_BUTTON_PATH, buildToolbarButtonSchema } from './schemas/card';
 import { ENTITY_TRISTATE_STORED, VISIBILITY, buildEntitySchema } from './schemas/entity';
 import {
@@ -3577,7 +3578,12 @@ export class CalendarCardProEditor extends LitElement {
     };
     return (value) =>
       Summary.wordValue(field, asOption(value), ctx.language, this._describe) ??
-      (value === undefined || value === null ? this._string(ctx, 'search.not_set') : String(value));
+      (value === undefined || value === null
+        ? this._string(ctx, 'search.not_set')
+        : // An object nothing words, an action Home Assistant has not named yet, has no words.
+          typeof value === 'object'
+          ? ''
+          : String(value));
   }
 
   /**
@@ -5759,11 +5765,24 @@ export class CalendarCardProEditor extends LitElement {
       return Colors.describeColor(value, spec, ctx.language, { haName: this._haColorName });
     }
     if ('ui_action' in selector) {
+      // An explicit `null` runs nothing, as the card reads it: worded Nothing, as Home Assistant
+      // words the action that does nothing.
+      if (value === null) {
+        const key = `${HA_ACTION_LABEL_PREFIX}none`;
+        const words = this.hass?.localize?.(key);
+        return typeof words === 'string' && words !== '' && words !== key
+          ? words
+          : this._string(ctx, 'day_tap_action_mode.option.none.label');
+      }
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
       if (typeof action !== 'string') return undefined;
       const key = `${HA_ACTION_LABEL_PREFIX}${action}`;
       const words = withCardActionLabels(this.hass, this._ctx.language)?.localize?.(key);
-      return typeof words === 'string' && words !== '' && words !== key ? words : undefined;
+      if (typeof words === 'string' && words !== '' && words !== key) return words;
+      // Before Home Assistant has named it, the card's own action by the editor's name for it.
+      return LABELED_ACTIONS.includes(action)
+        ? this._string(ctx, cardActionLabelKey(action))
+        : undefined;
     }
     if ('entity' in selector && typeof value === 'string' && value !== '') {
       return Entities.entityDisplayName(value, this.hass);

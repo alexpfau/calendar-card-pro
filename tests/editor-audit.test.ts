@@ -163,6 +163,26 @@ function storedLeaves(raw: Readonly<Record<string, unknown>>): string[] {
   return out;
 }
 
+describe('lines the YAML writes as null or empty', () => {
+  it('lists them, and words a null action as running nothing', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      event_tap_action: null,
+      remove_location_country: '',
+    });
+    await openAudit(editor);
+    const found = rows(editor);
+    expect(Object.keys(found)).toEqual(
+      expect.arrayContaining(['event_tap_action', 'remove_location_country']),
+    );
+    expect(found.event_tap_action!.value).toBe('Nothing');
+    // Its page says it is set, not that the default, which opens an event's details, applies.
+    await goPage(editor, 'taps_refresh');
+    expect(text($(editor, '.page'))).toContain('Event Tap Action Set Reset ');
+  });
+});
+
 describe('Stored Settings, its groups', () => {
   it('groups every stored line, the calendars and the lines kept as written included', async () => {
     const editor = await mountEditor(WALL);
