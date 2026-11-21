@@ -661,7 +661,7 @@
   "entity.event_type.option.all.label": "Alle hendelser",
   "entity.event_type.option.timed.label": "Bare hendelser med klokkeslett",
   "entity.event_type.option.all_day.label": "Bare heldagshendelser",
-  "entity.event_type.helper": "Før opp den samme kalenderen to ganger — én gang på hver av de to siste — for å gi heldagshendelsene og hendelsene med klokkeslett ulike farger.",
+  "entity.event_type.helper": "For å gi heldagshendelsene og hendelsene med klokkeslett ulike farger, bruk «Del opp denne kalenderen» under «Hvilke hendelser».",
   "entity.compact_events_to_show": "Kompakte hendelser å vise",
   "entity.compact_events_to_show.helper": "Står den tom, gjelder grensen til kortet.",
   "entity.blocklist": "Skjul hendelser som inneholder",

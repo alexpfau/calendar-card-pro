@@ -661,7 +661,7 @@
   "entity.event_type.option.all.label": "Alle Termine",
   "entity.event_type.option.timed.label": "Nur Termine mit Uhrzeit",
   "entity.event_type.option.all_day.label": "Nur ganztägige Termine",
-  "entity.event_type.helper": "Denselben Kalender zweimal aufführen — je einmal mit den beiden letzten Optionen —, um seinen ganztägigen Terminen und seinen Terminen mit Uhrzeit unterschiedliche Farben zu geben.",
+  "entity.event_type.helper": "Um seinen ganztägigen Terminen und seinen Terminen mit Uhrzeit unterschiedliche Farben zu geben, nutze „Diesen Kalender aufteilen“ unter „Welche Termine“.",
   "entity.compact_events_to_show": "Termine im Kompaktmodus",
   "entity.compact_events_to_show.helper": "Bleibt das Feld leer, gilt das Limit der Karte.",
   "entity.blocklist": "Termine ausblenden, die Folgendes enthalten",

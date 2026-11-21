@@ -658,7 +658,7 @@
   "entity.event_type.option.all.label": "Wszystkie wydarzenia",
   "entity.event_type.option.timed.label": "Tylko wydarzenia z godziną",
   "entity.event_type.option.all_day.label": "Tylko wydarzenia całodniowe",
-  "entity.event_type.helper": "Ten sam kalendarz można dodać dwa razy — po jednym z każdą z dwóch ostatnich opcji — aby nadać jego wydarzeniom całodniowym i tym z godziną różne kolory.",
+  "entity.event_type.helper": "Aby nadać jego wydarzeniom całodniowym i tym z godziną różne kolory, użyj opcji „Podziel ten kalendarz” w sekcji „Które wydarzenia”.",
   "entity.compact_events_to_show": "Wydarzenia w trybie kompaktowym",
   "entity.compact_events_to_show.helper": "Jeśli pole pozostanie puste, obowiązuje limit karty.",
   "entity.blocklist": "Ukryj wydarzenia zawierające",

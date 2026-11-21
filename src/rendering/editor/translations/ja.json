@@ -665,7 +665,7 @@
   "entity.event_type.option.all.label": "すべての予定",
   "entity.event_type.option.timed.label": "時刻指定の予定のみ",
   "entity.event_type.option.all_day.label": "終日の予定のみ",
-  "entity.event_type.helper": "同じカレンダーを2回追加し—それぞれで最後の2つの選択肢を1つずつ選ぶと—終日の予定と時刻指定の予定を別の色にできます。",
+  "entity.event_type.helper": "終日の予定と時刻指定の予定を別の色にするには、「表示する予定」の「このカレンダーを分割」を使います。",
   "entity.compact_events_to_show": "コンパクトモードの予定数",
   "entity.compact_events_to_show.helper": "空欄の場合はカードの上限が使われます。",
   "entity.blocklist": "次を含む予定を非表示",

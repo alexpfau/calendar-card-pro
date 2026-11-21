@@ -25,7 +25,7 @@
   "entity.accent_color_mode.option.custom.label": "Custom colour",
   "entity.label_icon_color": "Label Icon Colour",
   "entity.label_icon_color.helper": "Left empty, the icon takes the text colour around it.",
-  "entity.event_type.helper": "List the same calendar twice — once on each of the last two — to give its all-day and timed events different colours.",
+  "entity.event_type.helper": "To give its all-day and timed events different colours, use Split This Calendar under Which Events.",
   "time_grid.weekend_background_color.helper": "Any CSS colour; keep it faint, since event text sits on top. Weekend days follow the country set in Home Assistant.",
   "time_grid.today_background_color.helper": "Any CSS colour; keep it faint, since event text sits on top. On a weekend it replaces the weekend shading.",
   "time_grid.hour_line_color": "Hour Rule Colour",

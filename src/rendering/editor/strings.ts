@@ -1051,8 +1051,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.event_type.option.timed.label': 'Only events with a time',
   'entity.event_type.option.all_day.label': 'Only all-day events',
   'entity.event_type.helper':
-    'List the same calendar twice \u2014 once on each of the last two \u2014 to give ' +
-    'its all-day and timed events different colors.',
+    'To give its all-day and timed events different colors, use Split This Calendar under ' +
+    'Which Events.',
 
   'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper': 'Left empty, the card’s limit applies.',

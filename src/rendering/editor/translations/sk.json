@@ -660,7 +660,7 @@
   "entity.event_type.option.all.label": "Všetky udalosti",
   "entity.event_type.option.timed.label": "Len udalosti s časom",
   "entity.event_type.option.all_day.label": "Len celodenné udalosti",
-  "entity.event_type.helper": "Ten istý kalendár uveďte dvakrát — raz s každou z posledných dvoch možností —, aby jeho celodenné udalosti a udalosti s časom mali rôzne farby.",
+  "entity.event_type.helper": "Ak chcete, aby jeho celodenné udalosti a udalosti s časom mali rôzne farby, použite „Rozdeliť tento kalendár“ v časti „Ktoré udalosti“.",
   "entity.compact_events_to_show": "Udalosti v kompaktnom režime",
   "entity.compact_events_to_show.helper": "Ak zostane prázdne, platí limit karty.",
   "entity.blocklist": "Skryť udalosti obsahujúce",

@@ -657,7 +657,7 @@
   "entity.event_type.option.all.label": "Tutti gli eventi",
   "entity.event_type.option.timed.label": "Solo eventi con un orario",
   "entity.event_type.option.all_day.label": "Solo eventi di tutto il giorno",
-  "entity.event_type.helper": "Elenca lo stesso calendario due volte — una per ciascuna delle ultime due opzioni — per dare colori diversi ai suoi eventi di tutto il giorno e a quelli con un orario.",
+  "entity.event_type.helper": "Per dare colori diversi ai suoi eventi di tutto il giorno e a quelli con un orario, usa «Dividi questo calendario» in «Quali eventi».",
   "entity.compact_events_to_show": "Eventi in modalità compatta",
   "entity.compact_events_to_show.helper": "Se lasciato vuoto, vale il limite della scheda.",
   "entity.blocklist": "Nascondi gli eventi che contengono",

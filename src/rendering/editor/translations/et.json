@@ -659,7 +659,7 @@
   "entity.event_type.option.all.label": "Kõik sündmused",
   "entity.event_type.option.timed.label": "Ainult kellaajaga sündmused",
   "entity.event_type.option.all_day.label": "Ainult terve päeva sündmused",
-  "entity.event_type.helper": "Lisa sama kalender kaks korda — üks kord kummagi viimase valikuga —, et anda selle terve päeva ja kellaajaga sündmustele erinevad värvid.",
+  "entity.event_type.helper": "Et anda selle terve päeva ja kellaajaga sündmustele erinevad värvid, kasuta jaotises „Millised sündmused“ valikut „Jaga see kalender kaheks“.",
   "entity.compact_events_to_show": "Kompaktrežiimis kuvatavad sündmused",
   "entity.compact_events_to_show.helper": "Kui väli on tühi, kehtib kaardi piirang.",
   "entity.blocklist": "Peida sündmused, mis sisaldavad",

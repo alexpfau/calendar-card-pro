@@ -627,7 +627,7 @@
   "entity.event_type.option.all.label": "모든 이벤트",
   "entity.event_type.option.timed.label": "시간이 지정된 이벤트만",
   "entity.event_type.option.all_day.label": "종일 이벤트만",
-  "entity.event_type.helper": "같은 캘린더를 두 번 추가하고 — 한 항목은 ‘종일 이벤트만’, 다른 항목은 ‘시간이 지정된 이벤트만’으로 설정하면 — 종일 이벤트와 시간 지정 이벤트의 색상을 다르게 지정할 수 있습니다.",
+  "entity.event_type.helper": "종일 이벤트와 시간 지정 이벤트의 색상을 다르게 하려면 ‘표시할 이벤트’의 ‘이 캘린더 분할’을 사용하세요.",
   "entity.compact_events_to_show": "컴팩트 모드 표시 이벤트 수",
   "entity.compact_events_to_show.helper": "비워 두면 카드 제한이 적용됩니다.",
   "entity.blocklist": "다음을 포함하는 이벤트 숨기기",

@@ -659,7 +659,7 @@
   "entity.event_type.option.all.label": "Visi įvykiai",
   "entity.event_type.option.timed.label": "Tik įvykiai su laiku",
   "entity.event_type.option.all_day.label": "Tik visos dienos įvykiai",
-  "entity.event_type.helper": "Tas pats kalendorius įtraukiamas du kartus — po kartą su kiekviena iš dviejų paskutinių parinkčių —, kad jo visos dienos ir su laiku vykstantys įvykiai gautų skirtingas spalvas.",
+  "entity.event_type.helper": "Kad jo visos dienos ir su laiku vykstantys įvykiai gautų skirtingas spalvas, skiltyje „Kurie įvykiai“ naudokite „Padalyti šį kalendorių“.",
   "entity.compact_events_to_show": "Rodomi įvykiai suglaudintame režime",
   "entity.compact_events_to_show.helper": "Palikus tuščią, galioja kortelės riba.",
   "entity.blocklist": "Slėpti įvykius, kuriuose yra",

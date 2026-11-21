@@ -660,7 +660,7 @@
   "entity.event_type.option.all.label": "Alla händelser",
   "entity.event_type.option.timed.label": "Bara händelser med tid",
   "entity.event_type.option.all_day.label": "Bara heldagshändelser",
-  "entity.event_type.helper": "Ta med samma kalender två gånger — en gång med var och en av de två sista — för att ge dess heldagshändelser och händelser med tid olika färger.",
+  "entity.event_type.helper": "För att ge dess heldagshändelser och händelser med tid olika färger, använd ”Dela upp den här kalendern” under ”Vilka händelser”.",
   "entity.compact_events_to_show": "Kompakta händelser att visa",
   "entity.compact_events_to_show.helper": "Lämnas den tom gäller kortets gräns.",
   "entity.blocklist": "Dölj händelser som innehåller",

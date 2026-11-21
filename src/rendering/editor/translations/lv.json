@@ -659,7 +659,7 @@
   "entity.event_type.option.all.label": "Visi notikumi",
   "entity.event_type.option.timed.label": "Tikai notikumi ar laiku",
   "entity.event_type.option.all_day.label": "Tikai visas dienas notikumi",
-  "entity.event_type.helper": "Viens un tas pats kalendārs jāpievieno divreiz — pa vienam ar katru no pēdējām divām iespējām —, lai tā visas dienas notikumiem un notikumiem ar laiku būtu dažādas krāsas.",
+  "entity.event_type.helper": "Lai tā visas dienas notikumiem un notikumiem ar laiku būtu dažādas krāsas, sadaļā „Kuri notikumi“ izmantojiet „Sadalīt šo kalendāru“.",
   "entity.compact_events_to_show": "Kompaktrežīmā rādāmie notikumi",
   "entity.compact_events_to_show.helper": "Atstājot tukšu, ir spēkā kartes ierobežojums.",
   "entity.blocklist": "Paslēpt notikumus, kuros ir",

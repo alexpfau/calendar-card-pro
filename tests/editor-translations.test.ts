@@ -238,3 +238,14 @@ describe('one English phrase, one decision per language', () => {
     expect(gaps).toEqual([]);
   });
 });
+
+describe('Event Type’s helper on a calendar’s page', () => {
+  it('points to Split This Calendar by the name its row shows, in every language', () => {
+    // It once taught listing a calendar twice by hand, which Split does in one step.
+    for (const language of ['en', ...Object.keys(EDITOR_LANGUAGE_STRINGS)]) {
+      const helper = lookup(language, 'entity.event_type.helper') ?? '';
+      expect(helper, language).toContain(lookup(language, 'split.title'));
+      expect(helper, language).toContain(lookup(language, 'page.which_events'));
+    }
+  });
+});
