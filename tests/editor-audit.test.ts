@@ -163,6 +163,38 @@ function storedLeaves(raw: Readonly<Record<string, unknown>>): string[] {
   return out;
 }
 
+describe('a switch whose option takes a further value', () => {
+  it('reads as on, with what refines it', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      show_countdown: 'once_per_day',
+    });
+    await openAudit(editor);
+    expect(rows(editor).show_countdown!.value).toBe('On, Leave Out Repeated Countdowns');
+  });
+});
+
+describe('lines the YAML writes as null or empty', () => {
+  it('lists them, and words a null action as running nothing', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      event_tap_action: null,
+      remove_location_country: '',
+    });
+    await openAudit(editor);
+    const found = rows(editor);
+    expect(Object.keys(found)).toEqual(
+      expect.arrayContaining(['event_tap_action', 'remove_location_country']),
+    );
+    expect(found.event_tap_action!.value).toBe('Nothing');
+    // Its page says it is set, not that the default, which opens an event's details, applies.
+    await goPage(editor, 'taps_refresh');
+    expect(text($(editor, '.page'))).toContain('Event Tap Action Set Reset ');
+  });
+});
+
 describe('Stored Settings, its groups', () => {
   it('groups every stored line, the calendars and the lines kept as written included', async () => {
     const editor = await mountEditor(WALL);
@@ -397,11 +429,12 @@ describe('Stored Settings, its groups', () => {
     expect(row.getAttribute('aria-expanded')).toBe('false');
 
     expect(await strip(editor, 'time_grid.end_time')).toEqual([
-      { id: 'change', label: 'Change Here', name: 'Change Last Hour in Grid Here' },
+      // Each name starts with the words its button shows, so a speech user can say them.
+      { id: 'change', label: 'Change Here', name: 'Change Here: Last Hour in Grid' },
       {
         id: 'open',
         label: 'Open in Which Events',
-        name: 'Open Last Hour in Grid in Which Events',
+        name: 'Open in Which Events: Last Hour in Grid',
       },
       { id: 'reset', label: 'Reset', name: 'Reset Last Hour in Grid' },
     ]);
@@ -411,8 +444,8 @@ describe('Stored Settings, its groups', () => {
     expect(group.getAttribute('aria-label')).toBe('Actions for Last Hour in Grid');
     // A calendar's line opens on its calendar's page, and says so.
     expect((await strip(editor, 'entities[0].label')).map(({ name }) => name)).toEqual([
-      'Change Label on calendar.anna Here',
-      'Open Label on calendar.anna in calendar.anna',
+      'Change Here: Label on calendar.anna',
+      'Open in calendar.anna: Label on calendar.anna',
       // Its control leaves the page with its line, so the action is Remove.
       'Remove Label on calendar.anna',
     ]);
@@ -843,7 +876,7 @@ describe('Stored Settings, the review’s findings', () => {
     await openAudit(editor);
     expect(
       (await strip(editor, 'entities[0].accent_color')).find(({ id }) => id === 'change')!.name,
-    ).toMatch(/^Change Accent Color on .* Here$/);
+    ).toMatch(/^Change Here: Accent Color on /);
     await act(editor, 'entities[0].accent_color', 'change');
     // Edit opens the control the line's setting is drawn as, its swatches there to pick.
     const row = $(editor, '[data-audit="entities[0].accent_color"]')!;

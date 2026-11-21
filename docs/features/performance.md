@@ -67,8 +67,8 @@ under [Live Updates](/architecture-data#live-updates).
   refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as
   long as the slowest calendar rather than the sum of all of them. When the card has nothing
-  to draw yet, on its first load or on dates it has not shown before, it draws each calendar
-  as it answers, so one slow calendar no longer holds back the rest. A card already showing
+  to draw yet, on its first load or on dates it has not shown before, such as a month you page
+  to, it draws each calendar as it answers, so one slow calendar no longer holds back the rest. A card already showing
   saved events for those dates keeps them until every calendar has answered.
 - **At once after a change made on the card.** Adding, editing or deleting an event through
   the card's [event popover](/features/actions#the-event-popover) refetches straight
@@ -149,7 +149,8 @@ Some of what the card shows changes with time alone, and it redraws for that on 
 ## ⚠️ When a Calendar Fails to Load
 
 A calendar can fail to load because its integration returns an error, because Home
-Assistant is restarting, or because it does not answer within 30 seconds. The card then:
+Assistant is restarting, or because it does not answer within 30 seconds in all, its wait for a
+first [live update](#live-updates) included. The card then:
 
 - names it in a line at the bottom of the card, such as "Couldn't load: Ben", by its
   [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card, else its name

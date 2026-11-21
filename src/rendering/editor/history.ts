@@ -10,7 +10,7 @@
 import type { Route } from './navigation';
 import { equalConfigs } from './value';
 
-/** Whether and how the editor may write a card authored before the layout blocks. */
+/** Whether and how the editor may write a card authored in an earlier format. */
 export type MigrationState =
   | { readonly kind: 'current' }
   | { readonly kind: 'automatic' }
@@ -19,6 +19,8 @@ export type MigrationState =
    * List, as they were written, when it opens, and with the next change after an Undo of that.
    */
   | { readonly kind: 'ambiguous'; readonly keys: ReadonlyArray<string> }
+  /** Saved in the layered format before the current version: only the version moves. */
+  | { readonly kind: 'stamp' }
   | { readonly kind: 'future'; readonly version: number }
   | { readonly kind: 'invalid'; readonly value: unknown };
 

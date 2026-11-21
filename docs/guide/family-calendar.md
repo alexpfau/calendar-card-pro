@@ -32,7 +32,7 @@ Replace the `calendar.*` ids with your own calendars, each `name` with what its 
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Family
 view: grid
 days_to_show: 7

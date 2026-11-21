@@ -62,7 +62,7 @@ describe('getEntitySuggestion', () => {
     it('offers exactly these five recipes', () => {
       const plain = {
         type: 'custom:calendar-card-pro-dev',
-        config_version: 5,
+        config_version: 6,
         entities: ['calendar.family'],
         days_to_show: 3,
       };

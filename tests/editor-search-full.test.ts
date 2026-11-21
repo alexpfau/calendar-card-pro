@@ -195,18 +195,20 @@ describe('ranking', () => {
     entry('Time Format', 0),
   ];
 
-  it('puts card settings, then a calendar’s, then Home Assistant’s tabs; within each, a label exactly, from its start, from a word, inside a word, word by word, then key or alias, then option or heading, then help', () => {
+  it('puts card settings, then a calendar’s, then Home Assistant’s tabs; within each, a label exactly, an alias exactly, a label from its start, from a word, inside a word, word by word, then key or alias, then option or heading, then help', () => {
     expect(
       search(INDEX, 'time format').map(
         ({ entry: e }) => `${e.tier} ${e.label} ${e.text[1]?.[1] ?? ''}`,
       ),
     ).toEqual([
       '0 Time Format ',
+      // An alias that is the query exactly names its setting next, ahead of the labels that only
+      // hold the words.
+      '0 Hours alias',
       '0 Time Format Locale ',
       '0 Event Time Format ',
       '0 Overtime Format ',
       '0 Format of Time ',
-      '0 Hours alias',
       '0 Clock key',
       '0 Mode heading',
       '0 Display option',
@@ -233,21 +235,22 @@ describe('ranking', () => {
     // and a match inside a word are tiers of their own, which essential settings do not leave.
     expect(search(index, 'past').map(({ entry: e }) => e.label)).toEqual([
       'Past',
+      'Other',
       'Show Past Events',
       'Past Date Opacity',
       'Past Event Opacity',
       'Pastel Colors',
       'Hide Past Days',
       'Repast',
-      'Other',
     ]);
   });
 
   it('says what each match was found by, and shows a help-only match’s phrase marked', () => {
     const hits = search(INDEX, 'time format');
     expect(hits.map(({ source }) => source)).toEqual([
-      ...Array<string>(5).fill('label'),
+      'label',
       'alias',
+      ...Array<string>(4).fill('label'),
       'key',
       'heading',
       'option',

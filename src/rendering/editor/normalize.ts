@@ -114,6 +114,26 @@ export function normalizeFieldValue(
 }
 
 /**
+ * Whether text typed for an option is one the card would fold to its default, so the editor holds
+ * it rather than writing it (`routing.ts` › `applyWorkspaceChange`): `Config.foldsToDefault`, and
+ * Grid's `axis_width`, which the card reads as `max-content` unless it is a pixel length
+ * (`normalizeAxisWidth`), so `6p` on the way to `60px` would otherwise remove the line.
+ *
+ * @param option - The option, as `optionPath` names it
+ * @param text - The text typed
+ * @returns `true` when it folds
+ */
+export function foldsWhileTyped(option: string, text: unknown): boolean {
+  if (Config.foldsToDefault(option, text)) return true;
+  return (
+    option === 'axis_width' &&
+    typeof text === 'string' &&
+    text.trim() !== '' &&
+    ViewConfig.normalizeAxisWidth(text).usedFallback
+  );
+}
+
+/**
  * Names the option a field edits the way the configuration's own tables name it.
  *
  * A field stored in a view block overrides the top-level option of the same name, so it is

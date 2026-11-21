@@ -109,11 +109,10 @@ function unchangedFromAuthored(authored: unknown, key: string, value: unknown): 
  */
 function readsAsWritten(value: unknown, resolved: unknown): boolean {
   if (deepEqual(value, resolved)) return true;
-  return (
-    typeof value === 'string' &&
-    (typeof resolved === 'number' || typeof resolved === 'boolean') &&
-    value.trim() === String(resolved)
-  );
+  if (typeof value !== 'string') return false;
+  // A number in any notation the card parses as that number: `140.0`, `0140`, `+140`.
+  if (typeof resolved === 'number') return value.trim() !== '' && Number(value) === resolved;
+  return typeof resolved === 'boolean' && value.trim() === String(resolved);
 }
 
 /**
@@ -600,6 +599,40 @@ export function migrateListConfig(
   migrated.config_version = Config.CURRENT_CONFIG_VERSION;
 
   return { config: migrated, movedRootKeys };
+}
+
+/**
+ * The meaning the upgrade on opening gives a card's authored divergent roots: List's, as v5 wrote
+ * them, where every layout the card can show (`reachableViews`) draws each of them the same either
+ * way; otherwise shared with every layout. Shared keeps the roots where they are, so it never
+ * changes a layout; List's takes a root away from a layout without a default of its own for it,
+ * which Columns is for most of them.
+ *
+ * @param stored - Minimized configuration prepared for writing
+ * @param authored - Raw configuration whose root presence records authorship
+ * @returns The mode whose result looks the same in every layout the card can show
+ */
+export function upgradeMode(
+  stored: Readonly<Record<string, unknown>>,
+  authored: Readonly<Record<string, unknown>>,
+): ListMigrationMode {
+  const merge = (config: Record<string, unknown>): Types.Config =>
+    ({ ...Config.DEFAULT_CONFIG, ...config }) as Types.Config;
+  const kept = migrateListConfig(stored, authored, 'keep-list');
+  const shared = merge(migrateListConfig(stored, authored, 'shared-root').config);
+  const listed = merge(kept.config);
+  const same = ViewConfig.reachableViews(shared).every((view) => {
+    const before = ViewConfig.resolveEffectiveConfig(shared, view) as unknown as Record<
+      string,
+      unknown
+    >;
+    const after = ViewConfig.resolveEffectiveConfig(listed, view) as unknown as Record<
+      string,
+      unknown
+    >;
+    return kept.movedRootKeys.every((key) => deepEqual(before[key], after[key]));
+  });
+  return same ? 'keep-list' : 'shared-root';
 }
 
 /**

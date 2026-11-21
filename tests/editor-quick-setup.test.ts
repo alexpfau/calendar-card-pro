@@ -300,19 +300,44 @@ describe('Quick Setup', () => {
     const { editor, reports } = await mount();
     await click(editor, '[data-quick-setup-open]');
     await click(editor, '[data-story="family_hub"]');
-    for (let i = 0; i < 4; i++) await click(editor, '[data-quick-setup-next]');
+    await click(editor, '[data-quick-setup-next]');
+    // The calendars step shows the color the example gives each calendar chosen.
+    expect(
+      [...root(editor).querySelectorAll('.quick-setup-colors .quick-setup-swatches li')].map(
+        (item) => item.textContent!.trim(),
+      ),
+    ).toEqual(['calendar.anna']);
+    for (let i = 0; i < 3; i++) await click(editor, '[data-quick-setup-next]');
     expect(step(editor)).toBe('review');
+    const words = (cell: Element): string => {
+      const items = [...cell.querySelectorAll('li')];
+      return items.length > 0
+        ? items.map((item) => item.textContent!.trim()).join('; ')
+        : cell.textContent!.trim();
+    };
     const rows = [...root(editor).querySelectorAll('.quick-setup-review > div')].map((row) =>
-      [...row.children].map((cell) => cell.textContent!.trim()).join(': '),
+      [...row.children].map(words).join(': '),
     );
     expect(rows).toEqual([
       'Example: Family Hub',
       'Calendars: calendar.anna and calendar.ben',
       'Colors From the Example: calendar.anna',
-      'Layout: Grid · 7 days',
+      // Every layout the switcher offers, with its own days: a week here is not a week in List.
+      'Layouts: Grid · 7 days; List · 3 days; Columns · 7 days; Month',
       'Title: Our Week',
       'Weather: weather.home',
+      // Show Toolbar turns on more than the switcher.
+      'Toolbar: Date Navigation, Search, Add Event, View Switcher, Calendar Filter, Reset, and Refresh',
     ]);
+    expect(root(editor).querySelector('.quick-setup-review + .hint')?.textContent).toBe(
+      'Each layout keeps its own number of days. Change one on that layout’s Which Events page once applied.',
+    );
+    // The example's color beside its calendar, drawn.
+    expect(
+      root(editor)
+        .querySelector<HTMLElement>('.quick-setup-review .quick-setup-swatches .cal-dot')
+        ?.style.getPropertyValue('--cal-dot'),
+    ).not.toBe('');
     // Named setting by setting, rather than "every setting not listed here".
     expect(
       root(editor).querySelector('[data-quick-setup-replaced]')!.textContent!.replace(/\s+/g, ' '),

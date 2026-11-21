@@ -32,6 +32,7 @@ import {
   lineOf,
   mountEditor,
   openPageOf,
+  resetButton,
   stateWordOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
@@ -475,6 +476,33 @@ describe('a draft, not a write', () => {
     expect(at.querySelector('.color-invalid')).toBeNull();
   });
 
+  it('forgets Custom and its text once Undo or Reset puts a value back', async () => {
+    const editor = await mountEditor({ ...BASE, title_color: 'var(--pink-color)' });
+    let at = await openColor(editor, 'card:title_color');
+    await pick(editor, at, '[data-color-row="custom"]');
+    await type(editor, control(editor, 'card:title_color'), 'title_color', '#123456');
+    internals(editor)._undo();
+    await editor.updateComplete;
+    at = await openColor(editor, 'card:title_color');
+    expect(lastConfig(editor)?.title_color).toBe('var(--pink-color)');
+    expect(at.querySelector<HTMLInputElement>('[data-color-row="custom"] input')!.checked).toBe(
+      false,
+    );
+
+    document.body.replaceChildren();
+    const other = await mountEditor({ ...BASE, title_color: 'red' });
+    at = await openColor(other, 'card:title_color');
+    await pick(other, at, '[data-color-row="custom"]');
+    await type(other, control(other, 'card:title_color'), 'title_color', 'hot pink');
+    expect(control(other, 'card:title_color').querySelector('.color-invalid')).not.toBeNull();
+    (await resetButton(other, 'title_color'))!.click();
+    await other.updateComplete;
+    expect(lastConfig(other)).not.toHaveProperty('title_color');
+    at = await openColor(other, 'card:title_color');
+    expect(at.querySelector('.color-invalid')).toBeNull();
+    expect(textField(at)?.data.title_color ?? '').not.toBe('hot pink');
+  });
+
   it('flags a stored value the card cannot draw, and never rewrites it for an unrelated edit', async () => {
     const editor = await mountEditor({ ...BASE, title_color: 'hot pink' });
     await openPageOf(editor, 'card:title_color');
@@ -859,6 +887,46 @@ describe('Follow Home Assistant', () => {
 
     editor.remove();
     expect(off).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a calendar’s dot on the overview', () => {
+  it('takes Home Assistant’s color for a calendar that follows it, as its color control does', async () => {
+    const callWS = vi.fn(async (message: { type: string }) =>
+      message.type === 'config/entity_registry/list'
+        ? [{ entity_id: 'calendar.anna', options: { calendar: { color: '#ff0000' } } }]
+        : [],
+    );
+    const editor = await mountEditor(
+      {
+        ...BASE,
+        accent_color: '#123456',
+        entities: [{ entity: 'calendar.anna', accent_color: 'home-assistant' }, 'calendar.ben'],
+      },
+      {
+        hass: fakeHass({
+          callWS,
+          connection: {
+            subscribeEvents: vi.fn(async () => () => undefined),
+            subscribeMessage: (_callback: unknown, message: { type?: string }) =>
+              message?.type === 'calendar/event/subscribe'
+                ? Promise.reject({ code: 'unknown_command' })
+                : Promise.resolve(() => undefined),
+          },
+        }),
+      },
+    );
+    const dots = () =>
+      [...editor.shadowRoot!.querySelectorAll<HTMLElement>('.cal-dot')].map((dot) =>
+        dot.style.getPropertyValue('--cal-dot'),
+      );
+    await vi.waitFor(() => expect(callWS).toHaveBeenCalled());
+    await vi.waitFor(async () => {
+      editor.requestUpdate();
+      await editor.updateComplete;
+      expect(dots()).toEqual(['#ff0000', '#123456']);
+    });
+    editor.remove();
   });
 });
 

@@ -1077,9 +1077,25 @@ export function buildSearchIndex(ctx: SearchCtx): ReadonlyArray<SearchEntry> {
   return rows;
 }
 
+/**
+ * The layout a query names by its YAML block, as a YAML path does: `column.day_spacing` is
+ * Columns' Day Spacing, whatever layout the search began in, so its value is read and written
+ * there. Anything else names no layout.
+ *
+ * @param query - The query as typed
+ * @returns The layout, or `undefined`
+ */
+export function qualifiedLayout(query: string): Types.EffectiveView | undefined {
+  const block = /^([a-z_]+)\.[a-z_]/.exec(query.trim())?.[1];
+  if (block === undefined) return undefined;
+  return ViewConfig.VIEWS.find((view) => ViewConfig.viewBlockFor(view)?.blockKey === block);
+}
+
 /** How a match ranks within its tier, highest first (the prototype's `search`). */
 const SCORE = {
   exact: 100,
+  // An alias that is the query, a tier of its own: below a label that is, above one holding it.
+  aliasExact: 97,
   prefix: 95,
   wordStart: 90,
   substring: 80,
@@ -1255,6 +1271,11 @@ function match(
                 : 0;
     best = Math.max(best, score);
   }
+  // An alias that is the query exactly names the setting as surely as its label would: German's
+  // "Wochennummern" is Numbering's, ahead of the font sizes and colors whose labels start with it.
+  if (best < SCORE.exact && aliasIs(entry, wanted)) {
+    return { source: 'alias', score: SCORE.aliasExact };
+  }
   if (best > 0) return { source: 'label', score: best };
 
   const first = (sources: ReadonlyArray<MatchSource>): MatchSource =>
@@ -1284,6 +1305,80 @@ function match(
         )
       : undefined,
   };
+}
+
+/**
+ * Whether one of a row's aliases, each a phrase of its comma-separated list, is the query.
+ *
+ * @param entry - The row
+ * @param wanted - The folded query
+ * @returns `true` when one is
+ */
+function aliasIs(entry: SearchEntry, wanted: string): boolean {
+  // Split as written: folding turns the commas between them into spaces.
+  return entry.text.some(
+    ([, source, written]) =>
+      source === 'alias' && written.split(',').some((alias) => fold(alias) === wanted),
+  );
+}
+
+/** What a row is named by, which a mistyped query is matched against: never its helper. */
+const NAMED_BY: ReadonlySet<MatchSource> = new Set(['label', 'key', 'alias', 'heading']);
+
+/**
+ * Whether every term of a query is a word of a label, or the start of one, give or take one typo
+ * (two in a word of eight letters or more): a letter missed, added, changed, or two swapped. A
+ * term of fewer than four letters has to be exact, where one typo would match nearly anything.
+ *
+ * @param label - Folded label
+ * @param terms - The folded query's words
+ * @returns `true` when it does
+ */
+function nearlyHolds(label: string, terms: ReadonlyArray<string>): boolean {
+  const words = label.split(' ');
+  return terms.every((term) =>
+    words.some((word) => {
+      if (word.startsWith(term)) return true;
+      if (term.length < 4) return false;
+      const allowed = term.length >= 8 ? 2 : 1;
+      // A word may run on past the term, so its start is compared as well as its whole.
+      return [word, word.slice(0, term.length)].some(
+        (candidate) => typoDistance(term, candidate, allowed) <= allowed,
+      );
+    }),
+  );
+}
+
+/**
+ * How many typos turn one word into another, a swap of neighbors counting as one (optimal string
+ * alignment), stopping once it is past a bound.
+ *
+ * @param a - One word
+ * @param b - The other
+ * @param bound - The most worth counting
+ * @returns The count, or `bound + 1` once past it
+ */
+function typoDistance(a: string, b: string, bound: number): number {
+  if (Math.abs(a.length - b.length) > bound) return bound + 1;
+  let before: number[] = [];
+  let previous = Array.from({ length: b.length + 1 }, (_, at) => at);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let least = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(previous[j]! + 1, row[j - 1]! + 1, previous[j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, before[j - 2]! + 1);
+      }
+      row.push(value);
+      least = Math.min(least, value);
+    }
+    if (least > bound) return bound + 1;
+    before = previous;
+    previous = row;
+  }
+  return previous[b.length]!;
 }
 
 /**
@@ -1328,6 +1423,15 @@ export function search(index: ReadonlyArray<SearchEntry>, query: string): Search
         ? [{ entry, source: 'label' as const, score: SCORE.letters }]
         : [],
     );
+  }
+  // Still nothing: a word or two mistyped, `fomt size`, `seperators`, in what a row is named by.
+  if (hits.length === 0) {
+    hits = index.flatMap((entry) => {
+      const near = entry.text.find(
+        ([text, source]) => NAMED_BY.has(source) && nearlyHolds(text, terms),
+      );
+      return near ? [{ entry, source: near[1], score: SCORE.letters }] : [];
+    });
   }
   return hits.sort(
     (a, b) =>

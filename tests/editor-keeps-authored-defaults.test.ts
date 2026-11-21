@@ -320,6 +320,13 @@ describe('the serializer’s authored baseline', () => {
     expect(stripColumnDefaults(config, { min_day_width: '140' })).toEqual({
       min_day_width: '140',
     });
+    // The same number in any notation the card parses as it.
+    for (const written of ['140.0', '0140', '+140', ' 140 ']) {
+      const held = merged({ column: { min_day_width: written } });
+      expect(stripColumnDefaults(held, { min_day_width: written }), written).toEqual({
+        min_day_width: written,
+      });
+    }
 
     // Month's block by the same rule, and a bare length written fresh is stored as the card
     // reads it.

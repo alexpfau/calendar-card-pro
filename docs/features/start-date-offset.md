@@ -68,11 +68,9 @@ weekday   monday | tuesday | ... | sunday   (or mon, tue, wed, thu, fri, sat, su
 Expressions are case-insensitive, spaces are ignored (`start_of_week + 7` works), and the
 keywords are always English so a card does not change meaning when `language` changes.
 
-Month is the one exception to the first two. It opens today's month for Tomorrow and Start of
-Week only when they are written exactly `today+1`, `+1` or `start_of_week`. Any other spelling,
-such as `Today+1` or `today + 1`, opens the month holding the date it resolves to, which near a
-month's end or start is the next or the previous month. See
-[Dynamic vs. Fixed Date Ranges](#dynamic-vs-fixed-date-ranges).
+Month opens today's month for `today+1` (or `+1`) and `start_of_week`, however they are written,
+so `Today + 1` opens the same month as `today+1`. Every other expression opens the month holding
+the date it resolves to. See [Dynamic vs. Fixed Date Ranges](#dynamic-vs-fixed-date-ranges).
 
 A bare number is **always days**, never weeks — `monday+1` is Tuesday, and `monday+1w` is the
 following Monday. A bare weekday is shorthand for `today+<weekday>`.
@@ -157,7 +155,7 @@ Either way, `start_date` sets the days the card opens with. The toolbar's
 and its home button always returns to them, today or not.
 
 Month shows a whole month: the month holding the date, fixed or relative, or today's month for
-Tomorrow (`today+1` or `+1`) and `start_of_week`, written exactly so. A narrow month opens with that day selected. See
+Tomorrow (`today+1` or `+1`) and `start_of_week`, in any case and with any spaces. A narrow month opens with that day selected. See
 [The Six Weeks](/features/month-view#the-six-weeks).
 
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

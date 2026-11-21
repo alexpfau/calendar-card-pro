@@ -233,6 +233,54 @@ describe('Card Height on Month’s page', () => {
     editor.remove();
   });
 
+  it('clears a cap stored beside a fixed height once the height is changed', async () => {
+    // The cap is not drawn while the height is fixed, and the card still applies it.
+    const editor = await mountEditor({
+      ...CARD,
+      list: { card_height: '400px', card_max_height: '200px' },
+    });
+    await editLayout(editor, 'list');
+    await openPageOf(editor, 'layout:height_mode');
+    expect(valueOf(editor, 'layout:height_mode')).toBe('fixed');
+    await changeField(editor, 'layout:fixed_height', '500px');
+    // In a layout's block, no cap is written as none, which a cap at the top level cannot reach.
+    expect(lastConfig(editor)!.list).toEqual({ card_height: '500px', card_max_height: 'none' });
+    editor.remove();
+  });
+
+  it('says a size in a unit the card cannot use is not saved, and what stays', async () => {
+    const editor = await mountEditor({ ...CARD, list: { card_height: '300px' } });
+    await editLayout(editor, 'list');
+    await openPageOf(editor, 'layout:height_mode');
+    await changeField(editor, 'layout:fixed_height', '50%');
+    expect(valueOf(editor, 'layout:fixed_height')).toBe('50%');
+    expect(reportsOf(editor)).toEqual([]);
+    const error = () =>
+      (formOf(editor, 'layout:fixed_height') as unknown as { error?: Record<string, string> })
+        .error;
+    expect(error()).toEqual({ fixed_height: 'Not a size the card can use, so it stays 300px.' });
+    await changeField(editor, 'layout:fixed_height', '50px');
+    expect(error()).toBeUndefined();
+    editor.remove();
+  });
+
+  it('describes Maximum Height and all-day times as Month draws them', async () => {
+    const card = { ...CARD, card_max_height: '500px' };
+    const editor = await mountEditor(card);
+    await openPageOf(editor, 'layout:maximum_height');
+    expect(helperOf(editor, 'layout:maximum_height')).toMatch(/^Its weeks fit within this height/);
+    await openPageOf(editor, 'events:show_single_allday_time');
+    expect(helperOf(editor, 'events:show_single_allday_time')).toMatch(/^Month splits/);
+    editor.remove();
+    // List keeps its own: it grows to the cap, and has the multi-day setting below.
+    const list = await mountEditor({ ...card, view: 'list' });
+    await openPageOf(list, 'layout:maximum_height');
+    expect(helperOf(list, 'layout:maximum_height')).toMatch(/^Grows with its content/);
+    await openPageOf(list, 'events:show_single_allday_time');
+    expect(helperOf(list, 'events:show_single_allday_time')).toMatch(/their own setting below/);
+    list.remove();
+  });
+
   it('leaves the events area’s own height at the top level, which Month never reads', async () => {
     const editor = await monthEditor({ ...CARD, height: '300px', max_height: '500px' });
     await openPageOf(editor, 'layout:height_mode');
@@ -241,6 +289,26 @@ describe('Card Height on Month’s page', () => {
     expect(config.month).toEqual({ card_height: '300px' });
     expect(config.height).toBe('300px');
     expect(config.max_height).toBe('500px');
+    editor.remove();
+  });
+});
+
+describe('At Common Card Widths', () => {
+  it('scrolls inside a named region the keyboard reaches, so four layouts fit a narrow pane', async () => {
+    const editor = await mountEditor({
+      ...CARD,
+      view: 'grid',
+      toolbar: { show: true, view_switcher_layouts: ['list', 'column', 'grid', 'month'] },
+    });
+    await editLayout(editor, 'grid');
+    await openPageOf(editor, 'layout:height_mode');
+    const region = editor.shadowRoot!.querySelector<HTMLElement>(
+      '.fit-summary .width-table-scroll',
+    );
+    expect(region?.getAttribute('role')).toBe('region');
+    expect(region?.getAttribute('tabindex')).toBe('0');
+    expect(region?.getAttribute('aria-label')).toBe('At Common Card Widths');
+    expect(region?.querySelector('table th[scope="col"]')).not.toBeNull();
     editor.remove();
   });
 });

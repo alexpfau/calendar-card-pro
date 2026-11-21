@@ -20,16 +20,18 @@ In the [visual editor](/features/editor#options-for-the-selected-view), the circ
 row under **Layouts** chooses the layout the card opens with. Select the **Columns** row itself to
 edit column view's own values, including its column-only options, without changing the card.
 
-Column view is responsive by design: on a card too narrow for every configured day it draws
-fewer columns, down to two, keeping today, and only a card too narrow for two falls back to the
-list layout. A seven-day card therefore shows the whole week on a wide tablet and two days at a
-time on a phone; see [Showing Fewer Columns on Narrow Cards](#showing-fewer-columns-on-narrow-cards).
+Column view is responsive by design. On a card too narrow for every configured day, one with the
+toolbar's date navigation draws fewer columns, down to two, keeping today, and pages to the rest;
+a card without it keeps every day as columns or falls back to the list layout. See
+[Showing Fewer Columns on Narrow Cards](#showing-fewer-columns-on-narrow-cards).
 
 ## 📱 Showing Fewer Columns on Narrow Cards
 
-A card too narrow for all its days drops columns one at a time, down to `min_days_to_show`, which
-is two unless you set it, so a week stays side by side on a tablet and still reads as columns on a
-phone.
+A card too narrow for all its days drops columns one at a time, down to `min_days_to_show`, so a
+week stays side by side on a tablet and still reads as columns on a phone. Unset, that is two on a
+card with the toolbar's [date navigation](/features/header-toolbar#paging-through-dates), whose
+arrows and swipe page to the days dropped, and every day on a card without it, which therefore
+keeps its days or turns into a list.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
 
@@ -47,13 +49,15 @@ column:
 ```
 
 That card shows seven columns when there is room, then six, five, four and three as it
-narrows, and only falls back to the list layout once even three columns will not fit. Set
-`min_days_to_show` to the number of days shown to keep every day: the card then draws all of
-them as columns, or as a list where they do not fit.
+narrows, and only falls back to the list layout once even three columns will not fit. A
+`min_days_to_show` you write applies with or without date navigation. Set it to the number of
+days shown to keep every day: the card then draws all of them as columns, or as a list where they
+do not fit.
 
 ::: warning Changed in v6
 Before v6, a card without `min_days_to_show` kept every day as columns, or turned into a list.
-Now it drops columns down to two first. To keep the old behavior, set `column.min_days_to_show`
+Now a card with the toolbar's date navigation drops columns down to two first; a card without it
+behaves as before. To keep the old behavior with date navigation, set `column.min_days_to_show`
 to your `days_to_show`. See
 [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-on-an-existing-card).
 :::
@@ -67,8 +71,9 @@ that lies entirely behind keeps its last. The columns move on at midnight.
 ::: warning Dropped Days Are Not Marked
 A card showing two of seven days looks exactly like a card configured for two days: nothing
 says days were dropped. With the toolbar's [date navigation](/features/header-toolbar#paging-through-dates),
-the arrows and a swipe page through them by the days drawn; without it, the dropped days cannot
-be reached in Columns. To see every day, set `min_days_to_show` to the number of days shown.
+the arrows and a swipe page through them by the days drawn. Without it, the card drops days only
+where you set `min_days_to_show` below the number of days shown, and those days cannot be reached
+in Columns. To see every day, set `min_days_to_show` to the number of days shown.
 :::
 
 ## 📋 Falling Back to the List Layout
@@ -156,7 +161,7 @@ column:
   show_description: true
 ```
 
-What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
+What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level. Hiding a field keeps it out of the rows only: the [event details](/features/actions#event-details) still show it, and [`private: true`](/features/core-settings#keeping-a-calendar-private) is what keeps a calendar's text off the card.
 
 The block covers the card's dimensions too: the same events laid out side by side are far shorter than they are stacked, so a `card_height` or `card_max_height` tuned for one layout is usually wrong for the other. See [A Height Per Layout](/features/layout-appearance#a-height-per-layout).
 
@@ -396,11 +401,12 @@ whole date row instead, and only while there is an all-day band under it; see
 [Grid Lines](/features/grid-view#grid-lines).
 
 The header rule starts switched **off**. Switching it on centers it inside the space
-`day_header_gap` already supplies rather than adding to it, so the layout does not shift.
+`day_header_gap` already supplies rather than adding to it, so the events stay where they are
+at any rule width.
 
 ::: tip Turning the Rule Off
-Set `day_header_separator_width: 0px` rather than reaching for a transparent color — at
-`0px` the card omits the element entirely, while a transparent rule still takes up height.
+Set `day_header_separator_width: 0px` rather than reaching for a transparent color: at `0px`
+the card omits the element entirely.
 :::
 
 The `column:` block and every option inside it are listed under [Column-Only Options in the

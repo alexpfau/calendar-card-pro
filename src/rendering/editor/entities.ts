@@ -18,6 +18,7 @@ import {
   labelImageSourceOf,
 } from './schemas/entity';
 import { entityIdOf, isSet } from './synthetic';
+import { deepEqual } from './value';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -413,7 +414,7 @@ export function resolvedLabel(
  * @returns `true` when the shape must be stored alongside the value
  */
 function needsExplicitType(type: string, label: unknown): boolean {
-  return Helpers.isLabelType(type) && type !== 'none' && Helpers.getLabelType(label) !== type;
+  return Helpers.isLabelType(type) && Helpers.getLabelType(label) !== type;
 }
 
 /**
@@ -566,7 +567,9 @@ export function fromEntityFormData(
       // value, which *is* the sentinel. Stored again, the next derivation would read it as
       // `home_assistant` and the dropdown would snap straight back. This is the same trap
       // `accentColorFor` documents, one field over.
-      if (isEntityIconSentinel(value)) continue;
+      // `label_type: text` is the way to mean the word literally, so a text label that stays text
+      // keeps it.
+      if (isEntityIconSentinel(value) && (chosenType !== 'text' || moved)) continue;
 
       // The image source's own version of the line above, and it has to run in *both*
       // directions where the sentinel only needs one. A person's picture is stored as the
@@ -604,8 +607,15 @@ export function fromEntityFormData(
     if (!isSet(value)) continue;
 
     // A cleared code editor hands back an empty list or an empty object, and an empty object
-    // would be read as one condition the card cannot judge, hiding the calendar.
-    if (key === VISIBILITY && isEmptyVisibility(value)) continue;
+    // would be read as one condition the card cannot judge, hiding the calendar. One the YAML
+    // already holds, unchanged by this write, is the user's and stays, the calendar hidden.
+    if (
+      key === VISIBILITY &&
+      isEmptyVisibility(value) &&
+      !deepEqual(value, (asEntityConfig(previous) as unknown as Record<string, unknown>)[key])
+    ) {
+      continue;
+    }
 
     if (NUMERIC_KEYS.has(key)) {
       const numeric = Number(value);
@@ -651,6 +661,13 @@ export function fromEntityFormData(
   if (namesPerson && entry.label === undefined) {
     const someone = firstPersonEntityId(hass);
     if (someone !== undefined) entry.label = someone;
+  }
+
+  // A label kept under `label_type: none` is one the write did not touch: it stays, unshown, so
+  // choosing a type again shows it.
+  if (chosenType === 'none' && !moved) {
+    const kept = asEntityConfig(previous).label;
+    if (isSet(kept)) entry.label = kept;
   }
 
   if (needsExplicitType(chosenType, entry.label)) {

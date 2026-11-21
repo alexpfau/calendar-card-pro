@@ -28,7 +28,7 @@ Change the patterns in the YAML where your calendars write these differently:
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Family
 days_to_show: 3
 filter_duplicates: true # a plan on several calendars is drawn once, with every face

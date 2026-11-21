@@ -228,7 +228,12 @@ const layoutSchema = Helpers.memoizeLast(
     if (heightMode === 'fixed') {
       cardBox.push(text('fixed_height'));
     } else if (heightMode === 'maximum') {
-      cardBox.push(text('maximum_height'));
+      // A wide Month keeps its weeks inside the cap rather than growing to it.
+      cardBox.push(
+        view === 'month'
+          ? { ...text('maximum_height'), titleKey: 'month.maximum_height' }
+          : text('maximum_height'),
+      );
     }
 
     // The events area's own pair, which Card Height has replaced. Its page draws it only where a

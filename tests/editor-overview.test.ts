@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { declarations } from './helpers/css-declarations';
 import {
+  changeField,
   chooseResult,
   editLayout,
   goEntry,
@@ -621,6 +622,30 @@ describe('a row’s fill inside a rounded frame', () => {
 });
 
 describe('Quick Setup banner', () => {
+  it('leaves focus on the search field once dismissed, not at the top of the page', async () => {
+    const editor = await mountEditor({
+      type: 'custom:calendar-card-pro',
+      config_version: 5,
+      entities: ['calendar.anna'],
+      days_to_show: 3,
+    });
+    const dismiss = editor.shadowRoot!.querySelector<HTMLButtonElement>('.quick-setup-dismiss')!;
+    dismiss.focus();
+    // Home Assistant draws the search box inside its form a frame or two later.
+    editor
+      .shadowRoot!.querySelector('ha-form.filter-form')!
+      .appendChild(document.createElement('input'));
+    dismiss.click();
+    for (let frame = 0; frame < 3; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await editor.updateComplete;
+    }
+    expect(editor.shadowRoot!.querySelector('.quick-setup-dismiss')).toBeNull();
+    const focused = editor.shadowRoot!.activeElement;
+    expect(focused?.tagName).toBe('INPUT');
+    expect(focused?.closest('ha-form.filter-form')).toBeTruthy();
+  });
+
   it('shows on a card fresh from the card picker', () => {
     expect(
       isFreshCard({
@@ -646,6 +671,15 @@ describe('Quick Setup banner', () => {
       isFreshCard({ type: 'custom:calendar-card-pro', entities: ['calendar.a', 'calendar.b'] }),
     ).toBe(false);
     expect(isFreshCard({ type: 'custom:calendar-card-pro', show_past_events: false })).toBe(false);
+  });
+
+  it('does not take a day count other than the card picker’s for the stub', () => {
+    // Quick Setup reads a fresh card's one calendar as the picker's, and replaces it.
+    const card = { type: 'custom:calendar-card-pro', entities: ['calendar.anna'] };
+    expect(isFreshCard({ ...card, days_to_show: 60 })).toBe(false);
+    expect(isFreshCard({ ...card, days_to_show: '3' })).toBe(false);
+    expect(isFreshCard({ ...card, days_to_show: 3 })).toBe(true);
+    expect(isFreshCard(card)).toBe(true);
   });
 });
 
@@ -688,5 +722,22 @@ describe('section row descriptions', () => {
       title: 'Family',
     });
     expect(editor.shadowRoot!.textContent).not.toMatch(/Set: \d/);
+  });
+});
+
+describe('the starting layout', () => {
+  it('says which layouts the switcher offers once a pick adds one to them', async () => {
+    const editor = await mountEditor({
+      type: 'custom:calendar-card-pro',
+      config_version: 5,
+      entities: ['calendar.anna'],
+      toolbar: { show: true, view_switcher_layouts: ['list', 'grid'] },
+    });
+    await changeField(editor, 'display:view', 'column');
+    const notice = () => editor.shadowRoot!.querySelector('.layouts-offered')?.textContent?.trim();
+    expect(notice()).toBe('The layout switcher now offers List, Columns, and Grid.');
+    // Back to a layout it already offers: nothing new to say.
+    await changeField(editor, 'display:view', 'grid');
+    expect(notice()).toBeUndefined();
   });
 });

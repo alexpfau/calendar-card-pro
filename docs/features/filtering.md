@@ -343,6 +343,9 @@ entities:
 - Each event is judged once, by when it starts. A meeting from 15:00 to 17:00 is left out by
   `starts_after: '16:00'`, and an event over several days, an on-call week for one, is kept or
   left out on every day it covers.
+- The hours are read in the time zone of the device showing the card, the one it prints times
+  in, not in Home Assistant's. A tablet set to another time zone keeps the events that start
+  within those hours on its own clock.
 - All-day events always show, since they start at no particular time. Add
   [`event_type: timed`](#separating-all-day-from-timed-events) to leave them out too.
 - Like the calendar's other filters, the hours apply in every layout and to
@@ -358,7 +361,6 @@ entities:
 - Unquoted, a YAML dashboard reads `16:00` as the number 960, which is not a time. A value the
   card cannot read as a time, or the same time in both options, leaves the calendar's events
   as they are and is reported once in the browser console.
-- The hours are read on the clock the card shows times in, the browser's.
 - Listing one calendar twice, once with `starts_before: '16:00'` and once with
   `starts_after: '16:00'`, divides its timed events between the two blocks, each in exactly
   one. Its all-day events are in both, unless one block also sets `event_type: timed`.
@@ -383,9 +385,11 @@ filter_duplicates: true
 ```
 
 An event counts as a duplicate of another when its original **title**, **start**, **end** and
-**location** all match. Among copies that pass their calendar's filters, the surviving copy
-is the one from the eligible entry listed **first** in `entities`, carrying that entry's own
-`color` and `accent_color`.
+**location** all match. Among copies that pass their calendar's filters, the calendar listed
+**first** in `entities` keeps the event, and of that calendar's entries, the first that lets it
+through. The row carries that entry's own `color` and `accent_color`. A calendar counts where it
+is first listed, so an entry of it further down still wins over a calendar listed in between;
+see _Calendars That Skip a Day_ below.
 
 `filter_duplicates: ignore_location` leaves the location out, matching on title, start and end
 alone. It suits holiday calendars: Home Assistant's Holiday integration gives each holiday its
@@ -439,7 +443,21 @@ entities:
   - calendar.ben
 ```
 
-On a weekend, a shared event still appears from Ben's calendar.
+On a weekend, a shared event still appears from Ben's calendar. Add a weekend entry for Anna
+below Ben's and a shared Saturday event takes that entry's look instead, because Anna is listed
+before Ben and her weekend entry is the first of hers that keeps the event:
+
+```yaml
+filter_duplicates: true
+entities:
+  - entity: calendar.anna
+    days_of_week: weekdays
+  - calendar.ben
+  - entity: calendar.anna
+    days_of_week: weekends
+    accent_color: '#ff6c92'
+```
+
 :::
 
 ::: details Multi-Day Events
@@ -450,9 +468,15 @@ that is not split keeps its single row; lower-priority copies do not force it to
 
 ::: details How Merged Locations Are Shown
 Each location is shown as its own calendar shows it: a calendar with `show_location: false` adds
-nothing, and its `replace_field: location` rewrite applies to its own location alone, as
-`remove_location_country` applies to each. A location two copies share is shown once, and the
-event's details show the kept copy's own location.
+nothing to the row, and its `replace_field: location` rewrite applies to its own location alone,
+as `remove_location_country` applies to each. A location two copies share is shown once.
+
+The [event details](/features/actions#event-details) a tap opens list every location too, each
+with its calendar's rewrite, and show no map while there are several. **They also show a location
+that `show_location: false` leaves off the row**: only
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps a calendar's location
+out of them, where it reads "Private"; see
+[Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
 
 Under `merge_locations`, two events of one calendar that match merge as two calendars' copies
 do, so one booking per room lists every room. A [private calendar](/features/core-settings#keeping-a-calendar-private)'s
@@ -495,8 +519,8 @@ calendar has no label, even when another calendar in the merge has one.
 merged row — the accent bar, the row's background tint when
 [`event_background_opacity`](/features/layout-appearance) is on, and the
 [all-day badge](/features/event-content#the-all-day-badge). Any CSS color works, including a
-theme variable such as `var(--success-color)`. Leave it unset and a shared row keeps the
-first-listed calendar's color. The
+theme variable such as `var(--success-color)`. Leave it unset and a shared row keeps the color
+of the entry whose copy was kept. The
 [Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets it to the Family
 calendar's own color, so an event people share reads as a family event.
 
@@ -510,13 +534,14 @@ calendars with names and share events between them, prefer
 
 ::: details Where the Labels Show & One Calendar Listed Twice
 
-- Every label shows on the rows of list and column view, on grid view's timed blocks, and in a
-  day's list in month view. Grid view's all-day banners and month view's bars draw no label at
-  all, and month view's one-line entries in its weeks draw only the label of the calendar the
-  copy came from.
+- Every label shows on the rows of list and column view, on grid view's timed blocks, on month
+  view's one-line entries in its weeks and in a day's list in month view. Grid view's all-day
+  banners and month view's bars draw no label at all.
+- The [event details](/features/actions#event-details) a tap opens on a merged row name every
+  calendar it came from, each with its own color dot.
 - Labels and color both need two or more **distinct** calendars. A calendar listed twice to
-  [map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the first block's single
-  icon and its own calendar's color.
+  [map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the single icon of the
+  first block that matches and its own calendar's color.
 
 :::
 

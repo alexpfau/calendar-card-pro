@@ -1368,6 +1368,7 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
 const IDENTICAL_TO_ENGLISH_OK = new Set([
   // "Layout" is the glossary's decided word in these languages, and German's plural is the same.
   'de:overview.layouts',
+  'de:quick_setup.review.layouts',
   'de:layouts.layout',
   'it:layouts.layout',
   'nb:layouts.layout',

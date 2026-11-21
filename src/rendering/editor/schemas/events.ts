@@ -2,6 +2,8 @@
  * Event schema rows.
  */
 
+import * as Types from '../../../config/types';
+import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
@@ -94,15 +96,20 @@ function alldayBadgeFields(
  * exists at all is the switch that gates these.
  *
  * @param showTime - Whether event times are shown
+ * @param multidayOwn - Whether multi-day all-day events have a setting of their own here
  * @returns The fields, or none when times are off
  */
-function timeFields(showTime: boolean): HaFormSchema[] {
+function timeFields(showTime: boolean, multidayOwn: boolean): HaFormSchema[] {
   if (!showTime) return [];
 
   return [
     bool('show_end_time'),
     bool('show_duration'),
-    bool('show_single_allday_time'),
+    // Its helper points to the multi-day setting below, which Month has none of: Month splits a
+    // multi-day all-day event into its days, which this one covers.
+    multidayOwn
+      ? bool('show_single_allday_time')
+      : { ...bool('show_single_allday_time'), titleKey: 'month.show_single_allday_time' },
     bool('show_multiday_allday_time'),
     bool('time_two_digit_hours'),
     text('time_font_size'),
@@ -230,6 +237,7 @@ const eventsSchema = Helpers.memoizeLast(
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
     repeatsApply: boolean,
+    multidayOwn: boolean,
   ): HaFormSchema[] => [
     bool('show_time'),
     // Not gated on `show_time`: with times off a countdown still sits beside the title when
@@ -261,7 +269,7 @@ const eventsSchema = Helpers.memoizeLast(
     // Not gated on `show_time`: the badge marks an event as all-day, and only one of its two
     // positions sits in the time row.
     ...alldayBadgeFields(language, badgePosition, badgeColorMode),
-    ...timeFields(showTime),
+    ...timeFields(showTime, multidayOwn),
     ...locationFields(language, showLocation, countryMode),
     ...descriptionFields(showDescription),
     ...progressFields(showCountdown, showProgressBar, repeatsApply),
@@ -291,5 +299,17 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
     workspace !== 'grid',
+    workspace === 'shared' || appliesIn('show_multiday_allday_time', workspace),
   );
+}
+
+/**
+ * Whether an option applies in a layout (`VIEW_SCOPE`), where it names the layouts it does.
+ *
+ * @param key - The option
+ * @param view - The layout
+ * @returns `true` unless its scope leaves the layout out
+ */
+function appliesIn(key: string, view: Types.EffectiveView): boolean {
+  return ViewConfig.VIEW_SCOPE[key]?.has(view) ?? true;
 }

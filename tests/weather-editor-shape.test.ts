@@ -213,13 +213,20 @@ describe('a card written before v6', () => {
     });
   });
 
-  it('is left alone on opening where it names no entity, and dropped by the first write', async () => {
-    const editor = await mountEditor({ ...CARD, weather: { position: 'both' } });
+  it('is left alone on opening where it names no entity, and kept per layout by the first write', async () => {
+    const weather = { position: 'event', event: { show_conditions: false, font_size: '20px' } };
+    const editor = await mountEditor({ ...CARD, weather });
     expect(reportsOf(editor)).toEqual([]);
     expect(receipt(editor)).toBeUndefined();
 
     await changeField(editor, 'card:title', 'Family');
-    expect(lastConfig(editor)).toEqual({ ...CARD, title: 'Family' });
+    expect(lastConfig(editor)).toEqual({
+      ...CARD,
+      title: 'Family',
+      list: { weather },
+      column: { weather },
+      time_grid: { weather },
+    });
   });
 
   it('takes weather_entity as the entity of a block that names none, and says which layouts', async () => {

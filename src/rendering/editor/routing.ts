@@ -3,7 +3,7 @@
  */
 
 import type { HaFormSchema, SelectorSchema } from './ha-form';
-import { normalizeFieldValue, normalizeRootValue, optionPath } from './normalize';
+import { foldsWhileTyped, normalizeFieldValue, normalizeRootValue, optionPath } from './normalize';
 import { walkSchema } from './panels';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
@@ -230,7 +230,7 @@ export function workspaceFormData(
     const paths = [path];
     if (path.length === 1 && path[0] === block) paths.push([]);
     // Named by path, because a nested field's own name — `icon_size` — is not an option.
-    const folds = Config.foldsToDefault(optionPath(path, name), text);
+    const folds = foldsWhileTyped(optionPath(path, name), text);
     for (const target of paths) {
       // Keep "2" while the user types "24px", but never mask a changed effective value. A
       // size that would fold is the exception: it was held rather than written, and showing
@@ -404,15 +404,12 @@ export function applyWorkspaceChange(
     // A size the card would fold is one still being typed — `2r` on the way to `2rem`. It is
     // held and not written, like any value that is invalid only while being typed, so the
     // stored size stays the last one that parsed instead of becoming the default (#620).
-    if (rawText !== undefined && Config.foldsToDefault(option, rawText)) continue;
+    if (rawText !== undefined && foldsWhileTyped(option, rawText)) continue;
     // A held size was never stored, so its folded value says nothing about what is: without
     // this, typing `6px` after `big` would compare equal to the default `big` folds to, and
     // leave a stored `10px` in place while the field read `6px`. Only when this field's text
     // moved — ha-form re-emits a held value untouched whenever another field changes.
-    if (
-      Value.deepEqual(previous, next) &&
-      !(textChanged && Config.foldsToDefault(option, previousRaw))
-    ) {
+    if (Value.deepEqual(previous, next) && !(textChanged && foldsWhileTyped(option, previousRaw))) {
       continue;
     }
 

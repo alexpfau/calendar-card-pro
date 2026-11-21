@@ -14,7 +14,7 @@ Replace `calendar.trash_pickup` with your waste calendar and each `allowlist` wi
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Bin Day
 days_to_show: 31
 show_countdown: once_per_day
