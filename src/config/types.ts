@@ -1315,6 +1315,14 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   /**
+   * Set by a month's day model (`MonthDay.monthDayLists`) on an event a wide month draws as one
+   * bar across its days: an all-day event, or a timed one it draws as a banner. The model splits
+   * it as List does, and each day of it is then past only once the whole event is, read from
+   * `_sourceEnd`, as a bar's days are, so a day's panel and the narrow day list hold what the
+   * day's cell draws under `show_past_events: false`. Read by the past-event filter only.
+   */
+  _pastAsWhole?: boolean;
+  /**
    * Where the event came in the list Home Assistant sent, stamped by `processEvents`. Only for a
    * calendar listed more than once, `groupEventsByDay` puts that calendar's events back in this
    * order before sorting, so events sharing a start are drawn as the calendar listed once would

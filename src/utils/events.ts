@@ -1480,9 +1480,16 @@ function dayPassesWeekFilter(
  *   (`Search.ringIn`), so no event reaching the copy carries one.
  * - `_mergedLocations` is drawn into the copy's own `location` (`mergedLocationText`), so no
  *   renderer needs the parts apart.
+ * - `_pastAsWhole` is read by the past-event filter, which runs before the copy is made.
  */
 type LeftOffDisplayCopy =
-  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
+  | 'uid'
+  | 'recurrence_id'
+  | 'rrule'
+  | 'status'
+  | '_searchRing'
+  | '_mergedLocations'
+  | '_pastAsWhole';
 
 /**
  * The location a row `filter_duplicates: merge_locations` merged draws: each listed location as
@@ -1562,8 +1569,8 @@ export function drawsAsGridBanner(event: Types.CalendarEventData, config: Types.
  * @param config Configuration resolved for grid view
  * @returns The source events to draw as banners
  */
-function resolveGridBanners(
-  events: Types.CalendarEventData[],
+export function resolveGridBanners(
+  events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): ReadonlySet<Types.CalendarEventData> {
   const wantsBanner = (event: Types.CalendarEventData) => drawsAsGridBanner(event, config);
@@ -1741,7 +1748,15 @@ export function groupEventsByDay(
       return false;
     }
 
-    if (!config.show_past_events) {
+    // A day a month's day model lists of an event the month draws as a bar: past only once the
+    // whole event is, as the bar's days are (`_pastAsWhole`). A timed event's whole end is an
+    // instant, whichever shape the split gave this day; an all-day event's is its last day,
+    // taken through the all-day expiry below.
+    const whole = event._pastAsWhole ? event._sourceEnd : undefined;
+
+    if (!config.show_past_events && whole?.dateTime) {
+      if (new Date(whole.dateTime) < now) return false;
+    } else if (!config.show_past_events) {
       // A day of a banner is past only once the whole event is, as an all-day banner's is:
       // the banner stands for the event, so on Wednesday it still starts on Monday.
       const pastAt =
@@ -1773,8 +1788,9 @@ export function groupEventsByDay(
         ? undefined
         : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
 
-      const allDayEnd = event._gridSource?.end.date
-        ? Grid.addDays(FormatUtils.parseAllDayDate(event._gridSource.end.date), -1)
+      const wholeEndDate = event._gridSource?.end.date ?? whole?.date;
+      const allDayEnd = wholeEndDate
+        ? Grid.addDays(FormatUtils.parseAllDayDate(wholeEndDate), -1)
         : endDate;
       if (isAllDayEvent && now >= allDayExpiryInstant(allDayEnd, configuredExpiry)) {
         return false;
