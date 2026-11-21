@@ -201,6 +201,8 @@
   "color.custom.description": "カードで描画できる任意の色: #e91e63、CSSの色名、テーマ変数",
   "color.custom_field": "{setting}（カスタム）",
   "color.invalid": "カードで描画できない色",
+  "value.size_held": "カードで使えないサイズのため、{value}のままです。",
+  "value.size_held_unset": "カードで使えないサイズのため、何も保存されません。",
   "color.kept": "上の入力が有効な色になるまで以前の値を保持",
   "color.yaml_none": "YAMLになし",
   "color.not_set": "未設定",

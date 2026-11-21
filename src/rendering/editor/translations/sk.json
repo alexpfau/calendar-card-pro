@@ -200,6 +200,8 @@
   "color.custom.description": "Ľubovoľná farba, ktorú karta vie vykresliť: #e91e63, názov CSS alebo premenná témy",
   "color.custom_field": "{setting} (vlastná hodnota)",
   "color.invalid": "Nie je to farba, ktorú karta vie vykresliť",
+  "value.size_held": "Nie je to veľkosť, ktorú karta vie použiť, preto zostáva {value}.",
+  "value.size_held_unset": "Nie je to veľkosť, ktorú karta vie použiť, preto sa nič neuloží.",
   "color.kept": "Ponechaná, kým text vyššie nie je farba",
   "color.yaml_none": "Nie je v YAML",
   "color.not_set": "Nie je nastavené",

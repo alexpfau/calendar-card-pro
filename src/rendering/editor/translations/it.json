@@ -199,6 +199,8 @@
   "color.custom.description": "Qualsiasi colore che la scheda può disegnare: #e91e63, un nome CSS o una variabile del tema",
   "color.custom_field": "{setting} personalizzato",
   "color.invalid": "Non è un colore che la scheda può disegnare",
+  "value.size_held": "Non è una dimensione che la scheda può usare, quindi resta {value}.",
+  "value.size_held_unset": "Non è una dimensione che la scheda può usare, quindi non viene salvato nulla.",
   "color.kept": "Mantenuto finché il testo sopra non è un colore",
   "color.yaml_none": "Non presente nel YAML",
   "color.not_set": "Non impostato",

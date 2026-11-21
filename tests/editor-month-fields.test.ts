@@ -248,6 +248,22 @@ describe('Card Height on Month’s page', () => {
     editor.remove();
   });
 
+  it('says a size in a unit the card cannot use is not saved, and what stays', async () => {
+    const editor = await mountEditor({ ...CARD, list: { card_height: '300px' } });
+    await editLayout(editor, 'list');
+    await openPageOf(editor, 'layout:height_mode');
+    await changeField(editor, 'layout:fixed_height', '50%');
+    expect(valueOf(editor, 'layout:fixed_height')).toBe('50%');
+    expect(reportsOf(editor)).toEqual([]);
+    const error = () =>
+      (formOf(editor, 'layout:fixed_height') as unknown as { error?: Record<string, string> })
+        .error;
+    expect(error()).toEqual({ fixed_height: 'Not a size the card can use, so it stays 300px.' });
+    await changeField(editor, 'layout:fixed_height', '50px');
+    expect(error()).toBeUndefined();
+    editor.remove();
+  });
+
   it('leaves the events area’s own height at the top level, which Month never reads', async () => {
     const editor = await monthEditor({ ...CARD, height: '300px', max_height: '500px' });
     await openPageOf(editor, 'layout:height_mode');

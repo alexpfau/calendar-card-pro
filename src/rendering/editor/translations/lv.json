@@ -200,6 +200,8 @@
   "color.custom.description": "Jebkura krāsa, ko karte var attēlot: #e91e63, CSS nosaukums vai tēmas mainīgais",
   "color.custom_field": "{setting} (pielāgota vērtība)",
   "color.invalid": "Šo krāsu karte nevar attēlot",
+  "value.size_held": "Šo izmēru karte nevar izmantot, tāpēc paliek {value}.",
+  "value.size_held_unset": "Šo izmēru karte nevar izmantot, tāpēc nekas netiek saglabāts.",
   "color.kept": "Saglabāta, līdz augstāk ievadītais teksts ir krāsa",
   "color.yaml_none": "Nav YAML konfigurācijā",
   "color.not_set": "Nav iestatīts",

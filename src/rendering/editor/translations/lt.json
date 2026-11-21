@@ -200,6 +200,8 @@
   "color.custom.description": "Bet kuri spalva, kurią kortelė gali naudoti: #e91e63, CSS pavadinimas arba temos kintamasis",
   "color.custom_field": "{setting} (pasirinktinė reikšmė)",
   "color.invalid": "Tokios spalvos kortelė naudoti negali",
+  "value.size_held": "Tokio dydžio kortelė naudoti negali, todėl lieka {value}.",
+  "value.size_held_unset": "Tokio dydžio kortelė naudoti negali, todėl niekas neišsaugoma.",
   "color.kept": "Išlaikoma, kol aukščiau esantis tekstas taps spalva",
   "color.yaml_none": "YAML konfigūracijoje nėra",
   "color.not_set": "Nenustatyta",

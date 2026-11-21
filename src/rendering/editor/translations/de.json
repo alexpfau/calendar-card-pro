@@ -200,6 +200,8 @@
   "color.custom.description": "Jede Farbe, die die Karte zeichnen kann: #e91e63, ein CSS-Name oder eine Designvariable",
   "color.custom_field": "Eigene {setting}",
   "color.invalid": "Keine Farbe, die die Karte zeichnen kann",
+  "value.size_held": "Keine Größe, die die Karte verwenden kann, daher bleibt es bei {value}.",
+  "value.size_held_unset": "Keine Größe, die die Karte verwenden kann, daher wird nichts gespeichert.",
   "color.kept": "Bleibt erhalten, bis der Text oben eine Farbe ist",
   "color.yaml_none": "Nicht im YAML",
   "color.not_set": "Nicht festgelegt",

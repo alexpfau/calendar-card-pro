@@ -200,6 +200,8 @@
   "color.custom.description": "Vilken färg som helst som kortet kan rita: #e91e63, ett CSS-namn eller en temavariabel",
   "color.custom_field": "{setting} (anpassad)",
   "color.invalid": "Inte en färg som kortet kan rita",
+  "value.size_held": "Inte en storlek som kortet kan använda, så det förblir {value}.",
+  "value.size_held_unset": "Inte en storlek som kortet kan använda, så ingenting sparas.",
   "color.kept": "Behålls tills texten ovan är en färg",
   "color.yaml_none": "Finns inte i YAML",
   "color.not_set": "Inte inställd",

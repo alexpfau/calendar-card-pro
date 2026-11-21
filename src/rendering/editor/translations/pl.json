@@ -200,6 +200,8 @@
   "color.custom.description": "Dowolny kolor obsługiwany przez kartę: #e91e63, nazwa CSS lub zmienna motywu",
   "color.custom_field": "{setting}: własna wartość",
   "color.invalid": "To nie jest kolor obsługiwany przez kartę",
+  "value.size_held": "Tego rozmiaru karta nie obsługuje, więc zostaje {value}.",
+  "value.size_held_unset": "Tego rozmiaru karta nie obsługuje, więc nic nie zostaje zapisane.",
   "color.kept": "Zachowany, dopóki tekst powyżej nie będzie kolorem",
   "color.yaml_none": "Brak w YAML",
   "color.not_set": "Nieustawiony",

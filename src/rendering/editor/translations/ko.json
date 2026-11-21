@@ -200,6 +200,8 @@
   "color.custom.description": "카드가 그릴 수 있는 모든 색상: #e91e63, CSS 색상 이름 또는 테마 변수",
   "color.custom_field": "사용자 지정 {setting}",
   "color.invalid": "카드가 그릴 수 없는 색상입니다",
+  "value.size_held": "카드가 사용할 수 없는 크기이므로 {value}(으)로 유지됩니다.",
+  "value.size_held_unset": "카드가 사용할 수 없는 크기이므로 아무것도 저장되지 않습니다.",
   "color.kept": "위 텍스트가 올바른 색상이 될 때까지 이전 값을 유지합니다",
   "color.yaml_none": "YAML에 없음",
   "color.not_set": "설정되지 않음",

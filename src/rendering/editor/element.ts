@@ -69,6 +69,7 @@ import { History, type MigrationState, type Snapshot } from './history';
 import * as EditorLocalize from './localize';
 import * as Misplaced from './misplaced';
 import * as Navigation from './navigation';
+import { optionPath } from './normalize';
 import {
   type Appearance,
   CALENDARS_BLOCK,
@@ -3143,7 +3144,10 @@ export class CalendarCardProEditor extends LitElement {
           class="field-form"
           data-hass=${feed}
           .hass=${hass}
-          .error=${this._patternError(slot, field, data, ctx)}
+          .error=${
+            this._patternError(slot, field, data, ctx) ??
+            this._heldError(slot, field, workspace, ctx)
+          }
           .data=${data}
           .schema=${schema}
           .computeLabel=${text.label}
@@ -8699,6 +8703,39 @@ export class CalendarCardProEditor extends LitElement {
       ${show?.line ?? nothing}
     </div>`;
     return this._jumpedEntryField(ctx, key, field, wrapper);
+  }
+
+  /**
+   * The line under a size held rather than written because the card cannot use it, `50%` for a
+   * height (`routing.ts` › `applyWorkspaceChange`): it says the stored size stays, so text that
+   * reads as set is not taken for saved. Drawn through `ha-form`'s own error map.
+   *
+   * @param slot - The form's slot, where the map is kept
+   * @param field - The field
+   * @param workspace - The scope it is drawn in
+   * @param ctx - Schema context
+   * @returns The map; undefined where nothing is held, or what is held is a size still typed
+   */
+  private _heldError(
+    slot: string,
+    field: IndexedField,
+    workspace: Workspace.EditorWorkspace,
+    ctx: SchemaCtx,
+  ): Record<string, string> | undefined {
+    const name = field.node.name;
+    const held = this._pending[Routing.pendingKey(name, workspace, field.dataPath)];
+    const writes = Synthetic.configKeysForField(name);
+    if (typeof held !== 'string' || held.trim() === '' || writes.length !== 1) return undefined;
+    if (!Config.foldsToDefault(optionPath(field.dataPath, writes[0]), held)) return undefined;
+    const stored = Routing.atPath(
+      this._formDataFor(this._config!, workspace, {}),
+      field.dataPath,
+      name,
+    );
+    const message = Synthetic.isSet(stored)
+      ? this._string(ctx, 'value.size_held', { value: String(stored) })
+      : this._string(ctx, 'value.size_held_unset');
+    return this._intern(`${slot}.held`, { [name]: message });
   }
 
   /**

@@ -200,6 +200,8 @@
   "color.custom.description": "Mis tahes värv, mida kaart oskab joonistada: #e91e63, CSS-nimi või teema muutuja",
   "color.custom_field": "{setting} (kohandatud)",
   "color.invalid": "See pole värv, mida kaart oskab joonistada",
+  "value.size_held": "See pole suurus, mida kaart kasutada oskab, seega jääb alles {value}.",
+  "value.size_held_unset": "See pole suurus, mida kaart kasutada oskab, seega midagi ei salvestata.",
   "color.kept": "Kasutatakse viimast kehtivat värvi, kuni ülalolev tekst on taas kehtiv värv",
   "color.yaml_none": "YAML-is puudub",
   "color.not_set": "Pole määratud",

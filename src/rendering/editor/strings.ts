@@ -321,6 +321,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Any color the card can draw: #e91e63, a CSS name, or a theme variable',
   'color.custom_field': 'Custom {setting}',
   'color.invalid': 'Not a color the card can draw',
+  // A size typed in a unit the card cannot use is held, not written, and the stored one stays.
+  'value.size_held': 'Not a size the card can use, so it stays {value}.',
+  'value.size_held_unset': 'Not a size the card can use, so nothing is saved.',
   'color.kept': 'Kept until the text above is a color',
   'color.yaml_none': 'Not in the YAML',
   'color.not_set': 'Not Set',

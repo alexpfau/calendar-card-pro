@@ -200,6 +200,8 @@
   "color.custom.description": "Hvilken som helst farge kortet kan tegne: #e91e63, et CSS-navn eller en temavariabel",
   "color.custom_field": "{setting} (egendefinert)",
   "color.invalid": "Ikke en farge kortet kan tegne",
+  "value.size_held": "Ikke en størrelse kortet kan bruke, så det blir værende {value}.",
+  "value.size_held_unset": "Ikke en størrelse kortet kan bruke, så ingenting lagres.",
   "color.kept": "Beholdes til teksten over er en farge",
   "color.yaml_none": "Ikke i YAML",
   "color.not_set": "Ikke angitt",
