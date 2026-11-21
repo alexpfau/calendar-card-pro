@@ -43,8 +43,9 @@ export const START_OF_WEEK = ANCHOR_START_OF_WEEK;
 
 /**
  * The shortcut a start date reads as: `today+1` and `+1` as Tomorrow, `start_of_week` as Start of
- * Week, each exactly as written apart from surrounding space. Any other value, `today + 1` and
- * `Today+1` among them, is no shortcut, though it may resolve to the same day.
+ * Week. Spaces and capitals do not count, as they do not where the date is resolved
+ * (`parseStartDateExpression`), so `today + 1` and `Today+1` are Tomorrow too: a value that
+ * resolves to the same day as a shortcut written another way opens the same month.
  *
  * The editor offers its choices by it, and Month opens today's month for exactly these
  * (`ViewConfig.monthOpensToday`), so the two read every value alike.
@@ -53,7 +54,7 @@ export const START_OF_WEEK = ANCHOR_START_OF_WEEK;
  * @returns The shortcut, or undefined for any other value
  */
 export function startDateShortcut(value: string): 'tomorrow' | 'start_of_week' | undefined {
-  const text = value.trim();
+  const text = value.replace(/\s+/g, '').toLowerCase();
   if (text === TOMORROW || text === '+1') return 'tomorrow';
   if (text === START_OF_WEEK) return 'start_of_week';
   return undefined;

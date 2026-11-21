@@ -3443,8 +3443,10 @@ export function eventHasStarted(event: Types.CalendarEventData, now: Date): bool
  * request of every calendar listed after it. Results are still assembled in config order,
  * so nothing downstream sees a difference.
  *
- * Each request is bounded by `CALENDAR_FETCH_TIMEOUT`. A calendar that does not answer in
- * time counts as failed; its late response, if one ever arrives, is ignored.
+ * Each calendar is bounded by `CALENDAR_FETCH_TIMEOUT`, its wait for a live subscription's
+ * first push and the REST request after it together; REST is always left at least
+ * `CALENDAR_REST_RESERVE`. A calendar that does not answer in time counts as failed; its late
+ * response, if one ever arrives, is ignored.
  *
  * @param hass Home Assistant instance
  * @param entities Configured calendars; a calendar listed more than once is fetched once
@@ -3471,6 +3473,7 @@ export async function fetchEvents(
       .map(async (entityId) => {
         const path = `calendars/${entityId}?${query}`;
 
+        const deadline = Date.now() + Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
         try {
           const pushed = release ? await LiveCalendars.load(hass, entityId, timeWindow) : undefined;
           if (pushed) Logger.info(`Using live events for ${entityId}`);
@@ -3479,7 +3482,7 @@ export async function fetchEvents(
             pushed ??
             (await withTimeout(
               hass.callApi('GET', path),
-              Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+              Math.max(Constants.TIMING.CALENDAR_REST_RESERVE, deadline - Date.now()),
               `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
             ));
 

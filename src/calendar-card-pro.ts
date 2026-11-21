@@ -418,7 +418,7 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
-/** The window a complete load was asked for (`_loadedWindowShown`), as its load config names it. */
+/** The window a load drawn was asked for (`_loadedWindowShown`), as its load config names it. */
 interface LoadedWindow {
   /** The load's `start_date`: the configuration's own, or for a month's load its first day. */
   readonly startDate: string | undefined;
@@ -647,6 +647,7 @@ class CalendarCardPro extends LitElement {
     partial: Types.EventFetchResult;
     instanceId: string;
     page: string | null;
+    loaded: Types.Config;
     generation: number;
   } | null = null;
 
@@ -697,6 +698,12 @@ class CalendarCardPro extends LitElement {
    */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * When each forecast type was last known current: its last push, or a subscription set up
+   * since, which pushes within moments. The card dims a forecast that goes too long without
+   * one (`Weather.forecastStaleAt`).
+   */
+  private _weatherCurrentAt: Partial<Record<'daily' | 'hourly', number>> = {};
   /** What the weather subscriptions were last set up for (`_weatherPlan`). */
   private _weatherPlanned: { entity: string | undefined; types: Array<'daily' | 'hourly'> } = {
     entity: undefined,
@@ -1783,9 +1790,11 @@ class CalendarCardPro extends LitElement {
    *
    * Lags the configuration while a wider load is out, as `_pageShown` lags a page: raising
    * `days_to_show` past the days loaded keeps the days on screen those the events cover, rather
-   * than adding days that read as empty before anything has been asked about them. Only a
-   * complete load moves it, failures included, since the card names a calendar that failed; a
-   * partial one has not heard from every calendar yet.
+   * than adding days that read as empty before anything has been asked about them. A complete
+   * load moves it, failures included, since the card names a calendar that failed. A partial one
+   * (`_schedulePartialCommit`) moves it only for a window starting elsewhere, such as the next
+   * month: it has not heard from every calendar yet, but measured against the window before, a
+   * page would draw only the days the two share.
    */
   private _loadedWindowShown: LoadedWindow | null = null;
 
@@ -2741,41 +2750,60 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether any view the card can show would draw an event in its own range, for
-   * `hide_when_empty`. The view on screen answers first, and usually alone.
+   * Whether the card has an event to draw at home, for `hide_when_empty`: judged by the view on
+   * screen, so a card whose view is empty hides though another view it can switch to would draw
+   * one, as a card without the toolbar always has.
    *
-   * Each other view is grouped from the raw configuration and resolves its own block there.
-   * Never from `effectiveConfig`: that already carries the view on screen's hoisted values,
-   * so a view without an override of its own would inherit them — a list with no count of
-   * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
-   * its one caller is, so the raw configuration is home's.
+   * A view picked with the switcher (`_viewChoice`) is not the only judge: the configured view
+   * having an event keeps the card too, or a device that picked an empty view would hide the
+   * switcher that leads back.
+   *
+   * @returns True when the card has an event to draw
+   */
+  private _homeHasEvents(): boolean {
+    const shown = this.effectiveView;
+    if (this._viewHasEvents(shown, true)) return true;
+    return (
+      this._viewChoice !== null &&
+      this.config.view !== shown &&
+      this._viewHasEvents(this.config.view, false)
+    );
+  }
+
+  /**
+   * Whether a view would draw an event in its home range.
+   *
+   * A view not on screen is grouped from the raw configuration and resolves its own block there.
+   * Never from `effectiveConfig`: that already carries the view on screen's hoisted values, so a
+   * view without an override of its own would inherit them, and a list with no count of its own
+   * would draw the grid's seven days instead of the card's fourteen. Home only, as its one caller
+   * is, so the raw configuration is home's.
    *
    * Month counts only from the day its home is the month of on (`_monthCountConfig`), so the weeks
    * of the month before it never keep an otherwise empty card visible. So it never answers from
-   * the view on screen, whose count covers those weeks.
+   * the count on screen, which covers those weeks.
    *
-   * @returns True when some reachable view has an event to draw
+   * @param view - The view
+   * @param onScreen - Whether it is the view on screen, whose count is kept (`visibleEventCount`)
+   * @returns True when it has an event to draw
    */
-  private _anyReachableViewHasEvents(): boolean {
-    const shown = this.effectiveView;
-    if (shown !== 'month' && this.visibleEventCount > 0) return true;
+  private _viewHasEvents(view: Types.EffectiveView, onScreen: boolean): boolean {
+    if (onScreen && view !== 'month') return this.visibleEventCount > 0;
 
     const events = this._shownEvents;
     if (events.length === 0) return false;
 
-    return ViewConfig.reachableViews(this.config).some(
-      (view) =>
-        (view !== shown || view === 'month') &&
-        countRealEvents(
-          EventUtils.groupEventsByDay(
-            events,
-            view === 'month' ? this._monthCountConfig() : this.config,
-            true,
-            this.effectiveLanguage,
-            view,
-            this.hass,
-          ),
-        ) > 0,
+    return (
+      countRealEvents(
+        EventUtils.groupEventsByDay(
+          events,
+          view === 'month' ? this._monthCountConfig() : this.config,
+          true,
+          this.effectiveLanguage,
+          view,
+          this.hass,
+        ),
+      ) > 0
     );
   }
 
@@ -3332,15 +3360,28 @@ class CalendarCardPro extends LitElement {
    * A minute from now while a countdown or count-up that names minutes or hours, or a progress
    * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
    * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
-   * a past all-day event or empty day, on every card. Null where the now line's own tick repaints
-   * every minute anyway.
+   * a past all-day event or empty day, on every card. Sooner where the forecast turns stale
+   * before then (`_weatherStale`). Null where the now line's own tick repaints every minute
+   * anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
    */
   private _nextClockRepaint(now: number): number | null {
     if (this._wantsNowLine) return null;
+    const next = this._nextClockTextRepaint(now);
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    // A moment past, so the render reads the forecast as stale even if the timer fires early.
+    return staleAt !== null && staleAt >= now && staleAt + 1000 < next ? staleAt + 1000 : next;
+  }
 
+  /**
+   * When the clock text, the marks of today included, next changes (`_nextClockRepaint`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns Epoch milliseconds
+   */
+  private _nextClockTextRepaint(now: number): number {
     const today = new Date(now);
     // One second past, so the render reads the new day even if the timer fires a little early.
     // Built from local fields, so a DST night is as long as it really is.
@@ -5118,6 +5159,7 @@ class CalendarCardPro extends LitElement {
     // back until that ticket moves. Bump and unsubscribe here so the blank sticks.
     if (weatherEntityChanged) {
       this.weatherForecasts = { daily: {}, hourly: {} };
+      this._weatherCurrentAt = {};
       this._weatherSetupVersion++;
       this._cleanupWeatherSubscriptions();
     }
@@ -5207,9 +5249,8 @@ class CalendarCardPro extends LitElement {
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
     // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
-    // by the legend, that hid itself would take with it the only way back. And only when no
-    // view the card can show has an event: a seven-day view can be empty where a fourteen-day
-    // one is not, and hiding for it would take the view switcher with it. A calendar its
+    // by the legend, that hid itself would take with it the only way back. Judged by the view on
+    // screen (`_homeHasEvents`), as it was before the card could switch views. A calendar its
     // visibility conditions hide is not on the card for this viewer: neither its events nor its
     // failure keep the card, and the legend hiding it changes nothing.
     const shouldHide =
@@ -5221,7 +5262,7 @@ class CalendarCardPro extends LitElement {
       !this.editMode &&
       !isErrorState &&
       this._shownFailures.length === 0 &&
-      !this._anyReachableViewHasEvents();
+      !this._homeHasEvents();
 
     if (this.hidden === shouldHide) {
       return;
@@ -5936,6 +5977,13 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    // A forecast held from before is about to be answered again, so it does not dim for the
+    // moment that takes, as on coming back to a dashboard view after a while.
+    const now = Date.now();
+    this._weatherCurrentAt = Object.fromEntries(
+      Object.keys(this._weatherCurrentAt).map((type) => [type, now]),
+    );
+
     for (const type of forecastTypes) {
       if (this._weatherSetupVersion !== version) {
         return;
@@ -5956,6 +6004,7 @@ class CalendarCardPro extends LitElement {
             ...this.weatherForecasts,
             [type]: forecasts,
           };
+          this._weatherCurrentAt = { ...this._weatherCurrentAt, [type]: Date.now() };
           this.requestUpdate();
         },
       );
@@ -8281,7 +8330,8 @@ class CalendarCardPro extends LitElement {
           afterWrite,
           store,
           cold
-            ? (partial) => this._schedulePartialCommit(partial, instanceId, page, generation)
+            ? (partial) =>
+                this._schedulePartialCommit(partial, instanceId, page, config, generation)
             : undefined,
         );
       } finally {
@@ -8397,7 +8447,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records the window a complete load was asked for, keeping the record already held where the
+   * Records the window a load was asked for, keeping the record already held where the
    * window is the same, so the drawn configuration it clamps stays the same object.
    *
    * @param loaded The configuration the load was made with
@@ -8495,17 +8545,20 @@ class CalendarCardPro extends LitElement {
    * @param partial The events of every calendar that has answered
    * @param instanceId Query identity the events were loaded for
    * @param page The page they belong to, null for home
+   * @param loaded The configuration they were loaded with, which names the window
+   *   (`_loadedWindowShown`)
    * @param generation The request they belong to; a newer one discards them
    */
   private _schedulePartialCommit(
     partial: Types.EventFetchResult,
     instanceId: string,
     page: string | null,
+    loaded: Types.Config,
     generation: number,
   ): void {
     // A request a newer one replaced must not take the newer one's place in the queue.
     if (generation !== this._eventRequestGeneration) return;
-    this._partialCommit = { partial, instanceId, page, generation };
+    this._partialCommit = { partial, instanceId, page, loaded, generation };
     if (this._partialTimer !== null) return;
 
     this._partialTimer = window.setTimeout(() => {
@@ -8521,6 +8574,18 @@ class CalendarCardPro extends LitElement {
       this._drawnLoadedAt = pending.partial.lastSuccess ?? {};
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
+      // A wider load from the same first day keeps the days drawn until every calendar has
+      // answered, since one still out may have events on the days it adds. A load starting
+      // elsewhere, the next month above all, is measured against its own window: against the
+      // one before, it would draw only the days the two share.
+      const shown = this._loadedWindowShown;
+      if (
+        shown === null ||
+        shown.startDate !== pending.loaded.start_date ||
+        shown.spansMonth !== ViewConfig.reachesMonth(pending.loaded)
+      ) {
+        this._recordLoadedWindow(pending.loaded);
+      }
       this._eventsFetchedAt = pending.partial.fetchedAt;
       this._setFailures([]);
       this.isInitialLoad = false;
@@ -8891,7 +8956,19 @@ class CalendarCardPro extends LitElement {
       this._refreshPhase,
       this._swipeAvailable,
       this._tapControl(),
+      this._weatherStale(Date.now()),
     );
+  }
+
+  /**
+   * Whether the forecast drawn is out of date (`Weather.forecastStaleAt`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns True once any forecast type subscribed to has gone too long without an update
+   */
+  private _weatherStale(now: number): boolean {
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    return staleAt !== null && staleAt <= now;
   }
 
   /**

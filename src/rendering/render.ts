@@ -153,6 +153,7 @@ export interface TapControl {
  * @param swipePaging Whether a swipe pages the card, which hands the browser only vertical
  * panning on the card, its toolbar's rows and its body (`swipe-paging`)
  * @param tapControl The control standing in for the card's tap while it hosts controls
+ * @param weatherStale Whether the forecast drawn is out of date (`weather-stale`), which dims it
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -194,6 +195,7 @@ export function renderMainCardStructure(
   refreshPhase: Toolbar.RefreshPhase = 'idle',
   swipePaging: boolean = false,
   tapControl?: TapControl,
+  weatherStale: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -246,6 +248,7 @@ export function renderMainCardStructure(
     ViewConfig.viewCssClass(effectiveView),
     isPointerInteractive ? 'card-interactive' : '',
     swipePaging ? 'swipe-paging' : '',
+    weatherStale ? 'weather-stale' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');

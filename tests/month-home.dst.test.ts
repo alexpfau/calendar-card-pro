@@ -251,6 +251,9 @@ describe('the month Month opens on', () => {
     ['tomorrow on a month’s last day', new Date(2026, 10, 30, 10), 'today+1', 'November 2026'],
     // Tomorrow's short form, which the editor reads as Tomorrow too.
     ['tomorrow written +1', new Date(2026, 10, 30, 10), '+1', 'November 2026'],
+    // Tomorrow with spaces and capitals, which resolve to the same day: Tomorrow all the same.
+    ['tomorrow written with spaces', new Date(2026, 10, 30, 10), 'today + 1', 'November 2026'],
+    ['tomorrow written in capitals', new Date(2026, 10, 30, 10), 'Today+1', 'November 2026'],
   ] as const)('is today’s for %s', async (_name, now, start_date, heading) => {
     vi.setSystemTime(now);
     const card = await mount(start_date === undefined ? {} : { start_date });
@@ -298,12 +301,12 @@ describe('the month Month opens on', () => {
       'today+7',
       { heading: 'November 2026', rows: ['2026-10-26', '2026-12-06'], home: 'Today' },
     ],
-    // Tomorrow written another way than the editor's Tomorrow is an offset like any other: Monday
-    // 30 November, it opens December.
+    // Two days ahead, with spaces, is an offset like any other: Sunday 29 November, it opens
+    // December.
     [
-      'tomorrow written with spaces',
-      new Date(2026, 10, 30, 10),
-      'today + 1',
+      'two days ahead written with spaces',
+      new Date(2026, 10, 29, 10),
+      'today + 2',
       { heading: 'December 2026', rows: ['2026-11-30', '2027-01-10'], home: 'December 2026' },
     ],
   ] as const)(
