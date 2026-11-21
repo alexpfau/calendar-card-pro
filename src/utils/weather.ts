@@ -457,8 +457,11 @@ export async function subscribeToWeatherForecast(
     return attempt;
   };
 
-  let current = send();
+  let current: ForecastAttempt;
   try {
+    // Inside the try, as the request was before: a connection that cannot subscribe throws here
+    // rather than rejecting, and the card goes on without a forecast.
+    current = send();
     await current.unsubscribe;
   } catch (error) {
     Logger.error('Failed to subscribe to weather forecast', {

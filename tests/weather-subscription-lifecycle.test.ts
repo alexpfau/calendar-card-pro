@@ -429,3 +429,18 @@ describe('weather subscriptions: across a reconnect', () => {
     expect(conn.subs).toHaveLength(1);
   });
 });
+
+describe('weather subscriptions: a connection that cannot subscribe', () => {
+  // A weather stream that fails must not take the card down with it (host-guards.test.ts). The
+  // reconnect handling built the request outside the try that catches a refusal, so a connection
+  // without `subscribeMessage` threw an unhandled rejection where it used to be logged.
+  it('resolves to no subscription rather than rejecting', async () => {
+    const { subscribeToWeatherForecast } = await import('../src/utils/weather');
+    const hass = { connection: {} } as unknown as Types.Hass;
+    const config = buildConfig({ weather_entity: 'weather.home' } as Partial<Types.Config>);
+
+    await expect(subscribeToWeatherForecast(hass, config, 'daily', () => {})).resolves.toBe(
+      undefined,
+    );
+  });
+});
