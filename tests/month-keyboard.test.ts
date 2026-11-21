@@ -810,6 +810,21 @@ describe('a month in another language than the page’s', () => {
     expect(langOf(root(card).querySelector('.month-day-list-rows > *'))).toBe('de');
     expect(langOf(root(card).querySelector('.month-day-list-header'))).toBeNull();
   });
+
+  it('renames an open day panel, and marks it again, when the language changes', async () => {
+    const card = await mount();
+    card.hass = { ...card.hass, locale: { ...card.hass.locale!, language: 'de' } };
+    await settle(card);
+    const shown = await openTenth(card);
+    expect(text(shown.querySelector('#day-panel-day'))).toBe('Dienstag, 10. November 2026');
+
+    card.hass = { ...card.hass, locale: { ...card.hass.locale!, language: 'fr' } };
+    await settle(card);
+    const title = shown.querySelector('#day-panel-day');
+    expect(text(title)).toBe('mardi 10 novembre 2026');
+    expect(langOf(title)).toBe('fr');
+    expect(shown.querySelector('.day-panel-rows')!.getAttribute('lang')).toBe('fr');
+  });
 });
 
 //-----------------------------------------------------------------------------

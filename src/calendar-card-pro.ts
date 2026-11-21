@@ -4355,6 +4355,8 @@ class CalendarCardPro extends LitElement {
           };
         },
         styles: () => this._customProperties(),
+        title: () => MonthRender.monthDayTitle(day, this.effectiveLanguage),
+        language: () => this.effectiveLanguage,
         titleColor: () => {
           const color = this.effectiveConfig.weekday_color;
           return color === Config.DEFAULT_CONFIG.weekday_color ? undefined : color;

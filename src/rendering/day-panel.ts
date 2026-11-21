@@ -66,6 +66,13 @@ export interface DayPanelSource {
   /** The card's custom properties, which the rows' stylesheet reads. */
   styles(): Readonly<Record<string, string>>;
   /**
+   * The day, named in full in the card's language as it is now, so a language changed while the
+   * panel is open renames it with its rows; the panel keeps `DayPanelParams.title` without it.
+   */
+  title?(): string;
+  /** The card's language as it is now, which the title and the rows are marked with. */
+  language?(): string;
+  /**
    * The color the card sets for its day names (`weekday_color`), which the panel's title takes as
    * the narrow list's does; `undefined` while the card leaves it at its default, and the title
    * keeps the panel's own text color.
@@ -102,13 +109,13 @@ export interface DayPanelSource {
 /** What the card hands the day panel, through Home Assistant's `show-dialog`. */
 export interface DayPanelParams {
   source: DayPanelSource;
-  /** The day, named in full. */
+  /** The day, named in full, as the panel opens (`DayPanelSource.title`). */
   title: string;
   /** The "+N more" it opens beside. */
   anchor?: Model.PopoverAnchor;
   /** Whether it is drawn dark, as Home Assistant's dark mode chooses. */
   dark: boolean;
-  /** The card's language, which its rows are written in. */
+  /** The card's language, which its title and rows are written in, as the panel opens. */
   language: string;
   /**
    * Opened for a search's pick hidden behind "+N more": focus starts on the row it rings, where
@@ -497,7 +504,10 @@ export class DayPanel extends Shell.PopoverShell {
     const addLabel = params.source.addLabel?.();
     // Marked with the card's language, which may not be the page's; the add button around it is
     // named in Home Assistant's.
-    const day = html`<span id="day-panel-day" lang=${params.language}>${params.title}</span>`;
+    const language = params.source.language?.() ?? params.language;
+    const day = html`<span id="day-panel-day" lang=${language}
+      >${params.source.title?.() ?? params.title}</span
+    >`;
 
     return html`
       <dialog
@@ -547,7 +557,7 @@ export class DayPanel extends Shell.PopoverShell {
           </div>
           <div
             class="day-panel-rows"
-            lang=${params.language}
+            lang=${language}
             style=${styleMap(params.source.styles())}
             @click=${this._onRowClick}
             @keydown=${this._onRowKey}
