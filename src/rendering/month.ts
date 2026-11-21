@@ -607,12 +607,21 @@ function renderLine(
   const time = parts.shouldShowTime
     ? lineTime(item, config, Localize.getTranslations(language), hass)
     : null;
-  const label = Leaves.renderLabel(
-    parts.entityLabel,
-    event._matchedConfig?.label_icon_color,
-    event._matchedConfig?.label_type,
-    parts.entityLabelAlt,
-  );
+  // A merged duplicate's line draws every contributing calendar's label, as a row does
+  // (`Leaves.renderEventTitle`); `mergedLabels` is set only where there are two to draw.
+  const merged = parts.mergedLabels
+    ?.map((entry) => Leaves.renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
+    .filter((drawn) => drawn !== nothing);
+  const label = merged
+    ? merged.length > 0
+      ? merged
+      : nothing
+    : Leaves.renderLabel(
+        parts.entityLabel,
+        event._matchedConfig?.label_icon_color,
+        event._matchedConfig?.label_type,
+        parts.entityLabelAlt,
+      );
   // A calendar's own title color, as a row's title takes it (`Leaves.renderEventTitle`); the
   // card's reaches the title through its custom property.
   const ownColor = event._matchedConfig?.color;
