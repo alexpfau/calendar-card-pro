@@ -185,7 +185,7 @@ its events, under [Month View Classes](#month-view-classes).
 ### Card & Event Classes
 
 The card root, `.calendar-card-pro`, names the view being drawn, and follows the
-[view switcher](/features/layout-appearance#switching-between-layouts) while the card is on
+[view switcher](/features/header-toolbar#switching-between-layouts) while the card is on
 screen. List view has no class of its own; select it as
 `.calendar-card-pro:not(.column-view):not(.grid-view):not(.month-view)`.
 
@@ -341,36 +341,36 @@ card does not reach.
 
 ### Header Toolbar Classes
 
-The [header toolbar](/features/layout-appearance#header-toolbar) adds `.has-toolbar` to
+The [header toolbar](/features/header-toolbar) adds `.has-toolbar` to
 `.header-container` and draws one or two rows inside it, each a `.card-toolbar`: the actions
 (`.toolbar-actions`), only while that row holds a control, then the month (`.toolbar-heading`).
 The title, `h1.card-header`, moves into the month's row as a small label over the month, keeping
 its element and classes. Select it as `.header-container h1.card-header`;
 `.header-container > h1.card-header` misses it while the toolbar is drawn.
 
-| Class                      | Element                                                                                                                                                                                                                                                           |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.card-toolbar`            | either row: `.toolbar-actions` for the actions, `.toolbar-heading` for the month, which also carries `.chips-shown` while the [calendar chips](/features/layout-appearance#showing-hiding-calendars) show and `.short-month` while the month takes its short form |
-| `.toolbar-start`           | the group at the start of the action row: the calendar filter's button and the add button                                                                                                                                                                         |
-| `.toolbar-end`             | the group at the end of the action row: reset and refresh                                                                                                                                                                                                         |
-| `.toolbar-identity`        | the block at the start of the month's row: the title, then the month under it                                                                                                                                                                                     |
-| `.toolbar-month`           | the month heading; its words are `.toolbar-month-text`, the month's name in them `.toolbar-month-name`, inside `.toolbar-month-button` where it opens the date picker                                                                                             |
-| `.toolbar-heading-end`     | the group at the end of the month's row, holding the date navigation                                                                                                                                                                                              |
-| `.date-navigation`         | the group holding the previous, home and next buttons                                                                                                                                                                                                             |
-| `.date-navigation-segment` | one of those three round buttons; home also `.home-done` for a moment after a press brought the card back                                                                                                                                                         |
-| `.toolbar-button`          | every toolbar button, each an icon named by its tooltip; the four below carry it too                                                                                                                                                                              |
-| `.add-event-button`        | the add button                                                                                                                                                                                                                                                    |
-| `.reset-button`            | the reset button: `.unavailable`, and hidden, while there is nothing to undo, but dimmed rather than hidden when it is also `.alone`, the only control in its row; `.reset-done` for a moment after a press                                                       |
-| `.refresh-button`          | the refresh button: `.busy` while it turns, also `.unasked` for a load the card started itself, then `.refresh-done` or `.refresh-failed` for a moment after a press                                                                                              |
-| `.legend-button`           | the calendar filter's button: `.filtered` while it hides a calendar                                                                                                                                                                                               |
-| `.toolbar-button-icon`     | a button's icon                                                                                                                                                                                                                                                   |
-| `.toolbar-button-label`    | a view's name on its view switcher segment, while the switcher shows words                                                                                                                                                                                        |
-| `.toolbar-legend`          | the calendar chips, in the middle of the month's row                                                                                                                                                                                                              |
-| `.legend-chip`             | one calendar's chip; `.hidden-calendar` while its events are hidden                                                                                                                                                                                               |
-| `.legend-menu`             | the menu the filter button opens; each calendar in it is a `.legend-menu-row`, also `.hidden-calendar` while hidden                                                                                                                                               |
-| `.view-switcher`           | the view switcher's track                                                                                                                                                                                                                                         |
-| `.view-switcher-segment`   | one view in it; `.selected` for the one picked, which a card too narrow for it draws as a list, `.icon-only` while it shows its pictogram rather than its word                                                                                                    |
-| `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                             |
+| Class                      | Element                                                                                                                                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.card-toolbar`            | either row: `.toolbar-actions` for the actions, `.toolbar-heading` for the month, which also carries `.chips-shown` while the [calendar chips](/features/header-toolbar#showing-hiding-calendars) show and `.short-month` while the month takes its short form |
+| `.toolbar-start`           | the group at the start of the action row: the calendar filter's button and the add button                                                                                                                                                                      |
+| `.toolbar-end`             | the group at the end of the action row: reset and refresh                                                                                                                                                                                                      |
+| `.toolbar-identity`        | the block at the start of the month's row: the title, then the month under it                                                                                                                                                                                  |
+| `.toolbar-month`           | the month heading; its words are `.toolbar-month-text`, the month's name in them `.toolbar-month-name`, inside `.toolbar-month-button` where it opens the date picker                                                                                          |
+| `.toolbar-heading-end`     | the group at the end of the month's row, holding the date navigation                                                                                                                                                                                           |
+| `.date-navigation`         | the group holding the previous, home and next buttons                                                                                                                                                                                                          |
+| `.date-navigation-segment` | one of those three round buttons; home also `.home-done` for a moment after a press brought the card back                                                                                                                                                      |
+| `.toolbar-button`          | every toolbar button, each an icon named by its tooltip; the four below carry it too                                                                                                                                                                           |
+| `.add-event-button`        | the add button                                                                                                                                                                                                                                                 |
+| `.reset-button`            | the reset button: `.unavailable`, and hidden, while there is nothing to undo, but dimmed rather than hidden when it is also `.alone`, the only control in its row; `.reset-done` for a moment after a press                                                    |
+| `.refresh-button`          | the refresh button: `.busy` while it turns, also `.unasked` for a load the card started itself, then `.refresh-done` or `.refresh-failed` for a moment after a press                                                                                           |
+| `.legend-button`           | the calendar filter's button: `.filtered` while it hides a calendar                                                                                                                                                                                            |
+| `.toolbar-button-icon`     | a button's icon                                                                                                                                                                                                                                                |
+| `.toolbar-button-label`    | a view's name on its view switcher segment, while the switcher shows words                                                                                                                                                                                     |
+| `.toolbar-legend`          | the calendar chips, in the middle of the month's row                                                                                                                                                                                                           |
+| `.legend-chip`             | one calendar's chip; `.hidden-calendar` while its events are hidden                                                                                                                                                                                            |
+| `.legend-menu`             | the menu the filter button opens; each calendar in it is a `.legend-menu-row`, also `.hidden-calendar` while hidden                                                                                                                                            |
+| `.view-switcher`           | the view switcher's track                                                                                                                                                                                                                                      |
+| `.view-switcher-segment`   | one view in it; `.selected` for the one picked, which a card too narrow for it draws as a list, `.icon-only` while it shows its pictogram rather than its word                                                                                                 |
+| `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                          |
 
 The menu is drawn opaque in the theme's card background, so the events never show through it.
 A card-mod `background` or `background-color` on `.legend-menu` replaces that, so write an opaque
@@ -430,7 +430,7 @@ card_mod:
     }
 ```
 
-With the [header toolbar](/features/layout-appearance#header-toolbar) on, the title is the small
+With the [header toolbar](/features/header-toolbar) on, the title is the small
 label over the month, inside `.toolbar-identity`, so it is centered in the room the date
 navigation leaves rather than across the whole card; the rule above still reaches it. The month
 is then the card's headline: it takes `title_font_size` and `title_color`, and a rule for the
@@ -505,7 +505,7 @@ card_mod:
 ### Shade Weekend Days
 
 This rule covers the weekend in List and Column. Which days carry the `weekend` class
-follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+follows the [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only),
 or its language when no country is set, so this rule shades Friday and Saturday in Israel
 without being rewritten:
 

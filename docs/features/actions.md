@@ -10,7 +10,7 @@ In the card editor's preview, and on a dashboard in edit mode, the add button is
 
 ## ➕ Add Event Button
 
-The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. Show the [header toolbar](/features/layout-appearance#header-toolbar) and the button is in it, at the start of its top row after the calendar filter, whenever one of the card's calendars [accepts new events](#what-each-integration-allows):
+The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. Show the [header toolbar](/features/header-toolbar) and the button is in it, at the start of its top row after the calendar filter, whenever one of the card's calendars [accepts new events](#what-each-integration-allows):
 
 ```yaml
 type: custom:calendar-card-pro
@@ -26,7 +26,7 @@ The button is `toolbar → add_event`, on by default once the toolbar is shown; 
 
 - **Adding.** Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 - **Not adding.** Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out.
-- **The calendar** is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
+- **The calendar** is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/header-toolbar#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
 - **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. A month starts it on the day it opens with, its `start_date`, or today for Tomorrow, Start of Week or no `start_date`, and paged to another month on today where the month its heading names holds it, and otherwise on its 1st, never a day of the month before that its first week shows.
 
 ::: tip Pressing the Button Is Not a Tap on the Card
@@ -82,11 +82,11 @@ Wherever a day shows no event, in every layout:
 A tap on an event never adds: the tap is the event's unless its `event_tap_action` is `none`, and
 the card's then. Nor do a grid's `+N` block, which stands for several events, the week numbers,
 the separators between days, the grid's time axis, the title or the
-[header toolbar](/features/layout-appearance#header-toolbar): a tap on the title still runs
+[header toolbar](/features/header-toolbar): a tap on the title still runs
 `tap_action`, and the toolbar's controls keep their own.
 
 A tap has to stay put. A press that moves is a scroll, or a
-[swipe](/features/layout-appearance#paging-through-dates), and adds nothing; a hold on a day runs
+[swipe](/features/header-toolbar#paging-through-dates), and adds nothing; a hold on a day runs
 `hold_action`, except in a grid's time area and all-day band, where it
 [draws a new event](#drawing-an-event-in-grid-view).
 
@@ -173,7 +173,7 @@ In the visual editor, set Event Tap Action to Nothing on the **Taps & Refresh** 
 
 The popover shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, you can also change the event right there and delete it; [Editing & Deleting Events](#editing-deleting-events) covers how, and when.
 
-The title, location and description read as they do on the card, with the calendar's [text replacement](/features/core-settings#text-replacement) applied, so a title you masked or reworded stays that way, and a [private calendar's](/features/core-settings#keeping-a-calendar-private) read Private. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
+The title, location and description read as they do on the card, with the calendar's [text replacement](/features/filtering#text-replacement) applied, so a title you masked or reworded stays that way, and a [private calendar's](/features/core-settings#keeping-a-calendar-private) read Private. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
 
 ::: warning What the Popover Reveals
 Two things go further than the card itself:
@@ -193,11 +193,11 @@ Two things on the card are not events, so a tap on them is a tap on the card: th
 Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button, described by its day, so two events with the same title on different days can be told apart.
 
 ::: tip A Tap on an Event Is Not a Tap on the Card
-Tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on a [header toolbar](/features/layout-appearance#header-toolbar) control: the space between the toolbar's controls is the card's. With `day_tap_action: add-event` a tap on a day adds instead, which leaves the title. A hold is the card's: holding an event runs `hold_action`, exactly as holding anywhere else does, unless you [give events a hold of their own](#holding-an-event). In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it, or set `event_tap_action: none` and [hold an event](#holding-an-event) to open it.
+Tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on a [header toolbar](/features/header-toolbar) control: the space between the toolbar's controls is the card's. With `day_tap_action: add-event` a tap on a day adds instead, which leaves the title. A hold is the card's: holding an event runs `hold_action`, exactly as holding anywhere else does, unless you [give events a hold of their own](#holding-an-event). In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it, or set `event_tap_action: none` and [hold an event](#holding-an-event) to open it.
 :::
 
 ::: details The Card's Own Tap From the Keyboard
-While its events are buttons, the card no longer announces itself as one. Its `tap_action` moves to a button of its own instead, the first stop in the card's Tab order: focused, it rings the card, and Enter or Space runs the `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. Screen readers announce it by the action's name where the card has a button for that action (Refresh, Reset, Back, Add event), and by the card's title otherwise, or its first calendar's name where it has no title. For `expand`, they also say whether the card is expanded. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) or a link in an event is shown. A card with nothing inside it to press, such as one showing only "No events", stays a button itself.
+While its events are buttons, the card no longer announces itself as one. Its `tap_action` moves to a button of its own instead, the first stop in the card's Tab order: focused, it rings the card, and Enter or Space runs the `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. Screen readers announce it by the action's name where the card has a button for that action (Refresh, Reset, Back, Add event), and by the card's title otherwise, or its first calendar's name where it has no title. For `expand`, they also say whether the card is expanded. The same holds while the [header toolbar](/features/header-toolbar) or a link in an event is shown. A card with nothing inside it to press, such as one showing only "No events", stays a button itself.
 :::
 
 ### Holding an Event
@@ -240,7 +240,7 @@ event_tap_action:
 
 | Placeholder     | What it holds                                                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `{title}`       | The event's title, with the calendar's [text replacement](/features/core-settings#text-replacement) applied                         |
+| `{title}`       | The event's title, with the calendar's [text replacement](/features/filtering#text-replacement) applied                             |
 | `{start}`       | When it starts: a date and time with its offset, such as `2026-11-03T17:00:00+01:00`, or a date, such as `2026-11-03`, when all-day |
 | `{end}`         | When it ends, written the same way. An all-day event ends on the day after its last day, as calendars store it                      |
 | `{all_day}`     | `true` for an all-day event, `false` for any other                                                                                  |
@@ -383,7 +383,7 @@ entities:
 
 The details still open, but the card makes the event read-only and leaves out Delete where changing it would go wrong, whatever the two options say:
 
-- **A row merged by [`filter_duplicates`](/features/core-settings#filtering-duplicate-events).** The event exists in more than one calendar, so editing one copy is ambiguous, and deleting one brings the row straight back from the other.
+- **A row merged by [`filter_duplicates`](/features/filtering#filtering-duplicate-events).** The event exists in more than one calendar, so editing one copy is ambiguous, and deleting one brings the row straight back from the other.
 - **An event from a calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load).** The card is drawing it from its cache, which can be up to a day old, and saving an edit would write those old values over the calendar's current ones.
 - **An event without an identifier.** Home Assistant finds the event to change by its unique ID, and some calendars do not send one.
 - **Editing only, an event its calendar stores without an end.** The popover shows it ending where it starts, and saving a change would write that end into the calendar.
@@ -484,14 +484,14 @@ open_links: true
   when tapped still expands from anywhere but its links.
 - **Web addresses only.** Anything else stays text, and so does a location that is not a web
   address. A link a calendar wrote into a description as HTML, as Google Calendar does, keeps its
-  words; where the calendar's [text replacement](/features/core-settings#text-replacement) or a
+  words; where the calendar's [text replacement](/features/filtering#text-replacement) or a
   [birthday marker](/features/event-content#birthday-ages-anniversary-counts) rewrote the
   description, only the addresses written out in it are links.
 
 ::: details Links From the Keyboard & Swipes
 Keyboard users reach each link with Tab and follow it with Enter; a link that `location_max_lines`
 or `description_max_lines` cut off shows its whole field while it has focus. A swipe can still
-start on a link to [page through dates](/features/layout-appearance#paging-through-dates).
+start on a link to [page through dates](/features/header-toolbar#paging-through-dates).
 :::
 
 ## 👆 Custom Tap & Hold Actions
@@ -565,7 +565,7 @@ Because these are forwarded, the parameters are Home Assistant's own — see the
 ### Refreshing From a Tap or Hold
 
 `refresh` loads the card's events again now, as the toolbar's
-[refresh button](/features/layout-appearance#refreshing-the-events) does, rather than at the next
+[refresh button](/features/header-toolbar#refreshing-the-events) does, rather than at the next
 `refresh_interval`. On a wall tablet a hold is a good place for it, out of the way of everyday
 taps:
 
@@ -600,7 +600,7 @@ To add with a tap on a day while a tap elsewhere on the card does something else
 
 ### Resetting From a Tap or Hold
 
-`reset` does what the toolbar's [reset button](/features/layout-appearance#resetting-the-card)
+`reset` does what the toolbar's [reset button](/features/header-toolbar#resetting-the-card)
 does: it brings back the days the card opens with, its configured `view` and every calendar,
 collapses a compact card, and forgets the layout and calendars this device chose. It works with
 or without the button, so a card shared on a wall tablet can keep its toolbar short and still be
@@ -639,7 +639,7 @@ hold_action:
 
 `back` never leaves Home Assistant and never goes back to its login page. The visual editor
 offers it as Go Back; `navigation_path` is YAML only. A
-[button of your own](/features/layout-appearance#your-own-buttons) in the toolbar can run it too.
+[button of your own](/features/header-toolbar#your-own-buttons) in the toolbar can run it too.
 
 ::: details If Back Always Shows This Dashboard
 The card tells a page Home Assistant opened from a new tab or a bookmark by a mark Home Assistant
@@ -650,7 +650,7 @@ sets, which is not a documented interface, so a future release could change it. 
 ## 🔄 Expandable Calendar Card
 
 A list card can open short and show more when tapped. With a
-[`compact_events_to_show`](/features/core-settings#compact-mode-event-limits) limit, the card
+[`compact_events_to_show`](/features/list-view#compact-mode-event-limits) limit, the card
 shows that many events, and `tap_action: expand` lets users toggle between them and the full set:
 
 ```yaml
@@ -684,7 +684,7 @@ With both card-wide and per-calendar limits:
 
 - In compact mode, both are enforced.
 - In expanded mode, **every** compact limit is removed — the card-wide caps **and** each calendar's own `compact_events_to_show`. What remains is the ordinary `days_to_show` window.
-- The expand/collapse state persists until manually toggled, the page is reloaded, or the toolbar's [reset button](/features/layout-appearance#resetting-the-card) is pressed.
+- The expand/collapse state persists until manually toggled, the page is reloaded, or the toolbar's [reset button](/features/header-toolbar#resetting-the-card) is pressed.
 
 ```yaml
 entities:

@@ -282,7 +282,7 @@ path or label that reads the merged values shows a kept line as inherited, or lo
 switch to Grid has to copy.
 :::
 
-See [Per-View Options](/features/core-settings#per-view-options) and the
+See [Per-View Options](/features/layouts#per-view-options) and the
 [editor upgrade flow](/features/editor#upgrading-a-card-from-before-v5) for user-facing examples.
 
 ## 📦 One Card, Its Editor & Its Languages

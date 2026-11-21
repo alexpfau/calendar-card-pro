@@ -33,6 +33,7 @@ const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
  */
 const ENTITY_OPTIONS_DOC = join(DOCS_DIR, 'features/core-settings.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
+const MOVED_ANCHORS = join(DOCS_DIR, '.vitepress/moved-anchors.json');
 const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
 const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
 
@@ -1941,6 +1942,7 @@ function report(counts) {
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
+      `${counts.movedAnchors} moved sections forwarded, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
       `${counts.listFences} YAML examples checked for list-only keys, ` +
@@ -2851,6 +2853,50 @@ function checkDeprecatedTable(maps) {
   }
 
   return maps.card.size;
+}
+
+// ---------------------------------------------------------------------------
+// Check 35 — every moved section forwards from an anchor that is gone to one that exists
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconcile `moved-anchors.json` against the pages, in both directions an entry can go wrong.
+ *
+ * The site's theme forwards a link to a section that moved to another page, so release notes,
+ * issue comments and installed editors keep landing on it. It forwards only where the old page
+ * no longer has the anchor, so an entry whose anchor came back is dead weight that would hide the
+ * next move of the same name; and a target nothing publishes forwards a reader into a 404.
+ *
+ * @param docs - Every markdown page under `docs/`
+ * @returns The number of forwards checked
+ */
+function checkMovedAnchors(docs) {
+  const { anchors } = buildAnchorMap(docs);
+  const rel = relative(ROOT, MOVED_ANCHORS);
+  const moved = JSON.parse(readFileSync(MOVED_ANCHORS, 'utf8'));
+  const entries = Object.entries(moved);
+  assertFound(entries, 'moved anchors', MOVED_ANCHORS);
+  for (const [from, to] of entries) {
+    const [page, anchor] = from.split('#');
+    if (anchor === undefined) {
+      error(`${rel}: ${from} names no anchor; only a section's anchor can be forwarded.`);
+      continue;
+    }
+    if (anchors.get(page)?.has(anchor)) {
+      error(
+        `${rel}: ${from} is still a heading on ${page}, so the forward never fires. ` +
+          `Remove the entry, or rename the heading.`,
+      );
+    }
+    const [toPage, toAnchor] = to.split('#');
+    const slugs = anchors.get(toPage);
+    if (slugs === undefined) {
+      error(`${rel}: ${from} forwards to ${toPage}, which no page under docs/ publishes.`);
+    } else if (toAnchor !== undefined && !slugs.has(toAnchor)) {
+      error(`${rel}: ${from} forwards to ${to}, but #${toAnchor} is not a heading on ${toPage}.`);
+    }
+  }
+  return entries.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -4014,6 +4060,7 @@ function main() {
     checkRuntimeEnumUsages(readRuntimeEnums(), docs);
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
+  const movedAnchors = checkMovedAnchors(docs);
   const themed = checkThemeDefaults(readThemeTable());
   const viewScope = readViewScope();
   const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
@@ -4039,6 +4086,7 @@ function main() {
       runtimeEnums,
       removed,
       reachable,
+      movedAnchors,
       themed,
       citations,
       listFences,

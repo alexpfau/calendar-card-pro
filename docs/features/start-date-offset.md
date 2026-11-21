@@ -80,7 +80,7 @@ can make the start of the week look empty, so pair `start_of_week` with `show_pa
 there to see the full week. Grid view shows past events by default and needs nothing.
 :::
 
-When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
+When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
 
 ```yaml
 start_date: '2025-07-01'
@@ -138,7 +138,7 @@ Anchor each card to `start_of_week`. With bare `monday`…`friday`, each card ro
 - **Dynamic date range**: Using relative offsets creates a "floating" window that automatically adjusts as time passes
 
 Either way, `start_date` sets the days the card opens with. The toolbar's
-[date navigation](/features/layout-appearance#paging-through-dates) can page away from them,
+[date navigation](/features/header-toolbar#paging-through-dates) can page away from them,
 and its home button always returns to them, today or not.
 
 Month shows a whole month: the month holding the date, fixed or relative, or today's month for

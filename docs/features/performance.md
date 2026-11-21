@@ -78,7 +78,7 @@ How soon Home Assistant knows depends on the calendar's integration:
 - **Just after midnight.** A card whose dates move with today, with no `start_date` or a
   [relative one](/features/start-date-offset), loads the new day's events just after midnight
   rather than at its next refresh.
-- **When you ask.** The toolbar's [refresh button](/features/layout-appearance#refreshing-the-events),
+- **When you ask.** The toolbar's [refresh button](/features/header-toolbar#refreshing-the-events),
   or a [`refresh` tap or hold action](/features/actions#refreshing-from-a-tap-or-hold), asks Home
   Assistant for every calendar now, however recent the events the card holds.
 
@@ -96,16 +96,16 @@ choices made on its toolbar:
 - **The events it last loaded,** up to 24 hours old, in the browser's storage. They are what the
   card draws the moment it appears, and what it keeps showing for a calendar that
   [fails to load](#when-a-calendar-fails-to-load).
-- **Pages the [date navigation](/features/layout-appearance#paging-through-dates) reaches,** in
+- **Pages the [date navigation](/features/header-toolbar#paging-through-dates) reaches,** in
   memory only. Each is loaded the first time it is shown and kept, shared by the cards on the
   page, for the 16 most recent pages while the dashboard is open. Paging back to a recent page is
   instant and an older one is loaded again. None is written to the browser's storage, so a tablet
   paging all week leaves nothing behind.
-- **Two years for [search](/features/layout-appearance#searching-the-card),** in memory only,
+- **Two years for [search](/features/header-toolbar#searching-the-card),** in memory only,
   for that card while the dashboard is open; see [How Search Loads](#how-search-loads).
 - **The layout and the hidden calendars a device chose,** with the
-  [view switcher](/features/layout-appearance#switching-between-layouts) and the
-  [calendar filter](/features/layout-appearance#showing-hiding-calendars), in the browser's
+  [view switcher](/features/header-toolbar#switching-between-layouts) and the
+  [calendar filter](/features/header-toolbar#showing-hiding-calendars), in the browser's
   storage, for that exact configuration of the card, including the layout keys a dashboard
   stores with it. A change to the configuration, even resizing the card in a sections dashboard,
   starts them over, and a configuration changed back to exactly what it was finds them again. Two
@@ -169,7 +169,7 @@ Assistant is restarting, or because it does not answer within 30 seconds. The ca
 
 A calendar that has never loaded, for example because of a typo in its entity id, is named
 straight away. A calendar hidden with the toolbar's
-[calendar filter](/features/layout-appearance#showing-hiding-calendars) is still loaded, and
+[calendar filter](/features/header-toolbar#showing-hiding-calendars) is still loaded, and
 still named when it fails. The line uses your theme's error color, and card-mod can style it
 through the `.fetch-error` class.
 
@@ -185,7 +185,7 @@ through the `.fetch-error` class.
    **Settings → System → Logs** for an error from the integration.
 3. **Try again.** Once the calendar works in Home Assistant, the card picks it up at its next
    retry. To try at once, press the toolbar's
-   [refresh button](/features/layout-appearance#refreshing-the-events) or run a
+   [refresh button](/features/header-toolbar#refreshing-the-events) or run a
    [`refresh` action](/features/actions#refreshing-from-a-tap-or-hold). After you reload the
    integration, a card on screen also subscribes to [live updates](#live-updates) again within 30
    seconds.

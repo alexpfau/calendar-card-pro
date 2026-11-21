@@ -66,7 +66,7 @@ time_grid:
   not only how it looks.
 - These are the grid's hours, the same for every calendar. To leave out one calendar's events
   that start outside some hours, in every layout, use
-  [`starts_after` and `starts_before`](/features/core-settings#showing-events-that-start-at-certain-hours).
+  [`starts_after` and `starts_before`](/features/filtering#showing-events-that-start-at-certain-hours).
 - A timed event that runs across more than one day but lasts less than a full day, such as a
   night shift, gets one block per day column; a longer one is
   [one banner above the hours](#long-timed-events-as-banners) instead. The block where it
@@ -105,7 +105,7 @@ omitted bound is different: it uses its own default and keeps the other valid bo
   Even with `hour_line_width: 0`, two touching events from one calendar still read as two.
 - A day a continuing event runs through is not empty: `show_empty_days: false` keeps its
   column, for timed and all-day events alike.
-- A calendar's [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+- A calendar's [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only)
   filter judges each day an event covers on its own, so an event that starts on an excluded
   day can still appear on a later one.
 
@@ -331,11 +331,11 @@ time_grid:
 - The tint runs from just under the date row, through the all-day band and down the hours, as
   one continuous column. The date row itself stays clear.
 - Which days are shaded comes from the
-  [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+  [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only),
   so this is Friday and Saturday in Israel and Sunday alone in India, whatever language Home
   Assistant runs in. With no country set, Home Assistant's language decides instead. The
   [`weekend_*` date colors](/features/layout-appearance#date-column-customization) and
-  [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) use the same
+  [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only) use the same
   definition.
 
 ::: details Where Two Weekend Days Meet
@@ -406,7 +406,7 @@ time_grid:
 - A per-calendar weekday/weekend filter can leave gaps in a banner. The banner joins adjacent
   visible columns where that event qualifies, but never crosses an excluded column that another
   calendar keeps visible. Its arrows still refer to the original event.
-- With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), only
+- With [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events), only
   eligible calendar copies contribute on each date. If those contributors change, the banner
   separates into runs, so a shared-event color does not extend into dates where only one
   calendar qualifies.
@@ -805,7 +805,7 @@ time_grid:
   - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`. At extreme
     widths each day keeps a `2rem` floor and the grid scrolls sideways rather than collapsing
     days to nothing; the axis and day gaps keep their sizes. On a touch screen a swipe across a
-    crammed grid scrolls rather than [paging](/features/layout-appearance#paging-through-dates);
+    crammed grid scrolls rather than [paging](/features/header-toolbar#paging-through-dates);
     the arrows still page.
 - The days that stay always include today, and they move on at midnight.
 
@@ -863,7 +863,7 @@ time_grid:
   days_to_show: 7
 ```
 
-See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 ### A Full Week Without Dimming
 

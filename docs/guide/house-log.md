@@ -95,12 +95,12 @@ The card covers the last seven days, and each entry reads its time and how long 
 - **Each job's last time only.** List the calendar once per job with an `allowlist` and `compact_events_to_show: 1`, as [Bin Day](/guide/bin-day) does for its bins. Newest first, each block keeps its latest entry, so with `start_date: today-364` and `days_to_show: 365` the card answers _when did we last…_ for a whole year.
 - **Further back.** `start_date: today-89` with `days_to_show: 90` covers three months. Every limit keeps the newest entries, so `compact_events_to_show: 10` under `list:` shows the latest ten.
 - **Counted in days.** [`countdown_exact_days: true`](/features/event-content#counting-in-days) reads "40 days ago" rather than "a month ago", and "1 day ago" for yesterday.
-- **Logging from the card.** A [toolbar](/features/layout-appearance#header-toolbar) with its add button logs an entry from the card, but a new event [starts on the hour and lasts an hour](/features/actions#add-event-button). Until it ends it shows its title alone, so move it to before now ahead of **Add**.
+- **Logging from the card.** A [toolbar](/features/header-toolbar) with its add button logs an entry from the card, but a new event [starts on the hour and lasts an hour](/features/actions#add-event-button). Until it ends it shows its title alone, so move it to before now ahead of **Add**.
 
 ## 📚 Next Steps
 
 - [Counting Up From Past Events](/features/event-content#counting-up-from-past-events) — how long ago, and the countdown options that shape it
-- [Event Order](/features/core-settings#event-order) — newest first, and how limits keep from the top
+- [Event Order](/features/list-view#event-order) — newest first, and how limits keep from the top
 - [Time Beside the Title](/features/event-content#time-beside-the-title) — how long ago, on the title's line
 - [Past Events Display](/features/event-content#past-events-display) — finished entries at full strength
 - [Configuration Reference](/reference/configuration) — every option

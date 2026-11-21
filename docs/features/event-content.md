@@ -142,11 +142,11 @@ hide_when_empty: true
 
 ::: details When the Card Stays Visible Anyway
 
-- A card the [date navigation](/features/layout-appearance#paging-through-dates) has paged away
+- A card the [date navigation](/features/header-toolbar#paging-through-dates) has paged away
   from its own days stays, so its arrows can bring it back.
 - A card with a calendar hidden by the
-  [calendar filter](/features/layout-appearance#showing-hiding-calendars) stays, with its filter.
-- With a [different number of days in each layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout),
+  [calendar filter](/features/header-toolbar#showing-hiding-calendars) stays, with its filter.
+- With a [different number of days in each layout](/features/layouts#showing-a-different-number-of-days-in-each-layout),
   the card hides only when none of the layouts it can show has an event.
 - Compact mode limits never hide it: a card limited to zero events with
   `compact_events_to_show: 0` stays visible so it can still be expanded.
@@ -163,7 +163,7 @@ hide_when_empty: true
 
 With `show_past_events: false`, a card goes as its last timed event ends, or as its last
 all-day event expires, at midnight or at its
-[`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) time. In
+[`allday_expires_at`](/features/filtering#retiring-all-day-events-during-the-day) time. In
 grid view with its now line on, it goes within the minute.
 
 :::
@@ -524,12 +524,12 @@ entities:
 ```
 
 - There is no card-wide version. To give part of one calendar its own icon, pair it with
-  [`filter_field`](/features/core-settings#giving-teams-meetings-their-own-icon).
+  [`filter_field`](/features/filtering#giving-teams-meetings-their-own-icon).
 - To turn the Teams icon off, name the marker: `location_icon: mdi:map-marker-outline` puts that
   calendar back on the plain marker for every event.
 - `location_icon_size` sizes whichever icon ends up being drawn.
 - The detection reads the location as the card draws it, not as your calendar sent it, so
-  [rewriting a location](/features/core-settings#replacing-a-location-that-is-a-meeting-url) can
+  [rewriting a location](/features/filtering#replacing-a-location-that-is-a-meeting-url) can
   take the Teams icon away or give it to an event that never had it. `location_icon` settles it
   on any calendar where that matters.
 
@@ -825,7 +825,7 @@ show_past_events: true # Keep finished events on the card
 - With the [progress bar](#progress-bar-display) on, an event a day or longer keeps its
   [day counter](/features/multi-day-events#day-counter) after it ends, such as "Day 1 of 3",
   rather than counting up.
-- For a log with the newest entry first, see [Event Order](/features/core-settings#event-order),
+- For a log with the newest entry first, see [Event Order](/features/list-view#event-order),
   and the [House Log](/guide/house-log) story for a complete card.
 - In the visual editor it comes with the **Countdown** part on the **Event Appearance** page.
 
@@ -887,7 +887,7 @@ show_countdown: once_per_day
 
 - Countdowns later today always show, since two that read "in 5 hours" can name different
   times, and so do count-ups earlier today.
-- Under [`event_order: latest_first`](/features/core-settings#event-order) the first drawn is
+- Under [`event_order: latest_first`](/features/list-view#event-order) the first drawn is
   the latest event, which keeps its count-up.
 - A countdown that differs still shows, and an event without one, such as an all-day event with
   `show_countdown_allday: false` or one showing the
@@ -1022,7 +1022,7 @@ now_color: '#ef4444' # Mark it in red instead
   to give grid view a color of its own.
 
 `show_now_indicator` can differ per view, like any other
-[per-view option](/features/core-settings#per-view-options). To keep the mark in list view and
+[per-view option](/features/layouts#per-view-options). To keep the mark in list view and
 drop it from columns:
 
 ```yaml
@@ -1038,7 +1038,7 @@ instead and shows "Nå", and an Icelandic card shows "Now", in English whatever 
 browser itself is in. Home Assistant set to Icelandic or Nynorsk brings its own data for that
 language, and the card loads its own language alongside it, so every card keeps its words. The
 countdown's "tomorrow" and hours, and the month and "Today" in the toolbar, come from the
-browser the same way. [Language](/features/core-settings#language) has the whole rule.
+browser the same way. [Language](#language) has the whole rule.
 
 :::
 
@@ -1108,7 +1108,7 @@ before.
 ## 🌈 Weekend Day Styling
 
 Weekend days can have their own date colors, so the weekend stands out at a glance. Which days
-those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+those are follows the [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only),
 or its language when no country is set: Saturday and Sunday in most countries, Friday and
 Saturday in others.
 
@@ -1138,6 +1138,47 @@ weekend_month_color: '#E67C73'
   [Date Column Customization](/features/layout-appearance#date-column-customization).
 - To tint the whole weekend column in grid view, see
   [Shading the Weekend](/features/grid-view#shading-the-weekend).
+
+## 🌐 Language
+
+`language` sets the language the card writes in. Unset, or set to one the card does not speak,
+the card follows your Home Assistant profile, and falls back to English where it does not speak
+that either.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+language: de
+```
+
+| Option     | Type   | Default                   | Description                                             |
+| ---------- | ------ | ------------------------- | ------------------------------------------------------- |
+| `language` | string | Home Assistant's, or `en` | A language code, such as `de`, `nb`, `zh-cn` or `en-gb` |
+
+- In the editor, **Language** on the **Card & Header** page is one dropdown: **Follow Home
+  Assistant**, then each language the card speaks, by its own name and code.
+- Dates, weekdays, months and words such as "Now", "Today", "tomorrow" and "in 3 hours" come
+  from your browser in the card's language, so they need no translation.
+- Where your browser has no data for that language, those words follow one rule: Nynorsk reads
+  in Bokmål, and any other language in English, as the card's own words do. Chrome, as tested,
+  has none for Icelandic or Nynorsk.
+- The date in a multi-day event's end, as in "until Friday, 19 Jun", is the one exception: where
+  the browser has no data for the language, the card writes that date from its own month names,
+  so it stays in the card's language.
+- The event popover follows your Home Assistant profile's language instead, since its words are
+  Home Assistant's own; see [Words & Language](/features/actions#words-language).
+
+::: details When Home Assistant Itself Is in Icelandic or Nynorsk
+
+Where the browser has no data for the language Home Assistant starts in, Home Assistant replaces
+the browser's date formatting with its own, holding that language alone, and every card on the
+dashboard writes through it. The card loads its own language into it from Home Assistant, the
+same way Home Assistant loads its own, and redraws once it has: a German card shows "Jetzt",
+not "Núna". Until then, or if Home Assistant cannot serve the file, the card shows what it
+showed before.
+
+:::
 
 ## 📊 Progress Bar Display
 

@@ -76,8 +76,8 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 
 ## 📚 Next Steps
 
-- [Entity-Level vs. Global Event Limits](/features/core-settings#entity-level-vs-global-event-limits) — a limit for each block
-- [Retiring All-Day Events During the Day](/features/core-settings#retiring-all-day-events-during-the-day) — when a pickup leaves the card
+- [Entity-Level vs. Global Event Limits](/features/list-view#entity-level-vs-global-event-limits) — a limit for each block
+- [Retiring All-Day Events During the Day](/features/filtering#retiring-all-day-events-during-the-day) — when a pickup leaves the card
 - [Repeated Countdowns](/features/event-content#repeated-countdowns) — one "tomorrow" for two bins on the same day
-- [Text Replacement](/features/core-settings#text-replacement) and [The All-Day Badge](/features/event-content#the-all-day-badge) — the prefix and the pill
+- [Text Replacement](/features/filtering#text-replacement) and [The All-Day Badge](/features/event-content#the-all-day-badge) — the prefix and the pill
 - [Configuration Reference](/reference/configuration) — every option

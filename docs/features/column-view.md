@@ -59,7 +59,7 @@ that lies entirely behind keeps its last. The columns move on at midnight.
 
 ::: warning Dropped Days Are Not Marked
 A card showing two of seven days looks exactly like a card configured for two days: nothing
-says days were dropped. With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates),
+says days were dropped. With the toolbar's [date navigation](/features/header-toolbar#paging-through-dates),
 the arrows and a swipe page through them by the days drawn; without it, the dropped days cannot
 be reached in Columns. To see every day, set `min_days_to_show` to the number of days shown.
 :::
@@ -88,7 +88,7 @@ which is what you want when your events have long titles. Lowering it keeps more
 narrower cards, at the cost of more wrapping.
 
 The list shows List's own `days_to_show`, not the column layout's; see
-[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+[Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 ## ⚠️ When Even the Fewest Columns Will Not Fit
 
@@ -215,7 +215,7 @@ Three options sound as though they belong in the first list, and do not:
 - **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
   six weeks, may set its own: the card loads the longest count among the layouts it can show,
   with Month's weeks where it can show Month, and each draws its own days out of that load. See
-  [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+  [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
   so they can differ per view — and often want to, because a column is a narrow space where a
   finished event or a second copy of the same meeting costs more than it does in a full-width

@@ -42,7 +42,7 @@ list:
   month_separator_label: true
 ```
 
-The toolbar is there for its magnifier: a search answers _when is Clara's birthday?_ a year back or ahead, beyond the 60 days on screen. Search comes with the date navigation, so the arrows and a swipe page through the days too, and the title becomes a small label over the month. Every other toolbar control is turned off. See [Searching the Card](/features/layout-appearance#searching-the-card).
+The toolbar is there for its magnifier: a search answers _when is Clara's birthday?_ a year back or ahead, beyond the 60 days on screen. Search comes with the date navigation, so the arrows and a swipe page through the days too, and the title becomes a small label over the month. Every other toolbar control is turned off. See [Searching the Card](/features/header-toolbar#searching-the-card).
 
 The month on the toolbar is the first month shown, and each rule after it names the next, so `show_month: false` takes the month out of every date without leaving a day unplaced. See [Naming the Month on Its Rule](/features/layout-appearance#naming-the-month-on-its-rule).
 
@@ -64,7 +64,7 @@ The month on the toolbar is the first month shown, and each rule after it names 
 ## 🔀 Adapt It
 
 - **Fixtures & school terms.** A team's fixtures or a school's term dates are the same shape: add the calendar as a third entry with an emoji and a color of its own.
-- **Two holiday calendars.** Two regions' public holidays share many days, and Home Assistant's Holiday integration writes each calendar's own name into every holiday's location, so even `filter_duplicates: true` shows a shared holiday twice. Add the second calendar and `filter_duplicates: ignore_location` to show it once, or `merge_locations` to show it once with both regions' names, which says whose holiday it is. See [Filtering Duplicate Events](/features/core-settings#filtering-duplicate-events).
+- **Two holiday calendars.** Two regions' public holidays share many days, and Home Assistant's Holiday integration writes each calendar's own name into every holiday's location, so even `filter_duplicates: true` shows a shared holiday twice. Add the second calendar and `filter_duplicates: ignore_location` to show it once, or `merge_locations` to show it once with both regions' names, which says whose holiday it is. See [Filtering Duplicate Events](/features/filtering#filtering-duplicate-events).
 - **Anniversaries.** The same `YEAR=` marker counts the years since a wedding.
 - **Further ahead.** Raise `days_to_show`; the month rules keep a long list readable.
 - **Days into a break.** `show_progress_bar: true` writes "Day 3 of 5" on a holiday of several days once it has begun, so the family can see how much of the break is left. Before it starts, the countdown stays. See [Day Counter](/features/multi-day-events#day-counter).
@@ -75,5 +75,5 @@ The month on the toolbar is the first month shown, and each rule after it names 
 - [Countdown Display](/features/event-content#countdown-display) and [Counting in Days](/features/event-content#counting-in-days) — the wording under each event
 - [Week Numbers & Visual Separators](/features/layout-appearance#week-numbers-visual-separators) — the rule between months
 - [Tapping an Event](/features/actions#tapping-an-event) — what the popover shows
-- [Searching the Card](/features/layout-appearance#searching-the-card) — what the magnifier finds
+- [Searching the Card](/features/header-toolbar#searching-the-card) — what the magnifier finds
 - [Configuration Reference](/reference/configuration) — every option

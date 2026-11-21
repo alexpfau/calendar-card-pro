@@ -46,7 +46,7 @@ today, and `start_date: 2027-01-15` opens January 2027.
 
 ### Paging Through Months
 
-With the toolbar's [date navigation](/features/layout-appearance#paging-through-dates), the
+With the toolbar's [date navigation](/features/header-toolbar#paging-through-dates), the
 arrows and a sideways swipe move a whole month, the date picker jumps to the month of the date
 you pick, and the home button returns to the month the card opens with. It is called "Today"
 while that month is today's, and otherwise by the month it goes to, such as "January 2027".
@@ -91,7 +91,7 @@ month:
 A calendar's own `multiday_banners` wins, as it does in Grid.
 
 ::: details Days a Calendar Leaves Out
-A bar breaks where a calendar's [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+A bar breaks where a calendar's [`days_of_week`](/features/filtering#showing-a-calendar-on-weekdays-only)
 leaves a day out, and starts again after it, so a weekday-only trip never covers the weekend.
 :::
 
@@ -219,7 +219,7 @@ set up; see [Narrow Cards](/features/editor#narrow-cards).
 - **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
   for Tomorrow, Start of Week or no `start_date`. Paging to another month selects today where the
   heading's month holds it, and otherwise the 1st, and the home and
-  [reset](/features/layout-appearance#resetting-the-card) buttons go back to the day the month
+  [reset](/features/header-toolbar#resetting-the-card) buttons go back to the day the month
   opens with.
 - **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
@@ -329,7 +329,7 @@ In the visual editor they are **Weekend Shading** and **Today Shading** on Month
 - **Today on a weekend** takes today's color in place of the weekend shading rather than mixing
   the two.
 - **Which days are the weekend** follows the
-  [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or
+  [country set in Home Assistant](/features/filtering#showing-a-calendar-on-weekdays-only), or
   its language where no country is set, as in [Grid](/features/grid-view#shading-the-weekend).
 - **Grid shades apart**: its own two options live in `time_grid:`, so each layout keeps its own
   colors.
@@ -372,7 +372,7 @@ Days** on Month's Event Appearance, beside the sizes a day's list takes.
 
 ## 🧰 Month in the View Switcher
 
-The toolbar's [view switcher](/features/layout-appearance#switching-between-layouts) offers Month
+The toolbar's [view switcher](/features/header-toolbar#switching-between-layouts) offers Month
 with the other layouts by default. Month shows six weeks, so a card that can switch to it loads
 those six weeks with its own days. To keep a card's loading small, name the layouts the switcher
 offers in `view_switcher_layouts` and leave Month out:

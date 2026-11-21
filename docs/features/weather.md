@@ -232,9 +232,9 @@ once the layout the page is open for shows the forecast beside events.
 ::: details Calendars Listed Twice & Merged Rows
 
 - The option belongs to the entry, not the calendar. A calendar
-  [listed twice to split its events by type](/features/core-settings#separating-all-day-from-timed-events)
+  [listed twice to split its events by type](/features/filtering#separating-all-day-from-timed-events)
   can keep the weather on its all-day events and leave it off its timed ones.
-- A row [merged from several calendars](/features/core-settings#filtering-duplicate-events)
+- A row [merged from several calendars](/features/filtering#filtering-duplicate-events)
   follows the calendar listed first among them.
 
 :::

@@ -72,7 +72,7 @@ By default a tap on an event opens it, and wins over the card's tap. Events cove
 ## 📚 Next Steps
 
 - [Expandable Calendar Card](/features/actions#expandable-calendar-card) — compact mode and the expand action
-- [Compact Mode & Event Limits](/features/core-settings#compact-mode-event-limits) — card-wide and per-calendar limits
+- [Compact Mode & Event Limits](/features/list-view#compact-mode-event-limits) — card-wide and per-calendar limits
 - [Countdown Display](/features/event-content#countdown-display), [Repeated Countdowns](/features/event-content#repeated-countdowns), [Progress Bar Display](/features/event-content#progress-bar-display) and [Scrolling Long Titles](/features/event-content#scrolling-long-titles) — the event options
 - [Day Counter](/features/multi-day-events#day-counter) — "Day 1 of 2" on an event a day or longer
 - [Configuration Reference](/reference/configuration) — every option

@@ -194,7 +194,7 @@ Most settings can differ by layout, so a Grid card can keep tighter spacing for 
 back to on a narrow screen. **Layouts**, on the overview, gives each layout a row of its own:
 
 - **The circle** picks the layout the card opens in and writes the existing `view` option. With
-  the [layout switcher](/features/layout-appearance#switching-between-layouts) on, people can
+  the [layout switcher](/features/header-toolbar#switching-between-layouts) on, people can
   switch layouts on the card; the link in the help above the rows opens its chip on Card & Header.
 - **The rest of the row**, its picture, name and description, opens that layout's page, which
   lists its topics: Which Events, Days, Event Appearance and Size & Spacing. Opening a layout
@@ -347,7 +347,7 @@ removes it.
 The upgrade is a change to the card like any other: it is kept only when you press **Save**, so
 **Cancel** leaves the card as it was, and a card you never open in the editor keeps working as it
 is; see
-[Per-View Options](/features/core-settings#per-view-options). Once it is saved, the editor has
+[Per-View Options](/features/layouts#per-view-options). Once it is saved, the editor has
 written the `config_version` option for you, as it does on every card it creates. You do not
 need to add it by hand; see
 [Core Settings in the configuration reference](/reference/configuration#core-settings).
@@ -544,7 +544,7 @@ removes the whole calendar, and each entry row duplicates, copies, pastes or rem
 ### Reordering
 
 The order of the calendars decides which one keeps an event several of them hold, under
-[Filter Duplicates](/features/core-settings#filtering-duplicate-events), and which is the card's
+[Filter Duplicates](/features/filtering#filtering-duplicate-events), and which is the card's
 first calendar. Drag a calendar by the handle on its row, or move it without dragging:
 
 - **Move Up**, **Move Down** and **Move to Top** in the row's actions;
@@ -592,7 +592,7 @@ forward:
 An entry page's **Name & Look** opens with **Name**, the
 calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), then
 **Show in Calendar Filter** while the toolbar shows a
-[calendar filter](/features/layout-appearance#leaving-a-calendar-out-of-the-filter), and the
+[calendar filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter), and the
 control after them is **Label Type**. A label is the mark shown before every event from
 that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
 
