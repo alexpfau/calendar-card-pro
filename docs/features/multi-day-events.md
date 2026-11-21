@@ -152,7 +152,8 @@ month:
 ```
 
 A shorter timed event, such as a night shift, has a line on each day it touches. The day's list
-and the panel show a multi-day event on every day it covers. `multiday_banners` applies to Grid's
+and the panel show a multi-day event on every day it covers, and with `show_past_events: false` a
+bar keeps its earlier days there until the whole event is past. `multiday_banners` applies to Grid's
 banners too, and a calendar's own value wins over the card's.
 
 This page covers `split_multiday_events`, in [Core Settings in the configuration reference](/reference/configuration#core-settings), and the day counter, which `show_progress_bar` turns on, in [Event Column](/reference/configuration#event-column).

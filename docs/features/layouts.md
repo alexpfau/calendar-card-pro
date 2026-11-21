@@ -122,12 +122,13 @@ never loads anything. The rest of the card follows the layout on screen:
   `list.days_to_show` when it is set, otherwise the top-level value. So a Columns card set to
   5 days in `column:` shows List's count when it turns into a list. Leave the
   column's own count unset if both should match.
-- Columns and Grid shed days on a narrow card from their own count, Columns down to two and
-  Grid down to one unless `min_days_to_show` says otherwise.
-- `hide_when_empty` hides the card only when none of the layouts it can show has an event:
-  every layout with the view switcher, otherwise the one set in `view` plus List as its
-  fallback. A week with nothing on the grid does not hide a card whose list has something
-  next week.
+- Columns and Grid shed days on a narrow card from their own count, unless `min_days_to_show`
+  says otherwise: Grid down to one, and Columns down to two where the toolbar's date navigation
+  can page to the days dropped; without it, Columns keeps every day or draws a list.
+- `hide_when_empty` judges the layout on screen, the list a narrow card falls back to
+  included, so a week with nothing on the grid hides the card even though its list would show
+  something next week. While a layout picked with the view switcher is on screen, an event in
+  `view`'s own layout keeps the card too, so the switcher back stays in reach.
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
