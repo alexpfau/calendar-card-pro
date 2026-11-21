@@ -1838,6 +1838,13 @@ class CalendarCardPro extends LitElement {
   private _monthCapacity = MonthRender.MONTH_LINE_CAPACITY_DEFAULT;
 
   /**
+   * Lines a month event set at each `text_scale` takes, as last measured off the month's probes;
+   * none until a first measurement, which `MonthRender.monthLinesOf` estimates. See
+   * `_syncMonthCapacity`.
+   */
+  private _monthScaleLines: MonthRender.MonthScaleLines = new Map();
+
+  /**
    * Whether a month draws its narrow form, decided from the card's width with a band either
    * side of `min_day_width` (`_syncMonthForm`); the wide form until the card has been measured.
    */
@@ -3695,8 +3702,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Writes a wide month's floors, re-reads how many lines fit under a month day's date, and
-   * re-renders once if that moved.
+   * Writes a wide month's floors, re-reads how many lines fit under a month day's date and how
+   * many an event set at each `text_scale` takes, and re-renders once if either moved.
    *
    * Stable by construction. The card's height is a slot's or a declared one, known before
    * anything is drawn; the floors are read from fonts alone (`MonthRender.measureMonthFloors`)
@@ -3709,11 +3716,22 @@ class CalendarCardPro extends LitElement {
     if (!this.isConnected || this.effectiveView !== 'month') return;
 
     this._writeMonthFloors();
+    const scaleLines = MonthRender.measureMonthScaleLines(this.renderRoot);
+    const scalesMoved =
+      scaleLines !== null &&
+      (scaleLines.size !== this._monthScaleLines.size ||
+        [...scaleLines].some(([scale, lines]) => this._monthScaleLines.get(scale) !== lines));
+    if (scalesMoved) {
+      Logger.debug(`Month lines by text scale: ${JSON.stringify([...scaleLines])}`);
+      this._monthScaleLines = scaleLines;
+    }
     const next = MonthRender.measureMonthCapacity(this.renderRoot);
-    if (next === null || next === this._monthCapacity) return;
-    Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
-    this._monthCapacity = next;
-    this.requestUpdate();
+    const capacityMoved = next !== null && next !== this._monthCapacity;
+    if (capacityMoved) {
+      Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
+      this._monthCapacity = next;
+    }
+    if (scalesMoved || capacityMoved) this.requestUpdate();
   }
 
   /**
@@ -8799,6 +8817,7 @@ class CalendarCardPro extends LitElement {
             more: (day, button) => this._openDayPanel(day, button),
             narrow: monthNarrow,
             focusDay: this._monthTabStop(rowsStart),
+            scaleLines: this._monthScaleLines,
           },
         );
       }
@@ -8859,7 +8878,12 @@ class CalendarCardPro extends LitElement {
         this._searchRingPending = narrowView.ringPending;
         if (narrowView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
       } else if (rowsStart && ring && ringed.found) {
-        this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
+        this._searchRingDrawn = MonthRender.monthDrawsRing(
+          days,
+          rowsStart,
+          this._monthCapacity,
+          MonthRender.monthLinesOf(this.effectiveConfig, this._monthScaleLines),
+        );
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
       }
       content = renderDays(days);

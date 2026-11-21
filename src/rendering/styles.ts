@@ -7882,6 +7882,17 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-time);
   }
 
+  /* The same two at each text_scale a calendar sets, whose probes carry that scale's sizes. */
+  .month-probe[data-probe='scaled-title'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
+  .month-probe[data-probe='scaled-time'] {
+    height: calc(1.2em + 2px);
+    font-size: var(--calendar-card-font-size-time);
+  }
+
   @supports not (color: color-mix(in srgb, red, blue)) {
     .month-container {
       --calendar-card-month-rule: var(--divider-color, rgba(127, 127, 127, 0.25));
@@ -7912,8 +7923,8 @@ export const cardStyles = css`
   /* One row: seven day columns, and the lines the renderer writes inline: the date line, then
      one per line the capacity holds, then whatever is left. Each line is as tall as what is on
      it, a line everywhere empty taking none. Every cell, date, bar, line and "+N" is placed on
-     it explicitly. Clipped, so a row the card has not measured yet, or one whose events
-     text_scale draws larger, never grows past its height. */
+     it explicitly. An event text_scale draws larger takes as many lines as it is tall. Clipped
+     even so, so a row the card has not measured yet never grows past its height. */
   .month-week {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
