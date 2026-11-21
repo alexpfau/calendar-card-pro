@@ -8034,8 +8034,9 @@ export const cardStyles = css`
      primary color for the digits in the same weight, as the narrow form marks today while it is
      the selected day. Among a day's colored lines and bars the wash, at 1.2 to 1.5 to 1 against
      the card, does not stand out; the fill, at 3.3 to 1 in Home Assistant's light theme and 5.2 to
-     1 in its dark one, does. Light digits read thinner on a fill than dark ones on a wash, hence
-     the weight. The ink is redefined rather than the color set, since the digits
+     1 in its dark one, does; where the browser has relative colors the fill is darkened for its
+     digits' sake (Month's two filled tiles, below). Light digits read thinner on a fill than dark
+     ones on a wash, hence the weight. The ink is redefined rather than the color set, since the digits
      take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
      week-number pill and the week separators, keeps the list's tile.
@@ -8378,6 +8379,35 @@ export const cardStyles = css`
     background: var(--calendar-card-today-indicator-color);
     color: var(--text-primary-color, #fff);
     font-weight: 600;
+  }
+
+  /* Month's two filled tiles, darkened until white digits pass WCAG's 4.5 to 1. The digits are
+     16px at 600, which is not large text, and Home Assistant's own light-blue primary gave them
+     3.3 to 1. A color lighter than 0.54 in OKLab lightness is scaled toward black until it
+     reaches it, its a and b by the same factor: that is its linear RGB times one number, so it
+     keeps its hue and stays inside sRGB, where lowering the lightness alone pushed a saturated
+     green out of gamut and back up to 4.1 to 1 once clipped. A color already that dark is left
+     exactly as it is. White then measures at least 4.7 to 1 on every sRGB color
+     (tests/today-tile.test.ts sweeps them). The digits are white rather than the theme's text on
+     its primary, because a theme that set that dark for a pale primary would now be drawing it on
+     a darkened fill. A browser without relative colors keeps the plain fill above. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
+    .month-container:not(.month-narrow) .month-date > .day.today-tile,
+    .month-narrow .month-day.month-selected.today .month-date > .day {
+      background: oklab(
+        from var(--calendar-card-today-indicator-color) calc(l * 0.54 / max(l, 0.54))
+          calc(a * 0.54 / max(l, 0.54)) calc(b * 0.54 / max(l, 0.54)) / alpha
+      );
+    }
+
+    .month-container:not(.month-narrow) .month-date > .day.today-tile {
+      --calendar-card-today-indicator-ink: #fff;
+    }
+
+    .month-narrow .month-day.month-selected.today .month-date > .day {
+      color: #fff;
+    }
   }
 
   .month-narrow .month-day.other-month > * {
