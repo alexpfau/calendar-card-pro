@@ -161,6 +161,7 @@
   "pick.button": "Pasirinkti peržiūroje",
   "pick.banner": "Spustelėkite peržiūros dalį, kad atvertumėte jos nustatymus.",
   "pick.banner_touch": "Palieskite toliau esančios peržiūros dalį, kad atvertumėte jos nustatymus.",
+  "pick.keyboard": "Klaviatūra vietoj to ieškokite nustatymų arba atverkite jų puslapius.",
   "pick.click": "{label} · Spustelėkite, kad redaguotumėte",
   "pick.tap": "{label} · Palieskite, kad redaguotumėte",
   "status.removed": "Pašalinta: {name}",

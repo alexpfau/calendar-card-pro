@@ -161,6 +161,7 @@
   "pick.button": "Wybierz z podglądu",
   "pick.banner": "Kliknij część podglądu, aby otworzyć jej ustawienia.",
   "pick.banner_touch": "Dotknij części podglądu poniżej, aby otworzyć jej ustawienia.",
+  "pick.keyboard": "Z klawiatury zamiast tego przeszukaj ustawienia lub otwórz ich strony.",
   "pick.click": "{label} · Kliknij, aby edytować",
   "pick.tap": "{label} · Dotknij, aby edytować",
   "status.removed": "Usunięto: {name}",

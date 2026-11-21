@@ -163,6 +163,7 @@
   "pick.button": "プレビューから選択",
   "pick.banner": "プレビューの部分をクリックすると、その設定が開きます。",
   "pick.banner_touch": "下のプレビューの部分をタップすると、その設定が開きます。",
+  "pick.keyboard": "キーボードでは、代わりに設定を検索するか、設定のページを開いてください。",
   "pick.click": "{label} · クリックして編集",
   "pick.tap": "{label} · タップして編集",
   "status.removed": "{name}を削除しました",

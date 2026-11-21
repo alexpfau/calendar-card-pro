@@ -161,6 +161,7 @@
   "pick.button": "Välj i förhandsvisningen",
   "pick.banner": "Klicka på en del av förhandsvisningen för att öppna dess inställningar.",
   "pick.banner_touch": "Tryck på en del av förhandsvisningen nedan för att öppna dess inställningar.",
+  "pick.keyboard": "Med tangentbordet söker du i stället i inställningarna eller öppnar deras sidor.",
   "pick.click": "{label} · klicka för att redigera",
   "pick.tap": "{label} · tryck för att redigera",
   "status.removed": "{name} har tagits bort",

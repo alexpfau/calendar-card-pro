@@ -161,6 +161,7 @@
   "pick.button": "Velg fra forhåndsvisningen",
   "pick.banner": "Klikk på en del av forhåndsvisningen for å åpne innstillingene for den.",
   "pick.banner_touch": "Trykk på en del av forhåndsvisningen nedenfor for å åpne innstillingene for den.",
+  "pick.keyboard": "Med tastaturet kan du i stedet søke i innstillingene eller åpne sidene deres.",
   "pick.click": "{label} · Klikk for å redigere",
   "pick.tap": "{label} · Trykk for å redigere",
   "status.removed": "Fjernet {name}",

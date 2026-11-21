@@ -161,6 +161,7 @@
   "pick.button": "Aus der Vorschau wählen",
   "pick.banner": "Klicke auf einen Teil der Vorschau, um seine Einstellungen zu öffnen.",
   "pick.banner_touch": "Tippe auf einen Teil der Vorschau unten, um seine Einstellungen zu öffnen.",
+  "pick.keyboard": "Mit der Tastatur suchst du stattdessen in den Einstellungen oder öffnest ihre Seiten.",
   "pick.click": "{label} · Zum Bearbeiten klicken",
   "pick.tap": "{label} · Zum Bearbeiten tippen",
   "status.removed": "{name} entfernt",

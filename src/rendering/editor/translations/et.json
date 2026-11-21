@@ -161,6 +161,7 @@
   "pick.button": "Vali eelvaatest",
   "pick.banner": "Klõpsa eelvaate osal, et avada selle seaded.",
   "pick.banner_touch": "Puuduta allpool oleva eelvaate osa, et avada selle seaded.",
+  "pick.keyboard": "Klaviatuuriga otsi selle asemel seadeid või ava nende lehed.",
   "pick.click": "{label} · Klõpsa muutmiseks",
   "pick.tap": "{label} · Puuduta muutmiseks",
   "status.removed": "Eemaldatud: {name}",

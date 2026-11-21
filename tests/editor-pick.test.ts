@@ -178,6 +178,10 @@ describe('Pick From Preview', () => {
     expect($(editor, '[data-pick-banner]')!.textContent).toContain(
       'Click a part of the preview to open its settings.',
     );
+    // A pick takes a pointer, so the banner names what the keyboard does instead.
+    expect($(editor, '[data-pick-banner]')!.textContent).toContain(
+      'From the keyboard, search the settings or open their pages instead.',
+    );
     expect(card.shadowRoot!.querySelector('.ccp-pick-layer')).not.toBeNull();
 
     $(editor, '.card-config')!.dispatchEvent(

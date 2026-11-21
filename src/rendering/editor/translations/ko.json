@@ -161,6 +161,7 @@
   "pick.button": "미리보기에서 선택",
   "pick.banner": "미리보기의 한 부분을 클릭하면 해당 설정이 열립니다.",
   "pick.banner_touch": "아래 미리보기의 한 부분을 탭하면 해당 설정이 열립니다.",
+  "pick.keyboard": "키보드로는 대신 설정을 검색하거나 설정 페이지를 여세요.",
   "pick.click": "{label} · 클릭하여 편집",
   "pick.tap": "{label} · 탭하여 편집",
   "status.removed": "{name} 제거됨",

@@ -161,6 +161,7 @@
   "pick.button": "Izvēlēties priekšskatījumā",
   "pick.banner": "Noklikšķiniet uz priekšskatījuma daļas, lai atvērtu tās iestatījumus.",
   "pick.banner_touch": "Pieskarieties zemāk esošā priekšskatījuma daļai, lai atvērtu tās iestatījumus.",
+  "pick.keyboard": "Ar tastatūru tā vietā meklējiet iestatījumus vai atveriet to lapas.",
   "pick.click": "{label} · Noklikšķiniet, lai rediģētu",
   "pick.tap": "{label} · Pieskarieties, lai rediģētu",
   "status.removed": "Noņemts: {name}",

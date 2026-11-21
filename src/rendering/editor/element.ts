@@ -2200,10 +2200,12 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _renderPickBanner(ctx: SchemaCtx): TemplateResult | typeof nothing {
     if (this._pickingAt === undefined) return nothing;
-    return PickView.pickBanner(
-      this._string(ctx, PickView.touchOnly() ? 'pick.banner_touch' : 'pick.banner'),
-      this._string(ctx, 'calendars.cancel'),
-      () => this._endPick(true),
+    // A pick takes a pointer; the keyboard reaches every part through search and the pages.
+    const text = PickView.touchOnly()
+      ? this._string(ctx, 'pick.banner_touch')
+      : `${this._string(ctx, 'pick.banner')} ${this._string(ctx, 'pick.keyboard')}`;
+    return PickView.pickBanner(text, this._string(ctx, 'calendars.cancel'), () =>
+      this._endPick(true),
     );
   }
 

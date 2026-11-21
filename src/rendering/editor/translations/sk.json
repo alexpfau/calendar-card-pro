@@ -161,6 +161,7 @@
   "pick.button": "Vybrať z náhľadu",
   "pick.banner": "Kliknite na časť náhľadu a otvoria sa jej nastavenia.",
   "pick.banner_touch": "Klepnite na časť náhľadu nižšie a otvoria sa jej nastavenia.",
+  "pick.keyboard": "Z klávesnice namiesto toho vyhľadajte nastavenia alebo otvorte ich stránky.",
   "pick.click": "{label} · Kliknutím upravíte",
   "pick.tap": "{label} · Klepnutím upravíte",
   "status.removed": "Odstránené: {name}",

@@ -269,6 +269,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'pick.button': 'Pick From Preview',
   'pick.banner': 'Click a part of the preview to open its settings.',
   'pick.banner_touch': 'Tap a part of the preview below to open its settings.',
+  'pick.keyboard': 'From the keyboard, search the settings or open their pages instead.',
   'pick.click': '{label} · Click to Edit',
   'pick.tap': '{label} · Tap to Edit',
   // The line a removal or an applied story leaves, beside its Undo, until the next change.

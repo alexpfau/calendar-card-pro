@@ -160,6 +160,7 @@
   "pick.button": "Scegli dall’anteprima",
   "pick.banner": "Fai clic su una parte dell’anteprima per aprirne le impostazioni.",
   "pick.banner_touch": "Tocca una parte dell’anteprima qui sotto per aprirne le impostazioni.",
+  "pick.keyboard": "Da tastiera, cerca invece nelle impostazioni o apri le loro pagine.",
   "pick.click": "{label} · Fai clic per modificare",
   "pick.tap": "{label} · Tocca per modificare",
   "status.removed": "Rimosso: {name}",
