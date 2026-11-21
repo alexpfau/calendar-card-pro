@@ -424,7 +424,7 @@ describe('configuration version states', () => {
         config_version: Config.CURRENT_CONFIG_VERSION,
       });
 
-      editor.setConfig({ language, config_version: 6 });
+      editor.setConfig({ language, config_version: 7 });
       await editor.updateComplete;
       expect(blocker(editor)!.textContent).toContain(expected('config_migration.future_title'));
       expect(formsOf(editor)).toHaveLength(0);
@@ -438,7 +438,7 @@ describe('configuration version states', () => {
   );
 
   it.each([
-    { config_version: 6, list: { event_font_size: '18px' } },
+    { config_version: 7, list: { event_font_size: '18px' } },
     { config_version: '5', list: { event_font_size: '18px' } },
   ])('rejects stale form events and reset clicks while blocked by %j', async (blockedConfig) => {
     const { editor, reports } = await mount({
@@ -487,7 +487,7 @@ describe('configuration version states', () => {
   });
 
   it('blocks a newer integer marker without rewriting it', async () => {
-    const { editor, reports } = await mount({ config_version: 6 });
+    const { editor, reports } = await mount({ config_version: 7 });
     expect(blocker(editor)!.textContent).toContain('Newer Configuration');
     expect(formsOf(editor)).toHaveLength(0);
     expect(reports).toEqual([]);

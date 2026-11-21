@@ -127,7 +127,7 @@ Starting from Birthdays & Holidays on two calendars writes this:
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Coming Up
 days_to_show: 60
 show_countdown: true
@@ -380,7 +380,7 @@ do not need to add it by hand; see
 
 ```yaml
 # Written by the visual editor
-config_version: 5
+config_version: 6
 ```
 
 ::: details What the Upgrade Writes
@@ -408,12 +408,12 @@ config_version: 5
 
 Two screens take the editor's place and change nothing, so the card's YAML stays as it is:
 
-- **This Card Uses a Newer Configuration**: the card's `config_version` is higher than 5, the
+- **This Card Uses a Newer Configuration**: the card's `config_version` is higher than 6, the
   version this editor writes, usually because a newer Calendar Card Pro saved it. Update Calendar
   Card Pro, or edit the card in Home Assistant's code editor.
 - **Configuration Version Is Invalid**: `config_version` is not a whole number, as with
-  `config_version: '5'` in quotes. Correct it in Home Assistant's code editor, here to
-  `config_version: 5`, and the visual editor opens.
+  `config_version: '6'` in quotes. Correct it in Home Assistant's code editor, here to
+  `config_version: 6`, and the visual editor opens.
 
 :::
 

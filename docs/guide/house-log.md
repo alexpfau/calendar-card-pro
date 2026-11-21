@@ -14,7 +14,7 @@ Replace `calendar.house_log` with your log's calendar. The card is built for a c
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: House Log
 start_date: today-29
 days_to_show: 30

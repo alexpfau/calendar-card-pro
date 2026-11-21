@@ -1443,7 +1443,8 @@ export class CalendarCardProEditor extends LitElement {
       this._pendingUpgrade =
         this._migration.kind === 'ambiguous' ||
         WeatherMigration.convertsDrawnWeather(rawConfig) ||
-        (this._migration.kind === 'automatic' && HiddenDetails.hiddenDetails(rawConfig).length > 0);
+        ((this._migration.kind === 'automatic' || this._migration.kind === 'stamp') &&
+          HiddenDetails.hiddenDetails(rawConfig).length > 0);
     }
     // Found once, where the walk over every state is not part of a render the key could skip.
     if (!isEcho) this._pickerCalendar = QuickSetup.firstCalendar(this.hass?.states);
@@ -1493,6 +1494,9 @@ export class CalendarCardProEditor extends LitElement {
     if (version.kind === 'current') return { kind: 'current' };
     if (version.kind === 'future') return version;
     if (version.kind === 'invalid') return version;
+    if (version.version !== undefined && version.version >= Config.LAYERED_CONFIG_VERSION) {
+      return { kind: 'stamp' };
+    }
 
     // Blocks only the layered format has: a card carrying one was written for it already.
     const alreadyLayered =
@@ -1535,6 +1539,19 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Stamps a card saved in the layered format before the current version with the current one,
+   * and moves nothing else: its options already mean what they say.
+   */
+  private _adoptStamp(): void {
+    const stamped = {
+      ...Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
+      config_version: Config.CURRENT_CONFIG_VERSION,
+    };
+    this._adopt(stamped, stamped);
+    this._migration = { kind: 'current' };
+  }
+
+  /**
    * Accepts a write and prepares any pending migration: a card without layout blocks shares its
    * root options, and one whose root options v5 split keeps them for List, as the upgrade on
    * opening does (`_upgradeOnOpen`), here after an Undo of it.
@@ -1547,6 +1564,7 @@ export class CalendarCardProEditor extends LitElement {
       Logger.debug('Ignoring an editor write while migration is blocked', kind);
       return false;
     }
+    if (kind === 'stamp') this._adoptStamp();
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
     if (kind === 'ambiguous') this._adoptMigration(this._migrationResult(this._upgradeMode()));
     this._convertWeather();
@@ -1592,12 +1610,15 @@ export class CalendarCardProEditor extends LitElement {
    * Upgrades a card whose root options v5 split between List and every layout, once the editor
    * is attached and Home Assistant listens: they stay List's, as they were written, so the card
    * looks the same, in one undo step. The receipt says what was kept, offers to share them with
-   * every layout, and Undo; nothing moves focus, and the receipt is read out once.
+   * every layout, and Undo; nothing moves focus, and the receipt is read out once. It also names
+   * each calendar whose hidden location or description an event's details now show; a card the
+   * v5 editor saved is stamped with the current version as it does, so it is told once.
    */
   private _upgradeOnOpen(): void {
     const keys = this._migration.kind === 'ambiguous' ? this._migration.keys : [];
     const weatherDrawn = WeatherMigration.convertsDrawnWeather(this._rawConfig ?? {});
-    const legacy = this._migration.kind === 'ambiguous' || this._migration.kind === 'automatic';
+    const kind = this._migration.kind;
+    const legacy = kind === 'ambiguous' || kind === 'automatic' || kind === 'stamp';
     const writes = keys.length > 0 || weatherDrawn;
     // Taken before writing: the upgrade keeps every entry where it was, and so its key.
     const entryKeys = this._entryKeysFor((this._config?.entities ?? []).length);
@@ -1609,6 +1630,11 @@ export class CalendarCardProEditor extends LitElement {
           }))
         : [];
     if (!writes && hidden.length === 0) return;
+    // A card the v5 editor saved has nothing else to upgrade: stamped as it opens, it is told once.
+    if (!writes && kind === 'stamp') {
+      this._adoptStamp();
+      this._send(this._rawConfig!);
+    }
     const before = this._snapshot();
     const ctx = this._ctx;
     let weather: WeatherMigration.WeatherMigrationResult | undefined;
@@ -1732,6 +1758,7 @@ export class CalendarCardProEditor extends LitElement {
   private _prepareForWriteWithoutWeather(): boolean {
     const kind = this._migration.kind;
     if (kind === 'future' || kind === 'invalid') return false;
+    if (kind === 'stamp') this._adoptStamp();
     if (kind === 'automatic') this._adoptMigration(this._migrationResult('shared-root'));
     return true;
   }

@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
+import { CURRENT_CONFIG_VERSION } from '../src/config/config';
 import { buildQuickSetupConfig, initialAnswers } from '../src/rendering/editor/quick-setup';
 import { STORIES } from '../src/rendering/editor/stories';
 
@@ -50,7 +51,7 @@ describe.each(STORIES.map((story) => [story.id, story] as const))('%s', (_id, st
 
     expect(type).toBe('custom:calendar-card-pro');
     // Usage's Your First Card, Simple Agenda's, is the README's quick start, which states none.
-    if (story.id !== 'simple_agenda') expect(config_version).toBe(5);
+    if (story.id !== 'simple_agenda') expect(config_version).toBe(CURRENT_CONFIG_VERSION);
     expect(Array.isArray(entities)).toBe(true);
     expect(story.shell()).toEqual(shell);
   });

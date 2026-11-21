@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { STORY_GUIDES, readGuideCard } from './guide-config';
+import { CURRENT_CONFIG_VERSION, LAYERED_CONFIG_VERSION } from '../src/config/config';
 import {
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
@@ -110,11 +111,12 @@ function problems(card: Card): string[] {
     }
   });
 
-  // Without `config_version: 5` a root key that a view defaults differently makes the editor
-  // ask the reader how to migrate a card they have just pasted.
+  // Without a layered `config_version` a root key that a view defaults differently makes the
+  // editor migrate a card the reader has just pasted.
   const ambiguous = ambiguousRootKeys(card);
-  if (ambiguous.length > 0 && card.config_version !== 5) {
-    out.push(`no config_version: 5 beside ${ambiguous.join(', ')}`);
+  const version = card.config_version;
+  if (ambiguous.length > 0 && !(typeof version === 'number' && version >= LAYERED_CONFIG_VERSION)) {
+    out.push(`no config_version beside ${ambiguous.join(', ')}`);
   }
 
   // A root value never reaches a view whose block carries its own default for that key, so
@@ -158,7 +160,7 @@ describe('the Example Stories cards', () => {
         'month.time_position is not read there',
         'entities[0].hue is dropped',
         'deprecated entities[0].max_events_to_show',
-        'no config_version: 5 beside show_location',
+        'no config_version beside show_location',
         'show_location is shadowed in grid by its default',
       ].sort(),
     );
@@ -171,7 +173,8 @@ describe('the Example Stories cards', () => {
       // The denominator: a page read as nothing would pass every rule below.
       expect(config.type).toBe('custom:calendar-card-pro');
       expect(entities.length).toBeGreaterThan(0);
-      expect(config.config_version).toBe(5);
+      // The current version, or the editor upgrades the card the reader has just pasted.
+      expect(config.config_version).toBe(CURRENT_CONFIG_VERSION);
       expect(problems(config)).toEqual([]);
     },
   );
