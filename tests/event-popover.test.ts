@@ -808,6 +808,51 @@ describe('what an event may not do', () => {
     expect(writes()).toEqual([]);
   });
 
+  it('names every calendar a merged duplicate was drawn for, each with its own dot', async () => {
+    const { root } = await open({ canEdit: false, canDelete: false, merged: [BEN, ANNA] });
+    const cell = root.querySelector('.cell.calendar')!;
+    expect(
+      Array.from(cell.querySelectorAll('.one')).map((one) => [
+        one.textContent?.trim(),
+        one.querySelector<HTMLElement>('.dot')?.style.background,
+      ]),
+    ).toEqual([
+      ['Ben', BEN.color],
+      ['Anna', ANNA.color],
+    ]);
+  });
+
+  it('draws a location listing several places as text, with no map and no pin', async () => {
+    const several = 'Riverside Pool · Hall B';
+    const { el, root, callWS } = await open(
+      {
+        display: { title: 'Swim', location: several, description: SWIM.description },
+        severalPlaces: true,
+        canEdit: false,
+        canDelete: false,
+        merged: [BEN, ANNA],
+      },
+      {
+        states: {
+          ...POOL_ZONE,
+          // A zone named as the whole list would be found: only the flag keeps the map away.
+          'zone.list': {
+            entity_id: 'zone.list',
+            state: '0',
+            attributes: { friendly_name: several, latitude: 52.5, longitude: 13.45 },
+          },
+        },
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(root.querySelector('.cell.with-pin')?.textContent?.trim()).toBe(several);
+    expect(root.querySelector('a.pin, a.map-link')).toBeNull();
+    expect(callWS.mock.calls.map(([message]) => message.type)).not.toContain(
+      'map_tiles/access_token',
+    );
+  });
+
   it('offers Delete alone where only deleting is allowed', async () => {
     const { root, buttons } = await open({ canEdit: false, canDelete: true });
     expect(root.querySelector('input.title')).toBeNull();

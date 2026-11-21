@@ -90,6 +90,19 @@ export interface PopoverParams {
    * event, every one it may go to.
    */
   calendars: PopoverCalendar[];
+  /**
+   * Every calendar a `filter_duplicates` merge drew the event for, where there are two or more,
+   * in the order the row names them: the popover names them all, as the row's labels do, rather
+   * than only the calendar whose copy was kept. Such an event is never changed here
+   * (`detailPermissions`).
+   */
+  merged?: PopoverCalendar[];
+  /**
+   * Set where `display` lists several places a `merge_locations` merge collected. The location is
+   * drawn as text, with no map and no link to one, since a map search for the list finds none of
+   * them.
+   */
+  severalPlaces?: boolean;
   /** Where a new event starts and ends. */
   times?: Times.EventTimes;
   /**

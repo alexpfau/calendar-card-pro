@@ -1356,7 +1356,8 @@ export interface CalendarEventData {
    *
    * `location` stays the kept copy's own. The display copy draws the list in its place, each
    * location through its own calendar's options, a text two calendars draw alike once
-   * (`mergedLocationText`).
+   * (`mergedLocationText`), and carries the list on: the popover shows every location in it,
+   * those a calendar leaves out of the rows included (`EventDetails.displayText`).
    */
   _mergedLocations?: ReadonlyArray<MergedLocation>;
   /**

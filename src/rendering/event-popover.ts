@@ -676,12 +676,14 @@ export class EventPopover extends Shell.PopoverShell {
 
   /**
    * Draws the map under the location, when the location is a place Home Assistant knows. Not for
-   * a private event, whose place is neither shown nor looked up.
+   * a private event, whose place is neither shown nor looked up, nor for a location listing
+   * several places (`severalPlaces`).
    */
   private async _loadMap(): Promise<void> {
     const params = this._params;
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
     if (!params || params.mode !== 'event' || !location || params.private) return;
+    if (params.severalPlaces) return;
 
     const place = await EventMap.resolveLocation(location, this.hass, MAP_WIDTH);
     if (!place || this._params !== params) return;
@@ -1098,9 +1100,9 @@ export class EventPopover extends Shell.PopoverShell {
 
   private _renderLocation(): TemplateResult | typeof nothing {
     const text = this._displayed('location');
-    // A private event's place is not looked up on a map either.
+    // A private event's place is not looked up on a map either, nor a list of several places.
     const pin =
-      text && !this._map && !this._params?.private
+      text && !this._map && !this._params?.private && !this._params?.severalPlaces
         ? html`<a
             class="pin"
             href=${EventMap.mapsSearchUrl(text)}
@@ -1137,6 +1139,15 @@ export class EventPopover extends Shell.PopoverShell {
     const draft = this._draft!;
     const current = this._calendar(draft.calendarId);
     const dot = (color: string) => html`<span class="dot" style="background:${color}"></span>`;
+    // A merged duplicate is never editable, so its calendars are only ever named.
+    if (params.merged && params.merged.length > 1) {
+      return html`<div class="cell calendar merged">
+        ${params.merged.map(
+          (calendar) =>
+            html`<span class="one">${dot(calendar.color)}<span>${calendar.name}</span></span>`,
+        )}
+      </div>`;
+    }
     if (!this._editable || params.calendars.length < 2) {
       return html`<div class="cell calendar">
         ${dot(current?.color ?? params.color ?? 'var(--primary-color)')}
@@ -1534,6 +1545,17 @@ export class EventPopover extends Shell.PopoverShell {
       flex: 1;
       background: transparent;
       padding: 0;
+    }
+    /* A merged duplicate's calendars, each with its own dot, wrapping as a row of names does. */
+    .calendar.merged {
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+    .calendar .one {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
     }
     .dot {
       flex: none;

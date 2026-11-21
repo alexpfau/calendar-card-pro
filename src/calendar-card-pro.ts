@@ -1187,6 +1187,23 @@ class CalendarCardPro extends LitElement {
       permissions.canEdit && permissions.canDelete
         ? this._writableCalendars.filter((id) => id !== calendarId)
         : [];
+    // A merged duplicate names every calendar it was drawn for, each in the accent its own entry
+    // gives it, as the row's labels do (`resolveMergedLabels`).
+    const merged =
+      event._mergedFrom && event._mergedFrom.length > 1
+        ? event._mergedFrom.map(({ entityId, config }) =>
+            this._popoverCalendar(
+              entityId,
+              EventUtils.getEntityAccentColorWithOpacity(
+                entityId,
+                this.config,
+                undefined,
+                { ...event, _entityId: entityId, _matchedConfig: config },
+                EntityColors.entityColors(),
+              ),
+            ),
+          )
+        : undefined;
     return {
       mode: 'event',
       calendarId,
@@ -1195,6 +1212,8 @@ class CalendarCardPro extends LitElement {
       ...(locked && { private: { ...locked } }),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
+      ...(merged && { merged }),
+      ...(EventDetails.listsSeveralPlaces(event, language) && { severalPlaces: true }),
       ...permissions,
       anchor: origin,
       updated: (...ids) => this._refreshAfterWrite({ ids: ids.length ? ids : [calendarId] }),
