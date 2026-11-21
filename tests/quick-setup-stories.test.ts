@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
+import { buildQuickSetupConfig, initialAnswers } from '../src/rendering/editor/quick-setup';
 import { STORIES } from '../src/rendering/editor/stories';
 
 /**
@@ -90,4 +91,30 @@ it('offers Simple Agenda, then the five stories that work without per-calendar f
     'birthdays_and_holidays',
     'house_log',
   ]);
+});
+
+describe('the visual editor page’s Quick Setup example', () => {
+  // `docs/features/editor.md` prints what Quick Setup writes when it starts from Birthdays &
+  // Holidays on two calendars. It is a copy of the story too, one step removed, and drifted once
+  // already: it kept an `event_tap_action` line that Quick Setup has never written since taps
+  // open an event by default.
+  it('is exactly what Quick Setup writes for Birthdays & Holidays on two calendars', () => {
+    const markdown = readFileSync(
+      resolve(__dirname, '..', 'docs', 'features', 'editor.md'),
+      'utf8',
+    );
+    const intro = 'Starting from Birthdays & Holidays on two calendars\nwrites this:';
+    const from = markdown.indexOf(intro);
+    expect(from, 'the example’s introduction moved').toBeGreaterThan(-1);
+    const block = /^```yaml\n([\s\S]*?)^```$/m.exec(markdown.slice(from));
+    expect(block, 'no YAML block after the introduction').not.toBeNull();
+    const printed = parse((block as RegExpExecArray)[1]) as Record<string, unknown>;
+
+    const opening = {
+      type: 'custom:calendar-card-pro',
+      entities: ['calendar.birthdays', 'calendar.holidays'],
+    };
+    const answers = initialAnswers(opening, 'birthdays_and_holidays', {});
+    expect(buildQuickSetupConfig(opening, answers)).toEqual(printed);
+  });
 });
