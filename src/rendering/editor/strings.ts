@@ -1717,8 +1717,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.max_lines.helper': 'Zero means no limit. Only Columns and Grid can reach a second line.',
 
   // --- Actions & Refresh ----------------------------------------------------
-  tap_action: 'Tap Action',
-  hold_action: 'Hold Action',
+  // The card's own, named for it: an event's and a day's actions run in their place.
+  tap_action: 'Card Tap Action',
+  'tap_action.helper': 'An event\u2019s or a day\u2019s own tap action comes first.',
+  hold_action: 'Card Hold Action',
+  'hold_action.helper': 'An event\u2019s own hold action comes first.',
   // Home Assistant names its own actions; this is the one the card adds, and both
   // dropdowns resolve it through the same key. See `hass-localize.ts` for how it reaches
   // HA's action editor at all.

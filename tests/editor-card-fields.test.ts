@@ -1,10 +1,19 @@
 /**
- * A title that is a template is rendered by Home Assistant, and the editor shows Home Assistant's
- * own error message under the Title field while it cannot be rendered.
+ * Whole-card fields and what the editor says about them: a title that is a template is rendered
+ * by Home Assistant, whose own error message shows under Title while it cannot be; and the card's
+ * own tap action is named as the card's.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { changeField, fakeHass, formOf, mountEditor, openPageOf } from './helpers/editor-host';
+import {
+  changeField,
+  fakeHass,
+  formOf,
+  helperOf,
+  labelOf,
+  mountEditor,
+  openPageOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 
 afterEach(() => {
@@ -48,6 +57,21 @@ describe('a title template Home Assistant cannot render', () => {
     await changeField(editor, 'card:title', '{{ "Family" }}');
     await vi.waitFor(() => expect(asked).toContain('{{ "Family" }}'));
     await vi.waitFor(() => expect(error()).toBeUndefined());
+    editor.remove();
+  });
+});
+
+describe('the card’s own tap and hold actions', () => {
+  it('say they are the card’s, and that an event’s and a day’s come first', async () => {
+    const editor = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+    });
+    await openPageOf(editor, 'actions:tap_action');
+    expect(labelOf(editor, 'actions:tap_action')).toBe('Card Tap Action');
+    expect(helperOf(editor, 'actions:tap_action')).toBe(
+      'An event’s or a day’s own tap action comes first.',
+    );
     editor.remove();
   });
 });
