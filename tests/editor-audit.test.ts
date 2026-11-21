@@ -163,6 +163,18 @@ function storedLeaves(raw: Readonly<Record<string, unknown>>): string[] {
   return out;
 }
 
+describe('a switch whose option takes a further value', () => {
+  it('reads as on, with what refines it', async () => {
+    const editor = await mountEditor({
+      config_version: VERSION,
+      entities: ['calendar.anna'],
+      show_countdown: 'once_per_day',
+    });
+    await openAudit(editor);
+    expect(rows(editor).show_countdown!.value).toBe('On, Leave Out Repeated Countdowns');
+  });
+});
+
 describe('lines the YAML writes as null or empty', () => {
   it('lists them, and words a null action as running nothing', async () => {
     const editor = await mountEditor({
