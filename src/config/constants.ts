@@ -152,6 +152,13 @@ export const TIMING = {
    */
   NEW_EVENT_HOLD: 5000,
 
+  /**
+   * How long Home Assistant shows the notification a drag's move leaves, with its Undo. Longer
+   * than its own default of three seconds, which is short for reading the time and reaching the
+   * button.
+   */
+  MOVE_UNDO_TOAST: 8000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,

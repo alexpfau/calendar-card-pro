@@ -5,6 +5,7 @@
  */
 
 import { DELETE_EVENT_FEATURE, UPDATE_EVENT_FEATURE, calendarSupports } from './calendar-writes';
+import { MERGED_LOCATION_SEPARATOR } from '../config/constants';
 import * as Types from '../config/types';
 import { stripHtmlTags } from '../utils/format';
 import * as PrivateEvents from '../utils/private-events';
@@ -139,6 +140,57 @@ export function detailPermissions(
 }
 
 /**
+ * The location of a row `filter_duplicates: merge_locations` merged, as the popover shows it:
+ * every location the merge listed (`_mergedLocations`), each as its own calendar's entry shows
+ * it, Private for a private entry's (`private-events.ts`) and its text replacement applied
+ * otherwise, in the order the row lists them, a text two calendars show alike once. Whatever a
+ * calendar leaves out of the rows (`show_location`) is shown, as for any event's location here.
+ *
+ * @param event - A rendered event
+ * @param language - The card's language, for a private entry's placeholder
+ * @returns The location, whether any part of it is the Private placeholder, and how many places
+ *   it lists, or undefined for a row that lists no merged locations
+ */
+function mergedLocation(
+  event: Types.CalendarEventData,
+  language: string,
+): { text: string; locked: boolean; places: number } | undefined {
+  const parts = event._mergedLocations;
+  if (!parts?.length) return undefined;
+  const shown = new Set<string>();
+  let locked = false;
+  for (const part of parts) {
+    let text: string;
+    if (part.config?.private === true) {
+      const masked = PrivateEvents.privateText({ location: part.location }, part.config, language);
+      text = masked.location;
+      locked ||= masked.locked.location;
+    } else {
+      const rule = TextReplace.resolveTextReplacement(
+        part.config?.replace_field,
+        part.config?.replace_pattern,
+        part.config?.replace_with,
+      );
+      text = TextReplace.applyTextReplacement(part.location, rule, 'location').text;
+    }
+    if (text.trim()) shown.add(text.trim());
+  }
+  return { text: [...shown].join(MERGED_LOCATION_SEPARATOR), locked, places: shown.size };
+}
+
+/**
+ * Whether the popover's location for this event lists several places, which a merge
+ * (`merge_locations`) collected from its copies (`mergedLocation`).
+ *
+ * @param event - A rendered event
+ * @param language - The card's language
+ * @returns True for two or more places
+ */
+export function listsSeveralPlaces(event: Types.CalendarEventData, language: string): boolean {
+  return (mergedLocation(event, language)?.places ?? 0) > 1;
+}
+
+/**
  * The event's title, location and description as the card shows them, its calendar's text
  * replacement applied, for the popover to show while a field is not being edited.
  *
@@ -147,8 +199,10 @@ export function detailPermissions(
  * empty there, and the title would carry an age count the card appended. So the popover shows
  * every field the event has, whatever the card, a layout or the calendar leaves out of the rows.
  * A calendar's `show_location: false` and `show_description: false` tidy its rows and nothing
- * else; only `private` keeps a field out of the popover. A description keeps its markup, so the popover can keep its links, unless a replacement
- * rewrites it, which the row applies to its plain text.
+ * else; only `private` keeps a field out of the popover. A description keeps its markup, so the
+ * popover can keep its links, unless a replacement rewrites it, which the row applies to its
+ * plain text. A row `merge_locations` merged shows every location it lists, each as its own
+ * calendar shows it (`mergedLocation`).
  *
  * A private entry's event shows Private in place of each field it has (`private-events.ts`).
  *
@@ -166,9 +220,10 @@ export function displayText(
 } {
   const source = event._source ?? event;
   const matched = event._matchedConfig;
+  const merged = mergedLocation(event, language);
   if (PrivateEvents.isPrivate(event)) {
     const { title, location, description } = PrivateEvents.privateText(source, matched, language);
-    return { title, location, description };
+    return { title, location: merged?.text ?? location, description };
   }
   const rule = TextReplace.resolveTextReplacement(
     matched?.replace_field,
@@ -180,7 +235,7 @@ export function displayText(
   const description = source.description ?? '';
   return {
     title: replaced(source.summary ?? '', 'title'),
-    location: replaced(source.location ?? '', 'location'),
+    location: merged?.text ?? replaced(source.location ?? '', 'location'),
     description:
       rule?.field === 'description'
         ? replaced(stripHtmlTags(description), 'description')
@@ -200,7 +255,13 @@ export function privateFields(
   language: string,
 ): Readonly<Record<PrivateEvents.PrivateField, boolean>> | undefined {
   if (!PrivateEvents.isPrivate(event)) return undefined;
-  return PrivateEvents.privateText(event._source ?? event, event._matchedConfig, language).locked;
+  const { locked } = PrivateEvents.privateText(
+    event._source ?? event,
+    event._matchedConfig,
+    language,
+  );
+  const merged = mergedLocation(event, language);
+  return merged ? { ...locked, location: merged.locked } : locked;
 }
 
 /**

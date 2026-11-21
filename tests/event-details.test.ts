@@ -354,6 +354,66 @@ describe('event_tap_action details', () => {
     });
   });
 
+  it('shows every location and calendar of a row merge_locations merged, each as its calendar shows it', async () => {
+    const appointment = (location: string) => ({
+      summary: 'Appointment',
+      start: { dateTime: '2026-06-17T16:00:00Z' },
+      end: { dateTime: '2026-06-17T17:00:00Z' },
+      location,
+    });
+    const { card, dialogs } = await mount(
+      {
+        ...DETAILS,
+        filter_duplicates: 'merge_locations',
+        entities: [
+          { entity: 'calendar.anna', accent_color: 'rgb(204, 51, 102)' },
+          // Hidden from the rows by this calendar, and shown in the popover as any location is.
+          { entity: 'calendar.ben', accent_color: 'rgb(51, 102, 204)', show_location: false },
+          {
+            entity: 'calendar.leo',
+            accent_color: 'rgb(0, 128, 0)',
+            replace_field: 'location',
+            replace_pattern: 'Hall',
+            replace_with: 'Room',
+          },
+        ],
+      },
+      {
+        eventsFor: {
+          'calendar.anna': [appointment('Hall A')],
+          'calendar.ben': [appointment('Hall B')],
+          'calendar.leo': [appointment('Hall C')],
+        },
+        shows: 'Appointment',
+      },
+    );
+
+    expect(eventsShowing(card, 'Appointment')).toHaveLength(1);
+    expect(eventsShowing(card, 'Appointment')[0].textContent).toContain('Hall A · Room C');
+    buttonsShowing(card, 'Appointment')[0].click();
+    await settle();
+    const params = dialogs[0].dialogParams;
+    expect(params.display?.location).toBe('Hall A · Hall B · Room C');
+    // What is stored stays the kept copy's own, for editing.
+    expect(params.entry?.location).toBe('Hall A');
+    expect(params.merged?.map(({ id, color }) => [id, color])).toEqual([
+      ['calendar.anna', 'rgb(204, 51, 102)'],
+      ['calendar.ben', 'rgb(51, 102, 204)'],
+      ['calendar.leo', 'rgb(0, 128, 0)'],
+    ]);
+    expect(params.canEdit).toBe(false);
+    // A map search for the list would find none of the places in it.
+    expect(params.severalPlaces).toBe(true);
+  });
+
+  it('names no merged calendars or places for an event only one calendar holds', async () => {
+    const { card, dialogs } = await mount({ ...DETAILS, filter_duplicates: 'merge_locations' });
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    expect(dialogs[0].dialogParams).not.toHaveProperty('merged');
+    expect(dialogs[0].dialogParams).not.toHaveProperty('severalPlaces');
+  });
+
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({
       ...DETAILS,

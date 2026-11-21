@@ -1358,7 +1358,8 @@ export interface CalendarEventData {
    *
    * `location` stays the kept copy's own. The display copy draws the list in its place, each
    * location through its own calendar's options, a text two calendars draw alike once
-   * (`mergedLocationText`).
+   * (`mergedLocationText`), and carries the list on: the popover shows every location in it,
+   * those a calendar leaves out of the rows included (`EventDetails.displayText`).
    */
   _mergedLocations?: ReadonlyArray<MergedLocation>;
   /**
@@ -1786,6 +1787,15 @@ export interface Translations {
   loadFailed: string;
   /** The title a new event drawn in a grid shows until it has one of its own. */
   newEvent: string;
+  /**
+   * Home Assistant's notification once a drag in a grid has moved an event, with `{time}` where
+   * its new start goes: "Moved to 13:45", or with the weekday before it where the event moved to
+   * another day, "Moved to Thu 13:45". A language whose preposition would have to agree with
+   * either reading writes a form that takes both, as Italian does with "Nuovo orario: {time}".
+   */
+  movedTo: string;
+  /** The notification's button that moves the event back where it was. */
+  undo: string;
   allDay: string;
   multiDay: string;
   /**

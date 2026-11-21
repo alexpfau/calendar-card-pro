@@ -1478,11 +1478,8 @@ function dayPassesWeekFilter(
  *   where every reader takes them from.
  * - `_searchRing` is stamped after grouping, on a copy of the row the search panel picked
  *   (`Search.ringIn`), so no event reaching the copy carries one.
- * - `_mergedLocations` is drawn into the copy's own `location` (`mergedLocationText`), so no
- *   renderer needs the parts apart.
  */
-type LeftOffDisplayCopy =
-  'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing' | '_mergedLocations';
+type LeftOffDisplayCopy = 'uid' | 'recurrence_id' | 'rrule' | 'status' | '_searchRing';
 
 /**
  * The location a row `filter_duplicates: merge_locations` merged draws: each listed location as
@@ -2013,6 +2010,9 @@ export function groupEventsByDay(
         // `tsc` error; a member left out on purpose goes in `LeftOffDisplayCopy`, with its
         // reason.
         _mergedFrom: event._mergedFrom,
+        // Drawn into `location` above for the row; carried on for what the row does not draw,
+        // which the popover shows (`EventDetails.displayText`) and a search finds.
+        _mergedLocations: event._mergedLocations,
         _source: event._source,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,

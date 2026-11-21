@@ -1194,6 +1194,23 @@ class CalendarCardPro extends LitElement {
       permissions.canEdit && permissions.canDelete
         ? this._writableCalendars.filter((id) => id !== calendarId)
         : [];
+    // A merged duplicate names every calendar it was drawn for, each in the accent its own entry
+    // gives it, as the row's labels do (`resolveMergedLabels`).
+    const merged =
+      event._mergedFrom && event._mergedFrom.length > 1
+        ? event._mergedFrom.map(({ entityId, config }) =>
+            this._popoverCalendar(
+              entityId,
+              EventUtils.getEntityAccentColorWithOpacity(
+                entityId,
+                this.config,
+                undefined,
+                { ...event, _entityId: entityId, _matchedConfig: config },
+                EntityColors.entityColors(),
+              ),
+            ),
+          )
+        : undefined;
     return {
       mode: 'event',
       calendarId,
@@ -1202,6 +1219,8 @@ class CalendarCardPro extends LitElement {
       ...(locked && { private: { ...locked } }),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
+      ...(merged && { merged }),
+      ...(EventDetails.listsSeveralPlaces(event, language) && { severalPlaces: true }),
       ...permissions,
       anchor: origin,
       updated: (...ids) => this._refreshAfterWrite({ ids: ids.length ? ids : [calendarId] }),
@@ -7127,7 +7146,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Writes a single event at the times it was dropped at. Refused, it goes back where it was and
-   * Home Assistant shows why, in its own notification.
+   * Home Assistant shows why, in its own notification. Saved, that notification says where it
+   * went and offers Undo (`_undoMove`), since a drop is written with nothing asked first.
    *
    * @param move - The move
    * @param shown - Its block, drawn where it was dropped
@@ -7154,16 +7174,61 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Moved an event of ${entityId}`);
     this._refreshAfterWrite({ ids: [entityId] }, () => this._newArrived(shown));
     this._awaitArrival(shown);
+    const translations = Localize.getTranslations(this.effectiveLanguage);
+    this._notify(
+      GridMove.movedMessage(
+        move.times,
+        shown.times,
+        translations,
+        FormatUtils.resolveTimeFormat24h(this.effectiveConfig, hass),
+        this.effectiveConfig.time_two_digit_hours,
+      ),
+      { text: translations.undo, action: () => void this._undoMove(move, shown) },
+    );
+  }
+
+  /**
+   * Moves an event a drag moved back to the times it had, for the Undo in the notification the
+   * move left (`_writeMove`). Writes the event as it was stored before the move, so nothing but
+   * its times changes twice. Refused, Home Assistant shows why, as for the move.
+   *
+   * @param move - The move to undo
+   * @param shown - Its block, which goes if it is still drawn where it was dropped
+   */
+  private async _undoMove(
+    move: NonNullable<CalendarCardPro['_move']>,
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): Promise<void> {
+    const hass = this.safeHass;
+    const entityId = move.key.entityId;
+    try {
+      if (!hass) throw new Error('Home Assistant is not connected');
+      await Writes.updateEvent(
+        hass,
+        { entityId, uid: move.key.uid },
+        GridMove.moveWrite(move.entry, move.times),
+      );
+    } catch (error) {
+      Logger.warn('Moving the event back failed', error);
+      this._notify(Writes.writeErrorMessage(error) ?? 'Unknown error');
+      return;
+    }
+    Logger.debug(`Moved an event of ${entityId} back`);
+    if (this._newShown === shown) this._dropNew();
+    this._refreshAfterWrite({ ids: [entityId] });
   }
 
   /**
    * Shows a message in Home Assistant's own notification, at the foot of the screen.
    *
    * @param message - What to say
+   * @param action - A button beside it, and what pressing it does
    */
-  private _notify(message: string): void {
+  private _notify(message: string, action?: { text: string; action: () => void }): void {
     const notification = new Event('hass-notification', { bubbles: true, composed: true });
-    (notification as Event & { detail?: unknown }).detail = { message };
+    (notification as Event & { detail?: unknown }).detail = action
+      ? { message, action, duration: Constants.TIMING.MOVE_UNDO_TOAST }
+      : { message };
     this.dispatchEvent(notification);
   }
 

@@ -67,7 +67,7 @@ function row(
     folded: {
       title: Search.foldText(title, 'en'),
       location: Search.foldText(location, 'en'),
-      description: '',
+      unmarked: '',
     },
     start,
     end: start + 3_600_000,
