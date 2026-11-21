@@ -192,6 +192,14 @@ describe('the alias families', () => {
     expect(calendarHits('en', 'max events')).toContain('compact_events_to_show');
   });
 
+  it('forgive a typo or two where nothing matches as typed', () => {
+    expect(hits('en', 'fomt size', 'card')).toContain('event_font_size');
+    expect(hits('en', 'seperators', 'card')).toContain('day_separator_width');
+    expect(hits('en', 'bacground', 'card').length).toBeGreaterThan(0);
+    // Bounded: two typos in a short word find nothing.
+    expect(Object.values(rows('en', 'fpmt sixe')).flat()).toEqual([]);
+  });
+
   it('control: a word no alias holds still finds nothing', () => {
     expect(Object.values(rows('en', 'zebra')).flat()).toEqual([]);
   });
