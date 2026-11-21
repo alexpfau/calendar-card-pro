@@ -171,6 +171,17 @@ describe('the misplaced-option notice', () => {
     });
   });
 
+  it('offers no move for an option the layout ignores at the top level too', async () => {
+    // Month draws no today's weekday in a color of its own, wherever it is written.
+    const { editor } = await mount({ month: { today_weekday_color: '#e91e63' } });
+    await openNotices(editor);
+
+    expect(rows(editor)['month.today_weekday_color']).toEqual({
+      text: 'month.today_weekday_color Has no effect in this layout, here or at the top level.',
+      buttons: [],
+    });
+  });
+
   it('moves a card-wide option to the top level and drops the emptied block', async () => {
     const { editor, reports } = await mount({ time_grid: { toolbar: { show: true } } });
     await openNotices(editor);

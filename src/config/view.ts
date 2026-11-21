@@ -2851,6 +2851,8 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
  * - `fetch-time`: in a view block, but it decides which events are loaded, so every view
  *   shares it.
  * - `card-wide`: in a view block, but it is a top-level option that view cannot override.
+ * - `no-effect`: in a view block, and a top-level option that view ignores there too
+ *   (`VIEW_SCOPE`), so there is nowhere it would work for that view.
  * - `wrong-view`: in a view block, but it belongs to another view's block.
  * - `view-only`: at the top level, but it exists only inside a view's block.
  * - `calendar`: in a view block or at the top level, but it is an option of one calendar, set
@@ -2858,7 +2860,7 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
  * - `unknown`: in a view block, and no view or top level knows it.
  */
 export type MisplacedKind =
-  'fetch-time' | 'card-wide' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
+  'fetch-time' | 'card-wide' | 'no-effect' | 'wrong-view' | 'view-only' | 'calendar' | 'unknown';
 
 /**
  * One option written where the card ignores it.
@@ -2919,6 +2921,18 @@ function calendarOnlyKeySet(): ReadonlySet<string> {
 }
 
 /**
+ * The view a block key belongs to: `time_grid` is Grid's.
+ *
+ * @param blockKey - A view block's key
+ * @returns Its view
+ */
+function viewOfBlock(blockKey: string): Types.EffectiveView {
+  return (Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]).find(
+    (view) => VIEW_BLOCKS[view]?.blockKey === blockKey,
+  )!;
+}
+
+/**
  * The misplaced options inside one view's block.
  *
  * @param config - Configuration to inspect, raw or merged; only the block is read
@@ -2949,7 +2963,16 @@ function misplacedInBlock(config: Record<string, unknown>, block: ViewBlock): Mi
     } else if (owners.length > 0) {
       findings.push({ kind: 'wrong-view', key, from, to: owners });
     } else if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
-      findings.push({ kind: 'card-wide', key, from, to: [null] });
+      // Sent to the top level only where the view reads it there: `month.today_weekday_color`
+      // moved up would still change nothing Month draws.
+      const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key)
+        ? VIEW_SCOPE[key]
+        : undefined;
+      findings.push(
+        scope && !scope.has(viewOfBlock(from))
+          ? { kind: 'no-effect', key, from, to: [] }
+          : { kind: 'card-wide', key, from, to: [null] },
+      );
     } else if (calendarOnlyKeySet().has(key)) {
       findings.push({ kind: 'calendar', key, from, to: [] });
     } else {
@@ -3034,6 +3057,12 @@ function warnAboutMisplacedOption(finding: MisplacedOption): void {
       Logger.warn(
         `Ignoring "${where}": "${key}" is a valid top-level option but cannot be overridden ` +
           `per view. Set it at the top level instead.`,
+      );
+      return;
+    case 'no-effect':
+      Logger.warn(
+        `Ignoring "${where}": it has no effect in ${viewOfBlock(from!)} view, ` +
+          `here or at the top level.`,
       );
       return;
     case 'wrong-view':
