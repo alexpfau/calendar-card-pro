@@ -688,6 +688,59 @@ describe('theming.md card-mod selectors', () => {
       turning,
     );
     collect(turning);
+    // A touch screen's toolbar: larger arrows and chips, search, and two buttons of the
+    // configuration's own, drawn in the row and then folded into the start's menu.
+    const buttons = ['mdi:lightbulb', 'mdi:fan'].map((icon) => ({
+      icon,
+      label: icon,
+      tooltip: icon,
+      onActivate: noop,
+    }));
+    for (const folded of [false, true]) {
+      const container = document.createElement('div');
+      litRender(
+        Render.renderMainCardStructure(
+          {},
+          'Family',
+          html`<div></div>`,
+          HANDLERS,
+          false,
+          false,
+          'list',
+          false,
+          false,
+          undefined,
+          {
+            labeled: true,
+            large: true,
+            heading: {
+              text: monthHeading(5),
+              reserve: [0, 8].map((month) => monthHeading(month)),
+              full: [0, 8].map((month) => monthHeading(month)),
+              short: false,
+              range: 'Jun 17 – 23',
+            },
+            search: { label: 'Search', onActivate: noop },
+            addEvent: { label: 'Add event', onActivate: noop },
+            customButtons: buttons,
+            startFold: folded
+              ? {
+                  plan: {
+                    visible: [{ kind: 'add' }],
+                    overflow: buttons.map((_, index) => ({ kind: 'button', index })),
+                  },
+                  menuName: 'Menu',
+                  inert: false,
+                }
+              : undefined,
+          },
+          true,
+          true,
+        ),
+        container,
+      );
+      collect(container);
+    }
     return union;
   }
 
