@@ -12,6 +12,8 @@ import type { EventTimes } from './event-times';
 import * as Times from './event-times';
 import { atMinute, dayOf } from './grid-draft';
 import * as Constants from '../config/constants';
+import type { Translations } from '../config/types';
+import { formatTime } from '../utils/format';
 
 /** Where a pointer is in a grid's time area: a day, and how far into it, unrounded. */
 export interface MovePoint {
@@ -144,6 +146,31 @@ export function moveWrite(entry: DetailEntry, times: EventTimes): EventWrite {
     ...(entry.description !== undefined && { description: entry.description }),
     ...(entry.location !== undefined && { location: entry.location }),
   };
+}
+
+/**
+ * What Home Assistant's notification says once a drop has moved an event (`movedTo`): its new
+ * start, written as the card's rows write a time, with the weekday before it where the event
+ * moved to another day, since the time alone would then read as though nothing changed.
+ *
+ * @param from - The event's span before the move
+ * @param to - Its span now
+ * @param translations - The card's strings, in its language
+ * @param use24h - Whether the card writes times on a 24-hour clock
+ * @param twoDigitHours - `time_two_digit_hours`
+ * @returns The message
+ */
+export function movedMessage(
+  from: EventTimes,
+  to: EventTimes,
+  translations: Translations,
+  use24h: boolean,
+  twoDigitHours = false,
+): string {
+  const time = formatTime(to.start, use24h, twoDigitHours);
+  const otherDay = Times.dateValue(to.start) !== Times.dateValue(from.start);
+  const when = otherDay ? `${translations.daysOfWeek[to.start.getDay()]} ${time}` : time;
+  return translations.movedTo.replace('{time}', when);
 }
 
 /** What names the event a drag moves, among those a render draws. */

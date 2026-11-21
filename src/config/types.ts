@@ -1784,6 +1784,15 @@ export interface Translations {
   loadFailed: string;
   /** The title a new event drawn in a grid shows until it has one of its own. */
   newEvent: string;
+  /**
+   * Home Assistant's notification once a drag in a grid has moved an event, with `{time}` where
+   * its new start goes: "Moved to 13:45", or with the weekday before it where the event moved to
+   * another day, "Moved to Thu 13:45". A language whose preposition would have to agree with
+   * either reading writes a form that takes both, as Italian does with "Nuovo orario: {time}".
+   */
+  movedTo: string;
+  /** The notification's button that moves the event back where it was. */
+  undo: string;
   allDay: string;
   multiDay: string;
   /**

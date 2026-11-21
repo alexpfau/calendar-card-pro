@@ -30,6 +30,8 @@
   "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas",
   "loadFailed": "Nepavyko įkelti:",
   "newEvent": "Naujas įvykis",
+  "movedTo": "Perkelta į {time}",
+  "undo": "Anuliuoti",
   "showAll": "Rodyti visus",
   "hideAll": "Slėpti visus",
   "private": "Privatus"
