@@ -98,6 +98,12 @@ export interface HeadingDef {
   readonly keyByView?: Partial<Record<Types.EffectiveView, string>>;
   /** The line under the heading, as Countdown & Progress has today; a family's is its own. */
   readonly helperKey?: string;
+  /**
+   * Whether the heading's title in Month already says its settings act on a narrow month's day
+   * list and the panel "+N more" opens, so they leave out the marker that says the same
+   * (`plan.ts` › `MONTH_DAY_LIST_OPTIONS`). Search results and Month's other pages keep it.
+   */
+  readonly namesDayList?: true;
   readonly fields: ReadonlyArray<readonly [FieldId, Appearance]>;
   readonly extras?: ReadonlyArray<HeadingExtra>;
   /**
@@ -593,6 +599,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
         // day list and in the panel "+N more" opens, never in its weeks, so its heading says so.
         key: 'heading_event_rows',
         keyByView: { month: 'heading_day_list_panel' },
+        namesDayList: true,
         fields: [
           ['layout:event_gap', A],
           ['layout:event_spacing', A],

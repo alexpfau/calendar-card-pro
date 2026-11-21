@@ -3897,7 +3897,7 @@ class CalendarCardPro extends LitElement {
    * its rows' box, which a new fit can take away.
    */
   private _focusedMonthListPart(): HTMLElement | null {
-    const active = this.shadowRoot?.activeElement;
+    const active = this._focusedInCard();
     return active instanceof HTMLElement && active.closest('.month-day-list > .month-day-list-rows')
       ? active
       : null;
@@ -4150,7 +4150,7 @@ class CalendarCardPro extends LitElement {
     const cell = this._monthCellFor(Paging.pageStart(this._monthFocusDay));
     if (!cell) return;
     this._monthFocusPending = false;
-    const active = this.shadowRoot?.activeElement ?? null;
+    const active = this._focusedInCard();
     if (active !== cell && !(active instanceof Element && active.closest('.month-container'))) {
       return;
     }
@@ -8901,7 +8901,7 @@ class CalendarCardPro extends LitElement {
    * @returns The target with focus, or null for focus anywhere else
    */
   private _focusedTapTarget(): 'card' | 'control' | null {
-    const active = this.shadowRoot?.activeElement;
+    const active = this._focusedInCard();
     if (!active) return null;
     if (active.matches('ha-card')) return 'card';
     return active.matches('.card-tap-control') ? 'control' : null;
@@ -10731,13 +10731,29 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * What holds focus inside the card, as an update reads it to keep focus where it was.
+   *
+   * 🚨 Null while the card is disconnected, as a browser answers for a removed card. Lit still
+   * runs an update requested after removal, and in happy-dom a removed card's shadow root can
+   * throw from `activeElement` where focus moved to a node removed during that move: its walk up
+   * the roots reaches a node with no host. The same guard as the editor's `_syncPick`. Read
+   * through here wherever an update reads focus: before the render, and in `_syncMonthFocus`
+   * after it, whose key may have been pressed before the card was removed.
+   *
+   * @returns The focused element, or null
+   */
+  private _focusedInCard(): Element | null {
+    return this.isConnected ? (this.shadowRoot?.activeElement ?? null) : null;
+  }
+
+  /**
    * The start group's control that holds focus, where one does: add, or a button of the
    * configuration's own by its place in the list.
    *
    * @returns The control, or null
    */
   private _focusedStartControl(): ToolbarFold.StartControl | null {
-    const active = (this.renderRoot as ShadowRoot).activeElement;
+    const active = this._focusedInCard();
     if (
       !(active instanceof HTMLElement) ||
       active.parentElement?.classList.contains('toolbar-start') !== true

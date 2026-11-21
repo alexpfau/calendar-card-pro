@@ -1028,7 +1028,7 @@
   "show_progress_bar": "Vis fremdriftslinje",
   "show_progress_bar.helper": "I «Liste» og «Kolonner» viser en hendelse som varer en dag eller lenger, i stedet en dagteller, for eksempel «Dag 2 av 3».",
   "show_now_indicator": "Vis nå-markør",
-  "show_now_indicator.helper": "Setter en grønn «Nå» foran tidspunktet for hendelser som pågår akkurat nå.",
+  "show_now_indicator.helper": "Setter en grønn «Nå» foran tidspunktet for hendelser som pågår akkurat nå og er kortere enn en hel dag.",
   "now_color": "Nå-farge",
   "now_color.helper": "Fargen på hendelser som pågår akkurat nå, og på nå-linjen i tidsrutenettet.",
   "progress_bar_color": "Fremdriftslinjefarge",

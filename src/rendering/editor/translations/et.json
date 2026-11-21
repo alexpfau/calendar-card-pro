@@ -1026,7 +1026,7 @@
   "show_progress_bar": "Näita edenemisriba",
   "show_progress_bar.helper": "Paigutustes „Loetelu“ ja „Veerud“ näitab päeva või kauem kestev sündmus selle asemel päevaloendurit, näiteks „Päev 2/3“.",
   "show_now_indicator": "Näita praeguse hetke tähist",
-  "show_now_indicator.helper": "Lisab praegu toimuvate sündmuste kellaaja ette rohelise „Nüüd“.",
+  "show_now_indicator.helper": "Lisab praegu toimuvate ja tervest päevast lühemate sündmuste kellaaja ette rohelise „Nüüd“.",
   "now_color": "Praeguse hetke värv",
   "now_color.helper": "Praegu toimuvate sündmuste ja ajarastri praeguse aja joone värv.",
   "progress_bar_color": "Edenemisriba värv",

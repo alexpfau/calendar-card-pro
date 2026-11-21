@@ -321,5 +321,7 @@ describe('the language files the build emits', () => {
     } finally {
       await bundle.close();
     }
-  });
+    // A real Rollup build: about a second alone on a laptop, 4.6 s and a 5 s timeout on CI runners
+    // under the full suite. The budget `compact-payloads.test.ts` gives its own builds.
+  }, 30_000);
 });

@@ -1026,7 +1026,7 @@
   "show_progress_bar": "Rodyti progreso juostą",
   "show_progress_bar.helper": "Sąrašo ir stulpelių išdėstymuose dieną ar ilgiau trunkantis įvykis vietoj to rodo dienų skaitiklį, pvz., „Diena 2 iš 3“.",
   "show_now_indicator": "Rodyti „Dabar“ žymą",
-  "show_now_indicator.helper": "Prieš vykstančių įvykių laiką prideda žalią „Dabar“.",
+  "show_now_indicator.helper": "Prieš vykstančių ir trumpesnių nei visa diena įvykių laiką prideda žalią „Dabar“.",
   "now_color": "„Dabar“ spalva",
   "now_color.helper": "Šiuo metu vykstančių įvykių ir laiko tinklelio dabarties linijos spalva.",
   "progress_bar_color": "Progreso juostos spalva",

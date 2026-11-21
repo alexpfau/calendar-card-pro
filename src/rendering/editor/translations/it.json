@@ -1024,7 +1024,7 @@
   "show_progress_bar": "Mostra barra di progresso",
   "show_progress_bar.helper": "In Lista e Colonne, un evento che dura un giorno o più mostra invece un contatore dei giorni, ad esempio «Giorno 2 di 3».",
   "show_now_indicator": "Mostra indicatore Ora",
-  "show_now_indicator.helper": "Aggiunge un “Ora” verde prima dell’orario degli eventi in corso.",
+  "show_now_indicator.helper": "Aggiunge un “Ora” verde prima dell’orario degli eventi in corso che durano meno di un giorno intero.",
   "now_color": "Colore dell’ora corrente",
   "now_color.helper": "Il colore degli eventi in corso e della linea dell’ora corrente nella griglia oraria.",
   "progress_bar_color": "Colore barra progresso",

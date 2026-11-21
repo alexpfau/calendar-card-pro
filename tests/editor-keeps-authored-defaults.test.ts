@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   changeField,
   editLayout,
+  entry,
   mountEditor,
   openPanels,
   reportsOf,
@@ -178,6 +179,30 @@ describe('adopting a layered card on its first edit', () => {
   });
 });
 
+describe('a calendar’s own lines', () => {
+  /**
+   * `title` is what these two dropdowns show for a calendar that stores nothing, so the entry
+   * stores nothing. A calendar that spells it out keeps the line through an edit to its name, as
+   * `show_weather: true` does and as the card-wide lines above do.
+   */
+  it('keeps a written `filter_field: title` and `replace_field: title` through another edit', async () => {
+    const anna = {
+      entity: 'calendar.anna',
+      blocklist: 'Dentist',
+      filter_field: 'title',
+      replace_pattern: 'Dr\\. ',
+      replace_field: 'title',
+    };
+    const card = { config_version: Config.CURRENT_CONFIG_VERSION, entities: [anna] };
+    const editor = await mountEditor(structuredClone(card));
+    const reports = reportsOf(editor);
+
+    await changeField(editor, 'calendar:name', 'Anna', entry(0));
+
+    expect(reports.slice(-1)).toEqual([{ ...card, entities: [{ ...anna, name: 'Anna' }] }]);
+  });
+});
+
 describe('what an edit still removes', () => {
   it('minimizes an option the edit itself returns to its default', async () => {
     const { editor, reports } = await mount({
@@ -259,6 +284,27 @@ describe('a kept view value is the view’s own', () => {
       column: { min_day_width: 140 },
       time_grid: { slot_minutes: 60 },
     });
+  });
+
+  /**
+   * The card reads a bare length in pixels, so `event_font_size: 14` is the layout's own 14px,
+   * held against the card-wide size moving, as a `14px` line is.
+   */
+  it('reads a bare length at its default as the layout’s own, and keeps it on a write', () => {
+    const column = { event_font_size: 14 };
+    const month = { cell_event_font_size: 12, event_font_size: '14' };
+    const config = merged({ view: 'column', column, month });
+
+    // A length only the layout reads is stored as the card reads it, as any other value of it is.
+    const stored = { column, month: { cell_event_font_size: '12px', event_font_size: '14' } };
+    expect(storedViewBlocks(config)).toEqual(stored);
+    expect(valueSource(config, 'column', 'event_font_size')).toBe('own');
+    expect(valueSource(config, 'month', 'cell_event_font_size')).toBe('own');
+    expect(stripColumnDefaults(config, column)).toEqual(stored.column);
+    expect(stripMonthDefaults(config, month)).toEqual(stored.month);
+    // Written fresh, the same lines say nothing the layout would not use anyway.
+    expect(stripColumnDefaults(config)).toBeUndefined();
+    expect(stripMonthDefaults(config)).toBeUndefined();
   });
 });
 

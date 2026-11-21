@@ -22,6 +22,8 @@ import {
   lastConfig,
   mountEditor,
   openPageOf,
+  resultRows,
+  searchFor,
   valueOf,
 } from './helpers/editor-host';
 import { DEFAULT_CONFIG } from '../src/config/config';
@@ -174,6 +176,38 @@ describe('Narrow Day List & +N Panel on Month’s pages', () => {
         workspace,
       ).toEqual([]);
     }
+  });
+
+  /**
+   * On Month's Size & Spacing page, Event Gap and Event Spacing sit under Day List & +N Panel,
+   * which says what the marker would; elsewhere the marker is the only place that says it.
+   */
+  it('leaves it out under a heading that already says it, and nowhere else', async () => {
+    const editor = await mountEditor({ entities: ['calendar.anna'], view: 'month' });
+    await editLayout(editor, 'month');
+    await openPageOf(editor, 'layout:event_gap');
+    const heading = editor.shadowRoot!.querySelector(
+      '.page-group[data-heading="heading_event_rows"]',
+    );
+    expect(heading?.textContent).toContain('Day List & +N Panel');
+    expect(factsOf(editor, 'layout:event_gap')).not.toContain('Narrow Day List & +N Panel');
+    expect(factsOf(editor, 'layout:event_spacing')).not.toContain('Narrow Day List & +N Panel');
+
+    await openPageOf(editor, 'events:event_font_size');
+    expect(factsOf(editor, 'events:event_font_size')).toContain('Narrow Day List & +N Panel');
+
+    // Search names no heading, so its Edit Here keeps the marker.
+    await searchFor(editor, 'event gap');
+    expect(resultRows(editor).map((each) => each.id)).toContain('layout:event_gap');
+    editor.shadowRoot!.querySelector<HTMLElement>('[data-focus="edit-here"]')!.click();
+    await editor.updateComplete;
+    const found = editor.shadowRoot!.querySelectorAll(
+      '.result--edit [data-field="layout:event_gap"] .setting-facts > .fact',
+    );
+    expect([...found].map((fact) => fact.textContent?.trim())).toContain(
+      'Narrow Day List & +N Panel',
+    );
+    document.body.replaceChildren();
   });
 });
 

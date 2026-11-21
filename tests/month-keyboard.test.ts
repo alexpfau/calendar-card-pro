@@ -588,6 +588,35 @@ describe('the keyboard on a month', () => {
     );
   });
 
+  /**
+   * A key leaves the focus it moves to the update after it, which Lit runs even once the card is
+   * removed. Where focus has meanwhile moved onto a node removed during the move, happy-dom's own
+   * `activeElement` throws (`tests/toolbar-buttons.test.ts` has the same state), so a removed card
+   * must not ask: it holds no focus to give.
+   */
+  it('reads no focus for a key once the card is removed', async () => {
+    const card = await mount();
+    await focusOn(card, 'Wednesday, November 18');
+    // happy-dom's own answer, not this file's forgiving one.
+    Object.defineProperty(ShadowRoot.prototype, 'activeElement', activeElement);
+    const from = document.createElement('button');
+    const gone = document.createElement('div');
+    const to = gone.appendChild(document.createElement('button'));
+    document.body.append(from, gone);
+
+    cell(card, 'Wednesday, November 18').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, composed: true }),
+    );
+    from.focus();
+    from.addEventListener('focusout', () => gone.remove());
+    to.focus();
+    card.remove();
+
+    await expect(card.updateComplete).resolves.toBe(true);
+    // Only the document's own getter lets go of the detached node.
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('opens a wide day’s panel with Enter, and with Space only as it comes up', async () => {
     const card = await mount();
     await focusOn(card, 'Tuesday, November 10');
