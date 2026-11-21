@@ -94,6 +94,7 @@ interface CardUnderTest extends HTMLElement {
   hidden: boolean;
   isExpanded: boolean;
   refreshEvents(): Promise<void>;
+  requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -1002,6 +1003,31 @@ describe('a control that holds focus as it folds', () => {
 
     await measure(card, 351);
     expect(root(card).activeElement).toBe(menuButton(card));
+  });
+
+  /**
+   * Lit runs an update requested after the card is removed. Focus moved onto a node removed
+   * during the move leaves happy-dom's document holding a detached node, and a shadow root's
+   * `activeElement` then throws walking up from it: the unhandled rejection that failed a CI run
+   * after every test had passed. A removed card holds no focus, so it no longer asks.
+   */
+  it('reads no focus once removed, so an update after removal settles', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    const from = document.createElement('button');
+    const gone = document.createElement('div');
+    const to = gone.appendChild(document.createElement('button'));
+    document.body.append(from, gone);
+    from.focus();
+    from.addEventListener('focusout', () => gone.remove());
+    to.focus();
+
+    card.remove();
+    card.requestUpdate();
+
+    await expect(card.updateComplete).resolves.toBe(true);
+    // Only the document's own getter lets go of the detached node, which would otherwise make
+    // every connected card's next read throw for the rest of the file.
+    expect(document.activeElement).toBe(document.body);
   });
 });
 
