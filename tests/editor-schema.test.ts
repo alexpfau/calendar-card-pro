@@ -3913,6 +3913,32 @@ describe('editor: per-calendar settings', () => {
     });
   });
 
+  it('keeps a written field of Title until another field is chosen, then Title stores nothing', () => {
+    const written = {
+      entity: 'calendar.a',
+      filter_field: 'title',
+      replace_field: 'title',
+    } as Types.EntityConfig;
+    const data = toEntityFormData(written, [written]);
+    expect([data.filter_field, data.replace_field]).toEqual(['title', 'title']);
+
+    expect(writeEntity([written], 0, data)[0]).toEqual(written);
+
+    const moved = fromEntityFormData(
+      'calendar.a',
+      { ...data, filter_field: 'location', replace_field: 'description' },
+      written,
+    );
+    expect(moved).toEqual({
+      entity: 'calendar.a',
+      filter_field: 'location',
+      replace_field: 'description',
+    });
+    expect(
+      fromEntityFormData('calendar.a', { filter_field: 'title', replace_field: 'title' }, moved),
+    ).toBe('calendar.a');
+  });
+
   it('offers the weather switch only on a card that draws weather beside events', () => {
     const declared = entitySchema().schema;
     const names = (showsEventWeather: boolean) =>

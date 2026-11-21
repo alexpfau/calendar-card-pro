@@ -464,15 +464,27 @@ export function toEntityFormData(
     else data[key] = shown;
   }
 
-  for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
-    const stored = config[name];
-    const match = values.find((value) => ENTITY_TRISTATE_STORED[name][value] === stored);
-    // Falls back to the option's own default rather than to `inherit`, which is not a
-    // value every one of these dropdowns offers. See `ENTITY_TRISTATE_DEFAULT`.
-    data[name] = match ?? ENTITY_TRISTATE_DEFAULT[name] ?? INHERIT;
+  for (const name of Object.keys(ENTITY_TRISTATE_VALUES)) {
+    data[name] = tristateShown(name, config[name]);
   }
 
   return data;
+}
+
+/**
+ * The entry one of a calendar's dropdowns shows for what the calendar stores.
+ *
+ * @param name - Per-calendar option with a dropdown
+ * @param stored - What the calendar stores for it, if anything
+ * @returns The dropdown's value
+ */
+function tristateShown(name: string, stored: unknown): string {
+  const match = ENTITY_TRISTATE_VALUES[name].find(
+    (value) => ENTITY_TRISTATE_STORED[name][value] === stored,
+  );
+  // Falls back to the option's own default rather than to `inherit`, which is not a
+  // value every one of these dropdowns offers. See `ENTITY_TRISTATE_DEFAULT`.
+  return match ?? ENTITY_TRISTATE_DEFAULT[name] ?? INHERIT;
 }
 
 /**
@@ -575,18 +587,17 @@ export function fromEntityFormData(
 
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[key][String(value)];
-      if (stored !== undefined) entry[key] = stored;
-      // `show_weather: true` is valid YAML the dropdown has no entry for, since it means what
-      // Follow the card means, which the panel shows for it. Kept while the panel still shows
-      // that: dropping it would delete a line the user wrote on an edit to some other field.
-      // Choosing Follow the card after Never show still stores nothing.
-      else if (
-        key === 'show_weather' &&
-        value === INHERIT &&
-        asEntityConfig(previous).show_weather === true
-      ) {
-        entry[key] = true;
+      if (stored !== undefined) {
+        entry[key] = stored;
+        continue;
       }
+      // An entry that stores nothing still keeps a line the calendar holds while the panel shows
+      // that line as this entry, as `value.ts` › `toStoredConfig` keeps an unchanged line card-wide:
+      // `show_weather: true` shows as Follow the card and `filter_field: title` as Title, and
+      // dropping either would delete a line the user wrote on an edit to some other field.
+      // Choosing the entry after another one still stores nothing, since the line moved first.
+      const held = (asEntityConfig(previous) as unknown as Record<string, unknown>)[key];
+      if (isSet(held) && tristateShown(key, held) === value) entry[key] = held;
       continue;
     }
 

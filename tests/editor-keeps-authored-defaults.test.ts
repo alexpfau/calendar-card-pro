@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   changeField,
   editLayout,
+  entry,
   mountEditor,
   openPanels,
   reportsOf,
@@ -175,6 +176,30 @@ describe('adopting a layered card on its first edit', () => {
     expect(reports).toEqual([
       { ...card, title: 'Grid', config_version: Config.CURRENT_CONFIG_VERSION },
     ]);
+  });
+});
+
+describe('a calendar’s own lines', () => {
+  /**
+   * `title` is what these two dropdowns show for a calendar that stores nothing, so the entry
+   * stores nothing. A calendar that spells it out keeps the line through an edit to its name, as
+   * `show_weather: true` does and as the card-wide lines above do.
+   */
+  it('keeps a written `filter_field: title` and `replace_field: title` through another edit', async () => {
+    const anna = {
+      entity: 'calendar.anna',
+      blocklist: 'Dentist',
+      filter_field: 'title',
+      replace_pattern: 'Dr\\. ',
+      replace_field: 'title',
+    };
+    const card = { config_version: Config.CURRENT_CONFIG_VERSION, entities: [anna] };
+    const editor = await mountEditor(structuredClone(card));
+    const reports = reportsOf(editor);
+
+    await changeField(editor, 'calendar:name', 'Anna', entry(0));
+
+    expect(reports.slice(-1)).toEqual([{ ...card, entities: [{ ...anna, name: 'Anna' }] }]);
   });
 });
 
