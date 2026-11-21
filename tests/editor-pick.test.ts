@@ -353,6 +353,32 @@ describe('Pick From Preview', () => {
     }
   });
 
+  it('opens a part picked while Stored Settings changes a layout’s line under that layout', async () => {
+    const card = {
+      ...CONFIG,
+      config_version: 5,
+      list: { event_font_size: '11px' },
+      column: { event_font_size: '20px' },
+    };
+    const { editor, card: preview } = await dialog({ card, editor: card });
+    vi.spyOn(preview, 'setConfig').mockImplementation(() => undefined);
+    $(editor, '[data-focus="more:audit"]')!.click();
+    await settle(editor, preview);
+    $(editor, `[data-focus="${CSS.escape('more:audit:column.event_font_size')}"]`)!.click();
+    await settle(editor, preview);
+    $(
+      editor,
+      '[data-audit="column.event_font_size"] .strip button[data-focus$=":change"]',
+    )!.click();
+    await settle(editor, preview);
+    pickButton(editor)!.click();
+    await settle(editor, preview);
+    fire(preview.shadowRoot!.querySelector('.event-title')!, 'click');
+    await settle(editor, preview);
+    expect($(editor, '.page')?.getAttribute('data-page')).toBe('events');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+  });
+
   it('switches to Grid for a part only Grid’s scope holds, and says so', async () => {
     const { editor, card } = await dialog({ card: { ...CONFIG, view: 'grid' } });
     pickButton(editor)!.click();

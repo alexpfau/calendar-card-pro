@@ -1255,10 +1255,15 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The layout the preview draws where the editor is: the one being edited, or, on Whole Card's
    * pages, which edit in the shared scope, the layout the card opens in, as the preview shows it.
-   * A topic opened from there opens under it.
+   * On Stored Settings, the scope of the line being changed in place, as `_previewedScope` draws
+   * it. A topic opened from there opens under it.
    */
   private get _layoutInView(): Workspace.EditorWorkspace {
     const route = this._nav.route;
+    const edited = this._auditEdit?.group.workspace;
+    if ((route.kind === 'audit' || route.kind === 'notices') && edited !== undefined) {
+      return edited;
+    }
     const whole = route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page);
     return whole ? this._viewForConfig(this._config!) : this._workspace;
   }
