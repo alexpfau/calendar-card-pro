@@ -265,6 +265,7 @@
   "misplaced.message": "Queste opzioni si trovano in un punto in cui la scheda non le legge. Sposta ciascuna dove funziona oppure modificala in YAML.",
   "misplaced.fetch_time": "Decide quali eventi vengono caricati, quindi funziona solo per l’intera scheda, al livello principale.",
   "misplaced.card_wide": "Funziona solo per l’intera scheda, al livello principale.",
+  "misplaced.no_effect": "Non ha effetto in questo layout, né qui né al livello principale.",
   "misplaced.wrong_view": "Appartiene a un altro layout: {places}.",
   "misplaced.view_only": "Funziona solo nelle impostazioni specifiche di un layout: {places}.",
   "misplaced.calendar": "Funziona solo per un singolo calendario: impostala sotto entities, nella voce del calendario a cui è destinata.",

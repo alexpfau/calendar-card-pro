@@ -270,6 +270,7 @@
   "misplaced.message": "これらのオプションは、カードが読み取らない場所に書かれています。それぞれ機能する場所へ移動するか、YAMLで変更してください。",
   "misplaced.fetch_time": "読み込む予定を決めるオプションのため、カード全体（最上位）でのみ機能します。",
   "misplaced.card_wide": "カード全体（最上位）でのみ機能します。",
+  "misplaced.no_effect": "このレイアウトでは、ここでも最上位でも効果がありません。",
   "misplaced.wrong_view": "別のレイアウトのオプションです: {places}。",
   "misplaced.view_only": "レイアウトの個別設定でのみ機能します: {places}。",
   "misplaced.calendar": "カレンダーごとにのみ機能します。entitiesの下の対象のカレンダーに設定してください。",

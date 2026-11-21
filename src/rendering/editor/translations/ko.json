@@ -256,6 +256,7 @@
   "misplaced.message": "이 옵션들은 카드가 읽지 않는 위치에 작성되어 있습니다. 각 옵션을 작동하는 위치로 옮기거나 YAML에서 변경하세요.",
   "misplaced.fetch_time": "불러올 이벤트를 정하므로 최상위 수준에서 카드 전체에 대해서만 작동합니다.",
   "misplaced.card_wide": "최상위 수준에서 카드 전체에 대해서만 작동합니다.",
+  "misplaced.no_effect": "이 레이아웃에서는 여기서도 최상위 수준에서도 효과가 없습니다.",
   "misplaced.wrong_view": "다른 레이아웃의 옵션입니다: {places}.",
   "misplaced.view_only": "레이아웃 자체 설정에서만 작동합니다: {places}.",
   "misplaced.calendar": "캘린더에서만 작동합니다. entities 아래의 해당 캘린더에 설정하세요.",
