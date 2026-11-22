@@ -248,7 +248,7 @@ describe('the Family Agenda card behaves as the page describes', () => {
       allday_badge_style: 'filled',
       show_single_allday_time: false,
       show_location_allday: false,
-      toolbar: { show: true, view_switcher: false, size: 'large' },
+      toolbar: { show: true, view_switcher: false },
       weather_entity: 'weather.home',
       list: {
         date_vertical_alignment: 'top',

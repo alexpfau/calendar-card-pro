@@ -137,16 +137,6 @@ describe('the two family stories describe one family', () => {
     }
   });
 
-  it('draw the toolbar large for a finger on both tablets', () => {
-    // A wall tablet and a hallway tablet are both worked by touch, and each page says so.
-    for (const [page, card] of Object.entries(CARDS)) {
-      expect((card.config.toolbar as Record<string, unknown>).size, page).toBe('large');
-      expect(readFileSync(PAGES[page as keyof typeof PAGES], 'utf8'), page).toContain(
-        '`size: large`',
-      );
-    }
-  });
-
   it('show the window and the hours each page describes', () => {
     // The Hub is seven days from today in grid view on a 07:00-22:00 axis, with a phone's List
     // at three days, and the agenda three days from today. These are the numbers the prose and

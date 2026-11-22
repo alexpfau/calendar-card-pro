@@ -44,7 +44,6 @@ toolbar:
   show: true
   legend: chips
   reset: true
-  size: large
 day_tap_action:
   action: add-event
 entities:
@@ -121,8 +120,6 @@ With `show: true`, `toolbar` adds two rows of controls:
 - **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/header-toolbar#paging-through-dates).
 - **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/header-toolbar#showing-hiding-calendars).
 - **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/header-toolbar#resetting-the-card).
-
-`size: large` draws the arrows, the house and the chips nearly as large as the buttons above them, so a finger finds them on the wall, and on a phone too. Larger chips fold into the filter button sooner on a narrow card. See [Larger Arrows & Chips](/features/header-toolbar#larger-arrows-chips).
 
 ### Adding & Moving on the Wall
 
