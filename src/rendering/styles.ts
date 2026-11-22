@@ -8822,6 +8822,11 @@ export const cardStyles = css`
    * weeks and the list as one. Until it has, the least is reckoned in the card's em. The least is
    * the whole list's, its padding included, as the card measures it.
    *
+   * Padding above the day's name and none below the rows: the rows' box runs to the content's foot,
+   * so the card keeps under the last row or "+N more" what it keeps under every layout's events,
+   * the content's 1px and its own padding, and the rows have the rest. A row and "+N more" carry
+   * their own space under their text.
+   *
    * Under a cap with no height, the card writes none for --calendar-card-month-list-flex, and the
    * list and its box are as tall as the rows the card fitted under the cap. */
   .month-day-list {
@@ -8829,8 +8834,8 @@ export const cardStyles = css`
     display: flex;
     flex: var(--calendar-card-month-list-flex, 1 1 0);
     flex-direction: column;
-    min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px));
-    padding-block: 12px 4px;
+    min-height: var(--calendar-card-month-list-min, calc(2.4em + 33px));
+    padding-block: 12px 0;
   }
 
   .month-day-list-header {
@@ -8929,13 +8934,16 @@ export const cardStyles = css`
   }
 
   /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary
-     text where the rows' titles start, a button the width of the list. */
+     text where the rows' titles start, a button the width of the list. 4px under its text rather
+     than 7px, as it is the last thing in the list and the card's padding follows it: with the 7px
+     under a row's text, a narrow card in its default Sections slot fell under 2px short of
+     listing a sixth row. */
   .month-day-list-more {
     display: block;
     box-sizing: border-box;
     width: 100%;
     margin: 0;
-    padding-block: 7px;
+    padding-block: 7px 4px;
     padding-inline: calc(12px + var(--calendar-card-line-width-vertical)) 12px;
     border: none;
     border-radius: 6px;
