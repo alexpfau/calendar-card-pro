@@ -843,7 +843,12 @@ export class EventPopover extends Shell.PopoverShell {
       @input=${(ev: Event) => this._update({ summary: (ev.target as HTMLInputElement).value })}
       @keydown=${(ev: KeyboardEvent) => {
         // Return confirms, as it does in a macOS popover; not while an input method composes.
-        if (ev.key === 'Enter' && !ev.isComposing) this._requestClose('save');
+        // Consumed, because a repeating event then asks which occurrences, which focuses the
+        // first answer, and the browser would hand this key's keypress to it and pick it.
+        if (ev.key === 'Enter' && !ev.isComposing) {
+          ev.preventDefault();
+          this._requestClose('save');
+        }
       }}
     />`;
   }

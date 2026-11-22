@@ -2031,6 +2031,20 @@ describe('Save and Add', () => {
     expect(writes()).toHaveLength(1);
   });
 
+  it('asks on Return in the title of a repeating event, and the same key answers nothing', async () => {
+    // A browser hands the key's keypress to whatever has the focus once the keydown is done,
+    // and asking moves the focus to the first answer: unless the keydown is consumed, that
+    // keypress clicks "This and all future events" before anyone chose it.
+    const { el, root, type, writes } = await open({ entry: WEEKLY });
+    await type('input.title', 'Swim lesson');
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    root.querySelector('input.title')!.dispatchEvent(enter);
+    await el.updateComplete;
+    expect(enter.defaultPrevented).toBe(true);
+    expect(root.querySelector('.ask')).not.toBeNull();
+    expect(writes()).toEqual([]);
+  });
+
   it("words both in Home Assistant's language", async () => {
     const { root, type } = await open(
       {},
