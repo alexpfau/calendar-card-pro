@@ -1167,13 +1167,16 @@ describe('the list fitted to its room', () => {
         .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
         .map((d) => `${d.property}: ${d.value.replace(/\s+/g, ' ')}`);
     // Flexible with a basis of 0, so no day's events size either; at least what the card measures.
+    // No padding under the rows, so the card keeps under them what it keeps under every layout's
+    // events, and the estimate of the least is the 12px above, the header's 10px and "+N more"'s
+    // 14px around its two lines.
     expect(rule('.month-day-list')).toEqual([
       'box-sizing: border-box',
       'display: flex',
       'flex: var(--calendar-card-month-list-flex, 1 1 0)',
       'flex-direction: column',
-      'min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px))',
-      'padding-block: 12px 4px',
+      'min-height: var(--calendar-card-month-list-min, calc(2.4em + 36px))',
+      'padding-block: 12px 0',
     ]);
     expect(rule('.month-day-list-header')).toEqual([
       'flex: none',

@@ -8596,6 +8596,11 @@ export const cardStyles = css`
    * weeks and the list as one. Until it has, the least is reckoned in the card's em. The least is
    * the whole list's, its padding included, as the card measures it.
    *
+   * Padding above the day's name and none below the rows: the rows' box runs to the content's foot,
+   * so the card keeps under the last row or "+N more" what it keeps under every layout's events,
+   * the content's 1px and its own padding, and the rows have the rest. A row and "+N more" carry
+   * their own space under their text.
+   *
    * Under a cap with no height, the card writes none for --calendar-card-month-list-flex, and the
    * list and its box are as tall as the rows the card fitted under the cap. */
   .month-day-list {
@@ -8603,8 +8608,8 @@ export const cardStyles = css`
     display: flex;
     flex: var(--calendar-card-month-list-flex, 1 1 0);
     flex-direction: column;
-    min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px));
-    padding-block: 12px 4px;
+    min-height: var(--calendar-card-month-list-min, calc(2.4em + 36px));
+    padding-block: 12px 0;
   }
 
   .month-day-list-header {
