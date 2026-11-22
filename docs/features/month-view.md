@@ -4,6 +4,8 @@ Month view draws six whole weeks, a row each, so a household can read its calend
 traditional way: the month at a glance, with every event on its day. It is the same agenda the
 other layouts show, laid out as a wall calendar.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide.png" alt="A wide month card: October 2026 in six weeks under a toolbar with the layout switcher and a chip for each calendar, multi-day plans such as a business trip and a weekend at the lake as bars across the days, the other events as lines with their time, today's date filled, and +N more where a day is full" width="1100"><br>
+
 Set it with `view`:
 
 ```yaml
@@ -209,6 +211,8 @@ month:
 
 ### The Day Panel
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_month_day_panel.png" alt="The wide month with Saturday, October 17 open in the Day Panel over it: Grandma's birthday and the grandparents' visit all day, then a bike ride, a birthday lunch and grocery shopping with their times, each with its calendar's color and faces" width="1100"><br>
+
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
 opens the day in the Day Panel: every event that day, drawn as in [the Day List](#the-day-list) of a
 narrow month, with their times, locations and the other details the card shows. A press on an
@@ -223,6 +227,8 @@ the compact limits, `event_order` and `show_empty_days` shape a list card, not a
 :::
 
 ## 📱 The Narrow Month
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_narrow.png" alt="A narrow month card: six weeks of October 2026 with a colored capsule under each day's number, a segment for each event, today highlighted, and Wednesday's six events listed under the weeks with their times" width="380"><br>
 
 Where a day is too narrow for titles, as on a phone, the month draws its narrow form:
 under each day's number a small capsule with a segment per event in its calendar's color, or a

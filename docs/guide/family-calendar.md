@@ -18,7 +18,7 @@ The wall in grid view. Anna is pink, Ben is blue and Leo is green, each face in 
 
 Switched to Columns on the toolbar: a column of tinted boxes per day, the morning's finished events faded, and Reset ready to undo the switch.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
 
 A phone switched to List, and a dashboard section where Grid shows three days and the calendar chips fold into the filter button.
 

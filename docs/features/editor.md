@@ -12,6 +12,8 @@ have not added a card yet, start with [Usage](/guide/usage).
 
 ## 🗺️ The Overview
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of a Family card: a search field with Undo, Redo and Pick From Preview, the four calendars with their colors and faces, Whole Card's three pages, and Layouts with List selected over Columns, Grid and Month, then Layout Defaults" width="600"><br>
+
 The overview is the first thing the editor shows. It holds the card's calendars, the settings
 the whole card shares, and its layouts, each leading to pages of their own. Top to bottom:
 
@@ -110,6 +112,8 @@ the top, Back and the title share the first row, and **Search Settings**, **Undo
   Defaults, which only list their topics, have none.
 
 ## 🪄 Quick Setup
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on Starting Point, Family Hub picked among a Simple Agenda and five Example Stories, and the preview already drawing the Family Hub's grid of the family's week with its toolbar" width="600"><br>
 
 **Quick Setup** starts a card from a [Simple Agenda](/guide/usage#your-first-card) or one of the
 [Example Stories](/reference/examples) and asks only

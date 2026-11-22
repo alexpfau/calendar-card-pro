@@ -4,7 +4,7 @@ The next 60 days of birthdays and holidays, for a dashboard section or a pop-up:
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card showing two months of birthdays and holidays under a header with a search button, the title Coming Up as a small label over the month, and arrows to page: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown in days under every one still to come, a holiday of several days showing when it ends, and a thin rule between the months" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card showing two months of birthdays and holidays under a header with a search button, the title Coming Up as a small label over the month, and arrows to page: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown in days under every one still to come, a holiday of several days showing when it ends, dates without a month name, and a thin rule labeled Nov 2026 or Dec 2026 where a new month starts" width="600"><br>
 
 Birthdays in pink, holidays in teal, and a rule where one month ends.
 
