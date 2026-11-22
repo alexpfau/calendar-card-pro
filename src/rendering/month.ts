@@ -1154,12 +1154,13 @@ function markColor(event: Types.CalendarEventData, config: Types.Config): string
 }
 
 /**
- * A narrow day's capsule: one segment per event, in its calendar's color, up to
- * `MONTH_NARROW_MARKS`. A single event is a dot. A day without events keeps an empty capsule,
- * so every day is as tall as one with events. A day with more events than that is marked capped
- * (`data-capped`), and the stylesheet draws a small "+" beside its capsule, so a busy day does not
- * look like one with four. Hidden from assistive technology, as the capsule is: the day's cell is
- * named with its count (`monthCellName`).
+ * A narrow day's capsule: one equal segment per event, in its calendar's color, in the day's
+ * order. A single event is a dot. The capsule grows a segment's width per event up to six; from
+ * the seventh it keeps that width and its segments narrow, which the stylesheet does, so nothing
+ * here depends on layout. Past `MONTH_NARROW_MARKS` a segment would be narrower than a pixel, so
+ * the later events draw none. A day without events keeps an empty capsule, so every day is as tall
+ * as one with events. Hidden from assistive technology, as the capsule is: the day's cell is named
+ * with its full count (`monthCellName`).
  *
  * @param events - The day's events, as the day model lists them
  * @param config - Card configuration, resolved for month
@@ -1170,8 +1171,7 @@ function renderMarks(
   config: Types.Config,
 ): TemplateResult {
   const shown = events.slice(0, Constants.UI.MONTH_NARROW_MARKS);
-  const capped = events.length > shown.length;
-  return html`<span class="month-narrow-marks" aria-hidden="true" ?data-capped=${capped}
+  return html`<span class="month-narrow-marks" aria-hidden="true"
     >${shown.map(
       (event) =>
         html`<span

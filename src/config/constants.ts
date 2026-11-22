@@ -383,8 +383,14 @@ export const UI = {
    */
   GRID_MIN_HOUR_HEIGHT: '24px',
 
-  /** How many events a narrow month day's capsule draws a segment for, at most. */
-  MONTH_NARROW_MARKS: 4,
+  /**
+   * How many events a narrow month day's capsule draws a segment for, at most. The capsule grows
+   * by a 6px segment per event up to six, 36px, then holds that width while its segments narrow
+   * (`.month-narrow-marks` in `styles.ts`), so at this many each segment is one CSS pixel, still at
+   * least a device pixel on any screen. Past it the day's later events draw nothing rather than a
+   * sliver a screen cannot show; the day's cell still names its full count (`monthCellName`).
+   */
+  MONTH_NARROW_MARKS: 36,
 
   /**
    * The rows a month asks a Sections dashboard for while none of its four height keys sets a

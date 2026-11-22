@@ -28,7 +28,8 @@ each renderer.
   multi-day event's days, and each timed event as one line. Which line each takes, and what a day
   hides behind "+N more", is `utils/month-layout.ts`, from the lines the card measures fit under a
   date. Below `month → min_day_width` a day, it draws the narrow form instead: each day a number
-  and a capsule of up to four segments, and under the weeks the selected day's list. A day's list,
+  and a capsule of one segment per event, which grows to six and then narrows them, and under the
+  weeks the selected day's list. A day's list,
   there and in the panel "+N more" opens (`day-panel.ts`), is List's rows from one day model,
   `utils/month-day.ts`, which groups the card's filtered source events rather than the grid's
   display copies, so the capsules, the list and the panel agree. The rows are drawn with
