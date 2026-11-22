@@ -8608,7 +8608,7 @@ export const cardStyles = css`
     display: flex;
     flex: var(--calendar-card-month-list-flex, 1 1 0);
     flex-direction: column;
-    min-height: var(--calendar-card-month-list-min, calc(2.4em + 36px));
+    min-height: var(--calendar-card-month-list-min, calc(2.4em + 33px));
     padding-block: 12px 0;
   }
 
@@ -8708,13 +8708,16 @@ export const cardStyles = css`
   }
 
   /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary
-     text where the rows' titles start, a button the width of the list. */
+     text where the rows' titles start, a button the width of the list. 4px under its text rather
+     than 7px, as it is the last thing in the list and the card's padding follows it: with the 7px
+     under a row's text, a narrow card in its default Sections slot fell under 2px short of
+     listing a sixth row. */
   .month-day-list-more {
     display: block;
     box-sizing: border-box;
     width: 100%;
     margin: 0;
-    padding-block: 7px;
+    padding-block: 7px 4px;
     padding-inline: calc(12px + var(--calendar-card-line-width-vertical)) 12px;
     border: none;
     border-radius: 6px;
