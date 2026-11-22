@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(260_000);
-    // The v6.0 review fixes moved the ceiling last, from 254,000 to 260,000 (backlog item 396):
+    expect(saved).toBeLessThan(266_000);
+    // Pinning the date rows of every layout moved the ceiling last, from 260,000 to 266,000
+    // (backlog item 402): the notes on Grid's head and band as two boxes, the band's spanning the
+    // head's rows so it needs no offset, which pins when; on a column header's ground and wash as
+    // layers of their own, and why its columns stretch; and on the wide month's weekday names and
+    // the rule they draw once the first week has scrolled under. The reading went to 261,989,
+    // taken with stripComments after the last comment was written.
+    //
+    // The v6.0 review fixes moved the ceiling before that, from 254,000 to 260,000 (backlog item 396):
     // the notes on Grid's pinned head (why it is one subgrid box, when it pins, why its tints and
     // day lines split at the band, why the hours take a scroll margin), on darkening Month's filled
     // tiles in OKLab, on centering Column's header rule in its gap, on scaled Month lines and on

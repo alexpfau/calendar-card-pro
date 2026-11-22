@@ -5263,16 +5263,25 @@ export const cardStyles = css`
      be made translucent there, so they wash in a neutral gray at the same strengths, which
      darkens a light card and lightens a dark one alike. The two hover selectors are separate
      rules here, since a browser without :has() (Chrome before 105) drops a whole list holding
-     one, and would lose the column header's wash with it. */
+     one, and would lose the column header's wash with it. The property a pinned column header
+     reads its wash from (Column view) gets the same gray. */
   @supports not (color: color-mix(in srgb, red, blue)) {
     @media (hover: hover) {
       .date-column:has(> .day-add-button):hover {
+        --calendar-card-day-add-wash: rgba(128, 128, 128, 0.08);
         background-color: rgba(128, 128, 128, 0.08);
       }
 
       .column-day-header.day-add-button:hover {
+        --calendar-card-day-add-wash: rgba(128, 128, 128, 0.08);
         background-color: rgba(128, 128, 128, 0.08);
       }
+    }
+
+    .day-table[data-add-pressed] td.date-column,
+    .day-column[data-add-pressed] > .column-day-header,
+    .grid-day-header[data-add-pressed] > .column-day-header {
+      --calendar-card-day-add-wash: rgba(128, 128, 128, 0.16);
     }
 
     .day-table[data-add-pressed] td.date-column,

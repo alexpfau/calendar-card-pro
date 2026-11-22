@@ -4,8 +4,8 @@ import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
-import { PINNED_HEAD_HEIGHT_PROPERTY } from '../src/utils/head-pin';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import { PINNED_HEAD_HEIGHT_PROPERTY } from '../src/utils/head-pin';
 import * as Helpers from '../src/utils/helpers';
 
 /**
