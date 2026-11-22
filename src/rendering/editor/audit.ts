@@ -242,6 +242,18 @@ function wholeCard(line: AuditLine): boolean {
 }
 
 /**
+ * Whether a line is one Stored Settings lists: any the YAML writes a value for, `null` and an
+ * empty string included, as `event_tap_action: null` runs nothing and an emptied Countries To
+ * Remove keeps Custom.
+ *
+ * @param value - The line's value
+ * @returns Whether it is listed
+ */
+function listed(value: unknown): boolean {
+  return value !== undefined;
+}
+
+/**
  * Every line the YAML stores, by group: the card's top level, split into the lines with one value
  * for every layout and those a layout can have its own of, then each layout's block, each calendar
  * entry storing more than its id, then what the editor keeps as written. A group with no line is
@@ -271,7 +283,7 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
       const path = [...prefix, key];
       const text = path.join('.');
       if (
-        !holdsValue(value) ||
+        !listed(value) ||
         (prefix.length === 0 &&
           (SKIPPED.has(key) || blocks.has(key) || key in Config.DEPRECATED_CONFIG_MAP))
       ) {
@@ -326,7 +338,7 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
       entry: ctx.entryKeys[at],
     };
     const lines = Object.entries(entry).flatMap(([key, value]): AuditLine[] => {
-      if (key === 'entity' || !holdsValue(value) || key in Config.DEPRECATED_ENTITY_CONFIG_MAP) {
+      if (key === 'entity' || !listed(value) || key in Config.DEPRECATED_ENTITY_CONFIG_MAP) {
         return [];
       }
       const path = ['entities', String(at), key];

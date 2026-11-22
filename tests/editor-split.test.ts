@@ -183,6 +183,17 @@ describe('what Split writes', () => {
     expect(second.accent_color).toBeUndefined();
   });
 
+  it('reads a label typed for a part as written, whatever type the entry’s own had', () => {
+    for (const label_type of ['none', 'image'] as const) {
+      const entry = { entity: 'calendar.anna', label: 'A', label_type };
+      const [typed, kept] = splitEntry(entry, { kind: 'type' }, [{ label: 'Anna' }, {}]);
+      expect(typed).toMatchObject({ label: 'Anna' });
+      expect(typed).not.toHaveProperty('label_type');
+      // A part that keeps the entry's label keeps its type with it.
+      expect(kept).toMatchObject({ label: 'A', label_type });
+    }
+  });
+
   it('puts the parts in the entry’s place, part 2 right after it under a new key', () => {
     const pair = splitEntry(ben, { kind: 'type' }, [{}, {}]);
     const state = {
@@ -288,12 +299,16 @@ describe('Split This Calendar on an entry’s page', () => {
     const { editor } = await onBensPage();
 
     expect(
-      root(editor).querySelector('[data-heading="page.which_events"] .split-row'),
-    ).not.toBeNull();
+      root(editor)
+        .querySelector('[data-heading="page.which_events"] .split-row')
+        ?.getAttribute('aria-label'),
+    ).toBe('Split This Calendar: Ben');
     await press(editor, 'more:page');
     const first = root(editor).querySelector('.strip button');
     expect(first?.getAttribute('data-focus')).toBe('strip:page:split');
-    expect(first?.getAttribute('aria-label')).toBe('Split Ben');
+    // Starting with the words it shows, so a speech user can say them (WCAG 2.5.3).
+    expect(first?.textContent?.trim()).toBe('Split This Calendar');
+    expect(first?.getAttribute('aria-label')).toBe('Split This Calendar: Ben');
 
     await press(editor, 'strip:page:split');
     expect(task(editor)?.getAttribute('role')).toBe('group');

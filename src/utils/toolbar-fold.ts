@@ -1,5 +1,6 @@
 /**
- * Which of the action row's start controls the row draws, and which fold into its menu.
+ * Which of the action row's start controls the row draws, which fold into its menu, and whether
+ * the view switcher draws its layouts or collapses into one button that lists them.
  *
  * The action row holds, from its start, the calendar filter's button, add and the configuration's
  * own buttons; the view switcher in its middle; reset, refresh and a search control at its end.
@@ -7,8 +8,10 @@
  * first, then the start group's controls move into one menu button, from its end: the last of the
  * configuration's buttons first, then the earlier ones, then add. The group's first control never
  * moves, which is the filter wherever it is drawn, so the narrowest the group gets is that control
- * and the menu button. The end group never folds: a row too narrow even for that wraps it onto a
- * line of its own, as the row always has.
+ * and the menu button. Then the switcher collapses into one 60px button, the selected layout's
+ * pictogram and a caret, which opens a menu of the layouts. The start group stays at its narrowest while it does, so nothing comes back into the
+ * row as the card narrows. The end group never folds: a row too narrow even for that wraps it onto
+ * a line of its own, as the row always has.
  *
  * Never exactly one control moves into the menu, since the menu button takes the room that
  * control did: two move when the menu first appears, and the last two come back together when it
@@ -60,6 +63,23 @@ export interface ActionRow {
 export interface StartPlan {
   visible: ReadonlyArray<StartControl>;
   overflow: ReadonlyArray<StartControl>;
+}
+
+/** The whole row's plan: the start group's, and whether the switcher collapses. */
+export interface RowPlan extends StartPlan {
+  /** True where the switcher draws one button for its layouts, which a menu then lists. */
+  collapsed: boolean;
+}
+
+/**
+ * Folds the card asks for beyond what the width calls for, where the row it drew at a width still
+ * did not fit on one line (`_syncStartFoldFit`).
+ */
+export interface FoldRequest {
+  /** The fewest start controls to fold. */
+  atLeast: number;
+  /** Whether to collapse the switcher, which follows only once no start control is left to fold. */
+  collapse: boolean;
 }
 
 /**
@@ -155,4 +175,51 @@ export function planStartGroup(row: ActionRow, cardPx: number, atLeast = 0): Sta
     visible: start.slice(0, start.length - hidden),
     overflow: start.slice(start.length - hidden),
   };
+}
+
+/**
+ * How many icons the start group draws at its narrowest, the menu button counted: its first
+ * control and the menu button, or every control where fewer than three would leave a menu
+ * holding one.
+ *
+ * @param row - What the row holds
+ * @returns The icons
+ */
+export function narrowestStartIcons(row: ActionRow): number {
+  return row.start.length >= 3 ? 2 : row.start.length;
+}
+
+/**
+ * The card width below which the switcher collapses: the width the row needs on one line with
+ * the start group at its narrowest and the switcher as pictograms. Nothing without a switcher.
+ *
+ * @param row - What the row holds
+ * @returns The width in CSS pixels, or 0 for a row with no switcher
+ */
+export function collapseBelow(row: ActionRow): number {
+  return row.views > 0 ? cardWidthFor(row, narrowestStartIcons(row)) : 0;
+}
+
+/**
+ * Plans the whole row for a card this wide: the start group as `planStartGroup` plans it, and the
+ * switcher collapsed where even the start group's narrowest leaves it no room
+ * (`collapseBelow`), so the switcher collapses only once every start control that can fold has.
+ *
+ * Without hysteresis, as the start group's plan: every plan is one line as tall as every other,
+ * so none can move the width it was made for.
+ *
+ * @param row - What the row holds
+ * @param cardPx - The card's width
+ * @param request - Folds asked for beyond what the width calls for; none by default
+ * @returns The plan
+ */
+export function planRow(
+  row: ActionRow,
+  cardPx: number,
+  request: FoldRequest = { atLeast: 0, collapse: false },
+): RowPlan {
+  const collapsed = row.views > 0 && (request.collapse || cardPx < collapseBelow(row));
+  // Collapsing, the start group stays at its narrowest even where the pill would leave it room.
+  const atLeast = collapsed ? row.start.length : request.atLeast;
+  return { ...planStartGroup(row, cardPx, atLeast), collapsed };
 }

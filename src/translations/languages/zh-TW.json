@@ -23,6 +23,8 @@
   "viewColumns": "欄",
   "viewGrid": "網格",
   "viewMonth": "月",
+  "layout": "版面配置",
+  "layoutCurrent": "版面配置：{view}",
   "moreEvents": "還有 {count} 項",
   "eventCount": "{count} 項活動",
   "eventCountOne": "{count} 項活動",
@@ -35,6 +37,8 @@
   "error": "錯誤：找不到日曆實體或配置不正確",
   "loadFailed": "無法載入：",
   "newEvent": "新活動",
+  "movedTo": "已移至 {time}",
+  "undo": "復原",
   "showAll": "顯示全部",
   "hideAll": "隱藏全部",
   "private": "私人"

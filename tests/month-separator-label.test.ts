@@ -63,6 +63,7 @@ function render(
   view: Types.EffectiveView = 'list',
   hass: Types.Hass | null = null,
   language = 'en',
+  headingMonth?: Date,
 ): HTMLElement {
   const config = buildConfig({
     view,
@@ -78,7 +79,16 @@ function render(
       ? Grid.renderGridGroupedEvents(days, effective, language, undefined, hass, FROZEN_NOW)
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, language, undefined, hass)
-        : Render.renderGroupedEvents(days, effective, language, undefined, hass),
+        : Render.renderGroupedEvents(
+            days,
+            effective,
+            language,
+            undefined,
+            hass,
+            false,
+            undefined,
+            headingMonth,
+          ),
     container,
   );
   return container;
@@ -156,9 +166,10 @@ describe('the month rule names its month', () => {
   it('writes the month it opens at the start of the plain rule, the rule after it', () => {
     const off = render(RULES).querySelector<HTMLElement>('.month-separator')!;
     const container = render({ ...RULES, month_separator_label: true });
-    const rule = container.querySelector<HTMLElement>('.month-separator')!;
+    const rule = [...container.querySelectorAll<HTMLElement>('.month-separator')].pop()!;
 
-    expect(labels(container)).toEqual(['Jul 2026']);
+    // June's is the first month's, above the list (below).
+    expect(labels(container)).toEqual(['Jun 2026', 'Jul 2026']);
     expect([...rule.children].map((child) => child.className)).toEqual([
       'month-separator-label',
       'month-separator-line',
@@ -172,6 +183,90 @@ describe('the month rule names its month', () => {
     expect(rule.style.marginTop).toBe(off.style.marginTop);
     expect(rule.style.marginBottom).toBe(off.style.marginBottom);
     expect(rule.style.marginTop).not.toBe('');
+  });
+
+  it('names the first month above the list, on a rule with no space above it', () => {
+    // Without it the first days sat under no name of their own: a list whose first days with
+    // events are in the next month read under the month of the page's first day.
+    const container = render({ ...RULES, month_separator_label: true });
+    const first = container.querySelector<HTMLElement>('.month-separator')!;
+    const boundary = [...container.querySelectorAll<HTMLElement>('.month-separator')].pop()!;
+
+    expect(first.classList.contains('month-separator-labeled')).toBe(true);
+    expect(first.querySelector('.month-separator-label')?.textContent).toBe('Jun 2026');
+    expect(property(first, '--separator-border-width')).toBe('5px');
+    expect(first.style.marginTop).toBe('0px');
+    expect(first.style.marginBottom).toBe(boundary.style.marginBottom);
+    // The control: the first day still opens with no rule while the label is off.
+    expect(labels(render(RULES))).toEqual([]);
+    expect(render(RULES).querySelectorAll('.month-separator')).toHaveLength(1);
+  });
+
+  it('names the first month on every path into the first day', () => {
+    // The plain path, the first week without its number, and the first week with it.
+    const nextMonth = eventsOn(['2026-12-02', '2026-12-03']);
+    const start = { start_date: '2026-11-21', days_to_show: 14 };
+    expect(labels(render({ ...RULES, ...start, month_separator_label: true }, nextMonth))).toEqual([
+      'Dec 2026',
+    ]);
+    expect(
+      labels(
+        render(
+          { ...WEEKS, ...start, show_current_week_number: false } as Partial<Types.Config>,
+          nextMonth,
+        ),
+      ),
+    ).toEqual(['Dec 2026']);
+    const numbered = render(
+      { ...WEEKS, ...start, show_current_week_number: true } as Partial<Types.Config>,
+      nextMonth,
+    );
+    expect(labels(numbered)).toEqual(['Dec 2026']);
+    const row = numbered.querySelector('.week-row-table')!;
+    expect(row.querySelector('.week-number')?.textContent).toBe('49');
+    expect(row.querySelector('.month-separator-label')?.textContent).toBe('Dec 2026');
+    expect(property(row.querySelector('.separator-cell'), '--separator-display')).toBe('block');
+  });
+
+  it('leaves the first month to a toolbar heading that names it, on every path', () => {
+    // The toolbar's month sits right above the list: labeling the first block as well named the
+    // same month twice, one under the other.
+    const nextMonth = eventsOn(['2026-12-02', '2026-12-03', '2027-01-04']);
+    const start = { start_date: '2026-11-21', days_to_show: 50 };
+    const paths: Array<[string, Partial<Types.Config>]> = [
+      ['plain', { ...RULES, ...start, month_separator_label: true }],
+      ['first week', { ...WEEKS, ...start, show_current_week_number: false }],
+      ['week row', { ...WEEKS, ...start, show_current_week_number: true }],
+    ];
+    const strip = (html: string) => html.replace(/<!--[^>]*-->/g, '');
+    const firstDay = (container: HTMLElement) =>
+      strip(container.innerHTML.split(/<table class="\s*day-table/)[0]);
+
+    for (const [path, config] of paths) {
+      const december = new Date(2026, 11, 1);
+      const named = render(config, nextMonth, 'list', null, 'en', december);
+      // Later months keep theirs.
+      expect(labels(named), path).toEqual(['Jan 2027']);
+      // The first day opens as it does with the label off; on the week row path, with its row.
+      expect(firstDay(named).includes('week-row-table'), path).toBe(path === 'week row');
+      expect(firstDay(named), path).toBe(
+        firstDay(render({ ...config, month_separator_label: false }, nextMonth)),
+      );
+      // Controls: a heading naming another month, the page's November, leaves the label, as does
+      // no heading at all.
+      const november = new Date(2026, 10, 21);
+      expect(labels(render(config, nextMonth, 'list', null, 'en', november)), path).toEqual([
+        'Dec 2026',
+        'Jan 2027',
+      ]);
+      expect(labels(render(config, nextMonth)), path).toEqual(['Dec 2026', 'Jan 2027']);
+      // The same month of another year is another month.
+      const lastYear = new Date(2025, 11, 1);
+      expect(labels(render(config, nextMonth, 'list', null, 'en', lastYear)), path).toEqual([
+        'Dec 2026',
+        'Jan 2027',
+      ]);
+    }
   });
 
   it('marks the label with the card language', () => {
@@ -190,39 +285,48 @@ describe('the month rule names its month', () => {
     const rows = [...container.querySelectorAll('.week-row-table')];
     const labeled = rows.filter((row) => row.querySelector('.month-separator-label'));
 
-    // The denominator: more week rows than the one the month opens.
+    // The denominator: more week rows than the one the month opens. The first names January.
     expect(rows.length).toBeGreaterThan(1);
-    expect(labeled).toHaveLength(1);
-    expect(labels(container)).toEqual(['Feb 2027']);
-    const cell = labeled[0].querySelector('.separator-cell')!;
+    expect(labeled).toHaveLength(2);
+    expect(labels(container)).toEqual(['Jan 2027', 'Feb 2027']);
+    const cell = labeled[1].querySelector('.separator-cell')!;
     expect(property(cell, '--separator-border-width')).toBe('5px');
     expect(cell.querySelector('.separator-line')).toBeNull();
     expect(
       [...cell.querySelector('.month-separator-labeled')!.children].map((c) => c.className),
     ).toEqual(['month-separator-label', 'month-separator-line']);
     // The number still comes first.
-    expect(labeled[0].querySelector('.week-number')?.textContent).toBe('5');
+    expect(labeled[1].querySelector('.week-number')?.textContent).toBe('5');
   });
 
   it('draws a week row that opens no month exactly as before', () => {
-    const on = render(
-      { ...RULES, show_week_numbers: 'iso', month_separator_label: true },
-      WEEK_START,
-    );
-    const off = render({ ...RULES, show_week_numbers: 'iso' }, WEEK_START);
-    const plain = (container: HTMLElement) =>
-      [...container.querySelectorAll('.week-row-table')]
-        .filter((row) => !row.querySelector('.month-separator-label'))
-        .map((row) => row.outerHTML.replace(/<!--[^>]*-->/g, ''));
+    // Into a second week of February, so one week row opens neither the list nor a month.
+    const events = [...WEEK_START, ...eventsOn(['2027-02-08'])];
+    const on = render({ ...RULES, show_week_numbers: 'iso', month_separator_label: true }, events);
+    const off = render({ ...RULES, show_week_numbers: 'iso' }, events);
+    const rows = (container: HTMLElement) =>
+      new Map(
+        [...container.querySelectorAll('.week-row-table')].map((row) => [
+          row.querySelector('.week-number')?.textContent,
+          row,
+        ]),
+      );
+    const plain = [...rows(on)].filter(([, row]) => !row.querySelector('.month-separator-label'));
 
-    expect(plain(on).length).toBeGreaterThan(0);
-    expect(plain(on)).toEqual(plain(off).slice(0, plain(on).length));
+    expect(plain.map(([week]) => week)).toEqual(['6']);
+    for (const [week, row] of plain) {
+      expect(row.outerHTML.replace(/<!--[^>]*-->/g, ''), week!).toBe(
+        rows(off)
+          .get(week)!
+          .outerHTML.replace(/<!--[^>]*-->/g, ''),
+      );
+    }
   });
 
   it('uses the plain rule at a mid-week month even with week numbers on', () => {
     const container = render({ ...RULES, show_week_numbers: 'iso', month_separator_label: true });
 
-    expect(labels(container)).toEqual(['Jul 2026']);
+    expect(labels(container)).toEqual(['Jun 2026', 'Jul 2026']);
     expect(container.querySelector('.month-separator .month-separator-label')?.textContent).toBe(
       'Jul 2026',
     );
@@ -254,7 +358,7 @@ describe('the month rule names its month', () => {
   it('names the block below it in a list read latest first', () => {
     expect(
       labels(render({ ...RULES, month_separator_label: true, event_order: 'latest_first' })),
-    ).toEqual(['Jun 2026']);
+    ).toEqual(['Jul 2026', 'Jun 2026']);
   });
 
   it('reads the list block over the top level, either way round', () => {
@@ -264,22 +368,24 @@ describe('the month rule names its month', () => {
     expect(
       labelsWith({ month_separator_label: true, list: { month_separator_label: false } }),
     ).toEqual([]);
-    expect(labelsWith({ list: { month_separator_label: true } })).toEqual(['Jul 2026']);
+    expect(labelsWith({ list: { month_separator_label: true } })).toEqual(['Jun 2026', 'Jul 2026']);
   });
 
   it('draws the label whether the dates show their month or not, on both paths', () => {
     for (const showMonth of [false, true]) {
       const on = { ...RULES, show_month: showMonth, month_separator_label: true };
-      expect(labels(render(on)), `plain ${showMonth}`).toEqual(['Jul 2026']);
+      expect(labels(render(on)), `plain ${showMonth}`).toEqual(['Jun 2026', 'Jul 2026']);
       expect(
         labels(render({ ...on, show_week_numbers: 'iso' }, WEEK_START)),
         `week row ${showMonth}`,
-      ).toEqual(['Feb 2027']);
+      ).toEqual(['Jan 2027', 'Feb 2027']);
     }
   });
 
   it("writes the month in the card's language, on both paths", () => {
+    const june = new Date(2026, 5, 1);
     const july = new Date(2026, 6, 1);
+    const january = new Date(2027, 0, 1);
     const february = new Date(2027, 1, 1);
     for (const language of ['de', 'pl', 'ja']) {
       const plain = render(
@@ -290,8 +396,14 @@ describe('the month rule names its month', () => {
         language,
       );
       const row = render(WEEKS, WEEK_START, 'list', null, language);
-      expect(labels(plain), language).toEqual([intlMonth(july, language, 'short')]);
-      expect(labels(row), language).toEqual([intlMonth(february, language, 'short')]);
+      expect(labels(plain), language).toEqual([
+        intlMonth(june, language, 'short'),
+        intlMonth(july, language, 'short'),
+      ]);
+      expect(labels(row), language).toEqual([
+        intlMonth(january, language, 'short'),
+        intlMonth(february, language, 'short'),
+      ]);
       expect(row.querySelector('.week-row-table .month-separator-label'), language).not.toBeNull();
       for (const label of [plain, row].flatMap((each) => [
         ...each.querySelectorAll('.month-separator-label'),
@@ -306,14 +418,16 @@ describe('the month rule names its month', () => {
   it('names the month in full where the short form is only a number, on both paths', () => {
     // Which language abbreviates a month to its number is CLDR's to say and can change between
     // runtimes, so the language is found in the runtime's own data rather than named here.
+    const june = new Date(2026, 5, 1);
     const july = new Date(2026, 6, 1);
+    const january = new Date(2027, 0, 1);
     const february = new Date(2027, 1, 1);
     const named = (language: string, date: Date, form: 'long' | 'short') =>
       new Intl.DateTimeFormat(language, { month: form, year: 'numeric' })
         .formatToParts(date)
         .some((part) => part.type === 'month' && /\p{L}/u.test(part.value));
     const numeric = CARD_LANGUAGES.filter((language) =>
-      [july, february].every(
+      [june, july, january, february].every(
         (date) => !named(language, date, 'short') && named(language, date, 'long'),
       ),
     );
@@ -324,36 +438,42 @@ describe('the month rule names its month', () => {
       expect(
         labels(render({ ...RULES, month_separator_label: true }, MID_WEEK, 'list', null, language)),
         language,
-      ).toEqual([intlMonth(july, language, 'long')]);
+      ).toEqual([intlMonth(june, language, 'long'), intlMonth(july, language, 'long')]);
       expect(labels(render(WEEKS, WEEK_START, 'list', null, language)), language).toEqual([
+        intlMonth(january, language, 'long'),
         intlMonth(february, language, 'long'),
       ]);
     }
   });
 
   it("keeps the label in its language's direction on a dashboard running the other way", () => {
-    const july = new Date(2026, 6, 1);
-    const february = new Date(2027, 1, 1);
+    const hebrew = (year: number, month: number) =>
+      intlMonth(new Date(year, month, 1), 'he', 'short');
     const weeks = WEEKS;
     const on = { ...RULES, month_separator_label: true };
-    const hebrewJuly = intlMonth(july, 'he', 'short');
-    const hebrewFebruary = intlMonth(february, 'he', 'short');
+    const marked = (mark: string, ...texts: string[]) =>
+      texts.map((text) => `${mark}${text}${mark}`);
 
     // An English card on a right-to-left dashboard, and a Hebrew card on a left-to-right one,
     // each on both paths: marked in the card language's own direction.
-    expect(labels(render(on, MID_WEEK, 'list', dashboard('he')))).toEqual([`${LRM}Jul 2026${LRM}`]);
-    expect(labels(render(weeks, WEEK_START, 'list', dashboard('he')))).toEqual([
-      `${LRM}Feb 2027${LRM}`,
-    ]);
-    expect(labels(render(on, MID_WEEK, 'list', dashboard('en'), 'he'))).toEqual([
-      `${RLM}${hebrewJuly}${RLM}`,
-    ]);
-    expect(labels(render(weeks, WEEK_START, 'list', dashboard('en'), 'he'))).toEqual([
-      `${RLM}${hebrewFebruary}${RLM}`,
-    ]);
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('he')))).toEqual(
+      marked(LRM, 'Jun 2026', 'Jul 2026'),
+    );
+    expect(labels(render(weeks, WEEK_START, 'list', dashboard('he')))).toEqual(
+      marked(LRM, 'Jan 2027', 'Feb 2027'),
+    );
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('en'), 'he'))).toEqual(
+      marked(RLM, hebrew(2026, 5), hebrew(2026, 6)),
+    );
+    expect(labels(render(weeks, WEEK_START, 'list', dashboard('en'), 'he'))).toEqual(
+      marked(RLM, hebrew(2027, 0), hebrew(2027, 1)),
+    );
     // The controls: where the two directions agree, nothing is added.
-    expect(labels(render(on, MID_WEEK, 'list', dashboard('en')))).toEqual(['Jul 2026']);
-    expect(labels(render(on, MID_WEEK, 'list', dashboard('he'), 'he'))).toEqual([hebrewJuly]);
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('en')))).toEqual(['Jun 2026', 'Jul 2026']);
+    expect(labels(render(on, MID_WEEK, 'list', dashboard('he'), 'he'))).toEqual([
+      hebrew(2026, 5),
+      hebrew(2026, 6),
+    ]);
   });
 });
 

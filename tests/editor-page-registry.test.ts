@@ -351,7 +351,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Event Appearance',
-    'Event Details',
+    'Visible Event Parts',
     '',
     [
       'events:show_time P',
@@ -492,7 +492,7 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     ['layout:month.narrow_card_height A M', 'layout:month.narrow_card_max_height A M'],
   ],
-  // Day List & +N Panel in Month, whose weeks draw neither.
+  // Day List & Day Panel in Month, whose weeks draw neither.
   ['Size & Spacing', 'Event Rows', '', ['layout:event_gap A SLCM', 'layout:event_spacing A SLCM']],
   [
     'Size & Spacing',
@@ -653,7 +653,7 @@ const APPROVED_MAP: ReadonlyArray<
   ],
   [
     'Calendar Entry',
-    'Event Details',
+    'Visible Event Parts',
     '',
     [
       'calendar:show_time A',
@@ -788,7 +788,7 @@ const BORROWED_MAP: ReadonlyArray<string> = [
   'Which Events › Selection & Order: content:event_type reference',
   'Which Events › Empty Days: content:hide_when_empty reference',
   'Days › Weeks: content:first_day_of_week reference',
-  'Event Appearance › Event Details: content:time_format reference',
+  'Event Appearance › Visible Event Parts: content:time_format reference',
   'Weather › Forecast: weather:weather_entity copy',
 ];
 
@@ -925,6 +925,7 @@ describe('the page registry is consistent with itself', () => {
     for (const heading of HEADINGS) {
       if (heading.key) keys.push(heading.key);
       if (heading.helperKey) keys.push(heading.helperKey);
+      keys.push(...Object.values(heading.helperKeyByView ?? {}));
       keys.push(...Object.values(heading.keyByView ?? {}));
     }
     for (const family of Object.values(FAMILIES)) {

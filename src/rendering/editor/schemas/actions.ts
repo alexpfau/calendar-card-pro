@@ -112,8 +112,18 @@ export function cardActionLabelKey(action: string): string {
  */
 const actionsSchema = Helpers.memoizeLast(
   (language: string, opensDetails: boolean, eventActs: boolean): HaFormSchema[] => [
-    { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
-    { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+    // Named as the card's, on keys of their own: `tap_action` and `hold_action` stay the terms
+    // other labels are built on (Day Tap Action, a toolbar button's Tap Action).
+    {
+      name: 'tap_action',
+      titleKey: 'card_tap_action',
+      selector: { ui_action: { actions: ACTION_OPTIONS } },
+    },
+    {
+      name: 'hold_action',
+      titleKey: 'card_hold_action',
+      selector: { ui_action: { actions: ACTION_OPTIONS } },
+    },
     select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
     { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     { name: 'event_hold_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },

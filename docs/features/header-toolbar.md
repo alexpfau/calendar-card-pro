@@ -57,10 +57,13 @@ pictogram for each where it is not, with the name as its tooltip.
 ::: details Narrow Cards & Languages
 
 - A language with longer words keeps the switcher's pictograms until its words fit.
+- Home Assistant's own words, such as Search, Refresh, Previous and Next, are in the language of
+  your Home Assistant profile, whatever the card's `language` option says.
 - The month and the calendar chips are always words, and the arrows and the home button are
   always icons.
 - On a narrow card the add button and your own buttons fold into a menu; see
-  [Your Own Buttons](#your-own-buttons).
+  [Your Own Buttons](#your-own-buttons). Narrower still, the view switcher folds into one button;
+  see [Switching Between Layouts](#switching-between-layouts).
 
 :::
 
@@ -190,6 +193,11 @@ See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-o
 - **Columns and Grid need room.** On a card too narrow for even their fewest days, two for
   Columns and one for Grid by default, they draw as a list until the card is wide enough again.
   See [Column View](/features/column-view) and [Grid View](/features/grid-view).
+- **On a phone it folds into one button.** Where the top row has no room for a pictogram per
+  layout, the switcher becomes one wider button showing the picked layout's pictogram and a small
+  arrow, so the top row stays on one line. A tap opens a menu of the layouts, each with its
+  pictogram and name, the picked one checked. It folds only once the add button and your own
+  buttons have moved into their menu, and comes back as the card widens.
 - **In the visual editor** the View Switcher chip on Card & Header turns it on and off, and while
   it is pressed, **View Switcher offers**, under the controls, has a checkbox per layout.
 
@@ -227,7 +235,7 @@ See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-o
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
-nothing. The editor's preview shows the layout whose
+nothing, and its folded button opens no menu. The editor's preview shows the layout whose
 [pages you open](/features/editor#options-for-the-selected-view), so open another layout to see
 it without changing the card; on the dashboard the card shows its configured `view`.
 :::
@@ -508,13 +516,14 @@ in YAML.
 
 ::: details Buttons on Narrow Cards
 
-- The top row gives way in a fixed order: the view switcher's words become pictograms first, and
-  only then do controls move into the menu, your last button first.
+- The top row gives way in a fixed order: the view switcher's words become pictograms first, then
+  controls move into the menu, your last button first, and last the switcher folds into one
+  button.
 - The first control in the row, the calendar filter's button wherever it is drawn, stays at any
-  width, so the narrowest top row is that button and the menu button, the switcher, and the
-  controls at the row's end.
+  width, so the narrowest top row is that button and the menu button, the folded switcher, and
+  the controls at the row's end.
 - Reset, refresh and search never move into the menu. A card too narrow even for the narrowest
-  top row puts them on a line of their own.
+  top row, under 314px with all three, puts them on a line of their own.
 - The menu lists what it holds in the order the row draws it, each with its icon and its name in
   words, and a press runs it and closes the menu. The add button there opens the new event under
   the menu button.
@@ -556,9 +565,17 @@ toolbar:
 - **Picking a result,** with a press, or with the arrow keys and Enter, pages the card to that day
   in the layout on screen and rings the event in the theme's primary color for two seconds. The
   [home button](#paging-through-dates) brings the card back, as after any page.
-- **A search finds only what the card would show** on some page, in the words it would show: a
-  calendar's own filters apply, and a calendar hidden with the
-  [calendar filter](#showing-hiding-calendars) stays hidden.
+- **A search finds only what the card would show** on some page, in the words the card or the
+  [event's popover](/features/actions#event-details) would show: a calendar's own filters apply,
+  and a calendar hidden with the [calendar filter](#showing-hiding-calendars) stays hidden.
+
+::: warning Changed in v6
+A search finds an event's location and description even where `show_location: false` or
+`show_description: false` hides them from the rows, because the event's popover still shows
+them. Only [`private: true`](/features/core-settings#keeping-a-calendar-private) keeps a
+calendar's text out of a search and off the card. See
+[Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
+:::
 
 The first time the panel opens, the card loads two years of every calendar, which can take a
 while with CalDAV; see [How Search Loads](/features/performance#how-search-loads). Until a
@@ -572,16 +589,17 @@ calendar answers, the search finds the events the card already holds.
   a calendar's `days_of_week` leaves it out of some of a multi-day event's days, the days it
   shares are listed apart, with every location `merge_locations` draws there and every calendar,
   and picking that result opens the first of them.
-- **A title is searched as `replace_pattern` rewrites it,** and a location without the country
-  `remove_location_country` takes away. A location or a description the card does not show, with
-  `show_location` or `show_description` off, is not searched, nor is a description in
-  [Month](/features/month-view#options-that-do-nothing-in-month-view), which draws none. The
-  event's popover still shows them; to keep a calendar's text off the card, use
-  [`private: true`](/features/core-settings#keeping-a-calendar-private).
-- **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
-  layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
-  outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
-  unless its `time_grid` block turns `show_location` on.
+- **A title is searched as `replace_pattern` rewrites it,** and the location and the description
+  as the event's popover shows them, the text replacement applied: in full, with the country
+  `remove_location_country` takes off the rows, and even where the rows leave them out, with
+  `show_location` or `show_description` off, in [Month](/features/month-view#options-that-do-nothing-in-month-view),
+  which draws no description, and in the grid, which draws no location unless its `time_grid`
+  block turns `show_location` on. A match the result does not draw is found but not marked.
+- **A [private calendar's](/features/core-settings#keeping-a-calendar-private) events read
+  Private,** in the popover as on the card, so their own words are never found.
+- **The layout on screen decides which days and events are drawn,** since a pick turns the card to
+  a day in that layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a
+  timed event outside the hours from `start_time` to `end_time` is not found.
 - **`show_past_events` does not apply.** A search spans its own two years, whatever days the card
   shows.
 - **A result** shows its calendar's color, its title, and its day, time and location, with what
@@ -607,7 +625,8 @@ calendar answers, the search finds the events the card already holds.
   focus moves to the event where a tap on it does something, and stays on the magnifier where it
   does not. With reduced motion turned on, the ring does not fade out and the spinner in the field
   stands still.
-- Every word the panel shows is Home Assistant's own, in its language. On a phone the panel is a
+- Every word the panel shows is Home Assistant's own, in its language, whatever the card's
+  `language` says. On a phone the panel is a
   sheet from the bottom of the screen, and while you type it stands on the on-screen keyboard,
   the field and the results above the keys. Held sideways, it moves up out of the keyboard's way.
 

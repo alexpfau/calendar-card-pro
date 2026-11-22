@@ -10,6 +10,8 @@
   "viewColumns": "Стовпці",
   "viewGrid": "Сітка",
   "viewMonth": "Місяць",
+  "layout": "Макет",
+  "layoutCurrent": "Макет: {view}",
   "moreEvents": "Ще +{count}",
   "eventCount": "Подій: {count}",
   "eventCountOne": "{count} подія",
@@ -22,6 +24,8 @@
   "error": "Помилка: Cутність календаря не знайдено або налаштовано неправильно",
   "loadFailed": "Не вдалося завантажити:",
   "newEvent": "Нова подія",
+  "movedTo": "Перенесено на {time}",
+  "undo": "Скасувати",
   "showAll": "Показати всі",
   "hideAll": "Сховати всі",
   "private": "Приватне"

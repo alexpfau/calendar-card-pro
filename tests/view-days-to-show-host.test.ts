@@ -4,7 +4,7 @@
  * The rules are pinned in `view-days-to-show.test.ts`; this file pins how the card joins
  * them: one load as long as the longest view the card can show, a view switch that draws a
  * different number of days without fetching, paging by the days on screen, the list fallback
- * drawing list's own count, `hide_when_empty` across every reachable view, and the add
+ * drawing list's own count, `hide_when_empty` judged by the view on screen, and the add
  * button's suggested day.
  *
  * Every case gives the views *different* counts. With equal ones each assertion here would
@@ -532,51 +532,46 @@ describe('a card month cannot reach', () => {
   });
 });
 
-describe('hide_when_empty across the views a card can show', () => {
+describe('hide_when_empty, judged by the view on screen', () => {
   /** One event, on the 24th: inside the list's fourteen days, past the grid's seven. */
   const ONLY_THE_24TH = new Set(['2026-06-24']);
 
-  it('keeps a card whose view on screen is empty while another view has an event', async () => {
+  it('hides a card whose view on screen is empty while another view has an event', async () => {
     answerFromFixture(ONLY_THE_24TH);
     const card = await mount({ view: 'grid', hide_when_empty: true });
     await measure(card, 1400);
 
     expect(card.effectiveView).toBe('grid');
     expect(root(card).querySelectorAll('.grid-event')).toHaveLength(0);
-    expect(card.hidden).toBe(false);
-  });
-
-  it('hides it when the view holding the event cannot be shown', async () => {
-    // The event is loaded and the list would draw it, but the list is unreachable: no
-    // switcher, and a grid that cramps rather than falling back. Monday's 09:00 has ended by
-    // Wednesday 10:00, which this grid hides and the list shows, so only a check that
-    // looks at views the card cannot show would keep the card.
-    answerFromFixture(new Set(['2026-06-15']));
-    const card = await mount({
-      view: 'grid',
-      hide_when_empty: true,
-      show_past_events: true,
-      time_grid: { days_to_show: 7, min_days_fallback: 'cramp', show_past_events: false },
-      toolbar: { show: true, navigation: false, view_switcher: false, add_event: false },
-    });
-    await measure(card, 1400);
-
-    expect(card.events.map((event) => event.summary)).toEqual(['Event 2026-06-15']);
     expect(card.hidden).toBe(true);
   });
 
-  it('keeps it when that view can be shown after all', async () => {
-    // The control for the case above: the same card with the switcher, which makes the list
-    // reachable, and the list draws Monday's event.
-    answerFromFixture(new Set(['2026-06-15']));
-    const card = await mount({
-      view: 'grid',
-      hide_when_empty: true,
-      show_past_events: true,
-      time_grid: { days_to_show: 7, min_days_fallback: 'cramp', show_past_events: false },
-    });
-    await measure(card, 1400);
+  it('hides a three-day list with nothing in range, though Month would draw an event', async () => {
+    answerFromFixture(ONLY_THE_24TH);
+    const card = await mount({ view: 'list', days_to_show: 3, hide_when_empty: true, ...MONTH_ON });
 
+    expect(card.effectiveView).toBe('list');
+    expect(card.events.map((event) => event.summary)).toContain('Event 2026-06-24');
+    expect(card.hidden).toBe(true);
+  });
+
+  it('keeps it while the view on screen has an event', async () => {
+    answerFromFixture(ONLY_THE_24TH);
+    const card = await mount({ view: 'list', hide_when_empty: true });
+
+    expect(card.effectiveView).toBe('list');
+    expect(card.hidden).toBe(false);
+  });
+
+  it('keeps it while a view picked with the switcher is empty and the configured view is not', async () => {
+    // Hiding would take the switcher with it, and with it the way back to the list.
+    answerFromFixture(ONLY_THE_24TH);
+    const card = await mount({ view: 'list', hide_when_empty: true });
+    await measure(card, 1400);
+    await pick(card, 'grid');
+
+    expect(card.effectiveView).toBe('grid');
+    expect(root(card).querySelectorAll('.grid-event')).toHaveLength(0);
     expect(card.hidden).toBe(false);
   });
 

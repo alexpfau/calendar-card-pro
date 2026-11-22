@@ -31,6 +31,8 @@
   "viewColumns": "Sarakkeet",
   "viewGrid": "Ruudukko",
   "viewMonth": "Kuukausi",
+  "layout": "Asettelu",
+  "layoutCurrent": "Asettelu: {view}",
   "moreEvents": "+{count} lisää",
   "eventCount": "{count} tapahtumaa",
   "eventCountOne": "{count} tapahtuma",
@@ -43,6 +45,8 @@
   "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",
   "loadFailed": "Lataus epäonnistui:",
   "newEvent": "Uusi tapahtuma",
+  "movedTo": "Siirretty: {time}",
+  "undo": "Kumoa",
   "showAll": "Näytä kaikki",
   "hideAll": "Piilota kaikki",
   "private": "Yksityinen"

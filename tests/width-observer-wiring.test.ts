@@ -82,10 +82,17 @@ class RecordingResizeObserver {
   }
 }
 
-/** The only observer the card created. Fails loudly rather than returning undefined. */
+/**
+ * The one observer watching the card itself, which measures its width. Fails loudly rather than
+ * returning undefined. Once the columns are drawn the card also watches them, to pin their day
+ * headers while the events area scrolls (`_syncHeadPin`), which is no part of this wiring.
+ */
 function soleObserver(): RecordingResizeObserver {
-  expect(RecordingResizeObserver.instances).toHaveLength(1);
-  return RecordingResizeObserver.instances[0];
+  const watching = RecordingResizeObserver.instances.filter((observer) =>
+    observer.observed.some((element) => element.localName === 'calendar-card-pro-dev'),
+  );
+  expect(watching).toHaveLength(1);
+  return watching[0];
 }
 
 function columnConfig(overrides: Record<string, unknown> = {}) {

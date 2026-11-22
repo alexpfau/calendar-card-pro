@@ -245,7 +245,7 @@ its events get weather at all, so where it is `date` or `none` this changes noth
 draws what the layout draws anyway.
 
 ::: tip Visual Editor
-**Event Weather** is the last setting under **Event Details** on each calendar's page. A
+**Event Weather** is the last setting under **Visible Event Parts** on each calendar's page. A
 calendar's page holds the options of every layout the card can show, so it appears once any of
 those layouts shows the forecast beside events, and names the layouts it applies to where only
 some of them do.
@@ -354,6 +354,16 @@ that, the date row simply omits what the forecast does not cover.
 :::
 
 Event-position weather works the same way in grid as in column — see the section above.
+
+## 🔄 When the Forecast Stops Updating
+
+The card shows each forecast as Home Assistant sends it. When no update arrives for more than 2
+hours for the hourly forecast, or 48 hours for the daily one, the card dims its weather, so an
+old forecast does not read as current. The next update draws it at full strength again.
+
+After Home Assistant restarts, the card subscribes to the forecast again by itself, trying again
+until the weather entity has loaded, so the forecast does not stay frozen until the dashboard is
+reloaded.
 
 ## ✨ Benefits & Use Cases
 

@@ -5,6 +5,7 @@ import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import { PINNED_HEAD_HEIGHT_PROPERTY } from '../src/utils/head-pin';
 import * as Helpers from '../src/utils/helpers';
 
 /**
@@ -2189,6 +2190,162 @@ describe('card stylesheet', () => {
       expect(declared('.grid-now-dot', 'z-index')).toBe('2');
     });
 
+    it('pins the rows above the hours over them, and only while the card marks them pinned', () => {
+      // D54: under a card_height, a card_max_height or a max_height the whole grid scrolled,
+      // and the dates and the all-day band went with the hours. The rows above the hours are
+      // two boxes, the dates' and the band's, both axes subgrids over every column, so each
+      // item inside keeps the track it had as a child of .grid-container. The band's box spans
+      // the dates' rows too, so pinned at the top it holds the band under them with no offset.
+      const box = (selector: string) =>
+        Object.fromEntries(
+          [
+            'display',
+            'grid-template-columns',
+            'grid-template-rows',
+            'grid-column',
+            'grid-row',
+            'position',
+            'z-index',
+            'background-color',
+            'pointer-events',
+          ].map((prop) => [prop, declared(selector, prop)]),
+        );
+      const unpinned = {
+        display: 'grid',
+        'grid-template-columns': 'subgrid',
+        'grid-template-rows': 'subgrid',
+        'grid-column': '1 / -1',
+        // Unpinned they paint on the grid's own ladder, as their children did before them.
+        position: '',
+        'z-index': '',
+        'background-color': '',
+      };
+      expect(box('.grid-head')).toEqual({
+        ...unpinned,
+        'grid-row': '1 / span 2',
+        'pointer-events': '',
+      });
+      // The band's box takes no pointer over the dates' rows it spans, and the band takes it back.
+      expect(box('.grid-allday-row')).toEqual({
+        ...unpinned,
+        'grid-row': '1 / span 3',
+        'pointer-events': 'none',
+      });
+      expect(declared('.grid-allday-row > .grid-allday-band', 'pointer-events')).toBe('auto');
+
+      // Pinned, each sticks to the top of the scrolling area above every rung the hours paint
+      // on, read from the ladder rather than restated, so a rung that climbs past them fails;
+      // and the head above the band's box, which spans its rows.
+      for (const pinned of ['.grid-head[data-pinned]', '.grid-allday-row[data-pinned]']) {
+        expect(declared(pinned, 'position'), pinned).toBe('sticky');
+        expect(declared(pinned, 'top'), pinned).toBe('0');
+      }
+      const rungs = [
+        '.grid-separator',
+        '.grid-allday-band',
+        '.grid-boundary',
+        '.grid-now-dot',
+        '.grid-day-body',
+      ].map((selector) => Number(declared(selector, 'z-index') || 0));
+      const bandZ = Number(declared('.grid-allday-row[data-pinned]', 'z-index'));
+      expect(bandZ).toBeGreaterThan(Math.max(...rungs));
+      expect(Number(declared('.grid-head[data-pinned]', 'z-index'))).toBeGreaterThan(bandZ);
+
+      // The ground is the card's own background, so nothing scrolled under shows through: on the
+      // band's box while it is pinned, which grounds the head's rows too, and on the head only
+      // where it is pinned alone, so a translucent background is never laid twice.
+      const card = declared('ha-card', 'background');
+      expect(card).not.toBe('');
+      expect(declared('.grid-allday-row[data-pinned]', 'background-color')).toBe(card);
+      expect(declared(".grid-head[data-pinned='alone']", 'background-color')).toBe(card);
+      expect(declared('.grid-head[data-pinned]', 'background-color')).toBe('');
+
+      // Where scroll timelines exist the ground goes on only once the area has scrolled, so an
+      // unscrolled card on a translucent background is not given a second coat of it. Read
+      // from the text: the scanner skips at-rules.
+      const supports = /@supports \(animation-timeline: scroll\(\)\)\s*\{([\s\S]*?\})\s*\}/.exec(
+        CSS,
+      );
+      expect(supports, 'no scroll-timeline block').not.toBeNull();
+      const timed = supports![1].replace(/\s+/g, ' ');
+      expect(timed).toContain(".grid-head[data-pinned='alone'], .grid-allday-row[data-pinned],");
+      expect(timed).toContain('background-color: transparent;');
+      expect(timed).toContain('animation-timeline: scroll(nearest block);');
+      const ground =
+        /@keyframes calendar-card-pinned-ground\s*\{\s*to\s*\{\s*background-color:\s*([^;]+);/.exec(
+          CSS,
+        );
+      expect(ground?.[1].replace(/\s+/g, ' ')).toBe(card);
+
+      // What scrolls under the pinned rows comes into view below them, by the height the card
+      // writes: the hours, and the band while the head is pinned alone. Nothing pinned takes the
+      // margin, or its own focus would scroll the area back to the top.
+      const margin = `var(${PINNED_HEAD_HEIGHT_PROPERTY}, 0px)`;
+      expect(declared('.grid-head[data-pinned] ~ .grid-day-body *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+      expect(
+        declared(".grid-head[data-pinned='alone'] ~ .grid-allday-row *", 'scroll-margin-top'),
+      ).toBe(margin);
+      expect(declared('.grid-allday-row[data-pinned] *', 'scroll-margin-top')).toBe('');
+
+      // The week numbers moved into the head with their row.
+      expect(declared('.grid-head > .column-week-number', 'margin-bottom')).toBe('2px');
+      expect(declared('.grid-container > .column-week-number', 'margin-bottom')).toBe('');
+    });
+
+    it("pins a column view's day headers and a wide month's weekday names, and nothing else", () => {
+      // Backlog item 402: what stays at the top of a scrolling area in the other two layouts.
+      const header = '.column-grid[data-pinned] > .day-column > .column-day-header';
+      expect(declared(header, 'position')).toBe('sticky');
+      expect(declared(header, 'top')).toBe('0');
+      // Over the events, which take no z-index of their own.
+      expect(Number(declared(header, 'z-index'))).toBeGreaterThan(0);
+      // A sticky box holds only within its column, so the columns reach the row's foot.
+      expect(declared('.column-grid[data-pinned] > .day-column', 'align-self')).toBe('stretch');
+      // Ground under the header's content, and its wash laid back over the ground.
+      const card = declared('ha-card', 'background');
+      expect(declared(`${header}::before`, 'background-color')).toBe(card);
+      expect(declared(`${header}::before`, 'z-index')).toBe('-1');
+      expect(declared(`${header}::after`, 'background-color')).toBe(
+        'var(--calendar-card-day-add-wash, transparent)',
+      );
+      expect(declared(header, 'background-color')).toBe('transparent');
+      const pressed = '.day-column[data-add-pressed] > .column-day-header';
+      expect(declared(pressed, 'background-color')).toBe('var(--calendar-card-day-add-wash)');
+      expect(declared(pressed, '--calendar-card-day-add-wash')).toContain('color-mix(');
+      // The hover wash, inside its media query, which the scanner skips.
+      const hover = /\.column-day-header\.day-add-button:hover\s*\{([^}]*)\}/.exec(CSS);
+      expect(hover?.[1].replace(/\s+/g, ' ')).toContain(
+        'background-color: var(--calendar-card-day-add-wash);',
+      );
+      expect(hover?.[1]).toContain('--calendar-card-day-add-wash: color-mix(');
+
+      const names = '.month-container:not(.month-narrow) > .month-weekdays[data-pinned]';
+      expect(declared(names, 'position')).toBe('sticky');
+      expect(declared(names, 'top')).toBe('0');
+      expect(declared(names, 'background-color')).toBe(card);
+      // A narrow month's weeks and list scroll as one, so nothing there sticks: every pinned
+      // month rule names the wide form only.
+      const monthPins = RULES.flatMap((rule) => rule.selectors).filter(
+        (selector) => selector.includes('.month-') && selector.includes('[data-pinned]'),
+      );
+      expect(monthPins.length).toBeGreaterThan(0);
+      for (const selector of monthPins) {
+        if (selector.includes('.month-weekdays[data-pinned] ~')) continue;
+        expect(selector).toContain('.month-container:not(.month-narrow) > ');
+      }
+      expect(declared('.month-weekdays[data-pinned]', 'position')).toBe('');
+
+      const margin = `var(${PINNED_HEAD_HEIGHT_PROPERTY}, 0px)`;
+      expect(declared('.column-grid[data-pinned] .column-events *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+      expect(declared('.month-weekdays[data-pinned] ~ .month-week *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+    });
+
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {
       // The two families are one system in the reader's eye, so they have to match, and
       // matching them is a claim about two files: the color of a vertical rule comes from
@@ -3171,6 +3328,8 @@ describe("the card's ripple over the toolbar", () => {
     '.legend-menu',
     // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
     '.custom-menu',
+    // And so does the menu of views a collapsed switcher opens.
+    '.layout-menu',
   ];
 
   it('stays still while the pointer is on a control, as it does over an event', () => {
@@ -3593,6 +3752,24 @@ describe('the toolbar layout', () => {
       2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
       px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
     expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
+  });
+
+  it('draws the collapsed switcher as a 60px pill, its pictogram and caret inside it', () => {
+    // The plan collapses the switcher where its segments do not fit; the pill's 60px is what
+    // the narrowest row then needs, 314px for the reported card (toolbar-fold.test.ts).
+    const px = (selector: string, property: string) =>
+      Number.parseFloat(declared(selector, property));
+    const [start, end] = declared('.toolbar-button.view-switcher-pill', 'padding-inline')
+      .split(/\s+/)
+      .map(Number.parseFloat);
+    const content =
+      px('.view-switcher-icon', 'width') +
+      px('.toolbar-button.view-switcher-pill', 'gap') +
+      px('.view-switcher-caret', 'width');
+    expect(start + content + end).toBe(60);
+    expect(declared('.toolbar-button.view-switcher-pill', 'width')).toBe('60px');
+    // As tall as every command, so the row keeps one height in either form.
+    expect(declared('.toolbar-button', 'height')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {

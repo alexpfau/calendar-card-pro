@@ -71,25 +71,54 @@ export function statusBar(
 /**
  * The receipt the upgrade on opening leaves at the top of the overview: "Upgraded. Day Spacing
  * now applies to List, as before. The card looks the same." with Use It for Every Layout, until it
- * is, and Undo.
+ * is, and Undo, where the upgrade wrote. Under it, a line for each calendar that hides a field an
+ * event's details now show, with Make It Private.
  *
- * @param receipt - Its title, sentences, share button and Undo
+ * @param receipt - Its title, sentences, calendar lines, share button and Undo
  * @param receipt.title - "Upgraded."
  * @param receipt.text - The sentences after it
+ * @param receipt.details - A line and its button for each calendar to name
  * @param receipt.share - Use Them for Every Layout, while they are List's
  * @param receipt.undoLabel - Undo's label
- * @param receipt.onUndo - Undo
+ * @param receipt.onUndo - Undo, where there is a step to take back
  * @returns The receipt
  */
 export function upgradeReceipt(receipt: {
   readonly title: string;
   readonly text: string;
+  readonly details?: ReadonlyArray<{
+    readonly key: number;
+    readonly text: string;
+    readonly label: string;
+    readonly onPress: () => void;
+  }>;
   readonly share?: { readonly label: string; readonly onPress: () => void };
   readonly undoLabel: string;
-  readonly onUndo: () => void;
+  readonly onUndo?: () => void;
 }): TemplateResult {
+  const details = receipt.details ?? [];
   return html`<div class="status-bar upgrade-receipt" data-status-bar data-upgrade-receipt>
     <span class="status-text"><strong>${receipt.title}</strong> ${receipt.text}</span>
+    ${
+      details.length > 0
+        ? html`<ul class="upgrade-details">
+            ${details.map(
+              (line) =>
+                html`<li data-upgrade-private=${line.key}>
+                  <span>${line.text}</span>
+                  <button
+                    type="button"
+                    class="text-button"
+                    data-focus=${`upgrade-private-${line.key}`}
+                    @click=${line.onPress}
+                  >
+                    ${line.label}
+                  </button>
+                </li>`,
+            )}
+          </ul>`
+        : nothing
+    }
     <span class="upgrade-actions">
       ${
         receipt.share
@@ -103,9 +132,18 @@ export function upgradeReceipt(receipt: {
             </button>`
           : nothing
       }
-      <button type="button" class="text-button" data-focus="status-undo" @click=${receipt.onUndo}>
-        ${receipt.undoLabel}
-      </button>
+      ${
+        receipt.onUndo
+          ? html`<button
+              type="button"
+              class="text-button"
+              data-focus="status-undo"
+              @click=${receipt.onUndo}
+            >
+              ${receipt.undoLabel}
+            </button>`
+          : nothing
+      }
     </span>
   </div>`;
 }

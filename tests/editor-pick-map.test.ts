@@ -66,11 +66,15 @@ const EVENTS = [
   event('Trip', '2026-06-18', '2026-06-21', 'calendar.anna'),
 ];
 
-/** Two more on the 17th for Month, whose four lines then hold three and a "+2 more". */
+/**
+ * Two more on the 17th for Month, whose four lines then hold three and a "+2 more", and a timed
+ * event of several days, which the Wide Month draws as a bar with its times and its length.
+ */
 const MONTH_EVENTS = [
   ...EVENTS,
   event('Piano', '2026-06-17T15:00:00Z', '2026-06-17T16:00:00Z', 'calendar.anna'),
   event('Book club', '2026-06-17T18:00:00Z', '2026-06-17T19:00:00Z', 'calendar.ben'),
+  event('Conference', '2026-06-23T09:00:00Z', '2026-06-25T15:00:00Z', 'calendar.anna'),
 ];
 
 /** Answers the resize observer the card starts, with a width a test reports. */
@@ -114,6 +118,8 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
     show_countdown: true,
     show_progress_bar: true,
     show_now_indicator: true,
+    // A Wide Month bar's length, beside its times.
+    ...(view === 'month' ? { show_duration: true } : {}),
     week_separator_width: '2px',
     day_separator_width: '1px',
     month_separator_width: '3px',
@@ -300,6 +306,7 @@ describe('Pick From Preview part map', () => {
       '.event-weather ⊃ span',
       '.grid-axis ⊃ div.grid-axis-label',
       '.grid-axis ⊃ span',
+      '.grid-banner ⊃ div.grid-event-accessible',
       '.grid-container ⊃ div.grid-boundary.grid-boundary-band-bottom',
       '.grid-container ⊃ div.grid-boundary.grid-boundary-band-top',
       '.grid-container ⊃ div.grid-boundary.grid-boundary-body-end',
@@ -337,6 +344,13 @@ describe('Pick From Preview part map', () => {
       '.view-switcher ⊃ span.view-switcher-probe',
       '.view-switcher ⊃ span.view-switcher-probe.view-switcher-page',
       '.view-switcher ⊃ svg.view-switcher-icon',
+      // The collapsed switcher: its button's pictogram and caret, and its menu's rows and frame.
+      '.view-switcher-collapsed ⊃ span.layout-menu-label',
+      '.view-switcher-collapsed ⊃ span.layout-menu-page',
+      '.view-switcher-collapsed ⊃ span.layout-menu-surface',
+      '.view-switcher-collapsed ⊃ svg.layout-menu-check',
+      '.view-switcher-collapsed ⊃ svg.view-switcher-caret',
+      '.view-switcher-collapsed ⊃ svg.view-switcher-icon',
       '.weather ⊃ ha-icon',
       '.weather ⊃ span.weather-temp-high',
     ]);
@@ -366,16 +380,20 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The parts that name their setting: the switcher, Layouts in Switcher; Grid's own parts,
-    // each at the setting it is, where its topic keeps it; and a narrow month's day list, Events
-    // in Day List.
+    // The parts that name their setting: the switcher, Layouts in Switcher; a title and a time,
+    // each at the size it is drawn at, the Wide Month's days at theirs; Grid's own parts, each at
+    // the setting it is, where its topic keeps it; and the Narrow Month's dots and Day List.
     expect(
       PICK_PARTS.flatMap(([selector, target]) =>
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
       ),
     ).toEqual([
-      '.view-switcher card:toolbar.view_switcher_layouts',
+      '.view-switcher, .view-switcher-collapsed card:toolbar.view_switcher_layouts',
       '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
+      '.month-line-title, .month-bar .grid-banner-title layout:month.cell_event_font_size',
+      '.event-title, .grid-banner-title events:event_font_size',
+      '.month-line-time, .month-bar .grid-banner-time, .month-bar .grid-banner-duration layout:month.cell_time_font_size',
+      '.time events:time_font_size',
       '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',
       '.grid-event-overflow layout:time_grid.max_simultaneous_events',
       '.grid-allday-band layout:time_grid.allday_band_max_rows',
@@ -396,5 +414,33 @@ describe('Pick From Preview part map', () => {
       page: 'which_events',
       heading: 'heading_nothing',
     });
+  });
+
+  it('opens the size a Month title or time is drawn at, in each form', async () => {
+    const fieldOf = (element: Element, card: Card) => {
+      const target = partOn(pathOf(element), card)!.target;
+      return 'field' in target ? target.field : undefined;
+    };
+    // The Wide Month's lines and bars draw at its days' own sizes.
+    const wide = await mount('month', 1000);
+    const root = wide.shadowRoot!;
+    expect(root.querySelector('.month-narrow')).toBeNull();
+    const parts: Array<readonly [string, string]> = [
+      ['.month-line-title', 'layout:month.cell_event_font_size'],
+      ['.month-bar .grid-banner-title', 'layout:month.cell_event_font_size'],
+      ['.month-line-time', 'layout:month.cell_time_font_size'],
+      ['.month-bar .grid-banner-time', 'layout:month.cell_time_font_size'],
+      ['.month-bar .grid-banner-duration', 'layout:month.cell_time_font_size'],
+    ];
+    for (const [selector, field] of parts) {
+      expect(fieldOf(root.querySelector(selector)!, wide), selector).toBe(field);
+    }
+    // The Narrow Month draws its Day List's rows at every row's sizes. Without a layout engine the
+    // list fits none of them, so the rows it measures stand in for them: the same template.
+    const narrow = await mount('month', 360);
+    const rows = narrow.shadowRoot!;
+    expect(rows.querySelector('.month-narrow')).not.toBeNull();
+    expect(fieldOf(rows.querySelector('.event-title')!, narrow)).toBe('events:event_font_size');
+    expect(fieldOf(rows.querySelector('.event .time')!, narrow)).toBe('events:time_font_size');
   });
 });

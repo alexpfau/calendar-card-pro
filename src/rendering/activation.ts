@@ -192,8 +192,9 @@ export function startsOnRowLink(
  * - `time`: a grid day's time area, which adds at the quarter hour under the pointer.
  * - `columns`: space that belongs to no day element, under a short column-view column or in
  *   a grid's all-day band, whose day is the one whose column the pointer is in. `among`
- *   names where those columns are: the element's children, or its siblings. `allDay` marks
- *   the grid's all-day band, where a new event is all-day.
+ *   names where those columns are: the element's children, or the day headers in the grid's
+ *   head, beside the box holding the band. `allDay` marks the grid's all-day band, where a new
+ *   event is all-day.
  * - `covered`: an event, or a grid `+N` block standing for several. It covers the day
  *   beneath it, so a press on it never adds there.
  *
@@ -211,7 +212,7 @@ export type DaySlot =
     }
   | {
       readonly kind: 'columns';
-      readonly among: 'children' | 'siblings';
+      readonly among: 'children' | 'head';
       readonly allDay?: boolean;
     }
   | { readonly kind: 'covered' };
@@ -231,12 +232,12 @@ export const COLUMNS_AMONG_CHILDREN: DaySlot = Object.freeze({
 });
 
 /**
- * The slot of a grid's all-day band, whose day headers and bodies are its siblings. A new event
- * begun there is all-day.
+ * The slot of a grid's all-day band, whose day headers are in the grid's head, beside the box
+ * holding the band. A new event begun there is all-day.
  */
-export const COLUMNS_AMONG_SIBLINGS: DaySlot = Object.freeze({
+export const COLUMNS_IN_HEAD: DaySlot = Object.freeze({
   kind: 'columns',
-  among: 'siblings',
+  among: 'head',
   allDay: true,
 });
 
@@ -409,7 +410,10 @@ export function findDayHit(
       };
     }
 
-    const container = slot.among === 'children' ? element : element.parentElement;
+    const container =
+      slot.among === 'children'
+        ? element
+        : element.parentElement?.parentElement?.querySelector(':scope > .grid-head');
     if (!container) return undefined;
     const found = dayInColumnAt(container.children, point, slot.among === 'children');
     return found && slot.allDay ? { ...found, allDay: true } : found;

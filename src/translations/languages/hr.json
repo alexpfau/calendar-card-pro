@@ -10,6 +10,8 @@
   "viewColumns": "Stupci",
   "viewGrid": "Mreža",
   "viewMonth": "Mjesec",
+  "layout": "Raspored",
+  "layoutCurrent": "Raspored: {view}",
   "moreEvents": "+{count} više",
   "eventCount": "{count} događaja",
   "eventCountOne": "{count} događaj",
@@ -22,6 +24,8 @@
   "error": "Greška: Kalendar entitet nije pronađen ili je neispravno postavljen",
   "loadFailed": "Učitavanje nije uspjelo:",
   "newEvent": "Novi događaj",
+  "movedTo": "Premješteno na {time}",
+  "undo": "Poništi",
   "showAll": "Pokaži sve",
   "hideAll": "Sakrij sve",
   "private": "Privatno"

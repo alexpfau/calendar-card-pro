@@ -99,7 +99,8 @@ export function refusals(
 
 /**
  * The two entries a split writes: each a copy of the entry with every option it has, then its
- * rule, its label and its accent color. All-day, or the worded part, first.
+ * rule, its label and its accent color. All-day, or the worded part, first. A label other than
+ * the entry's own drops its `label_type`, so the card reads it as written.
  *
  * By words, part 1 keeps the words as its allowlist, beside a blocklist it already has; part 2
  * takes them as its blocklist, joined to one it already has. `filter_field` is written on both
@@ -138,7 +139,12 @@ export function splitEntry(
     if (given.label === undefined) {
       // Kept as the entry has it.
     } else if (given.label === '') delete result.label;
-    else result.label = given.label;
+    else {
+      result.label = given.label;
+      // A label typed here is read as written: the entry's type was for its own label, and
+      // `none` or `image` would draw a typed word as nothing or as a broken picture.
+      if (given.label !== base.label) delete result.label_type;
+    }
     if (given.color === undefined || given.color === '') delete result.accent_color;
     else result.accent_color = given.color;
     return result;

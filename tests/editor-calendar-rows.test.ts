@@ -320,6 +320,60 @@ describe('focus and announcements', () => {
     expect(lastConfig(editor)?.entities).toEqual([BEN, ANNA]);
   });
 
+  it('names an entry that names no calendar as invalid, by its place', async () => {
+    const editor = await mount([{ label: 'A' }, ANNA]);
+    const [invalid] = keysOf(editor, 'entry');
+    expect(control(editor, `more:entry:${invalid}`)!.getAttribute('aria-label')).toBe(
+      'Actions for Invalid calendar, entry 1',
+    );
+    await goEntry(editor, invalid);
+    expect(editor.shadowRoot!.querySelector('.entry-page .page-title')?.textContent).toBe(
+      'Invalid calendar',
+    );
+  });
+
+  it('says each event still shows once on Duplicate where duplicates are filtered', async () => {
+    const notice = async (card: Record<string, unknown>) => {
+      const editor = await mountEditor(
+        {
+          config_version: Config.CURRENT_CONFIG_VERSION,
+          entities: [{ entity: ANNA, label: 'A' }, BEN],
+          ...card,
+        },
+        { hass: fakeHass({ states: NAMED }) },
+      );
+      const [anna] = keysOf(editor, 'entry');
+      await press(editor, `more:entry:${anna}`);
+      await press(editor, `strip:entry:${anna}:duplicate`);
+      const line = editor.shadowRoot!.querySelector('.entry-page .entry-notice');
+      const read = {
+        text: line?.textContent?.replace(/\s+/g, ' ').trim(),
+        warning: line?.classList.contains('warning'),
+      };
+      editor.remove();
+      return read;
+    };
+    expect(await notice({ filter_duplicates: true })).toEqual({
+      text:
+        'Duplicate filtering is on, so each event still shows once while both entries show the ' +
+        'same events.',
+      warning: false,
+    });
+    // Columns, which the switcher offers too, does not filter them.
+    expect(
+      await notice({
+        filter_duplicates: true,
+        column: { filter_duplicates: false },
+        toolbar: { show: true, view_switcher_layouts: ['list', 'column'] },
+      }),
+    ).toEqual({
+      text:
+        'Both entries show the same events until one sets Event Type or a word list, so in ' +
+        'Columns each event shows twice for now.',
+      warning: true,
+    });
+  });
+
   it('opens the copy’s page on Duplicate, warns that both show the same events, and Back lands on the copy’s row', async () => {
     const editor = await mount([{ entity: ANNA, label: 'A' }, BEN]);
     const [anna] = keysOf(editor, 'entry');

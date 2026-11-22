@@ -77,6 +77,7 @@ import * as OverflowStrip from './utils/grid-overflow-strip';
 import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
 import * as HassRelevance from './utils/hass-relevance';
+import * as HeadPin from './utils/head-pin';
 import * as Helpers from './utils/helpers';
 import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
@@ -418,7 +419,7 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
-/** The window a complete load was asked for (`_loadedWindowShown`), as its load config names it. */
+/** The window a load drawn was asked for (`_loadedWindowShown`), as its load config names it. */
 interface LoadedWindow {
   /** The load's `start_date`: the configuration's own, or for a month's load its first day. */
   readonly startDate: string | undefined;
@@ -429,6 +430,19 @@ interface LoadedWindow {
 }
 
 /** What the card drew of a complete load (`_commitEvents`), and the query it was loaded for. */
+/**
+ * The rows `_syncHeadPin` may pin, what holds them and the scrolling events area. `head` is what
+ * the card marks: a grid's head, a column view's grid, whose day headers stick, or a wide month's
+ * weekday names; `band` is the box holding a grid's all-day band.
+ */
+interface HeadPinParts {
+  readonly kind: 'grid' | 'column' | 'month';
+  readonly head: HTMLElement;
+  readonly band?: HTMLElement;
+  readonly grid: HTMLElement;
+  readonly area: HTMLElement;
+}
+
 interface CompleteDrawing {
   /** Query identity the events were loaded for (`_eventsInstanceId`). */
   readonly instanceId: string;
@@ -647,6 +661,7 @@ class CalendarCardPro extends LitElement {
     partial: Types.EventFetchResult;
     instanceId: string;
     page: string | null;
+    loaded: Types.Config;
     generation: number;
   } | null = null;
 
@@ -697,6 +712,12 @@ class CalendarCardPro extends LitElement {
    */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * When each forecast type was last known current: its last push, or a subscription set up
+   * since, which pushes within moments. The card dims a forecast that goes too long without
+   * one (`Weather.forecastStaleAt`).
+   */
+  private _weatherCurrentAt: Partial<Record<'daily' | 'hourly', number>> = {};
   /** What the weather subscriptions were last set up for (`_weatherPlan`). */
   private _weatherPlanned: { entity: string | undefined; types: Array<'daily' | 'hourly'> } = {
     entity: undefined,
@@ -1187,6 +1208,23 @@ class CalendarCardPro extends LitElement {
       permissions.canEdit && permissions.canDelete
         ? this._writableCalendars.filter((id) => id !== calendarId)
         : [];
+    // A merged duplicate names every calendar it was drawn for, each in the accent its own entry
+    // gives it, as the row's labels do (`resolveMergedLabels`).
+    const merged =
+      event._mergedFrom && event._mergedFrom.length > 1
+        ? event._mergedFrom.map(({ entityId, config }) =>
+            this._popoverCalendar(
+              entityId,
+              EventUtils.getEntityAccentColorWithOpacity(
+                entityId,
+                this.config,
+                undefined,
+                { ...event, _entityId: entityId, _matchedConfig: config },
+                EntityColors.entityColors(),
+              ),
+            ),
+          )
+        : undefined;
     return {
       mode: 'event',
       calendarId,
@@ -1195,6 +1233,8 @@ class CalendarCardPro extends LitElement {
       ...(locked && { private: { ...locked } }),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
+      ...(merged && { merged }),
+      ...(EventDetails.listsSeveralPlaces(event, language) && { severalPlaces: true }),
       ...permissions,
       anchor: origin,
       updated: (...ids) => this._refreshAfterWrite({ ids: ids.length ? ids : [calendarId] }),
@@ -1381,6 +1421,28 @@ class CalendarCardPro extends LitElement {
       gesture,
     );
     Logger.debug(`Delegated event ${gesture} action (${filled.action}) to HA native handler`);
+  }
+
+  /**
+   * Runs what a hold on an event runs, as pointer-up does: the event's own hold where one runs,
+   * else the card's. For a hold that ends elsewhere than on the card, in the day panel.
+   *
+   * @param target - The event and the accent color it is drawn in
+   * @param origin - Where the press was, for the cue while the dialog loads
+   */
+  private _runEventHold(target: Activation.EventTapTarget, origin?: Feedback.PressOrigin): void {
+    if (this._eventHoldRuns) {
+      this._runEventAction(target, 'hold', origin);
+    } else if (this._hasHoldAction) {
+      Logger.debug('Executing hold action');
+      Actions.handleAction(
+        this,
+        this.config,
+        'hold',
+        this._cardActions(null, origin),
+        this._shownEntries,
+      );
+    }
   }
 
   /**
@@ -1611,16 +1673,28 @@ class CalendarCardPro extends LitElement {
   private _toolbarRow: ToolbarFold.ActionRow | null = null;
 
   /**
-   * The fewest of the start group's controls to fold at the width where the row the plan drew did
-   * not fit on one line, and what the row held then. See `_syncStartFoldFit`.
+   * The folds to make at the width where the row the plan drew did not fit on one line, and what
+   * the row held then: the fewest of the start group's controls, then the switcher collapsed. See
+   * `_syncStartFoldFit`.
    */
-  private _startFoldGuard: { widthPx: number; signature: string; atLeast: number } | null = null;
+  private _startFoldGuard: {
+    widthPx: number;
+    signature: string;
+    request: ToolbarFold.FoldRequest;
+  } | null = null;
 
   /**
    * The start group's control that held focus as the coming render began, which the menu button
    * takes over where that render folds it (`_handFocusToMenu`).
    */
   private _focusBeforeFold: ToolbarFold.StartControl | null = null;
+
+  /**
+   * The view switcher's form that held focus as the coming render began, a segment or the
+   * collapsed switcher's button, which the other form takes over where that render swaps them
+   * (`_handFocusAcrossSwitcher`).
+   */
+  private _switcherFocusBefore: 'segment' | 'pill' | null = null;
 
   /**
    * Whether the card's tap held focus as the coming render began, on the card itself or on the
@@ -1783,9 +1857,11 @@ class CalendarCardPro extends LitElement {
    *
    * Lags the configuration while a wider load is out, as `_pageShown` lags a page: raising
    * `days_to_show` past the days loaded keeps the days on screen those the events cover, rather
-   * than adding days that read as empty before anything has been asked about them. Only a
-   * complete load moves it, failures included, since the card names a calendar that failed; a
-   * partial one has not heard from every calendar yet.
+   * than adding days that read as empty before anything has been asked about them. A complete
+   * load moves it, failures included, since the card names a calendar that failed. A partial one
+   * (`_schedulePartialCommit`) moves it only for a window starting elsewhere, such as the next
+   * month: it has not heard from every calendar yet, but measured against the window before, a
+   * page would draw only the days the two share.
    */
   private _loadedWindowShown: LoadedWindow | null = null;
 
@@ -1836,6 +1912,13 @@ class CalendarCardPro extends LitElement {
    * until a first measurement. See `_syncMonthCapacity`.
    */
   private _monthCapacity = MonthRender.MONTH_LINE_CAPACITY_DEFAULT;
+
+  /**
+   * Lines a month event set at each `text_scale` takes, as last measured off the month's probes;
+   * none until a first measurement, which `MonthRender.monthLinesOf` estimates. See
+   * `_syncMonthCapacity`.
+   */
+  private _monthScaleLines: MonthRender.MonthScaleLines = new Map();
 
   /**
    * Whether a month draws its narrow form, decided from the card's width with a band either
@@ -1930,9 +2013,18 @@ class CalendarCardPro extends LitElement {
    */
   private _monthFocusPending = false;
 
+  /**
+   * Whether the month's form changed while a part of it held focus, so the render drawing the new
+   * form gives focus to the cell of the day that part belonged to (`_keepMonthFormFocus`).
+   */
+  private _monthFormFocus = false;
+
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
+  /** Watches the rows pinned over a scrolling events area, and the area (`_syncHeadPin`). */
+  private _headPinObserver: ResizeObserver | null = null;
+  private _headPinWatched: HeadPinParts | null = null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   private _gridDisclosureReleaseRaf: number | null = null;
@@ -2741,41 +2833,60 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether any view the card can show would draw an event in its own range, for
-   * `hide_when_empty`. The view on screen answers first, and usually alone.
+   * Whether the card has an event to draw at home, for `hide_when_empty`: judged by the view on
+   * screen, so a card whose view is empty hides though another view it can switch to would draw
+   * one, as a card without the toolbar always has.
    *
-   * Each other view is grouped from the raw configuration and resolves its own block there.
-   * Never from `effectiveConfig`: that already carries the view on screen's hoisted values,
-   * so a view without an override of its own would inherit them — a list with no count of
-   * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
-   * its one caller is, so the raw configuration is home's.
+   * A view picked with the switcher (`_viewChoice`) is not the only judge: the configured view
+   * having an event keeps the card too, or a device that picked an empty view would hide the
+   * switcher that leads back.
+   *
+   * @returns True when the card has an event to draw
+   */
+  private _homeHasEvents(): boolean {
+    const shown = this.effectiveView;
+    if (this._viewHasEvents(shown, true)) return true;
+    return (
+      this._viewChoice !== null &&
+      this.config.view !== shown &&
+      this._viewHasEvents(this.config.view, false)
+    );
+  }
+
+  /**
+   * Whether a view would draw an event in its home range.
+   *
+   * A view not on screen is grouped from the raw configuration and resolves its own block there.
+   * Never from `effectiveConfig`: that already carries the view on screen's hoisted values, so a
+   * view without an override of its own would inherit them, and a list with no count of its own
+   * would draw the grid's seven days instead of the card's fourteen. Home only, as its one caller
+   * is, so the raw configuration is home's.
    *
    * Month counts only from the day its home is the month of on (`_monthCountConfig`), so the weeks
    * of the month before it never keep an otherwise empty card visible. So it never answers from
-   * the view on screen, whose count covers those weeks.
+   * the count on screen, which covers those weeks.
    *
-   * @returns True when some reachable view has an event to draw
+   * @param view - The view
+   * @param onScreen - Whether it is the view on screen, whose count is kept (`visibleEventCount`)
+   * @returns True when it has an event to draw
    */
-  private _anyReachableViewHasEvents(): boolean {
-    const shown = this.effectiveView;
-    if (shown !== 'month' && this.visibleEventCount > 0) return true;
+  private _viewHasEvents(view: Types.EffectiveView, onScreen: boolean): boolean {
+    if (onScreen && view !== 'month') return this.visibleEventCount > 0;
 
     const events = this._shownEvents;
     if (events.length === 0) return false;
 
-    return ViewConfig.reachableViews(this.config).some(
-      (view) =>
-        (view !== shown || view === 'month') &&
-        countRealEvents(
-          EventUtils.groupEventsByDay(
-            events,
-            view === 'month' ? this._monthCountConfig() : this.config,
-            true,
-            this.effectiveLanguage,
-            view,
-            this.hass,
-          ),
-        ) > 0,
+    return (
+      countRealEvents(
+        EventUtils.groupEventsByDay(
+          events,
+          view === 'month' ? this._monthCountConfig() : this.config,
+          true,
+          this.effectiveLanguage,
+          view,
+          this.hass,
+        ),
+      ) > 0
     );
   }
 
@@ -2851,6 +2962,7 @@ class CalendarCardPro extends LitElement {
     this._syncTitleScroll();
     this._syncTitleFits();
     this._syncGridDisclosureSafety();
+    this._syncHeadPin();
   }
 
   disconnectedCallback() {
@@ -2858,6 +2970,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
+    this._stopHeadPinObserver();
     this._stopTitleScrollObserver();
     this._stopTitleFits();
     this._stopMonthList();
@@ -3001,7 +3114,7 @@ class CalendarCardPro extends LitElement {
     const band = (width: number | null): string =>
       width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
-    const replanned = this._startHidden(widthPx) !== this._startHidden(this._toolbarWidthPx);
+    const replanned = this._rowPlanKey(widthPx) !== this._rowPlanKey(this._toolbarWidthPx);
     // Words that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
     const outgrew =
@@ -3332,15 +3445,28 @@ class CalendarCardPro extends LitElement {
    * A minute from now while a countdown or count-up that names minutes or hours, or a progress
    * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
    * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
-   * a past all-day event or empty day, on every card. Null where the now line's own tick repaints
-   * every minute anyway.
+   * a past all-day event or empty day, on every card. Sooner where the forecast turns stale
+   * before then (`_weatherStale`). Null where the now line's own tick repaints every minute
+   * anyway.
    *
    * @param now - Epoch milliseconds
    * @returns Epoch milliseconds, or null
    */
   private _nextClockRepaint(now: number): number | null {
     if (this._wantsNowLine) return null;
+    const next = this._nextClockTextRepaint(now);
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    // A moment past, so the render reads the forecast as stale even if the timer fires early.
+    return staleAt !== null && staleAt >= now && staleAt + 1000 < next ? staleAt + 1000 : next;
+  }
 
+  /**
+   * When the clock text, the marks of today included, next changes (`_nextClockRepaint`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns Epoch milliseconds
+   */
+  private _nextClockTextRepaint(now: number): number {
     const today = new Date(now);
     // One second past, so the render reads the new day even if the timer fires a little early.
     // Built from local fields, so a DST night is as long as it really is.
@@ -3598,6 +3724,144 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
+  // PINNED ROWS
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The rows of the current layout that may stay at the top of the events area while it scrolls:
+   * a grid's head and the box holding its all-day band, a column view's grid of day headers, or a
+   * wide month's weekday names. A narrow month and a list pin nothing, and neither does a crammed
+   * grid, which scrolls sideways itself (`renderGridGroupedEvents`): that makes it the nearest
+   * scroll container of its head, and it never scrolls the way the head would stick.
+   *
+   * @returns The parts, or `null` where nothing pins
+   */
+  private _headPinParts(): HeadPinParts | null {
+    if (!this.isConnected) return null;
+    const root = this.renderRoot;
+    let parts: Omit<HeadPinParts, 'area'> | null = null;
+    switch (this.effectiveView) {
+      case 'grid': {
+        const head = root.querySelector<HTMLElement>('.grid-head');
+        const band = head?.parentElement?.querySelector<HTMLElement>(':scope > .grid-allday-row');
+        if (head && band && head.parentElement!.style.overflowX !== 'auto') {
+          parts = { kind: 'grid', head, band, grid: head.parentElement! };
+        }
+        break;
+      }
+      case 'column': {
+        const grid = root.querySelector<HTMLElement>('.column-grid');
+        if (grid) parts = { kind: 'column', head: grid, grid };
+        break;
+      }
+      case 'month': {
+        const head = root.querySelector<HTMLElement>(
+          '.month-container:not(.month-narrow) > .month-weekdays',
+        );
+        if (head) parts = { kind: 'month', head, grid: head.parentElement! };
+        break;
+      }
+    }
+    const area = parts?.grid.closest<HTMLElement>('.content-container');
+    return parts && area ? { ...parts, area } : null;
+  }
+
+  /**
+   * Keeps the rows above what scrolls pinned to the top of the events area while the area
+   * scrolls and they leave it room (`HeadPin.headPin`), and lets them scroll with the rest
+   * otherwise, by `data-pinned`, which the stylesheet makes sticky: on a grid's head, and on the
+   * box holding its all-day band while the band stays with it (the head is then marked `alone`
+   * where it stays without the band), on a column view's grid, whose day headers then stick, and
+   * on a wide month's weekday names.
+   *
+   * While anything is pinned its height is written on the area as
+   * `--calendar-card-pinned-head-height`, which the stylesheet gives what scrolls under it as a
+   * scroll margin, so an event or a day that takes focus, or that a search rings, is scrolled into
+   * view below the pinned rows rather than under them. The area carries no style binding of its
+   * own, so nothing else writes the property.
+   *
+   * Read by a resize observer on the rows, what holds them and the area rather than once per
+   * render: a header grows with weather and fonts that arrive after it is drawn, the grid with
+   * its hours, and the area with the card. Bound again only when one of them is replaced, which
+   * the observer then reads at once. Pinning moves nothing in the layout, so a reading cannot
+   * change the sizes it was taken from.
+   */
+  private _syncHeadPin(): void {
+    const parts = typeof ResizeObserver === 'undefined' ? null : this._headPinParts();
+    if (!parts) {
+      this._stopHeadPinObserver();
+      return;
+    }
+    const watched = this._headPinWatched;
+    if (
+      watched?.kind === parts.kind &&
+      watched.head === parts.head &&
+      watched.band === parts.band &&
+      watched.grid === parts.grid &&
+      watched.area === parts.area
+    ) {
+      return;
+    }
+
+    this._stopHeadPinObserver();
+    this._headPinWatched = parts;
+    this._headPinObserver = new ResizeObserver(() => {
+      const current = this._headPinWatched;
+      if (current) this._applyHeadPin(current);
+    });
+    for (const target of new Set([parts.head, parts.band, parts.grid, parts.area])) {
+      if (target) this._headPinObserver.observe(target);
+    }
+  }
+
+  /**
+   * Reads the pinned rows and the area once and marks what stays (`_syncHeadPin`).
+   *
+   * @param parts - The rows and the area
+   */
+  private _applyHeadPin(parts: HeadPinParts): void {
+    const { area } = parts;
+    const height = (element: Element) => element.getBoundingClientRect().height;
+    let headPx: number;
+    let bandPx = 0;
+    if (parts.kind === 'grid') {
+      headPx = height(parts.head);
+      // The band's box spans the head's rows too. Without banners it holds only the rule under
+      // the headers, which stays with them.
+      const boxPx = height(parts.band!);
+      if (parts.band!.querySelector(':scope > .grid-allday-band')) bandPx = boxPx - headPx;
+      else headPx = boxPx;
+    } else if (parts.kind === 'column') {
+      const headers = parts.grid.querySelectorAll(':scope > .day-column > .column-day-header');
+      headPx = Math.max(0, ...Array.from(headers, height));
+    } else {
+      headPx = height(parts.head);
+    }
+
+    const pin = HeadPin.headPin(headPx, bandPx, area.clientHeight, area.scrollHeight);
+    if (parts.kind === 'grid') {
+      if (pin === 'none') parts.head.removeAttribute('data-pinned');
+      else parts.head.setAttribute('data-pinned', pin === 'head' ? 'alone' : '');
+      parts.band!.toggleAttribute('data-pinned', pin === 'all');
+    } else {
+      parts.head.toggleAttribute('data-pinned', pin !== 'none');
+    }
+
+    if (pin === 'none') area.style.removeProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY);
+    else {
+      const pinnedPx = pin === 'all' ? headPx + bandPx : headPx;
+      area.style.setProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY, `${pinnedPx}px`);
+    }
+  }
+
+  private _stopHeadPinObserver(): void {
+    this._headPinObserver?.disconnect();
+    this._headPinObserver = null;
+    this._headPinWatched?.area.style.removeProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY);
+    this._headPinWatched = null;
+  }
+
+  //-----------------------------------------------------------------------------
   // GRID SCALE
   //-----------------------------------------------------------------------------
 
@@ -3695,8 +3959,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Writes a wide month's floors, re-reads how many lines fit under a month day's date, and
-   * re-renders once if that moved.
+   * Writes a wide month's floors, re-reads how many lines fit under a month day's date and how
+   * many an event set at each `text_scale` takes, and re-renders once if either moved.
    *
    * Stable by construction. The card's height is a slot's or a declared one, known before
    * anything is drawn; the floors are read from fonts alone (`MonthRender.measureMonthFloors`)
@@ -3709,11 +3973,22 @@ class CalendarCardPro extends LitElement {
     if (!this.isConnected || this.effectiveView !== 'month') return;
 
     this._writeMonthFloors();
+    const scaleLines = MonthRender.measureMonthScaleLines(this.renderRoot);
+    const scalesMoved =
+      scaleLines !== null &&
+      (scaleLines.size !== this._monthScaleLines.size ||
+        [...scaleLines].some(([scale, lines]) => this._monthScaleLines.get(scale) !== lines));
+    if (scalesMoved) {
+      Logger.debug(`Month lines by text scale: ${JSON.stringify([...scaleLines])}`);
+      this._monthScaleLines = scaleLines;
+    }
     const next = MonthRender.measureMonthCapacity(this.renderRoot);
-    if (next === null || next === this._monthCapacity) return;
-    Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
-    this._monthCapacity = next;
-    this.requestUpdate();
+    const capacityMoved = next !== null && next !== this._monthCapacity;
+    if (capacityMoved) {
+      Logger.debug(`Month line capacity ${this._monthCapacity} -> ${next}`);
+      this._monthCapacity = next;
+    }
+    if (scalesMoved || capacityMoved) this.requestUpdate();
   }
 
   /**
@@ -3945,8 +4220,48 @@ class CalendarCardPro extends LitElement {
     );
     if (next === this._monthNarrow) return false;
     Logger.debug(`Month ${next ? 'narrow' : 'wide'} at ${Math.round(widthPx)}px`);
+    this._holdMonthFocus();
     this._monthNarrow = next;
     return true;
+  }
+
+  /**
+   * Notes the day of the month's part that holds focus as its form is about to change, which
+   * draws every part afresh: a day's cell, a wide day's line or "+N more", or anything in a narrow
+   * month's list, which belongs to the day selected. That day becomes the tab stop, and its cell
+   * takes focus once the new form is drawn (`_keepMonthFormFocus`). Nothing when focus is anywhere
+   * else, in the card or out of it.
+   */
+  private _holdMonthFocus(): void {
+    if (this.effectiveView !== 'month') return;
+    const active = this._focusedInCard();
+    if (!(active instanceof HTMLElement)) return;
+    let day: Date | null = null;
+    const cell = Activation.monthCellOn(active);
+    if (cell !== undefined) {
+      day = new Date(cell);
+    } else if (active.closest('.month-day-list')) {
+      day = this._monthSelectedDay();
+    } else if (active.closest('.month-container')) {
+      const key = MonthRender.monthItemDay(active.id);
+      day = key === null ? null : Paging.pageStart(key);
+    }
+    if (day === null) return;
+    this._monthFocusDay = FormatUtils.getLocalDateKey(day);
+    this._monthFormFocus = true;
+  }
+
+  /**
+   * Gives focus to the cell of the day whose part held it as the month's form changed
+   * (`_holdMonthFocus`), where the new form's render left focus nowhere in the card. The cell is
+   * drawn in either form, as the rows are the same six weeks. Called after every update.
+   */
+  private _keepMonthFormFocus(): void {
+    if (!this._monthFormFocus) return;
+    this._monthFormFocus = false;
+    if (this.effectiveView !== 'month' || this._monthFocusDay === null) return;
+    if (this._focusedInCard()) return;
+    this._monthCellFor(Paging.pageStart(this._monthFocusDay))?.focus({ preventScroll: true });
   }
 
   /** Whether the card draws a narrow month now. */
@@ -4243,7 +4558,8 @@ class CalendarCardPro extends LitElement {
    * magnifier does. From a wide month that is the day's cell, which becomes the month's tab stop:
    * its "+N more" is out of the Tab order. From a narrow month's list it is the list's
    * "+N more" itself, a stop of its own (`returnToAnchor`). A row pressed in the panel closes it
-   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`). A
+   * and runs what a tap on the event runs on the card, once the panel has gone (`_activate`), and
+   * a row held runs what a hold on it runs there (`_runEventHold`). A
    * search's pick behind "+N more" rings its row there, and starts focus on it. Nothing opens
    * while the card is being edited.
    *
@@ -4309,6 +4625,8 @@ class CalendarCardPro extends LitElement {
           };
         },
         styles: () => this._customProperties(),
+        title: () => MonthRender.monthDayTitle(day, this.effectiveLanguage),
+        language: () => this.effectiveLanguage,
         titleColor: () => {
           const color = this.effectiveConfig.weekday_color;
           return color === Config.DEFAULT_CONFIG.weekday_color ? undefined : color;
@@ -4319,7 +4637,11 @@ class CalendarCardPro extends LitElement {
             if (this._dayPanel === panel) this._dayPanel = null;
           };
         },
-        activate: (target, origin) => this._activate({ event: target }, origin),
+        activate: (target, origin, gesture) =>
+          gesture === 'hold'
+            ? this._runEventHold(target, origin)
+            : this._activate({ event: target }, origin),
+        holds: () => this._eventHoldRuns || this._hasHoldAction,
         addLabel: () => this._dayAddButtons?.label,
         add: (origin) => this._activate({ day: day.getTime() }, origin),
       },
@@ -4973,6 +5295,9 @@ class CalendarCardPro extends LitElement {
     if (Menu.hasOpenMenu(this.renderRoot, 'overflow') && !this._startMenuMayStayOpen()) {
       Menu.closeMenus(this.renderRoot, 'overflow');
     }
+    if (Menu.hasOpenMenu(this.renderRoot, 'layout') && !this._layoutMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'layout');
+    }
     // The search panel, likewise, before the card is edited or hidden, or loses its magnifier.
     if (this._search?.isOpen && (this._isBeingEdited || this.hidden || !this._searchButton())) {
       this._search.close();
@@ -4991,6 +5316,7 @@ class CalendarCardPro extends LitElement {
       this._dayPanel.close();
     }
     this._focusBeforeFold = this._focusedStartControl();
+    this._switcherFocusBefore = this._focusedSwitcherForm();
     this._tapFocusBefore = this._focusedTapTarget();
     this._monthListFocus = this._focusedMonthListPart();
 
@@ -5070,6 +5396,7 @@ class CalendarCardPro extends LitElement {
     // that request belongs to the next update, not to this one.
     this._bareUpdateRequestsSeen = this._bareUpdateRequests;
     this._syncGridDisclosureSafety(gridChanged);
+    this._syncHeadPin();
     if (gridChanged) {
       this._syncCascadeThreshold();
       this._syncOverflowStrip();
@@ -5077,6 +5404,7 @@ class CalendarCardPro extends LitElement {
     this._syncMonthCapacity();
     this._watchMonthProbes();
     this._keepMonthListFocus();
+    this._keepMonthFormFocus();
     this._syncMonthListFit();
     // An open day panel draws its rows from what this update drew from: the events, the
     // configuration and the time.
@@ -5118,6 +5446,7 @@ class CalendarCardPro extends LitElement {
     // back until that ticket moves. Bump and unsubscribe here so the blank sticks.
     if (weatherEntityChanged) {
       this.weatherForecasts = { daily: {}, hourly: {} };
+      this._weatherCurrentAt = {};
       this._weatherSetupVersion++;
       this._cleanupWeatherSubscriptions();
     }
@@ -5146,6 +5475,7 @@ class CalendarCardPro extends LitElement {
     this._syncHeadingMiddle();
     this._syncLegendFit(false);
     this._handFocusToMenu();
+    this._handFocusAcrossSwitcher();
     this._syncStartFoldFit();
     this._syncSearchRing();
     this._syncMonthFocus();
@@ -5207,9 +5537,8 @@ class CalendarCardPro extends LitElement {
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
     // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
-    // by the legend, that hid itself would take with it the only way back. And only when no
-    // view the card can show has an event: a seven-day view can be empty where a fourteen-day
-    // one is not, and hiding for it would take the view switcher with it. A calendar its
+    // by the legend, that hid itself would take with it the only way back. Judged by the view on
+    // screen (`_homeHasEvents`), as it was before the card could switch views. A calendar its
     // visibility conditions hide is not on the card for this viewer: neither its events nor its
     // failure keep the card, and the legend hiding it changes nothing.
     const shouldHide =
@@ -5221,7 +5550,7 @@ class CalendarCardPro extends LitElement {
       !this.editMode &&
       !isErrorState &&
       this._shownFailures.length === 0 &&
-      !this._anyReachableViewHasEvents();
+      !this._homeHasEvents();
 
     if (this.hidden === shouldHide) {
       return;
@@ -5936,6 +6265,13 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    // A forecast held from before is about to be answered again, so it does not dim for the
+    // moment that takes, as on coming back to a dashboard view after a while.
+    const now = Date.now();
+    this._weatherCurrentAt = Object.fromEntries(
+      Object.keys(this._weatherCurrentAt).map((type) => [type, now]),
+    );
+
     for (const type of forecastTypes) {
       if (this._weatherSetupVersion !== version) {
         return;
@@ -5956,6 +6292,7 @@ class CalendarCardPro extends LitElement {
             ...this.weatherForecasts,
             [type]: forecasts,
           };
+          this._weatherCurrentAt = { ...this._weatherCurrentAt, [type]: Date.now() };
           this.requestUpdate();
         },
       );
@@ -7002,7 +7339,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Writes a single event at the times it was dropped at. Refused, it goes back where it was and
-   * Home Assistant shows why, in its own notification.
+   * Home Assistant shows why, in its own notification. Saved, that notification says where it
+   * went and offers Undo (`_undoMove`), since a drop is written with nothing asked first.
    *
    * @param move - The move
    * @param shown - Its block, drawn where it was dropped
@@ -7029,16 +7367,61 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Moved an event of ${entityId}`);
     this._refreshAfterWrite({ ids: [entityId] }, () => this._newArrived(shown));
     this._awaitArrival(shown);
+    const translations = Localize.getTranslations(this.effectiveLanguage);
+    this._notify(
+      GridMove.movedMessage(
+        move.times,
+        shown.times,
+        translations,
+        FormatUtils.resolveTimeFormat24h(this.effectiveConfig, hass),
+        this.effectiveConfig.time_two_digit_hours,
+      ),
+      { text: translations.undo, action: () => void this._undoMove(move, shown) },
+    );
+  }
+
+  /**
+   * Moves an event a drag moved back to the times it had, for the Undo in the notification the
+   * move left (`_writeMove`). Writes the event as it was stored before the move, so nothing but
+   * its times changes twice. Refused, Home Assistant shows why, as for the move.
+   *
+   * @param move - The move to undo
+   * @param shown - Its block, which goes if it is still drawn where it was dropped
+   */
+  private async _undoMove(
+    move: NonNullable<CalendarCardPro['_move']>,
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): Promise<void> {
+    const hass = this.safeHass;
+    const entityId = move.key.entityId;
+    try {
+      if (!hass) throw new Error('Home Assistant is not connected');
+      await Writes.updateEvent(
+        hass,
+        { entityId, uid: move.key.uid },
+        GridMove.moveWrite(move.entry, move.times),
+      );
+    } catch (error) {
+      Logger.warn('Moving the event back failed', error);
+      this._notify(Writes.writeErrorMessage(error) ?? 'Unknown error');
+      return;
+    }
+    Logger.debug(`Moved an event of ${entityId} back`);
+    if (this._newShown === shown) this._dropNew();
+    this._refreshAfterWrite({ ids: [entityId] });
   }
 
   /**
    * Shows a message in Home Assistant's own notification, at the foot of the screen.
    *
    * @param message - What to say
+   * @param action - A button beside it, and what pressing it does
    */
-  private _notify(message: string): void {
+  private _notify(message: string, action?: { text: string; action: () => void }): void {
     const notification = new Event('hass-notification', { bubbles: true, composed: true });
-    (notification as Event & { detail?: unknown }).detail = { message };
+    (notification as Event & { detail?: unknown }).detail = action
+      ? { message, action, duration: Constants.TIMING.MOVE_UNDO_TOAST }
+      : { message };
     this.dispatchEvent(notification);
   }
 
@@ -8281,7 +8664,8 @@ class CalendarCardPro extends LitElement {
           afterWrite,
           store,
           cold
-            ? (partial) => this._schedulePartialCommit(partial, instanceId, page, generation)
+            ? (partial) =>
+                this._schedulePartialCommit(partial, instanceId, page, config, generation)
             : undefined,
         );
       } finally {
@@ -8397,7 +8781,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records the window a complete load was asked for, keeping the record already held where the
+   * Records the window a load was asked for, keeping the record already held where the
    * window is the same, so the drawn configuration it clamps stays the same object.
    *
    * @param loaded The configuration the load was made with
@@ -8495,17 +8879,20 @@ class CalendarCardPro extends LitElement {
    * @param partial The events of every calendar that has answered
    * @param instanceId Query identity the events were loaded for
    * @param page The page they belong to, null for home
+   * @param loaded The configuration they were loaded with, which names the window
+   *   (`_loadedWindowShown`)
    * @param generation The request they belong to; a newer one discards them
    */
   private _schedulePartialCommit(
     partial: Types.EventFetchResult,
     instanceId: string,
     page: string | null,
+    loaded: Types.Config,
     generation: number,
   ): void {
     // A request a newer one replaced must not take the newer one's place in the queue.
     if (generation !== this._eventRequestGeneration) return;
-    this._partialCommit = { partial, instanceId, page, generation };
+    this._partialCommit = { partial, instanceId, page, loaded, generation };
     if (this._partialTimer !== null) return;
 
     this._partialTimer = window.setTimeout(() => {
@@ -8521,6 +8908,18 @@ class CalendarCardPro extends LitElement {
       this._drawnLoadedAt = pending.partial.lastSuccess ?? {};
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
+      // A wider load from the same first day keeps the days drawn until every calendar has
+      // answered, since one still out may have events on the days it adds. A load starting
+      // elsewhere, the next month above all, is measured against its own window: against the
+      // one before, it would draw only the days the two share.
+      const shown = this._loadedWindowShown;
+      if (
+        shown === null ||
+        shown.startDate !== pending.loaded.start_date ||
+        shown.spansMonth !== ViewConfig.reachesMonth(pending.loaded)
+      ) {
+        this._recordLoadedWindow(pending.loaded);
+      }
       this._eventsFetchedAt = pending.partial.fetchedAt;
       this._setFailures([]);
       this.isInitialLoad = false;
@@ -8766,6 +9165,9 @@ class CalendarCardPro extends LitElement {
     // A narrow month's selected day and every day's list, decided once the events are in.
     let monthNarrow: MonthRender.MonthNarrow | undefined;
     this._monthListDrawn = null;
+    // Built once per render, the first time either the list or the header asks for it.
+    let headerToolbar: Toolbar.HeaderToolbar | undefined;
+    const toolbarNow = () => (headerToolbar ??= this._headerToolbar());
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
@@ -8799,6 +9201,7 @@ class CalendarCardPro extends LitElement {
             more: (day, button) => this._openDayPanel(day, button),
             narrow: monthNarrow,
             focusDay: this._monthTabStop(rowsStart),
+            scaleLines: this._monthScaleLines,
           },
         );
       }
@@ -8821,6 +9224,7 @@ class CalendarCardPro extends LitElement {
             this.safeHass,
             this._eventsActivatable,
             dayAdd,
+            this._headingMonth(toolbarNow()),
           );
     };
 
@@ -8859,7 +9263,12 @@ class CalendarCardPro extends LitElement {
         this._searchRingPending = narrowView.ringPending;
         if (narrowView.behindMore && ring) this._searchRingBehindMore = Paging.pageStart(ring.day);
       } else if (rowsStart && ring && ringed.found) {
-        this._searchRingDrawn = MonthRender.monthDrawsRing(days, rowsStart, this._monthCapacity);
+        this._searchRingDrawn = MonthRender.monthDrawsRing(
+          days,
+          rowsStart,
+          this._monthCapacity,
+          MonthRender.monthLinesOf(this.effectiveConfig, this._monthScaleLines),
+        );
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
       }
       content = renderDays(days);
@@ -8872,7 +9281,7 @@ class CalendarCardPro extends LitElement {
         Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
     }
 
-    const toolbar = this._headerToolbar();
+    const toolbar = toolbarNow();
 
     return Render.renderMainCardStructure(
       customStyles,
@@ -8891,7 +9300,19 @@ class CalendarCardPro extends LitElement {
       this._refreshPhase,
       this._swipeAvailable,
       this._tapControl(),
+      this._weatherStale(Date.now()),
     );
+  }
+
+  /**
+   * Whether the forecast drawn is out of date (`Weather.forecastStaleAt`).
+   *
+   * @param now - Epoch milliseconds
+   * @returns True once any forecast type subscribed to has gone too long without an update
+   */
+  private _weatherStale(now: number): boolean {
+    const staleAt = Weather.forecastStaleAt(this._weatherCurrentAt, this._weatherPlanned.types);
+    return staleAt !== null && staleAt <= now;
   }
 
   /**
@@ -8979,9 +9400,14 @@ class CalendarCardPro extends LitElement {
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
     };
-    // Last, because which of the start group's controls fold depends on all the row holds.
+    // Last, because which of the start group's controls fold, and whether the switcher
+    // collapses, depends on all the row holds.
     this._toolbarRow = this._actionRow(controls);
-    controls.startFold = this._startFold(this._toolbarRow);
+    const plan = this._rowPlan(this._toolbarRow, this._toolbarWidthPx);
+    controls.startFold = this._startFold(plan);
+    if (controls.viewSwitcher && plan.collapsed) {
+      controls.viewSwitcher = { ...controls.viewSwitcher, collapsed: true };
+    }
     this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
 
     return {
@@ -9384,6 +9810,17 @@ class CalendarCardPro extends LitElement {
       range: Paging.rangeLabel(page, language, now),
       languageMark: TextDirection.languageMark(language, this.hass),
     };
+  }
+
+  /**
+   * A day in the month the toolbar's heading names, while the toolbar draws it.
+   *
+   * @param toolbar - The toolbar this render draws
+   * @returns The day, or undefined without a heading on screen
+   */
+  private _headingMonth(toolbar: Toolbar.HeaderToolbar): Date | undefined {
+    if (!toolbar.heading || !Toolbar.drawsToolbar(toolbar)) return undefined;
+    return this._headerMonth(this._pageRange(this._pageRequested, new Date()));
   }
 
   /**
@@ -10616,8 +11053,9 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Which of the start group's controls the action row draws at the card's width, and which fold
-   * into its menu (`ToolbarFold.planStartGroup`).
+   * The action row's plan at a card width: which of the start group's controls it draws and which
+   * fold into its menu, and whether the view switcher collapses into one button
+   * (`ToolbarFold.planRow`).
    *
    * Decided at render, from the width the resize observer last reported, by arithmetic alone:
    * every control the plan reckons with is as wide as the stylesheet makes it, and every plan is
@@ -10625,65 +11063,77 @@ class CalendarCardPro extends LitElement {
    * it before anything is painted. The switcher's words give way first, since they are drawn only
    * where every control fits beside them (`_toolbarLabelMinWidth`).
    *
-   * A card not measured yet draws the narrowest start group, its first control and the menu
-   * button, as the switcher draws its pictograms. Not every control: the observer's first report
-   * would then find a row too wide for a narrow card, wrapped onto a second line, and the plan
-   * drawn in its callback would change the card's height while the browser delivered that report,
-   * which it reports as an error. From the narrowest group the first report only gives controls
-   * back, and the row stays one line throughout.
+   * A card not measured yet draws the narrowest row: the start group's first control and the menu
+   * button, and the switcher collapsed, as it draws its pictograms. Not every control: the
+   * observer's first report would then find a row too wide for a narrow card, wrapped onto a
+   * second line, and the plan drawn in its callback would change the card's height while the
+   * browser delivered that report, which it reports as an error. From the narrowest row the first
+   * report only gives controls back, and the row stays one line throughout.
    *
    * @param row - What the row holds
+   * @param widthPx - A card width, or null for none yet
+   * @returns The plan
+   */
+  private _rowPlan(row: ToolbarFold.ActionRow, widthPx: number | null): ToolbarFold.RowPlan {
+    const width = widthPx ?? 0;
+    return ToolbarFold.planRow(row, width, this._foldRequest(row, width));
+  }
+
+  /**
+   * The start group's fold, from the row's plan.
+   *
+   * @param plan - The row's plan
    * @returns The fold, or undefined where every control fits
    */
-  private _startFold(row: ToolbarFold.ActionRow): Toolbar.StartFold | undefined {
-    const widthPx = this._toolbarWidthPx ?? 0;
-    const plan = ToolbarFold.planStartGroup(row, widthPx, this._startFoldAtLeast(row, widthPx));
+  private _startFold(plan: ToolbarFold.StartPlan): Toolbar.StartFold | undefined {
     if (plan.overflow.length === 0) return undefined;
     return { plan, menuName: this._haString('ui.common.menu'), inert: this._isBeingEdited };
   }
 
   /**
-   * How many of the start group's controls the plan folds at a card width, for the row drawn
-   * last; as many as can fold before the card has a width (`_startFold`).
+   * What the plan draws at a card width for the row drawn last, in a form a resize compares: how
+   * many controls the menu holds and whether the switcher collapses.
    *
    * @param widthPx - A card width, or null for none yet
-   * @returns How many controls the menu holds there
+   * @returns A string that changes whenever the plan does
    */
-  private _startHidden(widthPx: number | null): number {
+  private _rowPlanKey(widthPx: number | null): string {
     const row = this._toolbarRow;
-    if (row === null) return 0;
-    const width = widthPx ?? 0;
-    return ToolbarFold.planStartGroup(row, width, this._startFoldAtLeast(row, width)).overflow
-      .length;
+    if (row === null) return '';
+    const plan = this._rowPlan(row, widthPx);
+    return `${plan.overflow.length}:${plan.collapsed ? 'collapsed' : 'segments'}`;
   }
 
   /**
-   * The fewest controls the guard folds at a card width: what it recorded at exactly that width
-   * for exactly this row, and none anywhere else (`_syncStartFoldFit`).
+   * The folds the guard asks for at a card width: what it recorded at exactly that width for
+   * exactly this row, and none anywhere else (`_syncStartFoldFit`).
    *
    * @param row - What the row holds
    * @param widthPx - A card width
-   * @returns The fewest controls to fold
+   * @returns The folds to make
    */
-  private _startFoldAtLeast(row: ToolbarFold.ActionRow, widthPx: number): number {
+  private _foldRequest(row: ToolbarFold.ActionRow, widthPx: number): ToolbarFold.FoldRequest {
     const guard = this._startFoldGuard;
-    if (guard === null || guard.widthPx !== widthPx) return 0;
-    return guard.signature === JSON.stringify(row) ? guard.atLeast : 0;
+    if (guard === null || guard.widthPx !== widthPx || guard.signature !== JSON.stringify(row)) {
+      return { atLeast: 0, collapse: false };
+    }
+    return guard.request;
   }
 
   /**
-   * Folds one more of the start group's controls into the menu where the action row, drawn by
-   * the plan, still wraps or reaches past its edge: a theme's border, a card-mod rule or a zoom's
-   * rounding the arithmetic cannot see.
+   * Folds one more step of the action row where the row, drawn by the plan, still wraps or
+   * reaches past its edge: a theme's border, a card-mod rule or a zoom's rounding the arithmetic
+   * cannot see. A step is one more of the start group's controls into its menu, and once none is
+   * left to fold, the switcher collapsed.
    *
-   * One way only. It records, for the width the row was drawn at and what the row held, one more
-   * control to fold than the row drew there, and never fewer. So at one width the count only
-   * grows, up to every control that can fold, and the passes at a width end. Nothing but the
-   * width brings a control back, through the arithmetic alone, since a new width clears the record
-   * (`_syncToolbarLabels`). So it cannot oscillate, and needs no hysteresis. Neither can it move the width it was
-   * recorded at: every fold it adds leaves the row one line tall, never taller, and is drawn before
-   * the browser looks at the card's size again, so the row it corrected never reaches the resize
-   * observer, and every one-line row is as tall as every other.
+   * One way only. It records, for the width the row was drawn at and what the row held, one step
+   * more than the row drew there, and never fewer. So at one width the folds only grow, up to
+   * every control that can fold and the switcher collapsed, and the passes at a width end. Nothing
+   * but the width brings a control back, through the arithmetic alone, since a new width clears the
+   * record (`_syncToolbarLabels`). So it cannot oscillate, and needs no hysteresis. Neither can it
+   * move the width it was recorded at: every fold it adds leaves the row one line tall, never
+   * taller, and is drawn before the browser looks at the card's size again, so the row it
+   * corrected never reaches the resize observer, and every one-line row is as tall as every other.
    *
    * The switcher's words give way first: while it draws them, their own check decides
    * (`_syncToolbarLabelFit`), and the row is judged again once it draws its pictograms. Only
@@ -10710,12 +11160,21 @@ class CalendarCardPro extends LitElement {
     const wraps = boxes.some((box) => box.top > firstLineEnds - 0.5);
     if (!overflows && !wraps) return;
 
-    // Everything that can fold has: the end group wraps, as it does with no menu at all.
-    const folded = this._startHidden(widthPx);
-    if (folded >= row.start.length - 1 || row.start.length < 3) return;
+    const plan = this._rowPlan(row, widthPx);
+    const folded = plan.overflow.length;
+    const canFold = row.start.length >= 3 && folded < row.start.length - 1;
+    let request: ToolbarFold.FoldRequest;
+    if (canFold) {
+      request = { atLeast: folded + 1, collapse: false };
+    } else if (row.views > 0 && !plan.collapsed) {
+      request = { atLeast: folded, collapse: true };
+    } else {
+      // Everything that can fold has: the end group wraps, as it does with no menu at all.
+      return;
+    }
 
-    Logger.debug(`Toolbar row does not fit on one line at ${widthPx}px; folding one more control`);
-    this._startFoldGuard = { widthPx, signature: JSON.stringify(row), atLeast: folded + 1 };
+    Logger.debug(`Toolbar row does not fit on one line at ${widthPx}px; folding one more step`);
+    this._startFoldGuard = { widthPx, signature: JSON.stringify(row), request };
     this.requestUpdate();
   }
 
@@ -10777,11 +11236,7 @@ class CalendarCardPro extends LitElement {
     const widthPx = this._toolbarWidthPx;
     if (focused === null || row === null || widthPx === null) return;
 
-    const { overflow } = ToolbarFold.planStartGroup(
-      row,
-      widthPx,
-      this._startFoldAtLeast(row, widthPx),
-    );
+    const { overflow } = this._rowPlan(row, widthPx);
     const folded = overflow.some(
       (control) =>
         control.kind === focused.kind &&
@@ -10793,6 +11248,46 @@ class CalendarCardPro extends LitElement {
         .querySelector<HTMLElement>('.custom-menu-button')
         ?.focus({ preventScroll: true });
     }
+  }
+
+  /**
+   * The view switcher's form holding focus: one of its segments, or the button it collapses into.
+   *
+   * @returns The form, or null where focus is elsewhere
+   */
+  private _focusedSwitcherForm(): 'segment' | 'pill' | null {
+    const active = this._focusedInCard();
+    if (!(active instanceof HTMLElement)) return null;
+    if (active.classList.contains('view-switcher-segment')) return 'segment';
+    if (active.classList.contains('view-switcher-pill')) return 'pill';
+    return null;
+  }
+
+  /**
+   * Hands focus across where the render just made swapped the switcher's forms while one held
+   * it: a segment's to the button it collapsed into, the button's to the selected segment, so a
+   * keyboard is not dropped at the start of the page.
+   */
+  private _handFocusAcrossSwitcher(): void {
+    const before = this._switcherFocusBefore;
+    this._switcherFocusBefore = null;
+    if (before === null || this._focusedSwitcherForm() !== null) return;
+    const target =
+      before === 'segment'
+        ? this.renderRoot.querySelector<HTMLElement>('.view-switcher-pill')
+        : this.renderRoot.querySelector<HTMLElement>('.view-switcher-segment.selected');
+    target?.focus({ preventScroll: true });
+  }
+
+  /**
+   * Whether an open menu of the collapsed switcher still has its button after the coming render.
+   *
+   * @returns False where the switcher draws its segments again or goes, the card is being edited,
+   *   or hidden
+   */
+  private _layoutMenuMayStayOpen(): boolean {
+    if (this._isBeingEdited || this.hidden) return false;
+    return this._headerToolbar().viewSwitcher?.collapsed === true;
   }
 
   //-----------------------------------------------------------------------------
@@ -10837,9 +11332,14 @@ class CalendarCardPro extends LitElement {
       label: translations[Toolbar.VIEW_LABEL_KEYS[view]],
     }));
 
+    const selected = this._isBeingEdited ? this.config.view : this.requestedView;
+    const current = views.find((option) => option.view === selected)?.label ?? '';
     return {
       views,
-      selected: this._isBeingEdited ? this.config.view : this.requestedView,
+      selected,
+      name: translations.layout,
+      currentName: translations.layoutCurrent.replace('{view}', () => current),
+      inert: this._isBeingEdited,
       onSelect: (view) => this._chooseView(view),
     };
   }

@@ -10,6 +10,8 @@
   "viewColumns": "Kolonner",
   "viewGrid": "Gitter",
   "viewMonth": "Måned",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} mere",
   "eventCount": "{count} begivenheder",
   "eventCountOne": "{count} begivenhed",
@@ -22,6 +24,8 @@
   "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt",
   "loadFailed": "Kunne ikke indlæses:",
   "newEvent": "Ny begivenhed",
+  "movedTo": "Flyttet til {time}",
+  "undo": "Fortryd",
   "showAll": "Vis alle",
   "hideAll": "Skjul alle",
   "private": "Privat"

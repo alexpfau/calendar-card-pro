@@ -204,6 +204,7 @@ export function renderSharedDayHeader(
         class="column-header-separator"
         style=${styleMap({
           borderTopWidth: separator.width,
+          '--calendar-card-column-header-separator-width': separator.width,
           borderTopColor: ColorMix.floorColor(separator.color),
           borderTopStyle: 'solid',
         })}

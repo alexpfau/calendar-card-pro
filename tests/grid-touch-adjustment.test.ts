@@ -28,9 +28,9 @@ vi.mock('../src/utils/logger', () => ({
  * a tap beside an event still opens it, but a hold never lifts it.
  *
  * happy-dom computes no layout and has no `elementFromPoint` on a shadow root, so both are
- * stubbed: the hours' axis left of x = 50, day columns 100 px wide from there, the all-day band
- * above y = 80 and the time areas below it, a pixel a minute from 07:00, and Dentist's block from
- * 14:00 to 15:00 on June 17. The unit project runs in UTC.
+ * stubbed: the hours' axis left of x = 50, day columns 100 px wide from there, the day headers
+ * above y = 40, the all-day band above y = 80 and the time areas below it, a pixel a minute
+ * from 07:00, and Dentist's block from 14:00 to 15:00 on June 17. The unit project runs in UTC.
  */
 
 interface Card extends HTMLElement {
@@ -100,6 +100,10 @@ async function mount(config: Record<string, unknown>, events: unknown[] = [DENTI
   await vi.waitFor(() => expect(card.shadowRoot?.textContent).toContain('Dentist'));
   for (const [index, body] of all(card, '.grid-day-body').entries()) {
     placeAt(body, { left: 50 + index * 100, top: 80, width: 100, height: 900 });
+  }
+  // The band finds its day by the headers beside it in the grid's head.
+  for (const [index, header] of all(card, '.grid-day-header').entries()) {
+    placeAt(header, { left: 50 + index * 100, top: 0, width: 100, height: 40 });
   }
   const hitTest = stubHitTest(card);
   const writes = () =>

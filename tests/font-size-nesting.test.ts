@@ -627,6 +627,19 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
     },
   ],
   ['no time', { show_time: false }],
+  // One calendar drawn larger: its events write their scaled sizes on themselves, and a wide
+  // month draws a pair of probes in those sizes to count the lines such an event takes.
+  [
+    'a calendar drawn larger',
+    {
+      entities: [
+        { entity: 'calendar.icon', label: 'mdi:star' },
+        { entity: 'calendar.image', label: '/local/picture.png' },
+        { entity: 'calendar.emoji', label: '🎉' },
+        { entity: 'calendar.text', label: 'Work', text_scale: 1.5 },
+      ],
+    },
+  ],
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],
   ['all-day pill', { allday_badge: 'title' }],
@@ -831,7 +844,8 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
 /**
  * The header toolbar a card with this configuration draws, every control in it. With buttons of
  * the configuration's own, the start group keeps its first control and folds the rest, add among
- * them, into its menu, so each row of the menu is drawn too.
+ * them, into its menu, so each row of the menu is drawn too, and the switcher collapses into its
+ * button, so each row of its menu of views is drawn as well.
  */
 function headerToolbar(view: (typeof VIEWS)[number], config: Types.Config): Toolbar.HeaderToolbar {
   const options = config.toolbar ?? {};
@@ -860,6 +874,10 @@ function headerToolbar(view: (typeof VIEWS)[number], config: Types.Config): Tool
     viewSwitcher: {
       views: VIEWS.map((option) => ({ view: option, label: option })),
       selected: view,
+      name: 'Layout',
+      currentName: `Layout: ${view}`,
+      collapsed: Boolean(options.buttons?.length),
+      inert: false,
       onSelect: () => undefined,
     },
     refresh: options.refresh
@@ -1156,6 +1174,8 @@ describe('every piece of text is sized by its own option', () => {
       // control, at Home Assistant's control size, which the menu sets for itself as the filter's
       // menu does.
       'custom-menu-label in custom-menu-row': ['--ha-font-size-m'],
+      // A row of the collapsed switcher's menu, a view's word, sized as the rows above.
+      'layout-menu-label in layout-menu-row': ['--ha-font-size-m'],
       // The title is the card's headline without the toolbar. With it, the title is drawn in the
       // heading row as a label over the month, at Home Assistant's control size, and the month
       // takes the title's option.

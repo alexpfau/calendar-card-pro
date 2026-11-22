@@ -10,6 +10,8 @@
   "viewColumns": "Stolpci",
   "viewGrid": "Mreža",
   "viewMonth": "Mesec",
+  "layout": "Postavitev",
+  "layoutCurrent": "Postavitev: {view}",
   "moreEvents": "+{count} več",
   "eventCount": "Dogodki: {count}",
   "eventCountOne": "{count} dogodek",
@@ -22,6 +24,8 @@
   "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",
   "loadFailed": "Nalaganje ni uspelo:",
   "newEvent": "Nov dogodek",
+  "movedTo": "Premaknjeno na {time}",
+  "undo": "Razveljavi",
   "showAll": "Prikaži vse",
   "hideAll": "Skrij vse",
   "private": "Zasebno"

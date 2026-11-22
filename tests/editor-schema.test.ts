@@ -112,6 +112,9 @@ function columnConfig(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ view: 'column', ...overrides });
 }
 
+/** A toolbar with the date navigation, where Columns sheds down to two by default. */
+const PAGING = { toolbar: { show: true, navigation: true } } as const;
+
 function gridConfig(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ view: 'grid', ...overrides });
 }
@@ -312,13 +315,13 @@ describe('editor: the column block', () => {
   });
 
   it('drops a column floor of two, the default, which changes nothing', () => {
-    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 2 } });
+    const config = columnConfig({ ...PAGING, days_to_show: 5, column: { min_days_to_show: 2 } });
 
     expect(toStoredConfig(config)).not.toHaveProperty('column');
   });
 
   it('keeps a column floor at days_to_show, which keeps every day', () => {
-    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+    const config = columnConfig({ ...PAGING, days_to_show: 3, column: { min_days_to_show: 3 } });
 
     expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 3 });
   });
@@ -629,7 +632,7 @@ describe('editor: the column block as the form shows it', () => {
    * every density control renders blank while the card is quietly using 140px.
    */
   it('shows the effective value of an option the user has not set', () => {
-    const block = columnFormBlock(columnConfig());
+    const block = columnFormBlock(columnConfig(PAGING));
 
     expect(block).toEqual({
       day_header_gap: '8px',
@@ -642,7 +645,8 @@ describe('editor: the column block as the form shows it', () => {
   });
 
   it('resolves the dynamic default of the column floor', () => {
-    expect(columnFormBlock(columnConfig({ days_to_show: 5 })).min_days_to_show).toBe(2);
+    expect(columnFormBlock(columnConfig({ ...PAGING, days_to_show: 5 })).min_days_to_show).toBe(2);
+    expect(columnFormBlock(columnConfig({ days_to_show: 5 })).min_days_to_show).toBe(5);
     expect(columnFormBlock(columnConfig({ days_to_show: 1 })).min_days_to_show).toBe(1);
     expect(
       columnFormBlock(columnConfig({ days_to_show: 5, column: { min_days_fallback: 'cramp' } }))
@@ -1442,10 +1446,16 @@ describe('editor: the width table', () => {
     expect(widthTableRows(ctx(config))).toHaveLength(4);
   });
 
-  it('describes the default floor of two, then the list', () => {
-    const rows = widthTableRows(ctx(columnConfig({ days_to_show: 3 })));
+  it('describes the default floor of two, then the list, where the card pages', () => {
+    const rows = widthTableRows(ctx(columnConfig({ ...PAGING, days_to_show: 3 })));
 
     expect(rows.map((row) => row.layout)).toEqual(['3 columns', '2 columns', 'as a list']);
+  });
+
+  it('describes every day, then the list, where nothing pages', () => {
+    const rows = widthTableRows(ctx(columnConfig({ days_to_show: 3 })));
+
+    expect(rows.map((row) => row.layout)).toEqual(['3 columns', 'as a list']);
   });
 
   it('reduces to one band and a fallback where every day is kept', () => {

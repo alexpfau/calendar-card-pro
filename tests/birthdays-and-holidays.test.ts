@@ -243,8 +243,27 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     const card = await mountStory(CARD, SEASON);
     expect(rules(card)).toEqual(['Jul 2026', 'Aug 2026']);
     expect(datedMonths(card)).toEqual([]);
-    // The first month has no rule above it; the toolbar names it.
+    // The first month has no rule of its own; the toolbar right above names it.
     expect(text(shadow(card).querySelector('.toolbar-month-button'))).toContain('June');
+    // Controls. Without the toolbar the first month's rule heads the list and names it, and so it
+    // does when the toolbar names the page's first day's month, June, above days of July.
+    expect(rules(await mountStory(dropOption(CARD, 'toolbar'), SEASON))).toEqual([
+      'Jun 2026',
+      'Jul 2026',
+      'Aug 2026',
+    ]);
+    // A toolbar left with no control is not drawn, and has no month heading either.
+    const bare = await mountStory(
+      withOptions(CARD, {
+        toolbar: { ...(CARD.toolbar as object), navigation: false, search: false },
+      }),
+      SEASON,
+    );
+    expect(shadow(bare).querySelector('.toolbar-month')).toBeNull();
+    expect(rules(bare)).toEqual(['Jun 2026', 'Jul 2026', 'Aug 2026']);
+    const july = await mountStory(withOptions(CARD, { start_date: '2026-06-30' }), SEASON);
+    expect(text(shadow(july).querySelector('.toolbar-month-button'))).toContain('June');
+    expect(rules(july)).toEqual(['Jul 2026', 'Aug 2026']);
 
     // Controls. Without `month_separator_label` the rules stay and say nothing; without
     // `show_month: false` every date carries its month again; without `month_separator_width`
@@ -294,6 +313,8 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     // Controls. The toolbar with its defaults draws the filter, add, the switcher and refresh too,
     // so the list above can tell what the page turned off; without it there is nothing. The
     // filter's closed menu holds Show all, unavailable with every calendar shown, and Hide all.
+    // Not measured, the card draws the switcher collapsed: its button, then its closed menu's
+    // rows, one per layout.
     expect(
       controls(await mountStory(withOptions(CARD, { toolbar: { show: true } }), writable)),
     ).toEqual([
@@ -301,10 +322,11 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       'legend-menu-action unavailable',
       'legend-menu-action',
       'Add event',
-      'List',
-      'Columns',
-      'Grid',
-      'Month',
+      'Layout: List',
+      'layout-menu-row selected',
+      'layout-menu-row',
+      'layout-menu-row',
+      'layout-menu-row',
       'Refresh',
       'Search',
       'toolbar-month-button',

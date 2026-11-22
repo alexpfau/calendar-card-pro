@@ -470,7 +470,11 @@ describe('the stylesheet', () => {
     // The fill and the focus ring are the pill's, never the whole target's.
     expect(on(`${inline}:hover:not(:disabled)`, 'background')).toEqual([]);
     expect(on(`${inline}:hover:not(:disabled)::before`, 'background')).toHaveLength(1);
-    expect(on(`${inline}:focus-visible`, 'outline').map(({ value }) => value)).toEqual(['none']);
+    // High-contrast modes drop the pill's shadow, so the target takes an outline there alone.
+    expect(on(`${inline}:focus-visible`, 'outline').map(({ at, value }) => [at, value])).toEqual([
+      [[], 'none'],
+      [['@media (forced-colors: active)'], '2px solid var(--calendar-card-editor-focus-ring)'],
+    ]);
     expect(on(`${inline}:focus-visible::before`, 'box-shadow')).toHaveLength(1);
   });
 

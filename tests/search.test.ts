@@ -56,7 +56,7 @@ function row(
     folded: {
       title: Search.foldText(title, language),
       location: Search.foldText(location, language),
-      description: Search.foldText(extra.description ?? '', language).text,
+      unmarked: Search.foldText(extra.description ?? '', language).text,
     },
     start,
     end,

@@ -14,6 +14,8 @@
   "viewColumns": "עמודות",
   "viewGrid": "רשת",
   "viewMonth": "חודש",
+  "layout": "פריסה",
+  "layoutCurrent": "פריסה: {view}",
   "moreEvents": "עוד +{count}",
   "eventCount": "{count} אירועים",
   "eventCountOne": "{count} אירוע",
@@ -22,6 +24,8 @@
   "error": "שגיאה: ישות לוח השנה לא נמצאה או לא מוגדרת כראוי",
   "loadFailed": "הטעינה נכשלה:",
   "newEvent": "אירוע חדש",
+  "movedTo": "הועבר ל־{time}",
+  "undo": "ביטול",
   "showAll": "הצגת הכל",
   "hideAll": "הסתרת הכל",
   "private": "פרטי"

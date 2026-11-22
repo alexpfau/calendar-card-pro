@@ -323,6 +323,34 @@ export default css`
     color: var(--secondary-text-color);
   }
 
+  /* The example's colors, and every layout with its days, one to a line. */
+  .quick-setup-swatches,
+  .quick-setup-layouts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .quick-setup-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .quick-setup-swatches li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .quick-setup-review .quick-setup-swatches {
+    justify-content: flex-end;
+  }
+
+  .quick-setup-colors {
+    margin-top: 12px;
+  }
+
   .quick-setup-review dd,
   .quick-setup-change {
     margin: 0;
@@ -403,6 +431,16 @@ export default css`
 
   .fit-summary td.width-table-layout {
     padding-inline-end: 8px;
+  }
+
+  /* Four layouts across outgrow a 320px pane: the table scrolls inside its own region. */
+  .width-table-scroll {
+    overflow-x: auto;
+  }
+
+  .width-table-scroll:focus-visible {
+    outline: 2px solid var(--calendar-card-editor-focus-ring);
+    outline-offset: 2px;
   }
 
   .width-table + .width-table {
@@ -566,6 +604,16 @@ export default css`
   .text-button:not(.filled, .add-action):focus-visible::before,
   .strip-button:focus-visible::before {
     box-shadow: 0 0 0 2px var(--calendar-card-editor-focus-ring);
+  }
+
+  /* High-contrast modes drop every box shadow, and with it the ring above: an outline there,
+     whose color the system then chooses. */
+  @media (forced-colors: active) {
+    .text-button:not(.filled, .add-action):focus-visible,
+    .strip-button:focus-visible {
+      outline: 2px solid var(--calendar-card-editor-focus-ring);
+      outline-offset: -4px;
+    }
   }
 
   /* A filled button keeps its color under the pointer, a shade darker. */
@@ -1182,6 +1230,12 @@ export default css`
     line-height: 1.4;
   }
 
+  /* What the editor draws while its language is on its way. */
+  .loading {
+    margin: 16px 0;
+    color: var(--secondary-text-color);
+  }
+
   /* The line a removal or an applied story leaves, until the next change. */
   .status-bar {
     display: flex;
@@ -1221,6 +1275,25 @@ export default css`
   .upgrade-actions {
     display: flex;
     flex-wrap: wrap;
+    margin-inline-start: -12px;
+  }
+
+  /* Each calendar whose hidden field the details now show, with Make It Private under it. */
+  .upgrade-details {
+    flex-basis: 100%;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .upgrade-details li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 4px;
+  }
+
+  .upgrade-details .text-button {
     margin-inline-start: -12px;
   }
 

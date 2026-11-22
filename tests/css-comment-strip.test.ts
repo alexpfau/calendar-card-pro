@@ -279,8 +279,22 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(254_000);
-    // The wide month's filled today tile moved the ceiling last, from 251,000 to 254,000 (backlog
+    expect(saved).toBeLessThan(266_000);
+    // Pinning the date rows of every layout moved the ceiling last, from 260,000 to 266,000
+    // (backlog item 402): the notes on Grid's head and band as two boxes, the band's spanning the
+    // head's rows so it needs no offset, which pins when; on a column header's ground and wash as
+    // layers of their own, and why its columns stretch; and on the wide month's weekday names and
+    // the rule they draw once the first week has scrolled under. The reading went to 261,989,
+    // taken with stripComments after the last comment was written.
+    //
+    // The v6.0 review fixes moved the ceiling before that, from 254,000 to 260,000 (backlog item 396):
+    // the notes on Grid's pinned head (why it is one subgrid box, when it pins, why its tints and
+    // day lines split at the band, why the hours take a scroll margin), on darkening Month's filled
+    // tiles in OKLab, on centering Column's header rule in its gap, on scaled Month lines and on
+    // dimming a stale forecast. The reading went from 251,281 to 257,447, taken with stripComments
+    // after the last comment was written.
+    //
+    // The wide month's filled today tile moved the ceiling before that, from 251,000 to 254,000 (backlog
     // item 363): the note on why the wide month fills the tile as the narrow form fills a selected
     // today, why the tile's ink is redefined rather than its color set, and why the week-number
     // pill and the week separators keep the list's tile. The reading went from 250,441 to

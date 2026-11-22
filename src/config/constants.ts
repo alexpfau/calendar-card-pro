@@ -152,6 +152,13 @@ export const TIMING = {
    */
   NEW_EVENT_HOLD: 5000,
 
+  /**
+   * How long Home Assistant shows the notification a drag's move leaves, with its Undo. Longer
+   * than its own default of three seconds, which is short for reading the time and reaching the
+   * button.
+   */
+  MOVE_UNDO_TOAST: 8000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
@@ -172,6 +179,12 @@ export const TIMING = {
    * silently stopped refreshing until the page was reloaded.
    */
   CALENDAR_FETCH_TIMEOUT: 30000,
+
+  /**
+   * How much of `CALENDAR_FETCH_TIMEOUT` is kept for the REST request a load makes after a
+   * calendar's live subscription stayed silent, so the two together stay within it.
+   */
+  CALENDAR_REST_RESERVE: 5000,
 
   /** Shortest delay the refresh timer is armed with, so it can never spin. */
   REFRESH_MIN_DELAY: 1000,
@@ -370,8 +383,14 @@ export const UI = {
    */
   GRID_MIN_HOUR_HEIGHT: '24px',
 
-  /** How many events a narrow month day's capsule draws a segment for, at most. */
-  MONTH_NARROW_MARKS: 4,
+  /**
+   * How many events a narrow month day's capsule draws a segment for, at most. The capsule grows
+   * by a 6px segment per event up to six, 36px, then holds that width while its segments narrow
+   * (`.month-narrow-marks` in `styles.ts`), so at this many each segment is one CSS pixel, still at
+   * least a device pixel on any screen. Past it the day's later events draw nothing rather than a
+   * sliver a screen cannot show; the day's cell still names its full count (`monthCellName`).
+   */
+  MONTH_NARROW_MARKS: 36,
 
   /**
    * The rows a month asks a Sections dashboard for while none of its four height keys sets a

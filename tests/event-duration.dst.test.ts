@@ -74,6 +74,25 @@ describe('duration in a real timezone', () => {
     },
   );
 
+  it.each([
+    ['an ordinary day', '2026-01-14'],
+    ['the spring change', zone.spring],
+    ['the fall change', zone.fall],
+  ])('counts midnight to midnight over %s as a day', (_, date) => {
+    // A full day on the wall clock, though it takes up one date: "(1 day)", not "(24 hr)", nor
+    // the 23 or 25 hours a day of a change lasts. In the Azores the spring day has no 0:00, so
+    // its midnight is its first moment, 1:00, and the day still counts as one.
+    expect(lasts(timed(at(date, 0, 0), at(date, 1, 0)))).toBe('(1 day)');
+    expect(lasts(timed(at(date, 0, 0), at(date, 2, 0)))).toBe('(2 days)');
+    expect(lasts(timed(at(date, 0, 0), at(date, 1, 6)))).toBe('(1 day, 6 hr)');
+  });
+
+  it('measures a night from midnight that ends before the next midnight by the time it lasts', () => {
+    // 0:00 to 23:00 is no full day, so its length is the time that passes.
+    const date = '2026-01-14';
+    expect(lasts(timed(at(date, 0, 0), at(date, 0, 23)))).toBe('(23 hr)');
+  });
+
   it.each(['spring', 'fall'] as const)(
     'counts the dates of an all-day event across the %s change',
     (side) => {

@@ -26,7 +26,7 @@ import * as Config from '../src/config/config';
 import { DUPLICATES_IGNORE_LOCATION, DUPLICATES_MERGE_LOCATIONS } from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import { buildDetailEntry, displayText } from '../src/interaction/event-details';
+import { buildDetailEntry, displayText, privateFields } from '../src/interaction/event-details';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildContentSchema } from '../src/rendering/editor/schemas/content';
 import {
@@ -450,13 +450,40 @@ describe('filter_duplicates: merge_locations', () => {
     ]);
   });
 
-  it('keeps the calendar’s own location in _source, for the details and edit dialogs', () => {
+  it('keeps the calendar’s own location in _source, for the edit dialog', () => {
     const [row] = drawn([timed(ANNA, 'Room A'), timed(BEN, 'Room B')], 'merge_locations');
 
     expect(row.location).toBe('Room A · Room B');
     expect(row._source?.location).toBe('Room A');
     expect(buildDetailEntry(row)?.location).toBe('Room A');
-    expect(displayText(row, 'en').location).toBe('Room A');
+  });
+
+  it('shows every location in the popover, a calendar’s hidden ones included', () => {
+    const pair = [timed(ANNA, 'Room A'), timed(BEN, 'Room B')];
+    expect(displayText(drawn(pair, 'merge_locations')[0], 'en').location).toBe('Room A · Room B');
+
+    // The rows leave out Ben's; the popover shows every location an event has, as for any event.
+    const [hidden] = drawn(pair, 'merge_locations', {
+      entities: [ANNA, { entity: BEN, show_location: false }],
+    } as never);
+    expect(hidden.location).toBe('Room A');
+    expect(displayText(hidden, 'en').location).toBe('Room A · Room B');
+
+    // Control: ignore_location keeps the first calendar's location alone there too.
+    expect(displayText(drawn(pair, DUPLICATES_IGNORE_LOCATION)[0], 'en').location).toBe('Room A');
+  });
+
+  it('shows a private calendar’s merged location as Private, behind a lock', () => {
+    // The kept copy has no location of its own, so only the merged list can say there is one.
+    const [row] = drawn([timed(ANNA, undefined), timed(BEN, 'Room B')], 'merge_locations', {
+      entities: [
+        { entity: ANNA, private: true },
+        { entity: BEN, private: true },
+      ],
+    } as never);
+    expect(row._mergedFrom?.map((calendar) => calendar.entityId)).toEqual([ANNA, BEN]);
+    expect(displayText(row, 'en').location).toBe('Private');
+    expect(privateFields(row, 'en')).toEqual({ title: true, location: true, description: false });
   });
 });
 

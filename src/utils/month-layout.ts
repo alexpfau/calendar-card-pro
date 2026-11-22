@@ -16,7 +16,9 @@
  *
  * Bars are placed first, by first column, then longest, then their event's start, then title,
  * and lines after them, each day's by start; each item takes the lowest line free across all
- * its columns (`lowestFreeRows`, shared with Grid's all-day band).
+ * its columns (`lowestFreeRows`, shared with Grid's all-day band). An item set in larger text, by
+ * its calendar's `text_scale`, takes as many lines as it is tall, so a week never holds more than
+ * its capacity's height.
  *
  * Then the capacity decides what shows. An item is visible only where it is visible on every
  * day it covers, so a bar is never drawn cut at a day that has no room for it. A day holding
@@ -55,6 +57,9 @@ export interface MonthPlacement {
 
   /** The line, from 0 just under the date. */
   readonly line: number;
+
+  /** How many lines it takes from there: more than one for an item set in larger text. */
+  readonly lines: number;
 
   /** Whether it is drawn: on every day it covers, the line is one the day shows. */
   readonly visible: boolean;
@@ -161,12 +166,14 @@ function dayLines(events: ReadonlyArray<Types.CalendarEventData>, column: number
  *   none is an empty list
  * @param dayStarts - Local midnights of the same days
  * @param capacity - Lines that fit under a date. Below 1, a day shows none, and no "+N more"
+ * @param linesOf - How many lines an item's event takes, 1 unless its text is set larger
  * @returns The row's layout
  */
 export function layoutMonthWeek(
   days: ReadonlyArray<ReadonlyArray<Types.CalendarEventData>>,
   dayStarts: readonly Date[],
   capacity: number,
+  linesOf: (event: Types.CalendarEventData) => number = () => 1,
 ): MonthWeekLayout {
   const bars = Grid.resolveBannerRuns(
     days.map((events) => events.filter((event) => !event._isEmptyDay && isMonthBar(event))),
@@ -177,10 +184,12 @@ export function layoutMonthWeek(
     ...bars.map(({ event, placement }) => ({ kind: 'bar' as const, event, placement })),
     ...days.flatMap((events, column) => dayLines(events, column)),
   ];
+  const heights = items.map(({ event }) => Math.max(1, Math.floor(linesOf(event))));
   const lines = Grid.lowestFreeRows(
-    items.map(({ placement }) => ({
+    items.map(({ placement }, index) => ({
       start: placement.columnIndex,
       end: placement.columnIndex + placement.span,
+      rows: heights[index],
     })),
   );
 
@@ -198,7 +207,7 @@ export function layoutMonthWeek(
       for (let column = 0; column < columns; column++) {
         if (!covers(item, column)) continue;
         const shown = reserved[column] ? capacity - 1 : capacity;
-        if (lines[index] >= shown) return false;
+        if (lines[index] + heights[index] > shown) return false;
       }
       return true;
     });
@@ -213,6 +222,7 @@ export function layoutMonthWeek(
     placements: items.map((item, index) => ({
       item,
       line: lines[index],
+      lines: heights[index],
       visible: visible[index],
     })),
     days: Array.from({ length: columns }, (_, column) => {

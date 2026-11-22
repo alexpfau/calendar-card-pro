@@ -153,6 +153,7 @@ export interface TapControl {
  * @param swipePaging Whether a swipe pages the card, which hands the browser only vertical
  * panning on the card, its toolbar's rows and its body (`swipe-paging`)
  * @param tapControl The control standing in for the card's tap while it hosts controls
+ * @param weatherStale Whether the forecast drawn is out of date (`weather-stale`), which dims it
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -194,6 +195,7 @@ export function renderMainCardStructure(
   refreshPhase: Toolbar.RefreshPhase = 'idle',
   swipePaging: boolean = false,
   tapControl?: TapControl,
+  weatherStale: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -246,6 +248,7 @@ export function renderMainCardStructure(
     ViewConfig.viewCssClass(effectiveView),
     isPointerInteractive ? 'card-interactive' : '',
     swipePaging ? 'swipe-paging' : '',
+    weatherStale ? 'weather-stale' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -473,11 +476,14 @@ function renderHorizontalSeparator(
  *
  * @param config - Card configuration
  * @param label - The month's name for the start of the rule, or undefined for the rule alone
+ * @param first - Whether it heads the list, where it has no day above it to keep its distance
+ *   from
  * @returns TemplateResult or nothing
  */
 function renderMonthSeparator(
   config: Types.Config,
   label?: TemplateResult,
+  first = false,
 ): TemplateResult | typeof nothing {
   if (label === undefined || ViewConfig.isZeroLength(config.month_separator_width)) {
     return renderHorizontalSeparator(
@@ -502,7 +508,7 @@ function renderMonthSeparator(
   return html`<div
     class="month-separator month-separator-labeled"
     style=${styleMap({
-      marginTop,
+      marginTop: first ? '0px' : marginTop,
       marginBottom,
       '--separator-border-width': config.month_separator_width,
       '--separator-border-color': ColorMix.floorColor(config.month_separator_color),
@@ -577,7 +583,8 @@ function renderWeekSeparator(
  * @param isMonthBoundary - Whether this is also a month boundary
  * @param config - Card configuration
  * @param isFirstWeek - Whether this is the first week in the view
- * @param monthLabel - The month's name for the start of a month rule, or undefined for none
+ * @param monthLabel - The month's name for the start of a month rule, or undefined for none; on
+ *   the first week, the first month's, which is drawn although no rule is
  * @returns TemplateResult or nothing
  */
 function renderWeekRow(
@@ -605,8 +612,11 @@ function renderWeekRow(
   const lineStyle: Record<string, string> = {};
   let labeled = false;
 
-  if (!isFirstWeek) {
-    if (isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width)) {
+  if (!isFirstWeek || monthLabel !== undefined) {
+    if (
+      (isMonthBoundary || isFirstWeek) &&
+      !ViewConfig.isZeroLength(config.month_separator_width)
+    ) {
       lineStyle['--separator-border-width'] = config.month_separator_width;
       lineStyle['--separator-border-color'] = ColorMix.floorColor(config.month_separator_color);
       lineStyle['--separator-display'] = 'block';
@@ -782,11 +792,26 @@ export function renderDay(
 }
 
 /**
+ * Whether a heading names the month a day falls in.
+ *
+ * @param heading - A day in the month the heading names, or undefined for no heading
+ * @param timestamp - The day, in epoch milliseconds
+ * @returns True for the same month of the same year
+ */
+function namesMonthOf(heading: Date | undefined, timestamp: number): boolean {
+  if (!heading) return false;
+  const day = new Date(timestamp);
+  return day.getFullYear() === heading.getFullYear() && day.getMonth() === heading.getMonth();
+}
+
+/**
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  *
  * @param eventsTappable - Whether each event is a tap target of its own
  * @param dayAdd - How to draw each day's add button, or undefined while a tap on a day adds
  *   nothing
+ * @param headingMonth - A day in the month the toolbar's heading names right above the list, or
+ *   undefined while no heading is drawn there
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -796,6 +821,7 @@ export function renderGroupedEvents(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
+  headingMonth?: Date,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -823,9 +849,13 @@ export function renderGroupedEvents(
 
       let separator: TemplateResult | typeof nothing = nothing;
 
-      // Built only where a month rule is drawn; both paths below draw it at the rule's start.
+      // Built only where a month rule is drawn; both paths below draw it at the rule's start. The
+      // first day has no rule above it, and gets one with its month's name all the same, so every
+      // block of days sits under its own month's name: a list whose first days have no events
+      // otherwise read under the month of the page's first day, which a toolbar names. Not where
+      // the toolbar's heading right above already names that month, which would say it twice.
       const monthLabel =
-        isNewMonth &&
+        (isNewMonth || (isFirstWeek && !namesMonthOf(headingMonth, day.timestamp))) &&
         config.month_separator_label === true &&
         !ViewConfig.isZeroLength(config.month_separator_width)
           ? renderMonthLabel(new Date(day.timestamp), config, language, hass)
@@ -839,13 +869,21 @@ export function renderGroupedEvents(
         separator = renderMonthSeparator(config, monthLabel);
       } else if (isNewWeek) {
         if (isFirstWeek && config.show_week_numbers !== null && !config.show_current_week_number) {
-          separator = isNewMonth
-            ? renderMonthSeparator(config, monthLabel)
+          separator = monthLabel
+            ? renderMonthSeparator(config, monthLabel, true)
             : renderWeekSeparator(config, isFirstWeek);
+        } else if (config.show_week_numbers !== null) {
+          separator = renderWeekRow(
+            weekNumber,
+            Boolean(isNewMonth),
+            config,
+            isFirstWeek,
+            monthLabel,
+          );
         } else {
           separator =
-            config.show_week_numbers !== null
-              ? renderWeekRow(weekNumber, Boolean(isNewMonth), config, isFirstWeek, monthLabel)
+            isFirstWeek && monthLabel
+              ? renderMonthSeparator(config, monthLabel, true)
               : renderWeekSeparator(config, isFirstWeek);
         }
       }

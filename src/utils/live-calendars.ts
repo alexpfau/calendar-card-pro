@@ -32,11 +32,15 @@ import * as Types from '../config/types';
 export type LiveState = 'pending' | 'live' | 'failed' | 'refused';
 
 /**
- * What a load waits for a new subscription's first push before asking REST instead: as long as
- * it would wait for REST. Home Assistant reads the calendar for the push as it would for REST, so
- * a slow calendar is no faster by REST, and giving up sooner would read it twice.
+ * What a load waits for a new subscription's first push before asking REST instead: nearly as
+ * long as it would wait for REST, leaving REST the rest of the calendar's one budget
+ * (`CALENDAR_REST_RESERVE`), so a calendar that answers neither way counts as failed after
+ * `CALENDAR_FETCH_TIMEOUT`, not after twice that. Home Assistant reads the calendar for the push
+ * as it would for REST, so a slow calendar is no faster by REST, and giving up much sooner would
+ * read it twice.
  */
-export const FIRST_PUSH_TIMEOUT = Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
+export const FIRST_PUSH_TIMEOUT =
+  Constants.TIMING.CALENDAR_FETCH_TIMEOUT - Constants.TIMING.CALENDAR_REST_RESERVE;
 
 /**
  * How long Home Assistant may take to answer a subscription before it counts as refused. The

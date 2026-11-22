@@ -10,6 +10,8 @@
   "viewColumns": "Coloane",
   "viewGrid": "Grilă",
   "viewMonth": "Lună",
+  "layout": "Aspect",
+  "layoutCurrent": "Aspect: {view}",
   "moreEvents": "+{count} în plus",
   "eventCount": "Evenimente: {count}",
   "eventCountOne": "{count} eveniment",
@@ -22,6 +24,8 @@
   "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",
   "loadFailed": "Nu s-a putut încărca:",
   "newEvent": "Eveniment nou",
+  "movedTo": "Mutat la {time}",
+  "undo": "Anulează",
   "showAll": "Arată toate",
   "hideAll": "Ascunde toate",
   "private": "Privat"

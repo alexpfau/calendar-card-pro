@@ -22,6 +22,7 @@ import {
   fakeHass,
   goOverview,
   goPage,
+  lastConfig,
   mountEditor,
   openResultGroup,
   resultRows,
@@ -175,7 +176,7 @@ describe('the results', () => {
     [
       'show_location',
       'events:show_location',
-      'Event Appearance › Event Details',
+      'Event Appearance › Visible Event Parts',
       'List: On · YAML: list.show_location',
     ],
     // At home on a Whole Card page, where no setting says Whole Card.
@@ -280,6 +281,22 @@ async function jump(
 }
 
 describe('choosing a result', () => {
+  it('reads a YAML path qualified by a layout block as that layout’s, and opens it there', async () => {
+    const editor = await mountEditor(
+      { ...CARD, list: { day_spacing: '10px' }, column: { day_spacing: '20px' } },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    await searchFor(editor, 'column.day_spacing');
+    expect(row(editor, 'layout:day_spacing').meta).toMatch(/^Columns: 20px/);
+    await chooseResult(editor, 'result:layout:day_spacing');
+    expect(text($(editor, '.page-sub'))).toBe('Columns');
+    await changeField(editor, 'layout:day_spacing', '30px');
+    expect(lastConfig(editor)).toMatchObject({
+      list: { day_spacing: '10px' },
+      column: { day_spacing: '30px' },
+    });
+  });
+
   it('opens its page at the field: focused on its wrapper, highlighted, announced', async () => {
     const editor = await mount();
     await jump(editor, 'time', 'events:time_font_size');
@@ -489,6 +506,19 @@ describe('Search Settings in a page header', () => {
       const button = $(editor, '.page-head [data-focus="search-open"]')!;
       expect(button.getAttribute('aria-label')).toBe('Search Settings');
     }
+  });
+
+  it('leaves Return to Results its query after a search begun from the result’s page', async () => {
+    const editor = await mount();
+    await jump(editor, 'time', 'events:time_font_size');
+    $(editor, '.page-head [data-focus="search-open"]')!.click();
+    await frames(editor);
+    $(editor, '[data-focus="search-back"]')!.click();
+    await frames(editor);
+    $(editor, '[data-focus="return"]')!.click();
+    await frames(editor);
+    expect(valueOf(editor, 'filter:search')).toBe('time');
+    expect(resultRows(editor).length).toBeGreaterThan(0);
   });
 
   it('opens the overview with focus in the search field; Back returns to the page and to it', async () => {

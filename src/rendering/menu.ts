@@ -1,8 +1,8 @@
 /**
  * The toolbar's menus: a native `<dialog>` floating over the events beside the button that opens
- * it, placed, painted and closed by one controller. Two menus use it: the calendar filter's
- * (`legend.ts`), and the one the start of the action row folds its last controls into on a
- * narrow card (`toolbar.ts`).
+ * it, placed, painted and closed by one controller. Three menus use it: the calendar filter's
+ * (`legend.ts`), and on a narrow card the one the start of the action row folds its last controls
+ * into and the one the collapsed view switcher lists its views in (`toolbar.ts`).
  *
  * Each is opened with `showModal()`. That reaches the browser's top layer, so `ha-card`'s
  * `overflow: hidden` cannot clip it, in every browser Home Assistant still serves; the popover API
@@ -20,7 +20,7 @@ import { setSurfaceColor, surfaceColor } from './surface';
 //-----------------------------------------------------------------------------
 
 /** Which menu a dialog is, so the card can close one without the other. */
-export type MenuKind = 'legend' | 'overflow';
+export type MenuKind = 'legend' | 'overflow' | 'layout';
 
 /**
  * What the controller needs of a menu besides its dialog: which menu it is, and the classes of

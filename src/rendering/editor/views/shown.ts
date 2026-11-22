@@ -8,6 +8,7 @@
 import {
   mdiAlertCircleOutline,
   mdiArrowUp,
+  mdiCalendarMonthOutline,
   mdiCalendarMultiple,
   mdiCardTextOutline,
   mdiChevronDown,
@@ -128,6 +129,7 @@ const LAYOUT_ICONS: Readonly<Record<string, string>> = {
   list: mdiFormatListBulleted,
   column: mdiViewColumnOutline,
   grid: mdiTimelineClockOutline,
+  month: mdiCalendarMonthOutline,
 };
 
 /**

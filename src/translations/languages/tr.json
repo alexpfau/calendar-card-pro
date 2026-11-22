@@ -10,6 +10,8 @@
   "viewColumns": "Sütunlar",
   "viewGrid": "Izgara",
   "viewMonth": "Ay",
+  "layout": "Düzen",
+  "layoutCurrent": "Düzen: {view}",
   "moreEvents": "+{count} daha",
   "eventCount": "{count} etkinlik",
   "eventCountOne": "{count} etkinlik",
@@ -22,6 +24,8 @@
   "error": "Hata: Takvim içeriği bulunamadı veya yanlış yapılandırılmış",
   "loadFailed": "Yüklenemedi:",
   "newEvent": "Yeni etkinlik",
+  "movedTo": "Yeni saat: {time}",
+  "undo": "Geri al",
   "showAll": "Tümünü göster",
   "hideAll": "Tümünü gizle",
   "private": "Özel"

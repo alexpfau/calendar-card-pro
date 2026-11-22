@@ -44,7 +44,7 @@ import { DEFAULT_CONFIG, asksForToolbar } from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
-import { intlCache, intlLocales, intlSpeaks } from '../translations/intl-locales';
+import { intlCache, intlLocales, intlSpeaks, utcCalendarDay } from '../translations/intl-locales';
 import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as EntityColors from '../utils/entity-colors';
@@ -86,6 +86,37 @@ export interface MonthOptions {
    * decides (`_monthTabStop`). The header month's 1st where none is handed.
    */
   readonly focusDay?: Date;
+  /**
+   * The lines an event set at each `text_scale` takes, as the card measured them
+   * (`measureMonthScaleLines`); a scale not measured yet is estimated (`monthLinesOf`).
+   */
+  readonly scaleLines?: MonthScaleLines;
+}
+
+/** The lines an event set at a `text_scale` other than 1 takes, by scale. */
+export type MonthScaleLines = ReadonlyMap<number, number>;
+
+/**
+ * How many lines a month's event takes under its date: 1, or for one set larger by its
+ * calendar's `text_scale`, as many as it is tall, as the card measured that scale
+ * (`measureMonthScaleLines`). Until it has, the scale rounded up, which is never too few: a
+ * line's text grows with the scale and its margins do not, so a line `scale` times as tall as
+ * the pitch at least holds it, and on a touch screen, whose lines are taller than their text
+ * needs, more so. Smaller text keeps one line.
+ *
+ * @param config - Card configuration, resolved for month
+ * @param scaleLines - The lines each scale takes, as measured
+ * @returns Each event's lines
+ */
+export function monthLinesOf(
+  config: Types.Config,
+  scaleLines?: MonthScaleLines,
+): (event: Types.CalendarEventData) => number {
+  return (event) => {
+    const scale = TextScale.textScaleOf(event, config);
+    if (scale <= 1) return 1;
+    return scaleLines?.get(scale) ?? Math.ceil(scale - 0.01);
+  };
 }
 
 /** What a narrow month draws besides its weeks. */
@@ -142,12 +173,14 @@ interface MonthWeek {
  * @param days - Grouped days, which hold only days with events
  * @param rowsStart - The first row's first day
  * @param capacity - Lines that fit under a date
+ * @param linesOf - How many lines each event takes (`monthLinesOf`)
  * @returns The rows, first first
  */
 export function monthWeeks(
   days: ReadonlyArray<Types.EventsByDay>,
   rowsStart: Date,
   capacity: number,
+  linesOf?: (event: Types.CalendarEventData) => number,
 ): MonthWeek[] {
   const byDate = new Map(
     days.map((day) => [FormatUtils.getLocalDateKey(new Date(day.timestamp)), day]),
@@ -164,6 +197,7 @@ export function monthWeeks(
         grouped.map((day) => day?.events ?? []),
         starts,
         capacity,
+        linesOf,
       ),
     };
   });
@@ -177,14 +211,16 @@ export function monthWeeks(
  * @param days - Grouped days, the rung event's copies marked
  * @param rowsStart - The first row's first day
  * @param capacity - Lines that fit under a date
+ * @param linesOf - How many lines each event takes (`monthLinesOf`)
  * @returns True where a rung event is drawn
  */
 export function monthDrawsRing(
   days: ReadonlyArray<Types.EventsByDay>,
   rowsStart: Date,
   capacity: number,
+  linesOf?: (event: Types.CalendarEventData) => number,
 ): boolean {
-  return monthWeeks(days, rowsStart, capacity).some((week) =>
+  return monthWeeks(days, rowsStart, capacity, linesOf).some((week) =>
     week.layout.placements.some(
       (placement) => placement.visible && placement.item.event._searchRing === true,
     ),
@@ -195,6 +231,8 @@ export function monthDrawsRing(
 // WORDS
 //-----------------------------------------------------------------------------
 
+// Every date format here reads its day in UTC, from `utcCalendarDay`, so a format made before the
+// device's zone changed names the same day after it.
 const firstOfMonthFormats = intlCache<string, Intl.DateTimeFormat | null>();
 const dayNameFormats = intlCache<string, Intl.DateTimeFormat>();
 const fullDateFormats = intlCache<string, Intl.DateTimeFormat>();
@@ -216,7 +254,7 @@ function weekdayName(date: Date, language: string): string {
   if (format === undefined) {
     try {
       format = intlSpeaks(Intl.DateTimeFormat, language)
-        ? new Intl.DateTimeFormat(intlLocales(language), { weekday: 'long' })
+        ? new Intl.DateTimeFormat(intlLocales(language), { weekday: 'long', timeZone: 'UTC' })
         : null;
     } catch {
       format = null;
@@ -224,7 +262,7 @@ function weekdayName(date: Date, language: string): string {
     weekdayFormats.set(language, format);
   }
   return format
-    ? format.format(date)
+    ? format.format(utcCalendarDay(date))
     : Localize.getTranslations(language).daysOfWeek[date.getDay()];
 }
 
@@ -248,7 +286,11 @@ function firstOfMonthParts(
   if (format === undefined) {
     try {
       format = intlSpeaks(Intl.DateTimeFormat, language)
-        ? new Intl.DateTimeFormat(intlLocales(language), { day: 'numeric', month: 'short' })
+        ? new Intl.DateTimeFormat(intlLocales(language), {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
+          })
         : null;
     } catch {
       format = null;
@@ -263,7 +305,7 @@ function firstOfMonthParts(
   }
   // The month and the literals around it are one part, so a space or a dot stays with its word.
   const parts: Array<{ day: boolean; text: string }> = [];
-  for (const part of format.formatToParts(date)) {
+  for (const part of format.formatToParts(utcCalendarDay(date))) {
     const day = part.type === 'day';
     const previous = parts[parts.length - 1];
     if (!day && previous && !previous.day) previous.text += part.value;
@@ -286,10 +328,11 @@ function dayName(date: Date, language: string): string {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     });
     dayNameFormats.set(language, format);
   }
-  return format.format(date);
+  return format.format(utcCalendarDay(date));
 }
 
 /**
@@ -353,6 +396,16 @@ export function monthItemId(date: Date, line: number | 'more'): string {
 }
 
 /**
+ * The day a wide month's line or "+N more" is drawn on, read back from its id (`monthItemId`).
+ *
+ * @param id - An element's id
+ * @returns The day, `YYYY-MM-DD`, or null where the id is no month item's
+ */
+export function monthItemDay(id: string): string | null {
+  return /^month-item-(\d{4}-\d{2}-\d{2})-/.exec(id)?.[1] ?? null;
+}
+
+/**
  * A day named in full with its year, as a day's list is titled: "Wednesday, November 18, 2026".
  *
  * @param date - The day
@@ -367,10 +420,11 @@ export function monthDayTitle(date: Date, language: string): string {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     });
     fullDateFormats.set(language, format);
   }
-  return format.format(date);
+  return format.format(utcCalendarDay(date));
 }
 
 /**
@@ -400,13 +454,13 @@ export function monthDayTitles(date: Date, language: string): string[] {
   let formats = shorterTitleFormats.get(language);
   if (!formats) {
     formats = SHORTER_DAY_TITLES.map(
-      (options) => new Intl.DateTimeFormat(intlLocales(language), options),
+      (options) => new Intl.DateTimeFormat(intlLocales(language), { ...options, timeZone: 'UTC' }),
     );
     shorterTitleFormats.set(language, formats);
   }
   const titles = [monthDayTitle(date, language)];
   for (const format of formats) {
-    const title = format.format(date);
+    const title = format.format(utcCalendarDay(date));
     if (title !== titles[titles.length - 1]) titles.push(title);
   }
   return titles;
@@ -428,7 +482,8 @@ export function monthDayTitles(date: Date, language: string): string[] {
  * The cell is also the month's grid cell for the keyboard and assistive technology: named for its
  * day and how many events it holds, the month's tab stop where it is `focused`, and the owner of
  * the bars, lines and "+N more" starting on it (`aria-owns`), which are drawn beside it rather
- * than in it. The date it names is hidden, so the row holds cells alone.
+ * than in it. The date it names is hidden, so the row holds cells alone. Enter on it opens the
+ * day's panel, a dialog, which it says (`aria-haspopup`); a narrow cell selects its day instead.
  *
  * @param date - The day's local midnight
  * @param column - Its column, from 0
@@ -494,6 +549,7 @@ function renderDay(
       role="gridcell"
       tabindex=${cell.focused ? '0' : '-1'}
       aria-label=${monthCellName(date, cell.count, language)}
+      aria-haspopup="dialog"
       aria-owns=${cell.owns.length > 0 ? cell.owns.join(' ') : nothing}
       aria-current=${isToday ? 'date' : nothing}
       .calendarCardDaySlot=${Activation.daySlot(date.getTime())}
@@ -548,14 +604,14 @@ function barConfig(config: Types.Config): Types.Config {
  *
  * @param item - The line
  * @param config - Card configuration, resolved for month
- * @param translations - Card strings
+ * @param language - Card language code, for its strings and a 12-hour day period
  * @param hass - Home Assistant, for the time format
  * @returns The text, or null
  */
 function lineTime(
   item: MonthLayout.MonthItem,
   config: Types.Config,
-  translations: Types.Translations,
+  language: string,
   hass?: Types.Hass | null,
 ): string | null {
   const { event, placement } = item;
@@ -563,13 +619,13 @@ function lineTime(
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const reading = (date: Date) =>
     FormatUtils.isolateClockReadings(
-      FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+      FormatUtils.formatTime(date, use24h, config.time_two_digit_hours, language),
     );
   if (!placement.continuesBefore) return reading(new Date(event.start.dateTime));
   const end = new Date(event.end.dateTime);
   return end.getTime() === Grid.startOfDay(end).getTime()
     ? null
-    : `${translations.multiDay} ${reading(end)}`;
+    : `${Localize.getTranslations(language).multiDay} ${reading(end)}`;
 }
 
 /**
@@ -582,6 +638,7 @@ function lineTime(
  *
  * @param item - The line
  * @param line - The line it takes under the date, from 0
+ * @param lines - How many lines it takes from there, more than one where its text is set larger
  * @param config - Card configuration, resolved for month
  * @param language - Card language
  * @param id - Its id, which its day's cell owns it by
@@ -593,6 +650,7 @@ function lineTime(
 function renderLine(
   item: MonthLayout.MonthItem,
   line: number,
+  lines: number,
   config: Types.Config,
   language: string,
   id: string,
@@ -604,15 +662,22 @@ function renderLine(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const parts = presentation.contentParts;
-  const time = parts.shouldShowTime
-    ? lineTime(item, config, Localize.getTranslations(language), hass)
-    : null;
-  const label = Leaves.renderLabel(
-    parts.entityLabel,
-    event._matchedConfig?.label_icon_color,
-    event._matchedConfig?.label_type,
-    parts.entityLabelAlt,
-  );
+  const time = parts.shouldShowTime ? lineTime(item, config, language, hass) : null;
+  // A merged duplicate's line draws every contributing calendar's label, as a row does
+  // (`Leaves.renderEventTitle`); `mergedLabels` is set only where there are two to draw.
+  const merged = parts.mergedLabels
+    ?.map((entry) => Leaves.renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
+    .filter((drawn) => drawn !== nothing);
+  const label = merged
+    ? merged.length > 0
+      ? merged
+      : nothing
+    : Leaves.renderLabel(
+        parts.entityLabel,
+        event._matchedConfig?.label_icon_color,
+        event._matchedConfig?.label_type,
+        parts.entityLabelAlt,
+      );
   // A calendar's own title color, as a row's title takes it (`Leaves.renderEventTitle`); the
   // card's reaches the title through its custom property.
   const ownColor = event._matchedConfig?.color;
@@ -637,7 +702,11 @@ function renderLine(
       })}
       style=${styleMap({
         gridColumn: String(placement.columnIndex + 1),
-        gridRow: String(line + 2),
+        // A line set larger takes its lines from the top, at its own height, rather than
+        // stretching over them.
+        ...(lines > 1
+          ? { gridRow: `${line + 2} / span ${lines}`, alignSelf: 'start' }
+          : { gridRow: String(line + 2) }),
         '--calendar-card-event-accent-bar-color': presentation.entityAccentColor,
         ...(presentation.entityAccentBackgroundColor
           ? { backgroundColor: presentation.entityAccentBackgroundColor }
@@ -785,7 +854,7 @@ function renderWeek(
           ? nothing
           : html`<div class="month-week-number" aria-hidden="true">${weekNumber}</div>`
       }
-      ${visible.map(({ item, line }) => {
+      ${visible.map(({ item, line, lines: span }) => {
         const id = monthItemId(week.starts[item.placement.columnIndex], line);
         return item.kind === 'bar'
           ? renderBanner(
@@ -797,11 +866,12 @@ function renderWeek(
               hass,
               eventsTappable,
               dayLabelIds[item.placement.columnIndex],
-              { firstColumn: 1, className: 'month-bar', id, tabIndex: '-1' },
+              { firstColumn: 1, className: 'month-bar', id, tabIndex: '-1', rows: span },
             )
           : renderLine(
               item,
               line,
+              span,
               config,
               language,
               id,
@@ -996,7 +1066,7 @@ export function renderMonthGroupedEvents(
       eventsTappable,
     );
   }
-  const weeks = monthWeeks(days, rowsStart, capacity);
+  const weeks = monthWeeks(days, rowsStart, capacity, monthLinesOf(config, options.scaleLines));
   const cells = cellConfig(config);
 
   // The weeks share the card's height, which the stylesheet hands them: the card writes no
@@ -1006,6 +1076,7 @@ export function renderMonthGroupedEvents(
     <div
       class="month-container"
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
     >
@@ -1032,6 +1103,25 @@ export function renderMonthGroupedEvents(
       ></div>
       <div class=${MONTH_PROBE_CLASS} data-probe="title" aria-hidden="true"></div>
       <div class=${MONTH_PROBE_CLASS} data-probe="time" aria-hidden="true"></div>
+      ${TextScale.textScalesIn(config)
+        .filter((scale) => scale > 1)
+        .map((scale) => {
+          const style = styleMap(TextScale.textScaleProperties(cells, scale));
+          return html`<div
+              class=${MONTH_PROBE_CLASS}
+              data-probe="scaled-title"
+              data-scale=${scale}
+              style=${style}
+              aria-hidden="true"
+            ></div>
+            <div
+              class=${MONTH_PROBE_CLASS}
+              data-probe="scaled-time"
+              data-scale=${scale}
+              style=${style}
+              aria-hidden="true"
+            ></div>`;
+        })}
     </div>
   `;
 }
@@ -1064,9 +1154,13 @@ function markColor(event: Types.CalendarEventData, config: Types.Config): string
 }
 
 /**
- * A narrow day's capsule: one segment per event, in its calendar's color, up to
- * `MONTH_NARROW_MARKS`. A single event is a dot. A day without events keeps an empty capsule,
- * so every day is as tall as one with events.
+ * A narrow day's capsule: one equal segment per event, in its calendar's color, in the day's
+ * order. A single event is a dot. The capsule grows a segment's width per event up to six; from
+ * the seventh it keeps that width and its segments narrow, which the stylesheet does, so nothing
+ * here depends on layout. Past `MONTH_NARROW_MARKS` a segment would be narrower than a pixel, so
+ * the later events draw none. A day without events keeps an empty capsule, so every day is as tall
+ * as one with events. Hidden from assistive technology, as the capsule is: the day's cell is named
+ * with its full count (`monthCellName`).
  *
  * @param events - The day's events, as the day model lists them
  * @param config - Card configuration, resolved for month
@@ -1208,6 +1302,7 @@ function renderNarrowMonth(
         'with-week-numbers': weekNumbers,
       })}
       role="grid"
+      lang=${language}
       aria-label=${Paging.monthHeading(headerMonth, language)}
       style=${styleMap(tintProperties(config))}
     >
@@ -1587,7 +1682,7 @@ export function renderMonthDayList(
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
   const mark = TextDirection.languageMark(language, hass);
   const titles = monthDayTitles(day, language);
-  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing}
+  const name = html`<span class="month-day-list-date" id=${labelId ?? nothing} lang=${language}
     ><span class="month-day-list-name">${TextDirection.inLanguageDirection(titles[0], mark)}</span
     ><span class="month-day-list-fit" aria-hidden="true"
       >${renderDayTitleFit(titles, mark)}</span
@@ -1637,7 +1732,7 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    <div class="month-day-list-rows">${rows}</div>
+    <div class="month-day-list-rows" lang=${language}>${rows}</div>
   </div>`;
 }
 
@@ -1682,6 +1777,42 @@ export function measureMonthCapacity(root: ParentNode): number | null {
   // A hundredth of a line of give, so a row sized for exactly four lines holds four whatever
   // the rounding of fractional pixels.
   return Math.max(0, Math.floor((room - dateLine) / pitch + 0.01));
+}
+
+/**
+ * How many lines an event set at each `text_scale` above 1 takes in a rendered month, or null
+ * where it is not laid out: the taller of the scale's two probes, a line set in the title's font
+ * and in the time's at that scale's sizes, in line pitches (`measureMonthCapacity`), rounded up,
+ * so a larger line takes the room it is drawn in and the week never holds more than it fits.
+ *
+ * @param root - The card's render root
+ * @returns Each scale's lines, or null
+ */
+export function measureMonthScaleLines(root: ParentNode): Map<number, number> | null {
+  const height = (probe: string) =>
+    root
+      .querySelector<HTMLElement>(`.${MONTH_PROBE_CLASS}[data-probe="${probe}"]`)
+      ?.getBoundingClientRect().height;
+  const title = height('title');
+  const time = height('time');
+  if (title === undefined || time === undefined) return null;
+  const pitch = Math.max(title, time);
+  if (!(pitch > 0)) return null;
+  const scaled = new Map<number, number[]>();
+  for (const probe of root.querySelectorAll<HTMLElement>(
+    `.${MONTH_PROBE_CLASS}[data-probe^="scaled-"]`,
+  )) {
+    const scale = Number(probe.dataset.scale);
+    if (!(scale > 1)) continue;
+    scaled.set(scale, [...(scaled.get(scale) ?? []), probe.getBoundingClientRect().height]);
+  }
+  return new Map(
+    [...scaled].map(([scale, heights]) => [
+      scale,
+      // A hundredth of a line of give, as for the capacity.
+      Math.max(1, Math.ceil(Math.max(...heights) / pitch - 0.01)),
+    ]),
+  );
 }
 
 //-----------------------------------------------------------------------------

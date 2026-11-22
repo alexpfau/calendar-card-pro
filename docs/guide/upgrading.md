@@ -49,7 +49,10 @@ the card's popover in every layout. Before, a tap on an event was a tap on the c
   the space around the events still do.
 - Enter on an event no longer runs `event_hold_action`; a hold still does.
 - `open_links` no longer draws links in event rows, since the popover has them.
-- In Grid, an event on a calendar that allows changes can be dragged to another time.
+- In Grid, an event on a calendar that allows changes can be dragged to another time, and a
+  notification offers Undo for a few seconds after a single event moves.
+- Only **Save** keeps a change made in the popover. Closing it with Back, the backdrop or Close
+  now throws the change away; in v5 those saved it.
 - The popover offers **Edit** and **Delete** where the calendar allows them;
   `allow_event_edit: false` and `allow_event_delete: false` keep it read-only.
 
@@ -59,9 +62,11 @@ to Nothing on the editor's **Taps & Refresh** page. See
 
 ### Columns Give Way a Day at a Time
 
-A column card too narrow for all its days used to turn into a list as soon as one day did not
-fit. It now drops one column at a time, always keeping today, down to two, and draws a list only
-below that. To keep the v5 behavior, set `min_days_to_show` in `column:` to your number of days:
+With the toolbar's date navigation, a column card too narrow for all its days used to turn into
+a list as soon as one day did not fit. It now drops one column at a time, always keeping today,
+down to two, and draws a list only below that; the arrows and a swipe page to the days dropped.
+A card without date navigation still keeps every day or draws a list, as in v5. To keep the v5
+behavior with the toolbar, set `min_days_to_show` in `column:` to your number of days:
 
 ```yaml
 view: column
@@ -93,6 +98,7 @@ See [Switching Between Layouts](/features/header-toolbar#switching-between-layou
   the events area scrolls.
 - Where a Sections dashboard's Layout tab gives the card a number of rows, Grid fits its hours to
   them.
+- While the hours scroll, the day headers and the all-day band stay at the top.
 
 See [Height in Grid View](/features/layout-appearance#height-in-grid-view).
 
@@ -147,16 +153,19 @@ the editor keeps working as it is.
   [weather per layout](/features/weather#weather-per-layout): the entity moves to
   `weather_entity`, and List, Columns and Grid each take the old options as their own
   `weather:`. The card looks the same.
-- **Top-level values on a List or Grid card** that could mean List or every layout are kept for
-  List, as v5 drew them, and the editor offers **Use Them for Every Layout** instead.
+- **Top-level values on a List or Grid card** that could mean List or every layout are read the
+  way that leaves every layout the card can show as it was: kept for List where every layout
+  draws them the same either way, with **Use Them for Every Layout** offered, and shared with
+  every layout otherwise.
 - **The options only List reads** move into `list:`.
+- **A card the v5 editor saved** (`config_version: 5`) is checked once as it opens: the editor names each calendar with `show_location: false` or `show_description: false`, offers **Make It Private**, and saves `config_version: 6` with nothing else changed.
 
 See [Upgrading Weather From v5](/features/editor#upgrading-weather-from-v5) and
 [Adopting the Layout Format](/features/editor#adopting-the-layout-format) for the details.
 
 ## ↩️ Going Back to v5.3
 
-v5.3 reads a card v6 saved without breaking, but leaves out what it does not know. Four things
+v5.3 reads a card v6 saved without breaking, but leaves out what it does not know. Five things
 need attention.
 
 1. **Private calendars are shown in full.** v5.3 ignores `private: true`, so every title,
@@ -198,6 +207,7 @@ need attention.
 4. **Start hours are ignored.** v5.3 has no `starts_after` or `starts_before`, so a calendar
    narrowed by them shows all its events again, and a calendar listed twice to divide its events
    by hour shows every event in both entries.
+5. **The visual editor will not open the card.** v6's editor saves `config_version: 6`, and v5.3's editor shows This Card Uses a Newer Configuration for it. After going back to v5.3, set `config_version: 5` in YAML to edit with v5.3's editor; the card itself keeps working.
 
 A card set to `view: month` opens as a list in v5.3. Everything else v6 added stays in the YAML,
 unused, and v5.3's editor keeps it, apart from the top-level heights in point 3.

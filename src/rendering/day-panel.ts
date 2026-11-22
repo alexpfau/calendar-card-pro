@@ -18,8 +18,10 @@
  * A row that is a button in the card is one here. Pressing it closes the panel and, once the
  * panel has gone and focus is back on "+N more", runs what a tap on the event runs on the card:
  * `event_tap_action`, the details popover among them, opening from where the panel did, or
- * `event_hold_action` where only that is set, as the card's keyboard does. A link in a row stays
- * a link. The only words of its own are Home Assistant's "Close".
+ * `event_hold_action` where only that is set, as the card's keyboard does. Holding it runs what a
+ * hold on the event runs on the card, where a hold runs anything there: `event_hold_action`, else
+ * the card's `hold_action`. A link in a row stays a link. The only words of its own are Home
+ * Assistant's "Close".
  */
 
 import { mdiClose } from '@mdi/js';
@@ -30,6 +32,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Activation from './activation';
 import * as Shell from './popover-shell';
 import { cardStyles } from './styles';
+import * as Constants from '../config/constants';
 import type * as Feedback from '../interaction/feedback';
 import type * as Model from '../interaction/popover-model';
 import { reserveScrollingLabelWidths } from '../utils/grid-title-fit';
@@ -66,6 +69,13 @@ export interface DayPanelSource {
   /** The card's custom properties, which the rows' stylesheet reads. */
   styles(): Readonly<Record<string, string>>;
   /**
+   * The day, named in full in the card's language as it is now, so a language changed while the
+   * panel is open renames it with its rows; the panel keeps `DayPanelParams.title` without it.
+   */
+  title?(): string;
+  /** The card's language as it is now, which the title and the rows are marked with. */
+  language?(): string;
+  /**
    * The color the card sets for its day names (`weekday_color`), which the panel's title takes as
    * the narrow list's does; `undefined` while the card leaves it at its default, and the title
    * keeps the panel's own text color.
@@ -79,12 +89,22 @@ export interface DayPanelSource {
    */
   attach(panel: DayPanelHandle): () => void;
   /**
-   * Runs what a tap on a row's event runs on the card. Called once the panel has gone.
+   * Runs what a tap or a hold on a row's event runs on the card. Called once the panel has gone.
    *
    * @param target - The event, and the accent it is drawn in
    * @param origin - Where the panel opened, for the details popover to open beside in its place
+   * @param gesture - A tap, the default, or a hold where `holds` says one runs anything
    */
-  activate(target: Activation.EventTapTarget, origin: Feedback.PressOrigin): void;
+  activate(
+    target: Activation.EventTapTarget,
+    origin: Feedback.PressOrigin,
+    gesture?: 'tap' | 'hold',
+  ): void;
+  /**
+   * Whether a hold on a row's event runs anything on the card, as a hold on the event there
+   * would; where it does not, a long press is a tap, as on the card.
+   */
+  holds?(): boolean;
   /**
    * Home Assistant's "Add event" while a tap on a day adds an event on it (`day_tap_action`), so the
    * panel's title adds on its day as the narrow month's day name does; undefined while it adds
@@ -102,13 +122,13 @@ export interface DayPanelSource {
 /** What the card hands the day panel, through Home Assistant's `show-dialog`. */
 export interface DayPanelParams {
   source: DayPanelSource;
-  /** The day, named in full. */
+  /** The day, named in full, as the panel opens (`DayPanelSource.title`). */
   title: string;
   /** The "+N more" it opens beside. */
   anchor?: Model.PopoverAnchor;
   /** Whether it is drawn dark, as Home Assistant's dark mode chooses. */
   dark: boolean;
-  /** The card's language, which its rows are written in. */
+  /** The card's language, which its title and rows are written in, as the panel opens. */
   language: string;
   /**
    * Opened for a search's pick hidden behind "+N more": focus starts on the row it rings, where
@@ -161,8 +181,21 @@ export class DayPanel extends Shell.PopoverShell {
   @state() private _version = 0;
 
   private _detach?: () => void;
-  /** The row pressed, whose action runs once the panel has gone. */
-  private _picked?: { target: Activation.EventTapTarget; origin: Feedback.PressOrigin };
+  /** The row pressed, whose action runs once the panel has gone, and whether it was held. */
+  private _picked?: {
+    target: Activation.EventTapTarget;
+    origin: Feedback.PressOrigin;
+    gesture: 'tap' | 'hold';
+  };
+  /** A pointer's press on a row, while it may still become a hold (`_onRowPointerDown`). */
+  private _press?: {
+    pointerId: number;
+    x: number;
+    y: number;
+    hit: Activation.EventTapHit;
+    timer: number;
+    held: boolean;
+  };
   /** Where an event is added on the day once the panel has gone, its title having been pressed. */
   private _adding?: Feedback.PressOrigin;
   /** Watches the rows' titles and times while they are fitted (`_syncTitleFits`). */
@@ -194,7 +227,9 @@ export class DayPanel extends Shell.PopoverShell {
     detach?.();
     // After the dialog manager has heard the panel close, so the popover a details action opens
     // is the dialog it opens next, and focus goes back to "+N more" when that one closes.
-    if (source && picked) setTimeout(() => source.activate(picked.target, picked.origin));
+    if (source && picked) {
+      setTimeout(() => source.activate(picked.target, picked.origin, picked.gesture));
+    }
     if (source && adding) setTimeout(() => source.add?.(adding));
   }
 
@@ -293,6 +328,7 @@ export class DayPanel extends Shell.PopoverShell {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopTitleFits();
+    this._endPress();
   }
 
   /**
@@ -414,10 +450,15 @@ export class DayPanel extends Shell.PopoverShell {
    * which opens this one, has none left to send.
    *
    * @param hit - The row's button and its event
+   * @param gesture - Whether the row was tapped or held
    */
-  private _pick(hit: Activation.EventTapHit): void {
+  private _pick(hit: Activation.EventTapHit, gesture: 'tap' | 'hold' = 'tap'): void {
     if (this._closing || !this._params) return;
-    this._picked = { target: hit.target, origin: this._whereOpened(hit.element as Element) };
+    this._picked = {
+      target: hit.target,
+      origin: this._whereOpened(hit.element as Element),
+      gesture,
+    };
     this._close();
   }
 
@@ -451,7 +492,61 @@ export class DayPanel extends Shell.PopoverShell {
     const hit = this._rowAt(ev);
     if (!hit) return;
     ev.preventDefault();
+    // The click a held press derives finds the panel closing for the hold, and picks nothing.
     this._pick(hit);
+  };
+
+  /**
+   * A pointer's press on a row's button, where a hold on it runs anything: held still for as long
+   * as the card waits for a hold, it is a hold, which its pointer-up picks (`_onRowPointerUp`).
+   * Its primary button only, as on the card.
+   */
+  private readonly _onRowPointerDown = (ev: PointerEvent): void => {
+    this._endPress();
+    if (ev.isPrimary === false || (typeof ev.button === 'number' && ev.button !== 0)) return;
+    if (this._closing || !this._params?.source.holds?.()) return;
+    const hit = this._rowAt(ev);
+    if (!hit) return;
+    const press = {
+      pointerId: ev.pointerId,
+      x: ev.clientX,
+      y: ev.clientY,
+      hit,
+      held: false,
+      timer: window.setTimeout(() => {
+        press.held = true;
+      }, Constants.TIMING.HOLD_THRESHOLD),
+    };
+    this._press = press;
+  };
+
+  /** A press that moves, as a finger scrolling the rows does, is no hold. */
+  private readonly _onRowPointerMove = (ev: PointerEvent): void => {
+    const press = this._press;
+    if (!press || press.held || ev.pointerId !== press.pointerId) return;
+    if (
+      Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > Constants.UI.POINTER_MOVE_TOLERANCE
+    ) {
+      this._endPress();
+    }
+  };
+
+  /** A held press picks its row as a hold as it lets go; any other is left to its click. */
+  private readonly _onRowPointerUp = (ev: PointerEvent): void => {
+    const press = this._press;
+    if (!press || ev.pointerId !== press.pointerId) return;
+    this._endPress();
+    if (press.held) this._pick(press.hit, 'hold');
+  };
+
+  /** Forgets the press on a row, if one is under way. */
+  private _endPress(): void {
+    if (this._press) clearTimeout(this._press.timer);
+    this._press = undefined;
+  }
+
+  private readonly _onRowPointerCancel = (ev: PointerEvent): void => {
+    if (ev.pointerId === this._press?.pointerId) this._endPress();
   };
 
   /** Enter and Space on a row's button press it, as on a native button. */
@@ -495,7 +590,12 @@ export class DayPanel extends Shell.PopoverShell {
       .join(';');
     const close = this._named(...CLOSE);
     const addLabel = params.source.addLabel?.();
-    const day = html`<span id="day-panel-day">${params.title}</span>`;
+    // Marked with the card's language, which may not be the page's; the add button around it is
+    // named in Home Assistant's.
+    const language = params.source.language?.() ?? params.language;
+    const day = html`<span id="day-panel-day" lang=${language}
+      >${params.source.title?.() ?? params.title}</span
+    >`;
 
     return html`
       <dialog
@@ -545,10 +645,14 @@ export class DayPanel extends Shell.PopoverShell {
           </div>
           <div
             class="day-panel-rows"
-            lang=${params.language}
+            lang=${language}
             style=${styleMap(params.source.styles())}
             @click=${this._onRowClick}
             @keydown=${this._onRowKey}
+            @pointerdown=${this._onRowPointerDown}
+            @pointermove=${this._onRowPointerMove}
+            @pointerup=${this._onRowPointerUp}
+            @pointercancel=${this._onRowPointerCancel}
           >
             ${params.source.rows()}
           </div>

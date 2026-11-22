@@ -61,10 +61,12 @@ column:
 
 ### Height in Column View
 
-What scrolls is the events area as a whole, never a single day, so the day headers move with their
-events and nothing scrolls out of line with its neighbors. The columns are as tall as the tallest
-day and stay at the top: a quiet day leaves space beneath its last event, and a card taller than
-its columns leaves room under them.
+What scrolls is the events area as a whole, never a single day, so nothing scrolls out of line
+with its neighbors. The columns are as tall as the tallest day and stay at the top: a quiet day
+leaves space beneath its last event, and a card taller than its columns leaves room under them.
+
+- **The day headers stay at the top** while the events scroll under them, unless they would take
+  more than two thirds of the events area. Week numbers above them scroll away.
 
 ### Height in Grid View
 
@@ -80,8 +82,13 @@ card_height: 600px
 - **An hour is never shorter than `24px`**, or `hour_height` where that is smaller, so an hour-long
   event keeps a line of its title. Below that, the events area scrolls.
 - **The all-day band keeps its rows**, at most
-  [`allday_band_max_rows`](/features/grid-view#all-day-events), and never scrolls on its own, so an
-  all-day event stays in sight however short the card.
+  [`allday_band_max_rows`](/features/grid-view#all-day-events), and never scrolls on its own.
+- **The day headers and the all-day band stay at the top** while the hours scroll under them, so
+  an all-day event stays in sight, as long as together they take at most two thirds of the events
+  area. Past that the day headers stay alone and the band scrolls under them with the hours; where
+  the headers alone would take more, everything scrolls. Under `min_days_fallback: cramp` nothing
+  stays. On a translucent card background the hours show faintly through them as they pass
+  under.
 
 **→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
 
@@ -202,7 +209,7 @@ event_background_opacity: 15
 
 Each event then becomes a block of its own, with an accent bar of its own, the way grid view draws an event. `event_gap: 1px` is the smallest way to have that: you will hardly see the gap without a background, but each event has its own bar. Each is also a tap and hover target of its own, and a press in the gap between two reaches neither event: it is a press on the day, which [adds an event there](/features/actions#where-you-can-tap-a-day) when `day_tap_action` is `add-event`.
 
-`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. A month's [day list](/features/month-view#the-days-list) starts from `6px` and takes another only from `month:`. Grid view places every event by its time and ignores it:
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. A month's [day list](/features/month-view#the-day-list) starts from `6px` and takes another only from `month:`. Grid view places every event by its time and ignores it:
 
 ```yaml
 column:
@@ -248,7 +255,7 @@ month_separator_color: '#03a9f4'
 
 `show_week_numbers` adds a pill-shaped badge with the week number, counted one of two ways:
 
-- **`iso`**: weeks start on Monday, and the first week of the year is the one containing the first Thursday (ISO 8601). On a card whose week starts on Sunday, each Sunday takes the number of the Monday after it, so the number changes where the card's week begins.
+- **`iso`**: weeks are counted as in ISO 8601, Monday to Sunday, the first week of the year being the one containing the first Thursday. On a card whose week starts on another day, each of its weeks takes the number of the ISO week holding most of its days, so the number changes, and in the list the week rule falls, where the card's week begins.
 - **`simple`**: weeks are counted from January 1st.
 
 The separators are horizontal lines between days, weeks and months, each with its own width and color. Where more than one could appear at once, such as on a day that starts both a week and a month, only the most significant is drawn: a month line over a week line, and a week line over a day line.
@@ -316,10 +323,11 @@ All three belong inside `list:`.
   own, which keeps it readable beside a deliberately faint rule.
   `month_separator_label_font_size` takes any CSS font size; a value that is not one, such as
   `14pz`, falls back to `12px`.
-- The first month shown has no rule above it, so it gets no label. A
-  [toolbar](/features/header-toolbar), if you show one, names the month of the page's first day, or of
-  its last day in a list read latest first. That is the first month shown unless the month has
-  no days on screen.
+- The first month shown is named too, on a rule of its own at the top of the list, so every block
+  of days sits under its own month's name, unless a [toolbar](/features/header-toolbar) right above
+  already names that month. The toolbar names the month of the page's first day, or of its last
+  day in a list read latest first, so with a toolbar the first month is labeled only when that
+  month has no days on screen.
 - With week numbers on, a month that starts a week draws its label just after the week number.
 - It applies in list view only. In column and grid view the month rule is a vertical line between
   two days, with no room for words, and month view draws no month rule at all.
@@ -569,10 +577,12 @@ such as `'#e67c7380'` makes a fainter tile, while its digits keep the color's fu
 [week number pills](#week-numbers-visual-separators) take the tile's colors unless you set theirs.
 
 A wide [month](/features/month-view#the-six-weeks) fills the tile instead, with rounder corners,
-so today stands out among the colored events: `today_indicator_color` itself, with the digits in
-your theme's text color for the primary color, `--text-primary-color`, white by default. A narrow
-month draws today the same way while it is the selected day. A color you name for the digits still wins, and
-a see-through `today_indicator_color` makes white digits harder to read there.
+so today stands out among the colored events: `today_indicator_color` itself, or a deeper shade of
+it where the color is too light for white digits to read, with the digits in white. A browser too
+old for that fills the color as it is, with the digits in your theme's `--text-primary-color`,
+white by default. A narrow month draws today the same way while it is the selected day. A color
+you name for the digits still wins, and a see-through `today_indicator_color` makes white digits
+harder to read there.
 
 In column and grid view every day's number keeps the tile's height, so the dates stay on one
 line across the columns and each column's first event starts at the same height.

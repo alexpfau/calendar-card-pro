@@ -8,6 +8,7 @@ import type { IndexedField } from './field-index';
 import type { SelectOption } from './ha-form';
 import { lookup } from './localize';
 import { isColorNode } from './schemas/common';
+import { SYNTHETIC_FIELDS, isSet, refinementHolds } from './synthetic';
 
 /** Joins the parts of a summary. */
 export const SUMMARY_SEPARATOR = ' · ';
@@ -42,7 +43,18 @@ export function wordValue(
     if (words !== undefined) return words;
   }
   if ('boolean' in selector) {
-    return value === true ? lookup(language, 'summary.on') : lookup(language, 'summary.off');
+    if (value === true) return lookup(language, 'summary.on');
+    if (value === false || !isSet(value)) return lookup(language, 'summary.off');
+    // A switch whose option takes a further value is on, with the switch that refines it:
+    // `show_countdown: once_per_day` is "On, Leave Out Repeated Countdowns".
+    const refined = Object.entries(SYNTHETIC_FIELDS).find(
+      ([name, each]) =>
+        each.refines &&
+        each.configKeys.includes(field.node.name) &&
+        refinementHolds(name, field.node.name, value),
+    )?.[0];
+    const on = lookup(language, 'summary.on');
+    return refined === undefined ? on : `${on}, ${lookup(language, refined)}`;
   }
   if ('select' in selector && selector.select?.multiple) {
     return Array.isArray(value)

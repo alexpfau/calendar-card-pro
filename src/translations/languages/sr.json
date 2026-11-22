@@ -10,6 +10,8 @@
   "viewColumns": "Колоне",
   "viewGrid": "Мрежа",
   "viewMonth": "Месец",
+  "layout": "Распоред",
+  "layoutCurrent": "Распоред: {view}",
   "moreEvents": "Још +{count}",
   "eventCount": "{count} догађаја",
   "eventCountOne": "{count} догађај",
@@ -22,6 +24,8 @@
   "error": "Грешка: Ентитет календара није пронађен или је неисправно конфигурисан",
   "loadFailed": "Неуспешно учитавање:",
   "newEvent": "Нови догађај",
+  "movedTo": "Премештено на {time}",
+  "undo": "Опозови",
   "showAll": "Прикажи све",
   "hideAll": "Сакриј све",
   "private": "Приватно"

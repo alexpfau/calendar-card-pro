@@ -142,7 +142,9 @@ card_height: 600px
 - **An hour is never shorter than `24px`**, or `hour_height` where that is smaller, so an hour-long
   event keeps a line of its title. Below that, the events area scrolls.
 - **The all-day band keeps its rows**, at most [`allday_band_max_rows`](#all-day-events), and
-  never scrolls on its own.
+  never scrolls on its own. The day headers stay at the top while the hours scroll, and the band
+  with them while the two take at most two thirds of the events area; past that the band scrolls
+  under the headers. See [Height in Grid View](/features/layout-appearance#height-in-grid-view).
 - **`card_height` counts the title and the toolbar**; `height` sizes the events area alone, and
   the header comes on top of it.
 
@@ -767,6 +769,11 @@ stops where it still ends by then. While you drag, it is drawn where it would go
 times; let go, and it is saved there at once. Let go where it started, or press Escape, and
 nothing changes.
 
+Once a move is saved, a notification at the bottom of the screen says where the event went, such
+as "Moved to 13:45", with the weekday when it moved to another day, and offers **Undo** for 8
+seconds. Undo puts the event back as it was. Only a single event gets the notification; a
+repeating one asks first, as below.
+
 A repeating event opens the popover at its new times when you let go, and moves its repeat with it
 as a change of times in the popover does. One occurrence of a series asks whether the move is for
 **Only this event** or for **This and all future events**; a series the calendar returns whole
@@ -813,7 +820,8 @@ time_grid:
 
 - `min_day_width`, `100` by default, is the narrowest a day column may be, in pixels, before the
   card sheds a day. Column view's default is `140`.
-- `min_days_to_show` defaults to `1`, where Columns stops at two, so a narrow five-day grid
+- `min_days_to_show` defaults to `1`, with or without date navigation (Columns' default is two,
+  and only with it), so a narrow five-day grid
   becomes a one-day view of today, with its now line.
 - `min_days_fallback` decides what happens when even `min_days_to_show` does not fit:
   - `list`, the default, switches to the list layout.

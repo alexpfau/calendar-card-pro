@@ -41,5 +41,7 @@
   "/features/layout-appearance#searching-the-card": "/features/header-toolbar#searching-the-card",
   "/features/layout-appearance#showing-hiding-calendars": "/features/header-toolbar#showing-hiding-calendars",
   "/features/layout-appearance#switching-between-layouts": "/features/header-toolbar#switching-between-layouts",
-  "/features/layout-appearance#your-own-buttons": "/features/header-toolbar#your-own-buttons"
+  "/features/layout-appearance#your-own-buttons": "/features/header-toolbar#your-own-buttons",
+  "/features/month-view#more-than-fits": "/features/month-view#the-day-panel",
+  "/features/month-view#the-days-list": "/features/month-view#the-day-list"
 }

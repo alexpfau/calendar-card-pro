@@ -533,7 +533,8 @@ they would at any other size.
 
 It applies in every layout: in list and column view to the rows, in grid view to the blocks and
 all-day banners, and in month view to the lines and bars in its cells and to the rows of a day's
-list. The event popover, search results and calendar filter keep the card's sizes. It takes a
+list. A wide month gives a scaled-up event as many of a day's lines as it is tall, and moves
+what no longer fits behind "+N more". The event popover, search results and calendar filter keep the card's sizes. It takes a
 positive number, quoted or not; left unset, or set to anything else, the calendar's events draw
 as the card's do.
 
