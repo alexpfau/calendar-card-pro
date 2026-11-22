@@ -16,6 +16,12 @@ toolbar:
   show: true # the month's heading, and paging by month
 ```
 
+A Month card draws one of two forms, chosen by its width: the wide month, with each day's events
+in the day, and the [narrow month](#the-narrow-month), with a dot per event and the chosen day's
+events listed under the weeks. "+N more" opens a day's events in a panel from either. The visual
+editor names these the same way on every Month page: **Wide Month**, **Narrow Month**, the
+[**Day List**](#the-day-list) and the [**Day Panel**](#the-day-panel).
+
 The month's heading and paging by month, with the arrows, a swipe or Page Up and Page Down,
 come with the [toolbar](/features/header-toolbar); without it the card shows the six weeks of
 the month it opens on.
@@ -157,8 +163,8 @@ month:
 | `month → narrow_card_max_height` | string | `card_max_height` | The same cap for the narrow month; with its height `auto`, the card grows with the day's list up to it                                                          |
 
 In the visual editor, **Card Height** on Month's Size & Spacing chooses **Default height**,
-**Fixed height** or **Maximum height**, and writes `card_height` or `card_max_height` in `month:`. **Narrow Card Height**
-and **Narrow Maximum Height**, under **Narrow Month**, read **Same as Card Height** while unset.
+**Fixed height** or **Maximum height**, and writes `card_height` or `card_max_height` in `month:`, for both forms.
+**Narrow Month Height** and **Narrow Month Maximum Height**, under **Narrow Month**, read **Same as Card Height** while unset.
 
 - **The whole card.** The heights include the title, the toolbar and any notice, which take their
   room from the weeks. The default makes room for the toolbar, so a day keeps its four lines with
@@ -176,7 +182,7 @@ and **Narrow Maximum Height**, under **Narrow Month**, read **Same as Card Heigh
 - **The narrow month follows the wide one**, Month's `card_height` and `card_max_height`, until
   its own two are set, and an explicit `auto` or `none` there gives it its own default back.
 - **A maximum lets the narrow month grow.** With its height `auto` and a maximum from either
-  key, the card is as tall as its weeks and [the day's list](#the-days-list), up to the maximum,
+  key, the card is as tall as its weeks and [the day's list](#the-day-list), up to the maximum,
   so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
   the wide month at it.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
@@ -199,17 +205,17 @@ month:
 
 :::
 
-### More Than Fits
+### The Day Panel
 
 Where a day has more events than its week holds, its last line reads "+2 more", and a press
-opens the day in a panel: every event that day, drawn as in [the day's list](#the-days-list) of a
+opens the day in the Day Panel: every event that day, drawn as in [the Day List](#the-day-list) of a
 narrow month, with their times, locations and the other details the card shows. A press on an
 event there closes the panel and does what a press on it in the month would, and a hold runs
 `event_hold_action`, else the card's `hold_action`. With
 `day_tap_action: add-event`, a press on the day's name at the top of the panel adds an event on
 that day, as the selected day's name does over a narrow month's list.
 
-::: details Limits the Day's List Ignores
+::: details Limits the Day List Ignores
 The list shows the whole day whatever the list layout's own limits say: `skip_first_events`,
 the compact limits, `event_order` and `show_empty_days` shape a list card, not a day.
 :::
@@ -233,8 +239,8 @@ month:
 
 At the defaults, a card narrower than 594 pixels draws the narrow form, or 616 with week numbers.
 Once narrow, it turns wide again only from 622 pixels, or 644, so a card on the edge does not
-flicker between the two. In the visual editor, **Minimum Day Width** sits under **Narrow Cards**
-on Month's Size & Spacing, where **This card renders** gives both widths for the card as it is
+flicker between the two. In the visual editor, **Minimum Day Width** sits under **Wide or Narrow
+Month** on Month's Size & Spacing, where **This card renders** gives both widths for the card as it is
 set up; see [Narrow Cards](/features/editor#narrow-cards).
 
 - **Choosing a day:** a tap selects it. The month opens with its `start_date` selected, or today
@@ -247,7 +253,7 @@ set up; see [Narrow Cards](/features/editor#narrow-cards).
   name over its list. A tap on a day only selects it.
 - **At midnight**, a selected today moves on to the new day.
 
-### The Day's List
+### The Day List
 
 The chosen day's events are listed under the weeks, in the room the weeks leave of the card. The
 list shows as many of the day's events as fit that room, in order, and "+N more" for the rest,
@@ -279,7 +285,7 @@ See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maxi
 The panel "+N more" opens, here or on a wide month, lists a day the same way, without the one-line
 limit.
 
-::: details More About the Day's List
+::: details More About the Day List
 
 - **The day's name keeps to one line.** Where it does not fit in full, the weekday is shortened
   first ("Wed, November 18, 2026"), then the month, then the year is left out, then the weekday
@@ -291,8 +297,9 @@ limit.
 - **Options only the list reads.** The weeks draw an event as its title and start time, and a bar
   as its title and length, so `show_location`, its styling and the
   [event forecast](/features/weather#weather-per-layout) act on the list and the panel alone. The
-  editor marks those options **Narrow Day List & +N Panel** on Month's pages and lists them after
-  the ones the weeks read, under each heading.
+  editor marks those options **Day List & Day Panel** on Month's pages and lists them after
+  the ones the weeks read, under each heading. The few only the wide month's days draw, the month's
+  name beside a 1st and the banners of long timed events, it marks **Wide Month**.
 - **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
   list scroll as one inside the card; nothing inside the list scrolls.
 - **What fits.** The list keeps the day's order, so a later, shorter event never jumps ahead of
@@ -400,8 +407,8 @@ month:
 | `week_number_font_size`        | string | `13.5px` | The week numbers, in the first day's corner or the narrow month's gutter; Month's own default |
 | `month_font_size`              | string | `16px`   | The month named beside the number on a 1st, at the number's size; Month's own default         |
 
-In the visual editor the two cell sizes are **Event Font Size in Days** and **Time Font Size in
-Days** on Month's Event Appearance, beside the sizes a day's list takes.
+In the visual editor the two cell sizes are **Event Font Size in Wide Month** and **Time Font Size
+in Wide Month** on Month's Event Appearance, beside the sizes the Day List and the Day Panel take.
 
 - **The day's list and the panel** keep `event_font_size` and `time_font_size`, so their rows read
   as a list's; set those inside `month:` to change them for Month alone.
@@ -445,7 +452,7 @@ month:
   event_font_size: 12px
 ```
 
-There `event_font_size` sets the rows of [a day's list](#the-days-list) and the panel; the lines in
+There `event_font_size` sets the rows of [a day's list](#the-day-list) and the panel; the lines in
 the days take [their own sizes](#text-sizes).
 
 Anything the block does not mention keeps its top-level value, except the seven options below and
@@ -488,7 +495,7 @@ A month shows its past days with their events, dimmed, rather than empty weeks b
 `show_past_events: false` inside `month:` to hide them. An event drawn as a [bar](#bars-lines)
 then keeps all its days, in the weeks, the day's list and the panel, until the whole event is past.
 
-The events of a [day's list](#the-days-list) stand apart, 6px from each other. Set
+The events of a [day's list](#the-day-list) stand apart, 6px from each other. Set
 `event_gap: 0px` inside `month:` to join them; a top-level `event_gap` changes the list and column
 layouts alone.
 
@@ -501,28 +508,28 @@ day's list and the panel alike. Set any of the five inside `month:` to change it
 These options have no effect while the card draws a month, and the visual editor leaves them out
 of Month's pages. Stored values are kept for the layouts they apply to.
 
-| Options                                                                                                                                        | In Month View                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `height`, `max_height`                                                                                                                         | Month sizes its whole card with `card_height`; see [How Tall the Month Is](#how-tall-the-month-is)           |
-| `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                               |
-| `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill                 |
-| `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers   |
-| `show_multiday_allday_time`                                                                                                                    | The day's list and the panel split every multi-day event, and a bar's length follows `show_duration`         |
-| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [day's list](#more-than-fits) always shows the whole day in order |
-| `date_vertical_alignment`, `today_indicator_position`                                                                                          | List-only: they describe the list layout's date cell                                                         |
-| `day_spacing`                                                                                                                                  | Events sit on the week's lines, and hairlines divide the days                                                |
-| `day_separator_width`, `day_separator_color`, `week_separator_width`, `week_separator_color`, `month_separator_width`, `month_separator_color` | The month rules its days and weeks with hairlines of its own                                                 |
-| `month_separator_label`, `month_separator_label_color`, `month_separator_label_font_size`                                                      | List-only: they name a month on the list layout's month separator, which month view does not draw            |
-| `today_date_scale`, `past_date_scale`                                                                                                          | Every day's date is set at one size, today's and past days' included                                         |
-| `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                             |
-| `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                                 |
-| `time_position`                                                                                                                                | [A day's list](#the-days-list) always puts each time beside its title                                        |
-| `time_icon_size`                                                                                                                               | No clock is drawn beside a time                                                                              |
-| `show_description`, `show_description_allday`, `description_font_size`, `description_color`, `description_icon_size`, `description_max_lines`  | A day's list and the panel leave descriptions to the [event details](/features/actions#event-details)        |
-| `show_countdown`, `show_countdown_allday`, `countdown_max_days`, `countdown_exact_days`                                                        | A row shows no countdown: the day's name heads the list                                                      |
-| `show_progress_bar`, `progress_bar_color`, `progress_bar_height`, `progress_bar_width`                                                         | A row shows no progress bar and no "Day 2 of 3"                                                              |
-| `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                                     | An all-day event says "All day" in its time and comes first, so it carries no badge                          |
-| `title_max_lines`, `time_max_lines`, `location_max_lines`, `event_icon_vertical_alignment`                                                     | Each part keeps to one line in [the day's list](#the-days-list) and runs in full in the panel                |
+| Options                                                                                                                                        | In Month View                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `height`, `max_height`                                                                                                                         | Month sizes its whole card with `card_height`; see [How Tall the Month Is](#how-tall-the-month-is)         |
+| `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                             |
+| `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill               |
+| `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers |
+| `show_multiday_allday_time`                                                                                                                    | The day's list and the panel split every multi-day event, and a bar's length follows `show_duration`       |
+| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [Day List](#the-day-list) always shows the whole day in order   |
+| `date_vertical_alignment`, `today_indicator_position`                                                                                          | List-only: they describe the list layout's date cell                                                       |
+| `day_spacing`                                                                                                                                  | Events sit on the week's lines, and hairlines divide the days                                              |
+| `day_separator_width`, `day_separator_color`, `week_separator_width`, `week_separator_color`, `month_separator_width`, `month_separator_color` | The month rules its days and weeks with hairlines of its own                                               |
+| `month_separator_label`, `month_separator_label_color`, `month_separator_label_font_size`                                                      | List-only: they name a month on the list layout's month separator, which month view does not draw          |
+| `today_date_scale`, `past_date_scale`                                                                                                          | Every day's date is set at one size, today's and past days' included                                       |
+| `today_indicator_size`, `today_weekday_color`                                                                                                  | Today is marked by its tile, and the weekday names stand once over their columns                           |
+| `week_number_background_color`                                                                                                                 | [Week numbers](#week-numbers) are plain text                                                               |
+| `time_position`                                                                                                                                | [A day's list](#the-day-list) always puts each time beside its title                                       |
+| `time_icon_size`                                                                                                                               | No clock is drawn beside a time                                                                            |
+| `show_description`, `show_description_allday`, `description_font_size`, `description_color`, `description_icon_size`, `description_max_lines`  | A day's list and the panel leave descriptions to the [event details](/features/actions#event-details)      |
+| `show_countdown`, `show_countdown_allday`, `countdown_max_days`, `countdown_exact_days`                                                        | A row shows no countdown: the day's name heads the list                                                    |
+| `show_progress_bar`, `progress_bar_color`, `progress_bar_height`, `progress_bar_width`                                                         | A row shows no progress bar and no "Day 2 of 3"                                                            |
+| `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                                     | An all-day event says "All day" in its time and comes first, so it carries no badge                        |
+| `title_max_lines`, `time_max_lines`, `location_max_lines`, `event_icon_vertical_alignment`                                                     | Each part keeps to one line in [the day's list](#the-day-list) and runs in full in the panel               |
 
 To edit any of these, open a layout they apply to under **Layouts**, which leaves the card's
 layout as it is; see [Options for the Selected View](/features/editor#options-for-the-selected-view).

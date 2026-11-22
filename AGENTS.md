@@ -2343,13 +2343,21 @@ render time, and should not have to. `days_of_week` is resolved last of the per-
 and belongs first, because it is the broadest question a reader asks.
 
 **Month's pages draw one exception, and it is a rule rather than a placement.** Under each heading
-a Month page draws the settings its weeks read first, then those it reads only in a day's list and
-the panel, the ones marked Day List & Panel, each group in the registry's order
+a Month page draws the settings its weeks read first, then those it reads only in the Day List and
+the Day Panel, the ones marked Day List & Day Panel, each group in the registry's order
 (`plan.ts` › `fieldsInDrawOrder`): the wide month is what most Month cards draw. The registry holds
 one order for every layout, so moving a shared field there for Month would move it in List and
 Columns too. Place a field by the rule above and let Month's split follow;
 `tests/editor-month-day-list.test.ts` holds Month's drawn order and every other scope's to the
 registry's.
+
+**Month's pages name what Month draws with four terms, and only these:** the **Wide Month** and
+the **Narrow Month**, its two forms; the **Day List** under the narrow weeks; and the **Day Panel**
+"+N more" opens in either form. They are glossary terms in `scripts/editor-glossary.mjs`, so write a
+new Month string with them rather than "the panel", "a day's list" or "in days". A setting Month
+draws in one place only says so by a mark, Day List & Day Panel (`MONTH_DAY_LIST_OPTIONS`) or Wide
+Month (`MONTH_WIDE_ONLY_OPTIONS`), and an unmarked one acts in both forms; measure a new one by
+rendering each form with the panel open from each before marking it.
 
 Treat a new option's position as needing a stated reason, the same way its name and its default
 do. Say in the PR body which page, heading and appearance it took, and why. The approved map in

@@ -612,6 +612,9 @@ function readRegistryKeys(editor) {
       name(titles, key, `${where}, in ${view}`);
     }
     helper(def.helperKey, `${where}, its helper line`);
+    for (const [view, key] of Object.entries(def.helperKeyByView ?? {})) {
+      name(named, key, `${where}, its helper line in ${view}`);
+    }
     name(named, def.crossLink?.textKey, `${where}, its cross-link`);
     name(named, def.pointer?.textKey, `${where}, its pointer`);
     name(named, def.layoutLinks?.textKey, `${where}, its layout links`);

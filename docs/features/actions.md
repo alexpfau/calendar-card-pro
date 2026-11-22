@@ -232,7 +232,7 @@ An event that has either is a button for keyboard users and screen readers. The 
 hold, so Enter or Space on an event runs its tap action, or its hold action when its tap action is
 `none`.
 
-In Month's [day panel](/features/month-view#more-than-fits), a hold on an event does what it does
+In Month's [Day Panel](/features/month-view#the-day-panel), a hold on an event does what it does
 on the card: it closes the panel and runs `event_hold_action`, or the card's `hold_action` where
 that is `none`. Where neither does anything, a hold there is a tap. A finger that moves while it
 holds is scrolling the panel, and holds nothing.
@@ -507,7 +507,7 @@ open_links: true
   card with links sets `event_tap_action: none`. With either set to `details`, the links are in
   the [popover](#links) instead. In the visual editor, Open Links in Events sits under Event Hold
   Action, shown while both event actions are Nothing.
-- **In list and column view, and in Month's day list.** A month's [day list](/features/month-view#the-days-list)
+- **In list and column view, and in Month's day list.** A month's [day list](/features/month-view#the-day-list)
   and its panel of one day link the addresses in locations; they draw no descriptions. Grid blocks
   draw no links; a grid card draws them only when it falls back to a list. See
   [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).

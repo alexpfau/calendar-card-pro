@@ -80,13 +80,30 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.allday-badge, .allday-title-pill, .calendar-label, .label-icon',
     { page: 'events', heading: 'heading_icon_and_badge' },
   ],
+  // A title in the Wide Month's days, a line's or a bar's, opens the size its days draw titles at;
+  // any other title, a row's in the Day List among them, the size every row's title takes.
   [
-    '.event-title, .grid-banner-title, .month-line-title',
-    { page: 'events', heading: 'heading_title' },
+    '.month-line-title, .month-bar .grid-banner-title',
+    {
+      page: 'events',
+      heading: 'heading_title',
+      scope: 'month',
+      field: 'layout:month.cell_event_font_size',
+    },
+  ],
+  [
+    '.event-title, .grid-banner-title',
+    { page: 'events', heading: 'heading_title', field: 'events:event_font_size' },
   ],
   ['.time-countdown, .progress-bar', { page: 'events', heading: 'progress' }],
   ['.now-indicator', { page: 'events', heading: 'heading_event_state' }],
-  ['.time, .month-line-time', { page: 'events', heading: 'time' }],
+  // A time in the Wide Month's days, a line's or a bar's, and a bar's length open the size its days
+  // draw times at; any other time, a row's in the Day List among them, the size every row's takes.
+  [
+    '.month-line-time, .month-bar .grid-banner-time, .month-bar .grid-banner-duration',
+    { page: 'events', heading: 'time', scope: 'month', field: 'layout:month.cell_time_font_size' },
+  ],
+  ['.time', { page: 'events', heading: 'time', field: 'events:time_font_size' }],
   ['.location', { page: 'events', heading: 'location' }],
   ['.description', { page: 'events', heading: 'description' }],
   ['.event-accent-bar', { page: 'events', heading: 'heading_accent' }],
@@ -152,8 +169,9 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
   ['.grid-axis', { page: 'size_spacing', heading: 'heading_hour_labels', scope: 'grid' }],
   ['.grid-rules', { page: 'size_spacing', heading: 'heading_across_the_grid', scope: 'grid' }],
   ['.grid-container', { page: 'which_events', heading: 'heading_hours', scope: 'grid' }],
-  // A narrow month's day, and its marks, open what made it narrow; a wide one's, and the rest
-  // of the weeks, open the card's size, which sets how many lines a day holds before "+N more".
+  // A Narrow Month's day, and its dots, open what made it narrow, under Wide or Narrow Month; a
+  // wide one's, and the rest of the weeks, open the card's size, which sets how many lines a day
+  // holds before "+N more".
   [
     '.month-narrow-marks, .month-narrow .month-day',
     {
@@ -163,8 +181,8 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
       field: 'layout:month.min_day_width',
     },
   ],
-  // A narrow month's list, its room and its "+N more" open Narrow Card Height, whose room the
-  // list fits its rows to: its events and its day's name keep the parts above.
+  // The Day List, its room and its "+N more" open Narrow Month Height, whose room the list fits
+  // its rows to: its events and its day's name keep the parts above.
   [
     '.month-day-list-more, .month-day-list-rows, .month-day-list',
     {

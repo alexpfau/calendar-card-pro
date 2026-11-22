@@ -211,7 +211,10 @@ back to on a narrow screen. **Layouts**, on the overview, gives each layout a ro
   layout. Grid's hours are on its Which Events, its hour labels and hour height on Size &
   Spacing, its shading on Days and its now line and overlapping events on Event Appearance.
   Month's heights sit on its Size & Spacing, its shading on Days, and the text sizes of its days
-  on Event Appearance, beside the sizes a day's list takes.
+  on Event Appearance, beside the sizes its rows take. Month's page names its two forms and the
+  two places it lists a day's events once, and every Month page uses the same four names: the
+  **Wide Month**, the **Narrow Month**, the **Day List** under the narrow weeks, and the **Day
+  Panel** "+N more" opens in either form; see [Month View](/features/month-view).
 - **A topic page names its layout** under its title. **Also for: List · Columns · Month · Layout
   Defaults** opens the same topic in another layout, and **Continue with**, at its foot, opens the
   next topic, then the next layout's Which Events, through List, Columns, Grid and Month in turn.
@@ -265,8 +268,9 @@ which size the events area alone. The editor shows those two, as **Events Area H
 
 **Narrow Cards**, on Size & Spacing, decides what the card draws where it is too narrow for its
 days: **When Too Narrow** for Columns and Grid, with **Down To** and **Below That** where a choice
-needs them, and each layout's **Minimum Day Width**, Month's included. The choices, and the YAML
-each writes, are under
+needs them, and each layout's **Minimum Day Width**, Month's included. On Month's page the heading
+reads **Wide or Narrow Month**, since its Minimum Day Width chooses between Month's two forms. The
+choices, and the YAML each writes, are under
 [Setting It in the Visual Editor](/features/column-view#setting-it-in-the-visual-editor).
 
 Under the headings, **At Common Card Widths** lists what each layout the card can show draws at
@@ -292,19 +296,20 @@ setting at its default shows none, except where only some layouts use it; a scre
 reads **Default** with its name. The words are the same on every page; a layout's page title says
 which layout they are about, and a calendar's page is about every layout the card shows.
 
-| Fact                                                   | Form                    | Means                                                                                                                                             |
-| ------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar                                                           |
-| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                                              |
-| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                                            |
-| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links; under Layout Defaults, any setting a layout draws nothing for             |
-| **Narrow Day List & +N Panel**                         | after Month's icon      | On Month's pages: a setting that acts on a narrow month's day list and the panel "+N more" opens, never on the weeks, listed after the weeks' own |
-| **Only in List**                                       | after the layout's icon | On a calendar's page: a setting only some of the card's layouts use as they are set up, such as Compact Events to Show                            |
-| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                                                        |
-| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                                                         |
-| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there                                                                        |
-| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                                                                               |
-| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from                                                                     |
+| Fact                                                   | Form                    | Means                                                                                                                                                                  |
+| ------------------------------------------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Set**                                                | a dot before the word   | Stored where you are editing: the layout, Layout Defaults, the whole card or a calendar                                                                                |
+| **Whole Card**                                         | after a card icon       | On a layout's topic: one value for every layout. Whole Card's own pages leave it out                                                                                   |
+| **Whole Card · Events, Weather & Language**            | after a card icon       | On a layout's topic: a whole-card setting at home on that page; its row opens it there                                                                                 |
+| **Not in Grid**                                        | after a card icon       | A whole-card setting that layout draws nothing for, such as Open Links; under Layout Defaults, any setting a layout draws nothing for                                  |
+| **Day List & Day Panel**                               | after Month's icon      | On Month's pages: a setting that acts on the narrow month's Day List and the Day Panel "+N more" opens in either form, never on the weeks, listed after the weeks' own |
+| **Wide Month**                                         | after Month's icon      | On Month's pages: a setting only the wide month's days draw, such as Show Month or the long-event banners                                                              |
+| **Only in List**                                       | after the layout's icon | On a calendar's page: a setting only some of the card's layouts use as they are set up, such as Compact Events to Show                                                 |
+| **Also Applies to Entry 2**                            | after a calendars icon  | A calendar's name or filter setting, shared by its entries                                                                                                             |
+| **From Layout Defaults**, **From the Card**            | after ↳                 | Nothing is stored here; the value comes from Layout Defaults, or the card                                                                                              |
+| **Grid Has Its Own: 12px**                             | after the layout's icon | Under Layout Defaults: Grid stores a value of its own, which applies there                                                                                             |
+| **Grid Default: 12px**                                 | after the layout's icon | Under Layout Defaults: Grid stores nothing and uses its own default                                                                                                    |
+| **Uses Grid's Default, Not 15px From Layout Defaults** | after the layout's icon | Under Grid: Layout Defaults stores a value Grid's own default takes over from                                                                                          |
 
 Under a card-wide setting that some calendars set for themselves, such as Event Locations, a
 line reads **Set on Calendars:** with the name of each calendar entry that stores its own value,
