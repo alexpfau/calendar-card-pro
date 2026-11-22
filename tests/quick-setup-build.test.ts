@@ -50,7 +50,7 @@ describe('buildQuickSetupConfig', () => {
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
       weather_entity: 'weather.home',
-      toolbar: { show: true, legend: 'chips', reset: true, size: 'large' },
+      toolbar: { show: true, legend: 'chips', reset: true },
       // Events open their details by default, so a "yes" writes no line for it.
       day_tap_action: { action: 'add-event' },
       // Anna's two blocks stay together, in first-listed order; Ben keeps his own color.
@@ -120,7 +120,7 @@ describe('buildQuickSetupConfig', () => {
     expect(built.event_tap_action).toEqual({ action: 'none' });
     expect(built).not.toHaveProperty('day_tap_action');
     // Kept, hidden, so switching the toolbar on later brings back the story's own.
-    expect(built.toolbar).toEqual({ show: false, legend: 'chips', reset: true, size: 'large' });
+    expect(built.toolbar).toEqual({ show: false, legend: 'chips', reset: true });
     expect(
       buildQuickSetupConfig(OPENING, {
         ...initialAnswers(OPENING, 'now_and_next', {}),
@@ -225,7 +225,6 @@ describe('buildQuickSetupConfig', () => {
       show: true,
       legend: 'chips',
       reset: true,
-      size: 'large',
     });
   });
 });

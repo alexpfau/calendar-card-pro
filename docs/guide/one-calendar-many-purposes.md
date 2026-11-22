@@ -45,7 +45,6 @@ weather_entity: weather.home
 toolbar:
   show: true
   view_switcher: false
-  size: large
 list:
   date_vertical_alignment: top
   day_separator_width: 1px
@@ -194,7 +193,6 @@ The lines above `entities:` apply to every block at once, so a box, a color or a
 - A swipe pages too.
 - The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/header-toolbar#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them.
 - The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name.
-- `size: large` draws the arrows and the house beside the month nearly as large as the buttons above them, for a finger on its way past. See [Larger Arrows & Chips](/features/header-toolbar#larger-arrows-chips).
 
 :::
 

@@ -79,7 +79,7 @@ export const STORIES: ReadonlyArray<Story> = [
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
       weather_entity: 'weather.home',
-      toolbar: { show: true, legend: 'chips', reset: true, size: 'large' },
+      toolbar: { show: true, legend: 'chips', reset: true },
       day_tap_action: { action: 'add-event' },
       list: { days_to_show: 3, weather: { position: 'date' } },
       column: {
