@@ -548,6 +548,46 @@ export const cardStyles = css`
     -ms-overflow-style: auto; /* IE/Edge */
   }
 
+  /* ----- Pinned rows -----
+
+     The rows that stay at the top of the scrolling events area while what is under them scrolls:
+     a grid's head and all-day band, a column view's day headers and a wide month's weekday names.
+     The card pins them only while the area scrolls and they leave it room (headPin in
+     utils/head-pin.ts), so a card that never scrolls has no sticky box and is drawn as before.
+
+     Their ground is the card's own background, the same value ha-card paints, so nothing
+     scrolled under them shows through. It goes on only once the area has scrolled, where the
+     browser can say so: from transparent at the top of the area to the card's background one
+     pixel down. So an unscrolled card on a translucent card background is not darkened by a
+     second coat of it. A scroll timeline that cannot scroll is inactive and leaves the
+     transparent value. Without scroll timelines the ground is painted always, which an opaque
+     background cannot tell apart from none. A column view's header lays it on ::before, below
+     its own wash (see Column view). */
+  .grid-head[data-pinned='alone'],
+  .grid-allday-row[data-pinned],
+  .column-grid[data-pinned] > .day-column > .column-day-header::before,
+  .month-container:not(.month-narrow) > .month-weekdays[data-pinned] {
+    background-color: var(--calendar-card-background-color, var(--card-background-color));
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .grid-head[data-pinned='alone'],
+    .grid-allday-row[data-pinned],
+    .column-grid[data-pinned] > .day-column > .column-day-header::before,
+    .month-container:not(.month-narrow) > .month-weekdays[data-pinned] {
+      background-color: transparent;
+      animation: calendar-card-pinned-ground linear both;
+      animation-timeline: scroll(nearest block);
+      animation-range: 0px 1px;
+    }
+  }
+
+  @keyframes calendar-card-pinned-ground {
+    to {
+      background-color: var(--calendar-card-background-color, var(--card-background-color));
+    }
+  }
+
   .card-header-placeholder {
     height: 0;
   }
@@ -5122,14 +5162,26 @@ export const cardStyles = css`
   @media (hover: hover) {
     .date-column:has(> .day-add-button):hover,
     .column-day-header.day-add-button:hover {
-      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+      --calendar-card-day-add-wash: color-mix(
+        in srgb,
+        var(--ha-ripple-hover-color) 8%,
+        transparent
+      );
+      background-color: var(--calendar-card-day-add-wash);
     }
   }
 
+  /* Both washes are written as a property too, which a pinned column header paints over its
+     ground (Column view). */
   .day-table[data-add-pressed] td.date-column,
   .day-column[data-add-pressed] > .column-day-header,
   .grid-day-header[data-add-pressed] > .column-day-header {
-    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    --calendar-card-day-add-wash: color-mix(
+      in srgb,
+      var(--ha-ripple-pressed-color) 16%,
+      transparent
+    );
+    background-color: var(--calendar-card-day-add-wash);
   }
 
   .grid-day-body[data-add-pressed]::before {
@@ -5546,6 +5598,49 @@ export const cardStyles = css`
     margin-bottom: 2px;
   }
 
+  /* The day headers stay at the top of the scrolling events area while the events scroll under
+     them, marked on the grid with data-pinned while they take at most two thirds of it (headPin
+     in utils/head-pin.ts). A sticky header sticks only within its own day column, which is why a
+     pinned grid stretches its columns to the row: top-aligned, a quiet day's header would let go
+     where its short column ends. Nothing in a column draws its own height, so the stretch moves
+     nothing. The week numbers above scroll away: they sit in a row of their own, which only an
+     offset measured from content could keep above the headers.
+
+     z-index 1 lifts a header over the events, which are positioned but take no z-index. Its
+     ground (Pinned rows) is drawn by ::before, under everything in it, and ::after lays its wash
+     back over the ground while a day-add header is hovered or pressed, from the property the
+     wash rules write beside it. Its own background is cleared, so the wash is not laid twice
+     before the area scrolls. */
+  .column-grid[data-pinned] > .day-column {
+    align-self: stretch;
+  }
+
+  .column-grid[data-pinned] > .day-column > .column-day-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: transparent;
+  }
+
+  .column-grid[data-pinned] > .day-column > .column-day-header::before,
+  .column-grid[data-pinned] > .day-column > .column-day-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .column-grid[data-pinned] > .day-column > .column-day-header::after {
+    background-color: var(--calendar-card-day-add-wash, transparent);
+  }
+
+  /* An event that takes focus, or that a search rings, is brought into view below the pinned
+     headers rather than under them; the card writes their height on the area. */
+  .column-grid[data-pinned] .column-events * {
+    scroll-margin-top: var(--calendar-card-pinned-head-height, 0px);
+  }
+
   .column-events {
     display: flex;
     flex-direction: column;
@@ -5941,79 +6036,88 @@ export const cardStyles = css`
 
   /* ----- Day headers ----- */
 
-  /* The rows above the hours -- week numbers, day headers and the all-day band, with the
-     band's piece of each tint and day rule and the band's own rules -- in one box that stays
-     at the top of the scrolling events area while the hours scroll under it. A card with a
-     card_height, a card_max_height or a max_height scrolls its whole grid once the hours reach
-     their floor, and without this the dates and the all-day events scrolled away with them.
+  /* The rows above the hours in two boxes that stay at the top of the scrolling events area while
+     the hours scroll under them: .grid-head holds the week numbers and the day headers, and
+     .grid-allday-row the all-day band, with the band's piece of each tint and day rule and the
+     band's own rules. A card with a card_height, a card_max_height, a max_height or a Sections
+     slot scrolls its whole grid once the hours reach their floor, and without them the dates and
+     the all-day events scrolled away with them.
 
-     One box rather than a sticky header row and a sticky band, because each row would need a
-     top offset equal to the height of the rows above it, which is content: a header grows with
-     its weather, its font sizes and its today tile. Both axes are subgrids spanning the same
-     three rows and every column, so every item inside lands on the track it had as a child of
-     .grid-container, and the unscrolled card is drawn as before.
+     Boxes rather than sticky items, because each row would need a top offset equal to the height
+     of the rows above it, which is content: a header grows with its weather, its font sizes and
+     its today tile. The band's box spans the head's rows as well as its own, with nothing in
+     them, so pinned at the top of the area it holds the band just under the head with no offset
+     at all. It takes no pointer, so what is pressed in the head's rows is the head, as before,
+     and the band takes the pointer back. Both axes are subgrids spanning their rows and every
+     column, so every item inside lands on the track it had as a child of .grid-container, and
+     the unscrolled card is drawn as before.
 
-     Unpinned it has no z-index and makes no stacking context, so its children paint on the
-     rungs of the grid's own ladder as they did before it existed, among them a now dot at the
-     band's lower edge that overlaps the band's piece of a tint. */
-  .grid-head {
+     Unpinned neither has a z-index or makes a stacking context, so their children paint on the
+     rungs of the grid's own ladder as they did before the boxes existed, among them a now dot at
+     the band's lower edge that overlaps the band's piece of a tint. */
+  .grid-head,
+  .grid-allday-row {
     grid-column: 1 / -1;
-    grid-row: 1 / span 3;
     display: grid;
     grid-template-columns: subgrid;
     grid-template-rows: subgrid;
   }
 
-  /* Pinned only while it leaves the hours room, which the card measures and marks with
-     data-pinned (headPins in utils/grid.ts): a head taller than half the area would leave a
-     short card little or nothing of the hours to scroll through.
+  .grid-head {
+    grid-row: 1 / span 2;
+  }
 
-     z-index 4 puts it above every rung of the painting ladder in the body (the separators at
-     1, the now dot at 2, the closing rule at 3), which scroll under it. It also makes the head a
-     stacking context, in which its own children keep the same ladder among themselves.
+  .grid-allday-row {
+    grid-row: 1 / span 3;
+    pointer-events: none;
+  }
 
-     The ground is the card's own background, the same value ha-card paints, so nothing
-     scrolled under the head shows through it, the corner over the hour axis included, which
-     is why the head spans that column too.
+  .grid-allday-row > .grid-allday-band {
+    pointer-events: auto;
+  }
+
+  /* Pinned only while they leave the hours room, which the card measures and marks with
+     data-pinned (headPin in utils/head-pin.ts): the head and the band while together they take at
+     most two thirds of the area; the head alone, marked data-pinned="alone", while only it does,
+     the band then scrolling under it with the hours; and neither on a card shorter still, which
+     would be left little or nothing of the hours to scroll through.
+
+     z-index 4 and 5 put them above every rung of the painting ladder in the body (the separators
+     at 1, the now dot at 2, the closing rule at 3), which scroll under them, and the head above
+     the band's box, which spans its rows. Each also becomes a stacking context, in which its own
+     children keep the same ladder among themselves.
+
+     The ground (Pinned rows, above) is the card's own background, so nothing scrolled under them
+     shows through, the corner over the hour axis included, which is why both span that column
+     too. With the band pinned its box grounds the head's rows as well, so the head lays none of
+     its own, or a translucent background would be laid twice there.
 
      A crammed grid is never pinned and scrolls its head with the hours as before: it scrolls
      sideways, which makes .grid-container a scroll container in both axes, and a sticky box
      sticks to its nearest scroll container, which here never scrolls vertically. */
-  .grid-head[data-pinned] {
+  .grid-head[data-pinned],
+  .grid-allday-row[data-pinned] {
     position: sticky;
     top: 0;
+  }
+
+  .grid-allday-row[data-pinned] {
     z-index: 4;
-    background-color: var(--calendar-card-background-color, var(--card-background-color));
   }
 
-  /* The ground goes on only once the area has scrolled, where the browser can say so: from
-     transparent at the top of the area to the card's background one pixel down. So an
-     unscrolled card on a translucent card background is not darkened by a second coat of it.
-     A scroll timeline that cannot scroll is inactive and leaves the transparent value. Without
-     scroll timelines the ground is painted always, which an opaque background cannot tell
-     apart from none. */
-  @supports (animation-timeline: scroll()) {
-    .grid-head[data-pinned] {
-      background-color: transparent;
-      animation: calendar-card-grid-head-ground linear both;
-      animation-timeline: scroll(nearest block);
-      animation-range: 0px 1px;
-    }
+  .grid-head[data-pinned] {
+    z-index: 5;
   }
 
-  @keyframes calendar-card-grid-head-ground {
-    to {
-      background-color: var(--calendar-card-background-color, var(--card-background-color));
-    }
-  }
-
-  /* What the hours hold is brought into view below the pinned head, by focus or by a search
-     ring, rather than at the area's top edge under it. A margin on the hours rather than a
-     padding on the area, which would also apply to what sits in the head and scroll the area
-     back to its top whenever the head's day button or a banner took focus. The card writes the
-     head's height on the area while it is pinned. */
-  .grid-head[data-pinned] ~ .grid-day-body * {
-    scroll-margin-top: var(--calendar-card-grid-head-height, 0px);
+  /* What scrolls under the pinned rows is brought into view below them, by focus or by a search
+     ring, rather than at the area's top edge under them: the hours, and the band while it
+     scrolls under the head alone. A margin on what scrolls rather than a padding on the area,
+     which would also apply to what is pinned and scroll the area back to its top whenever the
+     head's day button or a pinned banner took focus. The card writes the height of what is pinned
+     on the area. */
+  .grid-head[data-pinned] ~ .grid-day-body *,
+  .grid-head[data-pinned='alone'] ~ .grid-allday-row * {
+    scroll-margin-top: var(--calendar-card-pinned-head-height, 0px);
   }
 
   .grid-day-header {
@@ -8032,6 +8136,55 @@ export const cardStyles = css`
   /* The first week's rule is the one under the weekday names, in either form. */
   .month-weekdays + .month-week {
     border-block-start-color: var(--calendar-card-month-header-rule);
+  }
+
+  /* A wide month's weekday names stay at the top of the scrolling events area while the weeks
+     scroll under them, marked data-pinned while the area scrolls (headPin in utils/head-pin.ts).
+     A narrow month's do not: its weeks and its day's list scroll as one. z-index 3 lifts them
+     over everything a week draws. Over its ground (Pinned rows) the row draws the header rule
+     the first week draws under it, once that week has scrolled under, from the same scroll
+     timeline. Without one it draws the rule always, on the same pixels, and the first week draws
+     none, so the rule is not laid twice while the area rests at its top. */
+  .month-container:not(.month-narrow) > .month-weekdays[data-pinned] {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .month-container:not(.month-narrow) > .month-weekdays[data-pinned] {
+      animation:
+        calendar-card-pinned-ground linear both,
+        calendar-card-month-weekdays-rule linear both;
+      animation-timeline: scroll(nearest block);
+      animation-range: 0px 1px;
+    }
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    .month-container:not(.month-narrow) > .month-weekdays[data-pinned] {
+      box-shadow: 0 1px 0 var(--calendar-card-month-header-rule);
+    }
+
+    .month-container:not(.month-narrow) > .month-weekdays[data-pinned] + .month-week {
+      border-block-start-color: transparent;
+    }
+  }
+
+  @keyframes calendar-card-month-weekdays-rule {
+    from {
+      box-shadow: 0 1px 0 transparent;
+    }
+    to {
+      box-shadow: 0 1px 0 var(--calendar-card-month-header-rule);
+    }
+  }
+
+  /* A day that takes focus, or that a search rings, is brought into view below the pinned
+     names; the card writes their height on the area. */
+  .month-weekdays[data-pinned] ~ .month-week,
+  .month-weekdays[data-pinned] ~ .month-week * {
+    scroll-margin-top: var(--calendar-card-pinned-head-height, 0px);
   }
 
   /* The day's own box, behind its events, spanning every line of its column. Its empty space is

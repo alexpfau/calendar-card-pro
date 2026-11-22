@@ -72,6 +72,7 @@ import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as GridUtils from './utils/grid';
+import * as HeadPin from './utils/head-pin';
 import * as CascadeThreshold from './utils/grid-cascade-threshold';
 import * as OverflowStrip from './utils/grid-overflow-strip';
 import * as GridTimeFit from './utils/grid-time-fit';
@@ -429,6 +430,19 @@ interface LoadedWindow {
 }
 
 /** What the card drew of a complete load (`_commitEvents`), and the query it was loaded for. */
+/**
+ * The rows `_syncHeadPin` may pin, what holds them and the scrolling events area. `head` is what
+ * the card marks: a grid's head, a column view's grid, whose day headers stick, or a wide month's
+ * weekday names; `band` is the box holding a grid's all-day band.
+ */
+interface HeadPinParts {
+  readonly kind: 'grid' | 'column' | 'month';
+  readonly head: HTMLElement;
+  readonly band?: HTMLElement;
+  readonly grid: HTMLElement;
+  readonly area: HTMLElement;
+}
+
 interface CompleteDrawing {
   /** Query identity the events were loaded for (`_eventsInstanceId`). */
   readonly instanceId: string;
@@ -1996,10 +2010,9 @@ class CalendarCardPro extends LitElement {
   private _gridScaleRaf: number | null = null;
 
   private _resizeObserver: ResizeObserver | null = null;
-  /** Watches the grid's head and the events area it pins to (`_syncGridHeadPin`). */
-  private _gridHeadObserver: ResizeObserver | null = null;
-  private _gridHeadWatched: { head: HTMLElement; grid: HTMLElement; area: HTMLElement } | null =
-    null;
+  /** Watches the rows pinned over a scrolling events area, and the area (`_syncHeadPin`). */
+  private _headPinObserver: ResizeObserver | null = null;
+  private _headPinWatched: HeadPinParts | null = null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   private _gridDisclosureReleaseRaf: number | null = null;
@@ -2937,7 +2950,7 @@ class CalendarCardPro extends LitElement {
     this._syncTitleScroll();
     this._syncTitleFits();
     this._syncGridDisclosureSafety();
-    this._syncGridHeadPin();
+    this._syncHeadPin();
   }
 
   disconnectedCallback() {
@@ -2945,7 +2958,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
-    this._stopGridHeadObserver();
+    this._stopHeadPinObserver();
     this._stopTitleScrollObserver();
     this._stopTitleFits();
     this._stopMonthList();
@@ -3699,66 +3712,141 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
-  // GRID HEAD
+  // PINNED ROWS
   //-----------------------------------------------------------------------------
 
   /**
-   * Keeps the grid's head pinned to the top of the events area while the area scrolls and the
-   * head leaves the hours room (`GridUtils.headPins`), and lets it scroll with them otherwise,
-   * by `data-pinned` on `.grid-head`, which the stylesheet makes sticky.
+   * The rows of the current layout that may stay at the top of the events area while it scrolls:
+   * a grid's head and the box holding its all-day band, a column view's grid of day headers, or a
+   * wide month's weekday names. A narrow month and a list pin nothing, and neither does a crammed
+   * grid, which scrolls sideways itself (`renderGridGroupedEvents`): that makes it the nearest
+   * scroll container of its head, and it never scrolls the way the head would stick.
    *
-   * While it is pinned the head's height is written on the area as
-   * `--calendar-card-grid-head-height`, which the stylesheet gives the hours as a scroll margin,
-   * so an event that takes focus, or that a search rings, is scrolled into view below the head
-   * rather than under it. The area carries no style binding of its own, so nothing else writes
-   * the property.
-   *
-   * Read by a resize observer on the head, the grid and the area rather than once per render:
-   * the head grows with weather and fonts that arrive after it is drawn, the grid with its
-   * hours, and the area with the card. Bound again only when one of them is replaced, which the
-   * observer then reads at once. Pinning moves nothing in the layout, so a reading cannot change
-   * the sizes it was taken from.
+   * @returns The parts, or `null` where nothing pins
    */
-  private _syncGridHeadPin(): void {
-    const head =
-      this.isConnected && this.effectiveView === 'grid'
-        ? this.renderRoot.querySelector<HTMLElement>('.grid-head')
-        : null;
-    const grid = head?.parentElement ?? null;
-    const area = head?.closest<HTMLElement>('.content-container') ?? null;
-    if (!head || !grid || !area || typeof ResizeObserver === 'undefined') {
-      this._stopGridHeadObserver();
-      return;
+  private _headPinParts(): HeadPinParts | null {
+    if (!this.isConnected) return null;
+    const root = this.renderRoot;
+    let parts: Omit<HeadPinParts, 'area'> | null = null;
+    switch (this.effectiveView) {
+      case 'grid': {
+        const head = root.querySelector<HTMLElement>('.grid-head');
+        const band = head?.parentElement?.querySelector<HTMLElement>(':scope > .grid-allday-row');
+        if (head && band && head.parentElement!.style.overflowX !== 'auto') {
+          parts = { kind: 'grid', head, band, grid: head.parentElement! };
+        }
+        break;
+      }
+      case 'column': {
+        const grid = root.querySelector<HTMLElement>('.column-grid');
+        if (grid) parts = { kind: 'column', head: grid, grid };
+        break;
+      }
+      case 'month': {
+        const head = root.querySelector<HTMLElement>(
+          '.month-container:not(.month-narrow) > .month-weekdays',
+        );
+        if (head) parts = { kind: 'month', head, grid: head.parentElement! };
+        break;
+      }
     }
-    const watched = this._gridHeadWatched;
-    if (watched?.head === head && watched.grid === grid && watched.area === area) return;
-
-    this._stopGridHeadObserver();
-    this._gridHeadWatched = { head, grid, area };
-    this._gridHeadObserver = new ResizeObserver(() => {
-      const current = this._gridHeadWatched;
-      if (!current) return;
-      const headPx = current.head.getBoundingClientRect().height;
-      // A crammed grid scrolls sideways itself (`renderGridGroupedEvents`), which makes it the
-      // head's nearest scroll container, and it never scrolls the way the head would stick.
-      const pinned =
-        current.grid.style.overflowX !== 'auto' &&
-        GridUtils.headPins(headPx, current.area.clientHeight, current.area.scrollHeight);
-      current.head.toggleAttribute('data-pinned', pinned);
-      if (pinned)
-        current.area.style.setProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY, `${headPx}px`);
-      else current.area.style.removeProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY);
-    });
-    this._gridHeadObserver.observe(head);
-    this._gridHeadObserver.observe(grid);
-    this._gridHeadObserver.observe(area);
+    const area = parts?.grid.closest<HTMLElement>('.content-container');
+    return parts && area ? { ...parts, area } : null;
   }
 
-  private _stopGridHeadObserver(): void {
-    this._gridHeadObserver?.disconnect();
-    this._gridHeadObserver = null;
-    this._gridHeadWatched?.area.style.removeProperty(GridRender.GRID_HEAD_HEIGHT_PROPERTY);
-    this._gridHeadWatched = null;
+  /**
+   * Keeps the rows above what scrolls pinned to the top of the events area while the area
+   * scrolls and they leave it room (`HeadPin.headPin`), and lets them scroll with the rest
+   * otherwise, by `data-pinned`, which the stylesheet makes sticky: on a grid's head, and on the
+   * box holding its all-day band while the band stays with it (the head is then marked `alone`
+   * where it stays without the band), on a column view's grid, whose day headers then stick, and
+   * on a wide month's weekday names.
+   *
+   * While anything is pinned its height is written on the area as
+   * `--calendar-card-pinned-head-height`, which the stylesheet gives what scrolls under it as a
+   * scroll margin, so an event or a day that takes focus, or that a search rings, is scrolled into
+   * view below the pinned rows rather than under them. The area carries no style binding of its
+   * own, so nothing else writes the property.
+   *
+   * Read by a resize observer on the rows, what holds them and the area rather than once per
+   * render: a header grows with weather and fonts that arrive after it is drawn, the grid with
+   * its hours, and the area with the card. Bound again only when one of them is replaced, which
+   * the observer then reads at once. Pinning moves nothing in the layout, so a reading cannot
+   * change the sizes it was taken from.
+   */
+  private _syncHeadPin(): void {
+    const parts = typeof ResizeObserver === 'undefined' ? null : this._headPinParts();
+    if (!parts) {
+      this._stopHeadPinObserver();
+      return;
+    }
+    const watched = this._headPinWatched;
+    if (
+      watched?.kind === parts.kind &&
+      watched.head === parts.head &&
+      watched.band === parts.band &&
+      watched.grid === parts.grid &&
+      watched.area === parts.area
+    ) {
+      return;
+    }
+
+    this._stopHeadPinObserver();
+    this._headPinWatched = parts;
+    this._headPinObserver = new ResizeObserver(() => {
+      const current = this._headPinWatched;
+      if (current) this._applyHeadPin(current);
+    });
+    for (const target of new Set([parts.head, parts.band, parts.grid, parts.area])) {
+      if (target) this._headPinObserver.observe(target);
+    }
+  }
+
+  /**
+   * Reads the pinned rows and the area once and marks what stays (`_syncHeadPin`).
+   *
+   * @param parts - The rows and the area
+   */
+  private _applyHeadPin(parts: HeadPinParts): void {
+    const { area } = parts;
+    const height = (element: Element) => element.getBoundingClientRect().height;
+    let headPx: number;
+    let bandPx = 0;
+    if (parts.kind === 'grid') {
+      headPx = height(parts.head);
+      // The band's box spans the head's rows too. Without banners it holds only the rule under
+      // the headers, which stays with them.
+      const boxPx = height(parts.band!);
+      if (parts.band!.querySelector(':scope > .grid-allday-band')) bandPx = boxPx - headPx;
+      else headPx = boxPx;
+    } else if (parts.kind === 'column') {
+      const headers = parts.grid.querySelectorAll(':scope > .day-column > .column-day-header');
+      headPx = Math.max(0, ...Array.from(headers, height));
+    } else {
+      headPx = height(parts.head);
+    }
+
+    const pin = HeadPin.headPin(headPx, bandPx, area.clientHeight, area.scrollHeight);
+    if (parts.kind === 'grid') {
+      if (pin === 'none') parts.head.removeAttribute('data-pinned');
+      else parts.head.setAttribute('data-pinned', pin === 'head' ? 'alone' : '');
+      parts.band!.toggleAttribute('data-pinned', pin === 'all');
+    } else {
+      parts.head.toggleAttribute('data-pinned', pin !== 'none');
+    }
+
+    if (pin === 'none') area.style.removeProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY);
+    else {
+      const pinnedPx = pin === 'all' ? headPx + bandPx : headPx;
+      area.style.setProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY, `${pinnedPx}px`);
+    }
+  }
+
+  private _stopHeadPinObserver(): void {
+    this._headPinObserver?.disconnect();
+    this._headPinObserver = null;
+    this._headPinWatched?.area.style.removeProperty(HeadPin.PINNED_HEAD_HEIGHT_PROPERTY);
+    this._headPinWatched = null;
   }
 
   //-----------------------------------------------------------------------------
@@ -5292,7 +5380,7 @@ class CalendarCardPro extends LitElement {
     // that request belongs to the next update, not to this one.
     this._bareUpdateRequestsSeen = this._bareUpdateRequests;
     this._syncGridDisclosureSafety(gridChanged);
-    this._syncGridHeadPin();
+    this._syncHeadPin();
     if (gridChanged) {
       this._syncCascadeThreshold();
       this._syncOverflowStrip();

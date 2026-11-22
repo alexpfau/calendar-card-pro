@@ -637,33 +637,6 @@ function overlappingRuns<I>(items: I[], eventOf: (item: I) => LaneInput): I[][] 
   return runs;
 }
 
-/** Most of the scrolling events area the grid's head may take and still stay pinned. */
-export const HEAD_MAX_SHARE = 0.5;
-
-/**
- * Whether the grid's head, its week numbers, day headers and all-day band, stays pinned to
- * the top of the events area while the hours scroll under it (`.grid-head`).
- *
- * Only while the area scrolls at all, and only while the head leaves the hours room: at most
- * {@link HEAD_MAX_SHARE} of the area. A short card under a `card_height` can hold less than
- * the head itself, and a pinned head would then cover the whole area and leave nothing of the
- * hours to scroll through, so above the share it scrolls with them, as the whole grid did
- * before it was pinned. An area or a head not yet laid out, at zero, pins nothing.
- *
- * An area that does not scroll is left unpinned although pinning would move nothing: Chrome
- * rasterizes a scroller holding a sticky box apart from the rest, which shifts the
- * anti-aliasing of rounded edges below it by a shade, so a card that never scrolls is drawn to
- * the byte as it was.
- *
- * @param headPx - The head's height
- * @param areaPx - The events area's visible height
- * @param contentPx - The height of what the area scrolls through
- * @returns Whether to pin it
- */
-export function headPins(headPx: number, areaPx: number, contentPx: number): boolean {
-  return headPx > 0 && areaPx > 0 && contentPx > areaPx && headPx <= areaPx * HEAD_MAX_SHARE;
-}
-
 /** Most of its region the `+N` strip may take, however wide its label asks to be. */
 export const OVERFLOW_STRIP_MAX_SHARE = 0.25;
 

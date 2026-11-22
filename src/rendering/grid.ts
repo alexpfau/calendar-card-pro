@@ -61,8 +61,8 @@ type SeparatorKind = 'day' | 'week' | 'month';
 
 /**
  * The rows a column-long element spans: the all-day band (`3`), the time body (`4`), or both
- * (`3 / span 2`). The band's piece is drawn in the sticky head and the body's below it; one
- * element spans both only while there is no band, when row 3 is empty.
+ * (`3 / span 2`). The band's piece is drawn in the band's own box (`.grid-allday-row`) and the
+ * body's below it; one element spans both only while there is no band, when row 3 is empty.
  */
 type GridRows = '3' | '4' | '3 / span 2';
 
@@ -185,10 +185,10 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
  * shows the day columns it belongs to. Removing that `z-index` brings the original defect
  * straight back, which is why it is a declaration with a comment rather than a default.
  *
- * While there is a band, a rule is drawn as two pieces, one per row: the band's in the
- * sticky head (`.grid-head`), which stays put while the hours scroll, and the body's below
- * it. One element spanning both rows would scroll away from under the band. The pieces meet
- * on a row line, so the two read as the one rule they replace.
+ * While there is a band, a rule is drawn as two pieces, one per row: the band's in its own
+ * box (`.grid-allday-row`), which stays put while the hours scroll, and the body's below it.
+ * One element spanning both rows would scroll away from under the band. The pieces meet on a
+ * row line, so the two read as the one rule they replace.
  *
  * @param separator - The resolved rule for this gutter
  * @param columnIndex - Zero-based day column the rule precedes
@@ -267,7 +267,7 @@ function renderGridSeparator(
  * With no banners there is no band to grow into: row 3 collapses, so the rule hangs from the
  * top of the empty row 3 into the top of the body, by a negative margin as deep as the rule.
  * That draws it on the same pixels as a rule at the top of row 4 while keeping it in the
- * sticky head, so it stays under the day headers when the hours scroll; the margin is what
+ * band's box, which then stays with the day headers when the hours scroll; the margin is what
  * keeps the empty row at no height.
  *
  * @param kind - Which boundary this is, used for the class
@@ -385,7 +385,7 @@ function renderGridEndRule(color: string): TemplateResult {
  * otherwise do. The gutter beside today then stays clear, as it does beside a weekday.
  *
  * While there is a band, each run is drawn twice, once per row, as the day separators are
- * (`renderGridSeparator`): the band's piece in the sticky head, the body's below it.
+ * (`renderGridSeparator`): the band's piece in the band's box, the body's below it.
  *
  * @param days - Days on screen, in order
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
@@ -1470,13 +1470,6 @@ function renderTimedBannerContent(
 }
 
 /**
- * The head's height while it is pinned, which the card writes on the events area
- * (`_syncGridHeadPin`) and the stylesheet gives the hours as their scroll margin, so focus and a
- * search ring bring an event into view below the pinned head rather than under it.
- */
-export const GRID_HEAD_HEIGHT_PROPERTY = '--calendar-card-grid-head-height';
-
-/**
  * The class of the element the card draws a new event into while adding it, in a day's plane
  * or the all-day band. It holds the block or banner and lays out as though it were not there.
  */
@@ -1747,7 +1740,7 @@ export function renderGridGroupedEvents(
   const bandRows = Math.max(bannerRows, bandOpenForNew ? 1 : 0);
   const banded = bandRows > 0;
   // What runs the length of a day column, the tints and the day rules, is drawn in two pieces
-  // while there is a band: the band's in the sticky head and the body's below it. With no band
+  // while there is a band: the band's in the band's box and the body's below it. With no band
   // row 3 is empty and one piece spanning both rows draws exactly what the body's would.
   const bodyRows: GridRows = banded ? '4' : '3 / span 2';
   const ruled = boundaries
@@ -1817,8 +1810,9 @@ export function renderGridGroupedEvents(
   // most `allday_band_max_rows` rows of banners. The hours take what those leave, and never less
   // than `GRID_MIN_HOUR_HEIGHT` an hour, or the configured `hour_height` where that is smaller,
   // so an hour-long event keeps a line of title. Below that the container grows past the content
-  // area, which scrolls, as a list does; the headers and the band stay at its top while it does
-  // (`.grid-head`), so an all-day event stays in sight however short the card.
+  // area, which scrolls, as a list does; the headers stay at its top while it does (`.grid-head`),
+  // and the band with them while there is room (`.grid-allday-row`), so an all-day event stays in
+  // sight on all but the shortest card.
   //
   // Fractional tracks only distribute space once the grid has a definite height, so the
   // container is at least `100%` of the content area it sits directly inside; `min-height` rather
@@ -1887,7 +1881,6 @@ export function renderGridGroupedEvents(
     >
       ${renderDayTints(gridDays, hass, weekendTint, todayTint, bodyRows)}
       <div class="grid-head">
-        ${banded ? renderDayTints(gridDays, hass, weekendTint, todayTint, '3') : nothing}
         ${renderWeekNumbers(gridDays, config)}
         ${gridDays.map((day, index) =>
           renderDayHeader(
@@ -1901,6 +1894,9 @@ export function renderGridGroupedEvents(
             dayAdd,
           ),
         )}
+      </div>
+      <div class="grid-allday-row">
+        ${banded ? renderDayTints(gridDays, hass, weekendTint, todayTint, '3') : nothing}
         ${
           banded
             ? html`
