@@ -6,6 +6,66 @@
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png" alt="Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar" width="100%">
 
+**A calendar card for Home Assistant in four layouts**, from a few lines on a phone to the whole family's week on a wall tablet, set up in the visual editor.
+
+## 🗓️ Every Layout, One Card
+
+The same calendars in every layout. Pick one, or let the [toolbar](https://calendar-card-pro.alexpfau.com/features/header-toolbar) switch between them.
+
+### 📱 On a Narrow Card
+
+One column of a Sections dashboard, or a phone.
+
+<table>
+<tr>
+<td valign="top" width="50%">
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_list_narrow_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_list_narrow.png" alt="A narrow list card for Wednesday, October 21: Ben's business trip and the compost collection all day, Anna at the office now, Leo's nap at 12:30 and coffee with Jana at 16:00, each with the face of whose it is" width="380"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/list-view"><b>List</b></a> · what is next, in a few lines
+</td>
+<td valign="top" width="50%">
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_list_toolbar_narrow_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_list_toolbar_narrow.png" alt="The same card with its toolbar: a layout switcher, then October 2026 with arrows and a home button, and Wednesday and Thursday listed beneath, each date with its forecast" width="380"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/header-toolbar"><b>List with the toolbar</b></a> · page through the days
+</td>
+</tr>
+<tr>
+<td valign="top" width="50%">
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_grid_narrow_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_grid_narrow.png" alt="The same narrow card as a grid: Wednesday and Thursday against the hours from 7 to 22, all-day plans above them, each event as long as it runs and a line at the current time" width="380"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/grid-view"><b>Grid</b></a> · the day on an hour axis
+</td>
+<td valign="top" width="50%">
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_narrow_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_narrow.png" alt="The same narrow card as a month: six weeks with a colored stripe for each calendar on every day, today highlighted, and Wednesday's six events listed beneath" width="380"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/month-view#the-narrow-month"><b>Month</b></a> · the month, and the day beneath
+</td>
+</tr>
+</table>
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_switcher_narrow.webp" alt="The narrow card in use: it pages two days ahead and back to today, switches from List to Grid and to Month, picks Friday to list its events under the month, and goes back to List" width="396">
+
+### 🖥️ On a Wide Card
+
+Two columns, a full-width section or a wall tablet.
+
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_columns_medium_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_columns_medium.png" alt="Columns on a card two sections wide: Wednesday to Saturday side by side under the toolbar, each day's events in a column under its date and forecast" width="100%"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/column-view"><b>Columns</b></a> · the days side by side
+</p>
+
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_grid_wide_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_grid_wide.png" alt="A wide grid: the family's week from Wednesday to Tuesday on an hour axis, a chip for each calendar in the toolbar, all-day plans such as Tom's birthday above the hours, and shared plans in gold with every face on them" width="100%"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/grid-view"><b>Grid</b></a> · a family's week, hour by hour
+</p>
+
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide.png" alt="A wide month: October 2026 in six weeks, multi-day plans such as a business trip and a weekend at the lake as bars across the days, the rest as lines with their time, and +N more where a day is full" width="100%"></picture><br>
+<a href="https://calendar-card-pro.alexpfau.com/features/month-view"><b>Month</b></a> · six weeks at a glance
+</p>
+
+<a href="https://calendar-card-pro.alexpfau.com/#see-it-move"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_tour_poster.jpg" alt="Watch the tour: the same card on a phone and on a wall tablet, paging, switching layouts, opening an event and hiding calendars" width="100%"></a>
+
+**▶️ [Watch the 30-second tour](https://calendar-card-pro.alexpfau.com/#see-it-move)** on the documentation site.
+
+<p align="right"><a href="#top">⬆️ back to top</a></p>
+
 ## ☕ Support This Project
 
 If you find **Calendar Card Pro** useful, consider supporting its development:
@@ -134,15 +194,19 @@ On Home Assistant 2026.10 or earlier, install the card through **[HACS (Home Ass
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
-## 3️⃣ Quick Start
+## 3️⃣ Add the Card
 
 Add the card from your dashboard's **➕ Add Card** picker: on the **By card** tab, search for
-`"Calendar"` and pick Calendar Card Pro, and its visual editor opens. To change the card later,
-edit the dashboard and choose the card's **Edit**.
+`"Calendar"` and pick Calendar Card Pro. Its visual editor opens with **Quick Setup**, which asks a
+few questions and builds one of the [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples)
+on your own calendars. To change the card later, edit the dashboard and choose the card's **Edit**.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open: example cards to start from, and the preview beside it drawing the one picked" width="600">
 
 > **Shortcut (Home Assistant 2026.6+):** In the card picker, on the **By entity** tab, pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events, and goes straight on the dashboard.
 
-Prefer YAML? This is a complete, working configuration:
+<details>
+<summary>📄 Prefer YAML? A complete, working configuration</summary>
 
 ```yaml
 type: custom:calendar-card-pro
@@ -153,9 +217,9 @@ show_location: false
 show_month: false
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_native.png" alt="Basic Configuration" width="600">
-
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
+
+</details>
 
 **➡️ Next, copy a complete card from the [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples), or look up any option in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration).**
 
