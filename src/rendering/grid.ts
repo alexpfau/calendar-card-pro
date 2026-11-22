@@ -1908,7 +1908,7 @@ export function renderGridGroupedEvents(
                     gridTemplateColumns: 'subgrid',
                     gridTemplateRows: `repeat(${bandRows}, auto)`,
                   })}
-                  .calendarCardDaySlot=${Activation.COLUMNS_AMONG_SIBLINGS}
+                  .calendarCardDaySlot=${Activation.COLUMNS_IN_HEAD}
                 >
                   ${banners.map((banner) =>
                     renderBanner(

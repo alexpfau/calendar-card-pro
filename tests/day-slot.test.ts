@@ -202,7 +202,7 @@ describe('findDayHit', () => {
     expect(Activation.findDayHit([grid], null, at(150, 20))).toBeUndefined();
   });
 
-  it("finds a grid band's day among its siblings, by the header rather than the time area", () => {
+  it("finds a grid band's day in the grid's head, by the header rather than the time area", () => {
     const header = node(Activation.daySlot(DAY(18)), { left: 100, top: 0, width: 100, height: 40 });
     const body = node(Activation.timeSlot(DAY(18), 420, 1320), {
       left: 100,
@@ -210,13 +210,17 @@ describe('findDayHit', () => {
       width: 100,
       height: 900,
     });
-    const band = node(Activation.COLUMNS_AMONG_SIBLINGS, {
+    const band = node(Activation.COLUMNS_IN_HEAD, {
       left: 0,
       top: 40,
       width: 300,
       height: 40,
     });
-    node(undefined, undefined, [body, band, header]);
+    // As the grid draws them: the headers in its head, and the band in a box of its own beside
+    // it, which the time areas follow.
+    const head = node(undefined, undefined, [header]);
+    head.className = 'grid-head';
+    node(undefined, undefined, [head, node(undefined, undefined, [band]), body]);
 
     // The header, not the time area in the same column: the header is what a press in the
     // band washes, and the time area would wash nothing, having no hour to show. A press in

@@ -186,7 +186,9 @@ In the visual editor, **Card Height** on Month's Size & Spacing chooses **Defaul
   so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
   the wide month at it.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
-  scrolls rather than any text shrinking, so every day still shows its date and "+N more".
+  scrolls rather than any text shrinking, so every day still shows its date and "+N more". The
+  weekday names stay at the top while the weeks scroll under them. A narrow month scrolls its
+  weeks and the day's list as one.
 - **`height` and `max_height` do not apply.** They size the events area of the other layouts;
   a month sizes its whole card.
 

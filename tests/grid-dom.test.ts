@@ -1859,8 +1859,8 @@ describe('separators between grid days', () => {
   /**
    * The grid's own pieces of what runs the length of a day column, its day rules and tints:
    * those down the hours, or down the band and the hours while there is no band. While there
-   * is one, the band's piece of each is drawn in the pinned head (`.grid-head`), which the
-   * sticky head tests below hold to these.
+   * is one, the band's piece of each is drawn in the band's own box (`.grid-allday-row`), which
+   * the pinned head tests below hold to these.
    */
   function own(container: ParentNode, selector: string): HTMLElement[] {
     return Array.from(container.querySelectorAll<HTMLElement>(`.grid-container > ${selector}`));
@@ -2138,7 +2138,7 @@ describe('separators between grid days', () => {
     // would be the shading stopping at the top of the grid.
     expect(new Set(stripes.map((stripe) => stripe.style.gridRow))).toEqual(new Set(['4']));
     expect(
-      Array.from(rendered.querySelectorAll<HTMLElement>('.grid-head > .grid-weekend')).map(
+      Array.from(rendered.querySelectorAll<HTMLElement>('.grid-allday-row > .grid-weekend')).map(
         (stripe) => `${stripe.style.gridColumn} | ${stripe.style.gridRow}`,
       ),
     ).toEqual(stripes.map((stripe) => `${stripe.style.gridColumn} | 3`));
@@ -2357,9 +2357,9 @@ describe('separators between grid days', () => {
       // The weekend stripe's rows: the all-day band and the hours, not the date row. EVENTS
       // has all-day events, so the band's piece is in the pinned head.
       expect(stripe.style.gridRow).toBe('4');
-      expect(requireElement<HTMLElement>(rendered, '.grid-head > .grid-today').style.gridRow).toBe(
-        '3',
-      );
+      expect(
+        requireElement<HTMLElement>(rendered, '.grid-allday-row > .grid-today').style.gridRow,
+      ).toBe('3');
       expect(stripe.getAttribute('aria-hidden')).toBe('true');
       // A weekday today leaves the weekend's runs alone.
       expect(columnsOf(rendered, '.grid-weekend')).toEqual(['7 / span 2', '14 / span 2']);
@@ -2483,7 +2483,7 @@ describe('separators between grid days', () => {
     // boundary as the shorter line.
     for (const kind of ['day', 'week', 'month'] as const) {
       expect(
-        requireElement<HTMLElement>(container, `.grid-head > .grid-separator-${kind}`).style
+        requireElement<HTMLElement>(container, `.grid-allday-row > .grid-separator-${kind}`).style
           .gridRow,
         `${kind} rule in the band`,
       ).toBe('3');
@@ -2506,13 +2506,13 @@ describe('separators between grid days', () => {
       spanConfig({ days_to_show: 3 }),
     );
     const banner = requireElement<HTMLElement>(container, '.grid-banner');
-    const rules = own(container, '.grid-head > .grid-separator');
+    const rules = own(container, '.grid-allday-row > .grid-separator');
 
     expect(banner.style.gridColumn).toBe('2 / span 3');
     expect(banner.style.gridRow).toBe('1');
     expect(rules.length, 'no rules to cross the banner').toBeGreaterThan(0);
     // The band's pieces, beside the band in the head and so under the same banner.
-    expect(banner.closest('.grid-head')).toBe(rules[0].parentElement);
+    expect(banner.closest('.grid-allday-row')).toBe(rules[0].parentElement);
     for (const rule of rules) {
       expect(rule.style.gridRow).toBe('3');
     }
@@ -2704,12 +2704,15 @@ describe('separators between grid days', () => {
 
     // ...and with no band there is nothing to grow up into, so the rule hangs from the top
     // of the empty band row into the top of the time body rather than overflowing into the
-    // day headers: the pixels a rule at the top of row 4 would draw, kept in the pinned head
-    // so it stays under the headers while the hours scroll. The negative margin as deep as
+    // day headers: the pixels a rule at the top of row 4 would draw, kept in the band's box,
+    // which then stays with the headers while the hours scroll. The negative margin as deep as
     // the rule is what keeps the empty row at no height. Which edge it takes is the band's
     // presence, not a constant — the half a single-fixture test cannot see, so the framed
     // card above asserts the other value.
-    const alone = requireElement<HTMLElement>(container, '.grid-head > .grid-boundary-band-bottom');
+    const alone = requireElement<HTMLElement>(
+      container,
+      '.grid-allday-row > .grid-boundary-band-bottom',
+    );
 
     expect(alone.style.gridRow).toBe('3');
     expect(alone.style.alignSelf).toBe('start');
@@ -2719,7 +2722,7 @@ describe('separators between grid days', () => {
     // A band has no overhang to cancel.
     const framed = requireElement<HTMLElement>(
       renderGrid(EVENTS, spanConfig()),
-      '.grid-head > .grid-boundary-band-bottom',
+      '.grid-allday-row > .grid-boundary-band-bottom',
     );
     expect(framed.style.getPropertyValue('margin-block-end')).toBe('');
   });
@@ -2727,11 +2730,12 @@ describe('separators between grid days', () => {
 
 describe('the head pinned over the hours (D54)', () => {
   // Under a card_height, a card_max_height or a max_height the whole grid scrolled, and the
-  // dates and the all-day band scrolled away with the hours. The rows above the hours are one
-  // box now, `.grid-head`, which the stylesheet pins while the card marks it (see
-  // `tests/stylesheet.test.ts` and `tests/grid-head-pin.test.ts`). What this pins is which
-  // element is in it: everything a scrolled card has to keep in sight, and nothing that has to
-  // scroll under it.
+  // dates and the all-day band scrolled away with the hours. The rows above the hours are two
+  // boxes now, `.grid-head` with the dates and `.grid-allday-row` with the band, which the
+  // stylesheet pins while the card marks them (see `tests/stylesheet.test.ts` and
+  // `tests/pinned-rows.test.ts`): both while they fit, the head alone where the band would take
+  // too much. What this pins is which element is in which: everything a scrolled card has to keep
+  // in sight, and nothing that has to scroll under it.
   function config(overrides: Partial<Types.Config> = {}): Types.Config {
     const built = buildConfig({
       view: 'grid',
@@ -2748,38 +2752,48 @@ describe('the head pinned over the hours (D54)', () => {
     [...new Set(Array.from(elements, (element) => element.classList[0]))].sort();
   const placement = (element: HTMLElement) => `${element.className} | ${element.style.gridColumn}`;
 
-  it('holds the week numbers, the day headers, the band and its rules, and no hour', () => {
+  it('holds the week numbers and the day headers in the head, the band and its rules beside it, and no hour', () => {
     const rendered = renderGrid(EVENTS, config());
     const grid = requireElement<HTMLElement>(rendered, '.grid-container');
     const head = requireElement<HTMLElement>(rendered, '.grid-head');
+    const band = requireElement<HTMLElement>(rendered, '.grid-allday-row');
 
     expect(head.parentElement).toBe(grid);
+    expect(band.parentElement).toBe(grid);
     expect(rendered.querySelectorAll('.grid-head')).toHaveLength(1);
+    expect(rendered.querySelectorAll('.grid-allday-row')).toHaveLength(1);
+    // The head first, so the keyboard meets the dates before the banners, as it always did.
+    expect(head.nextElementSibling).toBe(band);
     // Placed by the stylesheet, which happy-dom does not apply, so nothing inline to drift.
     expect(head.getAttribute('style')).toBeNull();
-    expect(classes(head.children)).toEqual([
-      'column-week-number',
+    expect(band.getAttribute('style')).toBeNull();
+    expect(classes(head.children)).toEqual(['column-week-number', 'grid-day-header']);
+    expect(classes(band.children)).toEqual([
       'grid-allday-band',
       'grid-boundary',
-      'grid-day-header',
       'grid-separator',
       'grid-today',
       'grid-weekend',
     ]);
     // Every one of each, not just one.
-    for (const selector of ['.column-week-number', '.grid-day-header', '.grid-allday-band']) {
+    for (const [box, selector] of [
+      [head, '.column-week-number'],
+      [head, '.grid-day-header'],
+      [band, '.grid-allday-band'],
+    ] as const) {
       expect(rendered.querySelectorAll(selector).length, selector).toBeGreaterThan(0);
-      expect(head.querySelectorAll(`:scope > ${selector}`).length, selector).toBe(
+      expect(box.querySelectorAll(`:scope > ${selector}`).length, selector).toBe(
         rendered.querySelectorAll(selector).length,
       );
     }
-    expect(classes(head.querySelectorAll(':scope > .grid-boundary'))).toEqual(['grid-boundary']);
     expect(
-      Array.from(head.querySelectorAll(':scope > .grid-boundary'), (rule) => rule.classList[1]),
+      Array.from(band.querySelectorAll(':scope > .grid-boundary'), (rule) => rule.classList[1]),
     ).toEqual(['grid-boundary-band-top', 'grid-boundary-band-bottom']);
 
-    // What scrolls under the head stays out of it.
-    expect(classes(Array.from(grid.children).filter((child) => child !== head))).toEqual([
+    // What scrolls under them stays out of both.
+    expect(
+      classes(Array.from(grid.children).filter((child) => child !== head && child !== band)),
+    ).toEqual([
       'grid-axis',
       'grid-boundary',
       'grid-day-body',
@@ -2788,16 +2802,18 @@ describe('the head pinned over the hours (D54)', () => {
       'grid-today',
       'grid-weekend',
     ]);
-    expect(
-      head.querySelector('.grid-day-body, .grid-axis, .grid-rules, .grid-now-line'),
-    ).toBeNull();
+    for (const box of [head, band]) {
+      expect(
+        box.querySelector('.grid-day-body, .grid-axis, .grid-rules, .grid-now-line'),
+      ).toBeNull();
+    }
   });
 
-  it("splits each tint and day rule into the band's piece in the head and the hours' below", () => {
+  it("splits each tint and day rule into the band's piece beside the head and the hours' below", () => {
     const rendered = renderGrid(EVENTS, config());
-    const inHead = Array.from(
+    const inBand = Array.from(
       rendered.querySelectorAll<HTMLElement>(
-        '.grid-head > :is(.grid-weekend, .grid-today, .grid-separator)',
+        '.grid-allday-row > :is(.grid-weekend, .grid-today, .grid-separator)',
       ),
     );
     const below = Array.from(
@@ -2810,17 +2826,21 @@ describe('the head pinned over the hours (D54)', () => {
     expect(classes(below)).toEqual(['grid-separator', 'grid-today', 'grid-weekend']);
     expect(below.some((rule) => rule.classList.contains('grid-separator-week'))).toBe(true);
     // One piece in the band for every piece in the hours, on the same tracks.
-    expect(inHead.map(placement)).toEqual(below.map(placement));
-    expect(new Set(inHead.map((piece) => piece.style.gridRow))).toEqual(new Set(['3']));
+    expect(inBand.map(placement)).toEqual(below.map(placement));
+    expect(new Set(inBand.map((piece) => piece.style.gridRow))).toEqual(new Set(['3']));
     expect(new Set(below.map((piece) => piece.style.gridRow))).toEqual(new Set(['4']));
   });
 
-  it('keeps one piece spanning both rows while there is no band, and the rule in the head', () => {
+  it("keeps one piece spanning both rows while there is no band, and the rule in the band's box", () => {
     const rendered = renderGrid([timed(17, '09:00', '10:00', 'Standup')], config());
-    const head = requireElement<HTMLElement>(rendered, '.grid-head');
+    const band = requireElement<HTMLElement>(rendered, '.grid-allday-row');
 
     expect(rendered.querySelector('.grid-allday-band')).toBeNull();
-    expect(head.querySelector('.grid-weekend, .grid-today, .grid-separator')).toBeNull();
+    expect(
+      rendered.querySelector(
+        ':is(.grid-head, .grid-allday-row) > :is(.grid-weekend, .grid-today, .grid-separator)',
+      ),
+    ).toBeNull();
     const below = Array.from(
       rendered.querySelectorAll<HTMLElement>(
         '.grid-container > :is(.grid-weekend, .grid-today, .grid-separator)',
@@ -2828,8 +2848,8 @@ describe('the head pinned over the hours (D54)', () => {
     );
     expect(below.length).toBeGreaterThan(0);
     expect(new Set(below.map((piece) => piece.style.gridRow))).toEqual(new Set(['3 / span 2']));
-    // The rule under the headers stays with them.
-    expect(classes(head.querySelectorAll(':scope > .grid-boundary-band-bottom'))).toEqual([
+    // The rule under the headers, which the card pins with them while there is no band.
+    expect(classes(band.querySelectorAll(':scope > .grid-boundary-band-bottom'))).toEqual([
       'grid-boundary',
     ]);
   });

@@ -61,10 +61,12 @@ column:
 
 ### Height in Column View
 
-What scrolls is the events area as a whole, never a single day, so the day headers move with their
-events and nothing scrolls out of line with its neighbors. The columns are as tall as the tallest
-day and stay at the top: a quiet day leaves space beneath its last event, and a card taller than
-its columns leaves room under them.
+What scrolls is the events area as a whole, never a single day, so nothing scrolls out of line
+with its neighbors. The columns are as tall as the tallest day and stay at the top: a quiet day
+leaves space beneath its last event, and a card taller than its columns leaves room under them.
+
+- **The day headers stay at the top** while the events scroll under them, unless they would take
+  more than two thirds of the events area. Week numbers above them scroll away.
 
 ### Height in Grid View
 
@@ -82,9 +84,11 @@ card_height: 600px
 - **The all-day band keeps its rows**, at most
   [`allday_band_max_rows`](/features/grid-view#all-day-events), and never scrolls on its own.
 - **The day headers and the all-day band stay at the top** while the hours scroll under them, so
-  an all-day event stays in sight. They scroll with the hours where they would take more than half
-  the events area, and always under `min_days_fallback: cramp`. On a translucent card background
-  the hours show faintly through them as they pass under.
+  an all-day event stays in sight, as long as together they take at most two thirds of the events
+  area. Past that the day headers stay alone and the band scrolls under them with the hours; where
+  the headers alone would take more, everything scrolls. Under `min_days_fallback: cramp` nothing
+  stays. On a translucent card background the hours show faintly through them as they pass
+  under.
 
 **→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
 
