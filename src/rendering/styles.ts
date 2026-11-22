@@ -8585,47 +8585,23 @@ export const cardStyles = css`
     opacity: 0.45;
   }
 
+  /* A narrow day's capsule: a 6px segment per event, so one event is a dot, growing to 36px at
+     six. It grows no further: from the seventh event every segment shrinks by the same share,
+     since each starts at the same width and shrinks by the same factor. A cell narrower than 40px,
+     on a card under 312px, or 334px with week numbers, holds it 2px clear of each edge, so two
+     neighbors' capsules never meet. The segments abut, and the capsule rounds its ends. */
   .month-narrow-marks {
     display: flex;
     height: 6px;
+    max-width: min(36px, calc(100% - 4px));
     border-radius: 999px;
     overflow: hidden;
   }
 
   .month-narrow-mark {
-    flex: none;
+    flex: 0 1 auto;
     width: 6px;
-  }
-
-  /* A day with more events than its capsule shows: a small plus beside the capsule, outside its
-     box, so the capsule stays centered where every other day's is. Its end segments round
-     themselves, since the capsule no longer clips them, to let the plus out. Nudged up a little,
-     since a plus sits below the middle of its em box. */
-  .month-narrow-marks[data-capped] {
-    position: relative;
-    overflow: visible;
-  }
-
-  .month-narrow-marks[data-capped] > .month-narrow-mark:first-child {
-    border-start-start-radius: 999px;
-    border-end-start-radius: 999px;
-  }
-
-  .month-narrow-marks[data-capped] > .month-narrow-mark:last-child {
-    border-start-end-radius: 999px;
-    border-end-end-radius: 999px;
-  }
-
-  .month-narrow-marks[data-capped]::after {
-    content: '+';
-    position: absolute;
-    inset-block-start: 50%;
-    inset-inline-start: calc(100% + 2px);
-    transform: translateY(-60%);
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--secondary-text-color);
+    min-width: 0;
   }
 
   /* The week number, centered in its gutter beside its week, the current week's at full
