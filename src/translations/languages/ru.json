@@ -17,6 +17,12 @@
   "viewList": "Список",
   "viewColumns": "Столбцы",
   "viewGrid": "Сетка",
+  "viewMonth": "Месяц",
+  "layout": "Макет",
+  "layoutCurrent": "Макет: {view}",
+  "moreEvents": "Ещё +{count}",
+  "eventCount": "Событий: {count}",
+  "eventCountOne": "{count} событие",
   "endsToday": "заканчивается сегодня",
   "endsTomorrow": "заканчивается завтра",
   "dayOfEvent": "День {day} из {days}",
@@ -26,6 +32,9 @@
   "error": "Ошибка: Объект календарь, не найден или неправильно настроен",
   "loadFailed": "Не удалось загрузить:",
   "newEvent": "Новое событие",
+  "movedTo": "Перенесено на {time}",
+  "undo": "Отменить",
   "showAll": "Показать все",
-  "hideAll": "Скрыть все"
+  "hideAll": "Скрыть все",
+  "private": "Личное"
 }

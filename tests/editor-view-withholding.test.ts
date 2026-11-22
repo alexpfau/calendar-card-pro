@@ -2,16 +2,30 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import {
+  CARD,
+  changeField,
+  changeFields,
+  entry,
+  fakeHass,
+  formsOf,
+  mountEditor,
+  openPanels,
+  resultRows,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import type { CalendarCardProEditor } from '../src/rendering/editor/element';
+import { entryViews, parseFieldId } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
+import { PAGES, WHOLE_CARD_PAGES } from '../src/rendering/editor/pages';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
-import { group, heading, row, scope, text } from '../src/rendering/editor/schemas/common';
+import { leavesKeptOut } from '../src/rendering/editor/plan';
+import { scope, text } from '../src/rendering/editor/schemas/common';
 import {
   buildEntitySchema,
   entityConfigKeys,
@@ -23,12 +37,25 @@ import * as List from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 import { showsEventWeather } from '../src/utils/weather-position';
 
-customElements.define('editor-view-withholding-test', CalendarCardProEditor);
+/** A sub-heading, as a calendar's panel still draws one: what withholding has to prune. */
+const heading = (name: string): HaFormSchema => ({ name, type: 'constant' });
 
-interface FormElement extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
+/** An unnamed row, which nests neither data nor labels. */
+const row = (...children: HaFormSchema[]): HaFormSchema => ({
+  type: 'grid',
+  name: '',
+  schema: children,
+});
+
+/** A flattened collapsible, whose children stay at the level above it. */
+const group = (name: string, children: HaFormSchema[]): HaFormSchema => ({
+  type: 'expandable',
+  name,
+  flatten: true,
+  title: name,
+  titleKey: name,
+  schema: children,
+});
 
 interface Field {
   key: string;
@@ -92,6 +119,10 @@ function configFor(view: Types.EffectiveView, enabled = true): Types.Config {
           show_time: true,
           allday_badge: 'time',
           filter_duplicates: true,
+          // Builds the month's name on its rule, which waits for a month rule to sit on, and
+          // the name's color and size, which wait for the name.
+          month_separator_width: '1px',
+          month_separator_label: true,
           height: '360px',
           language: 'en',
           start_date: 'today+2',
@@ -122,7 +153,12 @@ function expectedFields(
           : undefined;
     if (owner === undefined) return true;
 
-    const keys = entity ? entityConfigKeys(node.name) : configKeysForField(node.name);
+    // A block's field is its own option, whatever its name.
+    const keys = entity
+      ? entityConfigKeys(node.name)
+      : path.length === 0
+        ? configKeysForField(node.name)
+        : [node.name];
     return keys.some((key) => {
       const scopes = entity
         ? { ...ViewConfig.VIEW_SCOPE, ...ViewConfig.ENTITY_VIEW_SCOPE }
@@ -130,6 +166,74 @@ function expectedFields(
       return !Object.prototype.hasOwnProperty.call(scopes, key) || scopes[key].has(owner);
     });
   });
+}
+
+/**
+ * A calendar's fields as its page draws them: what any of the layouts the page is built for
+ * applies (`field-index.ts` › `entryViews`), in the builder's order. A calendar's option is stored
+ * once and applies wherever a layout reads it, so its page is not one layout's.
+ *
+ * @param schema - The calendar's schema, as declared
+ * @param views - The layouts the page is built for
+ * @returns The fields some layout applies
+ */
+function expectedAcross(
+  schema: ReadonlyArray<HaFormSchema>,
+  views: ReadonlyArray<Types.EffectiveView>,
+): Field[] {
+  const kept = new Set(
+    views.flatMap((view) => expectedFields(schema, view, true).map((f) => f.key)),
+  );
+  return fields(schema).filter((field) => kept.has(field.key));
+}
+
+/**
+ * The fields of every card form drawn, in the order the builders build them: the pages draw them
+ * in the registry's order, which the registry test pins, so here only which fields, and how each is
+ * built, is compared.
+ *
+ * @param editor - Editor
+ * @param built - The fields in builder order
+ * @returns The drawn fields, in that order
+ */
+/** The fields Whole Card's pages draw, by their path in the form's data. */
+const WHOLE_CARD_FIELDS: ReadonlySet<string> = new Set(
+  PAGES.filter((page) => WHOLE_CARD_PAGES.has(page.id)).flatMap((page) =>
+    page.headings.flatMap((heading) =>
+      heading.fields.map(([id]) => {
+        const { dataPath, name } = parseFieldId(id);
+        return [...dataPath, name].join('.');
+      }),
+    ),
+  ),
+);
+
+function drawnInBuiltOrder(editor: CalendarCardProEditor, built: Field[]): Field[] {
+  const order = built.map((field) => field.key);
+  return (
+    formsOf(editor, CARD)
+      .flatMap((form) => fields(form.schema))
+      // Whole Card's pages draw their fields in every workspace, saying where one does not apply
+      // (Open Links in Grid), so a field of theirs the workspace withholds is no mistake.
+      .filter((field) => order.includes(field.key) || !WHOLE_CARD_FIELDS.has(field.key))
+      .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+  );
+}
+
+/**
+ * What a page draws of the fields built: all of them but a kept setting the card does not hold
+ * (`plan.ts` › `leavesKeptOut`), the events area's own height pair.
+ *
+ * @param built - Fields built
+ * @param config - The configuration as stored
+ * @param view - The layout edited
+ * @returns The fields drawn
+ */
+function drawable(built: Field[], config: Types.Config, view: Types.EffectiveView): Field[] {
+  return built.filter(
+    ({ key }) =>
+      !leavesKeptOut(`layout:${key}`, config as unknown as Record<string, unknown>, view),
+  );
 }
 
 function reconcile(actual: Field[], expected: Field[]): void {
@@ -143,47 +247,13 @@ function reconcile(actual: Field[], expected: Field[]): void {
 }
 
 async function mount(config: Types.Config, current = true): Promise<CalendarCardProEditor> {
-  const editor = new CalendarCardProEditor();
-  editor.hass = {
-    states: {},
-    locale: { language: 'en' },
-    callApi: async () => [],
-    callService: () => {},
-  };
   const raw = { ...config };
   if (current) raw.config_version = Config.CURRENT_CONFIG_VERSION;
   else delete raw.config_version;
-  editor.setConfig(raw);
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  const editor = await mountEditor(raw, { hass: fakeHass() });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   return editor;
-}
-
-function forms(editor: CalendarCardProEditor, selector = 'ha-form.panel-form'): FormElement[] {
-  return Array.from(editor.shadowRoot!.querySelectorAll<FormElement>(selector));
-}
-
-function formOwning(editor: CalendarCardProEditor, key: string): FormElement {
-  const found = forms(editor, 'ha-form.panel-form, ha-form.display-view-form').find((form) =>
-    fields(form.schema).some((field) => field.key === key),
-  );
-  if (!found) throw new Error(`No rendered form owns ${key}`);
-  return found;
-}
-
-async function change(
-  editor: CalendarCardProEditor,
-  form: FormElement,
-  patch: Record<string, unknown>,
-): Promise<void> {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, ...patch } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
 }
 
 beforeEach(() => {
@@ -198,32 +268,50 @@ afterEach(() => {
 });
 
 describe('view withholding reconciles both directions', () => {
-  it.each([false, true])('matches every built and rendered field, enabled=%s', async (enabled) => {
-    for (const view of ViewConfig.VIEWS) {
-      const config = configFor(view, enabled);
-      const schemas = PANELS.map((panel) => panel.build(context(config)));
-      const before = structuredClone(schemas);
-      const raw = schemas.flat();
-      const expected = expectedFields(raw, view);
-      expect(fields(raw).length).toBeGreaterThan(50);
-      expect(expected.length).toBeGreaterThan(50);
+  it.each([false, true])(
+    'matches every built and rendered field, enabled=%s',
+    async (enabled) => {
+      for (const view of ViewConfig.VIEWS) {
+        const config = configFor(view, enabled);
+        const schemas = PANELS.map((panel) => panel.build(context(config)));
+        const before = structuredClone(schemas);
+        const raw = schemas.flat();
+        const expected = expectedFields(raw, view);
+        expect(fields(raw).length).toBeGreaterThan(50);
+        expect(expected.length).toBeGreaterThan(50);
 
-      reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
-      const editor = await mount(config);
-      reconcile(
-        forms(editor).flatMap((form) => fields(form.schema)),
-        expected,
-      );
-      expect(schemas).toEqual(before);
-    }
-  });
+        reconcile(fields(Filter.withholdInertFields(raw, view)), expected);
+        const editor = await mount(config);
+        const drawn = drawable(expected, config, view);
+        reconcile(drawnInBuiltOrder(editor, drawn), drawn);
+        expect(schemas).toEqual(before);
+      }
+      // Over a second in a full local run; the limit is set for CI's slower runner under load
+      // rather than for a hang.
+    },
+    30_000,
+  );
 
   it('opens every condition needed to exercise all recorded scopes', () => {
+    // A second state per view opens the three conditions the fixture's own leaves shut, scoped
+    // since Month: Show Today When Empty is built only with Show Empty Days off, Week Number
+    // Background only while week numbers are shown, and Open Links only while events open
+    // nothing, which by default they do.
+    const states = (view: Types.EffectiveView): Types.Config[] => [
+      configFor(view),
+      buildConfig({
+        ...configFor(view),
+        show_empty_days: false,
+        show_empty_today: true,
+        show_week_numbers: 'iso',
+        event_tap_action: { action: 'none' },
+      }),
+    ];
     const encountered = new Set(
       ViewConfig.VIEWS.flatMap((view) =>
-        PANELS.flatMap((panel) =>
-          fields(panel.build(context(configFor(view)))).flatMap((field) =>
-            configKeysForField(field.key),
+        states(view).flatMap((config) =>
+          PANELS.flatMap((panel) =>
+            fields(panel.build(context(config))).flatMap((field) => configKeysForField(field.key)),
           ),
         ),
       ),
@@ -238,7 +326,7 @@ describe('view withholding reconciles both directions', () => {
 
   it.each(['card', 'entity'] as const)('keeps unknown keys visible in %s forms', (target) => {
     const schema = [
-      group('en', 'unknown_group', '', [
+      group('unknown_group', [
         row(text('future_option'), text('toString'), text('event_background_opacity')),
         text('compact_events_to_show'),
       ]),
@@ -259,12 +347,12 @@ describe('view withholding reconciles both directions', () => {
 
   it('distinguishes real data blocks from flattened label groups and unknown nesting', () => {
     const schema = [
-      group('en', 'labels_only', '', [text('split_multiday_events')]),
+      group('labels_only', [text('split_multiday_events')]),
       scope('column', [text('split_multiday_events')]),
       scope('time_grid', [text('split_multiday_events'), text('hour_height')]),
       scope('weather', [scope('date', [text('split_multiday_events')])]),
       scope('future_block', [text('split_multiday_events')]),
-      group('en', 'compact_events_to_show', '', [text('event_background_opacity')]),
+      group('compact_events_to_show', [text('event_background_opacity')]),
     ];
 
     expect(fields(Filter.withholdInertFields(schema, 'grid')).map((field) => field.key)).toEqual([
@@ -280,7 +368,7 @@ describe('view withholding reconciles both directions', () => {
     const survivor = row(text('show_empty_days'), text('future_option'));
     const schema = [
       heading('removed_heading'),
-      group('en', 'removed_group', '', [
+      group('removed_group', [
         heading('nested_heading'),
         row(text('compact_days_to_show'), text('compact_events_to_show')),
       ]),
@@ -295,17 +383,23 @@ describe('view withholding reconciles both directions', () => {
     ]);
   });
 
-  it('drops a panel emptied by withholding even without a search', async () => {
+  it('draws nothing of a panel emptied by withholding, even without a search', async () => {
     const config = configFor('grid');
-    const before = forms(await mount(config)).length;
-    expect(before).toBeGreaterThan(1);
+    const cardFields = (forms: ReadonlyArray<HTMLElement>) =>
+      forms.filter((form) =>
+        form.closest('[data-field]')?.getAttribute('data-field')?.startsWith('card:'),
+      );
+    const before = formsOf(await mount(config), CARD);
+    expect(cardFields(before).length).toBeGreaterThan(1);
     const panel = PANELS.find((candidate) => candidate.id === 'card');
     if (!panel) throw new Error('Card panel not found');
     vi.spyOn(panel, 'build').mockReturnValue([
       heading('empty_heading'),
       text('compact_events_to_show'),
     ]);
-    expect(forms(await mount(config))).toHaveLength(before - 1);
+    const after = formsOf(await mount(config), CARD);
+    expect(cardFields(after)).toEqual([]);
+    expect(after).toHaveLength(before.length - cardFields(before).length);
   });
 
   it('reconciles per-calendar forms, including the newly supported column split control', async () => {
@@ -326,18 +420,34 @@ describe('view withholding reconciles both directions', () => {
       expect(fields(raw).length).toBeGreaterThan(10);
       reconcile(
         fields(
-          Filter.filterEntitySchema(raw, config.entities[0], ENTITY_PATH, {
-            ...context(config),
-            criteria: Filter.NO_FILTER,
-          }),
+          Filter.withholdInertFields(
+            raw,
+            context(config).workspace ?? context(config).view,
+            'entity',
+          ),
         ),
         expected,
       );
-      const entityForms = forms(await mount(config), 'ha-form.entity-form');
-      expect(entityForms).toHaveLength(1);
-      reconcile(fields(entityForms[0].schema), expected);
+      // The one calendar's entry page draws each of its fields in a form of its own, grouped
+      // under the page's headings, so its fields are compared in the order the builder builds
+      // them. The page is built for the card's layouts, so it holds what any of them applies.
+      const editor = await mount(config);
+      const entityForms = formsOf(editor, entry());
+      expect(entityForms.length).toBeGreaterThan(0);
+      expect(entityForms).toEqual(formsOf(editor, entry(0)));
+      const across = expectedAcross(raw, entryViews(config, view));
+      expect(across.length).toBeGreaterThanOrEqual(expected.length);
+      const order = across.map((field) => field.key);
+      reconcile(
+        entityForms
+          .flatMap((form) => fields(form.schema))
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)),
+        across,
+      );
     }
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('uses a calendar-specific verdict and keeps a derived control if any key is relevant', () => {
     vi.spyOn(ViewConfig, 'entityScopeFor').mockImplementation((key) =>
@@ -377,57 +487,109 @@ describe('withholding is not a search filter or a config edit', () => {
       );
     });
     const before = PANELS.flatMap((panel) => panel.build(context(config)));
-    reconcile(
-      forms(editor).flatMap((form) => fields(form.schema)),
-      expectedFields(before, from),
-    );
+    const drawnBefore = drawable(expectedFields(before, from), config, from);
+    reconcile(drawnInBuiltOrder(editor, drawnBefore), drawnBefore);
 
-    await change(editor, formOwning(editor, 'view'), { view: to });
+    await changeField(editor, 'display:view', to);
     expect(seen).toHaveLength(1);
     expect(seen[0].view).toBe(to);
     const after = PANELS.flatMap((panel) => panel.build(context(seen[0])));
-    reconcile(
-      forms(editor).flatMap((form) => fields(form.schema)),
-      expectedFields(after, to),
-    );
+    const drawnAfter = drawable(expectedFields(after, to), seen[0], to);
+    reconcile(drawnInBuiltOrder(editor, drawnAfter), drawnAfter);
   });
 
-  it('cannot be bypassed by panel, group, field, or customized-only searches', async () => {
+  it('cannot be bypassed by page, heading or field searches', async () => {
     const config = configFor('grid');
     const editor = await mount(config);
-    const search = forms(editor, 'ha-form.filter-form')[0];
-    expect(forms(editor).length).toBeGreaterThan(1);
+    expect(formsOf(editor, CARD).length).toBeGreaterThan(1);
+    // What applies to Grid, read off the built schemas rather than off the editor.
+    const cardKeys = expectedFields(
+      PANELS.flatMap((panel) => panel.build(context(config))),
+      'grid',
+    ).map((field) => field.key);
+    // A calendar's page holds what any of the card's layouts applies: Grid, and List, which a
+    // Grid card falls back to on a narrow screen.
+    const calendarViews = entryViews(config, 'grid');
+    expect(calendarViews).toEqual(['list', 'grid']);
+    const calendarKeys = expectedAcross(buildEntitySchema(context(config)), calendarViews).map(
+      (field) => field.key,
+    );
 
+    let total = 0;
     for (const criteria of [
-      { search: '', customized_only: false },
-      { search: 'Time Range & Content', customized_only: false },
-      { search: 'content', customized_only: false },
-      { search: 'compact', customized_only: false },
-      { search: 'Multi-Day Events', customized_only: false },
-      { search: 'empty_day_text', customized_only: false },
-      { search: 'Anna', customized_only: false },
-      { search: '', customized_only: true },
+      { search: '' },
+      { search: 'Which Events' },
+      { search: 'which' },
+      { search: 'compact' },
+      { search: 'Multi-Day Events' },
+      { search: 'empty_day_text' },
+      { search: 'Anna' },
     ]) {
-      await change(editor, search, criteria);
-      for (const form of forms(
-        editor,
-        'ha-form.panel-form, ha-form.entity-form, ha-form.exception-form',
-      )) {
-        const actual = fields(form.schema);
-        reconcile(
-          actual,
-          expectedFields(form.schema, 'grid', form.classList.contains('entity-form')),
-        );
+      await changeFields(editor, { 'filter:search': criteria.search });
+      if (criteria.search === '') {
+        const calendars = formsOf(editor, entry());
+        for (const form of [...formsOf(editor, CARD), ...calendars]) {
+          // Whole Card's pages draw in the shared scope, saying where a field does not apply.
+          const actual = fields(form.schema).filter(
+            (field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key),
+          );
+          reconcile(
+            actual,
+            (calendars.includes(form)
+              ? expectedAcross(form.schema, calendarViews)
+              : expectedFields(form.schema, 'grid')
+            ).filter((field) => calendars.includes(form) || !WHOLE_CARD_FIELDS.has(field.key)),
+          );
+        }
+        continue;
       }
-      if (criteria.search === 'content') {
-        expect(
-          forms(editor)
-            .flatMap((form) => fields(form.schema))
-            .map((f) => f.key),
-        ).toContain('show_empty_days');
+      // A query lists rows: none of them a field Grid withholds, unless tagged as another
+      // layout's or as waiting on another setting, which it may only open, never edit here.
+      // Pages, Home Assistant's tabs, the calendar list and Split This Calendar are not fields.
+      const rows = resultRows(editor);
+      const onlyIn = rows.filter(({ tag }) => tag?.startsWith('Only in '));
+      expect(
+        onlyIn
+          .filter(({ id, tag }) => !id.startsWith('calendar:') && tag!.includes('Grid'))
+          .map(({ id }) => id),
+        criteria.search,
+      ).toEqual([]);
+      // A calendar's option tagged with its layouts is one its page draws: some of the card's
+      // layouts apply it, and the tag says which.
+      expect(
+        onlyIn
+          .filter(({ id }) => id.startsWith('calendar:'))
+          .filter(({ id }) => !calendarKeys.includes(id.slice(id.indexOf(':') + 1)))
+          .map(({ id }) => id),
+        criteria.search,
+      ).toEqual([]);
+      const listed = rows
+        .filter(
+          ({ id, tag }) => tag === undefined && !/^(page|ha|overview):|^calendar:split$/.test(id),
+        )
+        .map(({ id }) => ({
+          key: id.slice(id.indexOf(':') + 1),
+          calendar: id.startsWith('calendar:'),
+        }));
+      total += listed.length;
+      expect(
+        listed.filter(({ key, calendar }) => !(calendar ? calendarKeys : cardKeys).includes(key)),
+        criteria.search,
+      ).toEqual([]);
+      if (criteria.search === 'which') {
+        expect(listed.map(({ key }) => key)).toContain('show_empty_days');
       }
     }
-  });
+    // The denominators: rows were listed, and Grid does withhold fields the panels build, so
+    // "none of them withheld" can fail.
+    expect(total).toBeGreaterThan(10);
+    const built = PANELS.flatMap((panel) =>
+      fields(panel.build(context(config))).map((field) => field.key),
+    );
+    expect(built.filter((key) => !cardKeys.includes(key)).length).toBeGreaterThan(0);
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('preserves hidden root, calendar, and block values through edits and a view round trip', async () => {
     // Split because the v5 migration relocates list-only keys into `list:` on save, on a
@@ -446,7 +608,12 @@ describe('withholding is not a search filter or a config edit', () => {
       ...configFor('grid'),
       ...hiddenRoot,
       ...hiddenList,
-      time_grid: { split_multiday_events: true, empty_day_text: 'Grid placeholder' },
+      // Grid alone, with no narrow fallback to List, so List's calendar options stay hidden too.
+      time_grid: {
+        split_multiday_events: true,
+        empty_day_text: 'Grid placeholder',
+        min_days_fallback: 'cramp',
+      },
     });
     const editor = await mount(config, false);
     const seen: Record<string, unknown>[] = [];
@@ -455,21 +622,21 @@ describe('withholding is not a search filter or a config edit', () => {
     });
 
     expect(
-      forms(editor)
+      formsOf(editor, CARD)
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('empty_day_color');
     expect(
-      forms(editor, 'ha-form.entity-form')
+      formsOf(editor, entry())
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('split_multiday_events');
 
-    await change(editor, formOwning(editor, 'days_to_show'), { days_to_show: 7 });
-    await change(editor, forms(editor, 'ha-form.entity-form')[0], { label: 'Ben' });
-    await change(editor, formOwning(editor, 'view'), { view: 'list' });
-    expect(formOwning(editor, 'empty_day_color').data.empty_day_color).toBe('#607d8b');
-    await change(editor, formOwning(editor, 'view'), { view: 'grid' });
+    await changeField(editor, 'content:days_to_show', 7);
+    await changeField(editor, 'calendar:label', 'Ben', entry(0));
+    await changeField(editor, 'display:view', 'list');
+    expect(valueOf(editor, 'content:empty_day_color')).toBe('#607d8b');
+    await changeField(editor, 'display:view', 'grid');
 
     expect(seen).toHaveLength(4);
     for (const saved of seen) {
@@ -487,11 +654,13 @@ describe('withholding is not a search filter or a config edit', () => {
     expect(seen[3].time_grid).toMatchObject({ days_to_show: 7 });
     expect(seen[3].entities).toEqual([expect.objectContaining({ label: 'Ben' })]);
     expect(
-      forms(editor)
+      formsOf(editor, CARD)
         .flatMap((form) => fields(form.schema))
         .map((f) => f.key),
     ).not.toContain('empty_day_color');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 describe('empty-day reachability is reconciled across the config partition', () => {
@@ -539,6 +708,17 @@ describe('empty-day reachability is reconciled across the config partition', () 
 
   it('backs those verdicts with real placeholder rows in list and column, but not grid', () => {
     for (const view of ViewConfig.VIEWS) {
+      // Month draws every day of its six weeks whatever their events, so it offers neither the
+      // switch nor the placeholder it would fill.
+      if (!ViewConfig.appliesToView('show_empty_days', view)) {
+        const month = buildConfig({ view, entities: ['calendar.anna'], show_empty_days: true });
+        const raw = PANELS.flatMap((panel) => panel.build(context(month)));
+        const offered = fields(Filter.withholdInertFields(raw, view)).map((field) => field.key);
+        expect(offered, view).not.toContain('show_empty_days');
+        expect(offered, view).not.toContain('empty_day_text');
+        expect(offered, view).not.toContain('empty_day_color');
+        continue;
+      }
       const config = buildConfig({
         view,
         entities: ['calendar.anna'],

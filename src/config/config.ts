@@ -4,6 +4,7 @@
 
 import * as Constants from './constants';
 import * as Types from './types';
+import { VIEWS } from './views';
 import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
 import { normalizeVisibility } from '../utils/visibility';
@@ -12,7 +13,15 @@ import { normalizeVisibility } from '../utils/visibility';
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
-export const CURRENT_CONFIG_VERSION = 5;
+/**
+ * The configuration format the editor writes. Version 6 changed no option's shape: it marks a
+ * card whose calendars the editor has checked for the event details v6 shows (`hidden-details.ts`
+ * in the editor), so a card saved by the v5 editor is told once.
+ */
+export const CURRENT_CONFIG_VERSION = 6;
+
+/** The first format with layout blocks: a card at this version or later needs no list migration. */
+export const LAYERED_CONFIG_VERSION = 5;
 
 export const DEFAULT_CONFIG: Types.Config = {
   config_version: undefined,
@@ -41,8 +50,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   title_color: undefined,
 
   background_color: 'var(--ha-card-background)',
-  // The theme's primary color, so a calendar nobody colored, the today tile, the week-number
-  // pills and the week separators take a custom theme's accent instead of a fixed blue. The
+  // The theme's primary color, so a calendar nobody colored and the today tile, and through it
+  // the week-number pills and the week separators, take a custom theme's accent instead of a
+  // fixed blue. The
   // fallback is the card's former default, for a host that defines no --primary-color. Kept
   // as literals rather than a shared constant: check:docs reads these defaults as source text.
   accent_color: 'var(--primary-color, #03a9f4)',
@@ -55,21 +65,28 @@ export const DEFAULT_CONFIG: Types.Config = {
   additional_card_spacing: '0px',
   height: 'auto',
   max_height: 'none',
+  // The whole card's, title and toolbar included; `auto` is each layout's own height.
+  card_height: 'auto',
+  card_max_height: 'none',
 
   first_day_of_week: 'system',
   show_week_numbers: null,
   show_current_week_number: true,
   week_number_font_size: '12px',
-  week_number_color: 'var(--primary-text-color)',
-  // 31% is the former '#03a9f450' (0x50 / 255), carried over to the theme's color.
-  week_number_background_color:
-    'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  // Unset, the pill is drawn as today's tile is, in the stylesheet: a wash of
+  // today_indicator_color with its number in a deeper shade. A recipe with browser tiers
+  // cannot live in a default string. See `.week-number` in styles.ts.
+  week_number_color: undefined, // Inherit from the tile's ink, or a shade of a set background
+  week_number_background_color: undefined, // Inherit from the tile's wash
   day_separator_width: '0px',
   day_separator_color: 'var(--secondary-text-color)',
   week_separator_width: '0px',
-  week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
+  week_separator_color: undefined, // Inherit from week_number_background_color
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
+  month_separator_label: false,
+  month_separator_label_color: undefined, // Inherit from month_separator_color
+  month_separator_label_font_size: '12px',
 
   today_indicator: 'tile',
   today_indicator_position: '15% 50%',
@@ -154,6 +171,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   description_color: 'var(--secondary-text-color)',
   description_icon_size: '14px',
 
+  // The weather entity every layout draws from; each layout's `weather:` says how, off until it
+  // does (`resolveViewWeather`).
+  weather_entity: undefined,
+
   // Weather. `color` is deliberately absent so each placement can use its own fallback;
   // adding a default would be written to YAML by the editor and become indistinguishable
   // from a user choice.
@@ -184,7 +205,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
   day_tap_action: { action: 'none' },
-  event_tap_action: { action: 'none' },
+  // A tap on an event opens it, in every layout: a month's weeks show little more than each title,
+  // and nowhere else does one event open. `none` turns it off, leaving the tap to `tap_action`.
+  event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
   event_hold_action: { action: 'none' },
   open_links: false,
   allow_event_edit: true,
@@ -202,10 +225,12 @@ export const DEFAULT_CONFIG: Types.Config = {
     navigation: true,
     add_event: true,
     view_switcher: true,
+    view_switcher_layouts: ['list', 'column', 'grid', 'month'],
     reset: false,
     refresh: true,
     search: true,
     legend: 'menu',
+    size: 'normal',
     buttons: [],
   },
 
@@ -215,6 +240,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   list: undefined,
   column: undefined,
   time_grid: undefined,
+  month: undefined,
 };
 
 export type ConfigVersionState =
@@ -332,6 +358,56 @@ export function validatePastEventOpacity(value: unknown, path = 'past_event_opac
   Logger.warn(`Ignoring "${path}": expected a finite percentage from 0 to 100.`);
 }
 
+/**
+ * The week-number pill's colors and the week separator's, unset by default so that they follow
+ * today's tile. Only text can be a color: unquoted in YAML, `333333` arrives as a number and
+ * `yes` as a boolean.
+ */
+export const WEEK_MARK_COLOR_OPTIONS = [
+  'week_number_color',
+  'week_number_background_color',
+  'week_separator_color',
+] as const;
+
+/**
+ * A week mark's color as it is drawn: the text written, or `undefined`, drawn as unset, where
+ * nothing is written or what is written is not text. {@link validateWeekMarkColor} reports the
+ * second.
+ *
+ * @param value - The option's value as written
+ * @returns The color, or `undefined`
+ */
+export function weekMarkColor(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/**
+ * Reports a week mark's color that is not text, which the card draws as unset.
+ *
+ * @param value - Raw value; missing and null values mean unset
+ * @param path - Option path used in the diagnostic, `column.week_separator_color` in a view block
+ */
+export function validateWeekMarkColor(value: unknown, path: string): void {
+  if (value === undefined || value === null || typeof value === 'string') {
+    return;
+  }
+  Logger.warn(
+    `Invalid ${path} ${JSON.stringify(value)}: expected a CSS color as text, such as ` +
+      '"#e67c7350"; in YAML, quote a hex color. Ignoring it.',
+  );
+}
+
+/**
+ * Reports every top-level week mark color that is not text.
+ *
+ * @param config - Merged configuration, as written
+ */
+export function validateWeekMarkColors(config: Types.Config): void {
+  for (const key of WEEK_MARK_COLOR_OPTIONS) {
+    validateWeekMarkColor(config[key], key);
+  }
+}
+
 // Also read by the editor's upgrade path.
 export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
@@ -344,6 +420,15 @@ export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
 export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
 };
+
+/**
+ * Options a configuration states whole: an event's tap and hold actions. The user's object
+ * replaces the default instead of merging into it, so one that names no `action`, `{}` among them,
+ * is nothing on an event (`eventActionKind`), as the editor reads it, rather than taking the
+ * default's `details`. The card's own three actions still merge: `_cardActionRuns` reads an
+ * object without `action` as one that runs.
+ */
+const WHOLE_OPTIONS: ReadonlySet<string> = new Set(['event_tap_action', 'event_hold_action']);
 
 /**
  * Merges a user configuration over the defaults, filling nested blocks key by key.
@@ -359,7 +444,8 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
  * Only plain objects recurse. **Arrays are replaced wholesale**, which is what `entities:`
  * needs — merging a two-calendar list over a three-calendar default would leave behind a
  * third calendar the user had deleted. A user value that is not a plain object always wins,
- * so `weather: null` clears the block rather than being merged into.
+ * so `weather: null` clears the block rather than being merged into. So does any value of an
+ * option in {@link WHOLE_OPTIONS}.
  *
  * The write path already matches this: `toStoredConfig` routes `weather` through
  * `stripWeatherDefaults`, which compares each nested option against these same defaults and
@@ -380,7 +466,7 @@ export function mergeConfig(
     const fallback = defaults[key];
 
     merged[key] =
-      Helpers.isConfigBlock(value) && Helpers.isConfigBlock(fallback)
+      !WHOLE_OPTIONS.has(key) && Helpers.isConfigBlock(value) && Helpers.isConfigBlock(fallback)
         ? mergeConfig(fallback, value)
         : value;
   }
@@ -396,12 +482,20 @@ export interface ResolvedToolbar {
   show: boolean;
   navigation: boolean;
   addEvent: boolean;
+  /** Whether the layout switcher is on: drawn while it offers two layouts that fit. */
   viewSwitcher: boolean;
+  /**
+   * The layouts `view_switcher_layouts` names, in `VIEWS` order, each once: every layout by
+   * default. The switcher offers these and the card's own `view` (`switcherOffers`).
+   */
+  switcherViews: ReadonlyArray<Types.EffectiveView>;
   reset: boolean;
   refresh: boolean;
   search: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
+  /** How large the month's row draws the date navigation and the calendar chips. */
+  size: Types.ToolbarSize;
   /** The buttons the configuration adds, in the order written; entries it cannot draw left out. */
   buttons: ReadonlyArray<Types.ToolbarButtonConfig>;
 }
@@ -413,6 +507,9 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
   'chips',
 ];
 
+/** Every value `toolbar.size` accepts. */
+export const TOOLBAR_SIZE_VALUES: ReadonlyArray<Types.ToolbarSize> = ['normal', 'large'];
+
 /**
  * Reads the `toolbar:` block, member by member, falling back to the shipped default.
  *
@@ -420,7 +517,8 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
  * replaces the default block, or a value of the wrong kind such as `show: "yes"`. Either reads
  * as the default for that member, so a typo never draws a control the user did not ask for and
  * never removes one they did. `legend: true` is one of those: the legend is a choice of mode,
- * and `true` names none, so it reads as the default, `menu`. `buttons` is read entry by entry,
+ * and `true` names none, so it reads as the default, `menu`. A `size` other than `normal` or
+ * `large` reads as `normal`. `buttons` is read entry by entry,
  * and an entry that cannot be drawn as written is left out (`isToolbarButton`).
  *
  * @param config - Configuration, merged or raw
@@ -431,23 +529,124 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons'>): boolean =>
+  const read = (
+    key: Exclude<
+      keyof Types.ToolbarConfig,
+      'legend' | 'size' | 'buttons' | 'view_switcher_layouts'
+    >,
+  ): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
+  const switcherViews = resolveSwitcherViews(
+    block.view_switcher_layouts,
+    defaults.view_switcher_layouts,
+  );
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
     : defaults.legend;
+  const size = TOOLBAR_SIZE_VALUES.includes(block.size as Types.ToolbarSize)
+    ? (block.size as Types.ToolbarSize)
+    : defaults.size;
 
   return {
     show: read('show'),
     navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),
+    switcherViews,
     reset: read('reset'),
     refresh: read('refresh'),
     search: read('search'),
     legend,
+    size,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
+}
+
+/**
+ * The layouts a `view_switcher_layouts` value names, in `VIEWS` order: for a list, its members
+ * that name a layout, each once, so an empty list names none. A value of any other kind reads as
+ * the default.
+ *
+ * @param value - `view_switcher_layouts` as written
+ * @param fallback - The shipped default, for a value of the wrong kind
+ * @returns The layouts named
+ */
+function resolveSwitcherViews(
+  value: unknown,
+  fallback: ReadonlyArray<Types.EffectiveView>,
+): ReadonlyArray<Types.EffectiveView> {
+  const named: ReadonlyArray<unknown> = Array.isArray(value) ? value : fallback;
+  return VIEWS.filter((view) => named.includes(view));
+}
+
+/**
+ * The layouts the toolbar's view switcher offers: the card's own `view` and those
+ * `view_switcher_layouts` names, in `VIEWS` order, while the toolbar is shown with its switcher
+ * on and that comes to two or more. None otherwise, since a switcher of one layout is not drawn.
+ * Whether each fits the card's width is the card's to decide.
+ *
+ * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
+ * `view_switcher: true` and `show: false`, so reading the switcher flag alone would offer every
+ * layout on nearly every card.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The layouts offered, or none
+ */
+export function switcherOffers(
+  config: Readonly<Pick<Types.Config, 'toolbar' | 'view'>>,
+): ReadonlyArray<Types.EffectiveView> {
+  const toolbar = resolveToolbar(config);
+  if (!toolbar.show || !toolbar.viewSwitcher) return [];
+  const offered = VIEWS.filter(
+    (view) => view === config.view || toolbar.switcherViews.includes(view),
+  );
+  return offered.length >= 2 ? offered : [];
+}
+
+/**
+ * Whether the configuration asks for a toolbar that holds a control: `show` on, with any control
+ * on, a switcher that offers two layouts, or a button of its own. Search is not counted: the card
+ * draws it only beside the date navigation, which it opens a match's day with, so it never makes
+ * a toolbar of its own. The month's default height makes room for the toolbar where this holds
+ * (`Sections.cardGridOptions`, `MonthRender.monthCardStyle`).
+ *
+ * Read from the configuration alone, so a Sections dashboard, which asks again only when the
+ * configuration changes, gets the same answer as the card. What one device then draws can be
+ * less: an add button needs a calendar it can write to, a switched layout has to fit, and a
+ * filter needs a calendar to filter. The room is kept all the same, so the height does not move
+ * with any of them.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns `true` while the configuration asks for a toolbar with a control in it
+ */
+export function asksForToolbar(config: Readonly<Pick<Types.Config, 'toolbar' | 'view'>>): boolean {
+  const toolbar = resolveToolbar(config);
+  if (!toolbar.show) return false;
+  return (
+    toolbar.navigation ||
+    toolbar.addEvent ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.legend !== false ||
+    toolbar.buttons.length > 0 ||
+    switcherOffers(config).length > 0
+  );
+}
+
+/**
+ * The `toolbar.view_switcher_layouts` members the card leaves out, as written: each that names
+ * no layout.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The members left out, in the order written
+ */
+export function unknownSwitcherViews(config: Readonly<Pick<Types.Config, 'toolbar'>>): unknown[] {
+  const list = Helpers.isConfigBlock(config.toolbar)
+    ? config.toolbar.view_switcher_layouts
+    : undefined;
+  return Array.isArray(list)
+    ? list.filter((member) => !VIEWS.includes(member as Types.EffectiveView))
+    : [];
 }
 
 /**
@@ -727,11 +926,14 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
  * stylesheet, which no font size feeds.
  *
  * Entries are option paths, as in the icon-size table, so the two weather `font_size`
- * options are named by where they live.
+ * options are named by where they live. The last two live in the `month:` block only and are
+ * named bare, as its other options are; the top-level check skips them and the block's reports
+ * them, with the block's default.
  */
 export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'title_font_size',
   'week_number_font_size',
+  'month_separator_label_font_size',
   'weekday_font_size',
   'day_font_size',
   'month_font_size',
@@ -741,6 +943,8 @@ export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
   'description_font_size',
   'weather.date.font_size',
   'weather.event.font_size',
+  'cell_event_font_size',
+  'cell_time_font_size',
 ]);
 
 /**
@@ -766,6 +970,28 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
 ]);
 
 /**
+ * The whole card's heights, whose unusable value is folded rather than passed through: its height
+ * and its cap, and Month's pair for its narrow form, judged by {@link toValidCardHeight} and
+ * {@link toValidCardMaxHeight}.
+ *
+ * A month measures how many lines fit under a date from a week's height, so a week must never
+ * be sized by its events, and the other layouts fill what the card's height leaves them. A
+ * percentage resolves against a height the card does not have, and a keyword such as
+ * `fit-content` sizes the box by what is in it. A card height takes `auto`, the layout's own
+ * height, and a cap takes `none`; anything else that is not a length folds the same way.
+ *
+ * `card_height` and `card_max_height` fold to `auto` and `none`, at the top level and in every
+ * layout's block. A narrow key has no default of its own: unusable, it counts as unset and the
+ * narrow form takes the wide value. Its own table, for the reason the bar width has one.
+ */
+export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'card_height',
+  'card_max_height',
+  'narrow_card_height',
+  'narrow_card_max_height',
+]);
+
+/**
  * The keywords a border width takes, at the widths CSS defines for them, and `none`.
  *
  * `thin`, `medium` and `thick` drew the old border at 1px, 3px and 5px, and still draw the
@@ -781,11 +1007,15 @@ const BAR_WIDTH_KEYWORDS: Readonly<Record<string, string>> = {
   none: '0px',
 };
 
-/** Every option that folds an unusable value: the icon sizes, the font sizes, the bar width. */
+/**
+ * Every option that folds an unusable value: the icon sizes, the font sizes, the bar width, a
+ * month's heights.
+ */
 export const FOLDED_OPTIONS: ReadonlyArray<string> = [
   ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE,
 ];
 
 /**
@@ -793,8 +1023,8 @@ export const FOLDED_OPTIONS: ReadonlyArray<string> = [
  * never folds.
  *
  * @param key - Option path
- * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth}, or
- *   `undefined`
+ * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth},
+ *   {@link toValidCardHeight}, {@link toValidCardMaxHeight}, or `undefined`
  */
 function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
   if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
@@ -803,6 +1033,10 @@ function foldValidator(key: string): ((value: unknown) => string | undefined) | 
 
   if (BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
     return toValidBarWidth;
+  }
+
+  if (CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return key.endsWith('_max_height') ? toValidCardMaxHeight : toValidCardHeight;
   }
 
   return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
@@ -976,6 +1210,59 @@ export function toValidBarWidth(value: unknown): string | undefined {
 }
 
 /**
+ * A row's height, tidied, or `undefined` when the value cannot be one: a size by
+ * {@link toValidSize}'s rule, a non-negative length with no percentage and no keyword, which is a
+ * length a row can be drawn at whatever is in it. An `!important` flag is dropped rather than
+ * kept, since the card writes the height into a custom property and a `calc()` of its own, where
+ * the flag means nothing and would make the `calc()` unusable.
+ *
+ * @param value - Raw configured value
+ * @returns The height to use, or `undefined` when the value cannot be one
+ */
+export function toValidRowHeight(value: unknown): string | undefined {
+  return toValidSize(value)?.replace(/ !important$/, '');
+}
+
+/**
+ * Whether a value is a keyword, in any case, around whitespace and a CSS declaration's trailing
+ * semicolons.
+ *
+ * @param value - Raw configured value
+ * @param keyword - The keyword, in lowercase
+ * @returns `true` when the value is that keyword
+ */
+function isKeyword(value: unknown, keyword: string): boolean {
+  return (
+    typeof value === 'string' && value.replace(DECLARATION_END, '').trim().toLowerCase() === keyword
+  );
+}
+
+/**
+ * A whole card's height, tidied, or `undefined` when the value cannot be one: `auto`, the
+ * layout's own height, or a length a row can be drawn at by {@link toValidRowHeight}'s rule, a
+ * `calc()`, a `var()` and a viewport unit such as `dvh` included. A percentage and every other
+ * keyword are refused, since each would size the card by its events or by a height it does not
+ * have.
+ *
+ * @param value - Raw configured value
+ * @returns `auto`, the height to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'auto') ? 'auto' : toValidRowHeight(value);
+}
+
+/**
+ * A whole card's cap, tidied, or `undefined` when the value cannot be one: `none`, no cap, or a
+ * length by {@link toValidCardHeight}'s rule.
+ *
+ * @param value - Raw configured value
+ * @returns `none`, the cap to use, or `undefined` when the value cannot be one
+ */
+export function toValidCardMaxHeight(value: unknown): string | undefined {
+  return isKeyword(value, 'none') ? 'none' : toValidRowHeight(value);
+}
+
+/**
  * Removes what a CSS declaration adds around a value — trailing semicolons and an
  * `!important` flag — judges the value that remains, and puts the flag back.
  *
@@ -1082,8 +1369,15 @@ export function foldsToDefault(key: string, value: unknown): boolean {
  * @param value - Raw value, before normalization
  * @param path - Where the value was written, as the diagnostic names it — the option path
  *   itself, or `column.time_icon_size` for a view override
+ * @param fallback - What the value folds to: the shipped top-level default, or a view block's
+ *   own for an option that lives in one alone
  */
-export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
+export function validateFoldedLength(
+  key: string,
+  value: unknown,
+  path: string = key,
+  fallback: unknown = valueAtPath(DEFAULT_CONFIG, key),
+): void {
   if (!foldsToDefault(key, value)) {
     return;
   }
@@ -1092,10 +1386,15 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
     ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
     : BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
       ? 'a non-negative CSS length such as "2px" or "0.2em", or "thin", "medium" or "thick"'
-      : 'a non-negative CSS length such as "6px" or "0.5em"';
+      : CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+        ? key.endsWith('_max_height')
+          ? '"none" or a non-negative CSS length such as "40rem", "600px" or "90dvh", not a ' +
+            'percentage or another keyword'
+          : '"auto" or a non-negative CSS length such as "44rem", "600px" or "100dvh", not a ' +
+            'percentage or another keyword'
+        : 'a non-negative CSS length such as "6px" or "0.5em"';
   // `title_font_size` ships unset, so folding it means leaving the title at the size it
   // would have had without the option.
-  const fallback = valueAtPath(DEFAULT_CONFIG, key);
   const outcome =
     fallback === undefined ? 'Ignoring it.' : `Falling back to "${String(fallback)}".`;
 
@@ -1114,6 +1413,8 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
  */
 export function validateFoldedLengths(config: Types.Config): void {
   for (const key of FOLDED_OPTIONS) {
+    // A view block's own option, which the top level does not hold.
+    if (!Helpers.hasOwn(DEFAULT_CONFIG, key.split('.')[0])) continue;
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }
@@ -1373,7 +1674,12 @@ export function normalizeEntities(
           event_type: item.event_type,
           days_of_week: item.days_of_week,
           allday_expires_at: item.allday_expires_at,
+          // Kept as written, a number included: `resolveStartWindow` reports what it cannot read.
+          starts_after: item.starts_after,
+          starts_before: item.starts_before,
           visibility: normalizeVisibility(item.visibility),
+          // Only `true` makes an entry private; anything else shows its events as usual.
+          private: item.private === true ? true : undefined,
         } satisfies Types.EveryMember<Types.EntityConfig>;
       }
       return null;
@@ -1612,8 +1918,8 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
  * `view: grid` value, because the block is what they will edit. Untranslated for
  * the same reason as the column label above.
  *
- * Deliberately still "Time Grid" where the editor's own view tile now reads "Grid". The
- * tile sits beside "List" and "Columns" and is read by someone already inside the card,
+ * Deliberately still "Time Grid" where the editor's own Starting Layout row now reads "Grid".
+ * The row sits among "List" and "Columns" and is read by someone already inside the card,
  * where the extra word is noise; this label is read in Home Assistant's card picker by
  * someone who has never seen the card, beside a "Columns" entry it has to be told apart
  * from. Grep for "Time Grid" and you will find both — that is the split, and it is meant.
@@ -1621,7 +1927,7 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
 const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
 
 /**
- * The label of the list suggestion that switches on the toolbar, event details and tap-to-add.
+ * The label of the list suggestion that switches on the toolbar and tap-to-add.
  *
  * Named for what the tile cannot show. In the picker the card is a preview, where every tap is
  * inert, so the tile shows only the toolbar; the popover and the new event a tap opens arrive
@@ -1636,18 +1942,20 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
 /**
  * What the two interactive suggestions add to the plain recipe.
  *
- * The three options that put v5.1's interaction on the card: the toolbar, with paging, swipe,
- * the layout switcher, search, the calendar menu, add and refresh at their defaults; a tap on
- * an event opening it in the card's popover, and in grid dragging it; and a tap on a day,
- * or a hold or drag in the grid, adding an event there. Each degrades on its own where the
- * calendar cannot write: the add button, day taps and drawing need one that accepts new
+ * The two options that put v5.1's interaction on the card beside what every card does, a tap on
+ * an event opening it in the card's popover (and in grid dragging it): the toolbar, with paging,
+ * swipe, the layout switcher, search, the calendar menu, add and refresh at their defaults; and a
+ * tap on a day, or a hold or drag in the grid, adding an event there. Each degrades on its own
+ * where the calendar cannot write: the add button, day taps and drawing need one that accepts new
  * events, and the popover offers only what the integration allows.
  *
  * Nothing here is part of the event-cache key, which is what keeps the two on it; see
  * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
  *
- * With a weather entity, the forecast is drawn beside each day. No position is written, so the
- * card subscribes to the daily forecast alone (`weather.position` defaults to the date).
+ * With a weather entity, the forecast is drawn beside each day in List, Columns and Grid, the
+ * layouts the toolbar's switcher offers that have a day header: each layout's own `weather:` says
+ * so, as converting the weather written before v6 does (`migrateWeatherFormat`). The card
+ * subscribes to the daily forecast alone.
  *
  * @param weatherEntity - The home's only weather entity, or `undefined` to leave weather out
  * @returns The options to spread over the plain recipe
@@ -1655,9 +1963,15 @@ const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
 function interactiveOptions(weatherEntity: string | undefined): Record<string, unknown> {
   return {
     toolbar: { show: true },
-    event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
     day_tap_action: { action: Constants.ADD_EVENT_ACTION },
-    ...(weatherEntity === undefined ? {} : { weather: { entity: weatherEntity } }),
+    ...(weatherEntity === undefined
+      ? {}
+      : {
+          weather_entity: weatherEntity,
+          list: { weather: { position: 'date' } },
+          column: { weather: { position: 'date' } },
+          time_grid: { weather: { position: 'date' } },
+        }),
   };
 }
 
@@ -1712,11 +2026,12 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * sets a member of the event-cache key (`entities`, the loaded day count, `start_date`,
  * `first_day_of_week`) or a view's own `days_to_show`. So they share one event-cache key, and
  * the picker's five live previews cost one calendar request. The three plain ones differ only by
- * `view`; the two interactive ones add the toolbar and two actions (`interactiveOptions`), and
+ * `view`; the two interactive ones add the toolbar and a day tap action (`interactiveOptions`), and
  * come first, because Home Assistant shows a card's suggestions in the order returned and these
  * are the ones a new card is best started from. When the home has exactly one weather entity
- * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather` is a fetch-time
- * option, but not part of the event-cache key: it costs each of those two previews a forecast
+ * (`findWeatherEntity`), the two interactive ones show its forecast too. `weather_entity` and each
+ * layout's `weather:` are fetch-time, but not part of the event-cache key: they cost each of those
+ * two previews a forecast
  * subscription of its own, and no extra calendar request. Mind what the
  * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach

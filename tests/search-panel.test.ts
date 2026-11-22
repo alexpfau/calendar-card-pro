@@ -67,7 +67,7 @@ function row(
     folded: {
       title: Search.foldText(title, 'en'),
       location: Search.foldText(location, 'en'),
-      description: '',
+      unmarked: '',
     },
     start,
     end: start + 3_600_000,
@@ -306,6 +306,23 @@ describe('the field and its results', () => {
     expect(options()[1].querySelector('.result-detail')!.textContent!.replace(/\s+/g, ' ')).toBe(
       'Day 2026-07-08 · 9:00 AM - 10:00 AM',
     );
+  });
+
+  it('draw a private event’s Private after a lock, hidden from assistive technology', async () => {
+    const stub = stubSource([
+      { ...row('2026-06-20T09:00:00.000Z', 'Private'), privateTitle: true },
+      row('2026-06-21T09:00:00.000Z', 'Private party'),
+    ]);
+    const { type, options } = await open({}, { source: stub });
+    await type('private');
+
+    const [locked, plain] = options();
+    const lock = locked.querySelector('.result-title > .private-lock');
+    expect(lock?.getAttribute('aria-hidden')).toBe('true');
+    expect(locked.querySelector('.result-title')!.textContent).toBe('Private');
+    expect(locked.getAttribute('aria-label')).toMatch(/^Private, /);
+    // A title that only says the word is not a private event's.
+    expect(plain.querySelector('.private-lock')).toBeNull();
   });
 
   it('start the past at a rule only where upcoming results come before it', async () => {

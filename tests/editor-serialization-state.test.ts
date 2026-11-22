@@ -1,33 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { changeField, editLayout, mountEditor, openPanels, valueOf } from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { workspaceFields } from '../src/rendering/editor/routing';
-
-customElements.define('editor-serialization-state-test', CalendarCardProEditor);
-
-interface Editor extends HTMLElement {
-  hass: unknown;
-  setConfig(config: Record<string, unknown>): void;
-  readonly updateComplete: Promise<boolean>;
-}
-
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
 
 async function mount(config: Record<string, unknown>) {
-  const editor = document.createElement('editor-serialization-state-test') as Editor;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({
+  const editor = await mountEditor({
     config_version: Config.CURRENT_CONFIG_VERSION,
     entities: ['calendar.anna'],
     ...config,
   });
-  document.body.appendChild(editor);
-  await editor.updateComplete;
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
     reports.push(structuredClone((event as CustomEvent).detail.config));
@@ -35,94 +18,90 @@ async function mount(config: Record<string, unknown>) {
   return { editor, reports };
 }
 
-function formFor(editor: Editor, key: string): Form {
-  const forms = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form:not(.entity-form)')].filter(
-    (form) => [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
-  );
-  expect(forms, `form for ${key}`).toHaveLength(1);
-  return forms[0];
-}
-
-async function change(editor: Editor, key: string, value: unknown): Promise<void> {
-  const form = formFor(editor, key);
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
 afterEach(() => document.body.replaceChildren());
 
-describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state', (view) => {
-  it.each([false, true])(
-    'follows the saved override ownership before another edit (echo=%s)',
-    async (echo) => {
-      const block = view === 'grid' ? 'time_grid' : view;
-      const { editor, reports } = await mount({
-        view,
-        [block]: { show_description: true },
-      });
-      await change(editor, 'show_description', false);
-      const saved = reports.slice(-1)[0]!;
-      if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
-      else expect(saved).not.toHaveProperty(block);
+describe.each(['list', 'column', 'grid', 'month'] as const)(
+  '%s serialized editor state',
+  (view) => {
+    it.each([false, true])(
+      'follows the saved override ownership before another edit (echo=%s)',
+      async (echo) => {
+        const block = view === 'grid' ? 'time_grid' : view;
+        // Month draws no description (`MONTH_PINNED`), so its turn is the duration's, another
+        // shared switch that starts off and that Month reads.
+        const option = view === 'month' ? 'show_duration' : 'show_description';
+        const id = `events:${option}` as const;
+        const { editor, reports } = await mount({
+          view,
+          [block]: { [option]: true },
+        });
+        await changeField(editor, id, false);
+        const saved = reports.slice(-1)[0]!;
+        if (view === 'list') expect(saved).toHaveProperty(`list.${option}`, false);
+        else expect(saved).not.toHaveProperty(block);
 
-      if (echo) {
-        editor.setConfig(saved);
-        await editor.updateComplete;
-      }
-      await change(editor, 'editing_workspace', 'shared');
-      await change(editor, 'show_description', true);
-      await change(editor, 'editing_workspace', view);
+        if (echo) {
+          editor.setConfig(saved);
+          await editor.updateComplete;
+        }
+        await editLayout(editor, 'shared');
+        await changeField(editor, id, true);
+        await editLayout(editor, view);
 
-      const stored = reports.slice(-1)[0]!;
-      expect(stored).toHaveProperty('show_description', true);
-      if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
-      else expect(stored).not.toHaveProperty(block);
-      expect(formFor(editor, 'show_description').data.show_description).toBe(view !== 'list');
+        const stored = reports.slice(-1)[0]!;
+        expect(stored).toHaveProperty(option, true);
+        if (view === 'list') expect(stored).toHaveProperty(`list.${option}`, false);
+        else expect(stored).not.toHaveProperty(block);
+        expect(valueOf(editor, id)).toBe(view !== 'list');
 
-      const reopened = await mount(stored);
-      expect(formFor(reopened.editor, 'show_description').data.show_description).toBe(
-        formFor(editor, 'show_description').data.show_description,
-      );
-    },
-  );
-});
+        const reopened = await mount(stored);
+        expect(valueOf(reopened.editor, id)).toBe(valueOf(editor, id));
+        // Over a second in a full local run; the limit is set for CI's slower runner under load
+        // rather than for a hang.
+      },
+      30_000,
+    );
+  },
+);
 
-it.each([false, true])('retains an explicit divergent Grid default (echo=%s)', async (echo) => {
-  const { editor, reports } = await mount({
-    view: 'grid',
-    time_grid: { event_font_size: '18px' },
-  });
-  await change(editor, 'event_font_size', '12px');
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
-  if (echo) {
-    editor.setConfig(reports.slice(-1)[0]!);
-    await editor.updateComplete;
-  }
-  await change(editor, 'editing_workspace', 'shared');
-  await change(editor, 'event_font_size', '20px');
-  await change(editor, 'editing_workspace', 'grid');
-  expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
-  expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
-});
+it.each([false, true])(
+  'retains an explicit divergent Grid default (echo=%s)',
+  async (echo) => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      time_grid: { event_font_size: '18px' },
+    });
+    await changeField(editor, 'events:event_font_size', '12px');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
+    if (echo) {
+      editor.setConfig(reports.slice(-1)[0]!);
+      await editor.updateComplete;
+    }
+    await editLayout(editor, 'shared');
+    await changeField(editor, 'events:event_font_size', '20px');
+    await editLayout(editor, 'grid');
+    expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
+    expect(valueOf(editor, 'events:event_font_size')).toBe('12px');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  },
+  30_000,
+);
 
 it('keeps incomplete scoped text through a save and an echo', async () => {
   const { editor, reports } = await mount({
     view: 'grid',
-    time_grid: { height: '400px' },
+    time_grid: { card_height: '400px' },
   });
-  await change(editor, 'card_height', '');
+  await changeField(editor, 'layout:fixed_height', '');
   expect(reports).toHaveLength(0);
-  await change(editor, 'show_description', true);
-  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.height', '400px');
-  expect(formFor(editor, 'card_height').data.card_height).toBe('');
+  await changeField(editor, 'events:show_description', true);
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.card_height', '400px');
+  expect(valueOf(editor, 'layout:fixed_height')).toBe('');
   editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;
-  expect(formFor(editor, 'card_height').data.card_height).toBe('');
-});
+  expect(valueOf(editor, 'layout:fixed_height')).toBe('');
+  // Over a second in a full local run; the limit is set for CI's slower runner under load
+  // rather than for a hang.
+}, 30_000);

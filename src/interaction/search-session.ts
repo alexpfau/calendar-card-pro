@@ -17,18 +17,24 @@
  * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), in the view
  * on screen and as it draws it (`drawnIn`), so a search finds exactly the events the card would
  * draw on some page of that view, in the words it would draw them in, and the calendars the
- * filter hides stay hidden, as do the entries their visibility conditions hide. Those calendars
+ * filter hides stay hidden, as do the entries their visibility conditions hide. Beyond the words
+ * drawn, it finds every word the event popover shows (`EventDetails.displayText`): a location or a
+ * description the card or a calendar leaves out of the rows is found too, though not marked; a
+ * private entry's own words are found nowhere. Those calendars
  * are still loaded, as the card loads them, so one their conditions show again is found at once.
  */
 
+import * as EventDetails from './event-details';
 import * as Types from '../config/types';
 import type { SearchPanelHandle, SearchSource } from '../rendering/search-panel';
 import { intlGeneration } from '../translations/intl-locales';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
+import { stripHtmlTags } from '../utils/format';
 import * as LiveCalendars from '../utils/live-calendars';
 import * as Logger from '../utils/logger';
 import * as Paging from '../utils/paging';
+import { isPrivate } from '../utils/private-events';
 import * as Search from '../utils/search';
 import * as Visibility from '../utils/visibility';
 
@@ -56,7 +62,10 @@ export interface SearchHost {
   held: ReadonlyArray<Types.CalendarEventData>;
   /** Home Assistant's word for today, or undefined where it has none. */
   today: string | undefined;
-  /** An event's calendar color as the card draws it, for use outside the card. */
+  /**
+   * An event's calendar color as the card draws it, for use outside the card: a merged row's
+   * accent where the card sets one.
+   */
   colorOf(event: Types.CalendarEventData): string;
   /** A calendar's name on this card. */
   nameOf(entityId: string): string;
@@ -398,11 +407,17 @@ export class SearchSession implements SearchSource {
       return cache.get(key)!;
     };
 
-    return ({ event, startPoint, endPoint, start, end }) => {
+    return ({ event, from, startPoint, endPoint, start, end }) => {
       const entityId = event._entityId ?? '';
-      const day = FormatUtils.getLocalDateKey(start);
+      const startDay = FormatUtils.getLocalDateKey(start);
+      // A way of drawing the event that starts on a later day is picked there, where it is drawn.
+      const day = from ? FormatUtils.getLocalDateKey(from) : startDay;
       const title = event.summary ?? '';
       const location = event.location ?? '';
+      const merged = event._mergedFrom && event._mergedFrom.length > 1 ? event._mergedFrom : null;
+      // What the popover shows of a location and a description, whatever the rows draw of them.
+      // A private entry's event shows Private there, which is no word of its own to find.
+      const shown = isPrivate(event) ? null : EventDetails.displayText(event, language);
       return {
         id: JSON.stringify([
           entityId,
@@ -411,22 +426,27 @@ export class SearchSession implements SearchSource {
           title,
           event._source?.uid ?? null,
           event._source?.recurrence_id ?? null,
+          Search.drawnAs(event),
         ]),
         entityId,
         title,
         location,
+        ...(event._privateTitle && { privateTitle: true }),
         folded: {
           title: Search.foldText(title, language),
           location: Search.foldText(location, language),
-          description: Search.foldText(event.description ?? '', language).text,
+          unmarked: shown
+            ? Search.foldText(`${shown.location}\n${stripHtmlTags(shown.description)}`, language)
+                .text
+            : '',
         },
         start: start.getTime(),
         end: end.getTime(),
         day,
-        monthKey: day.slice(0, 7),
-        month: cached(months, day.slice(0, 7), () => Paging.monthHeading(start, language)),
+        monthKey: startDay.slice(0, 7),
+        month: cached(months, startDay.slice(0, 7), () => Paging.monthHeading(start, language)),
         dayText:
-          day === today
+          startDay === today
             ? (host.today ?? Paging.todayWord(language))
             : Paging.dayName(start, language),
         timeText: FormatUtils.formatEventTime(
@@ -435,8 +455,16 @@ export class SearchSession implements SearchSource {
           language,
           host.hass,
         ),
-        color: cached(colors, event._matchedConfig ?? entityId, () => host.colorOf(event)),
-        calendar: cached(names, entityId, () => host.nameOf(entityId)),
+        color: merged
+          ? host.colorOf(event)
+          : cached(colors, event._matchedConfig ?? entityId, () => host.colorOf(event)),
+        calendar: merged
+          ? merged
+              .map((calendar) =>
+                cached(names, calendar.entityId, () => host.nameOf(calendar.entityId)),
+              )
+              .join(', ')
+          : cached(names, entityId, () => host.nameOf(entityId)),
         target: Search.ringTargetOf(event),
       };
     };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import * as GridMove from '../src/interaction/grid-move';
+import { getTranslations } from '../src/translations/localize';
 
 /**
  * An event a drag moves in a grid, on the days the clocks change (`grid-move.ts`).
@@ -138,5 +139,35 @@ describe(`a moved event in the hour the clocks pass twice, in ${ZONE}`, () => {
     // from the second passing would otherwise land three quarters of an hour earlier.
     expect(moved.start.getTime() - start.getTime()).toBe(by * 60_000);
     expect(moved.end.getTime() - moved.start.getTime()).toBe(15 * 60_000);
+  });
+});
+
+describe(`what the notification after a move says, in ${ZONE}`, () => {
+  const EN = getTranslations('en');
+  // January, where every zone the suite runs under is off UTC, so a reading taken in UTC differs.
+  const to = new Date(Date.UTC(2026, 0, 14, 12, 15));
+  const span = (start: Date) => ({ allDay: false, start, end: new Date(start.getTime() + HOUR) });
+  // The card writes a 24-hour reading without a leading zero unless `time_two_digit_hours`.
+  const clock = (date: Date) => wallClock(date).slice(11).replace(/^0/, '');
+  const weekday = (date: Date) =>
+    new Intl.DateTimeFormat('en-US', { timeZone: ZONE, weekday: 'short' }).format(date);
+
+  it('is off UTC in January, so a UTC reading would differ', () => {
+    expect(new Date(2026, 0, 14).getTimezoneOffset()).not.toBe(0);
+  });
+
+  it('gives the new start on the local clock', () => {
+    const message = GridMove.movedMessage(span(new Date(to.getTime() - HOUR)), span(to), EN, true);
+    expect(message).toBe(`Moved to ${clock(to)}`);
+  });
+
+  it('names the local weekday where the move crossed a local day', () => {
+    const message = GridMove.movedMessage(
+      span(new Date(to.getTime() - 24 * HOUR)),
+      span(to),
+      EN,
+      true,
+    );
+    expect(message).toBe(`Moved to ${weekday(to)} ${clock(to)}`);
   });
 });

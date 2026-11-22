@@ -66,6 +66,9 @@ vi.mock('../src/utils/logger', () => ({
 const Logger = await import('../src/utils/logger');
 const warnMock = vi.mocked(Logger.warn);
 
+/** A toolbar with the date navigation, which reaches the days a narrow Columns card sheds. */
+const PAGING = { toolbar: { show: true, navigation: true } } as const;
+
 describe('resolveViewOption — E4, both directions', () => {
   it('honors an override of false against a top-level true', () => {
     const config = buildConfig({
@@ -445,7 +448,7 @@ describe('resolveEffectiveConfig', () => {
       // so this pin owns the VALUES and that gate owns which options are in the table.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
         day_separator_width: '1px',
-        day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        day_separator_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
         day_spacing: '1px',
         description_color: 'accent',
         event_background_opacity: 20,
@@ -689,7 +692,7 @@ describe('validateColumnOverrides', () => {
     'entities',
     'start_date',
     'first_day_of_week',
-    'weather',
+    'weather_entity',
     'refresh_interval',
     'refresh_on_navigate',
   ])('warns that %s cannot be overridden because it is loaded from Home Assistant', (key) => {
@@ -701,6 +704,22 @@ describe('validateColumnOverrides', () => {
     expect(warnMock).toHaveBeenCalledTimes(1);
     expect(warnMock.mock.calls[0][0]).toContain(`column.${key}`);
     expect(warnMock.mock.calls[0][0]).toContain('loaded from Home Assistant');
+  });
+
+  // A layout's own `weather:` is its weather, except beside the block written before v6, which
+  // decides every layout's weather while it names an entity.
+  it('warns about a layout’s weather only beside the weather written before v6', () => {
+    const perLayout = buildConfig({ weather_entity: 'weather.home' });
+    perLayout.column = { weather: { position: 'event' } } as Types.ColumnOverrides;
+    validateColumnOverrides(perLayout);
+    expect(warnMock).not.toHaveBeenCalled();
+
+    const asBefore = buildConfig({ weather: { entity: 'weather.home' } });
+    asBefore.column = { weather: { position: 'event' } } as Types.ColumnOverrides;
+    validateColumnOverrides(asBefore);
+    expect(warnMock).toHaveBeenCalledTimes(1);
+    expect(warnMock.mock.calls[0][0]).toContain('"column.weather"');
+    expect(warnMock.mock.calls[0][0]).toContain('weather_entity');
   });
 
   it('accepts the column-only options now that the column view implements them', () => {
@@ -830,10 +849,10 @@ describe('column view config surface', () => {
     // and an undefined reaching the stylesheet.
     //
     // One key is exempt, and the exemption is named rather than implied:
-    // `min_days_to_show` defaults to `days_to_show`, which is not a constant and so
-    // cannot live in a static table. It is covered by its own assertion below, so the
-    // invariant "every column-only key has a default" still holds end to end -- what
-    // is relaxed is only *where* that default is written down.
+    // `min_days_to_show` defaults to two, or to `days_to_show` under cramp, which is not a
+    // constant and so cannot live in a static table. It is covered by its own assertion
+    // below, so the invariant "every column-only key has a default" still holds end to end
+    // -- what is relaxed is only *where* that default is written down.
     const DYNAMIC_DEFAULT_KEYS = ['min_days_to_show'];
 
     for (const key of COLUMN_ONLY_KEYS) {
@@ -842,12 +861,20 @@ describe('column view config surface', () => {
     }
   });
 
-  it('defaults min_days_to_show to days_to_show', () => {
+  it('defaults min_days_to_show to two on a card that pages, else to days_to_show', () => {
     // The other half of the exemption above. Without this the dynamic default would
     // be unasserted, and the loop's `continue` would be a hole rather than a
     // redirection.
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, ...PAGING, days_to_show: 7 })).toBe(2);
     expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(7);
-    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 3 })).toBe(3);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, ...PAGING, days_to_show: 1 })).toBe(1);
+    expect(
+      resolveMinDaysToShow({
+        ...DEFAULT_CONFIG,
+        days_to_show: 7,
+        column: { min_days_fallback: 'cramp' },
+      }),
+    ).toBe(7);
   });
 
   it('pins each column-only default to its literal value', () => {
@@ -868,7 +895,9 @@ describe('column view config surface', () => {
 
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
-    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
+    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
+    );
   });
 
   it('prefers a configured column-only value over its default', () => {
@@ -976,6 +1005,7 @@ describe('column view config surface', () => {
       'refresh_on_navigate',
       'start_date',
       'weather',
+      'weather_entity',
     ]);
 
     for (const key of FETCH_TIME_KEYS) {
@@ -1338,11 +1368,66 @@ describe('computeColumnThresholdPxFor', () => {
 });
 
 describe('resolveMinDaysToShow', () => {
-  it('defaults to days_to_show, collapsing the reduction range to a point', () => {
+  it('defaults Columns to two columns, never more than its own days', () => {
+    const config = buildConfig(PAGING);
+
+    for (const [days, floor] of [
+      [7, 2],
+      [3, 2],
+      [2, 2],
+      [1, 1],
+    ]) {
+      config.days_to_show = days;
+      expect(resolveMinDaysToShow(config), `days_to_show: ${days}`).toBe(floor);
+    }
+  });
+
+  it('reads the two against the layout’s own days, not the card’s', () => {
+    const config = buildConfig(PAGING);
+    config.days_to_show = 1;
+    config.column = { days_to_show: 7 };
+
+    expect(resolveMinDaysToShow(config)).toBe(2);
+  });
+
+  it('keeps every day by default where nothing pages to a day it would shed', () => {
+    // No toolbar, a toolbar without the date navigation, and the navigation asked for on a
+    // toolbar that is not shown: none has an arrow or a swipe, so Columns keeps every day or
+    // falls back to the list, as before it shed. A floor written is kept as written.
+    for (const toolbar of [undefined, { show: true, navigation: false }, { navigation: true }]) {
+      const config = buildConfig(toolbar ? { toolbar } : {});
+      config.days_to_show = 7;
+      expect(resolveMinDaysToShow(config), JSON.stringify(toolbar)).toBe(7);
+      config.column = { min_days_to_show: 3 };
+      expect(resolveMinDaysToShow(config), JSON.stringify(toolbar)).toBe(3);
+    }
+  });
+
+  it('keeps every day by default where the card squeezes rather than falls back', () => {
+    // "Keep the columns, narrower" kept every configured day before the default changed, and
+    // still does: under cramp an unset floor is the layout's own count.
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_fallback: 'cramp' };
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('keeps a floor written as the day count, the old default', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 7 };
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('leaves Grid’s default at one, squeezing or not', () => {
     const config = buildConfig();
     config.days_to_show = 7;
 
-    expect(resolveMinDaysToShow(config)).toBe(7);
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
+    config.time_grid = { min_days_fallback: 'cramp' };
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
   });
 
   it('reads a configured floor out of the column block', () => {
@@ -1381,15 +1466,15 @@ describe('resolveMinDaysToShow', () => {
     expect(resolveMinDaysToShow(config)).toBe(3);
   });
 
-  it('falls back to days_to_show for a value that is not a number', () => {
+  it('falls back to the default floor for a value that is not a number', () => {
     // The column block is raw user input and never passes through normalizeConfig's
     // numeric sweep, so a string reaches this function intact.
-    const config = buildConfig();
+    const config = buildConfig(PAGING);
     config.days_to_show = 7;
 
     for (const value of ['banana', '', Number.NaN, Number.POSITIVE_INFINITY]) {
       config.column = { min_days_to_show: value as unknown as number };
-      expect(resolveMinDaysToShow(config)).toBe(7);
+      expect(resolveMinDaysToShow(config)).toBe(2);
     }
   });
 
@@ -1428,13 +1513,13 @@ describe('resolveMinDaysFallback', () => {
   });
 });
 
-describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults', () => {
+describe('resolveColumnFit — equivalence with resolveEffectiveView, every day kept', () => {
   // The load-bearing test of the whole density framework.
   //
-  // min_days_to_show defaults to days_to_show, at which the staircase has exactly one
-  // step and must be indistinguishable from the boundary it replaces. Anything else is
-  // a silent behavioral change shipped to every existing column-view user, none of
-  // whom asked for the feature.
+  // With min_days_to_show at days_to_show the staircase has exactly one step and must be
+  // indistinguishable from the boundary it replaces. That was the default until v6, when
+  // Columns began shedding to two; it is still how a card keeps every day, so it is still
+  // pinned.
   //
   // Swept rather than spot-checked, and swept across both hysteresis states, because
   // the two functions apply the band in structurally different places -- one adjusts
@@ -1449,6 +1534,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
     it(`agrees at every sampled width for days_to_show: ${days}`, () => {
       const config = buildConfig();
       config.days_to_show = days;
+      config.column = { min_days_to_show: days };
       const threshold = computeColumnThresholdPx(config);
 
       for (const width of widthsAround(threshold)) {
@@ -1471,6 +1557,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
   it('renders every configured column whenever it renders columns at all', () => {
     const config = buildConfig();
     config.days_to_show = 7;
+    config.column = { min_days_to_show: 7 };
     const threshold = computeColumnThresholdPx(config);
 
     for (const width of widthsAround(threshold)) {
@@ -1496,6 +1583,38 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
 });
 
 describe('resolveColumnFit — reduction', () => {
+  it('sheds down to two columns by default, then falls back to the list', () => {
+    // Two columns need 140 * 2 + 32 + 10 = 322px, entered at 322 + 16.
+    const config = buildConfig(PAGING);
+    config.days_to_show = 7;
+
+    for (const [width, fit] of [
+      [2000, { view: 'column', columns: 7 }],
+      [637, { view: 'column', columns: 3 }],
+      [487, { view: 'column', columns: 2 }],
+      [390, { view: 'column', columns: 2 }],
+      [338, { view: 'column', columns: 2 }],
+      [337, { view: 'list', columns: 0 }],
+    ] as const) {
+      expect(resolveColumnFit('column', config, width, null), `${width}px`).toEqual(fit);
+    }
+  });
+
+  it('keeps every day or falls back to the list by default where nothing pages', () => {
+    // Seven columns need 140 * 7 + 32 + 60 = 1072px, entered at 1072 + 16.
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    for (const [width, fit] of [
+      [2000, { view: 'column', columns: 7 }],
+      [1088, { view: 'column', columns: 7 }],
+      [1087, { view: 'list', columns: 0 }],
+      [390, { view: 'list', columns: 0 }],
+    ] as const) {
+      expect(resolveColumnFit('column', config, width, null), `${width}px`).toEqual(fit);
+    }
+  });
+
   // The worked example from the density spec: 7 configured days, floor of 3.
   //
   // Thresholds at defaults (140 wide, 10 gutter, 32 padding) are
@@ -2007,7 +2126,15 @@ describe('resolveColumnFitIfPicked', () => {
       days: 7,
       floor: 7,
     },
-    { name: 'seven columns', view: 'column', overrides: {}, days: 7, floor: 7 },
+    {
+      name: 'seven columns, every day kept',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 7 } },
+      days: 7,
+      floor: 7,
+    },
+    { name: 'seven columns by default', view: 'column', overrides: PAGING, days: 7, floor: 2 },
+    { name: 'seven columns without paging', view: 'column', overrides: {}, days: 7, floor: 7 },
     {
       name: 'seven columns down to three',
       view: 'column',

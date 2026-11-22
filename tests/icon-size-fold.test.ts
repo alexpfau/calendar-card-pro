@@ -323,28 +323,32 @@ describe('the folded value reaches the stylesheet by every path', () => {
   });
 
   describe.each(OVERRIDABLE)('%s inside a view block', (key) => {
-    it.each(View.VIEWS)('folds an override in the %s block', (view) => {
-      const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
+    // Each layout that reads the option: Month draws no clock and no description.
+    it.each(View.VIEWS.filter((view) => View.appliesToView(key, view)))(
+      'folds an override in the %s block',
+      (view) => {
+        const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
-      for (const [input, size] of [
-        ['14 px', '14px'],
-        ['0.75 rem', '0.75rem'],
-        ['150%', DEFAULT],
-      ]) {
-        const config = buildConfig({
-          view,
-          [key]: '10px',
-          [blockKey]: { [key]: input },
-        } as Partial<Types.Config>);
-        Config.normalizeLengthOptions(config);
-        const effective = View.resolveEffectiveConfig(config, view);
+        for (const [input, size] of [
+          ['14 px', '14px'],
+          ['0.75 rem', '0.75rem'],
+          ['150%', DEFAULT],
+        ]) {
+          const config = buildConfig({
+            view,
+            [key]: '10px',
+            [blockKey]: { [key]: input },
+          } as Partial<Types.Config>);
+          Config.normalizeLengthOptions(config);
+          const effective = View.resolveEffectiveConfig(config, view);
 
-        // Both resolvers, because they are two implementations of one rule and the bulk one
-        // is the path the card takes.
-        expect(effective[key], `${blockKey} ${input}`).toBe(size);
-        expect(View.resolveViewOption(config, key, view), `${blockKey} ${input}`).toBe(size);
-      }
-    });
+          // Both resolvers, because they are two implementations of one rule and the bulk one
+          // is the path the card takes.
+          expect(effective[key], `${blockKey} ${input}`).toBe(size);
+          expect(View.resolveViewOption(config, key, view), `${blockKey} ${input}`).toBe(size);
+        }
+      },
+    );
 
     it('leaves a usable top-level value alone when a view overrides it', () => {
       const config = buildConfig({
@@ -464,7 +468,7 @@ describe('a folded icon size is reported', () => {
   });
 
   it.each(OVERRIDABLE)('is reported for an override of %s under the block path', (key) => {
-    for (const view of View.VIEWS) {
+    for (const view of View.VIEWS.filter((each) => View.appliesToView(key, each))) {
       const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
       const blockKey = View.OVERRIDE_BLOCK_BY_VIEW[view]!;
 
@@ -515,7 +519,11 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
     const shown = (state: State, workspace: Workspace.EditorWorkspace) =>
       Routing.workspaceFormData(state.config, workspace, state.pending)[key];
 
-    it.each(Workspace.WORKSPACES)('in %s, writes nothing until the size parses', (workspace) => {
+    it.each(
+      Workspace.WORKSPACES.filter(
+        (workspace) => workspace === 'shared' || View.appliesToView(key, workspace),
+      ),
+    )('in %s, writes nothing until the size parses', (workspace) => {
       const start = buildConfig({ [key]: '10px' } as Partial<Types.Config>);
       let state: State = { config: start, pending: {} };
 
@@ -574,28 +582,42 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
     const shown = (state: State, workspace: Workspace.EditorWorkspace, target = path) =>
       read(Routing.workspaceFormData(state.config, workspace, state.pending), target);
 
-    const start = () =>
-      buildConfig({
-        weather: {
-          entity: 'weather.home',
-          position: 'both',
-          date: { icon_size: '10px' },
-          event: { icon_size: '10px' },
-        },
+    /** Each layout edits its own weather, stored in its block; Month has no day header. */
+    const layouts = Workspace.WORKSPACES.filter(
+      (workspace) => workspace !== 'shared' && (group === 'event' || workspace !== 'month'),
+    );
+    const stored = (workspace: Workspace.EditorWorkspace, target: string = path) =>
+      `${View.OVERRIDE_BLOCK_BY_VIEW[workspace as Types.EffectiveView]}.${target}`;
+
+    const start = () => {
+      const weather = {
+        position: 'both',
+        date: { icon_size: '10px' },
+        event: { icon_size: '10px' },
+      };
+      return buildConfig({
+        weather_entity: 'weather.home',
+        list: { weather },
+        column: { weather },
+        time_grid: { weather },
+        month: { weather: { position: 'event', event: { icon_size: '10px' } } },
       } as unknown as Partial<Types.Config>);
+    };
 
     it('renders the field at the path under test', () => {
       // The positive control: without it, a schema that stopped offering the field would
       // leave every edit below a no-op, and the held-value assertions would pass on nothing.
       const state: State = { config: start(), pending: {} };
-      const fields = [...Routing.workspaceFields(frame(state, 'shared').schema)];
-
-      expect(fields.map(({ node, path: parent }) => [...parent, node.name].join('.'))).toContain(
-        path,
-      );
+      for (const workspace of layouts) {
+        const fields = [...Routing.workspaceFields(frame(state, workspace).schema)];
+        expect(
+          fields.map(({ node, path: parent }) => [...parent, node.name].join('.')),
+          workspace,
+        ).toContain(path);
+      }
     });
 
-    it.each(Workspace.WORKSPACES)('in %s, writes nothing until the size parses', (workspace) => {
+    it.each(layouts)('in %s, writes nothing until the size parses', (workspace) => {
       const initial = start();
       let state: State = { config: initial, pending: {} };
 
@@ -604,36 +626,42 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
         expect(shown(state, workspace), `shown after ${text}`).toBe(text);
       }
       // `1` parsed and was stored as `1px`; the two after it were held.
-      expect(read(state.config, path)).toBe('1px');
+      expect(read(state.config, stored(workspace))).toBe('1px');
+
+      // Held for this layout alone, where its line is stored; every other layout shows its own.
+      expect(Object.keys(state.pending)).toEqual([stored(workspace)]);
+      for (const other of layouts.filter((each) => each !== workspace)) {
+        expect(shown(state, other), other).toBe('10px');
+      }
 
       state = type(state, workspace, path, '1rem');
-      expect(read(state.config, path)).toBe('1rem');
+      expect(read(state.config, stored(workspace))).toBe('1rem');
 
       for (const text of ['b', 'bi', 'big']) {
         state = type(state, workspace, path, text);
-        expect(read(state.config, path), `stored after ${text}`).toBe('1rem');
+        expect(read(state.config, stored(workspace)), `stored after ${text}`).toBe('1rem');
         expect(shown(state, workspace)).toBe(text);
       }
 
       // The default `big` folds to, which a held value could otherwise make look unchanged.
       state = type(state, workspace, path, '14px');
-      expect(read(state.config, path)).toBe('14px');
+      expect(read(state.config, stored(workspace))).toBe('14px');
 
       state = type(state, workspace, path, '1.5 em');
-      expect(read(state.config, path)).toBe('1.5em');
+      expect(read(state.config, stored(workspace))).toBe('1.5em');
       expect(shown(state, workspace)).toBe('1.5 em');
     });
 
     it('leaves a held size alone when its sibling changes', () => {
       let state: State = { config: start(), pending: {} };
-      state = type(state, 'shared', path, 'big');
+      state = type(state, 'list', path, 'big');
 
       // `ha-form` re-emits the held `big` with every other change, unchanged.
-      state = type(state, 'shared', sibling, '13px');
+      state = type(state, 'list', sibling, '13px');
 
-      expect(read(state.config, path)).toBe('10px');
-      expect(read(state.config, sibling)).toBe('13px');
-      expect(shown(state, 'shared')).toBe('big');
+      expect(read(state.config, stored('list'))).toBe('10px');
+      expect(read(state.config, stored('list', sibling))).toBe('13px');
+      expect(shown(state, 'list')).toBe('big');
     });
 
     it('lets the font size beside it keep its own rules', () => {
@@ -641,14 +669,14 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
       // a font size, so a percentage the icon rule would refuse is written as it stands. It
       // holds `1r` on the way to `1rem` as the icon size does, by its own rule.
       let state: State = { config: start(), pending: {} };
-      state = type(state, 'shared', sibling, '150%');
+      state = type(state, 'list', sibling, '150%');
 
-      expect(read(state.config, sibling)).toBe('150%');
-      expect(read(state.config, path)).toBe('10px');
+      expect(read(state.config, stored('list', sibling))).toBe('150%');
+      expect(read(state.config, stored('list'))).toBe('10px');
 
-      state = type(state, 'shared', sibling, '1r');
-      expect(read(state.config, sibling)).toBe('150%');
-      expect(read(Routing.workspaceFormData(state.config, 'shared', state.pending), sibling)).toBe(
+      state = type(state, 'list', sibling, '1r');
+      expect(read(state.config, stored('list', sibling))).toBe('150%');
+      expect(read(Routing.workspaceFormData(state.config, 'list', state.pending), sibling)).toBe(
         '1r',
       );
     });

@@ -17,6 +17,12 @@
   "viewList": "Llista",
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
+  "viewMonth": "Mes",
+  "layout": "Disposició",
+  "layoutCurrent": "Disposició: {view}",
+  "moreEvents": "+{count} més",
+  "eventCount": "{count} esdeveniments",
+  "eventCountOne": "{count} esdeveniment",
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba demà",
   "dayOfEvent": "Dia {day} de {days}",
@@ -26,6 +32,9 @@
   "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada",
   "loadFailed": "No s'ha pogut carregar:",
   "newEvent": "Esdeveniment nou",
+  "movedTo": "Nova hora: {time}",
+  "undo": "Desfés",
   "showAll": "Mostra-ho tot",
-  "hideAll": "Amaga-ho tot"
+  "hideAll": "Amaga-ho tot",
+  "private": "Privat"
 }

@@ -4,10 +4,11 @@
 
 import type { HaFormSchema } from './ha-form';
 import { EDITOR_STRINGS, interpolate } from './strings';
-import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
+import { EDITOR_HELD_STRINGS } from './translations/held';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { intlLocales } from '../../translations/intl-locales';
+import { hasOwn } from '../../utils/helpers';
 
 /**
  * Turns a config key into readable text, as a last resort.
@@ -23,77 +24,21 @@ export function humanize(key: string): string {
 /**
  * Resolves one string key for a language.
  *
+ * Reads the languages the editor holds now (`translations/held.ts`): British English always,
+ * any other only once its file has loaded. A language whose file is missing falls back to
+ * English key by key, exactly as an untranslated key does.
+ *
  * @param language - Effective language code
  * @param key - String key, qualified with its group path where it has one
  * @returns The resolved string, or `undefined` when no source defines the key
  */
 export function lookup(language: string, key: string): string | undefined {
-  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()]?.[key];
+  const translated = EDITOR_HELD_STRINGS[language.toLowerCase()]?.[key];
   if (translated !== undefined) {
     return translated;
   }
 
   return EDITOR_STRINGS[key];
-}
-
-/**
- * Resolves one string key, preferring a variant written for the workspace being configured.
- *
- * The order matters more than it looks, and it is a standing hazard rather than a detail
- * of the one key that needed it first. Shared keys are translated; a view-qualified key is
- * a *refinement* of a shared one, and refinements are written in English first and
- * translated later if at all. So the two halves of every such pair are at different
- * translation maturities, permanently, and resolving the qualified one first per language
- * would hand a German reader the English refinement in place of the German shared word
- * they already had. Every translated source is therefore consulted before any English
- * source is: a language that translates the shared key and not the qualified one keeps its
- * own word, and only a language with neither sees English.
- *
- * 🚨 That regression is invisible to every gate. The string is present, the lookup
- * succeeds, the panel renders, `check:i18n` sees a reachable key — it simply reads in the
- * wrong language, and presents as a refinement while being a downgrade for every language
- * but English. Nothing mechanical would report it.
- *
- * Which is why the obvious simplification is the thing to guard against:
- *
- * ```ts
- * lookup(language, qualified) ?? lookup(language, shared); // ❌ reintroduces it
- * ```
- *
- * That reads as the same fallback chain and is not. `lookup` already falls back to English
- * per key, so once an English refinement exists the first call always returns it and the
- * second term is unreachable — for all thirty-five languages at once. The four-term form
- * below is deliberate; do not collapse it into two `lookup` calls.
- *
- * Falsifier, since a claim about ordering should ship with one: swap the second and third
- * terms so `EDITOR_STRINGS[qualified]` is consulted before `translated?.[shared]`, then run
- * `tests/editor-workspace.test.ts`. The cross-language reconciliation in
- * `describe('a panel retitles itself for the workspace it configures')` fails and nothing
- * else does. That test also asserts its own denominator, so it fails rather than passing
- * quietly if no language is left in a position to be downgraded.
- *
- * @param language - Effective language code
- * @param key - Shared string key
- * @param view - Workspace being configured
- * @param suffix - Dotted tail applied after the view segment, such as `.helper`
- * @returns The resolved string, or `undefined` when no source defines either key
- */
-export function lookupForView(
-  language: string,
-  key: string,
-  view: string,
-  suffix = '',
-): string | undefined {
-  const qualified = `${key}.${view}${suffix}`;
-  const shared = `${key}${suffix}`;
-  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()];
-
-  return (
-    translated?.[qualified] ??
-    translated?.[shared] ??
-    EDITOR_STRINGS[qualified] ??
-    EDITOR_STRINGS[shared]
-  );
 }
 
 /**
@@ -156,61 +101,6 @@ export function computeAliases(
   );
 }
 
-const GROUP_SCOPE: Readonly<Record<string, string>> = {
-  compact_mode: 'compact_events_to_show',
-};
-
-/**
- * Whether two scopes are the same statement.
- *
- * @param a - One scope, or `undefined` for "every view"
- * @param b - The other
- * @returns `true` when both are defined and hold the same views
- */
-function sameScope(
-  a: ReadonlySet<Types.EffectiveView> | undefined,
-  b: ReadonlySet<Types.EffectiveView> | undefined,
-): boolean {
-  if (a === undefined || b === undefined) return false;
-  return a.size === b.size && [...a].every((view) => b.has(view));
-}
-
-/**
- * The applicability note a group states on behalf of everything inside it.
- *
- * @param language - Effective language code
- * @param name - The group's name
- * @param view - View the card is configured to render
- * @returns The note, or `undefined` when this group states none
- */
-function groupScopeNote(
-  language: string,
-  name: string,
-  view: Types.EffectiveView,
-): string | undefined {
-  const spokenFor = GROUP_SCOPE[name];
-  if (spokenFor === undefined) return undefined;
-
-  return scopeNote(language, ViewConfig.VIEW_SCOPE[spokenFor], name, view);
-}
-
-/**
- * Whether a group above this field has already stated its applicability.
- *
- * @param key - Config key
- * @param path - Enclosing group names, outermost first
- * @returns `true` when repeating the note here would say it twice
- */
-function statedByEnclosingGroup(key: string, path: ReadonlyArray<string>): boolean {
-  return path.some((name) => {
-    const spokenFor = GROUP_SCOPE[name];
-    return (
-      spokenFor !== undefined &&
-      sameScope(ViewConfig.VIEW_SCOPE[spokenFor], ViewConfig.VIEW_SCOPE[key])
-    );
-  });
-}
-
 /**
  * Resolves the helper text for a schema node, including applicability.
  *
@@ -230,15 +120,8 @@ export function computeHelper(
   const own =
     lookup(language, `${stringKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
-  const groupNote = groupScopeNote(language, schema.name, view);
-  if (groupNote !== undefined) {
-    return own === undefined ? groupNote : `${own} ${groupNote}`;
-  }
-
   const note =
-    (statedByEnclosingGroup(schema.name, path)
-      ? undefined
-      : applicabilityNote(language, schema.name, view)) ??
+    applicabilityNote(language, schema.name, view) ??
     (direct ? undefined : divergentDefaultNote(language, schema.name, view));
 
   if (note === undefined) {
@@ -262,7 +145,7 @@ function divergentDefaultNote(
   view: Types.EffectiveView,
 ): string | undefined {
   const defaults = ViewConfig.DEFAULT_OVERRIDES_BY_VIEW[view];
-  if (defaults === undefined || !Object.prototype.hasOwnProperty.call(defaults, key)) {
+  if (defaults === undefined || !hasOwn(defaults, key)) {
     return undefined;
   }
 

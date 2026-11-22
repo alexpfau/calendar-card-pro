@@ -133,6 +133,7 @@ the languages **Calendar Card Pro** currently supports:
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Japanese** (`ja`)
 - **Korean** (`ko`)
 - **Latvian** (`lv`)
 - **Lithuanian** (`lt`)
@@ -286,10 +287,10 @@ and `saat`, which reads "bitiş: yarın saat 0:30".
 ### Translating the Editor
 
 The visual editor's strings are optional and live separately, in
-`src/rendering/editor/translations/[lang-code].json`. The editor is available in 12 of the
-38 languages: English, which lives in code, and the eleven with a file here — nine translated
-in full, Korean in part, plus British English, which carries only the strings where it
-differs from US English. The other 26 render the editor in English, which is fully supported.
+`src/rendering/editor/translations/[lang-code].json`. The editor is available in 13 of the
+39 languages: English, which lives in code, and the twelve with a file here — eleven translated
+in full, plus British English, which carries only the strings where it differs from US
+English. The other 26 render the editor in English, which is fully supported.
 
 Keep the editor's strings out of `src/translations/languages/`; `npm run check:i18n` fails if
 they are there. English lives only in `src/rendering/editor/strings.ts`, and a translation file
@@ -298,7 +299,9 @@ uses the same keys, holding only the ones its language translates.
 A partial translation is safe to ship. Each key falls back on its own, so anything you
 leave out simply renders in English rather than looking broken. Register a new file with an
 `import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
-lowercase key as the language itself.
+lowercase key as the language itself, and add that key to `EDITOR_LANGUAGE_FILES` in
+`translations/files.ts`. The build ships each language as a file of its own, `editor-<code>.js`,
+which the editor loads only when it is drawn in that language.
 
 A key ending in `.aliases` is never shown. It lists, separated by commas, the words people type
 into the editor's search when looking for that setting, such as `12h` for Time Format. Write the

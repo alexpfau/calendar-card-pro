@@ -16,7 +16,8 @@ entities:
     split_multiday_events: false # Show work events only on first day (default)
 ```
 
-It is off by default, except in column view.
+It is off by default, except in column view. Grid and Month ignore it and place multi-day events
+themselves.
 
 ## ✂️ How Each Day Is Shown
 
@@ -45,7 +46,8 @@ Each row stands for its day, which changes what other features show on it:
 - The middle days of a timed event are whole days, so they get an
   [all-day badge](/features/event-content#which-events-get-one).
 - Every row occupies a single day, so
-  [`show_single_allday_time`](/features/event-content#hiding-the-time-row) governs all of them.
+  [`show_single_allday_time`](/features/event-content#hiding-the-time-row) governs every all-day
+  row, a timed event's middle days included; its first and last days keep their times.
 - The [day counter](#day-counter) names the row's own day.
 
 ## 🔢 Day Counter
@@ -90,7 +92,7 @@ show_progress_bar: true
   their time is not drawn green: on a 45-day course "Now" would be true every day. A night shift
   shorter than a day keeps its mark.
 
-::: details Midnight, Later Windows & Grid View
+::: details Midnight, Later Windows, Grid & Month
 
 - A timed event ending at 0:00 does not count the date that midnight opens: Nov 1 0:00 to Dec 16
   0:00 is 45 days. Where the clocks go back at midnight, an event ending at the second 0:00 takes
@@ -99,7 +101,9 @@ show_progress_bar: true
   unsplit row names the window's first day, such as "Day 19 of 45".
 - [Grid view](/features/grid-view) draws no counter, since its all-day banners already span
   their days, and its blocks keep their progress bars.
-- The counter takes the countdown's place in every layout, including
+- [Month view](/features/month-view) draws no counter and no progress bar; see
+  [Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view).
+- In List and Columns the counter takes the countdown's place, including
   [beside the title](/features/event-content#time-beside-the-title), and its look. A theme can
   tell the two apart by the counter's `day-counter` class.
 
@@ -133,5 +137,23 @@ timed event gets a block on every day it touches. A
 day's part of an event still shows when the event's first day is left off the card, by a
 weekday or weekend filter or because empty days are hidden. See
 [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
+
+## 📅 Month View
+
+[Month view](/features/month-view) ignores `split_multiday_events` too. An all-day event over
+several days is one [bar](/features/month-view#bars-lines) across them, starting again at the
+start of each week it continues into. A timed event a full day or longer is a bar as well, while
+`multiday_banners` is on, as it is by default; turn it off and the event has a line on each day
+instead:
+
+```yaml
+month:
+  multiday_banners: false
+```
+
+A shorter timed event, such as a night shift, has a line on each day it touches. The day's list
+and the panel show a multi-day event on every day it covers, and with `show_past_events: false` a
+bar keeps its earlier days there until the whole event is past. `multiday_banners` applies to Grid's
+banners too, and a calendar's own value wins over the card's.
 
 This page covers `split_multiday_events`, in [Core Settings in the configuration reference](/reference/configuration#core-settings), and the day counter, which `show_progress_bar` turns on, in [Event Column](/reference/configuration#event-column).

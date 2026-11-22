@@ -30,6 +30,12 @@
   "viewList": "รายการ",
   "viewColumns": "คอลัมน์",
   "viewGrid": "ตาราง",
+  "viewMonth": "เดือน",
+  "layout": "เค้าโครง",
+  "layoutCurrent": "เค้าโครง: {view}",
+  "moreEvents": "อีก {count} รายการ",
+  "eventCount": "{count} เหตุการณ์",
+  "eventCountOne": "{count} เหตุการณ์",
   "endsToday": "สิ้นสุดวันนี้",
   "endsTomorrow": "สิ้นสุดพรุ่งนี้",
   "dayOfEvent": "วันที่ {day} จาก {days}",
@@ -39,6 +45,9 @@
   "error": "ข้อผิดพลาด: ไม่พบเอนทิตีปฏิทินหรือมีการตั้งค่าที่ไม่ถูกต้อง",
   "loadFailed": "โหลดไม่สำเร็จ:",
   "newEvent": "เหตุการณ์ใหม่",
+  "movedTo": "ย้ายไปที่ {time}",
+  "undo": "เลิกทำ",
   "showAll": "แสดงทั้งหมด",
-  "hideAll": "ซ่อนทั้งหมด"
+  "hideAll": "ซ่อนทั้งหมด",
+  "private": "ส่วนตัว"
 }

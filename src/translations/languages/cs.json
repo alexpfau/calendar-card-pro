@@ -9,6 +9,12 @@
   "viewList": "Seznam",
   "viewColumns": "Sloupce",
   "viewGrid": "Mřížka",
+  "viewMonth": "Měsíc",
+  "layout": "Rozložení",
+  "layoutCurrent": "Rozložení: {view}",
+  "moreEvents": "+{count} navíc",
+  "eventCount": "Události: {count}",
+  "eventCountOne": "{count} událost",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zítra",
   "dayOfEvent": "Den {day} z {days}",
@@ -18,6 +24,9 @@
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",
   "loadFailed": "Nepodařilo se načíst:",
   "newEvent": "Nová událost",
+  "movedTo": "Přesunuto na {time}",
+  "undo": "Zpět",
   "showAll": "Zobrazit všechny",
-  "hideAll": "Skrýt všechny"
+  "hideAll": "Skrýt všechny",
+  "private": "Soukromé"
 }

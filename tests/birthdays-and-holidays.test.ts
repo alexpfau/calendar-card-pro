@@ -110,6 +110,7 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       show_countdown: true,
       countdown_exact_days: true,
       show_single_allday_time: false,
+      show_month: false,
       month_separator_width: '1px',
       toolbar: {
         show: true,
@@ -118,8 +119,10 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
         refresh: false,
         view_switcher: false,
       },
-      event_tap_action: { action: 'details' },
+      list: { month_separator_label: true },
     });
+    // A tap opens the entry by default, which the page relies on rather than writing it out.
+    expect(CARD).not.toHaveProperty('event_tap_action');
   });
 
   it('adds the age from YEAR= to the title, and counts it up a year later', async () => {
@@ -216,14 +219,7 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     // "Two months ahead; days with nothing on them stay hidden." Clara is on day sixty, Tom on
     // day sixty-one.
     const card = await mountStory(CARD, SEASON);
-    expect(listRows(card).map((row) => row.date)).toEqual([
-      'Jun 17',
-      'Jun 20',
-      'Jun 29',
-      'Jul 2',
-      'Jul 20',
-      'Aug 15',
-    ]);
+    expect(listRows(card).map((row) => row.day)).toEqual([17, 20, 29, 2, 20, 15]);
     expect(shadow(card).querySelectorAll('table.day-table')).toHaveLength(6);
 
     // Controls. A sixty-first day brings Tom in, so the window is what kept him out; and empty
@@ -234,21 +230,55 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     expect(shadow(filled).querySelectorAll('table.day-table')).toHaveLength(60);
   });
 
-  it('draws a rule where one month ends and the next begins', async () => {
-    // "A rule between months", read as the months on either side of each rule.
-    const monthOf = (table: Element | null) => text(table?.querySelector('.date-column .month'));
+  it('names the month on each rule instead of under every date', async () => {
+    // "The month's name on each rule, in place of the month on every date": the label on each
+    // rule, and whether any date still prints a month.
     const rules = (card: Awaited<ReturnType<typeof mountStory>>) =>
-      [...shadow(card).querySelectorAll('.month-separator')].map((rule) => [
-        monthOf(rule.previousElementSibling),
-        monthOf(rule.nextElementSibling),
-      ]);
+      [...shadow(card).querySelectorAll('.month-separator')].map((rule) =>
+        text(rule.querySelector('.month-separator-label')),
+      );
+    const datedMonths = (card: Awaited<ReturnType<typeof mountStory>>) =>
+      [...shadow(card).querySelectorAll('.date-column .month')].map((month) => text(month));
 
-    expect(rules(await mountStory(CARD, SEASON))).toEqual([
-      ['Jun', 'Jul'],
-      ['Jul', 'Aug'],
+    const card = await mountStory(CARD, SEASON);
+    expect(rules(card)).toEqual(['Jul 2026', 'Aug 2026']);
+    expect(datedMonths(card)).toEqual([]);
+    // The first month has no rule of its own; the toolbar right above names it.
+    expect(text(shadow(card).querySelector('.toolbar-month-button'))).toContain('June');
+    // Controls. Without the toolbar the first month's rule heads the list and names it, and so it
+    // does when the toolbar names the page's first day's month, June, above days of July.
+    expect(rules(await mountStory(dropOption(CARD, 'toolbar'), SEASON))).toEqual([
+      'Jun 2026',
+      'Jul 2026',
+      'Aug 2026',
     ]);
+    // A toolbar left with no control is not drawn, and has no month heading either.
+    const bare = await mountStory(
+      withOptions(CARD, {
+        toolbar: { ...(CARD.toolbar as object), navigation: false, search: false },
+      }),
+      SEASON,
+    );
+    expect(shadow(bare).querySelector('.toolbar-month')).toBeNull();
+    expect(rules(bare)).toEqual(['Jun 2026', 'Jul 2026', 'Aug 2026']);
+    const july = await mountStory(withOptions(CARD, { start_date: '2026-06-30' }), SEASON);
+    expect(text(shadow(july).querySelector('.toolbar-month-button'))).toContain('June');
+    expect(rules(july)).toEqual(['Jul 2026', 'Aug 2026']);
 
-    // Control: without `month_separator_width` there is no rule at all.
+    // Controls. Without `month_separator_label` the rules stay and say nothing; without
+    // `show_month: false` every date carries its month again; without `month_separator_width`
+    // there is no rule, and so no label, at all.
+    expect(rules(await mountStory(dropOption(CARD, 'list.month_separator_label'), SEASON))).toEqual(
+      [null, null],
+    );
+    expect(datedMonths(await mountStory(dropOption(CARD, 'show_month'), SEASON))).toEqual([
+      'Jun',
+      'Jun',
+      'Jun',
+      'Jul',
+      'Jul',
+      'Aug',
+    ]);
     expect(rules(await mountStory(dropOption(CARD, 'month_separator_width'), SEASON))).toEqual([]);
   });
 
@@ -283,6 +313,8 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
     // Controls. The toolbar with its defaults draws the filter, add, the switcher and refresh too,
     // so the list above can tell what the page turned off; without it there is nothing. The
     // filter's closed menu holds Show all, unavailable with every calendar shown, and Hide all.
+    // Not measured, the card draws the switcher collapsed: its button, then its closed menu's
+    // rows, one per layout.
     expect(
       controls(await mountStory(withOptions(CARD, { toolbar: { show: true } }), writable)),
     ).toEqual([
@@ -290,9 +322,11 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       'legend-menu-action unavailable',
       'legend-menu-action',
       'Add event',
-      'List',
-      'Columns',
-      'Grid',
+      'Layout: List',
+      'layout-menu-row selected',
+      'layout-menu-row',
+      'layout-menu-row',
+      'layout-menu-row',
       'Refresh',
       'Search',
       'toolbar-month-button',

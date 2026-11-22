@@ -22,6 +22,12 @@
   "viewList": "Списък",
   "viewColumns": "Колони",
   "viewGrid": "Решетка",
+  "viewMonth": "Месец",
+  "layout": "Оформление",
+  "layoutCurrent": "Оформление: {view}",
+  "moreEvents": "Още +{count}",
+  "eventCount": "{count} събития",
+  "eventCountOne": "{count} събитие",
   "endsToday": "приключва днес",
   "endsTomorrow": "приключва утре",
   "dayOfEvent": "Ден {day} от {days}",
@@ -31,6 +37,9 @@
   "error": "Грешка: календарът не е намерен или не е конфигуриран правилно",
   "loadFailed": "Неуспешно зареждане:",
   "newEvent": "Ново събитие",
+  "movedTo": "Преместено за {time}",
+  "undo": "Отмяна",
   "showAll": "Показване на всички",
-  "hideAll": "Скриване на всички"
+  "hideAll": "Скриване на всички",
+  "private": "Частно"
 }

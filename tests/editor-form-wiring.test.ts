@@ -14,28 +14,38 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  CARD,
+  type FormElement,
+  type MountedEditor,
+  changeField,
+  changeFields,
+  editLayout,
+  emitChange,
+  entry,
+  formOf,
+  formsOf,
+  lastConfig,
+  mountEditor,
+  openPageOf,
+  openPanels,
+  pressReset,
+  resetButton,
+  resultRows,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 
-customElements.define('editor-form-wiring-probe', CalendarCardProEditor);
-
-interface EditorHost extends HTMLElement {
-  hass: unknown;
-  setConfig(config: unknown): void;
-  readonly updateComplete: Promise<unknown>;
-}
+type EditorHost = MountedEditor;
 
 /** Mounts a configured editor and waits for its first render. */
 async function mount(config: Record<string, unknown>): Promise<EditorHost> {
-  const element = document.createElement('editor-form-wiring-probe') as EditorHost;
-  element.hass = { states: {}, locale: { language: 'en' } };
-  document.body.appendChild(element);
-  element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
-  await element.updateComplete;
-  return element;
+  const editor = await mountEditor({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  return editor;
 }
 
 /** Collects every config the editor reports while `run` executes. */
@@ -51,37 +61,17 @@ function reported(element: EditorHost): Array<Record<string, unknown>> {
   return seen;
 }
 
-/**
- * Dispatches the event shape `ha-form` emits: bubbling and composed, so an
- * un-stopped event would cross the shadow boundary and reach the document.
- */
-function change(form: Element, value: Record<string, unknown>): void {
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { detail: { value }, bubbles: true, composed: true }),
-  );
-}
-
-/** The `.data` an `ha-form` was rendered with, as a mutable copy. */
-function formData(form: Element): Record<string, unknown> {
-  return { ...((form as unknown as { data?: Record<string, unknown> }).data ?? {}) };
-}
-
 /** The field names in an `ha-form`'s schema. */
-function schemaNames(form: Element): string[] {
-  const schema = (form as unknown as { schema?: HaFormSchema[] }).schema ?? [];
-  return [...walkSchema(schema)].map(({ node }) => node.name);
+function schemaNames(form: FormElement): string[] {
+  return [...walkSchema(form.schema ?? [])].map(({ node }) => node.name);
 }
 
-/** The panel form that owns a given option. */
-function panelOwning(element: EditorHost, option: string): Element {
-  const forms = Array.from(element.shadowRoot!.querySelectorAll('ha-form.panel-form'));
-  const owner = forms.find((form) => schemaNames(form).includes(option));
-  if (!owner) throw new Error(`no panel form owns ${option}`);
+/** The panel form that owns a given field. */
+function panelOwning(element: EditorHost, id: string): FormElement {
+  const owner = formOf(element, id);
+  if (!owner) throw new Error(`no panel form owns ${id}`);
   return owner;
 }
-
-const panelCount = (element: EditorHost): number =>
-  element.shadowRoot!.querySelectorAll('ha-expansion-panel').length;
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -89,42 +79,29 @@ beforeEach(() => {
 });
 
 describe('editor filter bar', () => {
-  it('narrows the rendered panels to the ones that match the search', async () => {
+  it('lists what the search finds in place of the overview’s forms', async () => {
     const element = await mount({ entities: ['calendar.a'] });
-    const before = panelCount(element);
+    const before = formsOf(element, CARD).length;
     expect(before).toBeGreaterThan(1);
 
-    change(element.shadowRoot!.querySelector('ha-form.filter-form')!, {
-      search: 'weather',
-      customized_only: false,
-    });
-    await element.updateComplete;
+    await changeFields(element, { 'filter:search': 'weather' });
 
-    const during = panelCount(element);
-    expect(during).toBeGreaterThan(0);
-    expect(during).toBeLessThan(before);
+    // What the search finds, as rows, which mount no form.
+    expect(formsOf(element, CARD)).toHaveLength(0);
+    expect(resultRows(element).some((row) => row.id === 'weather:weather_entity')).toBe(true);
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
-    const surviving = Array.from(element.shadowRoot!.querySelectorAll('ha-form.panel-form'));
-    expect(surviving.some((form) => schemaNames(form).includes('weather'))).toBe(true);
-  });
-
-  it('restores every panel when the search is cleared', async () => {
+  it('restores every form when the search is cleared', async () => {
     const element = await mount({ entities: ['calendar.a'] });
-    const before = panelCount(element);
+    const before = formsOf(element, CARD).length;
 
-    change(element.shadowRoot!.querySelector('ha-form.filter-form')!, {
-      search: 'weather',
-      customized_only: false,
-    });
-    await element.updateComplete;
-    expect(panelCount(element)).toBeLessThan(before);
+    await changeFields(element, { 'filter:search': 'weather' });
+    expect(formsOf(element, CARD).length).toBeLessThan(before);
 
-    change(element.shadowRoot!.querySelector('ha-form.filter-form')!, {
-      search: '',
-      customized_only: false,
-    });
-    await element.updateComplete;
-    expect(panelCount(element)).toBe(before);
+    await changeFields(element, { 'filter:search': '' });
+    expect(formsOf(element, CARD)).toHaveLength(before);
   });
 
   it('keeps the filter event inside the editor', async () => {
@@ -132,11 +109,7 @@ describe('editor filter bar', () => {
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    change(element.shadowRoot!.querySelector('ha-form.filter-form')!, {
-      search: 'weather',
-      customized_only: false,
-    });
-    await element.updateComplete;
+    await changeFields(element, { 'filter:search': 'weather' });
 
     expect(escaped).toBe(0);
   });
@@ -145,11 +118,7 @@ describe('editor filter bar', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    change(element.shadowRoot!.querySelector('ha-form.filter-form')!, {
-      search: 'weather',
-      customized_only: false,
-    });
-    await element.updateComplete;
+    await changeFields(element, { 'filter:search': 'weather' });
 
     expect(seen).toHaveLength(0);
   });
@@ -173,16 +142,13 @@ describe('editor panel option forms', () => {
     };
     const element = await mount(config);
     const seen = reported(element);
-    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: from });
-    await element.updateComplete;
-    const origin = panelOwning(element, 'event_font_size');
-    const pending = { ...formData(origin), event_font_size: '31px' };
+    await editLayout(element, from);
+    const origin = panelOwning(element, 'events:event_font_size');
 
-    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: to });
-    await element.updateComplete;
+    await editLayout(element, to);
     expect(seen).toHaveLength(0);
 
-    change(origin, pending);
+    emitChange(origin, { 'events:event_font_size': '31px' });
     await element.updateComplete;
 
     const block = from === 'grid' ? 'time_grid' : from;
@@ -191,16 +157,16 @@ describe('editor panel option forms', () => {
         ? { ...config, event_font_size: '31px' }
         : { ...config, [block]: { event_font_size: '31px' } };
     expect(seen).toEqual([expected]);
-    expect(panelOwning(element, 'event_font_size')).not.toBe(origin);
+    expect(panelOwning(element, 'events:event_font_size')).not.toBe(origin);
   });
 
   it('keeps the same panel form across ordinary edits within one workspace', async () => {
     const element = await mount({ entities: ['calendar.anna'], view: 'grid' });
-    const form = panelOwning(element, 'event_font_size');
-    change(form, { ...formData(form), event_font_size: '18px' });
-    await element.updateComplete;
+    await openPageOf(element, 'events:event_font_size');
+    const form = panelOwning(element, 'events:event_font_size');
+    await changeField(element, 'events:event_font_size', '18px');
 
-    expect(panelOwning(element, 'event_font_size')).toBe(form);
+    expect(panelOwning(element, 'events:event_font_size')).toBe(form);
   });
 
   it('reports the changed option and preserves the configured calendars', async () => {
@@ -209,9 +175,7 @@ describe('editor panel option forms', () => {
     });
     const seen = reported(element);
 
-    const form = panelOwning(element, 'days_to_show');
-    change(form, { ...formData(form), days_to_show: 7 });
-    await element.updateComplete;
+    await changeField(element, 'content:days_to_show', 7);
 
     // A list card opens in the List workspace, so the count lands in `list:` since v5.
     expect(seen).toHaveLength(1);
@@ -224,13 +188,9 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const week = panelOwning(element, 'first_day_of_week');
-    change(week, { ...formData(week), first_day_of_week: 'sunday' });
-    await element.updateComplete;
+    await changeField(element, 'content:first_day_of_week', 'sunday');
 
-    const lines = panelOwning(element, 'title_max_lines');
-    change(lines, { ...formData(lines), title_max_lines: 3 });
-    await element.updateComplete;
+    await changeField(element, 'events:title_max_lines', 3);
 
     // Located by name rather than by position: `first_day_of_week` is fetch-time and stays
     // at the top level, `title_max_lines` is a list override and lands in `list:` in v5. The
@@ -238,16 +198,16 @@ describe('editor panel option forms', () => {
     expect(seen).toHaveLength(2);
     expect(seen[1].first_day_of_week).toBe('sunday');
     expect(seen[1].list).toHaveProperty('title_max_lines', 3);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps the panel event inside the editor', async () => {
     const element = await mount({ entities: ['calendar.a'] });
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    const form = panelOwning(element, 'days_to_show');
-    change(form, { ...formData(form), days_to_show: 7 });
-    await element.updateComplete;
+    await changeField(element, 'content:days_to_show', 7);
 
     expect(escaped).toBe(0);
   });
@@ -256,10 +216,11 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const form = panelOwning(element, 'days_to_show');
-    const data = formData(form);
-    change(form, { ...data, days_to_show: 7 });
-    change(form, { ...data, days_to_show: 7, first_day_of_week: 'monday' });
+    // Each field in a form of its own: one on the overview, one on Day Header.
+    const days = panelOwning(element, 'content:days_to_show');
+    const week = panelOwning(element, 'content:first_day_of_week');
+    emitChange(days, { 'content:days_to_show': 7 });
+    emitChange(week, { 'content:first_day_of_week': 'monday' });
     await element.updateComplete;
 
     const last = seen[seen.length - 1];
@@ -273,14 +234,10 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const form = panelOwning(element, 'days_to_show');
-    change(form, { ...formData(form), days_to_show: 7 });
-    await element.updateComplete;
+    await changeField(element, 'content:days_to_show', 7);
     expect(seen).toHaveLength(1);
 
-    const again = panelOwning(element, 'days_to_show');
-    change(again, { ...formData(again), days_to_show: 7 });
-    await element.updateComplete;
+    await changeField(element, 'content:days_to_show', 7);
 
     expect(seen).toHaveLength(1);
   });
@@ -296,11 +253,14 @@ describe('editor per-calendar forms', () => {
     });
     const seen = reported(element);
 
-    const forms = Array.from(element.shadowRoot!.querySelectorAll('ha-form.entity-form'));
-    expect(forms).toHaveLength(2);
+    // Each calendar draws its own forms on its entry page, one per field, and no other entry's.
+    expect([0, 1].map((index) => formsOf(element, entry(index)).length > 0)).toEqual([true, true]);
+    expect(formsOf(element, entry())).toEqual([
+      ...formsOf(element, entry(0)),
+      ...formsOf(element, entry(1)),
+    ]);
 
-    change(forms[1], { ...formData(forms[1]), label: 'CHANGED' });
-    await element.updateComplete;
+    await changeField(element, 'calendar:label', 'CHANGED', entry(1));
 
     expect(seen).toHaveLength(1);
     expect(seen[0].entities).toEqual([
@@ -314,9 +274,7 @@ describe('editor per-calendar forms', () => {
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
-    change(form, { ...formData(form), label: 'CHANGED' });
-    await element.updateComplete;
+    await changeField(element, 'calendar:label', 'CHANGED', entry(0));
 
     expect(escaped).toBe(0);
   });
@@ -328,7 +286,7 @@ describe('direct view forms and resets', () => {
     expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
 
     expect(element.shadowRoot!.querySelector('.exception-picker')).toBeNull();
-    expect(schemaNames(panelOwning(element, 'day_spacing'))).toContain('day_spacing');
+    expect(schemaNames(panelOwning(element, 'layout:day_spacing'))).toContain('day_spacing');
   });
 
   it('resets an override without removing the input', async () => {
@@ -337,25 +295,23 @@ describe('direct view forms and resets', () => {
       view: 'column',
       column: { day_spacing: '20px' },
     });
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="day_spacing"]',
-    );
+    const reset = await resetButton(element, 'day_spacing');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
-    expect(formData(panelOwning(element, 'day_spacing')).day_spacing).toBe('10px');
-    expect(element.shadowRoot!.querySelector('[data-reset-keys="day_spacing"]')).toBeNull();
-  });
+    await openPageOf(element, 'layout:day_spacing');
+    expect(valueOf(element, 'layout:day_spacing')).toBe('10px');
+    expect(await resetButton(element, 'day_spacing')).toBeNull();
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('writes an override value into the view block', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     const seen = reported(element);
 
-    const override = panelOwning(element, 'day_spacing');
-    const data = formData(override);
     const key = 'day_spacing';
-    change(override, { ...data, [key]: '20px' });
-    await element.updateComplete;
+    await changeField(element, `layout:${key}`, '20px');
 
     const last = seen[seen.length - 1];
     expect(last).toBeDefined();
@@ -367,11 +323,64 @@ describe('direct view forms and resets', () => {
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    const override = panelOwning(element, 'day_spacing');
-    const data = formData(override);
-    change(override, { ...data, day_spacing: '20px' });
-    await element.updateComplete;
+    await changeField(element, 'layout:day_spacing', '20px');
 
     expect(escaped).toBe(0);
+  });
+});
+
+/**
+ * Home Assistant's ✕ on a dropdown clears it to no value. A derived dropdown read that as a choice
+ * of its own, so Duplicates stored `filter_duplicates: false`; in a layout's scope the clear wrote
+ * the layout an override (`list: { filter_duplicates: false }`) where nothing was stored. Cleared,
+ * a dropdown now deletes its line where the scope writes it, as its Reset does.
+ */
+describe("a dropdown's clear button", () => {
+  const CASES: ReadonlyArray<readonly [string, string, Record<string, unknown>]> = [
+    ['content:filter_duplicates_mode', 'filter_duplicates', { filter_duplicates: true }],
+    ['content:first_day_of_week', 'first_day_of_week', { first_day_of_week: 'monday' }],
+    ['day_header:week_number_mode', 'show_week_numbers', { show_week_numbers: 'iso' }],
+    ['day_header:today_indicator_style', 'today_indicator', { today_indicator: 'dot' }],
+  ];
+
+  async function inAllLayouts(config: Record<string, unknown>): Promise<EditorHost> {
+    const element = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      ...config,
+    });
+    await editLayout(element, 'shared');
+    return element;
+  }
+
+  it.each(CASES)('clears %s to what its Reset leaves', async (id, keys, config) => {
+    const cleared = await inAllLayouts(config);
+    await openPageOf(cleared, id);
+    emitChange(formOf(cleared, id)!, { [id]: undefined });
+    await cleared.updateComplete;
+    const afterClear = lastConfig(cleared);
+
+    const reset = await inAllLayouts(config);
+    await pressReset(reset, id);
+
+    expect(lastConfig(reset)).toBeDefined();
+    expect(afterClear).toEqual(lastConfig(reset));
+    expect(afterClear).not.toHaveProperty(keys);
+  });
+
+  it('writes nothing in a layout scope where only All Layouts stores the value', async () => {
+    const element = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      filter_duplicates: true,
+    });
+    const seen = reported(element);
+    await openPageOf(element, 'content:filter_duplicates_mode');
+    emitChange(formOf(element, 'content:filter_duplicates_mode')!, {
+      'content:filter_duplicates_mode': undefined,
+    });
+    await element.updateComplete;
+    expect(seen.map((config) => config.list)).not.toContainEqual({ filter_duplicates: false });
+    expect(seen.every((config) => config.filter_duplicates === true)).toBe(true);
   });
 });

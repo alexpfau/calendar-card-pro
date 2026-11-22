@@ -13,11 +13,20 @@
   "viewList": "Lista",
   "viewColumns": "Oszlopok",
   "viewGrid": "Rács",
+  "viewMonth": "Hónap",
+  "layout": "Elrendezés",
+  "layoutCurrent": "Elrendezés: {view}",
+  "moreEvents": "+{count} további",
+  "eventCount": "{count} esemény",
+  "eventCountOne": "{count} esemény",
   "noEvents": "Nincs esemény",
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált",
   "loadFailed": "Nem sikerült betölteni:",
   "newEvent": "Új esemény",
+  "movedTo": "Áthelyezve: {time}",
+  "undo": "Visszavonás",
   "showAll": "Összes megjelenítése",
-  "hideAll": "Összes elrejtése"
+  "hideAll": "Összes elrejtése",
+  "private": "Privát"
 }

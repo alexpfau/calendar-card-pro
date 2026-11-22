@@ -262,6 +262,7 @@ describe('day_tap_action: add-event', () => {
   it("never adds from a press on an event: with no tap of its own it is the card's", async () => {
     const { card, dialogs, hassActions } = await mount({
       ...ADD,
+      event_tap_action: { action: 'none' },
       tap_action: { action: 'more-info' },
     });
 
@@ -733,7 +734,10 @@ describe('add-event as the card action', () => {
 });
 
 describe('event_hold_action: details', () => {
-  const HOLD_DETAILS = { event_hold_action: { action: 'details' } } as const;
+  const HOLD_DETAILS = {
+    event_tap_action: { action: 'none' },
+    event_hold_action: { action: 'details' },
+  } as const;
 
   it("opens an event on a hold, with no hold action of the card's, after the indicator", async () => {
     const { card, dialogs } = await mount(HOLD_DETAILS);

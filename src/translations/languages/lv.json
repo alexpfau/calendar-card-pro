@@ -17,6 +17,12 @@
   "viewList": "Saraksts",
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",
+  "viewMonth": "Mēnesis",
+  "layout": "Izkārtojums",
+  "layoutCurrent": "Izkārtojums: {view}",
+  "moreEvents": "Vēl +{count}",
+  "eventCount": "Notikumu skaits: {count}",
+  "eventCountOne": "{count} notikums",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
   "dayOfEvent": "Diena {day} no {days}",
@@ -26,6 +32,9 @@
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",
   "loadFailed": "Neizdevās ielādēt:",
   "newEvent": "Jauns notikums",
+  "movedTo": "Pārvietots uz {time}",
+  "undo": "Atsaukt",
   "showAll": "Rādīt visus",
-  "hideAll": "Paslēpt visus"
+  "hideAll": "Paslēpt visus",
+  "private": "Privāts"
 }

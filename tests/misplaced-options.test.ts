@@ -15,11 +15,34 @@ vi.mock('../src/utils/logger', () => ({
 }));
 
 import { DEFAULT_CONFIG, normalizeEntities } from '../src/config/config';
+import { HA_CARD_KEYS } from '../src/config/constants';
 import * as Types from '../src/config/types';
 import { findMisplacedOptions, validateColumnOverrides } from '../src/config/view';
 import * as Logger from '../src/utils/logger';
 
 const warnMock = vi.mocked(Logger.warn);
+
+/**
+ * Every key Home Assistant's `LovelaceCardConfig` declares for any card, written out rather than
+ * read from `HA_CARD_KEYS`, so a key dropped from that set fails here.
+ */
+const HA_CARD_CONFIG = {
+  type: 'custom:calendar-card-pro',
+  index: 0,
+  view_index: 0,
+  view_layout: { position: 'main' },
+  layout_options: { grid_columns: 4 },
+  grid_options: { columns: 'full' },
+  visibility: [{ condition: 'screen', media_query: '(max-width: 1023px)' }],
+  disabled: false,
+};
+
+/** The calendar-only options, read the way the existing projection test reads them. */
+function calendarOnlyKeys(): string[] {
+  return Object.keys(normalizeEntities([{ entity: 'calendar.anna' }])[0]).filter(
+    (key) => key !== 'entity' && !Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key),
+  );
+}
 
 describe('findMisplacedOptions', () => {
   it('finds nothing in a configuration that puts every option where it works', () => {
@@ -40,12 +63,15 @@ describe('findMisplacedOptions', () => {
       findMisplacedOptions({
         min_day_width: '120px',
         hour_height: '40px',
+        // Weather as written before v6, which decides every layout's, so a layout's is ignored.
+        weather: { entity: 'weather.home' },
         list: { toolbar: { show: true }, start_time: '07:00', shwo_location: true },
-        column: { weather: { entity: 'weather.home' }, min_day_width: '100px' },
+        column: { weather: { position: 'event' }, min_day_width: '100px' },
         time_grid: { event_tap_action: { action: 'details' }, compact_events_to_show: 2 },
       }),
     ).toEqual([
-      { kind: 'view-only', key: 'min_day_width', from: null, to: ['column', 'time_grid'] },
+      // Month has a `min_day_width` of its own, the width its narrow form starts below.
+      { kind: 'view-only', key: 'min_day_width', from: null, to: ['column', 'time_grid', 'month'] },
       { kind: 'view-only', key: 'hour_height', from: null, to: ['time_grid'] },
       { kind: 'card-wide', key: 'toolbar', from: 'list', to: [null] },
       { kind: 'wrong-view', key: 'start_time', from: 'list', to: ['time_grid'] },
@@ -53,6 +79,39 @@ describe('findMisplacedOptions', () => {
       { kind: 'fetch-time', key: 'weather', from: 'column', to: [null] },
       { kind: 'card-wide', key: 'event_tap_action', from: 'time_grid', to: [null] },
       { kind: 'wrong-view', key: 'compact_events_to_show', from: 'time_grid', to: ['list'] },
+    ]);
+  });
+
+  it('sends a card-wide option nowhere where the layout ignores it at the top level too', () => {
+    // `today_weekday_color` reaches List, Columns and Grid, never Month, so moving it out of
+    // `month:` to the top level would change nothing Month draws.
+    expect(
+      findMisplacedOptions({
+        month: { today_weekday_color: '#e91e63', event_tap_action: { action: 'details' } },
+        time_grid: { today_weekday_color: '#e91e63' },
+      }),
+    ).toEqual([
+      { kind: 'card-wide', key: 'today_weekday_color', from: 'time_grid', to: [null] },
+      { kind: 'no-effect', key: 'today_weekday_color', from: 'month', to: [] },
+      { kind: 'card-wide', key: 'event_tap_action', from: 'month', to: [null] },
+    ]);
+  });
+
+  it('leaves a layout’s weather alone where the card sets weather per layout', () => {
+    expect(
+      findMisplacedOptions({
+        weather_entity: 'weather.home',
+        column: { weather: { position: 'event' } },
+        month: { weather: { position: 'event' } },
+      }),
+    ).toEqual([]);
+    // A top-level block without an entity drew nothing before v6, so it decides nothing.
+    expect(findMisplacedOptions({ weather: { position: 'both' }, list: { weather: {} } })).toEqual(
+      [],
+    );
+    // `weather_entity` is the card's, like the block written before v6.
+    expect(findMisplacedOptions({ list: { weather_entity: 'weather.home' } })).toEqual([
+      { kind: 'fetch-time', key: 'weather_entity', from: 'list', to: [null] },
     ]);
   });
 
@@ -103,6 +162,41 @@ describe('findMisplacedOptions', () => {
   });
 });
 
+describe('Home Assistant’s own card keys', () => {
+  it('names every key Home Assistant takes on any card', () => {
+    expect([...HA_CARD_KEYS].sort()).toEqual(Object.keys(HA_CARD_CONFIG).sort());
+  });
+
+  it('reports none of them at the top level, where Home Assistant applies them to the card', () => {
+    expect(findMisplacedOptions(HA_CARD_CONFIG)).toEqual([]);
+  });
+
+  it('covers a calendar option that shares a name with one of them', () => {
+    // Without a collision the test above would pass with no exclusion at all. A calendar option
+    // added later under another of these names is covered by it the same way.
+    expect(calendarOnlyKeys().filter((key) => HA_CARD_KEYS.has(key))).toContain('visibility');
+  });
+
+  it('still reports a calendar option written beside them', () => {
+    expect(findMisplacedOptions({ ...HA_CARD_CONFIG, show_in_legend: false })).toEqual([
+      { kind: 'calendar', key: 'show_in_legend', from: null, to: [] },
+    ]);
+  });
+
+  it('still reports visibility written in a layout’s block, where neither reads it', () => {
+    expect(findMisplacedOptions({ list: { visibility: HA_CARD_CONFIG.visibility } })).toEqual([
+      { kind: 'calendar', key: 'visibility', from: 'list', to: [] },
+    ]);
+  });
+
+  it('keeps a calendar’s own visibility under entities', () => {
+    const entities = [{ entity: 'calendar.anna', visibility: HA_CARD_CONFIG.visibility }];
+
+    expect(findMisplacedOptions({ ...HA_CARD_CONFIG, entities })).toEqual([]);
+    expect(normalizeEntities(entities)[0].visibility).toEqual(HA_CARD_CONFIG.visibility);
+  });
+});
+
 describe('the card warns from the same findings', () => {
   beforeEach(() => warnMock.mockClear());
 
@@ -122,6 +216,7 @@ describe('the card warns from the same findings', () => {
       ...DEFAULT_CONFIG,
       list: { toolbar: { show: true } },
       column: { shwo_location: true },
+      weather: { entity: 'weather.home' },
       time_grid: { weather: {} },
     } as unknown as Types.Config;
 
@@ -134,6 +229,18 @@ describe('the card warns from the same findings', () => {
     ]);
   });
 
+  it('says a card-wide option has no effect in a layout that ignores it everywhere', () => {
+    validateColumnOverrides({
+      ...DEFAULT_CONFIG,
+      month: { today_weekday_color: '#e91e63' },
+    } as unknown as Types.Config);
+
+    expect(warnMock.mock.calls.map((call) => call[0])).toEqual([
+      'Ignoring "month.today_weekday_color": it has no effect in month view, here or at the top ' +
+        'level.',
+    ]);
+  });
+
   it('warns about a calendar’s option written for the whole card', () => {
     validateColumnOverrides({
       ...DEFAULT_CONFIG,
@@ -143,5 +250,11 @@ describe('the card warns from the same findings', () => {
     expect(warnMock.mock.calls.map((call) => call[0])).toEqual([
       expect.stringContaining('"show_in_legend": it is an option of one calendar'),
     ]);
+  });
+
+  it('says nothing about Home Assistant’s own card keys', () => {
+    validateColumnOverrides({ ...DEFAULT_CONFIG, ...HA_CARD_CONFIG } as unknown as Types.Config);
+
+    expect(warnMock).not.toHaveBeenCalled();
   });
 });

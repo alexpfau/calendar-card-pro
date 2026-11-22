@@ -16,6 +16,7 @@ import { PropertyValues, TemplateResult, css, html, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 
 import * as Shell from './popover-shell';
+import * as PrivateLock from './private-lock';
 import * as Types from '../config/types';
 import * as Writes from '../interaction/calendar-writes';
 import * as EventMap from '../interaction/event-map';
@@ -221,15 +222,18 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   /**
-   * Closes the popover for Home Assistant's Back, saving what changed.
+   * Closes the popover for Home Assistant's Back, as Cancel and Escape do: what changed is thrown
+   * away, since Save is a button of its own and Back is no answer to it. While it asks which
+   * occurrences, Back backs out of the question, as Escape does.
    *
    * Home Assistant reads the answer at once rather than waiting on it, so it is a boolean.
    *
-   * @returns True once the popover is gone. False keeps it open: to ask which occurrences, to
-   *   show why a change was refused, or while a save is under way, which closes it when done
+   * @returns True once the popover is gone. False keeps it open: backed out of a question to the
+   *   event, or while a write is under way, which closes it when done
    */
   public closeDialog(): boolean {
-    return this._requestClose('save');
+    if (this._phase === 'update' || this._phase === 'delete') return this._backOut();
+    return this._requestClose('discard');
   }
 
   //---------------------------------------------------------------------------
@@ -290,13 +294,13 @@ export class EventPopover extends Shell.PopoverShell {
   /**
    * Backs out of a question: back to the event, or, for the question a drop asks, out of the
    * popover with the move thrown away, since the move was all there was to answer for.
+   *
+   * @returns Whether the popover closed
    */
-  private _backOut(): void {
-    if (this._phase === 'update' && this._dropped) {
-      this._requestClose('discard');
-      return;
-    }
+  private _backOut(): boolean {
+    if (this._phase === 'update' && this._dropped) return this._requestClose('discard');
     this._phase = 'edit';
+    return false;
   }
 
   /** Whether a save or a delete is waiting on Home Assistant. */
@@ -520,8 +524,9 @@ export class EventPopover extends Shell.PopoverShell {
   };
 
   /**
-   * A press that starts and ends on the backdrop closes the popover, saving. Both ends count, so
-   * the click a press on the card derives from the gesture that opened it cannot close it.
+   * A press that starts and ends on the backdrop closes the popover, as Cancel does. Both ends
+   * count, so the click a press on the card derives from the gesture that opened it cannot close
+   * it.
    */
   private readonly _onPointerDown = (ev: PointerEvent): void => {
     this._backdropDown = ev.target === this._dialog;
@@ -566,14 +571,14 @@ export class EventPopover extends Shell.PopoverShell {
 
   /**
    * A click: the derived one of the opening touch, swallowed (`_ghostGuard`), or one on the
-   * backdrop, which closes the popover, saving. In the capture phase, so the guard runs before
-   * any field's own click.
+   * backdrop, which closes the popover as Cancel does, throwing away what changed. In the capture
+   * phase, so the guard runs before any field's own click.
    */
   private readonly _onClick = {
     handleEvent: (ev: MouseEvent): void => {
       this._ghostGuard.handleEvent(ev);
       if (ev.defaultPrevented) return;
-      if (this._isBackdropPress(ev)) this._requestClose('save');
+      if (this._isBackdropPress(ev)) this._requestClose('discard');
     },
     capture: true,
   };
@@ -669,11 +674,16 @@ export class EventPopover extends Shell.PopoverShell {
   // MAP
   //---------------------------------------------------------------------------
 
-  /** Draws the map under the location, when the location is a place Home Assistant knows. */
+  /**
+   * Draws the map under the location, when the location is a place Home Assistant knows. Not for
+   * a private event, whose place is neither shown nor looked up, nor for a location listing
+   * several places (`severalPlaces`).
+   */
   private async _loadMap(): Promise<void> {
     const params = this._params;
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
-    if (!params || params.mode !== 'event' || !location || params.hidden?.location) return;
+    if (!params || params.mode !== 'event' || !location || params.private) return;
+    if (params.severalPlaces) return;
 
     const place = await EventMap.resolveLocation(location, this.hass, MAP_WIDTH);
     if (!place || this._params !== params) return;
@@ -764,7 +774,7 @@ export class EventPopover extends Shell.PopoverShell {
           >
             ${titleText || this._t('summary')}
           </h2>
-          <button class="btn reveal" @click=${() => this._requestClose('save')}>
+          <button class="btn reveal" @click=${() => this._requestClose('discard')}>
             ${this._t('close')}
           </button>
           <div class="group">
@@ -802,10 +812,20 @@ export class EventPopover extends Shell.PopoverShell {
     return this._params?.calendars.find((calendar) => calendar.id === id);
   }
 
+  /**
+   * A private event's lock before a field that shows Private (`PopoverParams.private`).
+   *
+   * @param field - Which field
+   * @returns The lock, or nothing
+   */
+  private _lock(field: 'title' | 'location' | 'description'): TemplateResult | typeof nothing {
+    return this._params?.private?.[field] ? PrivateLock.renderInlineLock() : nothing;
+  }
+
   private _renderTitle(): TemplateResult {
     const text = this._displayed('title');
     if (!this._editable) {
-      return html`<div class="cell title">${text}</div>
+      return html`<div class="cell title">${this._lock('title')}${text}</div>
         ${
           this._params?.entry?.status === 'tentative'
             ? html`<span class="badge">${this._t('tentative')}</span>`
@@ -823,7 +843,12 @@ export class EventPopover extends Shell.PopoverShell {
       @input=${(ev: Event) => this._update({ summary: (ev.target as HTMLInputElement).value })}
       @keydown=${(ev: KeyboardEvent) => {
         // Return confirms, as it does in a macOS popover; not while an input method composes.
-        if (ev.key === 'Enter' && !ev.isComposing) this._requestClose('save');
+        // Consumed, because a repeating event then asks which occurrences, which focuses the
+        // first answer, and the browser would hand this key's keypress to it and pick it.
+        if (ev.key === 'Enter' && !ev.isComposing) {
+          ev.preventDefault();
+          this._requestClose('save');
+        }
       }}
     />`;
   }
@@ -1079,10 +1104,10 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   private _renderLocation(): TemplateResult | typeof nothing {
-    if (this._params?.hidden?.location) return nothing;
     const text = this._displayed('location');
+    // A private event's place is not looked up on a map either, nor a list of several places.
     const pin =
-      text && !this._map
+      text && !this._map && !this._params?.private && !this._params?.severalPlaces
         ? html`<a
             class="pin"
             href=${EventMap.mapsSearchUrl(text)}
@@ -1096,7 +1121,7 @@ export class EventPopover extends Shell.PopoverShell {
     if (!this._editable) {
       return text
         ? html`<div class="cell with-pin">
-            <span class="text">${this._linked(text)}</span>${pin}
+            <span class="text">${this._lock('location')}${this._linked(text)}</span>${pin}
           </div>`
         : nothing;
     }
@@ -1119,6 +1144,15 @@ export class EventPopover extends Shell.PopoverShell {
     const draft = this._draft!;
     const current = this._calendar(draft.calendarId);
     const dot = (color: string) => html`<span class="dot" style="background:${color}"></span>`;
+    // A merged duplicate is never editable, so its calendars are only ever named.
+    if (params.merged && params.merged.length > 1) {
+      return html`<div class="cell calendar merged">
+        ${params.merged.map(
+          (calendar) =>
+            html`<span class="one">${dot(calendar.color)}<span>${calendar.name}</span></span>`,
+        )}
+      </div>`;
+    }
     if (!this._editable || params.calendars.length < 2) {
       return html`<div class="cell calendar">
         ${dot(current?.color ?? params.color ?? 'var(--primary-color)')}
@@ -1142,7 +1176,6 @@ export class EventPopover extends Shell.PopoverShell {
   }
 
   private _renderDescription(): TemplateResult | typeof nothing {
-    if (this._params?.hidden?.description) return nothing;
     const text = this._displayed('description');
     if (!this._editable || this._editing !== 'description') {
       if (!text && !this._editable) return nothing;
@@ -1166,7 +1199,9 @@ export class EventPopover extends Shell.PopoverShell {
             </button>
             <span class="lines">${text ? this._pieces(pieces) : this._t('description')}</span>
           </div>`
-        : html`<div class="cell notes"><span class="lines">${this._pieces(pieces)}</span></div>`;
+        : html`<div class="cell notes">
+            <span class="lines">${this._lock('description')}${this._pieces(pieces)}</span>
+          </div>`;
     }
     return html`<textarea
       class="cell notes"
@@ -1281,8 +1316,8 @@ export class EventPopover extends Shell.PopoverShell {
   /**
    * The row under the cells: Delete for a stored event, on the left, and once anything was
    * changed Cancel and Save on the right, Add for a new event. Cancel throws the changes away
-   * and closes, as Escape does where there is no Escape key; Save does what closing does, so a
-   * change can be confirmed where a person looks for it. A new event has nothing to delete.
+   * and closes, as Escape, Back, Close and a press on the backdrop do; Save, or Return in the
+   * title, is the one way to write a change. A new event has nothing to delete.
    */
   private _renderFoot(): TemplateResult | typeof nothing {
     const params = this._params!;
@@ -1317,6 +1352,15 @@ export class EventPopover extends Shell.PopoverShell {
   static styles = css`
     ${Shell.shellStyles}
     ${Shell.cellStyles}
+    /* The panel scrolls once its rows run past its height; no row shrinks to fit instead. A flex
+       row keeps its content's height only through its automatic minimum, which .notes replaces
+       with its own min-height and .map and the sheet's grabber do not have, so a long
+       description was squeezed and spilled out of its cell under the foot, and a short screen
+       squeezed the map. The search panel shares the shell and its results do shrink, so this
+       stays here rather than in it. */
+    .panel > * {
+      flex-shrink: 0;
+    }
     .title {
       font-size: 21px;
       font-weight: 500;
@@ -1489,6 +1533,14 @@ export class EventPopover extends Shell.PopoverShell {
       height: 16px;
       fill: currentColor;
     }
+    /* A private event's lock, at the size of the word it leads. */
+    .private-lock {
+      width: 1em;
+      height: 1em;
+      margin-inline-end: 0.3em;
+      vertical-align: -0.125em;
+      fill: currentColor;
+    }
     .calendar {
       display: flex;
       align-items: center;
@@ -1498,6 +1550,17 @@ export class EventPopover extends Shell.PopoverShell {
       flex: 1;
       background: transparent;
       padding: 0;
+    }
+    /* A merged duplicate's calendars, each with its own dot, wrapping as a row of names does. */
+    .calendar.merged {
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+    .calendar .one {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
     }
     .dot {
       flex: none;

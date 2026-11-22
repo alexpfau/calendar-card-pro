@@ -22,6 +22,12 @@
   "viewList": "列表",
   "viewColumns": "列",
   "viewGrid": "网格",
+  "viewMonth": "月",
+  "layout": "布局",
+  "layoutCurrent": "布局：{view}",
+  "moreEvents": "还有 {count} 项",
+  "eventCount": "{count} 项活动",
+  "eventCountOne": "{count} 项活动",
   "endsToday": "今天 {at} 结束",
   "endsTomorrow": "明天 {at} 结束",
   "dayOfEvent": "第{day}天，共{days}天",
@@ -31,6 +37,9 @@
   "error": "错误：找不到日历实体或配置不正确",
   "loadFailed": "无法加载：",
   "newEvent": "新活动",
+  "movedTo": "已移至 {time}",
+  "undo": "撤销",
   "showAll": "全部显示",
-  "hideAll": "全部隐藏"
+  "hideAll": "全部隐藏",
+  "private": "私人"
 }

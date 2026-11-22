@@ -29,6 +29,10 @@ export default defineConfig({
     // setting this once avoids per-file environment annotations later.
     environment: 'happy-dom',
 
+    // Every editor language held from the start, as the built editor holds one once its file
+    // has loaded. See the module.
+    setupFiles: ['tests/setup/editor-languages.ts'],
+
     // Several worktrees often run the suite at once, so each run takes a share of the
     // machine beside the other runs testing on it. See the module for how.
     maxWorkers: resolveMaxWorkers(),

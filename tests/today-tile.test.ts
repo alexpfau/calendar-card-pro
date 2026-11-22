@@ -22,6 +22,7 @@ import { applyFormChange, toStoredConfig } from '../src/rendering/editor/value';
 import * as Grid from '../src/rendering/grid';
 import * as Leaves from '../src/rendering/leaves';
 import * as Render from '../src/rendering/render';
+import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
@@ -184,5 +185,77 @@ describe('the editor', () => {
     const dot = names(buildConfig({ today_indicator: 'dot' }));
     expect(dot).toContain('"today_indicator_size"');
     expect(dot).toContain('"today_indicator_position"');
+  });
+});
+
+/**
+ * Month fills today's tile, and its digits are 16px at 600, which WCAG does not count as large
+ * text, so they need 4.5 to 1. Home Assistant's light-blue primary gave white 3.3 to 1. The
+ * stylesheet darkens the fill in OKLab; this reads the factor it uses out of the stylesheet and
+ * applies it to every sRGB color, in steps of 5, so the claim cannot drift from the CSS. The
+ * conversions use OKLab's published matrices; Chrome 157 computed the same contrast for six
+ * theme primaries, pure green's 4.70 the lowest.
+ */
+describe("Month's filled tile", () => {
+  const css = cardStyles.cssText.replace(/\s+/g, ' ');
+  const WIDE = '.month-container:not(.month-narrow) .month-date > .day.today-tile';
+  const NARROW = '.month-narrow .month-day.month-selected.today .month-date > .day';
+
+  const linear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  function oklab(r: number, g: number, b: number): [number, number, number] {
+    const [R, G, B] = [r, g, b].map(linear);
+    const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+    const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+    const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+    return [
+      0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+    ];
+  }
+  function luminance([L, a, b]: [number, number, number]): number {
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    const clip = (v: number) => Math.min(1, Math.max(0, v));
+    const R = clip(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s);
+    const G = clip(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s);
+    const B = clip(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s);
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  }
+
+  it('darkens the fill of both forms, lightness and chroma by one factor, with white digits', () => {
+    const block = css.match(
+      /@supports \(color: oklch\(from red l c h\)\)[^{]*\{([^@]*?background: oklab\( from var\(--calendar-card-today-indicator-color\)[^;]*;[^@]*)\}/,
+    );
+    expect(block, 'the gated block darkening the fill').not.toBeNull();
+    const body = block![1];
+    expect(body).toContain(`${WIDE}, ${NARROW} {`);
+    const factors = [...body.matchAll(/calc\(([lab]) \* ([\d.]+) \/ max\(l, ([\d.]+)\)\)/g)];
+    expect(factors.map((f) => f[1])).toEqual(['l', 'a', 'b']);
+    expect(new Set(factors.flatMap((f) => [f[2], f[3]])).size).toBe(1);
+    expect(body).toMatch(/--calendar-card-today-indicator-ink: #fff/);
+    expect(body).toMatch(/color: #fff/);
+  });
+
+  it('gives white digits at least 4.5 to 1 on every sRGB indicator color', () => {
+    const cap = Number(css.match(/calc\(l \* ([\d.]+) \/ max\(l, \1\)\)/)?.[1]);
+    expect(cap).toBeGreaterThan(0);
+    let worst = Infinity;
+    for (let r = 0; r <= 255; r += 5)
+      for (let g = 0; g <= 255; g += 5)
+        for (let b = 0; b <= 255; b += 5) {
+          const lab = oklab(r / 255, g / 255, b / 255);
+          const k = cap / Math.max(lab[0], cap);
+          const y = luminance([lab[0] * k, lab[1] * k, lab[2] * k]);
+          worst = Math.min(worst, 1.05 / (y + 0.05));
+        }
+    expect(worst).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("measured Home Assistant's light-blue primary below 4.5 to 1 without it", () => {
+    // The control: the undarkened fill, white on #009ac7, which the review measured at 3.26.
+    const y = luminance(oklab(0x00 / 255, 0x9a / 255, 0xc7 / 255));
+    expect(1.05 / (y + 0.05)).toBeLessThan(4.5);
   });
 });

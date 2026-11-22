@@ -17,6 +17,12 @@
   "viewList": "Λίστα",
   "viewColumns": "Στήλες",
   "viewGrid": "Πλέγμα",
+  "viewMonth": "Μήνας",
+  "layout": "Διάταξη",
+  "layoutCurrent": "Διάταξη: {view}",
+  "moreEvents": "+{count} ακόμη",
+  "eventCount": "{count} γεγονότα",
+  "eventCountOne": "{count} γεγονός",
   "endsToday": "λήγει σήμερα",
   "endsTomorrow": "λήγει αύριο",
   "dayOfEvent": "Ημέρα {day} από {days}",
@@ -26,6 +32,9 @@
   "error": "Σφάλμα: Η οντότητα ημερολογίου δεν βρέθηκε ή δεν έχει ρυθμιστεί σωστά",
   "loadFailed": "Αποτυχία φόρτωσης:",
   "newEvent": "Νέο γεγονός",
+  "movedTo": "Μετακινήθηκε: {time}",
+  "undo": "Αναίρεση",
   "showAll": "Εμφάνιση όλων",
-  "hideAll": "Απόκρυψη όλων"
+  "hideAll": "Απόκρυψη όλων",
+  "private": "Ιδιωτικό"
 }

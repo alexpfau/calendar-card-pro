@@ -6,6 +6,9 @@
  * story. Each calendar's colors survive as a palette, given in order to the user's calendars
  * that have no color of their own. Its names and labels do not: they name the story's people.
  *
+ * Simple Agenda comes first: not a story but the card Usage's Your First Card documents, for
+ * someone who wants a short list of the next few days and nothing more.
+ *
  * Only the five stories that work without per-calendar filters are here. Bin Day splits one
  * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
  * in their descriptions; neither can be guessed for someone else's calendars.
@@ -18,12 +21,18 @@
 
 /** A story's id, which is also the stem of its editor strings: `quick_setup.story.<id>`. */
 export type StoryId =
-  'family_hub' | 'now_and_next' | 'today_and_tomorrow' | 'birthdays_and_holidays' | 'house_log';
+  | 'simple_agenda'
+  | 'family_hub'
+  | 'now_and_next'
+  | 'today_and_tomorrow'
+  | 'birthdays_and_holidays'
+  | 'house_log';
 
 /** One story Quick Setup can start from. */
 export interface Story {
   readonly id: StoryId;
-  /** Its page on the docs site, from the site's root. */
+  /** Its page on the docs site, from the site's root, with the heading its card is under where
+   * the page holds more than one. */
   readonly page: string;
   /** Each calendar's accent color in the story, in the order its calendars are listed. */
   readonly palette: ReadonlyArray<string>;
@@ -50,8 +59,14 @@ function story(
   return { id, page, palette, shell: () => structuredClone(shell) as Record<string, unknown> };
 }
 
-/** The five stories, in the order Quick Setup offers them. */
+/** The six starting points, in the order Quick Setup offers them. */
 export const STORIES: ReadonlyArray<Story> = [
+  // Not an Example Story: the card Usage starts everyone with, for a plain list of the next days.
+  story('simple_agenda', '/guide/usage#your-first-card', [], {
+    days_to_show: 3,
+    show_location: false,
+    show_month: false,
+  }),
   story(
     'family_hub',
     '/guide/family-calendar',
@@ -63,18 +78,24 @@ export const STORIES: ReadonlyArray<Story> = [
       event_gap: '4px',
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
-      weather: { entity: 'weather.home' },
+      weather_entity: 'weather.home',
       toolbar: { show: true, legend: 'chips', reset: true },
-      event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
-      list: { days_to_show: 3 },
+      list: { days_to_show: 3, weather: { position: 'date' } },
       column: {
         min_days_to_show: 3,
         show_past_events: true,
         past_event_opacity: 40,
         event_background_opacity: 15,
+        weather: { position: 'date' },
       },
-      time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+      time_grid: {
+        start_time: '07:00',
+        end_time: '22:00',
+        hour_height: '36px',
+        weather: { position: 'date' },
+      },
+      month: { event_gap: '4px' },
     },
   ),
   story('now_and_next', '/guide/now-and-next', [], {
@@ -87,7 +108,9 @@ export const STORIES: ReadonlyArray<Story> = [
     show_end_time: false,
     scroll_long_titles: true,
     event_gap: '4px',
+    // A tap anywhere expands the card, events included, and a hold opens an event.
     tap_action: { action: 'expand' },
+    event_tap_action: { action: 'none' },
     event_hold_action: { action: 'details' },
     list: { compact_events_to_show: 4 },
   }),
@@ -102,16 +125,18 @@ export const STORIES: ReadonlyArray<Story> = [
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
       show_progress_bar: true,
-      weather: { entity: 'weather.home', position: 'both', event: { show_conditions: false } },
+      weather_entity: 'weather.home',
       toolbar: { show: true, view_switcher: false, legend: false },
-      event_tap_action: { action: 'details' },
       day_tap_action: { action: 'add-event' },
+      // A phone shows the list in the grid's place, with the same forecast.
+      list: { weather: { position: 'both', event: { show_conditions: false } } },
       time_grid: {
         start_time: '07:00',
         end_time: '21:00',
         hour_height: '56px',
         slot_minutes: 30,
         event_font_size: '13px',
+        weather: { position: 'both', event: { show_conditions: false } },
       },
     },
   ),
@@ -121,12 +146,13 @@ export const STORIES: ReadonlyArray<Story> = [
     show_countdown: true,
     countdown_exact_days: true,
     show_single_allday_time: false,
+    show_month: false,
     month_separator_width: '1px',
     day_spacing: '4px',
     event_gap: '4px',
     vertical_line_width: '4px',
     toolbar: { show: true, legend: false, add_event: false, refresh: false, view_switcher: false },
-    event_tap_action: { action: 'details' },
+    list: { month_separator_label: true },
   }),
   story('house_log', '/guide/house-log', ['#8d6e63'], {
     title: 'House Log',
@@ -137,7 +163,6 @@ export const STORIES: ReadonlyArray<Story> = [
     show_countdown: true,
     show_time: false,
     time_position: 'title',
-    event_tap_action: { action: 'details' },
     list: { event_order: 'latest_first' },
   }),
 ];

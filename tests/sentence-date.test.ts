@@ -145,7 +145,7 @@ describe('a date in an end phrase', () => {
   it('writes a Korean date month first, with its units', () => {
     expect(ends('ko')).toEqual([
       '9:00 ~ 10월 23일 금요일 17:00',
-      '~ 11월 15일 일요일 5:00 PM',
+      '~ 11월 15일 일요일 오후 5:00',
       '종일, ~ 11월 15일 일요일',
     ]);
   });
@@ -252,10 +252,11 @@ describe('a date in an end phrase', () => {
   });
 
   it('writes a language the card does not have in English, words and date alike', () => {
-    // Japanese is a language the browser has and the card does not, so a date written in the
-    // requested language rather than the translations' would read "until 10月23日 Friday".
+    // Indonesian is a language the browser has and the card does not, so a date written in the
+    // requested language rather than the translations' would put an Indonesian month beside an
+    // English weekday.
     const event = timed(new Date(2026, 9, 21, 9, 0), new Date(2026, 9, 23, 17, 0));
-    for (const language of ['ja', 'qq', '']) {
+    for (const language of ['id', 'qq', '']) {
       expect(FormatUtils.formatEventTime(event, config, language), language).toBe(
         '9:00 until Friday, Oct 23 at 17:00',
       );

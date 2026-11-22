@@ -817,6 +817,17 @@ function controlTakes(target: EventTarget | undefined, key: string): boolean {
   );
 }
 
+/**
+ * The element focus is on, through every shadow root, or null for none.
+ *
+ * @returns The element
+ */
+function deepActiveElement(): Element | null {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active;
+}
+
 //-----------------------------------------------------------------------------
 // ELEMENT
 //-----------------------------------------------------------------------------
@@ -861,6 +872,13 @@ export abstract class PopoverShell extends LitElement {
   protected _backdropDown = false;
   /** Who to tell once the panel has closed (`closed`), taken when it opens. */
   protected _onClosed?: () => undefined;
+  /** What had focus as the modal opened, which closing it gives focus back to. */
+  private _openedFrom: Element | null = null;
+  /**
+   * Whether the last input in the panel was a press rather than a key, which gives focus back
+   * without the keyboard's ring once it closes (`_returnFocus`).
+   */
+  private _pressedLast = false;
 
   /**
    * Where the panel was placed beside its press when it opened, its height then, and what an
@@ -897,6 +915,13 @@ export abstract class PopoverShell extends LitElement {
   // LIFECYCLE
   //---------------------------------------------------------------------------
 
+  constructor() {
+    super();
+    // On the host, in the capture phase, so they are heard before the panel acts on the input.
+    this.addEventListener('pointerdown', () => (this._pressedLast = true), true);
+    this.addEventListener('keydown', () => (this._pressedLast = false), true);
+  }
+
   protected updated(changed: PropertyValues): void {
     super.updated(changed);
     const dialog = this._dialog;
@@ -915,6 +940,8 @@ export abstract class PopoverShell extends LitElement {
     if (this._wantOpen && dialog && this.isConnected && !dialog.open) {
       this._wantOpen = false;
       this._openedAt = Date.now();
+      this._openedFrom = deepActiveElement();
+      this._pressedLast = false;
       try {
         dialog.showModal();
       } catch (error) {
@@ -1223,6 +1250,7 @@ export abstract class PopoverShell extends LitElement {
   protected _finish(): boolean {
     this._wantOpen = false;
     const animations = this._leave();
+    const closedAtOnce = !animations.length && this._dialog?.open === true;
     if (animations.length) {
       this._closing = true;
       this._leaving = animations;
@@ -1239,13 +1267,22 @@ export abstract class PopoverShell extends LitElement {
       this._closeNow();
     }
     this._fireClosed();
+    // Closed at once, focus went back before Home Assistant's dialog manager heard, which takes
+    // it off to put it back a render later. Back at once instead, so the manager finds it there
+    // and leaves it: in between, a row picked in a day panel opens its popover, which would open
+    // on nothing and give focus back to nothing when it closes.
+    if (closedAtOnce) this._returnFocus();
     return true;
   }
 
   /** Closes the modal, drops what it showed, and stops any way out it was playing. */
   protected _closeNow(): void {
     const dialog = this._dialog;
-    if (dialog?.open) dialog.close();
+    if (dialog?.open) {
+      dialog.close();
+      // After a key, closing the modal has put focus back as it should be.
+      if (this._pressedLast) this._returnFocus();
+    }
     this._guardScroll(false);
     this._watchRoom(false);
     this._opened = undefined;
@@ -1258,6 +1295,30 @@ export abstract class PopoverShell extends LitElement {
     this._leaving = undefined;
     this._closing = false;
     this._clear();
+  }
+
+  /**
+   * Gives focus back to what had it as the panel opened, where focus is on it or nowhere. Closing
+   * a modal puts focus back there, and Home Assistant's dialog manager does too, each as a script
+   * does, which Chrome rings wherever a key has been pressed since a press last moved focus, Shift
+   * alone included. A press on the backdrop moves nothing where the panel held focus itself, after
+   * a click on its text, so a key pressed in the panel rang the day's cell once a press had closed
+   * it. So after a press, focus goes there again saying it is not to ring (`focusVisible`), which
+   * holds until focus moves on, and leaves the element first, since only a move carries the
+   * option. After a key, focus goes there only from nowhere, ringed as a key's close rings it.
+   */
+  private _returnFocus(): void {
+    const back = this._openedFrom;
+    if (!(back instanceof HTMLElement) || back === document.body || !back.isConnected) return;
+    const now = deepActiveElement();
+    const nowhere = !now || now === document.body || !!this.shadowRoot?.contains(now);
+    if (now !== back && !nowhere) return;
+    if (this._pressedLast) {
+      if (now === back) back.blur();
+      back.focus({ preventScroll: true, focusVisible: false });
+    } else if (nowhere) {
+      back.focus({ preventScroll: true });
+    }
   }
 
   /**

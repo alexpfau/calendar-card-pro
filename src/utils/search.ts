@@ -11,6 +11,7 @@
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
 import * as Grid from './grid';
 import { addDays, startOfDay } from './paging';
+import { isPrivate } from './private-events';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 
@@ -76,7 +77,10 @@ export interface RingTarget {
   recurrenceId?: string;
   /** When it starts, as an instant in UTC or a date (`startKey`). */
   start: string;
-  /** Its title as Home Assistant returned it, which tells it apart where it has no uid. */
+  /**
+   * Its title as Home Assistant returned it, or a fingerprint for a private event
+   * (`targetSummary`), which tells it apart where it has no uid.
+   */
   summary: string;
 }
 
@@ -89,8 +93,15 @@ export interface SearchRow {
   /** Its title and location as the card draws them. */
   title: string;
   location: string;
-  /** Its words folded for matching: the title, the location, and the description as drawn. */
-  folded: { title: FoldedText; location: FoldedText; description: string };
+  /** Whether its title is a private event's Private, which the panel draws after a lock. */
+  privateTitle?: boolean;
+  /**
+   * Its words folded for matching: the title and the location as drawn, which a match is marked
+   * in, and the words found without a mark, which the panel does not draw: the location and the
+   * description as the event popover shows them, whatever the rows leave out, and nothing for a
+   * private entry's event.
+   */
+  folded: { title: FoldedText; location: FoldedText; unmarked: string };
   /** When it starts and ends, in epoch milliseconds; an all-day event at local midnights. */
   start: number;
   end: number;
@@ -249,6 +260,11 @@ export function drawnIn(
 export interface Occurrence {
   /** Its row's display copy: the first day's, where it is split into days. */
   event: Types.CalendarEventData;
+  /**
+   * The local midnight of the day this copy is first drawn on, where the event's days are drawn
+   * more than one way and this is not the first (`occurrencesIn`); undefined otherwise.
+   */
+  from?: Date;
   /** When it starts and ends, as Home Assistant wrote them, and as instants. */
   startPoint: Types.CalendarEventData['start'];
   endPoint: Types.CalendarEventData['end'];
@@ -272,7 +288,11 @@ function instantOf(point: Types.CalendarEventData['start'] | undefined): Date | 
 
 /**
  * Every event a grouping draws, once each: a multi-day event the view splits into a row a day
- * is one event, found at its first day's row, with the start and end it really has.
+ * is one event, found at its first day's row, with the start and end it really has. Once for each
+ * way its days are drawn, rather: where duplicates merge (`filter_duplicates`), a per-day filter
+ * such as `days_of_week` can change which calendars a day's copy stands for, and so the locations
+ * and calendars it draws, while the event stays the same. Each way is found where it is first
+ * drawn, so a location one day alone lists is found too, as Grid and Month break a banner there.
  *
  * One event's days are told from another's by the object they were split from, which each day
  * carries: the stamp `processEvents` takes of every event (`_source`), else the grid's own
@@ -284,7 +304,7 @@ function instantOf(point: Types.CalendarEventData['start'] | undefined): Date | 
  * @returns The events, in the grouping's order
  */
 export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrence[] {
-  const seen = new WeakMap<object, Set<unknown>>();
+  const seen = new WeakMap<object, Map<unknown, Set<string>>>();
   const signatures = new Set<string>();
   const occurrences: Occurrence[] = [];
   for (const day of days) {
@@ -298,10 +318,24 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
       if (event._isMultiDaySegment || event._gridSource) {
         const identity = event._source ?? event._gridSource;
         if (identity) {
-          const blocks = seen.get(identity) ?? new Set<unknown>();
-          if (blocks.has(event._matchedConfig)) continue;
-          blocks.add(event._matchedConfig);
+          const blocks = seen.get(identity) ?? new Map<unknown, Set<string>>();
           seen.set(identity, blocks);
+          const drawn = blocks.get(event._matchedConfig);
+          const way = drawnAs(event);
+          if (drawn?.has(way)) continue;
+          if (drawn) {
+            drawn.add(way);
+            occurrences.push({
+              event,
+              from: new Date(day.timestamp),
+              startPoint,
+              endPoint,
+              start,
+              end,
+            });
+            continue;
+          }
+          blocks.set(event._matchedConfig, new Set([way]));
         } else {
           const signature = JSON.stringify([
             event._entityId,
@@ -310,6 +344,7 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
             event.summary,
             event.location,
             event.description,
+            event._mergedFrom?.map((calendar) => calendar.entityId) ?? [],
           ]);
           if (signatures.has(signature)) continue;
           signatures.add(signature);
@@ -319,6 +354,20 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
     }
   }
   return occurrences;
+}
+
+/**
+ * How a day's copy of an event is drawn, as far as it can differ from another day's: the calendars
+ * a merged copy stands for, and the location it lists.
+ *
+ * @param event - A day's copy
+ * @returns A key two copies drawn alike share
+ */
+export function drawnAs(event: Types.CalendarEventData): string {
+  return JSON.stringify([
+    event._mergedFrom?.map((calendar) => calendar.entityId) ?? [],
+    event.location ?? '',
+  ]);
 }
 
 //-----------------------------------------------------------------------------
@@ -433,7 +482,8 @@ export function matchIn(words: FoldedText, term: string): TextRange | undefined 
 
 /**
  * What a term finds among the rows: every row whose title, location or description holds it from
- * its first letter on, ignoring case and accents. Upcoming first, every event that has not ended
+ * its first letter on, ignoring case and accents, a location or a description the rows leave out
+ * included (`SearchRow.folded`). Upcoming first, every event that has not ended
  * yet by when it starts, then the past, the most recent first; each grouped by the month it
  * starts in. At most `limit` are drawn, and `total` counts them all. No term finds nothing.
  *
@@ -459,7 +509,7 @@ export function findRows(
   for (const row of rows) {
     const title = matchIn(row.folded.title, query);
     const location = matchIn(row.folded.location, query);
-    if (!title && !location && !row.folded.description.includes(query)) continue;
+    if (!title && !location && !row.folded.unmarked.includes(query)) continue;
     (row.end > now ? upcoming : past).push({ row, title, location });
   }
   upcoming.sort((a, b) => a.row.start - b.row.start || a.row.end - b.row.end);
@@ -485,25 +535,66 @@ export function findRows(
 //-----------------------------------------------------------------------------
 
 /**
- * When an event starts, comparable however it was written: a time as its instant in UTC, so a
- * push and a request spelling one start in two zones agree, and a date as it is.
+ * A start or an end, comparable however it was written: a time as its instant in UTC, so a push
+ * and a request spelling one time in two zones agree, and a date as it is.
+ *
+ * @param point - The start or end
+ * @returns The key, or an empty string where there is none
+ */
+function pointKey(point: Types.CalendarEventData['start'] | null | undefined): string {
+  if (point?.dateTime) {
+    const instant = Date.parse(point.dateTime);
+    return isNaN(instant) ? point.dateTime : new Date(instant).toISOString();
+  }
+  return point?.date ?? '';
+}
+
+/**
+ * When an event starts, comparable however it was written (`pointKey`).
  *
  * @param event - Any copy of the event
  * @returns The start, or an empty string where it has none
  */
 function startKey(event: Types.CalendarEventData): string {
-  const start =
-    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start;
-  if (start?.dateTime) {
-    const instant = Date.parse(start.dateTime);
-    return isNaN(instant) ? start.dateTime : new Date(instant).toISOString();
+  return pointKey(
+    event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start,
+  );
+}
+
+/**
+ * A short fingerprint of a text (32-bit FNV-1a), which tells two texts apart without holding
+ * either.
+ *
+ * @param text - The text
+ * @returns The fingerprint
+ */
+function fingerprint(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
   }
-  return start?.date ?? '';
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * What tells an event without a uid apart from another starting with it: its title as Home
+ * Assistant returned it, or for a private entry's event, whose own words a search never holds, a
+ * fingerprint of its title and its end.
+ *
+ * @param event - A display copy
+ * @returns The title, or the private event's fingerprint
+ */
+function targetSummary(event: Types.CalendarEventData): string {
+  const source = event._source;
+  if (!isPrivate(event)) return source?.summary ?? event.summary ?? '';
+  const end = source?.end ?? event._gridSource?.end ?? event._sourceEnd ?? event.end;
+  return `private:${fingerprint(JSON.stringify([source?.summary ?? '', pointKey(end)]))}`;
 }
 
 /**
  * What finds an event again on the card: its calendar and when it starts, with its uid and
- * recurrence id where Home Assistant gives them, else its title as Home Assistant returned it.
+ * recurrence id where Home Assistant gives them, else its title or a private event's fingerprint
+ * (`targetSummary`).
  *
  * @param event - The event's display copy
  * @returns The target
@@ -515,7 +606,7 @@ export function ringTargetOf(event: Types.CalendarEventData): RingTarget {
     uid: source?.uid || undefined,
     recurrenceId: source?.recurrence_id || undefined,
     start: startKey(event),
-    summary: source?.summary ?? event.summary ?? '',
+    summary: targetSummary(event),
   };
 }
 
@@ -538,7 +629,29 @@ export function isRingTarget(event: Types.CalendarEventData, target: RingTarget)
       source?.uid === target.uid && (source?.recurrence_id || undefined) === target.recurrenceId
     );
   }
-  return !source?.uid && (source?.summary ?? event.summary ?? '') === target.summary;
+  return !source?.uid && targetSummary(event) === target.summary;
+}
+
+/**
+ * A day's list with the picked event marked to be rung (`_searchRing`), on a copy of its row, and
+ * whether it holds it: for a month day's list, which is drawn from the day model rather than
+ * from a grouping. The list itself where it does not.
+ *
+ * @param events - The day's events
+ * @param target - The pick
+ * @returns The rows to draw, and whether the pick is among them
+ */
+export function ringRows(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  target: RingTarget,
+): { rows: ReadonlyArray<Types.CalendarEventData>; found: boolean } {
+  if (!events.some((event) => isRingTarget(event, target))) return { rows: events, found: false };
+  return {
+    rows: events.map((event) =>
+      isRingTarget(event, target) ? { ...event, _searchRing: true } : event,
+    ),
+    found: true,
+  };
 }
 
 /**

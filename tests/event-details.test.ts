@@ -199,9 +199,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('event_tap_action none, the default', () => {
+/** Events that run nothing of their own, which a tap on one opens by default. */
+const NONE = { event_tap_action: { action: 'none' } } as const;
+
+describe('event_tap_action none', () => {
   it.each(['list', 'column', 'grid'])('leaves %s events inert', async (view) => {
-    const { card, dialogs } = await mount({ view });
+    const { card, dialogs } = await mount({ view, ...NONE });
 
     const root = card.shadowRoot!;
     expect(root.querySelectorAll('.event-interactive')).toHaveLength(0);
@@ -216,7 +219,11 @@ describe('event_tap_action none, the default', () => {
   it.each(['list', 'column', 'grid'])(
     "runs the card's tap action for a tap on a %s event, as before",
     async (view) => {
-      const { card, dialogs, actions } = await mount({ view, tap_action: { action: 'more-info' } });
+      const { card, dialogs, actions } = await mount({
+        view,
+        ...NONE,
+        tap_action: { action: 'more-info' },
+      });
 
       tap(leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist'));
       await settle();
@@ -224,6 +231,45 @@ describe('event_tap_action none, the default', () => {
       expect(dialogs).toHaveLength(0);
     },
   );
+});
+
+describe('event_tap_action left unset', () => {
+  it.each(['list', 'column', 'grid', 'month'])(
+    "opens a %s event's details on a tap and on Enter, instead of the card's tap",
+    async (view) => {
+      const { card, dialogs, actions } = await mount({ view, tap_action: { action: 'more-info' } });
+
+      const target = buttonsShowing(card, 'Dentist')[0];
+      tap(leafShowing(target, 'Dentist'));
+      await settle();
+      expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([EVENT_POPOVER_TAG]);
+      expect(dialogs[0].dialogParams.entry?.summary).toBe('Dentist');
+
+      key(target, 'keydown', 'Enter');
+      await settle();
+      expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([
+        EVENT_POPOVER_TAG,
+        EVENT_POPOVER_TAG,
+      ]);
+      expect(actions).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['an empty action object', {}],
+    ['an action object that names no action', { navigation_path: '/elsewhere' }],
+  ])('reads %s as nothing, as the editor does', async (_name, action) => {
+    const { card, dialogs, actions } = await mount({
+      event_tap_action: action,
+      tap_action: { action: 'more-info' },
+    });
+
+    expect(card.shadowRoot!.querySelectorAll('.event-interactive')).toHaveLength(0);
+    tap(leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist'));
+    await settle();
+    expect(actions).toEqual(['tap']);
+    expect(dialogs).toHaveLength(0);
+  });
 });
 
 describe('event_tap_action details', () => {
@@ -269,40 +315,104 @@ describe('event_tap_action details', () => {
     });
   });
 
+  // The rows leave a field out where an option says so; the popover is where it is read, so it
+  // shows every field the event has whatever the card, a layout or the calendar hides.
   it.each([
-    ['nothing hidden', {}, { location: false, description: false }],
-    // The card and its views leave a field out of their rows; the popover is where it is read.
-    ['the card hiding both', { show_location: false }, { location: false, description: false }],
-    [
-      'the calendar showing both',
-      { entities: [{ entity: 'calendar.anna', show_location: true, show_description: true }] },
-      { location: false, description: false },
-    ],
+    ['nothing hidden', {}],
+    ['the card hiding all three', { show_location: false, show_time: false }],
+    ['the country taken off the rows', { remove_location_country: 'Germany' }],
+    ['Month hiding the location', { view: 'month', month: { show_location: false } }],
     [
       'the calendar set to Never show',
-      { entities: [{ entity: 'calendar.anna', show_location: false, show_description: false }] },
-      { location: true, description: true },
+      {
+        entities: [
+          {
+            entity: 'calendar.anna',
+            show_time: false,
+            show_location: false,
+            show_description: false,
+          },
+        ],
+      },
     ],
-    [
-      'the calendar hiding its location alone',
-      { entities: [{ entity: 'calendar.anna', show_location: false }] },
-      { location: true, description: false },
-    ],
-  ])(
-    'keeps a field out of the popover only for its calendar: %s',
-    async (_name, config, hidden) => {
-      const { card, dialogs } = await mount({ ...DETAILS, ...config });
+  ])('shows every field in the popover: %s', async (_name, config) => {
+    const events = [
+      { ...RAW_EVENTS[0], location: '12 High Street, Germany' },
+      ...RAW_EVENTS.slice(1),
+    ];
+    const { card, dialogs } = await mount({ ...DETAILS, ...config }, { events });
 
-      buttonsShowing(card, 'Dentist')[0].click();
-      await settle();
-      expect(dialogs[0].dialogParams.hidden).toEqual(hidden);
-      // What is hidden still goes to the popover, to be saved as it is stored.
-      expect(dialogs[0].dialogParams.entry).toMatchObject({
-        location: '12 High Street',
-        description: 'Bring the referral',
-      });
-    },
-  );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    const params = dialogs[0].dialogParams as unknown as Record<string, unknown>;
+    expect(params).not.toHaveProperty('hidden');
+    expect(params.private).toBeUndefined();
+    expect(params.display).toEqual({
+      title: 'Dentist',
+      location: '12 High Street, Germany',
+      description: 'Bring the referral',
+    });
+  });
+
+  it('shows every location and calendar of a row merge_locations merged, each as its calendar shows it', async () => {
+    const appointment = (location: string) => ({
+      summary: 'Appointment',
+      start: { dateTime: '2026-06-17T16:00:00Z' },
+      end: { dateTime: '2026-06-17T17:00:00Z' },
+      location,
+    });
+    const { card, dialogs } = await mount(
+      {
+        ...DETAILS,
+        filter_duplicates: 'merge_locations',
+        entities: [
+          { entity: 'calendar.anna', accent_color: 'rgb(204, 51, 102)' },
+          // Hidden from the rows by this calendar, and shown in the popover as any location is.
+          { entity: 'calendar.ben', accent_color: 'rgb(51, 102, 204)', show_location: false },
+          {
+            entity: 'calendar.leo',
+            accent_color: 'rgb(0, 128, 0)',
+            replace_field: 'location',
+            replace_pattern: 'Hall',
+            replace_with: 'Room',
+          },
+        ],
+      },
+      {
+        eventsFor: {
+          'calendar.anna': [appointment('Hall A')],
+          'calendar.ben': [appointment('Hall B')],
+          'calendar.leo': [appointment('Hall C')],
+        },
+        shows: 'Appointment',
+      },
+    );
+
+    expect(eventsShowing(card, 'Appointment')).toHaveLength(1);
+    expect(eventsShowing(card, 'Appointment')[0].textContent).toContain('Hall A · Room C');
+    buttonsShowing(card, 'Appointment')[0].click();
+    await settle();
+    const params = dialogs[0].dialogParams;
+    expect(params.display?.location).toBe('Hall A · Hall B · Room C');
+    // What is stored stays the kept copy's own, for editing.
+    expect(params.entry?.location).toBe('Hall A');
+    expect(params.merged?.map(({ id, color }) => [id, color])).toEqual([
+      ['calendar.anna', 'rgb(204, 51, 102)'],
+      ['calendar.ben', 'rgb(51, 102, 204)'],
+      ['calendar.leo', 'rgb(0, 128, 0)'],
+    ]);
+    expect(params.canEdit).toBe(false);
+    // A map search for the list would find none of the places in it.
+    expect(params.severalPlaces).toBe(true);
+  });
+
+  it('names no merged calendars or places for an event only one calendar holds', async () => {
+    const { card, dialogs } = await mount({ ...DETAILS, filter_duplicates: 'merge_locations' });
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    expect(dialogs[0].dialogParams).not.toHaveProperty('merged');
+    expect(dialogs[0].dialogParams).not.toHaveProperty('severalPlaces');
+  });
 
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({
@@ -645,8 +755,8 @@ describe("the list view's event button", () => {
       (cell) => !cell.querySelector('.empty-day-title'),
     );
 
-  it('is drawn only while events are tap targets, so the default cell is as it was', async () => {
-    const { card } = await mount({ show_empty_days: true });
+  it('is drawn only while events are tap targets, so a cell without one is as it was', async () => {
+    const { card } = await mount({ ...NONE, show_empty_days: true });
 
     expect(cells(card).length).toBeGreaterThan(0);
     expect(card.shadowRoot!.querySelectorAll('.event-button, .event-tappable')).toHaveLength(0);
@@ -711,7 +821,7 @@ describe("the card's ripple and a press on an event", () => {
 
 describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
-  const TAPPABLE = { tap_action: { action: 'expand' } } as const;
+  const TAPPABLE = { tap_action: { action: 'more-info' } } as const;
 
   /**
    * Mount without waiting for an event to show, for cards that show none. A `pending` fetch
@@ -754,7 +864,7 @@ describe('the card around events that are buttons', () => {
 
   it('runs its tap action for Enter on the card itself, and the event its own', async () => {
     const { card, dialogs } = await mount({
-      ...TAPPABLE,
+      tap_action: { action: 'expand' },
       ...DETAILS,
       list: { compact_events_to_show: 1 },
     });
@@ -1064,7 +1174,7 @@ describe("event actions with Home Assistant's actions", () => {
 
   it("runs an event's hold for a hold, and the card's tap for a tap", async () => {
     const { card, hassActions } = await mount(
-      { ...TWO, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
+      { ...TWO, ...NONE, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
       BEN,
     );
     const target = leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming');
@@ -1089,7 +1199,7 @@ describe("event actions with Home Assistant's actions", () => {
 
   it.each([
     ['its tap', { event_tap_action: SEARCH }, 'tap'],
-    ['its hold, having no tap', { event_hold_action: SEARCH }, 'hold'],
+    ['its hold, having no tap', { ...NONE, event_hold_action: SEARCH }, 'hold'],
   ] as const)('runs %s from the keyboard', async (_name, config, gesture) => {
     const { card, hassActions } = await mount({ ...TWO, ...config }, BEN);
     const button = buttonsShowing(card, 'Swimming')[0];
@@ -1102,6 +1212,15 @@ describe("event actions with Home Assistant's actions", () => {
         config: { entity: 'calendar.ben', [`${gesture}_action`]: SEARCH_FILLED },
       },
     ]);
+  });
+
+  it('opens details from the keyboard where the tap is left unset, rather than run the hold', async () => {
+    const { card, dialogs, hassActions } = await mount({ ...TWO, event_hold_action: SEARCH }, BEN);
+
+    key(buttonsShowing(card, 'Swimming')[0], 'keydown', 'Enter');
+    await settle();
+    expect(dialogs.map((dialog) => dialog.dialogTag)).toEqual([EVENT_POPOVER_TAG]);
+    expect(hassActions).toEqual([]);
   });
 
   it('refuses a url action whose own scheme is not http or https once a field is in it', async () => {
@@ -1371,7 +1490,7 @@ describe("a tappable event's day", () => {
   it.each(['list', 'column', 'grid'])(
     'adds no id and no description in %s view while events are not tap targets',
     async (view) => {
-      const { card } = await mount({ view }, { events: EVENTS });
+      const { card } = await mount({ view, ...NONE }, { events: EVENTS });
 
       expect(eventsShowing(card, 'Yoga')).toHaveLength(2);
       expect(card.shadowRoot!.querySelectorAll('[id], [aria-describedby]')).toHaveLength(0);

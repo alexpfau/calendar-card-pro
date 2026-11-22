@@ -9,6 +9,12 @@
   "viewList": "Liste",
   "viewColumns": "Colonnes",
   "viewGrid": "Grille",
+  "viewMonth": "Mois",
+  "layout": "Disposition",
+  "layoutCurrent": "Disposition : {view}",
+  "moreEvents": "+{count} de plus",
+  "eventCount": "{count} événements",
+  "eventCountOne": "{count} événement",
   "endsToday": "finit aujourd'hui",
   "endsTomorrow": "finit demain",
   "dayOfEvent": "Jour {day} sur {days}",
@@ -18,6 +24,9 @@
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
   "loadFailed": "Échec du chargement:",
   "newEvent": "Nouvel événement",
+  "movedTo": "Déplacé : {time}",
+  "undo": "Annuler",
   "showAll": "Tout afficher",
-  "hideAll": "Tout masquer"
+  "hideAll": "Tout masquer",
+  "private": "Privé"
 }

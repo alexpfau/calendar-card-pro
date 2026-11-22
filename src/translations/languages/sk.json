@@ -9,6 +9,12 @@
   "viewList": "Zoznam",
   "viewColumns": "Stĺpce",
   "viewGrid": "Časová mriežka",
+  "viewMonth": "Mesiac",
+  "layout": "Rozloženie",
+  "layoutCurrent": "Rozloženie: {view}",
+  "moreEvents": "+{count} navyše",
+  "eventCount": "Udalosti: {count}",
+  "eventCountOne": "{count} udalosť",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zajtra",
   "dayOfEvent": "Deň {day} z {days}",
@@ -18,6 +24,9 @@
   "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
   "loadFailed": "Nepodarilo sa načítať:",
   "newEvent": "Nová udalosť",
+  "movedTo": "Presunuté na {time}",
+  "undo": "Späť",
   "showAll": "Zobraziť všetky",
-  "hideAll": "Skryť všetky"
+  "hideAll": "Skryť všetky",
+  "private": "Súkromné"
 }

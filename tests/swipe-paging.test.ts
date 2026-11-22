@@ -609,7 +609,9 @@ describe('where a swipe pages nothing at all', () => {
     swipe(content(column), ...LEFT);
     await settle(column);
     expect(range(column)).toBe(NEXT);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('swipes a grid configured to cramp while it sheds days instead', async () => {
     const card = await mount({ view: 'grid', time_grid: { min_days_fallback: 'cramp' } });

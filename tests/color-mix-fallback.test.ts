@@ -121,7 +121,10 @@ describe('color-mix() where Safari before 16.2 has none', () => {
   // states (three selectors) and its failed one, the filled all-day pill, the progress bar's
   // track, the spinner, and a raised grid block's edge. And the custom properties the stylesheet
   // mixes for others to read: the toolbar's three fills, the accent and Now inks, and the
-  // all-day pill's ink and its two washes.
+  // all-day pill's ink and its two washes. Month view's seven: a pressed day's add wash, an image
+  // so it washes over a tinted day, "+N more" under the pointer, the narrow day list's name under
+  // the pointer and pressed, its own "+N more" under the pointer, and the month's two rules, the
+  // theme's divider at 75% and the stronger one under the weekday names.
   it('gives each a fallback', () => {
     expect(covered).toEqual([
       '.allday-badge { --badge-ink }',
@@ -135,11 +138,11 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.card-toolbar { --calendar-card-toolbar-fill-hover }',
       '.card-toolbar { --calendar-card-toolbar-fill-pressed }',
       '.cell:focus-visible { outline }',
-      '.column-day-header.day-add-button:hover { background-color }',
-      '.date-column:has(> .day-add-button):hover { background-color }',
+      '.column-day-header.day-add-button:hover { --calendar-card-day-add-wash }',
+      '.date-column:has(> .day-add-button):hover { --calendar-card-day-add-wash }',
       '.date-navigation .date-navigation-segment.home-done { background }',
-      '.day-column[data-add-pressed] > .column-day-header { background-color }',
-      '.day-table[data-add-pressed] td.date-column { background-color }',
+      '.day-column[data-add-pressed] > .column-day-header { --calendar-card-day-add-wash }',
+      '.day-table[data-add-pressed] td.date-column { --calendar-card-day-add-wash }',
       '.error { background }',
       '.event { --calendar-card-accent-ink }',
       '.event-button:active::before { background-color }',
@@ -149,7 +152,7 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.event-now { --calendar-card-now-ink }',
       '.field:focus-within { box-shadow }',
       '.grid-day-body[data-add-pressed]::before { background-color }',
-      '.grid-day-header[data-add-pressed] > .column-day-header { background-color }',
+      '.grid-day-header[data-add-pressed] > .column-day-header { --calendar-card-day-add-wash }',
       '.grid-event-raised > .grid-event-accessible::before { border }',
       '.legend-chip { background }',
       '.legend-chip:active { background }',
@@ -158,6 +161,13 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.legend-menu-row:active { background }',
       '.legend-menu-row:hover { background }',
       '.loading-indicator .spinner { border }',
+      '.month-container { --calendar-card-month-header-rule }',
+      '.month-container { --calendar-card-month-rule }',
+      '.month-day-list-header.day-add-button:hover { background-color }',
+      '.month-day-list-more:hover { background-color }',
+      '.month-day-list[data-add-pressed] > .month-day-list-header { background-color }',
+      '.month-day[data-add-pressed] { background-image }',
+      '.month-more:hover { background-color }',
       '.progress-bar { background-color }',
       ".result[aria-selected='true'] { background }",
       '.toolbar-button.refresh-button.refresh-done { background }',

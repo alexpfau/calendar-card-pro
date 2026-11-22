@@ -11,20 +11,25 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  changeField,
+  editLayout,
+  entry,
+  mountEditor,
+  openPanels,
+  reportsOf,
+  resetButton,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { valueSource, workspaceFields } from '../src/rendering/editor/routing';
+import { valueSource } from '../src/rendering/editor/routing';
 import {
   storedViewBlocks,
   stripColumnDefaults,
+  stripMonthDefaults,
   stripTimeGridDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
-
-const TAG = 'editor-keeps-authored-defaults-test';
-customElements.define(TAG, CalendarCardProEditor);
 
 interface EditorHost extends HTMLElement {
   hass: unknown;
@@ -32,58 +37,27 @@ interface EditorHost extends HTMLElement {
   readonly updateComplete: Promise<unknown>;
 }
 
-interface Form extends HTMLElement {
-  schema: ReadonlyArray<HaFormSchema>;
-  data: Record<string, unknown>;
-}
-
 async function mount(config: Record<string, unknown>) {
-  const editor = document.createElement(TAG) as EditorHost;
-  editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig(structuredClone(config));
-  document.body.appendChild(editor);
-  await editor.updateComplete;
-  const reports: Record<string, unknown>[] = [];
-  editor.addEventListener('config-changed', (event) => {
-    reports.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
-    );
-  });
-  return { editor, reports };
+  const editor = await mountEditor(structuredClone(config));
+  // A closed panel mounts no form: open every panel, as these tests read forms across the editor.
+  await openPanels(editor);
+  // What it reported since it was created: an upgrade on opening is the first.
+  return { editor, reports: reportsOf(editor) };
 }
 
-function formFor(editor: EditorHost, key: string): Form {
-  const matches = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].filter(
-    (form) =>
-      !form.classList.contains('entity-form') &&
-      [...workspaceFields(form.schema)].some(({ node, path }) => node.name === key && !path.length),
-  );
-  expect(matches, `form for ${key}`).toHaveLength(1);
-  return matches[0];
-}
-
-async function change(editor: EditorHost, key: string, value: unknown): Promise<void> {
-  const form = formFor(editor, key);
-  form.dispatchEvent(
-    new CustomEvent('value-changed', {
-      detail: { value: { ...form.data, [key]: value } },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-  await editor.updateComplete;
-}
-
+/**
+ * The upgrade's answer: List, as the editor writes on opening, or every layout, through the
+ * receipt's Use Them for Every Layout.
+ *
+ * @param editor - Editor
+ * @param choice - The answer
+ */
 async function choose(editor: EditorHost, choice: 'keep-list' | 'shared-root'): Promise<void> {
-  const blocker = editor.shadowRoot!.querySelector('[data-config-migration]')!;
-  const buttons = [...blocker.querySelectorAll<HTMLButtonElement>('button')];
-  expect(buttons).toHaveLength(2);
-  buttons[choice === 'keep-list' ? 0 : 1].click();
-  await editor.updateComplete;
-}
-
-function resetButton(editor: EditorHost, key: string): HTMLButtonElement | null {
-  return editor.shadowRoot!.querySelector<HTMLButtonElement>(`[data-reset-keys="${key}"]`);
+  if (choice === 'shared-root') {
+    editor.shadowRoot!.querySelector<HTMLButtonElement>('[data-focus="upgrade-share"]')!.click();
+    await editor.updateComplete;
+  }
+  await openPanels(editor);
 }
 
 function merged(config: Record<string, unknown>): Types.Config {
@@ -113,6 +87,12 @@ const V4_CARD = {
   toolbar: { show: false },
 };
 
+/**
+ * {@link V4_CARD}'s weather as each layout that drew it takes it on the upgrade, the default it
+ * spells out kept, and the `date` position it defaulted to written out.
+ */
+const LAYOUT_WEATHER = { position: 'date', date: { show_high_temp: true } };
+
 /** Everything in {@link V4_CARD} that neither answer moves. */
 const UNMOVED = {
   entities: ['calendar.anna'],
@@ -121,31 +101,34 @@ const UNMOVED = {
   show_month: true,
   days_to_show: 3,
   tap_action: { action: 'none' },
-  column: { min_days_fallback: 'list', min_day_width: 140 },
-  weather: { entity: 'weather.home', date: { show_high_temp: true } },
+  column: { min_days_fallback: 'list', min_day_width: 140, weather: LAYOUT_WEATHER },
+  weather_entity: 'weather.home',
+  time_grid: { weather: LAYOUT_WEATHER },
   toolbar: { show: false },
 };
 
 const ANSWERS = {
   'keep-list': {
     ...UNMOVED,
-    list: { event_font_size: '18px', show_location: true },
+    list: { event_font_size: '18px', show_location: true, weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
   'shared-root': {
     ...UNMOVED,
     event_font_size: '18px',
     show_location: true,
+    list: { weather: LAYOUT_WEATHER },
     config_version: Config.CURRENT_CONFIG_VERSION,
   },
 } as const;
 
-describe('answering the upgrade prompt', () => {
-  it('writes nothing when the editor is only opened', async () => {
+describe('the upgrade on opening', () => {
+  it('writes the List answer when the editor is only opened', async () => {
     const { editor, reports } = await mount(V4_CARD);
 
-    expect(editor.shadowRoot!.querySelector('[data-config-migration]')).not.toBeNull();
-    expect(reports).toEqual([]);
+    expect(editor.shadowRoot!.querySelector('[data-config-migration]')).toBeNull();
+    expect(editor.shadowRoot!.querySelector('[data-upgrade-receipt]')).not.toBeNull();
+    expect(reports).toEqual([ANSWERS['keep-list']]);
   });
 
   it.each(Object.keys(ANSWERS) as Array<keyof typeof ANSWERS>)(
@@ -155,7 +138,7 @@ describe('answering the upgrade prompt', () => {
 
       await choose(editor, answer);
 
-      expect(reports).toEqual([ANSWERS[answer]]);
+      expect(reports.slice(-1)).toEqual([ANSWERS[answer]]);
     },
   );
 
@@ -165,7 +148,7 @@ describe('answering the upgrade prompt', () => {
       const { editor, reports } = await mount(V4_CARD);
 
       await choose(editor, answer);
-      await change(editor, 'title', 'Family calendar');
+      await changeField(editor, 'card:title', 'Family calendar');
 
       expect(reports.slice(-1)[0]).toEqual({ ...ANSWERS[answer], title: 'Family calendar' });
     },
@@ -188,11 +171,35 @@ describe('adopting a layered card on its first edit', () => {
     const { editor, reports } = await mount(card);
     expect(reports).toEqual([]);
 
-    await change(editor, 'title', 'Grid');
+    await changeField(editor, 'card:title', 'Grid');
 
     expect(reports).toEqual([
       { ...card, title: 'Grid', config_version: Config.CURRENT_CONFIG_VERSION },
     ]);
+  });
+});
+
+describe('a calendar’s own lines', () => {
+  /**
+   * `title` is what these two dropdowns show for a calendar that stores nothing, so the entry
+   * stores nothing. A calendar that spells it out keeps the line through an edit to its name, as
+   * `show_weather: true` does and as the card-wide lines above do.
+   */
+  it('keeps a written `filter_field: title` and `replace_field: title` through another edit', async () => {
+    const anna = {
+      entity: 'calendar.anna',
+      blocklist: 'Dentist',
+      filter_field: 'title',
+      replace_pattern: 'Dr\\. ',
+      replace_field: 'title',
+    };
+    const card = { config_version: Config.CURRENT_CONFIG_VERSION, entities: [anna] };
+    const editor = await mountEditor(structuredClone(card));
+    const reports = reportsOf(editor);
+
+    await changeField(editor, 'calendar:name', 'Anna', entry(0));
+
+    expect(reports.slice(-1)).toEqual([{ ...card, entities: [{ ...anna, name: 'Anna' }] }]);
   });
 });
 
@@ -205,13 +212,13 @@ describe('what an edit still removes', () => {
     });
 
     // All Layouts writes the top level; List would write `list:`, which keeps every value.
-    await change(editor, 'editing_workspace', 'shared');
+    await editLayout(editor, 'shared');
     expect(reports).toEqual([]);
 
-    await change(editor, 'show_month', false);
+    await changeField(editor, 'day_header:show_month', false);
     expect(reports.slice(-1)[0]).toHaveProperty('show_month', false);
 
-    await change(editor, 'show_month', true);
+    await changeField(editor, 'day_header:show_month', true);
     expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
@@ -226,7 +233,7 @@ describe('what an edit still removes', () => {
       show_month: true,
     });
 
-    await change(editor, 'title', 'Pruned');
+    await changeField(editor, 'card:title', 'Pruned');
 
     expect(reports).toEqual([
       {
@@ -251,7 +258,7 @@ describe('a kept view value is the view’s own', () => {
     expect(valueSource(merged(card), 'grid', 'days_to_show')).toBe('own');
 
     const { editor, reports } = await mount(card);
-    const reset = resetButton(editor, 'days_to_show');
+    const reset = await resetButton(editor, 'days_to_show');
     expect(reset).not.toBeNull();
 
     reset!.click();
@@ -260,7 +267,7 @@ describe('a kept view value is the view’s own', () => {
     expect(reports).toEqual([
       { config_version: Config.CURRENT_CONFIG_VERSION, entities: ['calendar.anna'], view: 'grid' },
     ]);
-    expect(resetButton(editor, 'days_to_show')).toBeNull();
+    expect(await resetButton(editor, 'days_to_show')).toBeNull();
     expect(valueSource(merged(reports[0]), 'grid', 'days_to_show')).toBe('inherited');
   });
 
@@ -278,6 +285,27 @@ describe('a kept view value is the view’s own', () => {
       time_grid: { slot_minutes: 60 },
     });
   });
+
+  /**
+   * The card reads a bare length in pixels, so `event_font_size: 14` is the layout's own 14px,
+   * held against the card-wide size moving, as a `14px` line is.
+   */
+  it('reads a bare length at its default as the layout’s own, and keeps it on a write', () => {
+    const column = { event_font_size: 14 };
+    const month = { cell_event_font_size: 12, event_font_size: '14' };
+    const config = merged({ view: 'column', column, month });
+
+    // A length only the layout reads is stored as the card reads it, as any other value of it is.
+    const stored = { column, month: { cell_event_font_size: '12px', event_font_size: '14' } };
+    expect(storedViewBlocks(config)).toEqual(stored);
+    expect(valueSource(config, 'column', 'event_font_size')).toBe('own');
+    expect(valueSource(config, 'month', 'cell_event_font_size')).toBe('own');
+    expect(stripColumnDefaults(config, column)).toEqual(stored.column);
+    expect(stripMonthDefaults(config, month)).toEqual(stored.month);
+    // Written fresh, the same lines say nothing the layout would not use anyway.
+    expect(stripColumnDefaults(config)).toBeUndefined();
+    expect(stripMonthDefaults(config)).toBeUndefined();
+  });
 });
 
 describe('the serializer’s authored baseline', () => {
@@ -292,6 +320,22 @@ describe('the serializer’s authored baseline', () => {
     expect(stripColumnDefaults(config, { min_day_width: '140' })).toEqual({
       min_day_width: '140',
     });
+    // The same number in any notation the card parses as it.
+    for (const written of ['140.0', '0140', '+140', ' 140 ']) {
+      const held = merged({ column: { min_day_width: written } });
+      expect(stripColumnDefaults(held, { min_day_width: written }), written).toEqual({
+        min_day_width: written,
+      });
+    }
+
+    // Month's block by the same rule, and a bare length written fresh is stored as the card
+    // reads it.
+    const month = merged({ month: { min_day_width: '80', cell_event_font_size: 15 } });
+    expect(stripMonthDefaults(month)).toEqual({ cell_event_font_size: '15px' });
+    expect(stripMonthDefaults(month, { min_day_width: '80' })).toEqual({
+      min_day_width: '80',
+      cell_event_font_size: '15px',
+    });
   });
 
   /**
@@ -302,10 +346,12 @@ describe('the serializer’s authored baseline', () => {
   it('still drops a held view value the card rejects for its default', () => {
     const grid = { slot_minutes: 45, overlap_layout: 'column' };
     const column = { min_day_width: 0, min_days_to_show: 'some' };
-    const config = merged({ days_to_show: 7, time_grid: grid, column });
+    const month = { min_day_width: 0, cell_event_font_size: 'big' };
+    const config = merged({ days_to_show: 7, time_grid: grid, column, month });
 
     expect(stripTimeGridDefaults(config, grid)).toBeUndefined();
     expect(stripColumnDefaults(config, column)).toBeUndefined();
+    expect(stripMonthDefaults(config, month)).toBeUndefined();
     expect(storedViewBlocks(config)).toEqual({});
   });
 

@@ -9,6 +9,12 @@
   "viewList": "List",
   "viewColumns": "Columns",
   "viewGrid": "Grid",
+  "viewMonth": "Month",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
+  "moreEvents": "+{count} more",
+  "eventCount": "{count} events",
+  "eventCountOne": "{count} event",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
   "dayOfEvent": "Day {day} of {days}",
@@ -18,6 +24,9 @@
   "error": "Error: Calendar entity not found or improperly configured",
   "loadFailed": "Couldn't load:",
   "newEvent": "New event",
+  "movedTo": "Moved to {time}",
+  "undo": "Undo",
   "showAll": "Show all",
-  "hideAll": "Hide all"
+  "hideAll": "Hide all",
+  "private": "Private"
 }

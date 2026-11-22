@@ -9,6 +9,12 @@
   "viewList": "Листа",
   "viewColumns": "Колоне",
   "viewGrid": "Мрежа",
+  "viewMonth": "Месец",
+  "layout": "Распоред",
+  "layoutCurrent": "Распоред: {view}",
+  "moreEvents": "Још +{count}",
+  "eventCount": "{count} догађаја",
+  "eventCountOne": "{count} догађај",
   "endsToday": "завршава се данас",
   "endsTomorrow": "завршава се сутра",
   "dayOfEvent": "Дан {day} од {days}",
@@ -18,6 +24,9 @@
   "error": "Грешка: Ентитет календара није пронађен или је неисправно конфигурисан",
   "loadFailed": "Неуспешно учитавање:",
   "newEvent": "Нови догађај",
+  "movedTo": "Премештено на {time}",
+  "undo": "Опозови",
   "showAll": "Прикажи све",
-  "hideAll": "Сакриј све"
+  "hideAll": "Сакриј све",
+  "private": "Приватно"
 }

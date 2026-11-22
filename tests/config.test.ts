@@ -68,8 +68,9 @@ describe('configVersionState', () => {
   it.each([
     [{}, { kind: 'legacy' }],
     [{ config_version: 4 }, { kind: 'legacy', version: 4 }],
-    [{ config_version: CURRENT_CONFIG_VERSION }, { kind: 'current', version: 5 }],
-    [{ config_version: 6 }, { kind: 'future', version: 6 }],
+    [{ config_version: 5 }, { kind: 'legacy', version: 5 }],
+    [{ config_version: CURRENT_CONFIG_VERSION }, { kind: 'current', version: 6 }],
+    [{ config_version: 7 }, { kind: 'future', version: 7 }],
   ])('classifies %j', (config, expected) => {
     expect(configVersionState(config)).toEqual(expected);
   });

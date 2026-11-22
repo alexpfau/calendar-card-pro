@@ -8,7 +8,11 @@ title: "{{ now().strftime('%-d %B %Y') }}" # 14 March 2025
 
 No separate option enables this. Any title containing `{{` or `{%` is rendered as a template; everything else is used exactly as written.
 
-With the [header toolbar](/features/layout-appearance#header-toolbar) shown, the title is the small label over the month, and a template works there the same way.
+| Option  | Type   | Default | Description                                                                                  |
+| ------- | ------ | ------- | -------------------------------------------------------------------------------------------- |
+| `title` | string | -       | The card's heading. A value containing `{{` or `{%` is rendered as a Home Assistant template |
+
+With the [header toolbar](/features/header-toolbar) shown, the title is the small label over the month, and a template works there the same way.
 
 ## 🧩 What You Can Do With It
 

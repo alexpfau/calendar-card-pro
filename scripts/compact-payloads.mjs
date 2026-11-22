@@ -154,9 +154,104 @@ export function parseEditorTranslation(code, keys, id = 'translation.json') {
   return keys.map((key) => (Object.hasOwn(data, key) ? data[key] : null));
 }
 
+/**
+ * Front-code the sorted key vector by dot segment: each key becomes the number of leading
+ * segments it shares with the key before it (omitted when 0) followed by its remaining
+ * segments. Fails closed unless the emitted decoder returns the vector exactly.
+ */
+export function frontCodeKeys(keys) {
+  let previous = [];
+  const coded = keys.map((key) => {
+    const segments = key.split('.');
+    let shared = 0;
+    while (
+      shared < previous.length &&
+      shared < segments.length - 1 &&
+      previous[shared] === segments[shared]
+    ) {
+      shared++;
+    }
+    previous = segments;
+    return (shared || '') + segments.slice(shared).join('.');
+  });
+  const decoded = new Function(`${decodeKeys(coded)}return keys`)();
+  if (JSON.stringify(decoded) !== JSON.stringify(keys)) {
+    fail('strings.ts', 'Editor keys do not survive front-coding (a leading digit or 10+ segments)');
+  }
+  return coded;
+}
+
+function decodeKeys(coded) {
+  return `const keys=${JSON.stringify(coded)};let prefix=[];for(let i=0;i<keys.length;i++){const shared=+keys[i][0]||0;prefix=prefix.slice(0,shared).concat((shared?keys[i].slice(1):keys[i]).split("."));keys[i]=prefix.join(".")}`;
+}
+
 /** Generate one ordinary-map decoder shared by English and every translated vector. */
 export function editorDecoderSource(keys) {
-  return `const keys=${JSON.stringify(keys)};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
+  return `${decodeKeys(frontCodeKeys(keys))};export default values=>Object.fromEntries(keys.map((key,i)=>[key,values[i]]).filter(([,value])=>value!==null));`;
+}
+
+/** Editor translations built into the editor rather than shipped as files of their own. */
+export const BUILT_IN_EDITOR_LANGUAGES = ['en-GB'];
+
+/**
+ * The FNV-1a hash `keyFingerprint` in `src/rendering/editor/translations/files.ts` computes.
+ * Written twice because a build script cannot import TypeScript; a test holds them together.
+ */
+export function editorKeyFingerprint(keys) {
+  const text = keys.join('\n');
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/** One language file: its version, the key fingerprint and its value vector, importing nothing. */
+export function editorLanguageFileSource(version, keys, values) {
+  return `export default{v:${JSON.stringify(version)},k:${JSON.stringify(editorKeyFingerprint(keys))},s:${JSON.stringify(values)}};\n`;
+}
+
+/**
+ * Emits every editor translation but the built-in ones as a file of its own beside the editor,
+ * named `<prefix><code>.js` with a lowercase code. Each holds one value per English key, in the
+ * sorted order the editor's own decoder rebuilds its keys in (`compactEditorStrings`), so a file
+ * is read by position and the fingerprint proves the positions agree.
+ *
+ * The editor imports none of these, so the JSON files and `strings.ts` are watched by hand:
+ * a `--watch` rebuild must rewrite a language when its JSON or the English keys change.
+ *
+ * @param options - `version` stamped into each file, `prefix` of each file name
+ * @returns The plugin
+ */
+export function emitEditorLanguages({ version, prefix, root = process.cwd() }) {
+  const absoluteRoot = path.resolve(root);
+  const stringsPath = path.join(absoluteRoot, 'src/rendering/editor/strings.ts');
+  const translationsPath = path.join(absoluteRoot, 'src/rendering/editor/translations');
+  const files = () =>
+    readdirSync(translationsPath)
+      .filter((file) => file.endsWith('.json'))
+      .filter((file) => !BUILT_IN_EDITOR_LANGUAGES.includes(file.slice(0, -5)))
+      .sort();
+  return {
+    name: 'emit-editor-languages',
+    buildStart() {
+      this.addWatchFile(stringsPath);
+      for (const file of files()) this.addWatchFile(path.join(translationsPath, file));
+    },
+    generateBundle() {
+      const { keys } = parseEnglishStrings(readFileSync(stringsPath, 'utf8'), stringsPath);
+      for (const file of files()) {
+        const id = path.join(translationsPath, file);
+        const values = parseEditorTranslation(readFileSync(id, 'utf8'), keys, id);
+        this.emitFile({
+          type: 'asset',
+          fileName: `${prefix}${file.slice(0, -5).toLowerCase()}.js`,
+          source: editorLanguageFileSource(version, keys, values),
+        });
+      }
+    },
+  };
 }
 
 /** Compact emitted payloads only; the on-disk English and JSON remain authoring sources. */
@@ -301,6 +396,14 @@ export function validateDayjsUsage(code, id = 'source.ts') {
           node.arguments[0].expression.getText(ast) === 'editorModuleUrl' &&
           node.arguments[0].arguments.length === 1 &&
           node.arguments[0].arguments[0].getText(ast) === 'import.meta.url'
+        ) &&
+        // The editor's language files, by the URL `translations/files.ts` builds for one.
+        !(
+          id.replace(/\\/g, '/').endsWith('/src/rendering/editor/translations/loader.ts') &&
+          node.arguments.length === 1 &&
+          ts.isCallExpression(node.arguments[0]) &&
+          node.arguments[0].expression.getText(ast) === 'languageFileUrl' &&
+          node.arguments[0].arguments.length === 2
         )
       ) {
         fail(id, 'Unrecognized dynamic import could bypass the Day.js source guard');
@@ -698,4 +801,114 @@ export function compactDayjsLocales(root = process.cwd()) {
       return { code: trimDayjsLocaleFields(code, id), map: null };
     },
   };
+}
+
+// HTML and CSS whitespace only: a no-break space is text, and collapsing one would change it.
+const ASCII_SPACE = /[ \t\n\f\r]/;
+
+/**
+ * Collapse each run of whitespace that spans a line break in an `html` template's static text
+ * to one character. Outside `white-space: pre`, which no editor template uses, a browser
+ * renders such a run exactly as it renders one space, so this changes the source's
+ * indentation and not what is drawn. Quoted attribute values are left alone, and every
+ * nested template is a template of its own.
+ */
+export function collapseTemplateWhitespace(code, id) {
+  if (!code.includes('html`') && !code.includes('css`')) return null;
+  const ast = parse(code, id);
+  const edits = [];
+  walk(ast, (node) => {
+    if (
+      !ts.isTaggedTemplateExpression(node) ||
+      !ts.isIdentifier(node.tag) ||
+      (node.tag.text !== 'html' && node.tag.text !== 'css')
+    ) {
+      return;
+    }
+    if (node.tag.text === 'css') {
+      if (!ts.isNoSubstitutionTemplateLiteral(node.template)) return;
+      cssEdits(code, node.template.getStart(ast) + 1, node.template.end - 1, edits);
+      return;
+    }
+    const template = node.template;
+    const chunks = ts.isNoSubstitutionTemplateLiteral(template)
+      ? [[template.getStart(ast) + 1, template.end - 1]]
+      : [
+          [template.head.getStart(ast) + 1, template.head.end - 2],
+          ...template.templateSpans.map((span) => [
+            span.literal.getStart(ast) + 1,
+            span.literal.end - (ts.isTemplateTail(span.literal) ? 1 : 2),
+          ]),
+        ];
+    let state = 'text';
+    for (const [start, end] of chunks) {
+      for (let i = start; i < end; i++) {
+        const ch = code[i];
+        if (state === 'comment') {
+          if (code.startsWith('-->', i)) {
+            state = 'text';
+            i += 2;
+          }
+          continue;
+        }
+        if (state === '"' || state === "'") {
+          if (ch === state) state = 'tag';
+          continue;
+        }
+        if (ASCII_SPACE.test(ch)) {
+          let j = i;
+          while (j < end && ASCII_SPACE.test(code[j])) j++;
+          if (code.slice(i, j).includes('\n') && code.slice(i, j) !== ' ') {
+            edits.push([i, j]);
+          }
+          i = j - 1;
+          continue;
+        }
+        if (state === 'text') {
+          if (code.startsWith('<!--', i)) state = 'comment';
+          else if (ch === '<' && /[a-zA-Z/]/.test(code[i + 1] ?? '')) state = 'tag';
+        } else if (ch === '"' || ch === "'") {
+          state = ch;
+        } else if (ch === '>') {
+          state = 'text';
+        }
+      }
+    }
+  });
+  if (edits.length === 0) return null;
+  let out = code;
+  for (const [start, end, text = ' '] of edits.sort((a, b) => b[0] - a[0])) {
+    out = out.slice(0, start) + text + out.slice(end);
+  }
+  return out;
+}
+
+/**
+ * In a stylesheet, a run of whitespace spanning a line break goes entirely after a brace or a
+ * semicolon or before a brace, and becomes one space elsewhere, where it may be a
+ * descendant combinator. Quoted strings are left alone.
+ */
+function cssEdits(code, start, end, edits) {
+  let quote = null;
+  for (let i = start; i < end; i++) {
+    const ch = code[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (!ASCII_SPACE.test(ch)) continue;
+    let j = i;
+    while (j < end && ASCII_SPACE.test(code[j])) j++;
+    const run = code.slice(i, j);
+    if (run.includes('\n')) {
+      const tight = i === start || j === end || /[{};]/.test(code[i - 1]) || /[{}]/.test(code[j]);
+      if (tight || run !== ' ') edits.push([i, j, tight ? '' : ' ']);
+    }
+    i = j - 1;
+  }
 }

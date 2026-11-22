@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
-import { SYNTHETIC_FIELDS } from '../src/rendering/editor/synthetic';
+import * as CalendarList from '../src/rendering/editor/calendar-list';
 import * as EventUtils from '../src/utils/events';
 import '../src/calendar-card-pro';
 
@@ -27,18 +27,19 @@ function memoryStorage(): Storage {
   } as Storage;
 }
 
-describe('the calendar picker preserves per-block configuration', () => {
+describe('the calendar list preserves per-entry configuration', () => {
   /**
    * Listing one calendar twice is supported — `event-cache.test.ts` pins that
-   * each block gets its own copy so the two can render with different labels.
-   * The picker's `apply` looked its blocks up in a `Map` keyed by entity ID,
-   * which keeps only the last block for a repeated ID, so simply re-opening the
-   * picker rewrote every earlier duplicate with the last one's settings.
+   * each entry gets its own copy so the two can render with different labels.
+   * The retired calendar picker once looked its entries up in a `Map` keyed by
+   * entity ID, which keeps only the last entry for a repeated ID, and rewrote
+   * every earlier duplicate with the last one's settings. The calendar list
+   * that replaced it rewrites `entities` on every add and move, so it is held
+   * to the same promise.
    */
-  const shapes = (out: { changes: Partial<Types.Config> }) =>
-    (out.changes.entities as unknown[]).map((e) => JSON.stringify(e));
+  const shapes = (state: CalendarList.ListState) => state.entities.map((e) => JSON.stringify(e));
 
-  it('keeps each duplicate block distinct, in picker order', () => {
+  it('keeps each duplicate entry distinct, in list order, through an add and a move', () => {
     const config = buildConfig({
       entities: [
         { entity: 'calendar.a', label: 'First' },
@@ -46,19 +47,26 @@ describe('the calendar picker preserves per-block configuration', () => {
       ],
     }) as Types.Config;
 
-    const out = SYNTHETIC_FIELDS.calendars.apply(
-      ['calendar.a', 'calendar.a', 'calendar.b'],
-      config,
+    const added = CalendarList.addCalendar(
+      { entities: config.entities ?? [], keys: [0, 1] },
+      'calendar.b',
+      2,
     );
+    const moved = CalendarList.moveCalendar(added, 'calendar.b', 0);
 
-    expect(shapes(out)).toEqual([
+    expect(shapes(added)).toEqual([
       '{"entity":"calendar.a","label":"First"}',
       '{"entity":"calendar.a","label":"Second"}',
       '"calendar.b"',
     ]);
+    expect(shapes(moved)).toEqual([
+      '"calendar.b"',
+      '{"entity":"calendar.a","label":"First"}',
+      '{"entity":"calendar.a","label":"Second"}',
+    ]);
   });
 
-  it('control: distinct entity ids keep their own blocks', () => {
+  it('control: distinct entity ids keep their own entries', () => {
     const config = buildConfig({
       entities: [
         { entity: 'calendar.a', label: 'First' },
@@ -66,12 +74,13 @@ describe('the calendar picker preserves per-block configuration', () => {
       ],
     }) as Types.Config;
 
-    const out = SYNTHETIC_FIELDS.calendars.apply(
-      ['calendar.a', 'calendar.b', 'calendar.c'],
-      config,
+    const added = CalendarList.addCalendar(
+      { entities: config.entities ?? [], keys: [0, 1] },
+      'calendar.c',
+      2,
     );
 
-    expect(shapes(out)).toEqual([
+    expect(shapes(added)).toEqual([
       '{"entity":"calendar.a","label":"First"}',
       '{"entity":"calendar.b","label":"Second"}',
       '"calendar.c"',
@@ -101,6 +110,8 @@ describe('a measured column fit survives an unrelated config edit', () => {
     entities: [{ entity: 'calendar.one' }],
     view: 'column',
     days_to_show: 7,
+    // Every day kept, so the band is the one between seven columns and the list.
+    column: { min_days_to_show: 7 },
   };
 
   /** A card that has measured a width inside the hysteresis band. */

@@ -33,8 +33,11 @@ export interface Config {
   show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
-  /** `true` matches copies on title, start, end and location; `ignore_location` on the first three. */
-  filter_duplicates: boolean | 'ignore_location';
+  /**
+   * `true` matches copies on title, start, end and location; `ignore_location` on the first
+   * three; `merge_locations` as `ignore_location`, listing every copy's location on the row kept.
+   */
+  filter_duplicates: boolean | 'ignore_location' | 'merge_locations';
   /**
    * Accent color for a row that `filter_duplicates` collapsed across two or more
    * **distinct** calendars, replacing the first-listed calendar's own accent.
@@ -72,22 +75,42 @@ export interface Config {
   event_gap: string;
   event_spacing: string;
   additional_card_spacing: string;
+  /** The events area's cap under the header, as a CSS length; `none` sets none. */
   max_height: string;
+  /** The events area's height under the header, as a CSS length; `auto` is its content's. */
   height: string;
+  /**
+   * The whole card's height, as a CSS length: its border box, the title, the toolbar and any
+   * notice included, with the events area filling what they leave. `auto` is the layout's own
+   * height: its content's, or Month's default. A row count a Sections dashboard gives the card
+   * wins over it.
+   */
+  card_height: string;
+  /** The tallest the whole card may be, as a CSS length, clamping `card_height`; `none` sets none. */
+  card_max_height: string;
 
   // Week numbers and horizontal separators
   first_day_of_week: 'sunday' | 'monday' | 'system';
   show_week_numbers: null | 'iso' | 'simple';
   show_current_week_number: boolean;
   week_number_font_size: string;
-  week_number_color: string;
-  week_number_background_color: string;
+  /** Unset, the pill's number is the tile's ink, or a shade of a set background. */
+  week_number_color?: string;
+  /** Unset, the pill is the tile's wash. */
+  week_number_background_color?: string;
   day_separator_width: string;
   day_separator_color: string;
   week_separator_width: string;
-  week_separator_color: string;
+  /** Unset, the line is the pill's background, set or not. */
+  week_separator_color?: string;
   month_separator_width: string;
   month_separator_color: string;
+  /** Whether the list names the month at the start of each month rule it draws. */
+  month_separator_label: boolean;
+  /** The month name's color on its rule; unset, the month rule's own color. */
+  month_separator_label_color?: string;
+  /** The month name's font size on its rule. */
+  month_separator_label_font_size: string;
 
   // Today indicator
   today_indicator: string | boolean;
@@ -180,6 +203,17 @@ export interface Config {
   description_icon_size: string;
 
   // Weather
+  /**
+   * The weather entity whose forecast every layout draws from, where its own `weather:` block
+   * shows one. Each layout is off until it does. Ignored while `weather` below names an entity.
+   */
+  weather_entity?: string;
+  /**
+   * Weather as written before v6: one block for every layout, with its entity. While it names
+   * an entity, List, Columns and Grid draw it as before, Month draws none, and the layouts'
+   * own `weather:` blocks and `weather_entity` are ignored (`readsWeatherAsBefore`). After
+   * resolving for a view (`resolveViewWeather`), it is that view's weather, entity included.
+   */
   weather?: WeatherConfig;
 
   // Actions
@@ -239,10 +273,13 @@ export interface Config {
 
   // Grid view
   time_grid?: TimeGridOverrides;
+
+  // Month view
+  month?: MonthOverrides;
 }
 
 /** Views the card can render. */
-export type EffectiveView = 'list' | 'column' | 'grid';
+export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
@@ -368,7 +405,7 @@ export interface SharedViewOverrides {
 
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
-  filter_duplicates?: boolean | 'ignore_location';
+  filter_duplicates?: boolean | 'ignore_location' | 'merge_locations';
   duplicate_accent_color?: string;
 
   // Layout and spacing
@@ -379,6 +416,8 @@ export interface SharedViewOverrides {
   additional_card_spacing?: string;
   height?: string;
   max_height?: string;
+  card_height?: string;
+  card_max_height?: string;
 
   // Today indicator
   today_indicator?: string | boolean;
@@ -454,6 +493,13 @@ export interface SharedViewOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+
+  /**
+   * How this layout draws the forecast of `weather_entity`; without it, the layout draws none.
+   * Read by `resolveViewWeather`, never hoisted as the other keys are, and ignored while the
+   * top-level `weather` names an entity.
+   */
+  weather?: WeatherPresentationConfig;
 }
 
 /**
@@ -461,7 +507,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The seven below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The ten below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -477,6 +523,12 @@ export interface ListOverrides extends SharedViewOverrides {
   // List-row layout.
   date_vertical_alignment?: string;
   today_indicator_position?: string;
+
+  // In Columns and Grid a month rule is a vertical line in a narrow gutter, with no room for
+  // words, and the Month layout draws no month separator at all.
+  month_separator_label?: boolean;
+  month_separator_label_color?: string;
+  month_separator_label_font_size?: string;
 }
 
 /**
@@ -496,7 +548,8 @@ export interface ColumnOverrides extends SharedViewOverrides {
    * Fewest day columns the card may reduce to when the width will not carry
    * `days_to_show` of them.
    *
-   * Defaults dynamically to `days_to_show`, so `resolveMinDaysToShow` owns it.
+   * Defaults dynamically, to two on a card that pages and to `days_to_show` elsewhere, so
+   * `resolveMinDaysToShow` owns it.
    */
   min_days_to_show?: number;
 
@@ -685,6 +738,127 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   show_axis_labels?: boolean;
 }
 
+/**
+ * The shared options a month draws nothing for, in its grid, its narrow form or its day list:
+ * it sizes its whole card with its own heights; it always shows its six weeks whatever their
+ * events, never cuts a list short and splits every multi-day event across its days; it rules its
+ * days itself and lists one day at a time, so it has no space or rule between days, weeks or
+ * months; it sets its dates at one scale on every day, with today's indicator only as the tile,
+ * and its week numbers as plain text; its day list puts each row's time beside its title; and it
+ * draws no clock beside a time. With them, the ones it keeps at their shipped values
+ * ({@link MonthPinnedKeys}).
+ */
+export type MonthIgnoredSharedKeys =
+  | 'height'
+  | 'max_height'
+  | 'days_to_show'
+  | 'show_empty_days'
+  | 'show_empty_today'
+  | 'empty_day_text'
+  | 'empty_day_color'
+  | 'split_multiday_events'
+  | 'show_multiday_allday_time'
+  | 'day_spacing'
+  | 'day_separator_width'
+  | 'day_separator_color'
+  | 'week_separator_width'
+  | 'week_separator_color'
+  | 'month_separator_width'
+  | 'month_separator_color'
+  | 'week_number_background_color'
+  | 'today_date_scale'
+  | 'past_date_scale'
+  | 'today_indicator_size'
+  | 'time_position'
+  | 'time_icon_size'
+  | MonthPinnedKeys;
+
+/**
+ * The shared options a month keeps at their shipped values, whatever the card, its `month:` block
+ * or a calendar says: a day's list and the panel "+N more" opens draw an event's title, time,
+ * location and forecast, and leave its description, countdown, progress bar and all-day badge to
+ * the event's details, with every part on one line under a narrow month's weeks and in full in
+ * the panel (`ViewConfig.MONTH_PINNED`).
+ */
+export type MonthPinnedKeys =
+  | 'show_description'
+  | 'show_description_allday'
+  | 'description_font_size'
+  | 'description_color'
+  | 'description_icon_size'
+  | 'description_max_lines'
+  | 'show_countdown'
+  | 'show_countdown_allday'
+  | 'countdown_max_days'
+  | 'countdown_exact_days'
+  | 'show_progress_bar'
+  | 'progress_bar_color'
+  | 'progress_bar_height'
+  | 'progress_bar_width'
+  | 'allday_badge'
+  | 'allday_badge_style'
+  | 'allday_badge_color'
+  | 'title_max_lines'
+  | 'time_max_lines'
+  | 'location_max_lines'
+  | 'event_icon_vertical_alignment';
+
+/**
+ * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
+ * and cell font size keys.
+ *
+ * The month-only keys below have no top-level counterpart and are read with
+ * `resolveMonthOption`, not `resolveViewOption`.
+ */
+export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSharedKeys> {
+  /** Whether a timed event a full day or longer is drawn as a bar, as Grid's banners are. */
+  multiday_banners?: boolean;
+
+  /**
+   * `card_height` for the narrow form, which takes `card_height` while this is unset; `auto` is
+   * the month's own default, the same in both forms.
+   */
+  narrow_card_height?: string;
+
+  /**
+   * `card_max_height` for the narrow form, which takes `card_max_height` while this is unset.
+   * Under it a narrow card whose height is `auto` grows with the day's list.
+   */
+  narrow_card_max_height?: string;
+
+  /** Day-cell width in pixels below which the month draws its narrow form. */
+  min_day_width?: number;
+
+  /**
+   * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
+   * its date and events, a neighboring month's day included.
+   *
+   * Grid's option under Grid's name and default, and like Grid's a block option rather than a
+   * shared one: a month's cell is the same height whatever is in it, as a grid column is, and a
+   * list's or a column's day is not. Which days count as the weekend comes from the country set in
+   * Home Assistant, or its language when no country is set.
+   */
+  weekend_background_color?: string;
+
+  /**
+   * Background tint for today's cell, as a CSS color. Off by default, as Grid's is; on a weekend
+   * day it replaces the weekend tint rather than stacking on it.
+   */
+  today_background_color?: string;
+
+  /**
+   * Font size of what the wide month draws in its days: a line's title and its calendar label, a
+   * bar's title, and a day's "+N more". A day's list and the panel take `event_font_size`.
+   */
+  cell_event_font_size?: string;
+
+  /**
+   * Font size of a line's time, and a bar's times and length, in the wide month. A day's list and
+   * the panel take `time_font_size`.
+   */
+  cell_time_font_size?: string;
+}
+
 /** Calendar entity configuration. */
 export interface EntityConfig {
   entity: string;
@@ -839,6 +1013,23 @@ export interface EntityConfig {
    */
   allday_expires_at?: string;
   /**
+   * The hours of the day this entry's timed events have to start in, as `HH:MM` or `HH:MM:SS`
+   * (#346): at or after `starts_after`, before `starts_before`. Either alone runs to or from
+   * midnight; with `starts_before` the earlier of the two, the hours run past midnight, as Home
+   * Assistant's `time` condition reads `after` and `before`. `starts_before` also takes `24:00`,
+   * and `00:00` there is the end of the day too. Unset, the entry keeps every timed event.
+   *
+   * An event is judged once, by the clock time its real start reads in the browser's zone, so a
+   * multi-day event is kept or dropped on every day it covers. All-day events always pass; pair
+   * with `event_type: timed` to drop them. A value that is not a time, the number an unquoted
+   * `16:00` becomes in YAML among them, leaves the entry unnarrowed and is reported once.
+   * Applied while events are processed (`events.ts` › `filterEventsForEntity`), in every layout,
+   * in search, and before `filter_duplicates` picks a copy (`utils/start-window.ts`).
+   */
+  starts_after?: string;
+  /** @see starts_after */
+  starts_before?: string;
+  /**
    * Home Assistant's visibility conditions for this entry, in the shapes its card-level
    * `visibility:` takes (`utils/visibility.ts`). The entry's events show only while every one
    * holds; a calendar every entry of which is hidden is treated as though it were not on the
@@ -848,6 +1039,25 @@ export interface EntityConfig {
    * entry and hide the other.
    */
   visibility?: VisibilityCondition[];
+  /**
+   * `true` keeps this entry's events private on the card: each shows when it is, in its
+   * calendar's color, label and name, and nothing it says. Its title reads Private behind a lock,
+   * and its location and description are not drawn; in the event popover, a field the event has
+   * reads Private behind a lock too (`utils/private-events.ts`). Unset or `false`, the events
+   * show as usual. It is the one option that keeps a field out of the popover: the entry's
+   * `show_location: false` and `show_description: false` leave a field out of its rows only.
+   *
+   * Read at render time from the event's matched block, as the text replacement is, so a calendar
+   * listed twice can keep one block private and not the other. A whole-field `replace_with` takes
+   * the place of Private for its field, a location or description in the popover only; a
+   * replacement with a pattern is not applied, since it would show the rest of the text. With
+   * `filter_duplicates`, its copy of an event is never merged with one that is not private. The card neither changes nor deletes a private event
+   * (`detailPermissions`), and search finds it only as it is drawn.
+   *
+   * The entry's filters still read the event's own words, since they decide which entry an event
+   * belongs to rather than what it shows.
+   */
+  private?: boolean;
 }
 
 /** Weather position-specific styling configuration. */
@@ -878,6 +1088,13 @@ export interface WeatherPositionConfig {
 export type ToolbarLegendMode = 'menu' | 'chips';
 
 /**
+ * How large the toolbar draws the controls in the month's row, the date navigation and the
+ * calendar chips: `normal`, or `large`, nearly as large as the action row's buttons, for a touch
+ * screen.
+ */
+export type ToolbarSize = 'normal' | 'large';
+
+/**
  * The header toolbar, as written in the configuration: one switch for the bar, and one per
  * control in it.
  *
@@ -895,8 +1112,13 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, at the start of the action row, after the filter. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, in the middle of the action row. */
+  /** The layout switcher, in the middle of the action row. */
   view_switcher?: boolean;
+  /**
+   * The layouts the switcher offers, while it is on: every layout by default. The layout the card
+   * opens in is always offered, and the switcher is drawn only where two or more are.
+   */
+  view_switcher_layouts?: EffectiveView[];
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
    * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
@@ -916,6 +1138,12 @@ export interface ToolbarConfig {
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
   legend?: false | ToolbarLegendMode;
+  /**
+   * How large the month's row draws the date navigation and the calendar chips: `normal`, or
+   * `large`, 32px, spaced and with icons as the action row's buttons are. The action row is the
+   * same size either way.
+   */
+  size?: ToolbarSize;
   /**
    * Buttons the configuration defines itself, drawn after add in the order written: each an icon
    * and an action, run as the card's own `tap_action` is. Where the action row runs out of room
@@ -939,13 +1167,22 @@ export interface ToolbarButtonConfig {
   tap_action?: ActionConfig;
 }
 
-/** Weather configuration. */
+/**
+ * Weather configuration: the top-level block as written before v6, and each view's weather
+ * once resolved, with the entity it draws from.
+ */
 export interface WeatherConfig {
   entity?: string;
   position?: 'none' | 'date' | 'event' | 'both';
   date?: WeatherPositionConfig;
   event?: WeatherPositionConfig;
 }
+
+/** Where a layout draws the weather: nowhere, beside each day, beside each event, or both. */
+export type WeatherPosition = NonNullable<WeatherConfig['position']>;
+
+/** How one layout draws the weather: a layout block's `weather:`, which names no entity. */
+export type WeatherPresentationConfig = Omit<WeatherConfig, 'entity'>;
 
 /** Raw weather forecast data from Home Assistant. */
 export interface WeatherForecast {
@@ -1080,6 +1317,23 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   /**
+   * Set by a month's day model (`MonthDay.monthDayLists`) on an event a wide month draws as one
+   * bar across its days: an all-day event, or a timed one it draws as a banner. The model splits
+   * it as List does, and each day of it is then past only once the whole event is, read from
+   * `_sourceEnd`, as a bar's days are, so a day's panel and the narrow day list hold what the
+   * day's cell draws under `show_past_events: false`. Read by the past-event filter only.
+   */
+  _pastAsWhole?: boolean;
+  /**
+   * Where the event came in the list Home Assistant sent, stamped by `processEvents`. Only for a
+   * calendar listed more than once, `groupEventsByDay` puts that calendar's events back in this
+   * order before sorting, so events sharing a start are drawn as the calendar listed once would
+   * draw them, whichever entry kept them, and a card-wide event limit or Skip First Events keeps
+   * the same events after Split This Calendar. A kept duplicate takes its calendar's earliest copy's
+   * (`deduplicateEvents`).
+   */
+  _arrival?: number;
+  /**
    * Which of its event's days a list or column row stands for, "Day 2 of 3", set by
    * `groupEventsByDay` while `show_progress_bar` is on, on every row of an event a day or more
    * long. Its presence is what takes the row's progress bar away, so it is there on a row
@@ -1105,11 +1359,30 @@ export interface CalendarEventData {
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
   /**
+   * The locations of every copy `filter_duplicates: merge_locations` collapsed into this row,
+   * in the order of the entries that matched them, one per calendar and location, compared
+   * trimmed. Set when they say more than the copy kept: two or more, or one it lacks. Unlike
+   * `_mergedFrom`, a merge within one calendar sets it too.
+   *
+   * `location` stays the kept copy's own. The display copy draws the list in its place, each
+   * location through its own calendar's options, a text two calendars draw alike once
+   * (`mergedLocationText`), and carries the list on: the popover shows every location in it,
+   * those a calendar leaves out of the rows included (`EventDetails.displayText`).
+   */
+  _mergedLocations?: ReadonlyArray<MergedLocation>;
+  /**
    * Set on the copy of a row the search panel picked, while the card rings it
    * (`Search.ringIn`): every view's renderer binds its ring class from it, so the ring is drawn
    * by the template and no element comes or goes for it.
    */
   _searchRing?: boolean;
+  /**
+   * Set on a row whose title is the Private placeholder of a private entry
+   * (`EntityConfig.private`), by `groupEventsByDay`: every renderer draws a lock before the title
+   * from it (`PrivateLock.renderRowLock`). Not set where a whole-field `replace_with` names the
+   * title instead.
+   */
+  _privateTitle?: boolean;
 }
 
 /**
@@ -1143,6 +1416,16 @@ export type SourceEvent = Pick<
 export interface MergedCalendar {
   entityId: string;
   config?: EntityConfig;
+}
+
+/**
+ * One location `filter_duplicates: merge_locations` lists on a merged row: the text exactly as a
+ * calendar delivered it, with that calendar and the block whose copy carried it first. That
+ * block's `show_location` and location replacement decide how it is drawn, the replacement
+ * against this text, as on a row of the calendar's own.
+ */
+export interface MergedLocation extends MergedCalendar {
+  location: string;
 }
 
 /**
@@ -1299,6 +1582,11 @@ export interface Hass {
     { id: string; area_id?: string | null; parent_device_id?: string | null; labels?: string[] }
   >;
   areas?: Record<string, { area_id: string; floor_id?: string | null; labels?: string[] }>;
+  /**
+   * Home Assistant's services, by domain. Read by the editor's warm-up alone, which holds a
+   * configured action again once they move (`rendering/editor/element.ts` › `_finishWarmUp`).
+   */
+  services?: Record<string, unknown>;
   /**
    * The language Home Assistant's own interface is drawn in. With `translationMetadata`, it
    * decides which way the dashboard runs: Home Assistant sets the document's `dir` from
@@ -1507,6 +1795,15 @@ export interface Translations {
   loadFailed: string;
   /** The title a new event drawn in a grid shows until it has one of its own. */
   newEvent: string;
+  /**
+   * Home Assistant's notification once a drag in a grid has moved an event, with `{time}` where
+   * its new start goes: "Moved to 13:45", or with the weekday before it where the event moved to
+   * another day, "Moved to Thu 13:45". A language whose preposition would have to agree with
+   * either reading writes a form that takes both, as Italian does with "Nuovo orario: {time}".
+   */
+  movedTo: string;
+  /** The notification's button that moves the event back where it was. */
+  undo: string;
   allDay: string;
   multiDay: string;
   /**
@@ -1559,9 +1856,40 @@ export interface Translations {
   viewList: string;
   viewColumns: string;
   viewGrid: string;
+  viewMonth: string;
+  /**
+   * The view switcher's name, which its group carries for assistive technology, and the name of
+   * the menu it opens where a narrow card collapses it into one button: "Layout".
+   */
+  layout: string;
+  /**
+   * That button's name and tooltip, with `{view}` where the selected view's name goes:
+   * "Layout: {view}", "Layout: Month".
+   */
+  layoutCurrent: string;
+  /**
+   * What a month day says in its last line about the events it has no room for, with `{count}`
+   * where their number goes: "+{count} more", "+2 more".
+   */
+  moreEvents: string;
+  /**
+   * How many events a month day holds, as its cell is named for assistive technology, with
+   * `{count}` where the number goes: `eventCountOne` for the numbers the language's plural rules
+   * call "one" ("{count} event"), `eventCount` for every other ("{count} events"). A language
+   * whose other numbers need more than one form writes one that reads for all of them, as Polish
+   * does with "Wydarzenia: {count}". A day without events reads `noEvents`.
+   */
+  eventCount: string;
+  eventCountOne: string;
   /** The calendar filter's menu: the buttons that show every calendar it lists, or hide them. */
   showAll: string;
   hideAll: string;
+  /**
+   * What a private calendar's event says in place of its title, and in its event popover in place
+   * of its location and description, after a lock (`EntityConfig.private`). The adjective a
+   * calendar app marks a private event with, not the noun for privacy.
+   */
+  private: string;
 }
 
 // -----------------------------------------------------------------------------

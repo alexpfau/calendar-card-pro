@@ -33,6 +33,7 @@ const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
  */
 const ENTITY_OPTIONS_DOC = join(DOCS_DIR, 'features/core-settings.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
+const MOVED_ANCHORS = join(DOCS_DIR, '.vitepress/moved-anchors.json');
 const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
 const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
 
@@ -268,6 +269,9 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   ['language', '`System`, fallback `en`'],
   // Absent renders no title at all; there is nothing to fall back to.
   ['title', '-'],
+  // utils/weather-position.ts `weatherEntityOf` — absent, and no top-level `weather:` naming an
+  // entity as written before v6, means no layout draws weather; there is nothing to fall back to.
+  ['weather_entity', '-'],
   // rendering/styles.ts — the custom property is only written when the option is set, so
   // absence leaves the stylesheet's own value in place. The documented default is that
   // variable because that is literally what applies.
@@ -1513,9 +1517,23 @@ function readColumnRows() {
  * therefore have no `COLUMN_DEFAULTS` entry to reconcile against.
  *
  * Listing dynamic rows here keeps every documented row either checked against code or
- * named as an exception.
+ * named as an exception. `min_days_to_show` is documented as its usual value,
+ * `COLUMN_MIN_DAYS_DEFAULT`, read from the source so the two cannot drift; the row's
+ * description says what changes it.
  */
-const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', '`days_to_show`']]);
+function readColumnMinDaysDefault() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const m = src.match(/^export const COLUMN_MIN_DAYS_DEFAULT = (\d+);$/m);
+  if (!m) {
+    console.error(
+      `\n✗ FATAL: could not locate COLUMN_MIN_DAYS_DEFAULT in ${relative(ROOT, VIEW_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+  return `\`${m[1]}\``;
+}
+
+const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', readColumnMinDaysDefault()]]);
 
 function checkColumnDefaults(columnDefaults, columnRows) {
   for (const [key, expected] of DYNAMIC_COLUMN_DEFAULTS) {
@@ -1924,6 +1942,7 @@ function report(counts) {
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
+      `${counts.movedAnchors} moved sections forwarded, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
       `${counts.listFences} YAML examples checked for list-only keys, ` +
@@ -2391,11 +2410,17 @@ const SENTINEL_OPTIONS = [
   },
   {
     // Not a string option, but check 21 is as blind to it: the type is
-    // `boolean | 'ignore_location'`, and a union with one string literal registers nothing
+    // `boolean | 'ignore_location' | …`, and a union of string literals registers nothing
     // there, so the value the editor's third choice writes could leave its row unnoticed.
     fields: ['filter_duplicates'],
     file: 'src/config/constants.ts',
     constant: 'DUPLICATES_IGNORE_LOCATION',
+  },
+  {
+    // The fourth choice, `merge_locations`, is as invisible to check 21 as the third.
+    fields: ['filter_duplicates'],
+    file: 'src/config/constants.ts',
+    constant: 'DUPLICATES_MERGE_LOCATIONS',
   },
   {
     // `boolean | 'once_per_day'`, the same shape as `filter_duplicates` and as blind to
@@ -2828,6 +2853,50 @@ function checkDeprecatedTable(maps) {
   }
 
   return maps.card.size;
+}
+
+// ---------------------------------------------------------------------------
+// Check 35 — every moved section forwards from an anchor that is gone to one that exists
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconcile `moved-anchors.json` against the pages, in both directions an entry can go wrong.
+ *
+ * The site's theme forwards a link to a section that moved to another page, so release notes,
+ * issue comments and installed editors keep landing on it. It forwards only where the old page
+ * no longer has the anchor, so an entry whose anchor came back is dead weight that would hide the
+ * next move of the same name; and a target nothing publishes forwards a reader into a 404.
+ *
+ * @param docs - Every markdown page under `docs/`
+ * @returns The number of forwards checked
+ */
+function checkMovedAnchors(docs) {
+  const { anchors } = buildAnchorMap(docs);
+  const rel = relative(ROOT, MOVED_ANCHORS);
+  const moved = JSON.parse(readFileSync(MOVED_ANCHORS, 'utf8'));
+  const entries = Object.entries(moved);
+  assertFound(entries, 'moved anchors', MOVED_ANCHORS);
+  for (const [from, to] of entries) {
+    const [page, anchor] = from.split('#');
+    if (anchor === undefined) {
+      error(`${rel}: ${from} names no anchor; only a section's anchor can be forwarded.`);
+      continue;
+    }
+    if (anchors.get(page)?.has(anchor)) {
+      error(
+        `${rel}: ${from} is still a heading on ${page}, so the forward never fires. ` +
+          `Remove the entry, or rename the heading.`,
+      );
+    }
+    const [toPage, toAnchor] = to.split('#');
+    const slugs = anchors.get(toPage);
+    if (slugs === undefined) {
+      error(`${rel}: ${from} forwards to ${toPage}, which no page under docs/ publishes.`);
+    } else if (toAnchor !== undefined && !slugs.has(toAnchor)) {
+      error(`${rel}: ${from} forwards to ${to}, but #${toAnchor} is not a heading on ${toPage}.`);
+    }
+  }
+  return entries.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -3301,6 +3370,12 @@ const NO_EFFECT_SURFACES = [
     page: join(DOCS_DIR, 'features/grid-view.md'),
     section: '## 🚫 Options That Do Nothing in Grid View',
   },
+  {
+    view: 'month',
+    list: '### Options With No Effect in Month View',
+    page: join(DOCS_DIR, 'features/month-view.md'),
+    section: '## 🚫 Options That Do Nothing in Month View',
+  },
 ];
 
 /**
@@ -3337,7 +3412,7 @@ function sectionBody(text, heading, rel) {
  * "(card-wide and per-entity)", is ignored.
  *
  * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
- * @returns The number of inert options reconciled across both views
+ * @returns The number of inert options reconciled across the views listed
  */
 function checkNoEffectLists(viewScope) {
   const reference = readFileSync(REFERENCE_DOC, 'utf8');
@@ -3985,6 +4060,7 @@ function main() {
     checkRuntimeEnumUsages(readRuntimeEnums(), docs);
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
+  const movedAnchors = checkMovedAnchors(docs);
   const themed = checkThemeDefaults(readThemeTable());
   const viewScope = readViewScope();
   const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
@@ -4010,6 +4086,7 @@ function main() {
       runtimeEnums,
       removed,
       reachable,
+      movedAnchors,
       themed,
       citations,
       listFences,

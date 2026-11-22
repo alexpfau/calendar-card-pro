@@ -5,8 +5,10 @@
  */
 
 import { DELETE_EVENT_FEATURE, UPDATE_EVENT_FEATURE, calendarSupports } from './calendar-writes';
+import { MERGED_LOCATION_SEPARATOR } from '../config/constants';
 import * as Types from '../config/types';
 import { stripHtmlTags } from '../utils/format';
+import * as PrivateEvents from '../utils/private-events';
 import * as TextReplace from '../utils/text-replace';
 
 //-----------------------------------------------------------------------------
@@ -99,7 +101,10 @@ export interface DetailContext {
  *   the calendar holds now.
  *
  * Edit also needs `allow_event_edit` and an end the calendar stores (see
- * `buildDetailEntry`); Delete needs `allow_event_delete`.
+ * `buildDetailEntry`); Delete needs `allow_event_delete`. A private entry's event
+ * (`EntityConfig.private`) is neither changed nor deleted here: editing a field shows what it
+ * stores, and deleting what the card does not show is a guess. Its owner changes it where it is
+ * not private.
  *
  * @param hass - Home Assistant instance
  * @param event - The rendered event
@@ -115,7 +120,13 @@ export function detailPermissions(
 ): { canEdit: boolean; canDelete: boolean } {
   const entityId = event._entityId;
   const merged = (event._mergedFrom?.length ?? 0) > 1;
-  if (!entityId || !entry.uid || merged || context.failedEntities.includes(entityId)) {
+  if (
+    !entityId ||
+    !entry.uid ||
+    merged ||
+    PrivateEvents.isPrivate(event) ||
+    context.failedEntities.includes(entityId)
+  ) {
     return { canEdit: false, canDelete: false };
   }
 
@@ -129,24 +140,54 @@ export function detailPermissions(
 }
 
 /**
- * Which of an event's fields its calendar keeps out of the popover: the location or the
- * description, where the calendar sets `show_location` or `show_description` to false. Only the
- * calendar's own setting counts. A card or a view that leaves them out of its rows still shows
- * them in the popover, which is where one goes to read what the rows leave out; a calendar set
- * to Never show is kept private, as a calendar masked with `replace_with` is.
+ * The location of a row `filter_duplicates: merge_locations` merged, as the popover shows it:
+ * every location the merge listed (`_mergedLocations`), each as its own calendar's entry shows
+ * it, Private for a private entry's (`private-events.ts`) and its text replacement applied
+ * otherwise, in the order the row lists them, a text two calendars show alike once. Whatever a
+ * calendar leaves out of the rows (`show_location`) is shown, as for any event's location here.
  *
  * @param event - A rendered event
- * @returns Whether each field is kept out
+ * @param language - The card's language, for a private entry's placeholder
+ * @returns The location, whether any part of it is the Private placeholder, and how many places
+ *   it lists, or undefined for a row that lists no merged locations
  */
-export function hiddenFields(event: Types.CalendarEventData): {
-  location: boolean;
-  description: boolean;
-} {
-  const matched = event._matchedConfig;
-  return {
-    location: matched?.show_location === false,
-    description: matched?.show_description === false,
-  };
+function mergedLocation(
+  event: Types.CalendarEventData,
+  language: string,
+): { text: string; locked: boolean; places: number } | undefined {
+  const parts = event._mergedLocations;
+  if (!parts?.length) return undefined;
+  const shown = new Set<string>();
+  let locked = false;
+  for (const part of parts) {
+    let text: string;
+    if (part.config?.private === true) {
+      const masked = PrivateEvents.privateText({ location: part.location }, part.config, language);
+      text = masked.location;
+      locked ||= masked.locked.location;
+    } else {
+      const rule = TextReplace.resolveTextReplacement(
+        part.config?.replace_field,
+        part.config?.replace_pattern,
+        part.config?.replace_with,
+      );
+      text = TextReplace.applyTextReplacement(part.location, rule, 'location').text;
+    }
+    if (text.trim()) shown.add(text.trim());
+  }
+  return { text: [...shown].join(MERGED_LOCATION_SEPARATOR), locked, places: shown.size };
+}
+
+/**
+ * Whether the popover's location for this event lists several places, which a merge
+ * (`merge_locations`) collected from its copies (`mergedLocation`).
+ *
+ * @param event - A rendered event
+ * @param language - The card's language
+ * @returns True for two or more places
+ */
+export function listsSeveralPlaces(event: Types.CalendarEventData, language: string): boolean {
+  return (mergedLocation(event, language)?.places ?? 0) > 1;
 }
 
 /**
@@ -155,20 +196,35 @@ export function hiddenFields(event: Types.CalendarEventData): {
  *
  * Built from `_source` rather than the row, which carries only what the card draws: a
  * location the grid hides, or any description while `show_description` is off, would be
- * empty there, and the title would carry an age count the card appended. A description keeps
- * its markup, so the popover can keep its links, unless a replacement rewrites it, which the
- * row applies to its plain text.
+ * empty there, and the title would carry an age count the card appended. So the popover shows
+ * every field the event has, whatever the card, a layout or the calendar leaves out of the rows.
+ * A calendar's `show_location: false` and `show_description: false` tidy its rows and nothing
+ * else; only `private` keeps a field out of the popover. A description keeps its markup, so the
+ * popover can keep its links, unless a replacement rewrites it, which the row applies to its
+ * plain text. A row `merge_locations` merged shows every location it lists, each as its own
+ * calendar shows it (`mergedLocation`).
+ *
+ * A private entry's event shows Private in place of each field it has (`private-events.ts`).
  *
  * @param event - A rendered event
+ * @param language - The card's language, for a private event's placeholder
  * @returns The three texts
  */
-export function displayText(event: Types.CalendarEventData): {
+export function displayText(
+  event: Types.CalendarEventData,
+  language: string,
+): {
   title: string;
   location: string;
   description: string;
 } {
   const source = event._source ?? event;
   const matched = event._matchedConfig;
+  const merged = mergedLocation(event, language);
+  if (PrivateEvents.isPrivate(event)) {
+    const { title, location, description } = PrivateEvents.privateText(source, matched, language);
+    return { title, location: merged?.text ?? location, description };
+  }
   const rule = TextReplace.resolveTextReplacement(
     matched?.replace_field,
     matched?.replace_pattern,
@@ -179,10 +235,53 @@ export function displayText(event: Types.CalendarEventData): {
   const description = source.description ?? '';
   return {
     title: replaced(source.summary ?? '', 'title'),
-    location: replaced(source.location ?? '', 'location'),
+    location: merged?.text ?? replaced(source.location ?? '', 'location'),
     description:
       rule?.field === 'description'
         ? replaced(stripHtmlTags(description), 'description')
         : description,
+  };
+}
+
+/**
+ * Which of a private entry's event's fields the popover draws as Private, after a lock.
+ *
+ * @param event - A rendered event
+ * @param language - The card's language
+ * @returns The fields, or undefined for an event that is not private
+ */
+export function privateFields(
+  event: Types.CalendarEventData,
+  language: string,
+): Readonly<Record<PrivateEvents.PrivateField, boolean>> | undefined {
+  if (!PrivateEvents.isPrivate(event)) return undefined;
+  const { locked } = PrivateEvents.privateText(
+    event._source ?? event,
+    event._matchedConfig,
+    language,
+  );
+  const merged = mergedLocation(event, language);
+  return merged ? { ...locked, location: merged.locked } : locked;
+}
+
+/**
+ * A private event's entry as the popover is handed it: its title, location and description as
+ * the card shows them (`displayText`), and no status, which would mark it Tentative. Nothing it
+ * says reaches the popover, which offers no change to save it back (`detailPermissions`).
+ *
+ * @param entry - The event as stored
+ * @param shown - Its three texts as the card shows them
+ * @returns The entry to hand the popover
+ */
+export function privateEntry(
+  entry: DetailEntry,
+  shown: { title: string; location: string; description: string },
+): DetailEntry {
+  return {
+    ...entry,
+    summary: shown.title,
+    location: shown.location || undefined,
+    description: shown.description || undefined,
+    status: undefined,
   };
 }

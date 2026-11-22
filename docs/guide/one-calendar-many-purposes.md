@@ -28,7 +28,7 @@ Change the patterns in the YAML where your calendars write these differently:
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Family
 days_to_show: 3
 filter_duplicates: true # a plan on several calendars is drawn once, with every face
@@ -41,16 +41,15 @@ allday_badge_style: filled
 time_position: title
 show_single_allday_time: false
 show_location_allday: false
-weather:
-  entity: weather.home
+weather_entity: weather.home
 toolbar:
   show: true
   view_switcher: false
-event_tap_action:
-  action: details
 list:
   date_vertical_alignment: top
   day_separator_width: 1px
+  weather:
+    position: date
 
 entities:
   # Anna's own calendar, under her face
@@ -86,8 +85,7 @@ entities:
     days_of_week: weekdays
     label: person.ben
     accent_color: '#90a4ae'
-    show_location: false
-    show_description: false
+    private: true
 
   # 🎂 Birthdays — the name and the age, nothing else
   - entity: calendar.family
@@ -138,15 +136,15 @@ Every list row has a label, so the 🎂 and the 🗑️ that the Family Hub's al
 
 Grandma's birthday is a yearly all-day event on the Family calendar, _🎂 Grandma's birthday_, with `YEAR=1956` in its description. Once the 🎂 is the label, the title has one thing left to say:
 
-- [`allowlist`](/features/core-settings#filtering-by-event-name) claims the birthdays for this block; on the Family calendar, only a birthday has the word in its title.
-- [`replace_pattern`](/features/core-settings#dropping-a-prefix-from-every-title) deletes the cake and the _'s birthday_. With no `replace_with`, whatever matches is removed, and the `|` lets one pattern remove both.
+- [`allowlist`](/features/filtering#filtering-by-event-name) claims the birthdays for this block; on the Family calendar, only a birthday has the word in its title.
+- [`replace_pattern`](/features/filtering#dropping-a-prefix-from-every-title) deletes the cake and the _'s birthday_. With no `replace_with`, whatever matches is removed, and the `|` lets one pattern remove both.
 - The age comes from the `YEAR=1956` marker, as [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) explains.
 
 So _🎂 Grandma's birthday (70)_ reads **🎂 Grandma (70)** in 2026, and **🎂 Grandma (71)** in 2027 with nothing to edit. A tap opens the birthday titled _Grandma_, without the age, which only the card works out.
 
 ### A Reminder That Retires Itself
 
-Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) retires the row at 11:00. It acts only where finished events are hidden, as a list hides them by default, so it does nothing in the Family Hub's grid ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label.
+Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/filtering#retiring-all-day-events-during-the-day) retires the row at 11:00. It acts only where finished events are hidden, as a list hides them by default, so it does nothing in the Family Hub's grid ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label.
 
 ### Three People, One Card
 
@@ -158,23 +156,23 @@ The three personal blocks filter nothing. A calendar that already means one thin
 
 Ben's working hours are on the card, so everyone can see Thursday afternoon is gone, but they read _Busy_ rather than _Roadmap review_. The few the family needs, such as a late finish, a day of travel or the offsite, keep their real title.
 
-The work calendar is listed twice and split on its **description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `allowlist` and `blocklist` there, and both blocks name one marker, `#family`, which Ben types into anything the family may read.
+The work calendar is listed twice and split on its **description**: [`filter_field`](/features/filtering#matching-the-location-or-description-instead) points `allowlist` and `blocklist` there, and both blocks name one marker, `#family`, which Ben types into anything the family may read.
 
 - The block that **allows** `#family` keeps the real title, so Friday's _Team offsite_ appears by name.
-- The block that **blocks** it replaces every title with _Busy_ through [`replace_with`](/features/core-settings#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
+- The block that **blocks** it is [`private`](/features/core-settings#keeping-a-calendar-private), and its titles read _Busy_ through [`replace_with`](/features/filtering#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
 - An event with no description counts as **not matching**, so it lands in the _Busy_ block: the safe default.
 
-Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, unless the block itself sets `show_description: false`, as the _Busy_ block does. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
+Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, on an event the family may read. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/filtering#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
 
 ::: warning A Title Is Not the Only Thing That Leaks
-Locations show by default, and _Meeting Room 2_ gives the game away. `show_location: false` and `show_description: false`, set on the _Busy_ block itself, keep both fields off the card and out of the [event popover](/features/actions#event-details) a tap opens. The popover says _Busy_ too, but where the calendar allows editing, the real title appears as soon as someone starts editing it; `allow_event_edit: false` closes that.
+Locations show by default, and _Meeting Room 2_ gives the game away, as does the agenda in a description the [event popover](/features/actions#event-details) a tap opens shows in full. `private: true` on the _Busy_ block keeps both off the card and out of the popover, where each reads Private behind a lock, and nobody can start editing the event there, which would show its real title. The title still reads _Busy_, because a `replace_with` takes the place of Private.
 :::
 
 ### Why This Works
 
-Every option in an `entities:` block applies to that block alone, so a calendar listed several times is several independent blocks; the [visual editor's](/features/editor) **Duplicate** action builds each one. The lines above `entities:` decide how the whole card reads, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the blocks predictable:
+Every option in an `entities:` block applies to that block alone, so a calendar listed several times is several independent blocks. The two exceptions belong to the calendar rather than to a block: [`name`](/features/core-settings#naming-a-calendar-in-the-card) and [`show_in_legend`](/features/header-toolbar#leaving-a-calendar-out-of-the-filter). The first block of a calendar that sets one decides for every block, and the visual editor writes it to each, as both Work blocks carry `name: Work`. In the [visual editor](/features/editor#split-this-calendar), **Split This Calendar** turns one block into two: open it from the ⋮ menu on a calendar's page, or from its row under that page's **Which Events**. **All-Day vs. With a Time** gives each kind of event its own block, and **By Words** gives the events whose title, location or description holds your words one block and every other event the other, as the _Busy_ block and its partner do. Before you confirm, a review shows where the calendar's upcoming events land, and Undo takes the whole split back in one step. To add a further block by hand, use **Duplicate** in the calendar's ⋮ menu. The lines above `entities:` decide how the whole card reads, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the blocks predictable:
 
-- **Make the blocks complementary.** Within one calendar, each event should match exactly one block. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), blocks that overlap draw an event once, styled by the first of them, so the later block's label and color quietly never apply.
+- **Make the blocks complementary.** Within one calendar, each event should match exactly one block. With [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events), blocks that overlap draw an event once, styled by the first of them, so the later block's label and color quietly never apply.
 - **Finish with a catch-all.** A block with only a `blocklist` goes last for its calendar and catches what is left over. Without it, an event nobody wrote a rule for never appears, and something missing is very hard to notice.
 
 They are one rule read from either end: **the catch-all's `blocklist` should be exactly the union of the allowlists above it.** The Family calendar allows and blocks `birthday`; the work calendar allows and blocks `#family`. The day they stop matching, an event is drawn twice, in the wrong block's colors, or not at all.
@@ -185,18 +183,30 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/layout-appearance#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list.
+- **The toolbar.** [`toolbar: show: true`](/features/header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. `view_switcher: false` drops the layout switch, so the card stays a list.
+- **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, and `day_separator_width: 1px` draws a rule between the days. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, and [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it.
+- **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it, so the three days take less height and the times line up at the right, where a glance can run down them.
+- **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color.
 
-**Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
+::: details The Filter, Paging & Search
 
-**The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it. A hallway list is read in passing, so the three days take less height, and the times line up at the right, where a glance can run down them. A title too long for its line wraps, and a time that no longer fits beside it takes a line of its own.
+- A swipe pages too.
+- The filter lists five calendars, not eight blocks: hiding Ben's work hides both halves, and collection day is for everyone, so [`show_in_legend: false`](/features/header-toolbar#leaving-a-calendar-out-of-the-filter) gives it no row and keeps it on screen whatever is hidden. Hide all, then tick Leo, and the hallway shows Leo's three days with collection day still on them.
+- The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name.
 
-**The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color: gold for the whole family, purple for collection day, and pink, blue or green for Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but keep the color `accent`, or the pills stop telling the calendars apart.
+:::
 
-`show_single_allday_time: false` drops the _All day_ row under a one-day pill, and `show_location_allday: false` the location under every pill, once for every block. `show_multiday_allday_time` stays on, because _All day, until Sunday, Oct 18_ carries the end of the grandparents' visit, which the pill cannot.
+::: details Dates, Weather, Long Titles & All-Day Rows
+
+- `date_vertical_alignment: top` puts each date beside its day's first event, and [`weather_entity`](/features/weather#weather-per-layout) with `position: date` in the `list:` block puts the forecast under each date.
+- A hallway list is read in passing, which is why the times sit beside the titles. A title too long for its line wraps, and a time that no longer fits beside it takes a line of its own.
+- The pills come out gold for the whole family, purple for collection day, and pink, blue or green for Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but keep the color `accent`, or the pills stop telling the calendars apart.
+- `show_single_allday_time: false` drops the _All day_ row under a one-day pill, and `show_location_allday: false` the location under every pill, once for every block. `show_multiday_allday_time` stays on, because _All day, until Sunday, Oct 18_ carries the end of the grandparents' visit, which the pill cannot.
+
+:::
 
 ::: warning Tidying Is Not Privacy
-`show_location_allday: false` and the _Busy_ block's `show_location: false` look identical on screen, but only the second protects anything. Work events are timed, so the all-day option never touches them, and only an option set on the calendar keeps a field out of the popover. `show_description_allday` sits on the same fault line.
+`show_location_allday: false` only tidies the rows. Work events are timed, so it never touches them, and no option that leaves a field out of the rows keeps it out of the popover, where every field an event has shows. Only the _Busy_ block's [`private: true`](/features/core-settings#keeping-a-calendar-private) protects anything. `show_description_allday` sits on the same fault line, and so do a calendar's `show_location: false` and `show_description: false`, which no longer hide anything in the popover since v6; see [Hidden Fields Now Show in the Event Details](/guide/upgrading#hidden-fields-now-show-in-the-event-details).
 :::
 
 ## 🔀 Variations
@@ -231,22 +241,22 @@ The position is a share of the day's height, so on a day with one event the word
 
 ### Read Only on a Shared Screen
 
-A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. On a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out.
+A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. The _Busy_ block's events never can, being private; on a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out for the rest.
 
 ## 🔀 Combining the Techniques
 
 ### Shared Plans in the Family Agenda
 
-The zoo trip on Thursday is on Ben's and Leo's calendars. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once, with both faces in front of the title, and [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors it the Family calendar's gold, as on the Family Hub; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family). The copies have to match exactly, in title, start, end and location.
+The zoo trip on Thursday is on Ben's and Leo's calendars. [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events) draws it once, with both faces in front of the title, and [`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors it the Family calendar's gold, as on the Family Hub; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family). The copies have to match exactly, in title, start, end and location.
 
 Every block on this page also works in grid view, apart from the all-day layer, so the [Family Hub](/guide/family-calendar) can take any of them onto its hour axis.
 
 ## 📚 Next Steps
 
 - [Family Hub](/guide/family-calendar): the same family's week, on one card for every screen
-- [Core Settings](/features/core-settings): every per-calendar option
+- [Calendars](/features/core-settings) and [Filtering & Text Replacement](/features/filtering): every per-calendar option
 - [Event Content & Display](/features/event-content): the all-day badge and birthday ages
-- [Header Toolbar](/features/layout-appearance#header-toolbar): the filter, paging, search and refresh
+- [Header Toolbar](/features/header-toolbar): the filter, paging, search and refresh
 - [Tapping an Event](/features/actions#tapping-an-event): the event popover
 - [Configuration Reference](/reference/configuration): every option
 - [Example Stories](/reference/examples): every story

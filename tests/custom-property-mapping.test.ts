@@ -49,6 +49,7 @@ const PASS_THROUGH: readonly Pair[] = [
   ['today_indicator_color', '--calendar-card-today-indicator-color', 'rgb(11, 0, 0)'],
   ['today_indicator_size', '--calendar-card-today-indicator-size', '113px'],
   ['week_number_font_size', '--calendar-card-week-number-font-size', '114px'],
+  ['month_separator_label_font_size', '--calendar-card-month-separator-label-font-size', '120px'],
   ['week_number_color', '--calendar-card-week-number-color', 'rgb(12, 0, 0)'],
   ['week_number_background_color', '--calendar-card-week-number-bg-color', 'rgb(13, 0, 0)'],
   ['time_icon_size', '--calendar-card-icon-size-time', '115px'],

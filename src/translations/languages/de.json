@@ -17,6 +17,12 @@
   "viewList": "Liste",
   "viewColumns": "Spalten",
   "viewGrid": "Zeitraster",
+  "viewMonth": "Monat",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
+  "moreEvents": "+{count} mehr",
+  "eventCount": "{count} Termine",
+  "eventCountOne": "{count} Termin",
   "endsToday": "endet heute",
   "endsTomorrow": "endet morgen",
   "dayOfEvent": "Tag {day} von {days}",
@@ -26,6 +32,9 @@
   "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",
   "loadFailed": "Laden fehlgeschlagen:",
   "newEvent": "Neuer Termin",
+  "movedTo": "Verschoben auf {time}",
+  "undo": "Rückgängig",
   "showAll": "Alle anzeigen",
-  "hideAll": "Alle ausblenden"
+  "hideAll": "Alle ausblenden",
+  "private": "Privat"
 }

@@ -9,6 +9,12 @@
   "viewList": "Liste",
   "viewColumns": "Kolonner",
   "viewGrid": "Tidsrutenett",
+  "viewMonth": "Måned",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
+  "moreEvents": "+{count} til",
+  "eventCount": "{count} hendelser",
+  "eventCountOne": "{count} hendelse",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} av {days}",
@@ -18,6 +24,9 @@
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",
   "loadFailed": "Kunne ikke lastes:",
   "newEvent": "Ny hendelse",
+  "movedTo": "Flyttet til {time}",
+  "undo": "Angre",
   "showAll": "Vis alle",
-  "hideAll": "Skjul alle"
+  "hideAll": "Skjul alle",
+  "private": "Privat"
 }
