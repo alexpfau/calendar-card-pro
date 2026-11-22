@@ -18,6 +18,8 @@
   "viewColumns": "Kolonnas",
   "viewGrid": "Laika režģis",
   "viewMonth": "Mēnesis",
+  "layout": "Izkārtojums",
+  "layoutCurrent": "Izkārtojums: {view}",
   "moreEvents": "Vēl +{count}",
   "eventCount": "Notikumu skaits: {count}",
   "eventCountOne": "{count} notikums",

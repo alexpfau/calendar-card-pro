@@ -125,6 +125,13 @@ device's choice, else `view`) and the effective view the width fit makes of it (
 - **Words or pictograms.** The words show from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` plus the
   commands' widths, which `stylesheet.test.ts` reconciles; `_syncToolbarLabelFit` only ever drops
   them.
+- **Collapsed.** On a narrow card the switcher is one 60px button (`renderCollapsedSwitcher`):
+  the pictogram of `ViewSwitcher.selected`, the requested view, and the month's caret, named
+  "Layout: Month" from the card strings `layout` and `layoutCurrent`. Its menu rows are toggles
+  with `aria-pressed`, as the segments are, and only this menu moves focus with the arrows, Home
+  and End (`moveInLayoutMenu`): the filter's holds checkboxes and two actions. A key's pick
+  focuses the button again. Where a width swaps the forms while one holds focus, the other takes
+  it (`_handFocusAcrossSwitcher`).
 - **While editing**, the switcher shows `view` and ignores presses, and a width measured then never
   overwrites the dashboard's fit.
 
@@ -149,8 +156,8 @@ The filter (`legend`) changes what is drawn, never what is loaded.
 
 ## 📋 Menus
 
-The filter's menu and the start group's overflow menu are modal `<dialog>` elements run by one
-controller, `rendering/menu.ts`. `showModal()` puts them in the top layer, past `ha-card`'s
+The filter's menu, the start group's overflow menu and the collapsed switcher's menu of views are
+modal `<dialog>` elements run by one controller, `rendering/menu.ts`, each its own `MenuKind`. `showModal()` puts them in the top layer, past `ha-card`'s
 `overflow: hidden`.
 
 - **Every close goes through `closeMenu`**, and the card closes a menu before anything takes its
@@ -172,14 +179,21 @@ As the card narrows the bar gives way in a fixed order, keeping one line per row
 1. The switcher's words become pictograms.
 2. The start group folds into a three-dot menu from its end, the configuration's buttons first, then
    add. Its first control never folds, and a menu never holds one control.
-3. The end group never folds. Too narrow, it wraps onto its own line: below 274px beside refresh,
-   318px beside refresh and reset or search, 362px beside all three.
+3. The switcher collapses into one button, once the start group is at its narrowest
+   (`collapseBelow`): 396px for the filter, add, four layouts and all three end controls. The
+   start group then stays at its narrowest, so nothing comes back as the card narrows.
+4. The end group never folds. Too narrow, it wraps onto its own line: below 226px beside refresh,
+   270px beside two, 314px beside all three, with the filter and the menu button.
 
-`planStartGroup` in `utils/toolbar-fold.ts` plans from the card's width alone, with `UI` constants
-the stylesheet tests reconcile, at render, from the width the resize observer reported, with no
-hysteresis. Crossing a threshold can log a resize-observer loop error, which Home Assistant's
-frontend discards, so only a page outside it, such as a test harness, shows one. Where the row still
-overflows, `_syncStartFoldFit` folds one more control, never fewer.
+`planRow` in `utils/toolbar-fold.ts` plans from the card's width alone, with `UI` constants the
+stylesheet tests reconcile, at render, from the width the resize observer reported, with no
+hysteresis: every plan is one 36px line, so none moves the width it was made for.
+`_syncToolbarLabels` compares the whole plan, the switcher's form included, so crossing a threshold
+renders even where nothing else moved. A card not measured yet draws the narrowest row, the
+switcher collapsed. Crossing a threshold can log a resize-observer loop error, which Home
+Assistant's frontend discards, so only a page outside it, such as a test harness, shows one. Where
+the row still overflows, `_syncStartFoldFit` folds one more step, a control and then the switcher,
+never fewer.
 
 ## 🔄 Refresh & Reset
 

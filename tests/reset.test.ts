@@ -258,9 +258,16 @@ async function pressNext(card: CardUnderTest): Promise<void> {
 }
 
 async function pressView(card: CardUnderTest, view: Types.EffectiveView): Promise<void> {
-  root(card)
-    .querySelector<HTMLButtonElement>(`.view-switcher-segment[data-view="${view}"]`)!
-    .click();
+  // Whichever form the switcher draws: a card not measured draws it collapsed, a menu of views.
+  const segment = root(card).querySelector<HTMLButtonElement>(
+    `.view-switcher-segment[data-view="${view}"]`,
+  );
+  if (segment) {
+    segment.click();
+  } else {
+    root(card).querySelector<HTMLButtonElement>('.view-switcher-pill')!.click();
+    root(card).querySelector<HTMLButtonElement>(`.layout-menu-row[data-view="${view}"]`)!.click();
+  }
   await settle(card);
 }
 
@@ -408,7 +415,8 @@ describe('the reset button', () => {
         element.className.split(' ').slice(0, 2).join(' '),
       );
 
-    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
+    // Not measured, the card draws its switcher collapsed, still the row's middle part.
+    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher-collapsed', 'toolbar-end']);
     expect(kinds(row.querySelector('.toolbar-start')!)).toEqual([
       'toolbar-button legend-button',
       'legend-menu',

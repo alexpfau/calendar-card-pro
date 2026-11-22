@@ -18,6 +18,8 @@
   "viewColumns": "Columnes",
   "viewGrid": "Quadrícula",
   "viewMonth": "Mes",
+  "layout": "Disposició",
+  "layoutCurrent": "Disposició: {view}",
   "moreEvents": "+{count} més",
   "eventCount": "{count} esdeveniments",
   "eventCountOne": "{count} esdeveniment",

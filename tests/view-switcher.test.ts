@@ -26,6 +26,7 @@ import {
   resolveColumnFitIfPicked,
 } from '../src/config/view';
 import { cardStyles } from '../src/rendering/styles';
+import { VIEW_PICTOGRAMS } from '../src/rendering/view-pictograms';
 import {
   VIEW_CHOICE_STORAGE_KEY,
   configFingerprint,
@@ -190,6 +191,16 @@ function expectAllPressable(card: CardUnderTest): void {
   }
 }
 
+/** Pick a view from the collapsed switcher's menu: open it with the pill, then press the row. */
+async function pickFromMenu(card: CardUnderTest, view: Types.EffectiveView): Promise<void> {
+  card.shadowRoot!.querySelector<HTMLButtonElement>('.view-switcher-pill')!.click();
+  await card.updateComplete;
+  card
+    .shadowRoot!.querySelector<HTMLButtonElement>(`.layout-menu-row[data-view="${view}"]`)!
+    .click();
+  await card.updateComplete;
+}
+
 async function press(card: CardUnderTest, view: Types.EffectiveView): Promise<void> {
   segment(card, view).click();
   await card.updateComplete;
@@ -263,6 +274,7 @@ describe('the view switcher', () => {
 
   it('offers List, Columns, Grid and Month in that order, the configured view marked', async () => {
     const card = await mount({ view: 'column' });
+    await measure(card, WIDE);
 
     expect(switcher(card)!.getAttribute('role')).toBe('group');
     expect(describeSegments(card)).toEqual([
@@ -280,6 +292,7 @@ describe('the view switcher', () => {
 
   it('sits in the middle of the action row: filter and add before it, reset, refresh and search after', async () => {
     const card = await mount({ toolbar: { show: true, reset: true, refresh: true } });
+    await measure(card, WIDE);
     const root = card.shadowRoot!;
     const actions = root.querySelector('.toolbar-actions')!;
     const kinds = (parent: Element) => Array.from(parent.children).map(kind);
@@ -311,6 +324,8 @@ describe('the view switcher', () => {
 
   it("draws each view's pictogram in the text color", async () => {
     const card = await mount();
+    // Room for the pictograms, not for the words.
+    await measure(card, 300);
     const icon = segment(card, 'grid').querySelector('svg.view-switcher-icon')!;
 
     expect(icon.getAttribute('viewBox')).toBe('0 0 48 32');
@@ -367,6 +382,7 @@ describe('the view switcher', () => {
     "never runs the card's tap action from %s, while the rest of the card still does",
     async (_name, target) => {
       const card = await mount({ toolbar: { show: true }, tap_action: { action: 'more-info' } });
+      await measure(card, WIDE);
       const el = target(card);
       // Nothing above the card may take the press for a tap on the card either.
       const clicksOnHost = vi.fn();
@@ -593,7 +609,8 @@ describe('narrow cards', () => {
   it('keeps a pick made before the first width settled', async () => {
     const inBand = computeColumnThresholdPx(configFor(), 'column') - 8;
     const card = await mount();
-    await press(card, 'column');
+    // Before a width, the switcher is collapsed, so the pick is made from its menu.
+    await pickFromMenu(card, 'column');
     await measure(card, inBand);
     expect(drawnView(card)).toBe('column');
   });
@@ -773,6 +790,7 @@ describe('what a device remembers', () => {
 
     const second = await mount();
     expect(second.effectiveView).toBe('grid');
+    await measure(second, WIDE);
     expect(segment(second, 'grid').getAttribute('aria-pressed')).toBe('true');
   });
 
@@ -1141,9 +1159,10 @@ describe('words or pictograms', () => {
 
   /**
    * happy-dom lays nothing out, so the action row is described to the card the way a browser
-   * would report it: a 700px row with its controls side by side on one line, except that the
-   * last one drops to a second line while the row wraps, and one reaches past an edge while it
-   * overflows. Only the boxes the card reads are described; everything else keeps happy-dom's
+   * would report it: a 700px row with its controls side by side on one line, except that, while
+   * the views are words, the last one drops to a second line while the row wraps, and one reaches
+   * past an edge while it overflows. Drawn as pictograms the row fits, as it does in a browser at
+   * these widths. Only the boxes the card reads are described; everything else keeps happy-dom's
    * empty one.
    *
    * @param layout - The layout to report at the moment of reading
@@ -1173,7 +1192,7 @@ describe('words or pictograms', () => {
       const index = controls.indexOf(this);
       if (index === -1) return original.call(this);
       const last = index === controls.length - 1;
-      const mode = layout();
+      const mode = row.querySelector('.toolbar-button-label') ? layout() : 'fits';
       if (mode === 'wraps' && last) return box(0, 44, 100);
       if (mode === 'overflows-end' && last) return box(650, 0, 100);
       if (mode === 'overflows-start' && index === 0) return box(-20, 0, 100);
@@ -1620,5 +1639,213 @@ describe("the selected segment's surface", () => {
 
     expect(segment(card, 'list').classList.contains('selected')).toBe(true);
     expect(surfaceOf(card, 'list')).toBe('');
+  });
+});
+
+/**
+ * Item 397: on a phone the reported card's row wrapped its end group onto a second line, since
+ * its two start controls are too few for a menu. Below the width its segments need, the switcher
+ * now collapses into one button, the selected view's pictogram and a caret, which opens a menu of
+ * the views. The planner's thresholds are pinned in `toolbar-fold.test.ts`; this pins the card.
+ */
+describe('collapsing on a narrow card', () => {
+  /** The reported card's toolbar: the filter folded, add, four layouts, reset, refresh, search. */
+  const REPORTED: Partial<Types.Config> = {
+    entities: ['calendar.anna', 'calendar.ben'],
+    toolbar: {
+      show: true,
+      add_event: true,
+      legend: 'menu',
+      navigation: true,
+      reset: true,
+      refresh: true,
+      search: true,
+    },
+  };
+
+  const pill = (card: CardUnderTest) =>
+    card.shadowRoot!.querySelector<HTMLButtonElement>('.view-switcher-pill');
+  const menu = (card: CardUnderTest) =>
+    card.shadowRoot!.querySelector<HTMLDialogElement>('dialog.layout-menu');
+  const rows = (card: CardUnderTest) =>
+    Array.from(card.shadowRoot!.querySelectorAll<HTMLButtonElement>('.layout-menu-row'));
+
+  /** A width as the browser reports it, with no settle delay run and nothing else updating. */
+  async function observe(card: CardUnderTest, width: number): Promise<void> {
+    const observer = RecordingResizeObserver.instances.find(({ observed }) =>
+      observed.includes(card),
+    )!;
+    observer.callback([{ contentRect: { width } }]);
+    await card.updateComplete;
+  }
+
+  async function openMenu(card: CardUnderTest): Promise<void> {
+    pill(card)!.click();
+    await card.updateComplete;
+  }
+
+  it('collapses below 396px and draws the segments again from it, through the observer alone', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 396);
+    expect(switcher(card)).not.toBeNull();
+    expect(pill(card)).toBeNull();
+    // The filter and add, both drawn: two controls cannot fold, so the switcher is next.
+    expect(card.shadowRoot!.querySelectorAll('.toolbar-start > .toolbar-button')).toHaveLength(2);
+
+    await observe(card, 395);
+    expect(switcher(card)).toBeNull();
+    expect(pill(card)).not.toBeNull();
+    expect(card.shadowRoot!.querySelectorAll('.toolbar-start > .toolbar-button')).toHaveLength(2);
+
+    await observe(card, 396);
+    expect(pill(card)).toBeNull();
+    expect(describeSegments(card)).toHaveLength(4);
+  });
+
+  it('draws it collapsed before the card has a width, so the first width only gives room back', async () => {
+    const card = await mount(REPORTED);
+    expect(pill(card)).not.toBeNull();
+    expect(switcher(card)).toBeNull();
+  });
+
+  it('names the switcher in either form, and the button by the view it holds', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 396);
+    expect(switcher(card)!.getAttribute('aria-label')).toBe('Layout');
+
+    await measure(card, 360);
+    const button = pill(card)!;
+    expect(button.tagName).toBe('BUTTON');
+    expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.getAttribute('aria-label')).toBe('Layout: List');
+    expect(button.getAttribute('title')).toBe('Layout: List');
+    // The selected view's own pictogram, the one its segment draws, and the caret.
+    expect(button.querySelector('svg.view-switcher-icon')!.querySelectorAll('rect')).toHaveLength(
+      VIEW_PICTOGRAMS.list.length,
+    );
+    expect(button.querySelector('svg.view-switcher-caret')).not.toBeNull();
+    // Still the row's middle part, between the start and end groups.
+    expect(
+      Array.from(card.shadowRoot!.querySelector('.toolbar-actions')!.children).map(
+        (child) => child.classList[0],
+      ),
+    ).toEqual(['toolbar-start', 'view-switcher-collapsed', 'toolbar-end']);
+  });
+
+  it('opens a menu of every view, in the switcher’s order, the selected one marked', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 360);
+    await openMenu(card);
+
+    expect(menu(card)!.open).toBe(true);
+    expect(menu(card)!.getAttribute('aria-label')).toBe('Layout');
+    expect(pill(card)!.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      rows(card).map((row) => [
+        row.dataset.view,
+        row.textContent!.trim(),
+        row.getAttribute('aria-pressed'),
+        row.hasAttribute('autofocus'),
+        row.querySelector('.layout-menu-check') !== null,
+      ]),
+    ).toEqual([
+      ['list', 'List', 'true', true, true],
+      ['column', 'Columns', 'false', false, false],
+      ['grid', 'Grid', 'false', false, false],
+      ['month', 'Month', 'false', false, false],
+    ]);
+  });
+
+  it('switches to the view picked, closes, and shows that view on the button', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 360);
+    await openMenu(card);
+    rows(card)[2].click();
+    await card.updateComplete;
+
+    expect(menu(card)!.open).toBe(false);
+    expect(card.requestedView).toBe('grid');
+    expect(pill(card)!.dataset.view).toBe('grid');
+    expect(pill(card)!.getAttribute('aria-label')).toBe('Layout: Grid');
+    // A key's pick hands focus back to the button.
+    expect(card.shadowRoot!.activeElement).toBe(pill(card));
+  });
+
+  it('shows the view asked for, not the list a narrow card draws in its place', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 360);
+    await openMenu(card);
+    rows(card)[1].click();
+    await card.updateComplete;
+
+    expect(drawnView(card)).toBe('list');
+    expect(pill(card)!.dataset.view).toBe('column');
+    expect(pill(card)!.getAttribute('aria-label')).toBe('Layout: Columns');
+  });
+
+  it("names the button in the card's language", async () => {
+    const card = await mount({ ...REPORTED, language: 'de' });
+    await measure(card, 360);
+    expect(pill(card)!.getAttribute('aria-label')).toBe('Layout: Liste');
+  });
+
+  it('opens nothing while the card is being edited, and shows the configured view', async () => {
+    const card = await mount({ ...REPORTED, view: 'grid' }, { flag: 'editMode' });
+    await measure(card, 360);
+    expect(pill(card)!.dataset.view).toBe('grid');
+    await openMenu(card);
+    expect(menu(card)!.open).toBe(false);
+  });
+
+  it('moves between the rows with the arrows, Home and End, wrapping at either end', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 360);
+    await openMenu(card);
+    const key = (from: HTMLElement, name: string) => {
+      const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true });
+      from.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const focused = () => (card.shadowRoot!.activeElement as HTMLElement).dataset.view;
+
+    rows(card)[0].focus();
+    expect(key(rows(card)[0], 'ArrowDown')).toBe(true);
+    expect(focused()).toBe('column');
+    key(rows(card)[1], 'End');
+    expect(focused()).toBe('month');
+    key(rows(card)[3], 'ArrowDown');
+    expect(focused()).toBe('list');
+    key(rows(card)[0], 'ArrowUp');
+    expect(focused()).toBe('month');
+    key(rows(card)[3], 'Home');
+    expect(focused()).toBe('list');
+    // Every other key keeps its meaning.
+    expect(key(rows(card)[0], 'Tab')).toBe(false);
+    expect(key(rows(card)[0], 'a')).toBe(false);
+  });
+
+  it('hands focus across when the switcher changes form under it', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 396);
+    segment(card, 'list').focus();
+
+    await observe(card, 395);
+    expect(card.shadowRoot!.activeElement).toBe(pill(card));
+
+    await observe(card, 396);
+    expect(card.shadowRoot!.activeElement).toBe(segment(card, 'list'));
+  });
+
+  it('closes its menu once the switcher draws its segments again', async () => {
+    const card = await mount(REPORTED);
+    await measure(card, 360);
+    await openMenu(card);
+    const dialog = menu(card)!;
+    expect(dialog.open).toBe(true);
+
+    await measure(card, 396);
+    expect(dialog.open).toBe(false);
+    expect(pill(card)).toBeNull();
   });
 });
