@@ -229,7 +229,19 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v5.3
+### Latest Release: v6.0
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide.png" alt="A wide Month card for October 2026: six weeks, a vacation, a business trip and a weekend at the lake as bars across their days, the rest as lines with their start time, and +3 more where a day is full" width="600"></picture>
+
+- 📅 **Month View**: [`view: month`](https://calendar-card-pro.alexpfau.com/features/month-view) lays the card out as a wall calendar, six weeks with every event on its day, and on a phone draws [a narrow month](https://calendar-card-pro.alexpfau.com/features/month-view#the-narrow-month) with the chosen day's events underneath
+- ✏️ **A Rebuilt Visual Editor**: An [overview of the card](https://calendar-card-pro.alexpfau.com/features/editor#the-overview) with pages for each layout, every setting in words, [search](https://calendar-card-pro.alexpfau.com/features/editor#search) across all of them, [Pick From Preview](https://calendar-card-pro.alexpfau.com/features/editor#pick-from-preview), and [Undo & Redo](https://calendar-card-pro.alexpfau.com/features/editor#undo-redo)
+- 🔒 **Private Calendars**: [`private: true`](https://calendar-card-pro.alexpfau.com/features/core-settings#keeping-a-calendar-private) shows when a calendar's events are, and nothing they say
+- 🌦️ **Weather & Height Per Layout**: One [`weather_entity`](https://calendar-card-pro.alexpfau.com/features/weather#weather-per-layout) with each layout choosing where it shows the forecast, and one [`card_height`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#card-dimensions-scrolling) for the whole card in every layout
+- 🕓 **Events That Start at Certain Hours**: [`starts_after` and `starts_before`](https://calendar-card-pro.alexpfau.com/features/filtering#showing-events-that-start-at-certain-hours) keep only a calendar's timed events that start within those hours
+- ⚠️ **A Tap on an Event Opens It**: In every layout, and the popover shows a location or description a calendar hides; `private: true` keeps them off the card, `event_tap_action: { action: none }` keeps a card as it was, and [Upgrading & Going Back](https://calendar-card-pro.alexpfau.com/guide/upgrading) lists every change to existing cards
+- 🐛 **Muted Colors Keep Their Hue in Chrome & Edge**: Text in a muted calendar color, as grid view draws its events, the all-day badge's wash and a muted today tile no longer turn pink or mauve there
+
+### v5.3
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_visibility_two_people_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_visibility_two_people.png" alt="One Family card as two people see it: signed in as Anna, her working from home, Leo's afternoon at Grandma's and the family dinner; signed in as Ben, his business trip on Day 3 of 3, his work, Leo's afternoon, his train home and the family dinner, each event with its length after its time" width="400"></picture>
 
@@ -261,15 +273,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 📡 **Live Updates**: On Home Assistant 2026.5 or later, [a changed event shows on every open dashboard](https://calendar-card-pro.alexpfau.com/features/performance#live-updates) as soon as Home Assistant knows of it, with no polling
 - 🧰 **Your Own Toolbar Buttons**: [Buttons of your own](https://calendar-card-pro.alexpfau.com/features/header-toolbar#your-own-buttons), each an icon and an action, folding into one menu on a narrow card
 - 🐛 **Back on Android 7 Wall Panels**: The card no longer crashes Chromium 119, as in the Shelly Wall Display, or times out headless screenshot add-ons; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) lists the versions it runs on
-
-### v5.0
-
-- 🗓️ **Grid View**: [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) draws each day as a column against an hour axis, every event at its real start time and sized by how long it runs
-- 🧰 **A Toolbar on the Card**: [`toolbar: { show: true }`](https://calendar-card-pro.alexpfau.com/features/header-toolbar) adds paging, a layout switcher, a chip for each calendar and refresh to the card's header
-- 📍 **Today & Now at a Glance**: A [soft tile](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator) on today and ["Now" in green](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) on what is under way. ⚠️ Both are on by default and accents now follow your theme; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) say how to keep the v4 look, card-mod styles included
-- 📚 **Example Stories**: [Six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples) to copy, from a family's wall tablet to a bin-day tile
-- ⚡ **Your Events the Moment the Dashboard Opens**: Cached events draw straight away, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
-- 🐛 **Back on iOS 15 and 16, and Serbian**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16, lets it load again on iOS 15, and adds Serbian in Cyrillic and Latin script; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 

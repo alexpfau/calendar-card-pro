@@ -6,7 +6,21 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v5.3
+## Latest Release: v6.0
+
+- 📅 **Month View**: [`view: month`](/features/month-view) lays the card out as a wall calendar, six weeks at a glance with every event on its day, and on a phone draws [a narrow month](/features/month-view#the-narrow-month) with the chosen day's events listed underneath. The toolbar pages it a month at a time, and switching layouts keeps the date in view
+- ✏️ **A Rebuilt Visual Editor**: the editor opens on [an overview of the card](/features/editor#the-overview) with pages for the whole card and for each layout, and says in words what every setting is set to and where that comes from. [Search](/features/editor#search) reaches every setting, [Pick From Preview](/features/editor#pick-from-preview) opens one when you point at the card, [Undo & Redo](/features/editor#undo-redo) take back any step, and [Stored Settings](/features/editor#stored-settings) lists what the card sets. It loads only your language, and now speaks Japanese
+- 🔒 **Private Calendars**: [`private: true`](/features/core-settings#keeping-a-calendar-private) shows when a calendar's events are and whose they are, and nothing they say, on the card and in the popover alike
+- 🌦️ **Weather Per Layout**: one [`weather_entity`](/features/weather#weather-per-layout), and each layout's own `weather:` decides whether and where it shows the forecast
+- 📏 **One Height in Every Layout**: [`card_height` and `card_max_height`](/features/layout-appearance#card-dimensions-scrolling) size the whole card, title and toolbar included, so a card keeps its height as it switches layouts, and the headers of Grid, Columns and the wide month stay put while the events scroll
+- 🕓 **Events That Start at Certain Hours**: [`starts_after` and `starts_before`](/features/filtering#showing-events-that-start-at-certain-hours) keep only the timed events of a calendar that start within those hours
+- 📍 **One Shared Event, Every Location**: [`filter_duplicates: merge_locations`](/features/filtering#filtering-duplicate-events) draws an event several calendars carry once, at every calendar's location
+- 🏷️ **Smaller Additions**: [`month_separator_label`](/features/layout-appearance#naming-the-month-on-its-rule) names the month on its rule in a list, [`toolbar: { size: large }`](/features/header-toolbar#larger-arrows-chips) draws larger arrows and chips for touch screens, the [view switcher](/features/header-toolbar#switching-between-layouts) folds into one button on a narrow card, and the card speaks Japanese
+- ⚠️ **Changes to Existing Cards**: a tap on an event now opens it, in every layout, and the popover shows a location or description a calendar hides in its rows, so use `private: true` where that matters (`event_tap_action: { action: none }` keeps a card as it was). Only Save keeps a change in the popover, Columns give way a day at a time on a narrow card, the view switcher offers Month, and the editor upgrades an older card as it opens. [Upgrading & Going Back](/guide/upgrading) lists every change and how to return to v5.3
+- 🐛 **Muted Colors Keep Their Hue in Chrome & Edge**: text in a muted calendar color, as grid view draws its events, the all-day badge's wash and a muted today tile no longer turn pink or mauve there
+- 🐛 **Chinese & Restarts**: a Home Assistant set to Chinese draws the card in Chinese rather than English, and the [forecast](/features/weather#when-the-forecast-stops-updating) comes back by itself after Home Assistant restarts
+
+## v5.3
 
 - 👥 **Each Calendar for the Right People**: a calendar's [`visibility`](/features/core-settings#showing-a-calendar-under-conditions) takes the conditions a card's own Visibility tab sets in Home Assistant, so one card can show each person their own calendars, drop a work calendar on holiday or keep one off a small screen. Each calendar's panel in the editor holds Home Assistant's own Visibility editor
 - 📜 **A Calendar Kept as a Log**: with `show_countdown` on, a finished event [says how long ago it ended](/features/event-content#counting-up-from-past-events), such as "13 days ago", and [`event_order: latest_first`](/features/list-view#event-order) reads a list card newest first, its event limit keeping the most recent entries. The [House Log](/guide/house-log), a seventh Example Story that Quick Setup offers, puts the two together

@@ -88,7 +88,7 @@ For a smaller transfer, create the `.gz` files beside the originals:
 gzip -9 -k *.js
 ```
 
-That brings the card to 212 KB, the editor to 154 KB and a language file to at most 14 KB. Delete or regenerate the `.gz`
+That brings the card to 212 KB, the editor to 155 KB and a language file to at most 15 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 
