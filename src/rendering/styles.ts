@@ -1143,6 +1143,57 @@ export const cardStyles = css`
     height: 16px;
   }
 
+  /* The switcher collapsed into one button on a narrow card (utils/toolbar-fold.ts): a pill
+     rather than a round command, the selected view's pictogram and a caret, 10 + 24 + 2 + 20 + 4
+     = 60px, the width the plan's numbers in toolbar-fold.test.ts rest on. The caret is the
+     month's, the toolbar's sign for a control that opens a picker, and sits close to the
+     pictogram, its own padding giving the end its room. Padded by inline side, so a right-to-left
+     card puts the caret first. */
+  .view-switcher-collapsed {
+    display: inline-flex;
+  }
+
+  .toolbar-button.view-switcher-pill {
+    width: 60px;
+    gap: 2px;
+    padding-block: 0;
+    padding-inline: 10px 4px;
+  }
+
+  .view-switcher-caret {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  /* A row of the collapsed switcher's menu: the view's pictogram in the secondary color, as an
+     unselected segment draws it, and its word. The selected view's row takes the toolbar's wash
+     and its own text color, with a check at its end in the theme's primary color, so it is marked
+     by more than color. */
+  .layout-menu-row .view-switcher-icon {
+    color: var(--secondary-text-color);
+  }
+
+  .layout-menu-row.selected {
+    background: var(--calendar-card-toolbar-fill);
+  }
+
+  .layout-menu-row.selected .view-switcher-icon {
+    color: var(--primary-text-color);
+  }
+
+  .layout-menu-label {
+    flex: 1 1 auto;
+  }
+
+  .layout-menu-check {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: var(--primary-color);
+  }
+
   /* Touch targets. Every control answers a press 44px tall, as touch guidelines ask, through an
      invisible box around it that never overlaps a neighbor's, so a press between two goes to the
      nearer. A button in the action row, 36px, grows 4px each way, which the 8px gaps hold. A chip
@@ -1452,7 +1503,8 @@ export const cardStyles = css`
      the card background draws. Everywhere else it hands the card background's own color back, so
      nothing changes; the fallback here is only what a closed menu holds before its first paint. */
   .legend-menu,
-  .custom-menu {
+  .custom-menu,
+  .layout-menu {
     position: fixed;
     inset: auto;
     box-sizing: border-box;
@@ -1479,7 +1531,8 @@ export const cardStyles = css`
   /* Nothing dims behind it: it is a menu, not a dialog asking for an answer. A press out there
      closes it. */
   .legend-menu::backdrop,
-  .custom-menu::backdrop {
+  .custom-menu::backdrop,
+  .layout-menu::backdrop {
     background: transparent;
   }
 
@@ -1487,20 +1540,23 @@ export const cardStyles = css`
      reads them. Never shown. The value is kept beside the background in
      --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
   .legend-menu-surface,
-  .custom-menu-surface {
+  .custom-menu-surface,
+  .layout-menu-surface {
     display: none;
     --calendar-card-surface-value: var(--ha-card-background, var(--card-background-color, #fff));
     background: var(--ha-card-background, var(--card-background-color, #fff));
   }
 
   .legend-menu-page,
-  .custom-menu-page {
+  .custom-menu-page,
+  .layout-menu-page {
     display: none;
     background-color: var(--primary-background-color);
   }
 
   .legend-menu-list,
-  .custom-menu-list {
+  .custom-menu-list,
+  .layout-menu-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1577,7 +1633,8 @@ export const cardStyles = css`
   }
 
   .legend-menu-label,
-  .custom-menu-label {
+  .custom-menu-label,
+  .layout-menu-label {
     min-width: 0;
     overflow-wrap: anywhere;
   }
@@ -1586,7 +1643,8 @@ export const cardStyles = css`
      menu, on the menu's own surface rather than tinted as a calendar's row is, and washed under the
      pointer and while pressed as every control is. Padded by inline side, so a right-to-left menu
      mirrors it. */
-  .custom-menu-row {
+  .custom-menu-row,
+  .layout-menu-row {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1616,6 +1674,7 @@ export const cardStyles = css`
     .view-switcher-segment:not(.selected):hover,
     .date-navigation-segment:hover,
     .custom-menu-row:hover,
+    .layout-menu-row:not(.selected):hover,
     .legend-menu-action:not(.unavailable):hover,
     .toolbar-month-button:hover {
       background: var(--calendar-card-toolbar-fill-hover);
@@ -1626,6 +1685,7 @@ export const cardStyles = css`
   .view-switcher-segment:not(.selected):active,
   .date-navigation-segment:active,
   .custom-menu-row:active,
+  .layout-menu-row:not(.selected):active,
   .legend-menu-action:not(.unavailable):active,
   .toolbar-month-button:active {
     background: var(--calendar-card-toolbar-fill-pressed);
@@ -1699,7 +1759,8 @@ export const cardStyles = css`
   ha-card:has(.date-navigation:hover) > ha-ripple,
   ha-card:has(.toolbar-legend:hover) > ha-ripple,
   ha-card:has(.legend-menu:hover) > ha-ripple,
-  ha-card:has(.custom-menu:hover) > ha-ripple {
+  ha-card:has(.custom-menu:hover) > ha-ripple,
+  ha-card:has(.layout-menu:hover) > ha-ripple {
     --ha-ripple-hover-opacity: 0;
   }
 
@@ -1711,7 +1772,9 @@ export const cardStyles = css`
   .legend-menu:focus,
   .legend-menu-action:focus,
   .custom-menu:focus,
-  .custom-menu-row:focus {
+  .custom-menu-row:focus,
+  .layout-menu:focus,
+  .layout-menu-row:focus {
     outline: none;
   }
 
@@ -1728,7 +1791,8 @@ export const cardStyles = css`
      inside its own edge, as Show all's and Hide all's are, never crosses into the next control. */
   .legend-menu-row:has(.legend-menu-check:focus-visible),
   .legend-menu-action:focus-visible,
-  .custom-menu-row:focus-visible {
+  .custom-menu-row:focus-visible,
+  .layout-menu-row:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
   }

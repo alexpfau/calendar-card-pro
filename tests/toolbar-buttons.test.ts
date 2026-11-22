@@ -1072,7 +1072,11 @@ describe('a row that wraps where the arithmetic says it fits', () => {
     await measure(card, 784);
 
     expect(startShape(card)).toEqual([0, false, 4]);
-    expect(debugged()).toBe(3);
+    // Two, three and four controls into the menu, and then the switcher collapsed: one step
+    // each, and none after the last.
+    expect(card.shadowRoot!.querySelector('.view-switcher-pill')).not.toBeNull();
+    expect(card.shadowRoot!.querySelector('.view-switcher')).toBeNull();
+    expect(debugged()).toBe(4);
   });
 
   it('brings controls back through a new width alone', async () => {

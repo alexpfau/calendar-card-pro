@@ -10,6 +10,8 @@
   "viewColumns": "Стовпці",
   "viewGrid": "Сітка",
   "viewMonth": "Місяць",
+  "layout": "Макет",
+  "layoutCurrent": "Макет: {view}",
   "moreEvents": "Ще +{count}",
   "eventCount": "Подій: {count}",
   "eventCountOne": "{count} подія",

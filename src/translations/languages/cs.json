@@ -10,6 +10,8 @@
   "viewColumns": "Sloupce",
   "viewGrid": "Mřížka",
   "viewMonth": "Měsíc",
+  "layout": "Rozložení",
+  "layoutCurrent": "Rozložení: {view}",
   "moreEvents": "+{count} navíc",
   "eventCount": "Události: {count}",
   "eventCountOne": "{count} událost",

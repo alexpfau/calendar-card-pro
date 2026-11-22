@@ -278,7 +278,11 @@ describe('Pick From Preview', () => {
     pickButton(editor)!.click();
     await settle(editor, card);
     const said = listen(editor);
-    const switcher = card.shadowRoot!.querySelector('.view-switcher .view-switcher-segment')!;
+    // The preview is not measured here, so it draws the switcher collapsed: its button stands
+    // for it, as a segment does on a wider card (editor-pick-map.test.ts maps both forms).
+    const switcher = card.shadowRoot!.querySelector(
+      '.view-switcher-collapsed .view-switcher-pill',
+    )!;
     fire(switcher, 'pointermove', { pointerType: 'mouse' });
     expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
       'Card & Header › Toolbar · Click to Edit',

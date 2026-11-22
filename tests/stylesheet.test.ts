@@ -3249,6 +3249,8 @@ describe("the card's ripple over the toolbar", () => {
     '.legend-menu',
     // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
     '.custom-menu',
+    // And so does the menu of views a collapsed switcher opens.
+    '.layout-menu',
   ];
 
   it('stays still while the pointer is on a control, as it does over an event', () => {
@@ -3671,6 +3673,24 @@ describe('the toolbar layout', () => {
       2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
       px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
     expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
+  });
+
+  it('draws the collapsed switcher as a 60px pill, its pictogram and caret inside it', () => {
+    // The plan collapses the switcher where its segments do not fit; the pill's 60px is what
+    // the narrowest row then needs, 314px for the reported card (toolbar-fold.test.ts).
+    const px = (selector: string, property: string) =>
+      Number.parseFloat(declared(selector, property));
+    const [start, end] = declared('.toolbar-button.view-switcher-pill', 'padding-inline')
+      .split(/\s+/)
+      .map(Number.parseFloat);
+    const content =
+      px('.view-switcher-icon', 'width') +
+      px('.toolbar-button.view-switcher-pill', 'gap') +
+      px('.view-switcher-caret', 'width');
+    expect(start + content + end).toBe(60);
+    expect(declared('.toolbar-button.view-switcher-pill', 'width')).toBe('60px');
+    // As tall as every command, so the row keeps one height in either form.
+    expect(declared('.toolbar-button', 'height')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {

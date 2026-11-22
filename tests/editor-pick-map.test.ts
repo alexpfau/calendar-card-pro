@@ -344,6 +344,13 @@ describe('Pick From Preview part map', () => {
       '.view-switcher ⊃ span.view-switcher-probe',
       '.view-switcher ⊃ span.view-switcher-probe.view-switcher-page',
       '.view-switcher ⊃ svg.view-switcher-icon',
+      // The collapsed switcher: its button's pictogram and caret, and its menu's rows and frame.
+      '.view-switcher-collapsed ⊃ span.layout-menu-label',
+      '.view-switcher-collapsed ⊃ span.layout-menu-page',
+      '.view-switcher-collapsed ⊃ span.layout-menu-surface',
+      '.view-switcher-collapsed ⊃ svg.layout-menu-check',
+      '.view-switcher-collapsed ⊃ svg.view-switcher-caret',
+      '.view-switcher-collapsed ⊃ svg.view-switcher-icon',
       '.weather ⊃ ha-icon',
       '.weather ⊃ span.weather-temp-high',
     ]);
@@ -381,7 +388,7 @@ describe('Pick From Preview part map', () => {
         'field' in target && target.field !== undefined ? [`${selector} ${target.field}`] : [],
       ),
     ).toEqual([
-      '.view-switcher card:toolbar.view_switcher_layouts',
+      '.view-switcher, .view-switcher-collapsed card:toolbar.view_switcher_layouts',
       '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
       '.month-line-title, .month-bar .grid-banner-title layout:month.cell_event_font_size',
       '.event-title, .grid-banner-title events:event_font_size',

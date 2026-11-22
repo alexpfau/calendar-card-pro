@@ -604,6 +604,9 @@ describe('theming.md card-mod selectors', () => {
                 { view: 'grid', label: 'Grid' },
               ],
               selected: view,
+              name: 'Layout',
+              currentName: 'Layout: List',
+              inert: false,
               onSelect: noop,
             },
             // Lit beside labels, showing its check after a press on the grid card, and hidden on

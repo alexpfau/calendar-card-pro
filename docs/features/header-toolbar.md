@@ -62,7 +62,8 @@ pictogram for each where it is not, with the name as its tooltip.
 - The month and the calendar chips are always words, and the arrows and the home button are
   always icons.
 - On a narrow card the add button and your own buttons fold into a menu; see
-  [Your Own Buttons](#your-own-buttons).
+  [Your Own Buttons](#your-own-buttons). Narrower still, the view switcher folds into one button;
+  see [Switching Between Layouts](#switching-between-layouts).
 
 :::
 
@@ -192,6 +193,11 @@ See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-o
 - **Columns and Grid need room.** On a card too narrow for even their fewest days, two for
   Columns and one for Grid by default, they draw as a list until the card is wide enough again.
   See [Column View](/features/column-view) and [Grid View](/features/grid-view).
+- **On a phone it folds into one button.** Where the top row has no room for a pictogram per
+  layout, the switcher becomes one wider button showing the picked layout's pictogram and a small
+  arrow, so the top row stays on one line. A tap opens a menu of the layouts, each with its
+  pictogram and name, the picked one checked. It folds only once the add button and your own
+  buttons have moved into their menu, and comes back as the card widens.
 - **In the visual editor** the View Switcher chip on Card & Header turns it on and off, and while
   it is pressed, **View Switcher offers**, under the controls, has a checkbox per layout.
 
@@ -229,7 +235,7 @@ See [What Else Changes on an Existing Card](/guide/upgrading#what-else-changes-o
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, a press on the switcher does
-nothing. The editor's preview shows the layout whose
+nothing, and its folded button opens no menu. The editor's preview shows the layout whose
 [pages you open](/features/editor#options-for-the-selected-view), so open another layout to see
 it without changing the card; on the dashboard the card shows its configured `view`.
 :::
@@ -510,13 +516,14 @@ in YAML.
 
 ::: details Buttons on Narrow Cards
 
-- The top row gives way in a fixed order: the view switcher's words become pictograms first, and
-  only then do controls move into the menu, your last button first.
+- The top row gives way in a fixed order: the view switcher's words become pictograms first, then
+  controls move into the menu, your last button first, and last the switcher folds into one
+  button.
 - The first control in the row, the calendar filter's button wherever it is drawn, stays at any
-  width, so the narrowest top row is that button and the menu button, the switcher, and the
-  controls at the row's end.
+  width, so the narrowest top row is that button and the menu button, the folded switcher, and
+  the controls at the row's end.
 - Reset, refresh and search never move into the menu. A card too narrow even for the narrowest
-  top row puts them on a line of their own.
+  top row, under 314px with all three, puts them on a line of their own.
 - The menu lists what it holds in the order the row draws it, each with its icon and its name in
   words, and a press runs it and closes the menu. The add button there opens the new event under
   the menu button.
