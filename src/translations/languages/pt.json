@@ -18,6 +18,8 @@
   "viewColumns": "Colunas",
   "viewGrid": "Grade",
   "viewMonth": "Mês",
+  "layout": "Disposição",
+  "layoutCurrent": "Disposição: {view}",
   "moreEvents": "+{count} a mais",
   "eventCount": "{count} eventos",
   "eventCountOne": "{count} evento",

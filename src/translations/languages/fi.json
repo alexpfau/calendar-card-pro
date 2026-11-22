@@ -31,6 +31,8 @@
   "viewColumns": "Sarakkeet",
   "viewGrid": "Ruudukko",
   "viewMonth": "Kuukausi",
+  "layout": "Asettelu",
+  "layoutCurrent": "Asettelu: {view}",
   "moreEvents": "+{count} lisää",
   "eventCount": "{count} tapahtumaa",
   "eventCountOne": "{count} tapahtuma",

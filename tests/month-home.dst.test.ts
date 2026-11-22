@@ -191,9 +191,16 @@ async function press(card: CardUnderTest, which: 'previous' | 'home' | 'next'): 
 }
 
 async function switchTo(card: CardUnderTest, view: 'list' | 'month'): Promise<void> {
-  root(card)
-    .querySelector<HTMLButtonElement>(`.view-switcher-segment[data-view="${view}"]`)!
-    .click();
+  // Whichever form the switcher draws: a card not measured draws it collapsed, a menu of views.
+  const segment = root(card).querySelector<HTMLButtonElement>(
+    `.view-switcher-segment[data-view="${view}"]`,
+  );
+  if (segment) {
+    segment.click();
+  } else {
+    root(card).querySelector<HTMLButtonElement>('.view-switcher-pill')!.click();
+    root(card).querySelector<HTMLButtonElement>(`.layout-menu-row[data-view="${view}"]`)!.click();
+  }
   await settle(card);
 }
 

@@ -17,7 +17,10 @@ import {
   type EndControl,
   type StartControl,
   cardWidthFor,
+  collapseBelow,
   groupWidth,
+  narrowestStartIcons,
+  planRow,
   planStartGroup,
   switcherLabelWidth,
   switcherWidth,
@@ -269,5 +272,107 @@ describe('folding more than the width calls for', () => {
       overflow: [ADD, ...buttons(4)],
     });
     expect(planStartGroup({ ...ROW, start: [FILTER, ADD] }, 784, 5).overflow).toEqual([]);
+  });
+});
+
+/**
+ * The reported card: the calendar filter folded into its button, add, four layouts, and reset,
+ * refresh and search. Two start controls are too few for a menu, so before the switcher could
+ * collapse, the row wrapped below 396px, on a phone.
+ */
+const REPORTED: ActionRow = {
+  start: [FILTER, ADD],
+  end: ['reset', 'refresh', 'search'],
+  views: 4,
+  insetPx: Constants.UI.TOOLBAR_ROW_INSET.month,
+};
+
+describe('collapsing the switcher', () => {
+  it('collapses the reported card below 396px, where its row would wrap', () => {
+    // 34 + (2 × 36 + 8) + 8 + (4 × 34 + 6) + 8 + (3 × 36 + 2 × 8).
+    expect(collapseBelow(REPORTED)).toBe(396);
+    expect([395, 396, 397].map((width) => planRow(REPORTED, width).collapsed)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    // Nothing in the start group can fold, so the plan is the whole group either way.
+    expect(planRow(REPORTED, 320)).toEqual({
+      visible: [FILTER, ADD],
+      overflow: [],
+      collapsed: true,
+    });
+  });
+
+  it('collapses only once every start control that can fold has', () => {
+    // The fixture's row: the start group is at its narrowest, the filter and the menu, from
+    // 274px down, and only there does the switcher collapse.
+    expect(collapseBelow(ROW)).toBe(274);
+    expect(planRow(ROW, 318)).toEqual({ ...planStartGroup(ROW, 318), collapsed: false });
+    expect(planRow(ROW, 274).collapsed).toBe(false);
+    expect(planRow(ROW, 273)).toEqual({
+      visible: [FILTER],
+      overflow: [ADD, ...buttons(4)],
+      collapsed: true,
+    });
+  });
+
+  it('keeps the start group at its narrowest while collapsed, so nothing comes back', () => {
+    // At 200px, the pill's 82px saved would leave the start group room for three icons again.
+    // It stays folded, so the row only ever loses controls as the card narrows.
+    let before = Infinity;
+    for (let width = 520; width >= 160; width -= 1) {
+      const plan = planRow(ROW, width);
+      const drawn =
+        plan.visible.length + (plan.overflow.length > 0 ? 1 : 0) + (plan.collapsed ? 0 : 1);
+      expect(drawn, `${width}px`).toBeLessThanOrEqual(before);
+      before = drawn;
+      if (plan.collapsed) expect(plan.visible).toEqual([FILTER]);
+    }
+  });
+
+  it('measures the start group at its narrowest by what it can fold', () => {
+    expect(narrowestStartIcons(ROW)).toBe(2);
+    expect(narrowestStartIcons(REPORTED)).toBe(2);
+    expect(narrowestStartIcons({ ...ROW, start: [ADD] })).toBe(1);
+    expect(narrowestStartIcons({ ...ROW, start: [] })).toBe(0);
+  });
+
+  it.each<[string, number, number, EndControl[], number]>([
+    // Start icons at their narrowest, layouts, end group: the width from which the segments stay.
+    ['nothing at the start, four layouts, all three', 0, 4, ['reset', 'refresh', 'search'], 316],
+    ['add, three layouts, refresh and search', 1, 3, ['refresh', 'search'], 274],
+    ['filter and add, four layouts, refresh', 2, 4, ['refresh'], 308],
+    ['filter and add, four layouts, refresh and search', 2, 4, ['refresh', 'search'], 352],
+    ['filter and add, two layouts, all three', 2, 2, ['reset', 'refresh', 'search'], 328],
+  ])('collapses below the measured wrap: %s', (_name, startIcons, views, end, from) => {
+    const start = [FILTER, ADD].slice(0, startIcons);
+    const row: ActionRow = { start, end, views, insetPx: 34 };
+    // Each width is where the dev bundle's row, swept 1px at a time in Chromium, first fitted on
+    // one line with every segment drawn.
+    expect(collapseBelow(row)).toBe(from);
+    expect(planRow(row, from - 1).collapsed).toBe(true);
+    expect(planRow(row, from).collapsed).toBe(false);
+  });
+
+  it('never collapses a row with no switcher', () => {
+    const none: ActionRow = { ...REPORTED, views: 0 };
+    expect(collapseBelow(none)).toBe(0);
+    expect(planRow(none, 100).collapsed).toBe(false);
+    expect(planRow(none, 100, { atLeast: 0, collapse: true }).collapsed).toBe(false);
+  });
+
+  it('collapses where asked at any width, the start group at its narrowest', () => {
+    expect(planRow(REPORTED, 784, { atLeast: 0, collapse: true }).collapsed).toBe(true);
+    expect(planRow(ROW, 784, { atLeast: 5, collapse: true })).toEqual({
+      visible: [FILTER],
+      overflow: [ADD, ...buttons(4)],
+      collapsed: true,
+    });
+    // A request to fold start controls alone collapses nothing.
+    expect(planRow(ROW, 784, { atLeast: 3, collapse: false })).toEqual({
+      ...planStartGroup(ROW, 784, 3),
+      collapsed: false,
+    });
   });
 });

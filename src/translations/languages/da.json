@@ -10,6 +10,8 @@
   "viewColumns": "Kolonner",
   "viewGrid": "Gitter",
   "viewMonth": "Måned",
+  "layout": "Layout",
+  "layoutCurrent": "Layout: {view}",
   "moreEvents": "+{count} mere",
   "eventCount": "{count} begivenheder",
   "eventCountOne": "{count} begivenhed",

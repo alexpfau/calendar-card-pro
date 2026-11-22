@@ -18,6 +18,8 @@
   "viewColumns": "Kolommen",
   "viewGrid": "Rooster",
   "viewMonth": "Maand",
+  "layout": "Indeling",
+  "layoutCurrent": "Indeling: {view}",
   "moreEvents": "+{count} meer",
   "eventCount": "{count} afspraken",
   "eventCountOne": "{count} afspraak",

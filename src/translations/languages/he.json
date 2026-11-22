@@ -14,6 +14,8 @@
   "viewColumns": "עמודות",
   "viewGrid": "רשת",
   "viewMonth": "חודש",
+  "layout": "פריסה",
+  "layoutCurrent": "פריסה: {view}",
   "moreEvents": "עוד +{count}",
   "eventCount": "{count} אירועים",
   "eventCountOne": "{count} אירוע",

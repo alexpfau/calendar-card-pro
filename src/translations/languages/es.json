@@ -10,6 +10,8 @@
   "viewColumns": "Columnas",
   "viewGrid": "Rejilla",
   "viewMonth": "Mes",
+  "layout": "Diseño",
+  "layoutCurrent": "Diseño: {view}",
   "moreEvents": "+{count} más",
   "eventCount": "{count} eventos",
   "eventCountOne": "{count} evento",
