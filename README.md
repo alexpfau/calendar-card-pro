@@ -39,6 +39,8 @@ One column of a Sections dashboard, or a phone.
 </tr>
 </table>
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_switcher_narrow.webp" alt="The narrow card in use: it pages two days ahead and back to today, switches from List to Grid and to Month, picks Friday to list its events under the month, and goes back to List" width="396">
+
 ### 🖥️ On a Wide Card
 
 Two columns, a full-width section or a wall tablet.
@@ -57,6 +59,10 @@ Two columns, a full-width section or a wall tablet.
 <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide.png" alt="A wide month: October 2026 in six weeks, multi-day plans such as a business trip and a weekend at the lake as bars across the days, the rest as lines with their time, and +N more where a day is full" width="100%"></picture><br>
 <a href="https://calendar-card-pro.alexpfau.com/features/month-view"><b>Month</b></a> · six weeks at a glance
 </p>
+
+<a href="https://calendar-card-pro.alexpfau.com/#see-it-move"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_tour_poster.jpg" alt="Watch the tour: the same card on a phone and on a wall tablet, paging, switching layouts, opening an event and hiding calendars" width="100%"></a>
+
+**▶️ [Watch the 30-second tour](https://calendar-card-pro.alexpfau.com/#see-it-move)** on the documentation site.
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 

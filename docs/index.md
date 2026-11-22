@@ -85,6 +85,13 @@ Each layout has a page of its own: [List](/features/list-view), [Columns](/featu
 [Grid](/features/grid-view) and [Month](/features/month-view), with its
 [narrow form](/features/month-view#the-narrow-month).
 
+## 🎬 See It Move
+
+The same card on a phone and on a wall tablet: paging through the days, switching layouts,
+opening an event, a day's "+N more" and hiding calendars, in 30 seconds.
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_tour.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_tour_poster.jpg" width="800" height="612" loop muted playsinline controls preload="metadata" aria-label="The narrow card pages two days ahead and back to today, switches from List to Grid and to Month and picks Friday; then the wide card opens Party at Tom's in its popover, switches from Grid to Columns and to Month, opens Thursday's +3 more, hides Ben's and Leo's calendars with their chips and shows them again, and goes back to Grid"></video>
+
 <style>
 .showcase-tabs { display: flex; gap: 8px; margin: 16px 0; }
 .showcase-tabs button {
