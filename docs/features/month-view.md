@@ -186,7 +186,9 @@ In the visual editor, **Card Height** on Month's Size & Spacing chooses **Defaul
   so a quiet day takes less room and a busy one lists more before "+N more". A maximum alone caps
   the wide month at it.
 - **Too short to fit**, each week keeps room for its date and one line, and the card's content
-  scrolls rather than any text shrinking, so every day still shows its date and "+N more".
+  scrolls rather than any text shrinking, so every day still shows its date and "+N more". The
+  weekday names stay at the top while the weeks scroll under them. A narrow month scrolls its
+  weeks and the day's list as one.
 - **`height` and `max_height` do not apply.** They size the events area of the other layouts;
   a month sizes its whole card.
 
@@ -223,9 +225,10 @@ the compact limits, `event_order` and `show_empty_days` shape a list card, not a
 ## 📱 The Narrow Month
 
 Where a day is too narrow for titles, as on a phone, the month draws its narrow form:
-under each day's number a small capsule with a segment per event in its calendar's color,
-up to four, with a small "+" beside it on a day that has more, or a dot for a single event, and
-the events of the day you choose listed under the weeks.
+under each day's number a small capsule with a segment per event in its calendar's color, or a
+dot for a single event, and the events of the day you choose listed under the weeks. The capsule
+grows by a segment for each event up to six; from the seventh it stays that wide and its segments
+narrow, so a busy day reads as busy at a glance without a count beside it.
 
 ```yaml
 view: month
@@ -252,6 +255,8 @@ set up; see [Narrow Cards](/features/editor#narrow-cards).
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
   name over its list. A tap on a day only selects it.
 - **At midnight**, a selected today moves on to the new day.
+- **A very busy day:** the capsule draws its first 36 events, one pixel each, and no more. The
+  day's list and a screen reader still give every event and the full count.
 
 ### The Day List
 

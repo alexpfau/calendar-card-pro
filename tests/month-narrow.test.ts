@@ -81,7 +81,7 @@ const allDay = (calendar: string, summary: string, from: string, until: string):
 });
 
 const EVENTS: RawEvent[] = [
-  // Five on Tuesday the 10th: a capsule of four, and "+2 more" under three lines.
+  // Five on Tuesday the 10th: a capsule of five, and "+2 more" under three lines.
   timed(ANNA, 'Standup', '2026-11-10', '08:00', '08:15'),
   timed(BEN, 'Review', '2026-11-10', '10:00', '11:00'),
   timed(ANNA, 'Lunch with Ben', '2026-11-10', '12:00', '13:00'),
@@ -587,13 +587,22 @@ describe('a narrow day', () => {
       (mark) => mark.style.backgroundColor,
     );
 
-  it('draws one segment per event in its calendar’s color, four at most', async () => {
+  /** `count` timed events on November `date`, alternating Anna and Ben, a minute apart. */
+  const busy = (date: number, count: number): RawEvent[] =>
+    Array.from({ length: count }, (_, index) => {
+      const at = `${String(6 + Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}`;
+      const until = `${String(6 + Math.floor((index + 1) / 60)).padStart(2, '0')}:${String((index + 1) % 60).padStart(2, '0')}`;
+      const iso = `2026-11-${String(date).padStart(2, '0')}`;
+      return timed(index % 2 ? BEN : ANNA, `Slot ${index + 1}`, iso, at, until);
+    });
+
+  it('draws one segment per event in its calendar’s color', async () => {
     const card = await mount({}, 375);
     const [blue, green] = [BLUE, GREEN];
     expect(capsule(day(card, 13))).toEqual([blue]);
     expect(capsule(day(card, 12))).toEqual([blue, green]);
     expect(capsule(day(card, 11))).toEqual([blue, green, blue]);
-    expect(capsule(day(card, 10))).toEqual([blue, green, blue, green]);
+    expect(capsule(day(card, 10))).toEqual([blue, green, blue, green, blue]);
     expect(capsule(day(card, 18))).toEqual([green, blue, green, blue]);
     // A day without events keeps an empty capsule, so every day is as tall.
     expect(capsule(day(card, 19))).toEqual([]);
@@ -604,24 +613,41 @@ describe('a narrow day', () => {
     ]);
   });
 
-  it('marks a day with more events than segments, and only such a day, for its "+"', async () => {
+  it('draws a segment for every event past six, and never a "+"', async () => {
+    extraEvents = [...busy(2, 6), ...busy(3, 7), ...busy(4, 20)];
     const card = await mount({}, 375);
-    const capped = (date: number) =>
-      day(card, date).querySelector('.month-narrow-marks')!.hasAttribute('data-capped');
-    // Five events on the 10th, four on the 18th: the same capsule, told apart by the mark.
-    expect(day(card, 10).getAttribute('aria-label')).toMatch(/, 5 events$/);
-    expect(day(card, 18).getAttribute('aria-label')).toMatch(/, 4 events$/);
-    expect([10, 11, 12, 13, 18, 19].map(capped)).toEqual([true, false, false, false, false, false]);
-    const rule = declarations(cardStyles.cssText).find(
-      (d) =>
-        d.at.length === 0 &&
-        d.selectors.includes('.month-narrow-marks[data-capped]::after') &&
-        d.property === 'content',
-    );
-    expect(rule?.value).toBe("'+'");
+    const [blue, green] = [BLUE, GREEN];
+    const alternating = (count: number) =>
+      Array.from({ length: count }, (_, index) => (index % 2 ? green : blue));
+    expect(capsule(day(card, 2))).toEqual(alternating(6));
+    expect(capsule(day(card, 3))).toEqual(alternating(7));
+    expect(capsule(day(card, 4))).toEqual(alternating(20));
+    for (const date of [2, 3, 4, 10]) {
+      const marks = day(card, date).querySelector('.month-narrow-marks')!;
+      expect(marks.getAttributeNames().sort()).toEqual(['aria-hidden', 'class']);
+    }
+    // Nothing in the stylesheet draws text beside a capsule.
+    expect(
+      declarations(cardStyles.cssText).filter((d) =>
+        d.selectors.some(
+          (selector) =>
+            selector.includes('month-narrow-marks') && /::?(after|before)/.test(selector),
+        ),
+      ),
+    ).toEqual([]);
   });
 
-  it('draws a single event as a dot: a segment as wide as the capsule is tall, rounded', () => {
+  it('draws no segment narrower than a pixel: 36 at most, and names the day’s full count', async () => {
+    extraEvents = [...busy(2, 36), ...busy(3, 37), ...busy(4, 200)];
+    const card = await mount({}, 375);
+    expect([2, 3, 4].map((date) => capsule(day(card, date)).length)).toEqual([36, 36, 36]);
+    // The first 36 in the day's order: the later events are the ones left out.
+    expect(capsule(day(card, 4))).toEqual(capsule(day(card, 3)));
+    expect(day(card, 3).getAttribute('aria-label')).toMatch(/, 37 events$/);
+    expect(day(card, 4).getAttribute('aria-label')).toMatch(/, 200 events$/);
+  });
+
+  it('grows 6px per event to 36px, then narrows its segments, clear of the cell’s edges', () => {
     const rule = (selector: string) =>
       Object.fromEntries(
         declarations(cardStyles.cssText)
@@ -630,8 +656,22 @@ describe('a narrow day', () => {
           )
           .map((d) => [d.property, d.value]),
       );
-    expect(rule('.month-narrow-marks')).toMatchObject({ height: '6px', 'border-radius': '999px' });
-    expect(rule('.month-narrow-mark').width).toBe('6px');
+    // A single event is a dot: a segment as wide as the capsule is tall, rounded.
+    expect(rule('.month-narrow-marks')).toMatchObject({
+      display: 'flex',
+      height: '6px',
+      'border-radius': '999px',
+      overflow: 'hidden',
+      // Six segments' width at most, and never closer than 2px to either edge of its day.
+      'max-width': 'min(36px, calc(100% - 4px))',
+    });
+    // Every segment starts at 6px and shrinks by the same factor, so all stay equal once the
+    // capsule holds its width; none has a floor that would push past it.
+    expect(rule('.month-narrow-mark')).toEqual({
+      flex: '0 1 auto',
+      width: '6px',
+      'min-width': '0',
+    });
   });
 
   it('marks today, the weekend and the other months’ days', async () => {
@@ -1167,14 +1207,19 @@ describe('the list fitted to its room', () => {
         .filter((d) => d.at.length === 0 && d.selectors.length === 1 && d.selectors[0] === selector)
         .map((d) => `${d.property}: ${d.value.replace(/\s+/g, ' ')}`);
     // Flexible with a basis of 0, so no day's events size either; at least what the card measures.
+    // No padding under the rows, so the card keeps under them what it keeps under every layout's
+    // events, and the estimate of the least is the 12px above, the header's 10px and "+N more"'s
+    // 11px around its two lines.
     expect(rule('.month-day-list')).toEqual([
       'box-sizing: border-box',
       'display: flex',
       'flex: var(--calendar-card-month-list-flex, 1 1 0)',
       'flex-direction: column',
-      'min-height: var(--calendar-card-month-list-min, calc(2.4em + 40px))',
-      'padding-block: 12px 4px',
+      'min-height: var(--calendar-card-month-list-min, calc(2.4em + 33px))',
+      'padding-block: 12px 0',
     ]);
+    // "+N more" keeps 4px under its text, the last thing before the card's padding.
+    expect(rule('.month-day-list-more')).toContain('padding-block: 7px 4px');
     expect(rule('.month-day-list-header')).toEqual([
       'flex: none',
       'padding-block: 2px 8px',

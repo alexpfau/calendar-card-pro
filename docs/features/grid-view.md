@@ -142,9 +142,9 @@ card_height: 600px
 - **An hour is never shorter than `24px`**, or `hour_height` where that is smaller, so an hour-long
   event keeps a line of its title. Below that, the events area scrolls.
 - **The all-day band keeps its rows**, at most [`allday_band_max_rows`](#all-day-events), and
-  never scrolls on its own. It stays at the top with the day headers while the hours scroll,
-  except where the two would take more than half the events area, or under
-  `min_days_fallback: cramp`; see [Height in Grid View](/features/layout-appearance#height-in-grid-view).
+  never scrolls on its own. The day headers stay at the top while the hours scroll, and the band
+  with them while the two take at most two thirds of the events area; past that the band scrolls
+  under the headers. See [Height in Grid View](/features/layout-appearance#height-in-grid-view).
 - **`card_height` counts the title and the toolbar**; `height` sizes the events area alone, and
   the header comes on top of it.
 

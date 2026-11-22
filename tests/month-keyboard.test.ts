@@ -1182,17 +1182,26 @@ describe('the passes that measure titles, on a month', () => {
     expect(root(card).querySelectorAll('.month-line').length).toBeGreaterThan(0);
     expect(root(card).querySelector('.event-title, .summary-row, .summary')).toBeNull();
     // Only the three probes the floors and the line capacity are read from, which the card
-    // watches for a font loading (`_watchMonthProbes`), not any title pass.
-    expect(watched(card)).toEqual(['month-probe', 'month-probe', 'month-probe']);
+    // watches for a font loading (`_watchMonthProbes`), not any title pass; and the weekday names,
+    // the month and the events area, which it watches to pin the names while the weeks scroll
+    // (`_syncHeadPin`).
+    expect(watched(card)).toEqual([
+      'month-weekdays',
+      'month-container',
+      'content-container',
+      'month-probe',
+      'month-probe',
+      'month-probe',
+    ]);
   });
 
   it('measure a narrow month’s list as they measure List’s rows, and nothing in its weeks', async () => {
     const card = await mount(MEASURED, 375);
-    // The wide form's probes aside, which the card watched while it drew that form before it
-    // knew its width (`_watchMonthProbes`).
+    // The wide form aside, whose probes and weekday names the card watched while it drew that
+    // form before it knew its width (`_watchMonthProbes`, `_syncHeadPin`).
     const inWeeks = RecordingResizeObserver.observed.filter(
       (element) =>
-        element.closest('.month-container') &&
+        element.closest('.month-container.month-narrow') &&
         !element.classList.contains(MonthRender.MONTH_PROBE_CLASS),
     );
     expect(inWeeks).toEqual([]);
