@@ -22,7 +22,8 @@ view: column
 
 - **Columns and Grid need room.** On a card too narrow for even their fewest days, they draw a
   list instead, and switch back once there is room.
-- **Month always shows six weeks**, whatever `days_to_show` says.
+- **Month shows six weeks**, or [the coming weeks](/features/month-view#the-coming-weeks) in a
+  count of its own, whatever `days_to_show` says.
 - **One card can offer all four.** With the [toolbar](/features/header-toolbar) on, the view
   switcher offers every layout, and each device remembers the one picked on it until the card is
   edited.
@@ -66,7 +67,7 @@ others such as the actions, the `toolbar`, the `title` and the date colors. See
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden)
 for the full list.
 `days_to_show` is the exception: it decides what is loaded, and each layout can still have
-its own, except Month, which always shows six weeks — see
+its own, except Month, which counts in weeks — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
 In the [visual editor](/features/editor#options-for-the-selected-view), open **Layout Defaults**
@@ -132,7 +133,7 @@ never loads anything. The rest of the card follows the layout on screen:
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
-**→ [Month View](/features/month-view)** — the same for the month, which shows six weeks whatever `days_to_show` says.
+**→ [Month View](/features/month-view)** — the same for the month, which shows its weeks whatever `days_to_show` says.
 **→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the ten options only list reads.
 
 **→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — `view`, `days_to_show` and the options only one layout has.

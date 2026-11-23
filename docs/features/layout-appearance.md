@@ -31,7 +31,7 @@ card_height: 600px
   A bare number is read in pixels.
 - **Each layout fills the height its own way.** List scrolls within it, Columns leave room under
   their days, Grid fits its hours to it ([Height in Grid View](#height-in-grid-view)), and Month
-  shares it among its six weeks.
+  shares it among its weeks.
 - **Rows set in a Sections dashboard's Layout tab win over both**, and every layout fills them as
   it fills a `card_height`.
 - **In the visual editor** it is **Card Height** on a layout's Size & Spacing: **Fit content**,
