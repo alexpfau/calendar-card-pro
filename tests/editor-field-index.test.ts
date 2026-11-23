@@ -283,8 +283,9 @@ describe('field ids', () => {
     // Month Name on Rule, its color and its size. A calendar's start hours add two: Starts At or
     // After and Starts Before. Then the events area's own height pair and When Too Narrow,
     // Full-Size Overlay's Layout, and the toolbar's Open Full Size. Then Month's First Week and
-    // Weeks Shown. Then List's Compact Height and Compact Maximum Height.
-    expect(EVERY_FIELD.size).toBe(245);
+    // Weeks Shown. Then List's On a Line of Its Own, and its Compact Height and Compact Maximum
+    // Height.
+    expect(EVERY_FIELD.size).toBe(246);
   });
 
   it('do not depend on the editor language', () => {

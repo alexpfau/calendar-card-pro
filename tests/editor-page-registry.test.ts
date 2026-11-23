@@ -586,6 +586,7 @@ const APPROVED_MAP: ReadonlyArray<
       'weather:weather.event.show_uv_index E LCGM',
       'weather:weather.event.uv_index_threshold W LCGM',
       'weather:weather.event.daily_forecast_fallback E LCGM',
+      'weather:weather.event.own_line A L',
       'weather:weather.event.icon_size A LCGM',
       'weather:weather.event.font_size A LCGM',
       'weather:weather.event.color A LCGM',
@@ -684,17 +685,18 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 245 ids, Month's own nine, Layouts in Switcher, the three of the month's name
+    // map places 246 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
-    // own height pair, Full-Size Overlay's Layout, Open Full Size and List's two compact heights
-    // among them, and every one of them is built under some workspace and state.
+    // own height pair, Full-Size Overlay's Layout, Open Full Size, List's forecast on a line of its
+    // own and its two compact heights among them, and every one of them is built under some
+    // workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(245);
-    expect(PLACED).toHaveLength(245);
+    expect(BUILT.size).toBe(246);
+    expect(PLACED).toHaveLength(246);
   });
 
   it('has no field built but unplaced', () => {
