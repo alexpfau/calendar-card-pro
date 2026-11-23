@@ -661,7 +661,7 @@ toolbar:
   overlay: true
 ```
 
-- The full-size card opens in Grid, on the dates the card shows, unless the card's `overlay`
+- The full-size card opens in Grid on a week, where the card is, unless the card's `overlay`
   option says otherwise; see [Opening the Card Full Size](/features/actions#opening-the-card-full-size).
 - In the full-size card, Close takes the button's place.
 - Its tooltip, and what screen readers announce, is "Open full size", in the card's language.

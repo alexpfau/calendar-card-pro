@@ -24,12 +24,16 @@ export const OVERLAY_ASSUMES: Readonly<Record<string, unknown>> = {
 };
 
 /**
- * What the overlay changes in the card's configuration before its own `overlay:` block: Grid,
- * with the toolbar's date navigation and a switcher offering every layout, so Month is a press
- * away. The rest of the toolbar the card asks for comes along.
+ * What the overlay changes in the card's configuration before its own `overlay:` block: Grid on
+ * a week, with the toolbar's date navigation and a switcher offering every layout, so Month is a
+ * press away. The rest of the toolbar the card asks for comes along.
+ *
+ * Seven days whatever the card shows (`DAY_COUNT_OPTIONS`): Grid and Columns draw as many of them
+ * as fit, as on any card with the date navigation, and page by the days they draw.
  */
 export const OVERLAY_DEFAULTS: Readonly<Record<string, unknown>> = {
   view: 'grid',
+  days_to_show: 7,
   toolbar: {
     show: true,
     navigation: true,
@@ -60,6 +64,15 @@ const COMPACT_OPTIONS: ReadonlyArray<string> = [
   'compact_events_to_show',
   'compact_events_complete_days',
 ];
+
+/**
+ * The card's own day count, at the top level and in a layout's block. A small card's three days
+ * would open three days full size, so the overlay takes its own week instead
+ * (`OVERLAY_DEFAULTS`). Left out of the card's own configuration, a layout's block included,
+ * since the editor writes a count set on a layout's page there; the `overlay:` block may set it
+ * again.
+ */
+const DAY_COUNT_OPTIONS: ReadonlyArray<string> = ['days_to_show'];
 
 /** Every layout's block key: `list`, `column`, `time_grid`, `month`. */
 const LAYOUT_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
@@ -127,7 +140,7 @@ function withoutOverlayAction(config: Record<string, unknown>): void {
 /**
  * The configuration the overlay's card is given: what it assumes where the card says nothing
  * (`OVERLAY_ASSUMES`); the card's own, without its `overlay:` block, Home Assistant's own keys
- * (`HA_CARD_KEYS`), its size and its compact limits; then the overlay's defaults
+ * (`HA_CARD_KEYS`), its size, its compact limits and its day count; then the overlay's defaults
  * (`OVERLAY_DEFAULTS`); then its `overlay:` block, which may set any option, size aside.
  * Blocks merge option by option, as `setConfig` merges a card's over the defaults, so
  * `overlay: { toolbar: { search: false } }` keeps the rest of the toolbar. The overlay action is
@@ -137,7 +150,11 @@ function withoutOverlayAction(config: Record<string, unknown>): void {
  * @returns The overlay card's configuration, as written
  */
 export function overlayConfig(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
-  const base: Record<string, unknown> = withoutOptions(raw, [...SIZE_OPTIONS, ...COMPACT_OPTIONS]);
+  const base: Record<string, unknown> = withoutOptions(raw, [
+    ...SIZE_OPTIONS,
+    ...COMPACT_OPTIONS,
+    ...DAY_COUNT_OPTIONS,
+  ]);
   delete base.overlay;
   for (const key of Constants.HA_CARD_KEYS) delete base[key];
 

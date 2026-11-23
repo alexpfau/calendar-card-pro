@@ -651,25 +651,33 @@ On a card that has the reset button, the button shows its check after a reset, a
 
 ### Opening the Card Full Size
 
-`overlay` opens the card full size over the dashboard: in Grid with the toolbar, so a small list
-on a wall tablet opens onto its whole week, and Month is one press away on the layout switcher.
+`overlay` opens the card full size over the dashboard: in Grid on a week with the toolbar, so a
+small list on a wall tablet opens onto seven days, and Month is one press away on the layout
+switcher.
 
 ```yaml
 tap_action:
   action: overlay
 ```
 
-| Option           | Type   | Default | Description                                                                         |
-| ---------------- | ------ | ------- | ----------------------------------------------------------------------------------- |
-| `overlay`        | object | -       | Options for the card the overlay shows, over the card's own, its size aside         |
-| `overlay → view` | string | `grid`  | The layout it opens in: `list`, `column`, `grid` or `month`; `view` for the overlay |
+| Option                   | Type   | Default | Description                                                                         |
+| ------------------------ | ------ | ------- | ----------------------------------------------------------------------------------- |
+| `overlay`                | object | -       | Options for the card the overlay shows, over the card's own, its size aside         |
+| `overlay → view`         | string | `grid`  | The layout it opens in: `list`, `column`, `grid` or `month`; `view` for the overlay |
+| `overlay → days_to_show` | number | `7`     | The days it shows in List, Columns and Grid, whatever the card shows                |
 
 - **It opens where the card is.** Paged a month ahead, it opens a month ahead, as the layout
   switcher keeps your place, and on the full month in Month. Calendars hidden with the
   [calendar filter](/features/header-toolbar#showing-hiding-calendars) stay hidden in it.
+- **It shows a week** in List, Columns and Grid: seven days, whatever the card shows. Where
+  Columns or Grid has no room for seven, as on a phone, it draws as many as fit and the arrows
+  page by those, as on [a narrow Grid card](/features/grid-view#fitting-narrow-cards). Month
+  draws its weeks. Set `days_to_show` under `overlay` for another count, or under
+  `overlay → time_grid` for Grid alone.
 - **It is the same card.** Its calendars, title, colors and every other option come along; its
-  height and its [compact limits](/features/list-view#compact-mode-event-limits) do not, since it
-  fills the overlay. Set any option for it under `overlay`, which it takes over the card's own:
+  height, its day count and its [compact limits](/features/list-view#compact-mode-event-limits)
+  do not, since it fills the overlay. Set any option for it under `overlay`, which it takes over
+  the card's own:
 
   ```yaml
   overlay:
@@ -705,8 +713,7 @@ being edited, it opens nothing.
 
 ::: details If the Overlay Looks Different From the Card
 The overlay is drawn over the whole of Home Assistant, as the event popover is, so a theme set on
-one dashboard view rather than for all of Home Assistant does not reach it. Its Grid shows as many
-days as the card does; set `days_to_show` under `overlay` for another count.
+one dashboard view rather than for all of Home Assistant does not reach it.
 :::
 
 ### Going Back From a Tap or Hold
