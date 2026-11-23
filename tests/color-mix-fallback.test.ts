@@ -164,6 +164,7 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.loading-indicator .spinner { border }',
       '.month-container { --calendar-card-month-header-rule }',
       '.month-container { --calendar-card-month-rule }',
+      '.month-day-list-below { background }',
       '.month-day-list-header.day-add-button:hover { background-color }',
       '.month-day-list-more:hover { background-color }',
       '.month-day-list[data-add-pressed] > .month-day-list-header { background-color }',

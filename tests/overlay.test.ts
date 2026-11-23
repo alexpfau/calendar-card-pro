@@ -344,6 +344,91 @@ describe('opening the overlay', () => {
     expect(still.getAttribute('aria-label')).toBe('Wednesday, November 18, 2026');
   });
 
+  it('counts the rows below where its list comes to rest in a pill, which pages down', async () => {
+    // A phone's overlay; the list's box 200 pixels tall from 400, keeping 50 at its foot where its
+    // rows come to rest, at 550, and each row 50 tall from its top, scrolled.
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.localName === 'calendar-card-pro-dev') return new DOMRect(0, 0, 390, 0);
+      if (this.matches('.month-day-list-rows.scrolls')) return new DOMRect(0, 400, 390, 200);
+      const box = this.closest('.month-day-list-rows.scrolls');
+      if (box && this.matches('td.event')) {
+        const rows = [...box.querySelectorAll('td.event')];
+        const index = rows.indexOf(this);
+        // The last a little taller, so it still ends past the rest line at the list's end.
+        const height = index === rows.length - 1 ? 52 : 50;
+        return new DOMRect(0, 400 + 50 * index - box.scrollTop, 390, height);
+      }
+      return realRect.call(this);
+    });
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      return (element as Element).matches?.('.month-day-list-rows.scrolls')
+        ? ({ ...style, paddingBottom: '50px' } as CSSStyleDeclaration)
+        : style;
+    });
+    // Its rows and its foot's room scroll 350 pixels in the 200 it shows: 150 to its end.
+    const scroller = (element: HTMLElement) => element.matches('.month-day-list-rows.scrolls');
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return scroller(this) ? 350 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return scroller(this) ? 200 : 0;
+    });
+    const busy = ['09', '10', '11', '12', '13'].map((hour) =>
+      timed(BEN, `Meeting ${hour}`, '2026-11-18', `${hour}:00`, `${hour}:30`),
+    );
+    EVENTS.push(...busy);
+    onTestFinished(() => {
+      EVENTS.splice(EVENTS.length - busy.length, busy.length);
+    });
+
+    const card = await mount({ overlay: { view: 'month' } });
+    const opened = await open(card);
+    expect(opened.hasAttribute('in-overlay')).toBe(true);
+    expect(card.hasAttribute('in-overlay')).toBe(false);
+    const box = opened.shadowRoot!.querySelector<HTMLElement>('.month-day-list-rows.scrolls')!;
+    const pill = () => opened.shadowRoot!.querySelector<HTMLButtonElement>('.month-day-list-below');
+    // Six rows ending at 450 to 700: the three past 550 are below.
+    expect(pill()!.textContent!.trim()).toBe('+3 more');
+    expect(pill()!.getAttribute('aria-hidden')).toBe('true');
+    expect(pill()!.getAttribute('tabindex')).toBe('-1');
+
+    const scrolled = async (top: number) => {
+      box.scrollTop = top;
+      box.dispatchEvent(new Event('scroll'));
+      await settle();
+    };
+    await scrolled(100);
+    expect(pill()!.textContent!.trim()).toBe('+1 more');
+    // At its end nothing is below, though its last row ends a little past the rest line, as a
+    // fractional scroll can leave it.
+    await scrolled(150);
+    expect(pill()).toBe(null);
+
+    // A press pages down, and another day's list starts at its top.
+    await scrolled(0);
+    const scrollBy = vi.fn();
+    box.scrollBy = scrollBy as typeof box.scrollBy;
+    pill()!.click();
+    expect(scrollBy).toHaveBeenCalledTimes(1);
+    expect((scrollBy.mock.calls[0][0] as ScrollToOptions).top).toBeGreaterThan(0);
+    await scrolled(100);
+    (opened as unknown as { _selectMonthDay(day: number): void })._selectMonthDay(
+      new Date(2026, 10, 19).getTime(),
+    );
+    await settle();
+    expect(box.isConnected).toBe(true);
+    expect(box.scrollTop).toBe(0);
+  });
+
   it('opens on its own home from the card’s home', async () => {
     const opened = await open(await mount());
     expect(lastParams().day).toBe(null);

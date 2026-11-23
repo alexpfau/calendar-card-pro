@@ -281,8 +281,9 @@ month:
 See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maximum.
 
 When the card is [opened full size](/features/actions#opening-the-card-full-size), the list shows
-every event of the day instead and scrolls them, with no "+N more", while the weeks above it stay
-where they are.
+every event of the day instead and scrolls them, while the weeks above it stay where they are. A
+"+N more" with an arrow floats at its foot while events are still below, and a tap on it scrolls
+down.
 
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.

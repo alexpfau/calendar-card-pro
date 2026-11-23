@@ -414,6 +414,23 @@ export const cardStyles = css`
     }
   }
 
+  /* The overlay's card (IN_OVERLAY_ATTRIBUTE) takes the device's home indicator into its own foot
+     room where the overlay fills the screen, which hands it in as --calendar-card-safe-area-bottom:
+     the larger of its bottom padding and the indicator's room, rather than the overlay padding
+     the indicator's room away below the card's. A narrow month's list that scrolls runs to the
+     card's foot instead, under the indicator, and keeps that room inside its scroll. */
+  :host([in-overlay]) ha-card {
+    --calendar-card-overlay-foot: max(
+      calc(var(--calendar-card-spacing-additional) + 16px),
+      var(--calendar-card-safe-area-bottom, 0px)
+    );
+    padding-bottom: var(--calendar-card-overlay-foot);
+  }
+
+  :host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls) {
+    padding-bottom: 0;
+  }
+
   ha-card {
     display: flex;
     flex-direction: column;
@@ -8977,13 +8994,68 @@ export const cardStyles = css`
   }
 
   /* In the overlay the box lists every row and scrolls them, under weeks that stay where they are
-     (MonthNarrow.scrolls); the cut is the scroll's own. Its rows keep their own padding, as the
-     card's content scroller's do. A scroll that reaches either end stays in the box, and where no
-     row takes focus the box does, ringed as an event is. */
+     (MonthNarrow.scroll); the cut is the scroll's own. Its rows keep their own padding, as the
+     card's content scroller's do. It runs to the card's foot, under the device's home indicator,
+     and keeps the card's foot room inside its scroll instead, where its last row comes to rest
+     (--calendar-card-overlay-foot, below). A scroll that reaches either end stays in the box, and
+     where no row takes focus the box does, ringed as an event is. */
   .month-day-list-rows.scrolls {
     overflow: hidden auto;
     overscroll-behavior: contain;
     clip-path: none;
+    padding-block-end: var(--calendar-card-overlay-foot, 0px);
+  }
+
+  /* While some of the day's events end below where the rows come to rest, a pill over the list's
+     foot says how many, in the words of "+N more", and a press pages down (renderListBelow). It
+     floats over the rows, so it is drawn opaque: the toolbar buttons' tint over the card's
+     background, so it looks like them, lifted by a shadow. Its words are "+N more"'s. */
+  .month-day-list.scrolls {
+    position: relative;
+  }
+
+  .month-day-list-below {
+    position: absolute;
+    inset-inline: 0;
+    bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: max-content;
+    margin: 0 auto;
+    padding-block: 6px;
+    padding-inline: 8px 12px;
+    border: none;
+    border-radius: 16px;
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent),
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent)
+      ),
+      var(--calendar-card-background-color, var(--card-background-color));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+    font: inherit;
+    font-size: var(--calendar-card-font-size-time);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-day-list-below {
+      background:
+        linear-gradient(rgba(128, 128, 128, 0.15), rgba(128, 128, 128, 0.15)),
+        var(--calendar-card-background-color, var(--card-background-color));
+    }
+  }
+
+  .month-day-list-below-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
   }
 
   .month-day-list-rows.scrolls:focus {

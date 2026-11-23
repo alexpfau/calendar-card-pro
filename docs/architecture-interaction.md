@@ -105,7 +105,11 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   the card is drawn in plain view as the dialog grows: waiting out `WIDTH_SETTLE_DELAY`, as a
   dashboard's card does, drew a phone's Grid on its configured days for six frames first. A narrow
   month's list there lists every row and scrolls them (`_monthListScrolls`), with no staged copy
-  and no fit, since nothing outside the overlay scrolls for it to fight.
+  and no fit, since nothing outside the overlay scrolls for it to fight; a pill counts the rows
+  below its rest line (`_countMonthListBelow`). A full-screen overlay pads the device's safe areas
+  but the foot, which it hands the card as `--calendar-card-safe-area-bottom`: the card, marked
+  `in-overlay`, keeps the larger of its own foot room and the home indicator's, and a scrolling
+  list runs under the indicator with that room inside its scroll.
 - **Event actions** never reach `handleAction`. `eventActionKind` reads one as `details`, a Home
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the

@@ -245,6 +245,12 @@ function originOf(node: EventTarget | null): Feedback.PressOrigin | undefined {
   };
 }
 
+/**
+ * Less than this left to scroll after a page down a narrow month's list that scrolls, and the
+ * press scrolls to its end instead: about a row, so no sliver is left for the pill to count.
+ */
+const MONTH_LIST_PAGE_REST = 40;
+
 /** Whether the person asked for less motion, which turns a swipe's nudge and arrival off. */
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
@@ -2010,6 +2016,16 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
+   * How many of the selected day's events a narrow month's list that scrolls has below what it
+   * shows, as last counted (`_countMonthListBelow`), and the day they were counted for: what its
+   * "+N more" pill says. Null until a list that scrolls has been counted.
+   */
+  private _monthListBelow: { readonly day: string; readonly count: number } | null = null;
+
+  /** The day a narrow month's list that scrolls was last drawn for, which it scrolls back to the top on leaving. */
+  private _monthListScrolledDay: string | null = null;
+
+  /**
    * The row or "+N more" of a narrow month's list that had focus as the update began, which a
    * new fit can take away (`_keepMonthListFocus`).
    */
@@ -2958,6 +2974,9 @@ class CalendarCardPro extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     Logger.debug('Component connected');
+    // The overlay's card says so on itself, for the stylesheet: its foot keeps clear of the
+    // device's home indicator, and a narrow month's list scrolls under it (`IN_OVERLAY_ATTRIBUTE`).
+    this.toggleAttribute(Overlay.IN_OVERLAY_ATTRIBUTE, this.overlayFrame !== undefined);
 
     // Provisional: the load below re-arms it for the data's own deadline once it lands.
     this.startRefreshTimer();
@@ -4091,10 +4110,13 @@ class CalendarCardPro extends LitElement {
    */
   private _syncMonthListFit(): void {
     const drawn = this.isConnected ? this._monthListDrawn : null;
-    // A list that scrolls lists every row, so there is nothing to fit, nor to watch for.
+    // A list that scrolls lists every row, so there is nothing to fit: only what it has below what
+    // it shows, for its pill, which changes with its size as well as with its scroll.
     if (this._monthListScrolls) {
-      this._stopMonthList();
-      if (drawn) this._writeMonthListMin();
+      this._watchMonthList();
+      if (!drawn) return;
+      this._writeMonthListMin();
+      this._syncMonthListScroll(drawn.day);
       return;
     }
     this._watchMonthList();
@@ -4132,6 +4154,84 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Brings a narrow month's list that scrolls to its top when it is drawn for another day, and
+   * counts what it has below what it shows.
+   *
+   * @param day - The day the list is drawn for, `YYYY-MM-DD`
+   */
+  private _syncMonthListScroll(day: string): void {
+    const box = this._monthListScroller;
+    if (!box) return;
+    if (this._monthListScrolledDay !== day) {
+      this._monthListScrolledDay = day;
+      box.scrollTop = 0;
+    }
+    this._countMonthListBelow(box, day);
+  }
+
+  /** A narrow month's list that scrolls, where one is drawn. */
+  private get _monthListScroller(): HTMLElement | null {
+    return this.renderRoot.querySelector<HTMLElement>(
+      `.month-day-list > .month-day-list-rows.${MonthRender.MONTH_LIST_SCROLLS_CLASS}`,
+    );
+  }
+
+  /**
+   * Counts the events of a narrow month's list that scrolls that end below where its rows come to
+   * rest, the top of the room it keeps at its foot (its bottom padding), and draws its pill again
+   * where the count changed. A row cut there counts, as "+N more" on a dashboard counts every row
+   * it does not show whole, unless by a pixel or less, which rounding leaves. Read in the page's
+   * pixels, with the padding scaled to match, so a list read while the overlay grows counts as it
+   * will once it has.
+   *
+   * @param box - The list's rows' box
+   * @param day - The day it is drawn for
+   */
+  private _countMonthListBelow(box: HTMLElement, day: string): void {
+    const rect = box.getBoundingClientRect();
+    if (!(rect.height > 0)) return;
+    const laid = box.offsetHeight;
+    const scale = laid > 0 && Math.abs(rect.height - laid) >= 1 ? rect.height / laid : 1;
+    const rest =
+      rect.bottom - (Number.parseFloat(getComputedStyle(box).paddingBottom) || 0) * scale;
+    // At its end nothing is below, however a fractional scroll rounds.
+    const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
+    let count = 0;
+    for (const row of atEnd ? [] : box.querySelectorAll('td.event')) {
+      if (row.getBoundingClientRect().bottom > rest + 1) count += 1;
+    }
+    const known = this._monthListBelow;
+    if (known?.day === day && known.count === count) return;
+    this._monthListBelow = { day, count };
+    this.requestUpdate();
+  }
+
+  /** Counts a scrolling list's rows below anew as it scrolls. */
+  private readonly _onMonthListScroll = (ev: Event): void => {
+    const day = this._monthListDrawn?.day;
+    if (day && ev.currentTarget instanceof HTMLElement) {
+      this._countMonthListBelow(ev.currentTarget, day);
+    }
+  };
+
+  /**
+   * Scrolls a narrow month's list that scrolls down by most of what it shows, for its pill, so the
+   * row cut at its foot comes near its top; all the way where less than a row would be left. At
+   * once where the system asks for less motion.
+   */
+  private readonly _pageMonthList = (): void => {
+    const box = this._monthListScroller;
+    if (!box) return;
+    const shown = box.clientHeight - (Number.parseFloat(getComputedStyle(box).paddingBottom) || 0);
+    const step = Math.max(shown * 0.8, 1);
+    const left = box.scrollHeight - box.clientHeight - box.scrollTop;
+    box.scrollBy({
+      top: left - step < MONTH_LIST_PAGE_REST ? Math.max(left, step) : step,
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
+  };
+
+  /**
    * Whether a narrow month's list grows with its day under a cap, rather than taking a fixed room:
    * never in a Sections slot, which the card fills (`MonthRender.monthNarrowGrows`).
    */
@@ -4164,8 +4264,10 @@ class CalendarCardPro extends LitElement {
   /**
    * Watches what a narrow month's list is fitted from for a change of size: the staged rows, and
    * the rows' box where it is the room. A list that grows under a cap leaves its box out, as that
-   * changes with every fit and sets nothing. Re-aimed whenever those are other elements, as after a
-   * day without events or a switch of form; no list, no watch.
+   * changes with every fit and sets nothing. A list that scrolls stages nothing, and its box and
+   * the rows in it are watched instead, for the count its pill shows (`_countMonthListBelow`).
+   * Re-aimed whenever those are other elements, as after a day without events or a switch of form;
+   * no list, no watch.
    *
    * A growing list's room is its cap, which no box here follows. A cap that clamps the card, or
    * stops clamping it, resizes the card, which the card's own resize observer hears
@@ -4182,8 +4284,10 @@ class CalendarCardPro extends LitElement {
       const box = this._monthListGrows
         ? null
         : this.renderRoot.querySelector('.month-day-list > .month-day-list-rows');
+      const rows = this._monthListScrolls ? box?.querySelector(':scope > .month-day-table') : null;
       if (staged) targets.push(staged);
       if (box) targets.push(box);
+      if (rows) targets.push(rows);
     }
     const grows = targets.length > 0 && this._monthListGrows;
     if (
@@ -4438,7 +4542,13 @@ class CalendarCardPro extends LitElement {
         weatherForecasts: this.weatherForecasts,
         dayAdd: this._dayAddButtons,
         shown,
-        scrolls,
+        scroll: scrolls
+          ? {
+              below: this._monthListBelow?.day === day ? this._monthListBelow.count : 0,
+              scrolled: this._onMonthListScroll,
+              page: this._pageMonthList,
+            }
+          : undefined,
         more: (moreDay, button) => this._openDayPanel(moreDay, button, false, true),
       },
       ringed: found && !pending && at < Math.min(shown ?? 0, count),

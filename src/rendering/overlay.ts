@@ -86,6 +86,13 @@ export interface OverlayParams {
 /** The overlay's element name; the production build drops `-dev`, as it does for the card. */
 export const OVERLAY_TAG = 'calendar-card-pro-dev-overlay';
 
+/**
+ * The attribute the overlay's card carries on itself, for its stylesheet: its foot keeps clear of
+ * the device's home indicator rather than the overlay padding it away, and a narrow month's list
+ * that scrolls runs under it.
+ */
+export const IN_OVERLAY_ATTRIBUTE = 'in-overlay';
+
 /** The widest the overlay grows on a large screen, in CSS pixels. */
 export const MAX_WIDTH = 1600;
 
@@ -349,7 +356,10 @@ export class CardOverlay extends Shell.PopoverShell {
   /*
    * The whole screen on a phone, upright or turned, where 92% of it would leave a frame of nothing
    * worth seeing; the card's corners and border go there, and its padding takes the device's safe
-   * areas. Otherwise 92% of the screen, centered, as wide as MAX_WIDTH at most.
+   * areas at the top and the sides. The one at the foot, the home indicator's, goes to the card as
+   * a property, which keeps clear of it itself (IN_OVERLAY_ATTRIBUTE): the larger of its own foot
+   * room and the indicator's, and a narrow month's list scrolls under it. Otherwise 92% of the
+   * screen, centered, as wide as MAX_WIDTH at most.
    */
   static styles = css`
     dialog {
@@ -386,8 +396,8 @@ export class CardOverlay extends Shell.PopoverShell {
         height: 100dvh;
       }
       .frame {
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-          env(safe-area-inset-left);
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+        --calendar-card-safe-area-bottom: env(safe-area-inset-bottom);
         border-radius: 0;
         box-shadow: none;
         --ha-card-border-radius: 0;

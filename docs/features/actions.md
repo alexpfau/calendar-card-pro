@@ -689,11 +689,13 @@ tap_action:
   `day_tap_action` of its own.
 - **A narrow month lists the whole day.** Where the full-size card draws Month's
   [narrow form](/features/month-view#the-narrow-month), as on a phone, the day's list shows every
-  event and scrolls them, with no "+N more", while the weeks stay put.
+  event and scrolls them, while the weeks stay put. A "+N more" with an arrow floats at its foot
+  while events are still below, and a tap on it scrolls down.
 - **Nothing chosen in it is kept.** A layout picked or a calendar hidden there lasts until it
   closes, and the card it opened from stays as it was.
 - **Its size** is the whole screen on a phone, below 600 pixels wide or 500 tall, and otherwise
-  92% of the screen, up to 1600 pixels wide.
+  92% of the screen, up to 1600 pixels wide. On a phone it keeps clear of the home indicator at
+  the bottom of the screen, and a month's list scrolls under it.
 
 The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
 opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).

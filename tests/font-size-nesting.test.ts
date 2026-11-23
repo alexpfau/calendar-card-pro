@@ -827,7 +827,8 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
  * A month in both its forms: wide, then narrow with the list of a day that has events under
  * it, keeping room for fewer than that day holds so it ends in "+N more" beside its hidden probe,
  * then the list of a day with none, so the narrow form's and the day list's sizes are reached in
- * every pass a month draws.
+ * every pass a month draws; and last the busiest day's list as the overlay draws it, scrolling,
+ * with its pill counting the events below.
  */
 function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
   const dayLists = MonthDay.monthDayLists(
@@ -851,7 +852,20 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
       shown: 1,
     },
   })}
-  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
+  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}
+  ${MonthRender.renderMonthDayList(
+    Paging.addDays(rowsStart, busiest),
+    dayLists[busiest],
+    effective,
+    'en',
+    null,
+    false,
+    WEATHER,
+    undefined,
+    undefined,
+    undefined,
+    { below: 1, scrolled: () => undefined, page: () => undefined },
+  )}`;
 }
 
 /**
@@ -1236,6 +1250,8 @@ describe('every piece of text is sized by its own option', () => {
       'month-day-list-empty in month-day-list-rows': ['event_font_size'],
       'month-day-list-more in month-day-list-probe': ['time_font_size'],
       'month-day-list-more in month-day-list-rows': ['time_font_size'],
+      // The words of the pill over a scrolling list's foot, in "+N more"'s size, as they are its.
+      'span in month-day-list-below': ['time_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's:
       // the month's cell sizes, which the wide month writes on itself.
       'month-line-time in event': ['month.cell_time_font_size'],

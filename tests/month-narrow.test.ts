@@ -1252,7 +1252,22 @@ describe('the list fitted to its room', () => {
       'overflow: hidden auto',
       'overscroll-behavior: contain',
       'clip-path: none',
+      'padding-block-end: var(--calendar-card-overlay-foot, 0px)',
     ]);
+    // It runs to the overlay card's foot, under the device's home indicator, and keeps the foot's
+    // room inside its scroll; any other card in the overlay keeps the larger of its own padding
+    // and the indicator's room at its foot.
+    expect(rule(':host([in-overlay]) ha-card')).toEqual([
+      '--calendar-card-overlay-foot: max( calc(var(--calendar-card-spacing-additional) + 16px), var(--calendar-card-safe-area-bottom, 0px) )',
+      'padding-bottom: var(--calendar-card-overlay-foot)',
+    ]);
+    expect(rule(':host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls)')).toEqual([
+      'padding-bottom: 0',
+    ]);
+    // Its pill floats just above where the rows come to rest.
+    expect(rule('.month-day-list-below')).toContain(
+      'bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px)',
+    );
     expect(rule('.month-day-list-rows.scrolls:focus-visible')).toEqual([
       'outline: 2px solid var(--calendar-card-line-color-vertical)',
       'outline-offset: -2px',
