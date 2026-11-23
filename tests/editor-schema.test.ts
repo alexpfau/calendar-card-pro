@@ -925,6 +925,9 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
+      // The compact card's own height, which only a List card that can fold has.
+      compact_card_height: ['list'],
+      compact_card_max_height: ['list'],
       // Column and grid view keep time running forward, left to right and down the hours;
       // `groupEventsByDay` reads it only where `appliesToView` says list.
       event_order: ['list'],

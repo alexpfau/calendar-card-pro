@@ -100,6 +100,87 @@ describe('the whole card’s height', () => {
   });
 });
 
+describe('the compact card’s height', () => {
+  it('takes the card’s own pair while unset, key by key', () => {
+    const config = buildConfig({ card_height: '30rem', card_max_height: '40rem' });
+    expect(ViewConfig.resolveCompactCardSize(config)).toEqual({ height: '30rem', max: '40rem' });
+    const height = buildConfig({ card_height: '30rem', compact_card_height: '300px' });
+    expect(ViewConfig.resolveCompactCardSize(height)).toEqual({ height: '300px', max: 'none' });
+  });
+
+  it('reads the list block over the top level, and takes viewport and font-relative lengths', () => {
+    const config = buildConfig({
+      compact_card_height: '20em',
+      compact_card_max_height: '50dvh',
+      list: { compact_card_height: 'calc(100dvh - 56px)' },
+    });
+    expect(ViewConfig.resolveCompactCardSize(config)).toEqual({
+      height: 'calc(100dvh - 56px)',
+      max: '50dvh',
+    });
+  });
+
+  it('keeps the card’s own out with an explicit auto or none, and ignores what no height can be', () => {
+    const explicit = buildConfig({
+      card_height: '600px',
+      card_max_height: '700px',
+      compact_card_height: 'auto',
+      compact_card_max_height: 'none',
+    });
+    expect(ViewConfig.resolveCompactCardSize(explicit)).toEqual({ height: 'auto', max: 'none' });
+    // An unusable line in `list:` counts as unset there, so the top level's applies, then the card's.
+    const unusable = buildConfig({
+      card_height: '600px',
+      compact_card_max_height: '300px',
+      list: { compact_card_height: '50%', compact_card_max_height: 'fit-content' },
+    });
+    expect(ViewConfig.resolveCompactCardSize(unusable)).toEqual({ height: '600px', max: '300px' });
+  });
+
+  it('writes the compact pair while a List card is compact, and the card’s own expanded', () => {
+    const config = buildConfig({ card_height: '600px', compact_card_height: '15em' });
+    expect(CardSize.cardSizeStyle(config, 'list', 'wide', false, true)).toEqual({
+      height: '15em',
+      ...CardSize.FILL_CARD,
+    });
+    expect(CardSize.cardSizeStyle(config, 'list', 'wide', false, false)).toEqual({
+      height: '600px',
+      ...CardSize.FILL_CARD,
+    });
+    // A compact cap alone grows the card with its events up to it, its content's height at auto.
+    const capped = buildConfig({ compact_card_max_height: '300px' });
+    expect(CardSize.cardSizeStyle(capped, 'list', 'wide', false, true)).toEqual({
+      'max-height': '300px',
+    });
+    expect(CardSize.cardSizeStyle(capped, 'list', 'wide', false, false)).toEqual({});
+  });
+
+  it('leaves the other layouts and a Sections slot to their own heights', () => {
+    const config = buildConfig({ card_height: '600px', compact_card_height: '300px' });
+    for (const view of ['column', 'grid'] as const) {
+      expect(CardSize.cardSizeStyle(config, view, 'wide', false, true), view).toEqual({
+        height: '600px',
+        ...CardSize.FILL_CARD,
+      });
+    }
+    expect(CardSize.cardSizeStyle(config, 'list', 'wide', true, true)).toEqual(CardSize.FILL_CARD);
+  });
+
+  it('lets the card fold by its height alone only where the two pairs differ', () => {
+    const differs = buildConfig({ card_height: '600px', compact_card_height: '300px' });
+    expect(ViewConfig.compactHeightsApply(differs, 'list', false)).toBe(true);
+    expect(ViewConfig.compactHeightsApply(differs, 'list', true)).toBe(false);
+    expect(ViewConfig.compactHeightsApply(differs, 'column', false)).toBe(false);
+    expect(ViewConfig.compactHeightsApply(differs, 'month', false)).toBe(false);
+    const same = buildConfig({ card_height: '600px', compact_card_height: '600px' });
+    expect(ViewConfig.compactHeightsApply(same, 'list', false)).toBe(false);
+    expect(ViewConfig.compactHeightsApply(buildConfig(), 'list', false)).toBe(false);
+    // `auto` beside a fixed card height is a height of its own: the compact card fits its events.
+    const fits = buildConfig({ card_height: '600px', compact_card_height: 'auto' });
+    expect(ViewConfig.compactHeightsApply(fits, 'list', false)).toBe(true);
+  });
+});
+
 describe('Card Height in the editor', () => {
   /** Picks a Card Height mode in a workspace, as the form does. */
   function pick(config: Types.Config, workspace: 'list' | 'column' | 'month', mode: string) {
