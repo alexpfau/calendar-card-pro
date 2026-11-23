@@ -93,3 +93,67 @@ describe('concurrent weather-translation consumers', () => {
     }).toEqual({ requests: 1, firstCalls: 1, secondCalls: 1 });
   });
 });
+
+/**
+ * A language whose words could not be loaded is asked for again on a backoff, not on every card
+ * update: a minute, doubling, as the registry colors are (`page-backoff.ts`). Nothing schedules
+ * the retry; the first update after the wait makes it.
+ */
+describe('a translation request that fails', () => {
+  beforeEach(() => {
+    WeatherI18n.resetConditionTranslations();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-17T10:00:00Z'));
+    return () => vi.useRealTimers();
+  });
+
+  /** A hass whose translations are refused, or answered empty, `failures` times, then answered. */
+  function failingHass(failures: number, empty = false) {
+    const calls: number[] = [];
+    const start = Date.now();
+    const hass = {
+      language: 'en',
+      locale: { language: 'en' },
+      states: {},
+      callService: () => {},
+      callWS: () => {
+        calls.push((Date.now() - start) / 1000);
+        if (calls.length <= failures) {
+          return empty ? Promise.resolve({ resources: {} }) : Promise.reject(new Error('down'));
+        }
+        return Promise.resolve({
+          resources: { 'component.weather.entity_component._.state.sunny': 'Ensoleillé' },
+        });
+      },
+    } as unknown as Types.Hass;
+    return { hass, calls };
+  }
+
+  /** A card update every ten seconds for `minutes`, each asking for the words. */
+  async function updates(hass: Types.Hass, minutes: number, onLoaded = () => {}) {
+    for (let at = 0; at < minutes * 6; at++) {
+      WeatherI18n.ensureConditionTranslations(hass, 'fr', onLoaded);
+      await vi.advanceTimersByTimeAsync(10 * 1000);
+    }
+  }
+
+  it.each([
+    ['refused', false],
+    ['answered without words', true],
+  ])('waits a minute, then two, when %s', async (_name, empty) => {
+    const conn = failingHass(Infinity, empty);
+    await updates(conn.hass, 4);
+
+    expect(conn.calls).toEqual([0, 60, 180]);
+  });
+
+  it('loads the words once a later try gets through, and tells the card', async () => {
+    const conn = failingHass(1);
+    const loaded = vi.fn();
+    await updates(conn.hass, 2, loaded);
+
+    expect(conn.calls).toEqual([0, 60]);
+    expect(WeatherI18n.lookupCondition('fr', 'sunny')).toBe('Ensoleillé');
+    expect(loaded).toHaveBeenCalledTimes(1);
+  });
+});

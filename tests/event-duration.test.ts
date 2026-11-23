@@ -177,14 +177,15 @@ describe('a split event', () => {
       'All day (3 days total)',
     ]);
     expect(rows([timed('2026-06-22T09:00:00Z', '2026-06-24T17:00:00Z')], split)).toEqual([
-      '9:00 - 23:59 (2 days, 8 hr total)',
+      '9:00 - 17:00 (+2) (2 days, 8 hr)',
       'All day (2 days, 8 hr total)',
-      '0:00 - 17:00 (2 days, 8 hr total)',
+      'Until Wednesday, Jun 24 at 17:00 (2 days, 8 hr total)',
     ]);
-    // Shorter than a day, and still the whole night on each of its two days.
+    // Shorter than a day, and still the whole night on each of its two days. The first day
+    // writes the whole event's times, so its length is no total.
     expect(rows([timed('2026-06-17T20:30:00Z', '2026-06-18T04:30:00Z')], split)).toEqual([
-      '20:30 - 23:59 (8 hr total)',
-      '0:00 - 4:30 (8 hr total)',
+      '20:30 - 4:30 (+1) (8 hr)',
+      'Ends tomorrow at 4:30 (8 hr total)',
     ]);
   });
 
@@ -204,7 +205,7 @@ describe('a split event', () => {
         { start_date: '2026-06-17', days_to_show: 2 },
         'column',
       ),
-    ).toEqual(['20:30 - 23:59 (8 hr total)', '0:00 - 4:30 (8 hr total)']);
+    ).toEqual(['20:30 - 4:30 (+1) (8 hr)', 'Ends tomorrow at 4:30 (8 hr total)']);
   });
 
   it('carries it on a day whose event began before the card shows it', () => {

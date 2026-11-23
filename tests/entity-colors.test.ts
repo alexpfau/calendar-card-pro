@@ -462,10 +462,11 @@ describe('entity colors: a registry that refuses', () => {
     expect(others).toBe(1);
     expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
 
-    // Loaded now, so the next reconnect owes nothing.
+    // Loaded now, so the next reconnect owes no retry. It reads once more all the same, since
+    // the registry may have moved while the connection was down, and no event said so.
     conn.fireReady();
     await vi.advanceTimersByTimeAsync(0);
-    expect(conn.calls).toHaveLength(2);
+    expect(conn.calls).toHaveLength(3);
     expect(others).toBe(2);
   });
 
@@ -553,6 +554,97 @@ describe('entity colors: a registry that refuses', () => {
 
     expect(repaints).toBe(1);
     expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
+  });
+
+  /**
+   * A registry `hass` that answers `color` until told to refuse, records when each read was
+   * asked for, and hands back the subscription's callback and a reconnect.
+   */
+  function subscribedHass(options: { refuseSubscribe?: boolean } = {}) {
+    const calls: number[] = [];
+    const subscribes: number[] = [];
+    const ready: Array<() => void> = [];
+    const start = Date.now();
+    const state = { color: 'red', refuse: false, onUpdated: undefined as (() => void) | undefined };
+    const hass = {
+      states: {},
+      callWS: () => {
+        calls.push((Date.now() - start) / 1000);
+        return state.refuse
+          ? Promise.reject({ code: 3, message: 'Connection lost' })
+          : Promise.resolve([
+              { entity_id: 'calendar.work', options: { calendar: { color: state.color } } },
+            ]);
+      },
+      connection: {
+        subscribeEvents: (callback: () => void) => {
+          subscribes.push((Date.now() - start) / 1000);
+          if (options.refuseSubscribe) return Promise.reject({ code: 'unauthorized' });
+          state.onUpdated = callback;
+          return Promise.resolve(() => {});
+        },
+        addEventListener: (type: string, listener: () => void) => {
+          if (type === 'ready') ready.push(listener);
+        },
+        removeEventListener: () => {},
+      },
+    } as unknown as Types.Hass;
+    return { hass, calls, subscribes, state, fireReady: () => ready.forEach((l) => l()) };
+  }
+
+  it('tries a refresh it could not read again on the backoff, and repaints once it lands', async () => {
+    const conn = subscribedHass();
+    let repaints = 0;
+    EntityColors.ensureEntityColors(conn.hass, () => {
+      repaints += 1;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repaints).toBe(1);
+
+    conn.state.refuse = true;
+    conn.state.onUpdated?.();
+    await vi.advanceTimersByTimeAsync(0);
+    // The colors it had stay drawn meanwhile.
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--red-color)');
+
+    conn.state.refuse = false;
+    conn.state.color = 'blue';
+    await vi.advanceTimersByTimeAsync(MINUTE);
+
+    expect(conn.calls).toEqual([0, 0, 60]);
+    expect(repaints).toBe(2);
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--blue-color)');
+  });
+
+  it('reads once more for a burst of registry changes, not once per change', async () => {
+    const conn = subscribedHass();
+    EntityColors.ensureEntityColors(conn.hass, () => {});
+    await vi.advanceTimersByTimeAsync(0);
+
+    conn.state.color = 'blue';
+    for (let change = 0; change < 5; change++) conn.state.onUpdated?.();
+    await vi.advanceTimersByTimeAsync(0);
+
+    // The one already on its way when the rest arrived, and one after it for those.
+    expect(conn.calls).toHaveLength(3);
+    expect(EntityColors.entityColors().get('calendar.work')).toBe('var(--blue-color)');
+  });
+
+  it('waits before subscribing again when Home Assistant refuses the subscription', async () => {
+    const conn = subscribedHass({ refuseSubscribe: true });
+    const onChange = () => {};
+
+    // A card update every ten seconds, each asking again.
+    for (let update = 0; update < 6 * 4; update++) {
+      EntityColors.ensureEntityColors(conn.hass, onChange);
+      await vi.advanceTimersByTimeAsync(10 * 1000);
+    }
+    expect(conn.subscribes).toEqual([0, 60, 180]);
+
+    // A reconnect is when a refusal can first change, so it tries at once.
+    conn.fireReady();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conn.subscribes).toEqual([0, 60, 180, 240]);
   });
 });
 

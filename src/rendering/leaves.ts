@@ -1339,10 +1339,18 @@ export function renderEventContent(
       >`
     : nothing;
 
+  // Beside the title the countdown's words are a box of their own, so the phrase moves to the
+  // next line whole, after the dot, rather than break inside itself while it fits a line: "Day" /
+  // "12 of 45" read as two things. Below the title it wraps as it always has.
+  const countdownWords =
+    besideTitle && countdownText !== null
+      ? html`<span class="time-countdown-words">${countdownText}</span>`
+      : countdownText;
+
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text">${timeValue}<span class=${countdownClass}>${countdownText}</span></span>`
+    ? html`<span class="time-text">${timeValue}<span class=${countdownClass}>${countdownWords}</span></span>`
     : timeValue;
 
   // A running event's row keeps its clock where every row has it, filled rather than outlined,

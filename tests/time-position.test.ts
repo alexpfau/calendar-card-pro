@@ -214,6 +214,8 @@ describe('time_position', () => {
       expect(moved(container)).toEqual([]);
       expect(container.querySelector('.title-aside')).toBeNull();
       expect(container.querySelector('.summary-row .time')).toBeNull();
+      // A folded countdown's words are a box of their own only beside the title.
+      expect(container.querySelector('.time-countdown-words')).toBeNull();
     });
 
     it.each([
@@ -235,6 +237,23 @@ describe('time_position', () => {
   });
 
   describe('each view on its own', () => {
+    it.each(['list', 'column'] as const)(
+      'keeps a folded countdown whole as one box beside the title, in %s view',
+      (view) => {
+        const container = render(view, {
+          time_position: 'title',
+          show_countdown: true,
+          show_progress_bar: true,
+        });
+        const folded = [...container.querySelectorAll('.title-aside .time-text > .time-countdown')];
+        expect(folded.length).toBeGreaterThan(0);
+        for (const countdown of folded) {
+          const words = countdown.querySelector(':scope > .time-countdown-words');
+          expect(words?.textContent).toBe(countdown.textContent);
+          expect(words?.textContent?.trim()).not.toBe('');
+        }
+      },
+    );
     it('moves the time in list view alone when list: asks for it', () => {
       const config = { list: { time_position: 'title' } };
       expect(moved(render('list', config)).length).toBeGreaterThan(0);
@@ -681,6 +700,11 @@ describe('time_position', () => {
           expected.querySelector(':scope > .time-actual > ha-icon')?.remove();
           expected.querySelector(':scope > .time-actual:empty')?.remove();
           const time = rest.querySelector(':scope > .summary-row > .title-aside > .time')!;
+          // Beside the title a folded countdown's words are a box of their own, so they move to
+          // the next line whole; unwrapped, they are the countdown below the title.
+          time.querySelectorAll('.time-countdown > .time-countdown-words').forEach((words) => {
+            words.replaceWith(...words.childNodes);
+          });
           expect(withoutFlexWhitespace(time), label).toBe(withoutFlexWhitespace(expected));
 
           // The rest of the row, with the time taken out of both and its box gone, is the
