@@ -1004,7 +1004,8 @@ describe('a calendar left out of the legend', () => {
       const header = (card: CardUnderTest) =>
         root(card)
           .querySelector('.header-container')!
-          .outerHTML.replace(/<!--[\s\S]*?-->/g, '');
+          .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+          .replace(/<!---->/g, '');
       const control = await mount({ ...ALL_OUT, title: 'Family', toolbar: LEGEND_OFF });
       const card = await mount({
         ...ALL_OUT,
