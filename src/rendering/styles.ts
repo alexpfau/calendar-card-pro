@@ -4748,13 +4748,20 @@ export const cardStyles = css`
    * Clamped, it is a box that cuts its text, and keeps the room event text keeps at its inline
    * edges, through the emitted --calendar-card-weather-condition-inline-room. Inline it cuts
    * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. No room
-   * above its first line; see "Marks above and below the line". */
+   * above its first line; see "Marks above and below the line".
+   *
+   * At the top of its line, not on the baseline. A clamped box hides its overflow, and Chromium
+   * takes the baseline of an inline box that hides its overflow from its bottom edge, so the
+   * words sat 3.4px above the temperature beside them, and on a line of their own the row grew by
+   * as much. The chips share one font, so the top of the line is where every chip's text starts;
+   * inline, the words lay out exactly as on the baseline. */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
     hyphens: manual;
+    vertical-align: top;
     padding-inline: var(--calendar-card-weather-condition-inline-room, 0px);
     margin-inline: calc(-1 * var(--calendar-card-weather-condition-inline-room, 0px));
   }
