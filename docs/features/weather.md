@@ -54,15 +54,17 @@ those for each position under `date` or `event`:
 | `date → show_low_temp`            | boolean | `false`                       | Whether to show low temperature in the day header. The UV index takes this place on days it is shown                                                                                                                                              |
 | `date → show_uv_index`            | boolean | `false`                       | Whether to show UV index in the day header                                                                                                                                                                                                        |
 | `date → uv_index_threshold`       | number  | `0`                           | Only show UV index when it is at least this value (0 = always show when enabled)                                                                                                                                                                  |
+| `date → stacked`                  | boolean | `false`                       | List layout: the icon, the high and the low each on a line of their own in the date column, so a larger size still fits. Column and grid layouts ignore it                                                                                        |
 | `date → icon_size`                | string  | `14px`                        | Size of weather icons in the day header, as a CSS length such as `14px` or `1em`. A percentage, negative size, keyword or misspelled unit falls back to `14px`                                                                                    |
 | `date → font_size`                | string  | `12px`                        | Size of weather text in the day header, as a CSS font size such as `12px`, `1em` or `90%`. A negative size, misspelled unit or word that is not a font size falls back to `12px`                                                                  |
 | `date → color`                    | string  | `var(--primary-text-color)`   | Color of weather text and icons in the day header. Matches the weekday, day number and month it sits beside                                                                                                                                       |
-| `event → show_conditions`         | boolean | `true`                        | List and month layouts: whether to show the condition icon. Column and grid layouts: whether to state the condition in words — the icon is always shown                                                                                           |
+| `event → show_conditions`         | boolean | `true`                        | List and month layouts: whether to show the condition icon. Column and grid layouts, and List with `own_line`: whether to state the condition in words — the icon is always shown                                                                 |
 | `event → show_temp`               | boolean | `true`                        | Whether to show temperature in the event row                                                                                                                                                                                                      |
 | `event → show_uv_index`           | boolean | `false`                       | Whether to show UV index in the event row                                                                                                                                                                                                         |
 | `event → uv_index_threshold`      | number  | `0`                           | Only show UV index when it is at least this value (0 = always show when enabled)                                                                                                                                                                  |
 | `event → daily_forecast_fallback` | boolean | `true`                        | Fall back to the daily forecast for a timed event on a date the hourly forecast does not reach                                                                                                                                                    |
-| `event → max_lines`               | number  | `0`                           | Column and grid layouts: maximum number of lines the condition words may take (0 = unlimited). Truncated words show `...`. List and month draw no words, so it does nothing there                                                                 |
+| `event → own_line`                | boolean | `false`                       | List layout: the forecast on a line of its own under the time, as column and grid layouts show it, rather than at the end of the title's line. The other layouts ignore it                                                                        |
+| `event → max_lines`               | number  | `0`                           | Column and grid layouts, and List with `own_line`: maximum number of lines the condition words may take (0 = unlimited). Truncated words show `...`. Elsewhere there are no words, so it does nothing                                             |
 | `event → icon_size`               | string  | `14px`                        | Size of weather icons in the event row, as a CSS length such as `14px` or `1em`. A percentage, negative size, keyword or misspelled unit falls back to `14px`                                                                                     |
 | `event → font_size`               | string  | `12px`                        | Size of weather text in the event row, as a CSS font size such as `12px`, `1em` or `90%`. A negative size, misspelled unit or word that is not a font size falls back to `12px`                                                                   |
 | `event → color`                   | string  | `var(--secondary-text-color)` | Color of weather text and icons beside events. Matches the time and location it sits beside. Accepts `accent` for a readable shade of each event's calendar color; unset, it takes that shade wherever `event_color` is `accent`, as in grid view |
@@ -101,8 +103,10 @@ month:
 | `weather`        | object | -       | Inside `list:`, `column:`, `time_grid:` or `month:`: how that layout shows the forecast, with `position`, `date` and `event`. Without one, the layout shows none |
 
 - **Each layout shows the forecast where it has room for it.** List puts a day's in its date
-  column and an event's on its title row; Columns and Grid put a day's in the day's heading and
-  give an event's a row of its own. See [Weather In The Column Layout](#weather-in-the-column-layout)
+  column and an event's on its title row, or either on lines of its own; Columns and Grid put a
+  day's in the day's heading and give an event's a row of its own. See
+  [Weather In The List Layout](#weather-in-the-list-layout),
+  [Weather In The Column Layout](#weather-in-the-column-layout)
   and [Weather In The Grid Layout](#weather-in-the-grid-layout).
 - **Month shows the forecast beside events only**, in the day list a phone shows under its weeks
   and in the list **+N more** opens. `event` and `both` show it there; `date` and `none` show
@@ -235,7 +239,8 @@ list:
 | -------------- | ------- | ------- | ------------------------------------------------------------------------------------ |
 | `show_weather` | boolean | `true`  | Set on a calendar under `entities`. `false` leaves the weather out beside its events |
 
-It leaves out the badge beside the title in list view, the weather row in column and grid view
+It leaves out the forecast beside the title or under the time in list view, the weather row in
+column and grid view
 and the forecast beside its events in month view, and grid view no longer reads the event's
 weather to screen readers. The forecast in the day header stays, because it describes the day
 for every calendar on the card.
@@ -258,6 +263,61 @@ some of them do.
   can keep the weather on its all-day events and leave it off its timed ones.
 - A row [merged from several calendars](/features/filtering#filtering-duplicate-events)
   follows the calendar listed first among them.
+
+:::
+
+## 📋 Weather In The List Layout
+
+List gives a day's forecast the narrow column under its date and an event's the end of its
+title's line. `stacked` and `own_line` give each a layout with room to grow, for a wall tablet or
+any card read from across the room, where a larger forecast would not fit side by side.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+weather_entity: weather.forecast_home
+list:
+  weather:
+    position: both
+    date:
+      show_low_temp: true
+      stacked: true # Icon, high and low one under another
+      icon_size: '28px'
+      font_size: '18px'
+    event:
+      own_line: true # Under the time, as Columns and Grid show it
+      font_size: '16px'
+```
+
+| Option             | Type    | Default | Description                                                                                  |
+| ------------------ | ------- | ------- | -------------------------------------------------------------------------------------------- |
+| `date → stacked`   | boolean | `false` | The icon, the high and the low each on a line of their own, centered under the date          |
+| `event → own_line` | boolean | `false` | The forecast on a line of its own under the time, rather than at the end of the title's line |
+
+- **The date column never widens for its forecast.** It is sized from the day number, so every
+  day's events start in one place. Side by side, a larger icon and temperatures run out of the
+  column; stacked, each part has the column's whole width. The low drops its slash there, and a
+  UV index takes its place as it does side by side.
+- **A line of its own works as in Columns and Grid:** the icon is always shown,
+  `show_conditions` adds the condition in words, and `max_lines` limits how many lines those
+  take. See [Weather In The Column Layout](#weather-in-the-column-layout) for the words.
+- **Both are List's alone.** Columns and Grid head each day with a row wide enough for the
+  forecast side by side and always give an event's a line of its own, and Month keeps an
+  event's beside its title, so all three ignore them. A Columns or Grid card that falls back to the list
+  layout on a narrow screen follows `list:`, as for every other option.
+
+::: tip Visual Editor
+**Stack the Forecast** is under **In the Day Header** and **On a Line of Its Own** under
+**Beside Each Event**, on List's **Weather** page.
+:::
+
+::: details Taller Days & The Time Beside the Title
+
+- A stacked forecast makes each date one or two lines taller, and a day whose events take less
+  room than its date grows with it.
+- With [`time_position: title`](/features/event-content#time-beside-the-title), the time moves to
+  the title's line and the forecast still takes the line under it.
 
 :::
 
@@ -303,7 +363,7 @@ there is no separator after the icon.
   `max_lines` caps how tall the row may grow: `0`, the default, lets it wrap as far as it needs,
   and `1` keeps it on a single line with an ellipsis.
 - **On a narrow screen** a column card falls back to the list layout, which shows the weather
-  as `list:` says, where `show_conditions` shows or hides the icon in the usual way.
+  as `list:` says, where `show_conditions` shows or hides the icon unless `own_line` is on.
 
 ::: details More About the Words
 

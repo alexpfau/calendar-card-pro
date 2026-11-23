@@ -1104,6 +1104,16 @@ export interface WeatherPositionConfig {
    * no nested max-lines option.
    */
   max_lines?: number;
+  /**
+   * List only, **date** position: the day's forecast one part per line in the date column, the
+   * icon over the high and the high over the low, so a larger size still fits the column.
+   */
+  stacked?: boolean;
+  /**
+   * List only, **event** position: the forecast on a line of its own under the time, as Columns
+   * and Grid draw it, rather than at the end of the title's line.
+   */
+  own_line?: boolean;
   icon_size?: string;
   font_size?: string;
   color?: string;

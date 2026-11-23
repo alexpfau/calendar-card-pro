@@ -683,7 +683,12 @@ function renderDateColumn(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
+  const weatherContent = Leaves.renderDateWeather(
+    date,
+    config,
+    weatherForecasts,
+    config.weather?.date?.stacked === true,
+  );
 
   return Leaves.renderDateContent(date, config, language, isToday, weatherContent, hass);
 }
@@ -1061,6 +1066,12 @@ function renderEvent(
         ${renderEventButton(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
+            // `weather.event.own_line`: the forecast under the time, as Columns and Grid draw it,
+            // which needs Home Assistant for the condition's words. Off, the row is the markup
+            // List always drew.
+            ...(config.weather?.event?.own_line === true
+              ? { weatherPlacement: 'row' as const, hass }
+              : {}),
             links: Presentation.rowLinksOn(config),
             timePosition: Helpers.resolveTimePosition(config.time_position),
           }),

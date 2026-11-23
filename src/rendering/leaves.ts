@@ -31,15 +31,22 @@ import * as Weather from '../utils/weather';
 /**
  * Render the weather badge that belongs to a date block.
  *
+ * `stacked` is List's `weather.date.stacked`, passed by List's date column alone: the badge's
+ * parts one per line, the icon over the high and the high over the low, the low without the slash
+ * that joins it to the high on one line. Columns and Grid never pass it, so their headers draw
+ * what they always did whatever their own block says.
+ *
  * @param date Date the badge describes
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
+ * @param stacked Whether the parts go one per line
  * @returns Rendered badge, or `nothing`
  */
 export function renderDateWeather(
   date: Date,
   config: Types.Config,
   weatherForecasts?: Types.WeatherForecasts,
+  stacked = false,
 ): TemplateResult | typeof nothing {
   const position = Weather.resolveWeatherPosition(config.weather);
   const showDateWeather = (position === 'date' || position === 'both') && config.weather?.entity;
@@ -67,7 +74,7 @@ export function renderDateWeather(
   // Keep the rendered parts adjacent; whitespace here becomes text nodes in column headers.
   // prettier-ignore
   return html`
-    <div class="weather">${
+    <div class=${stacked ? 'weather weather-stacked' : 'weather'}>${
       showConditions
         ? html`<ha-icon .icon=${dailyForecast.icon}></ha-icon>`
         : nothing
@@ -77,7 +84,9 @@ export function renderDateWeather(
         : nothing
     }${
       showLowTemp
-        ? html`<span class="weather-temp-low">/${dailyForecast.templow}°</span>`
+        ? stacked
+          ? html`<span class="weather-temp-low">${dailyForecast.templow}°</span>`
+          : html`<span class="weather-temp-low">/${dailyForecast.templow}°</span>`
         : nothing
     }${
       showUvIndex
@@ -850,8 +859,8 @@ function hasEventWeather(config: Types.Config, event: Types.CalendarEventData): 
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
  * @param placement Where the badge is being placed. `'title'` is the list view's inline
- *   badge inside the summary row; `'row'` is column view's dedicated line, which always
- *   shows the icon and localizes the condition text.
+ *   badge inside the summary row; `'row'` is the line of its own Columns and Grid draw, and List
+ *   with `weather.event.own_line`, which always shows the icon and localizes the condition text.
  * @param hass Home Assistant instance, used only to localize the condition text
  * @returns Rendered badge, or an empty template when there is nothing to show
  */
@@ -1089,7 +1098,8 @@ export interface EventContentOptions {
   weatherForecasts?: Types.WeatherForecasts;
   /**
    * Where the event weather badge goes. `'title'` uses the summary row; `'row'`
-   * gives the badge its own row beneath the time.
+   * gives the badge its own row beneath the time, as Columns and Grid always do and List does
+   * with `weather.event.own_line`.
    */
   weatherPlacement?: 'title' | 'row';
   /**

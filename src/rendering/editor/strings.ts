@@ -1744,6 +1744,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'date.show_uv_index': 'Show UV Index Beside Days',
   'date.uv_index_threshold': 'UV Index Threshold Beside Days',
   'date.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
+  // List's date column is as narrow as its day number, so it stacks rather than widens.
+  'date.stacked': 'Stack the Forecast',
+  'date.stacked.helper':
+    'The icon, the high and the low each on a line of their own, so a larger size still fits.',
   'date.icon_size': 'Icon Size Beside Days',
   'date.font_size': 'Font Size Beside Days',
   'date.color': 'Color Beside Days',
@@ -1752,7 +1756,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
-    'Columns and Grid always show the icon; there this adds the condition in words.',
+    'On a line of its own, as in Columns and Grid, the icon always shows and this adds the condition in words.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index Beside Events',
   'event.uv_index_threshold': 'UV Index Threshold Beside Events',
@@ -1760,11 +1764,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
+  // List's; Columns and Grid always draw it so.
+  'event.own_line': 'On a Line of Its Own',
+  'event.own_line.helper': 'Under the time, as in Columns and Grid.',
   'event.icon_size': 'Icon Size Beside Events',
   'event.font_size': 'Font Size Beside Events',
   'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
-  'event.max_lines.helper': 'Zero means no limit. Only Columns and Grid can reach a second line.',
+  'event.max_lines.helper':
+    'Zero means no limit. Only a forecast on a line of its own can reach a second line.',
 
   // --- Actions & Refresh ----------------------------------------------------
   tap_action: 'Tap Action',

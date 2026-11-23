@@ -2476,6 +2476,31 @@ export const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
   position: 'none',
 };
 
+/**
+ * Which layouts read an option of a layout's own `weather:`, by its path there, where not every
+ * layout that draws that part does. An absent path is read wherever its part is drawn.
+ *
+ * List's date column is as narrow as its day number, so only List stacks the day's forecast; and
+ * Columns and Grid always give an event's forecast a line of its own, which List does only when
+ * asked. Written into another layout's block, either does nothing, and the editor offers neither
+ * there.
+ */
+export const WEATHER_OPTION_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  'date.stacked': new Set<Types.EffectiveView>(['list']),
+  'event.own_line': new Set<Types.EffectiveView>(['list']),
+};
+
+/**
+ * Whether a layout reads an option of its own `weather:` ({@link WEATHER_OPTION_SCOPE}).
+ *
+ * @param path - The option's path under `weather`, such as `date.stacked`
+ * @param view - The layout
+ * @returns `true` unless its scope leaves the layout out
+ */
+export function readsWeatherOption(path: string, view: Types.EffectiveView): boolean {
+  return WEATHER_OPTION_SCOPE[path]?.has(view) ?? true;
+}
+
 /** The last answers of {@link resolveViewWeather}, by configuration, then by view. */
 const viewWeathers = new WeakMap<
   object,
