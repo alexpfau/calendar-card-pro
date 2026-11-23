@@ -1903,6 +1903,141 @@ function checkLanguageCounts() {
 }
 
 /**
+ * The editor's breakdown, by the paragraph that states it. `scope` finds the paragraph, each
+ * count pattern must match inside it at least once, and `names` (where given) captures the
+ * list of languages translated in full.
+ */
+const EDITOR_BREAKDOWN_SITES = [
+  {
+    name: 'docs/contributing.md',
+    scope: /The editor is available in \d+ of the[\s\S]*?render the editor in English/,
+    counts: [
+      [/the (\w+) with a file here/g, 'files'],
+      [/(\w+) translated\s+in full/g, 'full'],
+      [/The other (\d+) render the editor in English/g, 'none'],
+    ],
+  },
+  {
+    name: 'docs/features/editor.md',
+    scope: /The editor is available in \*\*\d+ languages\*\*[\s\S]*?differs from US English\./,
+    counts: [[/Besides English, (\w+) are translated in full/g, 'full']],
+    names: /translated in full \(([^)]+)\)/,
+  },
+];
+
+/**
+ * Reconcile the editor's published breakdown with the coverage `check:i18n` reports.
+ *
+ * The editor total above is only the sum. The contributing guide and the editor page also
+ * say how many files there are, how many are translated in full, which, and how many card
+ * languages have no editor at all, and before this only the total was checked. "In full" is
+ * `check:i18n`'s classification (`FULL_TRANSLATION_SHARE`), read through the same function
+ * that prints its coverage lines, so the two gates cannot disagree about a file. A partial
+ * translation has to be named as one, as "Korean in part" was through v5.3.
+ *
+ * @returns How many counts and name lists were checked
+ */
+async function checkEditorBreakdown() {
+  const { editorTranslationCoverage, FULL_TRANSLATION_SHARE } = await import('./check-i18n.mjs');
+  const coverage = await editorTranslationCoverage();
+  const cardFiles = readdirSync(join(ROOT, 'src/translations/languages')).filter((f) =>
+    f.endsWith('.json'),
+  );
+  const handWritten = coverage.files.filter(({ code }) => code !== 'en-gb');
+  const full = handWritten.filter((entry) => entry.full);
+  const partial = handWritten.filter((entry) => !entry.full);
+  assertFound(full, 'editor translations in full', 'src/rendering/editor/translations');
+
+  const english = new Intl.DisplayNames(['en'], { type: 'language' });
+  const nameOf = ({ code }) => english.of(code);
+  const listed = (entries) => entries.map(nameOf).sort().join(', ');
+  const truth = {
+    files: coverage.files.length,
+    full: full.length,
+    // +1 for US English again: these are the card languages with no editor of their own.
+    none: cardFiles.length - (coverage.files.length + 1),
+  };
+  const why = {
+    files: 'Counted from src/rendering/editor/translations/*.json, en-GB.json included.',
+    full:
+      `npm run check:i18n counts a file in full when it carries at least ` +
+      `${Math.ceil(coverage.total * FULL_TRANSLATION_SHARE)} of the ${coverage.total} strings, and its coverage ` +
+      `lines say which: ${listed(full)}.`,
+    none: 'That is the card languages less the editor languages.',
+  };
+  let checked = 0;
+
+  for (const { name, scope, counts, names } of EDITOR_BREAKDOWN_SITES) {
+    const file = join(ROOT, name);
+    const paragraph = existsSync(file) ? readFileSync(file, 'utf8').match(scope)?.[0] : undefined;
+    if (!paragraph) {
+      error(
+        `${name} no longer states the editor's language breakdown in a form this check can ` +
+          `read. Update EDITOR_BREAKDOWN_SITES rather than dropping the check.`,
+      );
+      continue;
+    }
+
+    for (const [pattern, which] of counts) {
+      const matches = [...paragraph.matchAll(pattern)];
+      if (!matches.length) {
+        error(
+          `${name} no longer states how many editor languages are ${which} in a form ` +
+            `EDITOR_BREAKDOWN_SITES can read. Update the pattern rather than dropping it.`,
+        );
+      }
+      for (const match of matches) {
+        checked += 1;
+        const word = match[1].toLowerCase();
+        const found = /^\d+$/.test(word)
+          ? Number(word)
+          : NUMBER_WORDS.findIndex((spelled) => spelled.toLowerCase() === word);
+        if (found !== truth[which]) {
+          error(
+            `${name} says "${match[0].replace(/\s+/g, ' ')}", but the number is ` +
+              `${truth[which]}. ${why[which]}`,
+          );
+        }
+      }
+    }
+
+    if (names) {
+      checked += 1;
+      const written = paragraph
+        .match(names)?.[1]
+        .split(/,\s*|\s+and\s+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .sort()
+        .join(', ');
+      if (written !== listed(full)) {
+        error(
+          `${name} names the editor translations in full as ${written ?? 'nothing'}, but they ` +
+            `are ${listed(full)}. ${why.full}`,
+        );
+      }
+    }
+
+    checked += 1;
+    const inPart = /\bin part\b/.test(paragraph);
+    const unnamed = partial.filter((entry) => !paragraph.includes(nameOf(entry)));
+    if (partial.length && (!inPart || unnamed.length)) {
+      error(
+        `${name} does not say that ${listed(partial)} ${partial.length > 1 ? 'are' : 'is'} ` +
+          `translated in part, which check:i18n counts as below the line for in full. ` +
+          `Name ${partial.length > 1 ? 'them' : 'it'}, as "Korean in part" was through v5.3.`,
+      );
+    } else if (!partial.length && inPart) {
+      error(
+        `${name} says an editor translation is in part, but every hand-written one is in ` +
+          `full: ${listed(full)}.`,
+      );
+    }
+  }
+  return checked;
+}
+
+/**
  * Print what was inspected, then the errors and warnings.
  *
  * 🚨 **Every clause on the summary line is a count of what was *inspected*, never a
@@ -4011,7 +4146,7 @@ function printCardNameDigest(name) {
   return 0;
 }
 
-function main() {
+async function main() {
   const digestFlag = process.argv.indexOf('--digest');
   if (digestFlag !== -1) process.exit(printCardNameDigest(process.argv[digestFlag + 1]));
 
@@ -4066,7 +4201,7 @@ function main() {
   const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
   const inertOptions = checkNoEffectLists(viewScope);
   const citations = checkCitations();
-  const languages = checkLanguageCounts();
+  const languages = checkLanguageCounts() + (await checkEditorBreakdown());
   const thirdParty = checkThirdPartyCards();
 
   process.exit(
@@ -4101,4 +4236,4 @@ function main() {
   );
 }
 
-main();
+await main();

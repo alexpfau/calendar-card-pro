@@ -1166,6 +1166,54 @@ function readEditorTranslationWiring() {
 }
 
 /**
+ * The share of the editor's strings a hand-written translation must carry to count as
+ * translated in full rather than in part.
+ *
+ * Not all of them, because no complete translation carries all of them: lookups fall back
+ * per key, so a translator leaves out what already reads right in their language. That is
+ * punctuation formats such as `{label}: {value}`, key names such as `Esc`, and the language
+ * picker's names, each written in its own language, and it comes to 4–5% of the table in
+ * every complete file. The one partial translation this project has shipped, Korean through
+ * v5.3, carried 70%. The line sits between the two.
+ */
+export const FULL_TRANSLATION_SHARE = 0.9;
+
+/**
+ * How much of the editor each translation file carries, counted as the coverage lines count it.
+ *
+ * `check-docs.mjs` reconciles the breakdown the contributing guide and the editor page publish
+ * ("eleven translated in full") against this, so both gates read one number.
+ *
+ * @returns The strings a translation can carry, and per file its language, how many it carries
+ *   and whether that is in full; `en-GB.json` never is, being a generated delta
+ */
+export async function editorTranslationCoverage() {
+  const editor = await loadEditor();
+  // The swatches' names are English only by design: Home Assistant's own are read first, in its
+  // language, so no translation file holds them and the coverage line leaves them out.
+  const englishOnly = new Set(colorNameKeys(editor));
+  const total = Object.keys(editor.EDITOR_STRINGS).filter((key) => !englishOnly.has(key)).length;
+  const files = readdirSync(EDITOR_T9N_DIR)
+    .filter((file) => file.endsWith('.json'))
+    .sort()
+    .map((file) => {
+      const code = basename(file, '.json').toLowerCase();
+      let data;
+      try {
+        data = JSON.parse(read(join(EDITOR_T9N_DIR, file)));
+      } catch {
+        // checkEditorTranslations reports it; a file that does not parse carries nothing.
+        data = {};
+      }
+      const counted = Object.keys(data).filter((key) => !englishOnly.has(key)).length;
+      const full = code !== 'en-gb' && counted >= total * FULL_TRANSLATION_SHARE;
+      return { file, code, counted, full };
+    });
+  assertFound(files, 'any editor translation JSON files', EDITOR_T9N_DIR);
+  return { total, files };
+}
+
+/**
  * The live editor's translations: wired up, and — the point of this check — reachable.
  *
  * Every translation key must exist in `EDITOR_STRINGS`, and `lookup()` must return the
@@ -1182,10 +1230,9 @@ async function checkEditorTranslations(languages) {
   assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
   const imported = new Set(imports.values());
-  // The swatches' names are English only by design: Home Assistant's own are read first, in its
-  // language, so no translation file holds them and the coverage line leaves them out.
-  const englishOnly = new Set(colorNameKeys(await loadEditor()));
-  const total = Object.keys(EDITOR_STRINGS).filter((key) => !englishOnly.has(key)).length;
+  const coverage = await editorTranslationCoverage();
+  const { total } = coverage;
+  const covered = new Map(coverage.files.map((entry) => [entry.code, entry]));
 
   for (const file of files.sort()) {
     const code = basename(file, '.json').toLowerCase();
@@ -1280,10 +1327,11 @@ async function checkEditorTranslations(languages) {
       }
     }
 
-    const counted = keys.filter((key) => !englishOnly.has(key)).length;
+    const { counted, full } = covered.get(code);
     notes.push(
       `  ${code.padEnd(6)} ${String(counted).padStart(3)} / ${total} strings ` +
-        `(${String(Math.round((counted / total) * 100)).padStart(2)}%)`,
+        `(${String(Math.round((counted / total) * 100)).padStart(2)}%)` +
+        (code === 'en-gb' ? ', a delta' : full ? ', in full' : ', in part'),
     );
   }
 
