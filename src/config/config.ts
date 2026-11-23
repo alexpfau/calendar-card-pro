@@ -229,6 +229,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     reset: false,
     refresh: true,
     search: true,
+    overlay: false,
     legend: 'menu',
     size: 'normal',
     buttons: [],
@@ -494,6 +495,8 @@ export interface ResolvedToolbar {
   reset: boolean;
   refresh: boolean;
   search: boolean;
+  /** Whether the button opening the card full size is drawn (`toolbar.overlay`). */
+  overlay: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
   /** How large the month's row draws the date navigation and the calendar chips. */
@@ -558,6 +561,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     reset: read('reset'),
     refresh: read('refresh'),
     search: read('search'),
+    overlay: read('overlay'),
     legend,
     size,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],

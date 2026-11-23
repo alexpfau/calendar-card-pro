@@ -5,9 +5,10 @@
  * hands it `hass`, gives it Back to close, and stacks it with whatever opens above it: a popover,
  * the Day Panel or the search panel opened inside it close before it does. Drawn as a native modal
  * `<dialog>` in the top layer, the whole screen below `SHEET_BELOW_PX` wide or below 500 px tall,
- * and otherwise 92% of it, no wider than `MAX_WIDTH`. The popover shell gives it the contract,
- * the guard on the page behind, Escape, the press on the backdrop and focus coming back; it
- * places nothing.
+ * and otherwise 92% of it, no wider than `MAX_WIDTH`. It opens and closes as a popover does,
+ * growing out of the press that opened it and fading in, and shrinking back toward it as it fades
+ * out. The popover shell gives it the contract, the guard on the page behind, Escape, the press
+ * on the backdrop and focus coming back; it places nothing.
  *
  * What it holds is a second card, built from the card's own configuration
  * (`config/overlay.ts`). It shares the page's events and live subscriptions with every card on
@@ -62,6 +63,16 @@ export interface OverlayParams {
   hidden: ReadonlyArray<string>;
   /** The overlay's accessible name: the card's title, or its first calendar's name. */
   label: string;
+  /**
+   * Where it grows out of and shrinks back to, in viewport pixels: the press that opened it, or
+   * the middle of what a key pressed. Its middle where there is none.
+   */
+  from?: { readonly x: number; readonly y: number };
+  /**
+   * Whether a pointer opened it. Focus then starts on the overlay itself, which shows no ring;
+   * a key starts it on Close, ringed, so the keyboard sees where it is.
+   */
+  pointer?: boolean;
   /** Called once the overlay has closed, however it closed. Returns nothing. */
   closed?: () => undefined;
 }
@@ -76,8 +87,16 @@ export const OVERLAY_TAG = 'calendar-card-pro-dev-overlay';
 /** The widest the overlay grows on a large screen, in CSS pixels. */
 export const MAX_WIDTH = 1600;
 
-/** How long the overlay takes to leave. */
-const LEAVE_MS = 160;
+/*
+ * How it opens, as a popover does (`pop-grow` and `pop-fade` in the popover shell's stylesheet):
+ * growing from a tenth of its size, fast and then settling, over 230 ms, and fading in over
+ * 180 ms. It leaves as a popover does too (`Shell.LEAVE_MS`).
+ */
+export const GROW_FROM = 0.1;
+export const GROW_MS = 230;
+export const GROW_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
+export const FADE_IN_MS = 180;
+export const FADE_IN_EASING = 'cubic-bezier(0, 0, 0.58, 1)';
 
 //-----------------------------------------------------------------------------
 // ELEMENT
@@ -91,6 +110,8 @@ export class CardOverlay extends Shell.PopoverShell {
   @state() private _params?: OverlayParams;
   /** The card it holds while open. */
   @state() private _card?: OverlayCard;
+  /** Whether it is still to play its way in, which it does once it is open (`_position`). */
+  private _entering = false;
 
   protected readonly _logName = 'Overlay';
 
@@ -130,6 +151,7 @@ export class CardOverlay extends Shell.PopoverShell {
     this._params = params;
     this._card = card;
     this._onClosed = params.closed;
+    this._entering = true;
     this._wantOpen = true;
     this.requestUpdate();
   }
@@ -154,55 +176,90 @@ export class CardOverlay extends Shell.PopoverShell {
   // THE SHELL'S HOOKS
   //---------------------------------------------------------------------------
 
-  /** Sized by its stylesheet, never placed. */
-  protected _position(): void {}
+  /** The frame holding the card, drawn while it is open. */
+  private get _frame(): HTMLElement | null {
+    return this._dialog?.querySelector<HTMLElement>('.frame') ?? null;
+  }
 
   /**
-   * Puts focus on Close, once the card has drawn it; on the card's frame where it has not, so
-   * focus is in the overlay either way.
+   * Sized by its stylesheet, never placed: called once it is open, before it is first drawn, to
+   * play its way in. It grows out of where it was opened from (`OverlayParams.from`), or its
+   * middle, which is where it shrinks back to as it leaves (`_leave`). Nothing plays where the
+   * system asks for less motion, or where the browser cannot animate.
    */
-  protected _focusStart(): void {
-    const card = this._card;
-    if (!card || !this._dialog?.open) return;
-    void card.updateComplete.then(() => {
-      if (this._card !== card || !this._dialog?.open) return;
-      const close = card.shadowRoot?.querySelector<HTMLElement>(`.${CLOSE_BUTTON_CLASS}`);
-      (close ?? this.renderRoot.querySelector<HTMLElement>('.frame'))?.focus({
-        preventScroll: true,
-      });
+  protected _position(): void {
+    if (!this._entering) return;
+    this._entering = false;
+    const frame = this._frame;
+    if (!frame) return;
+    const from = this._params?.from;
+    const box = frame.getBoundingClientRect();
+    frame.style.transformOrigin = from ? `${from.x - box.left}px ${from.y - box.top}px` : 'center';
+    if (typeof frame.animate !== 'function') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    frame.animate([{ transform: `scale(${GROW_FROM})` }, { transform: 'scale(1)' }], {
+      duration: GROW_MS,
+      easing: GROW_EASING,
+    });
+    frame.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: FADE_IN_MS,
+      easing: FADE_IN_EASING,
     });
   }
 
   /**
-   * Fades out and shrinks a little, and its backdrop with it where the browser animates one;
-   * nothing where the system asks for less motion.
+   * Puts focus where it starts: on the overlay itself after a pointer's press, which a browser
+   * would otherwise ring on Close as though a key had moved it there; on Close after a key, once
+   * the card has drawn it, and on the frame where it has not, so focus is in the overlay either
+   * way.
+   */
+  protected _focusStart(): void {
+    const card = this._card;
+    if (!card || !this._dialog?.open) return;
+    if (this._params?.pointer) {
+      this._frame?.focus({ preventScroll: true });
+      return;
+    }
+    void card.updateComplete.then(() => {
+      if (this._card !== card || !this._dialog?.open) return;
+      const close = card.shadowRoot?.querySelector<HTMLElement>(`.${CLOSE_BUTTON_CLASS}`);
+      (close ?? this._frame)?.focus({ preventScroll: true });
+    });
+  }
+
+  /**
+   * Shrinks back toward where it grew out of and fades out, as a popover leaves, and its backdrop
+   * fades with it where the browser animates one. Closed while still opening, it leaves from
+   * where it had got to: played after the way in, the way out overrides it until it ends. Nothing
+   * where the system asks for less motion.
    *
    * @returns The animations, or none
    */
   protected _leave(): Animation[] {
     const dialog = this._dialog;
-    const frame = dialog?.querySelector<HTMLElement>('.frame');
+    const frame = this._frame;
     if (!dialog?.open || !frame || typeof frame.animate !== 'function') return [];
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [];
 
-    const timing: KeyframeAnimationOptions = {
-      duration: LEAVE_MS,
-      easing: 'ease-in',
+    const now = getComputedStyle(frame);
+    const scale = now.transform && now.transform !== 'none' ? now.transform : 'scale(1)';
+    const opacity = now.opacity || '1';
+    const timing = (easing: string): KeyframeAnimationOptions => ({
+      duration: Shell.LEAVE_MS,
+      easing,
       fill: 'forwards',
-    };
+    });
     const animations = [
       frame.animate(
-        [
-          { opacity: 1, transform: 'scale(1)' },
-          { opacity: 0, transform: 'scale(0.97)' },
-        ],
-        timing,
+        [{ transform: scale }, { transform: `scale(${Shell.LEAVE_SCALE})` }],
+        timing(Shell.LEAVE_SHRINK),
       ),
+      frame.animate([{ opacity }, { opacity: 0 }], timing('ease')),
     ];
     try {
       animations.push(
         dialog.animate([{ opacity: 1 }, { opacity: 0 }], {
-          ...timing,
+          ...timing('ease'),
           pseudoElement: '::backdrop',
         }),
       );
@@ -326,17 +383,10 @@ export class CardOverlay extends Shell.PopoverShell {
         --ha-card-border-width: 0;
       }
     }
-    dialog[open] > .frame {
-      animation: overlay-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1);
-    }
+    /* The frame grows in from script (_position), from the press that opened it; the backdrop
+       fades in with it here. */
     dialog[open]::backdrop {
-      animation: backdrop-in 200ms ease;
-    }
-    @keyframes overlay-in {
-      from {
-        opacity: 0;
-        transform: scale(0.97);
-      }
+      animation: backdrop-in ${FADE_IN_MS}ms ease;
     }
     @keyframes backdrop-in {
       from {
@@ -344,7 +394,6 @@ export class CardOverlay extends Shell.PopoverShell {
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      dialog[open] > .frame,
       dialog[open]::backdrop {
         animation: none;
       }

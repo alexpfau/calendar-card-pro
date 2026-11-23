@@ -20,6 +20,7 @@
   "viewMonth": "Mes",
   "layout": "Disposició",
   "layoutCurrent": "Disposició: {view}",
+  "openFullSize": "Obre a mida completa",
   "moreEvents": "+{count} més",
   "eventCount": "{count} esdeveniments",
   "eventCountOne": "{count} esdeveniment",

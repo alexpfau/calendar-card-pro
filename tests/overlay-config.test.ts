@@ -23,14 +23,26 @@ describe('the overlay card’s configuration', () => {
       title: 'Family',
       days_to_show: 7,
       tap_action: { action: 'none' },
+      day_tap_action: { action: 'add-event' },
       toolbar: {
         show: true,
         navigation: true,
         view_switcher: true,
         view_switcher_layouts: ['list', 'column', 'grid', 'month'],
+        overlay: false,
       },
     });
     expect(OVERLAY_DEFAULTS.view).toBe('grid');
+  });
+
+  it('adds an event from a day where the card sets no day tap, and keeps one it sets', () => {
+    expect(overlayConfig(BASE).day_tap_action).toEqual({ action: 'add-event' });
+    expect(overlayConfig({ ...BASE, day_tap_action: { action: 'none' } }).day_tap_action).toEqual({
+      action: 'none',
+    });
+    expect(
+      overlayConfig({ ...BASE, overlay: { day_tap_action: { action: 'none' } } }).day_tap_action,
+    ).toEqual({ action: 'none' });
   });
 
   it('keeps the rest of the card’s toolbar, its own buttons but the one opening the overlay', () => {
@@ -54,6 +66,7 @@ describe('the overlay card’s configuration', () => {
       view_switcher_layouts: ['list', 'column', 'grid', 'month'],
       search: false,
       legend: 'chips',
+      overlay: false,
       buttons: [{ icon: 'mdi:home', tap_action: { action: 'navigate', navigation_path: '/home' } }],
     });
   });
@@ -115,10 +128,12 @@ describe('the overlay card’s configuration', () => {
     const config = overlayConfig({
       ...BASE,
       hold_action: { action: 'overlay' },
-      overlay: { tap_action: { action: 'overlay' } },
+      toolbar: { overlay: true },
+      overlay: { tap_action: { action: 'overlay' }, toolbar: { overlay: true } },
     });
     expect(config.tap_action).toEqual({ action: 'none' });
     expect(config.hold_action).toEqual({ action: 'none' });
+    expect(config.toolbar).toMatchObject({ show: true, overlay: false });
   });
 
   it('changes nothing it is handed', () => {

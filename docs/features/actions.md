@@ -683,12 +683,17 @@ tap_action:
 - **Inside, it works as the card does.** Events open, the Day Panel, search and adding an event
   all work, each closing before the overlay does on Back. `back` closes the overlay, and
   `overlay` does nothing there.
+- **A tap on a day adds an event there,** as
+  [`day_tap_action: add-event`](#tapping-a-day-to-add-an-event) does, and so does
+  [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card sets a
+  `day_tap_action` of its own.
 - **Nothing chosen in it is kept.** A layout picked or a calendar hidden there lasts until it
   closes, and the card it opened from stays as it was.
 - **Its size** is the whole screen on a phone, below 600 pixels wide or 500 tall, and otherwise
   92% of the screen, up to 1600 pixels wide.
 
-A [button of your own](/features/header-toolbar#your-own-buttons) in the toolbar can open it too.
+The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
+opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
 The visual editor offers it as Open Full Size, and the layout it opens in under **Taps &
 Refresh** › Full-Size Overlay; the other options under `overlay` are YAML only. While the card is
 being edited, it opens nothing.

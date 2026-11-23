@@ -944,13 +944,14 @@ describe('the universe', () => {
     // in every workspace. Then Card Height became the whole card's in every layout: Month gained
     // its three controls and lost its wide pair, and every layout that reads the events area's own
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
-    // over their Down To and Below That.
+    // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
+    // and the toolbar's Open Full Size.
     expect(sizes).toEqual({
-      shared: { card: 138, calendar: 30 },
-      list: { card: 165, calendar: 31 },
-      column: { card: 162, calendar: 30 },
-      grid: { card: 161, calendar: 30 },
-      month: { card: 106, calendar: 29 },
+      shared: { card: 139, calendar: 30 },
+      list: { card: 166, calendar: 31 },
+      column: { card: 163, calendar: 30 },
+      grid: { card: 162, calendar: 30 },
+      month: { card: 107, calendar: 29 },
     });
   });
 
@@ -1229,6 +1230,7 @@ describe('the gate table', () => {
           'card:toolbar.reset',
           'card:toolbar.refresh',
           'card:toolbar.search',
+          'card:toolbar.overlay',
           'card:toolbar.navigation',
           'card:toolbar.size',
         ],

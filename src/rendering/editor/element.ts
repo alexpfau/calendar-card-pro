@@ -10639,6 +10639,7 @@ export class CalendarCardProEditor extends LitElement {
             [toolbar.legend !== false, 'toolbar.legend'],
             [toolbar.reset, 'toolbar.controls.reset'],
             [toolbar.refresh, 'toolbar.controls.refresh'],
+            [toolbar.overlay, 'toolbar.controls.overlay'],
           ] as const
         ).flatMap(([on, key]) => (on ? [t(key)] : []))
       : [];

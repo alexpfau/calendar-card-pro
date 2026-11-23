@@ -1803,7 +1803,7 @@ class CalendarCardPro extends LitElement {
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
       reset: () => this._resetFromAction(),
-      overlay: () => this._openOverlay(),
+      overlay: () => this._openOverlay(origin),
       back: (action) => this._goBack(action),
     };
   }
@@ -8553,10 +8553,14 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens the card full size in the overlay (`rendering/overlay.ts`): its configuration with its
    * `overlay:` block on top (`OverlayConfig.overlayConfig`), on the date in view, the calendars
-   * its legend hides hidden there too. Nothing opens while the card is being edited, nor from the
+   * its legend hides hidden there too. It grows out of the press, as a popover does, or out of
+   * the card's middle without one, and starts focus where a press leaves no ring
+   * (`OverlayParams.pointer`). Nothing opens while the card is being edited, nor from the
    * overlay's own card.
+   *
+   * @param origin - Where the press was, and by what; none for one that came from no press
    */
-  private _openOverlay(): void {
+  private _openOverlay(origin?: Feedback.PressOrigin): void {
     if (this._isBeingEdited || this.overlayFrame) {
       Logger.debug('Not opening the overlay while the card is being edited, or from inside one');
       return;
@@ -8569,6 +8573,8 @@ class CalendarCardPro extends LitElement {
       day: this._dateInView(),
       hidden: [...this._activeHiddenCalendars],
       label: this.effectiveTitle?.trim() || (firstId ? this._calendarName(firstId) : ''),
+      from: origin ?? originOf(this),
+      pointer: origin?.pointerType !== undefined,
     };
     const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
     (showDialog as Event & { detail?: unknown }).detail = {
@@ -9455,9 +9461,10 @@ class CalendarCardPro extends LitElement {
    * The control standing in for the card's tap while it hosts controls (`Render.TapControl`).
    *
    * Named as a button of the card's own that runs the same action is named, Home Assistant's
-   * word for it: Refresh, Reset, Back, Add event. Every other action is named after the card,
-   * its title or else its first calendar, as Home Assistant's own cards name what a tap opens;
-   * `expand` adds whether the card is expanded, where it has events to fold.
+   * word for it: Refresh, Reset, Back, Add event, or the card's own Open full size. Every other
+   * action is named after the card, its title or else its first calendar, as Home Assistant's own
+   * cards name what a tap opens; `expand` adds whether the card is expanded, where it has events
+   * to fold.
    *
    * @returns The control; the renderer draws it only while the card hosts controls
    */
@@ -9497,6 +9504,7 @@ class CalendarCardPro extends LitElement {
       reset: this._resetButton(),
       refresh: this._refreshButton(),
       search: this._searchButton(),
+      overlay: this._overlayButton(),
       close: this._closeButton(),
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
@@ -9567,6 +9575,7 @@ class CalendarCardPro extends LitElement {
       controls.reset,
       controls.refresh,
       controls.search,
+      controls.overlay,
       Toolbar.closeInActionRow(controls) ? controls.close : undefined,
     ]);
     return (
@@ -9595,6 +9604,7 @@ class CalendarCardPro extends LitElement {
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
       controls.search ? 'search' : '',
+      controls.overlay ? 'overlay' : '',
       controls.close ? 'close' : '',
       controls.legend?.folded ? 'filter' : '',
       `buttons:${controls.customButtons?.length ?? 0}`,
@@ -9666,6 +9676,7 @@ class CalendarCardPro extends LitElement {
       toolbar.search !== undefined ||
       toolbar.addEvent !== undefined ||
       toolbar.customButtons !== undefined ||
+      toolbar.overlay !== undefined ||
       toolbar.close !== undefined ||
       drawsEventTarget
     );
@@ -9738,6 +9749,31 @@ class CalendarCardPro extends LitElement {
       return AddEvent.newEventDate(this._monthOwnDay(this._pageShown, now), 1, now);
     }
     return AddEvent.newEventDate(range.start, range.days);
+  }
+
+  /**
+   * The button opening the card full size (`toolbar.overlay`), when the configuration asks for it,
+   * never on the overlay's own card, where Close stands in its place. Named by the card's own
+   * words, since Home Assistant has none for it. While the card is being edited it is drawn and a
+   * press does nothing, as for every toolbar control.
+   *
+   * @returns Button description for the wrapper, or undefined for none
+   */
+  private _overlayButton(): Toolbar.OverlayButton | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.overlay || this.overlayFrame) return undefined;
+    return {
+      label: Localize.getTranslations(this.effectiveLanguage).openFullSize,
+      onActivate: (button, pressed) => {
+        if (this._isBeingEdited) {
+          Logger.debug('Not opening the overlay while the card is being edited');
+          return;
+        }
+        if (pressed) this._releasePressFocus();
+        const at = originOf(button);
+        this._openOverlay(at && { ...at, ...(pressed && { pointerType: pressed.pointerType }) });
+      },
+    };
   }
 
   /**
@@ -10065,6 +10101,12 @@ class CalendarCardPro extends LitElement {
    * Only ever reads layout that exists: a row with no height (the card hidden, or not yet laid
    * out) writes nothing. Both boxes are read in the viewport's coordinates, so a card scrolled
    * above the viewport, whose boxes read negative, measures the same height as one in view.
+   *
+   * Written in the card's own pixels, which the viewport's are not where an ancestor scales the
+   * card: the overlay grows from a tenth of its size as it opens, and its card is first measured
+   * then, when a height read in the viewport's pixels came out a tenth of the true one and stayed.
+   * `offsetWidth` is whole pixels, so a row within a pixel of it is not scaled, as `title-fit.ts`
+   * reads a row.
    */
   private _syncHeadingMiddle(): void {
     const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-heading');
@@ -10073,9 +10115,11 @@ class CalendarCardPro extends LitElement {
     const rowBox = row.getBoundingClientRect();
     if (rowBox.height <= 0) return;
     const cap = marker.getBoundingClientRect();
+    const scale =
+      Math.abs(rowBox.width - row.offsetWidth) < 1 ? 1 : rowBox.width / row.offsetWidth || 1;
 
-    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0);
-    const value = `${Math.max(0, foot - (cap.top + cap.bottom) / 2).toFixed(2)}px`;
+    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0) * scale;
+    const value = `${Math.max(0, (foot - (cap.top + cap.bottom) / 2) / scale).toFixed(2)}px`;
     if (row.style.getPropertyValue('--calendar-card-heading-middle') !== value) {
       row.style.setProperty('--calendar-card-heading-middle', value);
     }
@@ -11054,10 +11098,10 @@ class CalendarCardPro extends LitElement {
    * A toolbar button's names: its accessible name, which a folded menu also shows as the row's
    * words, and its tooltip.
    *
-   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event` or `reset`
-   * is named as the card's own button for it is, `back` as Home Assistant's own arrow: by Home
-   * Assistant's word, which is its tooltip too, or in English for assistive technology alone
-   * where Home Assistant has none (`_commandName`). Anything else is named by its icon's words
+   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event`, `reset` or
+   * `overlay` is named as the card's own button for it is, `back` as Home Assistant's own arrow:
+   * by Home Assistant's word, which is its tooltip too, or in English for assistive technology
+   * alone where Home Assistant has none, and `overlay` by the card's own words (`_commandName`). Anything else is named by its icon's words
    * (`iconWords`), for assistive technology alone, which is why the editor asks for a name.
    *
    * @param button - The button, as configured
@@ -11085,7 +11129,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The name a command's own button goes by, for a button of the configuration's own that runs
    * it: Home Assistant's word, resolved exactly as that button resolves it, and the English
-   * name the button falls back on.
+   * name the button falls back on; for `overlay`, which Home Assistant has no word for, the
+   * card's own words in its language.
    *
    * @param action - The action a button runs
    * @returns The names, or undefined for an action no button of the card's own runs
@@ -11111,6 +11156,10 @@ class CalendarCardPro extends LitElement {
           word: this._haString('ui.common.reset'),
           fallback: Toolbar.UNLOCALIZED_RESET_NAME,
         };
+      case Constants.OVERLAY_ACTION: {
+        const word = Localize.getTranslations(this.effectiveLanguage).openFullSize;
+        return { word, fallback: word };
+      }
       default:
         return undefined;
     }
@@ -11165,6 +11214,7 @@ class CalendarCardPro extends LitElement {
     if (controls.reset) end.push('reset');
     if (controls.refresh) end.push('refresh');
     if (controls.search) end.push('search');
+    if (controls.overlay) end.push('overlay');
     if (Toolbar.closeInActionRow(controls)) end.push('close');
     return {
       start: Toolbar.startControls(controls),

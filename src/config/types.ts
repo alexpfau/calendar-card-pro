@@ -1145,6 +1145,11 @@ export interface ToolbarConfig {
    */
   search?: boolean;
   /**
+   * A button that opens the card full size in the overlay, as the `overlay` action does, last in
+   * the action row, after search: where the overlay's own toolbar draws Close. Off by default.
+   */
+  overlay?: boolean;
+  /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
    * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
@@ -1879,6 +1884,12 @@ export interface Translations {
    * "Layout: {view}", "Layout: Month".
    */
   layoutCurrent: string;
+  /**
+   * The name and tooltip of the toolbar's button that opens the card full size
+   * (`toolbar.overlay`), and of a button of the configuration's own that does with no name of its
+   * own: "Open full size".
+   */
+  openFullSize: string;
   /**
    * What a month day says in its last line about the events it has no room for, with `{count}`
    * where their number goes: "+{count} more", "+2 more".

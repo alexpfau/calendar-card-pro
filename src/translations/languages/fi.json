@@ -33,6 +33,7 @@
   "viewMonth": "Kuukausi",
   "layout": "Asettelu",
   "layoutCurrent": "Asettelu: {view}",
+  "openFullSize": "Avaa täysikokoisena",
   "moreEvents": "+{count} lisää",
   "eventCount": "{count} tapahtumaa",
   "eventCountOne": "{count} tapahtuma",

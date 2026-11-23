@@ -44,9 +44,10 @@ export type StartControl =
 
 /**
  * One control of the action row's end group. `search` is the slot for a search control at its
- * end, counted wherever the card draws one; `close` is the overlay's Close, after it.
+ * end, counted wherever the card draws one; `overlay` opens the card full size, after it, and
+ * `close` is the overlay's Close in the same place.
  */
-export type EndControl = 'reset' | 'refresh' | 'search' | 'close';
+export type EndControl = 'reset' | 'refresh' | 'search' | 'overlay' | 'close';
 
 /** What the action row holds, as the plan reckons with it. */
 export interface ActionRow {

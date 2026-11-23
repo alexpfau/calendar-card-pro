@@ -286,6 +286,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.reset', CONTROL],
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
+          ['card:toolbar.overlay', CONTROL],
           ['card:toolbar.navigation', CONTROL],
           // View Switcher's qualifier line, drawn under the chips while it is pressed.
           ['card:toolbar.view_switcher_layouts', { qualifies: 'card:toolbar.view_switcher' }],

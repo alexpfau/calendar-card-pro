@@ -61,9 +61,9 @@ const EAR_INSET = 32;
  * Calendar on macOS: it shrinks toward its arrow to about a sixth of its size, slow at both
  * ends, and fades out a little ahead of it, over 180 ms. The opening half is in the stylesheet.
  */
-const LEAVE_MS = 180;
-const LEAVE_SCALE = 0.15;
-const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
+export const LEAVE_MS = 180;
+export const LEAVE_SCALE = 0.15;
+export const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
 
 /** The height a panel is placed for before it has been drawn and can be measured. */
 const UNMEASURED_HEIGHT = 420;

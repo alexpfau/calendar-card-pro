@@ -24,5 +24,6 @@ export const CHIP_LABELS: Readonly<Record<string, string>> = {
   'card:toolbar.reset': 'toolbar.controls.reset',
   'card:toolbar.refresh': 'toolbar.controls.refresh',
   'card:toolbar.search': 'toolbar.controls.search',
+  'card:toolbar.overlay': 'toolbar.controls.overlay',
   'card:toolbar.navigation': 'toolbar.navigation',
 };

@@ -34,6 +34,7 @@ import {
   mdiChevronRight,
   mdiClose,
   mdiDotsVertical,
+  mdiFullscreen,
   mdiHome,
   mdiHomeOutline,
   mdiMagnify,
@@ -137,6 +138,17 @@ export interface SearchButton {
   /**
    * Runs on activation, handed the button, and for a pointer's press where it was and the kind
    * of pointer (`mouse`, `touch`, `pen`); undefined for a key.
+   */
+  onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
+}
+
+/** What the card hands the wrapper when it should draw the button that opens it full size. */
+export interface OverlayButton {
+  /** The card's own words for it: "Open full size". */
+  label: string;
+  /**
+   * Runs on activation, handed the button, and for a pointer's press where it was and the kind
+   * of pointer; undefined for a key.
    */
   onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
 }
@@ -288,6 +300,8 @@ export interface HeaderToolbar {
   refresh?: RefreshButton;
   /** The search button, last in the action row, after refresh. */
   search?: SearchButton;
+  /** The button opening the card full size, after search, where the overlay draws Close. */
+  overlay?: OverlayButton;
   /**
    * In an overlay, the button closing it: last in the action row, after search, or at the end of
    * the heading row where the action row would hold nothing else (`closeInActionRow`).
@@ -868,6 +882,35 @@ function renderSearchButton(button: SearchButton): TemplateResult {
 }
 
 /**
+ * Render the button that opens the card full size: corner brackets, the usual sign for showing
+ * something on the whole screen, last in the action row, where the overlay's own toolbar draws
+ * Close. Named by the card's own words, which are its tooltip too: Home Assistant has none for it.
+ *
+ * @param button - Button description from the card
+ * @returns The button
+ */
+function renderOverlayButton(button: OverlayButton): TemplateResult {
+  const onClick = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    button.onActivate(ev.currentTarget as HTMLElement, pressOf(ev));
+  };
+
+  return html`<button
+    type="button"
+    class="toolbar-button overlay-button"
+    aria-haspopup="dialog"
+    aria-label=${button.label}
+    title=${button.label}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiFullscreen}></path>
+    </svg>
+  </button>`;
+}
+
+/**
  * Render the close button: a cross, last in the action row, or at the end of the heading row where
  * it would stand there alone, in the overlay alone. A command like every other, the same pill and
  * icon, tinted with the theme's error color so it reads apart from them. Named as the add button
@@ -1423,7 +1466,8 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
     toolbar.viewSwitcher ||
     toolbar.reset ||
     toolbar.refresh ||
-    toolbar.search,
+    toolbar.search ||
+    toolbar.overlay,
   );
 }
 
@@ -1440,7 +1484,8 @@ export function closeInActionRow(toolbar: HeaderToolbar): boolean {
 
 /**
  * Render the action row: a folded filter, add and the configuration's own buttons at its start,
- * the view switcher in its middle, reset, refresh, search and, in an overlay, Close at its end.
+ * the view switcher in its middle, reset, refresh, search, Open Full Size and, in an overlay, Close
+ * at its end.
  *
  * The start and the end are groups of their own, there even when empty, so the stylesheet
  * can share the room left beside the switcher out equally between them and the switcher sits
@@ -1465,6 +1510,7 @@ function renderActionRow(
     !toolbar.viewSwitcher &&
     !toolbar.refresh &&
     !toolbar.search &&
+    !toolbar.overlay &&
     !toolbar.close;
 
   return html`<div class="card-toolbar toolbar-actions">
@@ -1474,6 +1520,7 @@ function renderActionRow(
       ${toolbar.reset ? renderResetButton(toolbar.reset, resetAlone) : nothing}
       ${toolbar.refresh ? renderRefreshButton(toolbar.refresh) : nothing}
       ${toolbar.search ? renderSearchButton(toolbar.search) : nothing}
+      ${toolbar.overlay ? renderOverlayButton(toolbar.overlay) : nothing}
       ${toolbar.close ? renderCloseButton(toolbar.close) : nothing}
     </div>
   </div>`;
@@ -1545,6 +1592,7 @@ export function drawsToolbar(toolbar: HeaderToolbar): boolean {
     toolbar.reset ||
     toolbar.refresh ||
     toolbar.search ||
+    toolbar.overlay ||
     toolbar.legend ||
     toolbar.close,
   );

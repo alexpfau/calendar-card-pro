@@ -12,6 +12,7 @@
   "viewMonth": "Ay",
   "layout": "Düzen",
   "layoutCurrent": "Düzen: {view}",
+  "openFullSize": "Tam boyutta aç",
   "moreEvents": "+{count} daha",
   "eventCount": "{count} etkinlik",
   "eventCountOne": "{count} etkinlik",

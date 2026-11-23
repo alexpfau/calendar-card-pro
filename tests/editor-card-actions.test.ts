@@ -457,8 +457,9 @@ describe('the event tap action in the editor', () => {
     // Off, the switch is the toolbar's only field, and its form holds its value alone.
     expect(valueOf(element, 'card:toolbar')).toEqual({ show: false });
 
-    // Every control but reset arrives switched on, as the card reads them, search included
-    // (backlog item 182), the filter as a menu, and nothing but the switch is written.
+    // Every control but reset and Open Full Size arrives switched on, as the card reads them,
+    // search included (backlog item 182), the filter as a menu, and nothing but the switch is
+    // written.
     await changeField(element, 'card:toolbar.show', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(cardIds()).toEqual(
@@ -470,6 +471,7 @@ describe('the event tap action in the editor', () => {
           'reset',
           'refresh',
           'search',
+          'overlay',
           'add_event',
           'legend',
         ].map((name) => `card:toolbar.${name}`),
@@ -483,6 +485,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       search: true,
+      overlay: false,
       legend: 'menu',
       // View Switcher is on, so its qualifier line is drawn, offering every layout.
       view_switcher_layouts: ['list', 'column', 'grid', 'month'],

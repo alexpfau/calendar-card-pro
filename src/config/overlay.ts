@@ -15,6 +15,15 @@ import { VIEWS } from './views';
 import * as Helpers from '../utils/helpers';
 
 /**
+ * What the overlay assumes where the card says nothing: a tap or a drag on a day adds an event
+ * there, so its Grid draws one, as `day_tap_action: add-event` does. A card that sets a
+ * `day_tap_action` of its own keeps it, and so does the `overlay:` block.
+ */
+export const OVERLAY_ASSUMES: Readonly<Record<string, unknown>> = {
+  day_tap_action: { action: Constants.ADD_EVENT_ACTION },
+};
+
+/**
  * What the overlay changes in the card's configuration before its own `overlay:` block: Grid,
  * with the toolbar's date navigation and a switcher offering every layout, so Month is a press
  * away. The rest of the toolbar the card asks for comes along.
@@ -93,7 +102,8 @@ function opensOverlay(action: unknown): boolean {
 
 /**
  * Takes the overlay action out of a configuration, so the overlay's card never opens another:
- * a tap or a hold that would becomes `none`, and a toolbar button that would is left out.
+ * a tap or a hold that would becomes `none`, and a toolbar button that would is left out, the
+ * built-in one (`toolbar.overlay`) with the configuration's own. Close takes its place.
  *
  * @param config - A merged overlay configuration; changed in place
  */
@@ -102,20 +112,23 @@ function withoutOverlayAction(config: Record<string, unknown>): void {
     if (opensOverlay(config[key])) config[key] = { action: 'none' };
   }
   const toolbar = config.toolbar;
-  if (Helpers.isConfigBlock(toolbar) && Array.isArray(toolbar.buttons)) {
-    config.toolbar = {
-      ...toolbar,
+  if (!Helpers.isConfigBlock(toolbar)) return;
+  config.toolbar = {
+    ...toolbar,
+    overlay: false,
+    ...(Array.isArray(toolbar.buttons) && {
       buttons: toolbar.buttons.filter(
         (button) => !(Helpers.isConfigBlock(button) && opensOverlay(button.tap_action)),
       ),
-    };
-  }
+    }),
+  };
 }
 
 /**
- * The configuration the overlay's card is given: the card's own, without its `overlay:` block,
- * Home Assistant's own keys (`HA_CARD_KEYS`), its size and its compact limits; then the overlay's
- * defaults (`OVERLAY_DEFAULTS`); then its `overlay:` block, which may set any option, size aside.
+ * The configuration the overlay's card is given: what it assumes where the card says nothing
+ * (`OVERLAY_ASSUMES`); the card's own, without its `overlay:` block, Home Assistant's own keys
+ * (`HA_CARD_KEYS`), its size and its compact limits; then the overlay's defaults
+ * (`OVERLAY_DEFAULTS`); then its `overlay:` block, which may set any option, size aside.
  * Blocks merge option by option, as `setConfig` merges a card's over the defaults, so
  * `overlay: { toolbar: { search: false } }` keeps the rest of the toolbar. The overlay action is
  * taken out last, wherever it was written.
@@ -129,7 +142,10 @@ export function overlayConfig(raw: Readonly<Record<string, unknown>>): Record<st
   for (const key of Constants.HA_CARD_KEYS) delete base[key];
 
   const own = Helpers.isConfigBlock(raw.overlay) ? withoutOptions(raw.overlay, SIZE_OPTIONS) : {};
-  const merged = Config.mergeConfig(Config.mergeConfig(base, OVERLAY_DEFAULTS), own);
+  const merged = Config.mergeConfig(
+    Config.mergeConfig(Config.mergeConfig(OVERLAY_ASSUMES, base), OVERLAY_DEFAULTS),
+    own,
+  );
   delete merged.overlay;
   withoutOverlayAction(merged);
   return merged;
