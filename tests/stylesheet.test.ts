@@ -4174,6 +4174,11 @@ describe('the time beside the title', () => {
     }),
     [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
     [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
+    // A folded countdown's words, which move to the next line whole, on the time's baseline.
+    [`${SHARED} .time-text > .time-countdown > .time-countdown-words`]: one({
+      display: 'inline-block',
+      'vertical-align': 'baseline',
+    }),
     // The countdown alone, with times off.
     [`${TIME} > .time-countdown`]: one({
       'margin-inline': '0',
