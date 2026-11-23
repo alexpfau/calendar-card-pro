@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(266_000);
-    // Pinning the date rows of every layout moved the ceiling last, from 260,000 to 266,000
+    expect(saved).toBeLessThan(268_000);
+    // Picture labels at a size of their own moved the ceiling last, from 266,000 to 268,000
+    // (backlog items 285 and 286): the notes on a picture's hanging indent following its height, on
+    // an emoji beside a picture taking the wider of the two, and on the wide month's lines keeping
+    // their pictures at the text's height. The reading went to 266,008, taken with stripComments
+    // after the last comment was written.
+    //
+    // Pinning the date rows of every layout moved the ceiling before that, from 260,000 to 266,000
     // (backlog item 402): the notes on Grid's head and band as two boxes, the band's spanning the
     // head's rows so it needs no offset, which pins when; on a column header's ground and wash as
     // layers of their own, and why its columns stretch; and on the wide month's weekday names and
