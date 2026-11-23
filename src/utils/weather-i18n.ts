@@ -5,6 +5,7 @@
  */
 
 import * as Logger from './logger';
+import { pageRetryDelay } from './page-backoff';
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 
@@ -100,6 +101,14 @@ const conditionsByLanguage = new Map<string, Record<string, string>>();
  */
 const inFlight = new Map<string, Array<() => void>>();
 
+/**
+ * Languages whose last request failed: how many times in a row, and when the next may go. A card
+ * asks on every update, so without this a language Home Assistant refuses, or answers without
+ * words, was asked for again at the update rate. Nothing schedules the retry: the first update
+ * after the wait makes it.
+ */
+const failedLanguages = new Map<string, { failures: number; retryAt: number }>();
+
 const reportedFailures = new Set<string>();
 
 /**
@@ -179,7 +188,8 @@ function extractConditions(
 }
 
 /**
- * Fetch the condition vocabulary for the card's language, once
+ * Fetch the condition vocabulary for the card's language, once, and after a failure again only
+ * once its wait is over (`failedLanguages`)
  *
  * @param hass Home Assistant instance, if one is available
  * @param configLanguage The card's configured `language`, if any
@@ -206,6 +216,11 @@ export function ensureConditionTranslations(
     return;
   }
 
+  const failed = failedLanguages.get(haLanguage);
+  if (failed && Date.now() < failed.retryAt) {
+    return;
+  }
+
   const request = sendCommand<Types.TranslationsResponse>(hass, {
     type: 'frontend/get_translations',
     language: haLanguage,
@@ -221,15 +236,22 @@ export function ensureConditionTranslations(
   const waiters: Array<() => void> = [onLoaded];
   inFlight.set(haLanguage, waiters);
 
+  const fail = (reason: string): void => {
+    const failures = (failedLanguages.get(haLanguage)?.failures ?? 0) + 1;
+    failedLanguages.set(haLanguage, { failures, retryAt: Date.now() + pageRetryDelay(failures) });
+    reportFailure(haLanguage, reason);
+  };
+
   request
     .then((response) => {
       const conditions = extractConditions(response);
 
       if (Object.keys(conditions).length === 0) {
-        reportFailure(haLanguage, 'Home Assistant returned no condition strings');
+        fail('Home Assistant returned no condition strings');
         return;
       }
 
+      failedLanguages.delete(haLanguage);
       conditionsByLanguage.set(haLanguage, conditions);
       reportIncompletePayload(haLanguage, conditions);
       Logger.debug(`Loaded ${Object.keys(conditions).length} weather conditions in ${haLanguage}`);
@@ -239,7 +261,7 @@ export function ensureConditionTranslations(
       }
     })
     .catch((error) => {
-      reportFailure(haLanguage, String(error));
+      fail(String(error));
     })
     .finally(() => {
       inFlight.delete(haLanguage);
@@ -285,6 +307,7 @@ export function knownConditions(): string[] {
 export function resetConditionTranslations(): void {
   conditionsByLanguage.clear();
   inFlight.clear();
+  failedLanguages.clear();
   reportedFailures.clear();
   reportedMisses.clear();
 }

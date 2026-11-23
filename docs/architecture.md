@@ -161,6 +161,7 @@ src/
     ├── paging.ts                 # Paging through dates: page length, home, the range's name
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── entity-colors.ts          # Calendar colors from HA's entity registry, over WebSocket
+    ├── page-backoff.ts           # How long a failed page-wide read waits to be tried again
     ├── entity-icons.ts           # Calendar icons from entity state, for `label: home-assistant`
     ├── person-pictures.ts        # Person pictures from entity state, for `label: person.*`
     ├── calendar-names.ts         # A calendar's name: `name`, HA's, or its id
