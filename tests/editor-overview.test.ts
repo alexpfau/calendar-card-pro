@@ -56,12 +56,12 @@ describe('Layouts and the preview', () => {
     toolbar: { show: true, view_switcher: true, view_switcher_layouts: ['list', 'grid', 'month'] },
   };
 
-  it('draws Calendars, Whole Card, Layouts and More, and no Settings For', async () => {
+  it('draws Calendars, Whole Card, Layouts, Full Size and More, and no Settings For', async () => {
     const editor = await mountEditor(THREE);
     const blocks = [
       ...editor.shadowRoot!.querySelectorAll('.overview > [data-heading], .overview > .row-group'),
     ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
-    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
+    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'Full Size', 'More']);
     expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
     // Whole Card's rows: its three pages, each saying what it holds.
     const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
@@ -705,11 +705,14 @@ describe('section row descriptions', () => {
       list: { show_past_events: true },
     });
     expect(rows(busy)).toEqual(rows(plain));
+    // Full Size's row is the one exception: it names what the card opens full size with
+    // (`tests/editor-full-size.test.ts`), here what a card with no `overlay:` opens with.
     expect(rows(plain)).toEqual([
       ['nav:card_header', 'Title, colors and toolbar controls'],
       ['nav:events_weather_language', 'Start date, week start and time format'],
       ['nav:taps_refresh', 'Tap and hold actions, editing and refresh'],
       ['layout:shared', 'What a layout uses where it has no value of its own'],
+      ['nav:full_size', 'Grid · 7 days'],
       ['more:audit', 'What is set, grouped by where it lives'],
       ['more:example', 'Quick Setup: an example card and a few questions'],
     ]);

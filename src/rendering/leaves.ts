@@ -907,8 +907,8 @@ function hasEventWeather(config: Types.Config, event: Types.CalendarEventData): 
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
  * @param placement Where the badge is being placed. `'title'` is the list view's inline
- *   badge inside the summary row; `'row'` is column view's dedicated line, which always
- *   shows the icon and localizes the condition text.
+ *   badge inside the summary row; `'row'` is the line of its own Columns and Grid draw, and List
+ *   with `weather.event.own_line`, which always shows the icon and localizes the condition text.
  * @param hass Home Assistant instance, used only to localize the condition text
  * @returns Rendered badge, or an empty template when there is nothing to show
  */
@@ -1146,7 +1146,8 @@ export interface EventContentOptions {
   weatherForecasts?: Types.WeatherForecasts;
   /**
    * Where the event weather badge goes. `'title'` uses the summary row; `'row'`
-   * gives the badge its own row beneath the time.
+   * gives the badge its own row beneath the time, as Columns and Grid always do and List does
+   * with `weather.event.own_line`.
    */
   weatherPlacement?: 'title' | 'row';
   /**

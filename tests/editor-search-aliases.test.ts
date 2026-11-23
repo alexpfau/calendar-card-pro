@@ -135,6 +135,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'page',
     queries: ['Actions & Refresh'],
   },
+  // The YAML's own word for what the editor calls Full Size, and what people call it elsewhere.
+  'page.full_size.aliases': {
+    field: 'full_size',
+    scope: 'page',
+    queries: ['overlay', 'fullscreen', 'expand'],
+  },
   // Starting Layout's name before v6.
   'view.aliases': { field: 'starting_layout', scope: 'overview', queries: ['card displays'] },
   // The control's own name, which the label of the setting that qualifies it inflects. English

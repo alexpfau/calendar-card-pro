@@ -707,9 +707,10 @@ tap_action:
 
 The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
 opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
-The visual editor offers it as Open Full Size, and the layout it opens in under **Taps &
-Refresh** › Full-Size Overlay; the other options under `overlay` are YAML only. While the card is
-being edited, it opens nothing.
+The visual editor offers it as Open Full Size, and what it opens with under
+[**Full Size**](/features/editor#full-size) on its overview: the layout, the days and the toolbar,
+and whatever else `overlay` holds, each line with Remove. While the card is being edited, it opens
+nothing.
 
 ::: details If the Overlay Looks Different From the Card
 The overlay is drawn over the whole of Home Assistant, as the event popover is, so a theme set on
@@ -768,11 +769,14 @@ event_tap_action:
 
 Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show. Without `event_tap_action: none`, a tap on an event opens it and the card expands from its title, a day's date and the space between events; [`event_hold_action: details`](#holding-an-event) still opens an event on a hold.
 
+A compact card can also keep a height of its own, `compact_card_height`, and grow to the card's own height once expanded, with or without an event limit; see [Compact & Expanded Heights](/features/list-view#compact-expanded-heights).
+
 ::: warning List View Only
 The whole compact family is inert while the card is rendering as column or grid —
 `compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
-`compact_events_complete_days`, and the `expand` action that drives them. Wherever nothing
-can fold, in any layout but List or in a List without compact limits, `expand` counts as no
+`compact_events_complete_days`, the two compact heights, and the `expand` action that drives
+them. Wherever nothing can fold, in any layout but List or in a List without compact limits or
+a compact height of its own, `expand` counts as no
 action: no pointer cursor, ripple, hold circle or Tab stop, as with `add-event`, `reset`,
 `overlay` and `back` where they cannot run. A column or grid card that falls back to a list on a narrow screen
 still expands.

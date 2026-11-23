@@ -327,6 +327,120 @@ describe('the card draws each layout’s weather', () => {
   });
 });
 
+//-----------------------------------------------------------------------------
+// LIST'S EVENT FORECAST LINE
+//-----------------------------------------------------------------------------
+
+describe('List’s event forecast on a line of its own', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-17T10:00:00Z'));
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+  });
+
+  afterEach(() => {
+    document.body.replaceChildren();
+    globalThis.ResizeObserver = originalResizeObserver;
+    vi.useRealTimers();
+  });
+
+  const BLOCK: Record<Types.EffectiveView, string> = {
+    list: 'list',
+    column: 'column',
+    grid: 'time_grid',
+    month: 'month',
+  };
+
+  /** The card's markup in a layout, Lit's markers aside, which differ from one render to the next. */
+  async function markup(view: Types.EffectiveView, weather: Record<string, unknown>) {
+    const { card } = await mount(
+      { view, weather_entity: ENTITY, [BLOCK[view]]: { weather } },
+      view === 'month' ? 375 : 1200,
+    );
+    expect(card.effectiveView).toBe(view);
+    const html = card.shadowRoot!.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
+    document.body.replaceChildren();
+    return html;
+  }
+
+  it('changes what a layout draws exactly where WEATHER_OPTION_SCOPE says it reads the option', async () => {
+    const cases: Array<{ path: string; weather: Record<string, unknown> }> = [
+      { path: 'event.own_line', weather: { position: 'both' } },
+    ];
+    const verdicts: string[] = [];
+    for (const { path, weather } of cases) {
+      const [part, option] = path.split('.');
+      for (const view of VIEWS) {
+        const off = await markup(view, weather);
+        const on = await markup(view, {
+          ...weather,
+          [part]: { ...(weather[part] as object | undefined), [option]: true },
+        });
+        // Something to change: the forecast is drawn there either way.
+        expect(off, `${path} ${view}`).toContain('weather');
+        verdicts.push(`${path} ${view} ${on === off ? 'same' : 'changed'}`);
+      }
+    }
+    expect(verdicts).toEqual(
+      cases.flatMap(({ path }) =>
+        VIEWS.map(
+          (view) =>
+            `${path} ${view} ${ViewConfig.readsWeatherOption(path, view) ? 'changed' : 'same'}`,
+        ),
+      ),
+    );
+    expect(Object.keys(ViewConfig.WEATHER_OPTION_SCOPE).sort()).toEqual(
+      cases.map(({ path }) => path).sort(),
+    );
+  });
+
+  it('puts an event’s forecast under its time, icon always, and its words with conditions on', async () => {
+    const own = async (event: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+      const { card } = await mount({
+        weather_entity: ENTITY,
+        ...extra,
+        list: { weather: { position: 'event', event: { own_line: true, ...event } } },
+      });
+      card.hass = {
+        ...card.hass,
+        formatEntityState: (_state: unknown, condition: string) =>
+          condition.charAt(0).toUpperCase() + condition.slice(1),
+      } as unknown as Types.Hass;
+      (card as unknown as { requestUpdate(): void }).requestUpdate();
+      await card.updateComplete;
+      return card.shadowRoot!;
+    };
+
+    const words = await own({ show_conditions: true });
+    expect(words.querySelectorAll('.summary-row .event-weather')).toHaveLength(0);
+    const rows = [...words.querySelectorAll('.time-location .event-weather')];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.querySelector('ha-icon')).not.toBeNull();
+    // An hour's forecast for the timed events, the day's for the all-day one.
+    expect(rows.map((row) => row.querySelector('.weather-condition')?.textContent)).toEqual([
+      'Rainy',
+      'Rainy',
+      'Sunny',
+    ]);
+    document.body.replaceChildren();
+
+    // Conditions off keeps the icon, as Columns and Grid do, and drops the words.
+    const icon = await own({ show_conditions: false });
+    const iconRows = [...icon.querySelectorAll('.time-location .event-weather')];
+    expect(iconRows.length).toBeGreaterThan(0);
+    for (const row of iconRows) {
+      expect(row.querySelector('ha-icon')).not.toBeNull();
+      expect(row.querySelector('.weather-condition')).toBeNull();
+    }
+    document.body.replaceChildren();
+
+    // Beside a title that holds the time, the forecast still takes the line under it.
+    const beside = await own({}, { time_position: 'title' });
+    expect(beside.querySelectorAll('.title-aside .event-weather')).toHaveLength(0);
+    expect(beside.querySelectorAll('.time-location .event-weather').length).toBeGreaterThan(0);
+  });
+});
+
 describe('forecast subscriptions follow the views the card can show', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });

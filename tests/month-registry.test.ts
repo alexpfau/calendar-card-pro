@@ -156,6 +156,8 @@ describe('the options month reads', () => {
       .sort();
     expect(ignored).toEqual(
       [
+        'compact_card_height',
+        'compact_card_max_height',
         'compact_days_to_show',
         'compact_events_complete_days',
         'compact_events_to_show',

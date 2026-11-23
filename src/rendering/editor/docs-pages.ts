@@ -24,6 +24,7 @@ export const PAGE_DOCS: Readonly<Record<DocsPage, string>> = {
   size_spacing: '/features/layout-appearance#spacing-alignment',
   weather: '/features/weather',
   taps_refresh: '/features/actions',
+  full_size: '/features/actions#opening-the-card-full-size',
   entry: '/features/core-settings#entity-configuration',
   audit: '/features/editor#stored-settings',
   notices: '/features/editor#options-the-card-ignores',
