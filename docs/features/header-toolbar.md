@@ -666,7 +666,7 @@ toolbar:
 - In the full-size card, Close takes the button's place.
 - Its tooltip, and what screen readers announce, is "Open full size", in the card's language.
 - In the [visual editor](/features/editor) it is **Open Full Size** among the toolbar's controls,
-  and the layout it opens in is under **Taps & Refresh** › **Full-Size Overlay**.
+  and what it opens with is under [**Full Size**](/features/editor#full-size) on the overview.
 
 ::: tip Nothing Opens While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the button is drawn and does

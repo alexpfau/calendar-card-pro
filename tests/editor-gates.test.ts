@@ -958,14 +958,15 @@ describe('the universe', () => {
     // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
     // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
     // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
-    // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then a calendar gained
-    // Image Size, in every workspace.
+    // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
+    // gained Open Full Size's Days To Show and Show Toolbar. Then a calendar gained Image Size, in
+    // every workspace.
     expect(sizes).toEqual({
-      shared: { card: 139, calendar: 31 },
-      list: { card: 169, calendar: 32 },
-      column: { card: 163, calendar: 31 },
-      grid: { card: 162, calendar: 31 },
-      month: { card: 109, calendar: 30 },
+      shared: { card: 141, calendar: 31 },
+      list: { card: 171, calendar: 32 },
+      column: { card: 165, calendar: 31 },
+      grid: { card: 164, calendar: 31 },
+      month: { card: 111, calendar: 30 },
     });
   });
 

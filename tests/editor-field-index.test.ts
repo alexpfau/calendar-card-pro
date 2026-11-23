@@ -284,8 +284,8 @@ describe('field ids', () => {
     // After and Starts Before. Then the events area's own height pair and When Too Narrow,
     // Full-Size Overlay's Layout, and the toolbar's Open Full Size. Then Month's First Week and
     // Weeks Shown. Then List's On a Line of Its Own, and its Compact Height and Compact Maximum
-    // Height. Then a calendar's Image Size.
-    expect(EVERY_FIELD.size).toBe(247);
+    // Height. Then Open Full Size's Days To Show and Show Toolbar. Then a calendar's Image Size.
+    expect(EVERY_FIELD.size).toBe(249);
   });
 
   it('do not depend on the editor language', () => {

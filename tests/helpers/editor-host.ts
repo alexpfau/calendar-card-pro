@@ -80,7 +80,7 @@ import {
   PAGES,
   type PageId,
   TOPIC_PAGES,
-  WHOLE_CARD_PAGES,
+  isUnscopedPage,
   placementOf,
   topicsFor,
 } from '../../src/rendering/editor/pages';
@@ -987,9 +987,7 @@ function keptForms(editor: EditorElement): Drawn[] {
   // A topic is drawn in the layout its pages were visited in, as `goPage` opens it.
   const scope = scopeFor(editor) as EditorWorkspace;
   for (const { id: page } of PAGES) {
-    const route = WHOLE_CARD_PAGES.has(page)
-      ? { kind: 'page', page }
-      : { kind: 'page', page, scope };
+    const route = isUnscopedPage(page) ? { kind: 'page', page } : { kind: 'page', page, scope };
     element._nav = { route, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
@@ -1216,7 +1214,7 @@ export async function goPage(editor: EditorElement, page: string): Promise<void>
     return;
   }
   await goOverview(editor);
-  if (!isTopic(page) || WHOLE_CARD_PAGES.has(page as PageId)) {
+  if (!isTopic(page) || isUnscopedPage(page as PageId)) {
     await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
     return;
   }

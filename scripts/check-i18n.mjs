@@ -1409,7 +1409,7 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'it:quick_setup.review.layout',
   'sv:quick_setup.review.layout',
   'nb:quick_setup.review.layout',
-  // Full-Size Overlay's Layout, the glossary's decided word in the same four languages.
+  // Open Full Size's Layout, the glossary's decided word in the same four languages.
   'de:overlay.view',
   'it:overlay.view',
   'sv:overlay.view',

@@ -2918,7 +2918,8 @@ describe('editor: the Actions & Refresh panel', () => {
   /**
    * Pinned by value, both states. The event tap follows the hold rather than the tap it is
    * named after, the dialog's two switches sit directly under the dropdown that reveals
-   * them, then the layout the overlay opens in, and the refresh pair closes the panel. No
+   * them, then what the overlay opens with (drawn on the Open Full Size page), and the refresh
+   * pair closes the panel. No
    * headings: a split between card and event taps would misfile the hold, which runs on events
    * too.
    */
@@ -2933,6 +2934,9 @@ describe('editor: the Actions & Refresh panel', () => {
       'allow_event_delete',
       'overlay',
       'view',
+      'days_to_show',
+      'toolbar',
+      'show',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2948,6 +2952,9 @@ describe('editor: the Actions & Refresh panel', () => {
       'open_links',
       'overlay',
       'view',
+      'days_to_show',
+      'toolbar',
+      'show',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2992,6 +2999,9 @@ describe('editor: the Actions & Refresh panel', () => {
       'allow_event_delete',
       'overlay',
       'view',
+      'days_to_show',
+      'toolbar',
+      'show',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -3012,6 +3022,9 @@ describe('editor: the Actions & Refresh panel', () => {
       'allow_event_delete',
       'overlay',
       'view',
+      'days_to_show',
+      'toolbar',
+      'show',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
