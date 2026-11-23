@@ -475,28 +475,39 @@ describe('registry colors: one subscription, one fetch', () => {
     // — the first version of this test did that and passed with the whole `.catch` body
     // deleted. With one card still listening there is no teardown, so `.catch` is the only
     // thing that can free the slot.
-    const { state, hass } = makeHass();
-    state.reject = true;
+    // Fake timers throughout, so the refusal's wait can be passed at once; advancing with real
+    // time as well, so `mount`'s flush still runs.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const settle = () => vi.advanceTimersByTimeAsync(0);
+      const { state, hass } = makeHass();
+      state.reject = true;
 
-    const card = await mount(hass);
-    await flush();
-    expect(state.handler).toBeUndefined();
+      const card = await mount(hass);
+      await settle();
+      expect(state.handler).toBeUndefined();
 
-    const attemptsWhileRefused = state.subscribes;
-    expect(attemptsWhileRefused).toBeGreaterThan(0);
+      const attemptsWhileRefused = state.subscribes;
+      expect(attemptsWhileRefused).toBeGreaterThan(0);
 
-    // Home Assistant answers this time, and the same card gets through on its next update.
-    // A bare request rather than a new `hass`: an update whose only change is a `hass` that
-    // changed nothing the card draws is skipped (`shouldUpdate`).
-    state.reject = false;
-    card.requestUpdate();
-    await card.updateComplete;
-    await flush();
+      // An update while the refusal's wait runs asks nothing: every update used to.
+      card.requestUpdate();
+      await card.updateComplete;
+      await settle();
+      expect(state.subscribes).toBe(attemptsWhileRefused);
 
-    // A retry happened at all — with the slot still claimed, `subscribe()` returns at its
-    // guard and this number never moves.
-    expect(state.subscribes).toBeGreaterThan(attemptsWhileRefused);
-    expect(state.handler).toBeTypeOf('function');
+      // Home Assistant answers this time, and the attempt the wait ends in gets through, with
+      // the card still listening.
+      state.reject = false;
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+
+      // A retry happened at all — with the slot still claimed, `subscribe()` returns at its
+      // guard and this number never moves.
+      expect(state.subscribes).toBeGreaterThan(attemptsWhileRefused);
+      expect(state.handler).toBeTypeOf('function');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
