@@ -647,6 +647,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
   max_height: 'Events Area Maximum Height',
   'max_height.helper': 'Caps the events under the title, under any Card Height too.',
+  // A List card's pair while it is compact. Unset, each follows the card's own, which the folded
+  // row says ("Same as Card Height"), so the helpers say only what is not obvious.
+  compact_card_height: 'Compact Height',
+  'compact_card_height.helper':
+    'The card’s height until it is expanded. Set alone, it lets the card expand without an Events or Days limit.',
+  compact_card_max_height: 'Compact Maximum Height',
+  'compact_card_max_height.helper':
+    'Until it is expanded, the card grows with its events up to this height, then scrolls.',
 
   // --- Fit to width ---------------------------------------------------------
   //
@@ -1030,6 +1038,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
   heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
+  // A List card's height while it is compact, which follows Card Height while unset.
+  heading_compact_card: 'Compact Mode',
   // Month's narrow form's height, which follows Card Height while unset.
   heading_narrow_month: 'Narrow Month',
   // Under Card Size & Spacing on Month's page: its height is both forms' until the Narrow Month's

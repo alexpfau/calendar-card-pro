@@ -34,6 +34,9 @@ card_height: 600px
   shares it among its weeks.
 - **Rows set in a Sections dashboard's Layout tab win over both**, and every layout fills them as
   it fills a `card_height`.
+- **A compact list card** can take a height of its own until it is expanded, with
+  `compact_card_height` and `compact_card_max_height`; see
+  [Compact & Expanded Heights](/features/list-view#compact-expanded-heights).
 - **In the visual editor** it is **Card Height** on a layout's Size & Spacing: **Fit content**,
   **Fixed height** with its **Height**, or **Maximum height** with its **Maximum Height**. On a
   layout's page it is set for that layout, and on Layout Defaults for every layout. On Month's

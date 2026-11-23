@@ -261,8 +261,9 @@ uses neither the position nor the size: it sits on the day number itself, and ev
 column's date keeps the tile's height so the headers stay level.
 
 **`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
-belong to compact mode, which caps the whole card rather than each column. Column density is
-controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-on-narrow-cards)
+belong to compact mode, which caps the whole card rather than each column, and so do
+**`compact_card_height` and `compact_card_max_height`**, the compact card's own height. Column
+density is controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-on-narrow-cards)
 instead.
 
 **`event_order`** turns a list upside down for a calendar used as a log. Columns keep time

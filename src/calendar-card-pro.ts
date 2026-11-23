@@ -970,11 +970,11 @@ class CalendarCardPro extends LitElement {
    * Whether the card's own action of this kind would run: one is configured, and it is not
    * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
    * with nothing a reset could ever undo (`_canReset`), `expand` where nothing folds: a layout
-   * other than List, or no compact limits (`hasCompactModeLimits`), nor `back` while the card is
-   * being edited, when leaving the page would take the editor with it, nor `overlay` then, which
-   * would open over the editor. Such an action is no action at all: no tab stop, ripple or hold
-   * indicator promises what a press then refuses. The overlay's own card never holds `overlay`
-   * (`OverlayConfig.overlayConfig`).
+   * other than List, or no compact limits or heights (`hasCompactModeLimits`), nor `back` while
+   * the card is being edited, when leaving the page would take the editor with it, nor `overlay`
+   * then, which would open over the editor. Such an action is no action at all: no tab stop,
+   * ripple or hold indicator promises what a press then refuses. The overlay's own card never
+   * holds `overlay` (`OverlayConfig.overlayConfig`).
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -6161,8 +6161,9 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Generate style properties from configuration. Returns a style object for use with styleMap.
-   * Adds the card's whole height and cap for the layout drawn, and in a month the form it draws,
-   * or the events area's fill in a Sections slot (`CardSize.cardSizeStyle`).
+   * Adds the card's whole height and cap for the layout drawn, in a month the form it draws, and
+   * in a folded List the compact pair, or the events area's fill in a Sections slot
+   * (`CardSize.cardSizeStyle`).
    */
   private getCustomStyles(): Record<string, string> {
     return {
@@ -6172,6 +6173,7 @@ class CalendarCardPro extends LitElement {
         this.effectiveView,
         this._monthNarrow ? 'narrow' : 'wide',
         this._holdsSectionsSlot,
+        !this.isExpanded,
       ),
     };
   }
@@ -9380,7 +9382,9 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Determine whether compact mode is actually limiting what the card renders.
+   * Determine whether compact mode is actually limiting what the card renders: an event or day
+   * limit, a calendar's own event limit, or compact heights that draw the card at another size
+   * than its own (`ViewConfig.compactHeightsApply`), so it can fold by its height alone.
    */
   private hasCompactModeLimits(): boolean {
     if (!ViewConfig.viewAppliesCompactLimits(this.effectiveView)) {
@@ -9392,6 +9396,10 @@ class CalendarCardPro extends LitElement {
 
     const config = this.effectiveConfig;
     if (isLimit(config.compact_events_to_show) || isLimit(config.compact_days_to_show)) {
+      return true;
+    }
+
+    if (ViewConfig.compactHeightsApply(this.config, this.effectiveView, this._holdsSectionsSlot)) {
       return true;
     }
 

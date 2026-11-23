@@ -83,6 +83,8 @@ const LIST_ONLY = [
   'content:compact_days_to_show',
   'content:compact_events_to_show',
   'content:compact_events_complete_days',
+  'layout:compact_card_height',
+  'layout:compact_card_max_height',
   'day_header:date_vertical_alignment',
   'day_header:today_indicator_position',
   'separators:month_separator_label',
@@ -955,10 +957,11 @@ describe('the universe', () => {
     // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
     // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
     // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
-    // forecast, which Columns and Grid always draw so.
+    // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
+    // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`).
     expect(sizes).toEqual({
       shared: { card: 139, calendar: 30 },
-      list: { card: 167, calendar: 31 },
+      list: { card: 169, calendar: 31 },
       column: { card: 163, calendar: 30 },
       grid: { card: 162, calendar: 30 },
       month: { card: 109, calendar: 29 },
