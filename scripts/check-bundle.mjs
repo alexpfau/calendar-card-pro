@@ -5,13 +5,14 @@
  * The card ships as self-contained files: the card, the editor, and one file per editor
  * language. This script checks the real emitted output for code-splitting, stale editor and
  * language URLs, lost `import.meta.url`, missing query propagation, language files built for
- * another editor, translations left inside the editor, sourcemap leaks, unpublished files, and
- * syntax and regular expressions Safari 15 cannot parse.
+ * another editor, translations or Day.js locales left inside the editor, sourcemap leaks,
+ * unpublished files, and syntax and regular expressions Safari 15 cannot parse.
  *
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { createRequire } from 'module';
 import { basename, join } from 'path';
 import { fileURLToPath } from 'url';
 import { gzipSync } from 'zlib';
@@ -24,6 +25,7 @@ import {
   editorKeyFingerprint,
   parseEditorTranslation,
   parseEnglishStrings,
+  validateDayjsUsage,
 } from './compact-payloads.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -917,6 +919,47 @@ function translationsInEditor(code, translated, englishValues) {
 }
 
 /**
+ * The Day.js locales the card imports, each by the two strings that mark it in a bundle: its
+ * relative-time `future` and `past` patterns, such as "vor %s" and "in %s".
+ *
+ * The editor needs none of them. They reach it only when an editor module imports something
+ * that leads to `utils/format.ts`, which pulls in `translations/dayjs.ts` and with it Day.js and
+ * every locale: about 29 KB, paid by everyone who opens the editor and seen by no other gate.
+ * `entities.ts` › `resolvedLabel` mirrors the card's resolver by hand for exactly this reason.
+ *
+ * Read from the locale modules `translations/dayjs.ts` imports, through the same validator the
+ * build uses, so a new locale is covered as soon as the card imports it. English is left out:
+ * its grammar lives in the relativeTime plugin, not in a locale object.
+ *
+ * @returns Each locale's name and its two marker strings
+ */
+function dayjsLocaleMarkers() {
+  const source = join(ROOT, 'src', 'translations', 'dayjs.ts');
+  const require = createRequire(source);
+  const markers = [];
+  for (const specifier of validateDayjsUsage(readFileSync(source, 'utf8'), source)) {
+    if (!specifier.startsWith('dayjs/locale/')) continue;
+    const { name, relativeTime } = require(specifier);
+    const strings = [relativeTime?.future, relativeTime?.past];
+    if (strings.every((value) => typeof value === 'string')) markers.push({ name, strings });
+  }
+  return markers;
+}
+
+/**
+ * The Day.js locales a bundle carries: those whose `future` and `past` strings both appear.
+ *
+ * @param code - The emitted file
+ * @param markers - From `dayjsLocaleMarkers()`
+ * @returns The names of the locales found
+ */
+function dayjsLocalesIn(code, markers) {
+  return markers
+    .filter(({ strings }) => strings.every((value) => code.includes(value)))
+    .map(({ name }) => name);
+}
+
+/**
  * The six transfer sizes `docs/guide/installation.md` quotes: the card, the editor, and the
  * largest language file, since a user downloads at most one of those.
  *
@@ -1430,6 +1473,44 @@ function main() {
     leakLine = ` None of ${looked} translated strings is inside ${variant.editor}.`;
   }
 
+  // Day.js locales bundled into the editor or a language file. The card is the control: it
+  // carries every one, so a marker the build no longer emits verbatim fails here rather than
+  // passing the editor for the wrong reason.
+  let dayjsLine = '';
+  if (variant && jsFiles.includes(variant.card)) {
+    const markers = dayjsLocaleMarkers();
+    const inCard = dayjsLocalesIn(readFileSync(join(DIST, variant.card), 'utf8'), markers);
+    if (markers.length === 0 || inCard.length !== markers.length) {
+      const missing = markers.filter(({ name }) => !inCard.includes(name)).map(({ name }) => name);
+      error(
+        `dist/${variant.card}`,
+        `carries ${inCard.length} of the ${markers.length} Day.js locales src/translations/` +
+          `dayjs.ts imports${missing.length ? ` (not ${missing.slice(0, 5).join(', ')})` : ''}, ` +
+          'so the editor could not be checked for them. See dayjsLocaleMarkers() in ' +
+          'scripts/check-bundle.mjs',
+      );
+    }
+    const editorFiles = [variant.editor, ...variant.languages].filter((file) =>
+      jsFiles.includes(file),
+    );
+    for (const file of editorFiles) {
+      const found = dayjsLocalesIn(readFileSync(join(DIST, file), 'utf8'), markers);
+      if (found.length) {
+        error(
+          `dist/${file}`,
+          `holds Day.js locale data (${found.slice(0, 5).join(', ')}${found.length > 5 ? ', …' : ''}). ` +
+            'An editor module imports something that reaches src/utils/format.ts or ' +
+            'src/translations/dayjs.ts, which bundles Day.js and every locale into the editor, ' +
+            'about 29 KB for everyone who opens it. Import what the editor needs from a module ' +
+            'that does not lead there, as entities.ts › resolvedLabel does',
+        );
+      }
+    }
+    dayjsLine =
+      ` No Day.js locale is inside ${variant.editor} or its ${editorFiles.length - 1} ` +
+      `language files; the card carries all ${inCard.length}.`;
+  }
+
   // A scan that found nothing to scan passes exactly like one that found nothing wrong.
   if (scanWorks && literalsScanned === 0) {
     error(
@@ -1459,7 +1540,7 @@ function main() {
   console.log(
     `Bundle is intact: ${sizes}. Every file parses as ES${SYNTAX_FLOOR} with no class static ` +
       `block, as Safari 15 does. No lookbehind in ${readInFull} regular expressions read in ` +
-      `full, or in the fixed parts of ${readInPart} built at runtime.${leakLine}`,
+      `full, or in the fixed parts of ${readInPart} built at runtime.${leakLine}${dayjsLine}`,
   );
 }
 
