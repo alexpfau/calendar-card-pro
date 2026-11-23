@@ -180,7 +180,8 @@ function contentOverflow(content: HTMLElement, scale: number): number {
 /**
  * The least a narrow month's list may be, in the card's own pixels: its header and padding, and
  * the taller of its "+N more" and its "No events", or null where it is not laid out. Below it the
- * card's content scrolls the weeks and the list as one; nothing inside the list scrolls.
+ * card's content scrolls the weeks and the list as one; nothing inside the list scrolls, except in
+ * the overlay, whose list lists every row and is never fitted (`_monthListScrolls`).
  *
  * The header and padding are what the list holds above and below its rows' box: the box's offset
  * from the list's top, and the list's bottom padding and border. Never the list's height less the

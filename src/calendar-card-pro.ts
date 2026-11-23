@@ -4091,6 +4091,12 @@ class CalendarCardPro extends LitElement {
    */
   private _syncMonthListFit(): void {
     const drawn = this.isConnected ? this._monthListDrawn : null;
+    // A list that scrolls lists every row, so there is nothing to fit, nor to watch for.
+    if (this._monthListScrolls) {
+      this._stopMonthList();
+      if (drawn) this._writeMonthListMin();
+      return;
+    }
     this._watchMonthList();
     if (!drawn) return;
     this._writeMonthListMin();
@@ -4111,6 +4117,18 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Month list ${drawn.day}: ${shown} of ${drawn.count} events fit`);
     this._monthListFit = { day: drawn.day, shown };
     this.requestUpdate();
+  }
+
+  /**
+   * Whether a narrow month's list lists every event of its day and scrolls them in its room, under
+   * weeks that stay where they are, rather than listing the ones that fit and "+N more": in the
+   * overlay alone. There the card is all the screen shows, so the room under its weeks is all the
+   * list can have, and nothing outside the card scrolls for a scroll inside it to fight. On a
+   * dashboard the page scrolls, and a list that scrolled inside it would take the page's scroll
+   * wherever a finger landed on it.
+   */
+  private get _monthListScrolls(): boolean {
+    return this._drawsNarrowMonth && this.overlayFrame !== undefined;
   }
 
   /**
@@ -4360,8 +4378,9 @@ class CalendarCardPro extends LitElement {
   /**
    * What a narrow month draws besides its weeks: the day selected, and every day's events as
    * the day model lists them, which its capsules count and its list draws, as many of the selected
-   * day's as the card last fitted to the list's room (`_monthListFit`). The selected day's list
-   * rings the event a search picked, where it holds it. Undefined for a wide month.
+   * day's as the card last fitted to the list's room (`_monthListFit`), or all of them in a list
+   * that scrolls (`_monthListScrolls`). The selected day's list rings the event a search picked,
+   * where it holds it. Undefined for a wide month.
    *
    * @param rowsStart - The page's first row's first day
    * @param ring - The event a pick rings on this page, or null
@@ -4400,8 +4419,14 @@ class CalendarCardPro extends LitElement {
     // "+N more", which opens the day's panel to ring it there. A pick waits for a fit made after
     // it, even on a day fitted before, since the fit its render was drawn from may be about to
     // change (`_syncMonthListFit`).
-    const shown = this._monthListFit?.day === day ? this._monthListFit.shown : undefined;
-    const waits = this._searchRing?.listFitted === false;
+    const scrolls = this._monthListScrolls;
+    const shown = scrolls
+      ? count
+      : this._monthListFit?.day === day
+        ? this._monthListFit.shown
+        : undefined;
+    // A list that scrolls holds every row from its first render, so a pick waits for nothing.
+    const waits = !scrolls && this._searchRing?.listFitted === false;
     const pending = (shown === undefined || waits) && count > 0;
     const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
@@ -4413,6 +4438,7 @@ class CalendarCardPro extends LitElement {
         weatherForecasts: this.weatherForecasts,
         dayAdd: this._dayAddButtons,
         shown,
+        scrolls,
         more: (moreDay, button) => this._openDayPanel(moreDay, button, false, true),
       },
       ringed: found && !pending && at < Math.min(shown ?? 0, count),

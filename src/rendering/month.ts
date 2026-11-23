@@ -135,6 +135,11 @@ export interface MonthNarrow {
    * day's count. Until the card has fitted this day, none, and "+N more" alone.
    */
   readonly shown?: number;
+  /**
+   * Whether the list lists every event and scrolls them in its room, with no "+N more" and nothing
+   * staged to fit from: in the overlay, where the card is all the screen shows.
+   */
+  readonly scrolls?: boolean;
   /** Opens the day's panel from the list's "+N more", given the day and the button. */
   readonly more?: (day: Date, button: HTMLElement) => void;
 }
@@ -1347,9 +1352,10 @@ function renderNarrowMonth(
       narrow.dayAdd,
       narrow.shown,
       narrow.more,
+      narrow.scrolls,
     )}
     ${
-      selectedEvents.length > 0
+      selectedEvents.length > 0 && !narrow.scrolls
         ? renderListStaging(selectedEvents, config, language, hass, narrow.weatherForecasts)
         : nothing
     }
@@ -1651,8 +1657,12 @@ function renderDayTitleFit(
  * `shown`: the list draws those, in order, and "+N more" for the rest, which opens the day's panel.
  * Until the card has fitted the day, as on its first render or while it is not on screen, the list
  * draws "+N more" alone. Each part of a row keeps to one line (`MonthDay.monthRowsConfig`), so a
- * row is as tall here as where it was measured. Nothing scrolls inside the list: a card too short
- * for it scrolls the weeks and the list as one.
+ * row is as tall here as where it was measured. Nothing scrolls inside the list on a dashboard: a
+ * card too short for it scrolls the weeks and the list as one.
+ *
+ * In the overlay the list `scrolls` instead: it lists every row, and its box scrolls them under
+ * weeks that stay where they are, with no "+N more". Where no row takes focus, the box does, so
+ * the keyboard can scroll it in every browser.
  *
  * @param day - The day, at local midnight
  * @param events - Its events, as the day model lists them
@@ -1664,6 +1674,7 @@ function renderDayTitleFit(
  * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
  * @param shown - How many rows fit its room, as the card measured them, or undefined until it has
  * @param more - Opens the day's panel from "+N more"
+ * @param scrolls - Whether it lists every row and scrolls them
  * @returns The list
  */
 export function renderMonthDayList(
@@ -1677,6 +1688,7 @@ export function renderMonthDayList(
   dayAdd?: Activation.DayAddButtons,
   shown?: number,
   more?: MonthNarrow['more'],
+  scrolls = false,
 ): TemplateResult {
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
@@ -1688,7 +1700,9 @@ export function renderMonthDayList(
       >${renderDayTitleFit(titles, mark)}</span
     ></span
   >`;
-  const listed = Math.min(Math.max(shown ?? 0, 0), events.length);
+  const listed = scrolls ? events.length : Math.min(Math.max(shown ?? 0, 0), events.length);
+  // A box that scrolls rows the keyboard cannot reach takes focus itself, named for its day.
+  const focusable = scrolls && !eventsTappable && events.length > 0;
   const rows =
     events.length > 0
       ? html`${
@@ -1713,6 +1727,9 @@ export function renderMonthDayList(
           ${TextDirection.inLanguageDirection(Localize.getTranslations(language).noEvents, mark)}
         </div>`;
 
+  // The rows sit in their box with nothing either side, as they always have: Prettier would put
+  // them on a line of their own, which adds whitespace to every narrow month's markup.
+  // prettier-ignore
   return html`<div
     class="month-day-list"
     style=${styleMap(oneLineListStyle(config))}
@@ -1732,7 +1749,13 @@ export function renderMonthDayList(
           </div>`
         : html`<div class="month-day-list-header">${name}</div>`
     }
-    <div class="month-day-list-rows" lang=${language}>${rows}</div>
+    <div
+      class=${scrolls ? 'month-day-list-rows scrolls' : 'month-day-list-rows'}
+      lang=${language}
+      tabindex=${focusable ? '0' : nothing}
+      role=${focusable ? 'group' : nothing}
+      aria-label=${focusable ? titles[0] : nothing}
+    >${rows}</div>
   </div>`;
 }
 

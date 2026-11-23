@@ -8976,6 +8976,25 @@ export const cardStyles = css`
     clip-path: inset(-1em -1em 0 -1em);
   }
 
+  /* In the overlay the box lists every row and scrolls them, under weeks that stay where they are
+     (MonthNarrow.scrolls); the cut is the scroll's own. Its rows keep their own padding, as the
+     card's content scroller's do. A scroll that reaches either end stays in the box, and where no
+     row takes focus the box does, ringed as an event is. */
+  .month-day-list-rows.scrolls {
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    clip-path: none;
+  }
+
+  .month-day-list-rows.scrolls:focus {
+    outline: none;
+  }
+
+  .month-day-list-rows.scrolls:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
   /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary
      text where the rows' titles start, a button the width of the list. 4px under its text rather
      than 7px, as it is the last thing in the list and the card's padding follows it: with the 7px

@@ -687,6 +687,9 @@ tap_action:
   [`day_tap_action: add-event`](#tapping-a-day-to-add-an-event) does, and so does
   [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card sets a
   `day_tap_action` of its own.
+- **A narrow month lists the whole day.** Where the full-size card draws Month's
+  [narrow form](/features/month-view#the-narrow-month), as on a phone, the day's list shows every
+  event and scrolls them, with no "+N more", while the weeks stay put.
 - **Nothing chosen in it is kept.** A layout picked or a calendar hidden there lasts until it
   closes, and the card it opened from stays as it was.
 - **Its size** is the whole screen on a phone, below 600 pixels wide or 500 tall, and otherwise

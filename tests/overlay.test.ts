@@ -304,6 +304,46 @@ describe('opening the overlay', () => {
     );
   });
 
+  it('lists every event of a narrow month’s day and scrolls them, with no "+N more"', async () => {
+    // A phone's overlay again, on a busy day: six events on Wednesday, November 18.
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.localName === 'calendar-card-pro-dev'
+        ? new DOMRect(0, 0, 390, 0)
+        : realRect.call(this);
+    });
+    const busy = ['09', '10', '11', '12', '13'].map((hour) =>
+      timed(BEN, `Meeting ${hour}`, '2026-11-18', `${hour}:00`, `${hour}:30`),
+    );
+    EVENTS.push(...busy);
+    onTestFinished(() => {
+      EVENTS.splice(EVENTS.length - busy.length, busy.length);
+    });
+    const rowsOf = (card: CardUnderTest) =>
+      card.shadowRoot!.querySelector<HTMLElement>('.month-day-list > .month-day-list-rows')!;
+
+    const opened = await open(await mount({ overlay: { view: 'month' } }));
+    const rows = rowsOf(opened);
+    expect(rows.classList.contains('scrolls')).toBe(true);
+    expect(rows.querySelectorAll('td.event')).toHaveLength(6);
+    expect(opened.shadowRoot!.querySelector('.month-day-list-more')).toBe(null);
+    expect(opened.shadowRoot!.querySelector('.month-day-list-probe')).toBe(null);
+    // Its rows open the event, so they take focus and the box does not.
+    expect(rows.hasAttribute('tabindex')).toBe(false);
+
+    // Where a tap on an event does nothing, the box takes focus itself, named for its day.
+    await overlay!.closeDialog();
+    await vi.advanceTimersByTimeAsync(400);
+    const still = rowsOf(
+      await open(await mount({ overlay: { view: 'month' }, event_tap_action: { action: 'none' } })),
+    );
+    expect(still.getAttribute('tabindex')).toBe('0');
+    expect(still.getAttribute('role')).toBe('group');
+    expect(still.getAttribute('aria-label')).toBe('Wednesday, November 18, 2026');
+  });
+
   it('opens on its own home from the card’s home', async () => {
     const opened = await open(await mount());
     expect(lastParams().day).toBe(null);
