@@ -93,6 +93,8 @@ export const REFERENCED_STRINGS: ReadonlyArray<string> = [
   'nav',
   // The Layouts block on the overview and each layout's page: its help, rows and walk.
   'layouts',
+  // Full Size's row on the overview, and the lines leading to its page.
+  'full_size',
   'settings_for',
   'announce',
   'summary',

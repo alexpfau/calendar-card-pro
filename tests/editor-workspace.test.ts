@@ -70,13 +70,16 @@ function names(schema: ReadonlyArray<HaFormSchema>): string[] {
 
 /**
  * The options a schema's fields write: a top-level field's, through its synthetic mapping, and a
- * block field's own name, which may share a synthetic field's.
+ * block field's own name, which may share a synthetic field's; none of the full-size card's.
  */
 function optionKeys(schema: ReadonlyArray<HaFormSchema>, workspace: EditorWorkspace): string[] {
   const view = workspace === 'shared' ? undefined : workspace;
   return [...walkSchema(schema)]
     .filter(({ node }) => 'selector' in node)
     .flatMap(({ node, dataPath }) => {
+      // The card opened full size has options of its own, which share the card's names: Open
+      // Full Size's Days To Show is not the card's.
+      if (dataPath[0] === 'overlay') return [];
       if (dataPath.length > 0) return [node.name];
       // A field writing several options writes, on a layout's page, those the layout reads:
       // Accent Text on Month's governs no description or progress bar color.
