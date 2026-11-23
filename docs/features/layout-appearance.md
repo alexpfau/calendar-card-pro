@@ -428,6 +428,9 @@ By default, all dates use the base styling, but you can apply special styling to
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling. The one exception is today's day number on the default [date tile](#the-date-tile): it takes a deeper shade of the tile's color rather than `day_color`, unless you set `today_day_color` or, on a weekend, `weekend_day_color`.
 
+Left unset, `weekday_color`, `day_color` and `month_color` can come from your theme instead; see
+[Date Colors From Your Theme](/features/theming#date-colors-from-your-theme).
+
 `weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
 such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or
 `inherit`, or an expression such as `calc()` that works out to one. A negative size, a
