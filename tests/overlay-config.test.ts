@@ -4,19 +4,22 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
 import { OVERLAY_DEFAULTS, overlayConfig, overlayView } from '../src/config/overlay';
+import type * as Types from '../src/config/types';
+import { resolveViewOption } from '../src/config/view';
 
 const BASE = {
   type: 'custom:calendar-card-pro-dev',
   entities: ['calendar.anna', 'calendar.ben'],
   view: 'list',
   title: 'Family',
-  days_to_show: 7,
+  days_to_show: 14,
   tap_action: { action: 'overlay' },
 };
 
 describe('the overlay card’s configuration', () => {
-  it('opens Grid with the date navigation and a switcher offering every layout', () => {
+  it('opens Grid on a week with the date navigation and a switcher offering every layout', () => {
     expect(overlayConfig(BASE)).toEqual({
       entities: ['calendar.anna', 'calendar.ben'],
       view: 'grid',
@@ -145,6 +148,49 @@ describe('the overlay card’s configuration', () => {
     const before = structuredClone(raw);
     overlayConfig(raw);
     expect(raw).toEqual(before);
+  });
+});
+
+describe('the days the overlay shows', () => {
+  /** What List, Columns and Grid each draw in the overlay a configuration opens. */
+  const days = (raw: Record<string, unknown>) => {
+    const config = buildConfig(overlayConfig(raw) as Partial<Types.Config>);
+    return {
+      list: resolveViewOption(config, 'days_to_show', 'list'),
+      column: resolveViewOption(config, 'days_to_show', 'column'),
+      grid: resolveViewOption(config, 'days_to_show', 'grid'),
+    };
+  };
+
+  it('is a week where the card sets no count', () => {
+    const card: Record<string, unknown> = { ...BASE };
+    delete card.days_to_show;
+    expect(days(card)).toEqual({ list: 7, column: 7, grid: 7 });
+  });
+
+  it('is a week whatever the card counts, at the top level or in a layout’s block', () => {
+    const card = {
+      ...BASE,
+      days_to_show: 3,
+      list: { days_to_show: 5 },
+      column: { days_to_show: 2 },
+      time_grid: { days_to_show: 4, start_time: '06:00' },
+    };
+    expect(days(card)).toEqual({ list: 7, column: 7, grid: 7 });
+    expect(overlayConfig(card).time_grid).toEqual({ start_time: '06:00' });
+  });
+
+  it('is what the overlay block counts, at the top level or in a layout’s block', () => {
+    expect(days({ ...BASE, overlay: { days_to_show: 5 } })).toEqual({
+      list: 5,
+      column: 5,
+      grid: 5,
+    });
+    expect(days({ ...BASE, overlay: { time_grid: { days_to_show: 3 } } })).toEqual({
+      list: 7,
+      column: 7,
+      grid: 3,
+    });
   });
 });
 
