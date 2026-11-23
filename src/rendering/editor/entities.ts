@@ -440,12 +440,17 @@ export function resolvedLabel(
 /**
  * Whether the shape has to be written down, or can be read back off the value.
  *
+ * A list reads back as several parts whatever it holds, so any shape stored beside one has to
+ * be written: `none` above all, which is how a list kept under None stays hidden.
+ *
  * @param type - Shape the dropdown names
  * @param label - Label value as it will be stored
  * @returns `true` when the shape must be stored alongside the value
  */
 function needsExplicitType(type: string, label: unknown): boolean {
-  return Helpers.isLabelType(type) && Helpers.getLabelType(label) !== type;
+  return (
+    Helpers.isLabelType(type) && (Array.isArray(label) || Helpers.getLabelType(label) !== type)
+  );
 }
 
 /**

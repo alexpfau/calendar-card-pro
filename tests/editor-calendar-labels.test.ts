@@ -260,6 +260,21 @@ describe('a label of several parts', () => {
     });
   });
 
+  it('keeps a list hidden under label_type: none through an edit to another field', async () => {
+    expect(
+      await after(
+        { label: ['person.anna', 'mdi:soccer'], label_type: 'none' },
+        'calendar:name',
+        'Anna',
+      ),
+    ).toEqual({
+      entity: 'calendar.anna',
+      name: 'Anna',
+      label: ['person.anna', 'mdi:soccer'],
+      label_type: 'none',
+    });
+  });
+
   it('keeps a shape the YAML gave the list through an edit to another field', async () => {
     expect(
       await after({ label: ['mdi:soccer', 'W'], label_type: 'text' }, 'calendar:name', 'Anna'),
