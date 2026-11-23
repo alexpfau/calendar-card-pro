@@ -13,6 +13,7 @@ import * as Writes from './calendar-writes';
 import * as Times from './event-times';
 import * as RRule from './rrule';
 import { intlLocales } from '../translations/intl-locales';
+import { endsAtNextMidnight } from '../utils/format';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -394,9 +395,11 @@ export function spanText(times: Times.EventTimes, language: string, hour24: bool
       ? day.format(times.start)
       : `${day.format(times.start)} – ${day.format(times.end)}`;
   }
-  // An end at midnight is the end of the day before, as a reader counts days.
-  const endsAtMidnight = times.end.getHours() === 0 && times.end.getMinutes() === 0;
-  const lastDay = endsAtMidnight ? Times.addDays(times.end, -1) : times.end;
+  // An end at the midnight after the start is the end of the day before, as a reader counts
+  // days; one at 0:00:30, or at a 0:00 the clocks repeat, is not.
+  const lastDay = endsAtNextMidnight(times.start, times.end)
+    ? Times.addDays(times.end, -1)
+    : times.end;
   if (Times.dateValue(times.start) === Times.dateValue(lastDay)) {
     return `${day.format(times.start)}  ${time.format(times.start)} – ${time.format(times.end)}`;
   }
