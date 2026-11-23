@@ -230,9 +230,11 @@ entities:
 ```
 
 - It is per calendar and has no card-wide counterpart.
-- Write the time as `HH:MM` on a 24-hour clock. From that time onward the event is past, and
-  the row goes at that time without waiting for a refresh, within a minute in a grid showing
-  its [now line](/features/grid-view#the-now-line).
+- Write the time in quotes, as `HH:MM` on a 24-hour clock. From that time onward the event is
+  past, and the row goes at that time without waiting for a refresh, within a minute in a grid
+  showing its [now line](/features/grid-view#the-now-line). Unquoted, a YAML dashboard reads
+  `10:00` as the number 600, which is not a time: the event keeps the default, and the browser
+  console says so once.
 - The time is read against the **last** day the event covers, so a holiday running Monday to
   Wednesday retires on Wednesday morning rather than Monday's. Split the calendar with
   `split_multiday_events: true` and each day retires on its own morning instead.

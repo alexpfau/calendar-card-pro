@@ -280,11 +280,12 @@ describe('stripComments', () => {
 
     expect(saved).toBeGreaterThan(26_000);
     expect(saved).toBeLessThan(268_000);
-    // Picture labels at a size of their own moved the ceiling last, from 266,000 to 268,000
-    // (backlog items 285 and 286): the notes on a picture's hanging indent following its height, on
-    // an emoji beside a picture taking the wider of the two, and on the wide month's lines keeping
-    // their pictures at the text's height. The reading went to 266,008, taken with stripComments
-    // after the last comment was written.
+    // Two notes in the v6.1 bug sweep moved the ceiling last, from 266,000 to 268,000 (backlog
+    // items 303 and 408): why a countdown beside the title is a box of its own, so it moves to
+    // the next line whole after its dot, and why clamped weather words sit at the top of their
+    // line, since Chromium takes a box that hides its overflow to end at its baseline. The
+    // reading went from 265,148 to 266,313, taken with stripComments after the last comment was
+    // written.
     //
     // Pinning the date rows of every layout moved the ceiling before that, from 260,000 to 266,000
     // (backlog item 402): the notes on Grid's head and band as two boxes, the band's spanning the

@@ -881,6 +881,9 @@ describe('text outside the event fields, above and below its line (backlog item 
         hyphens: 'manual',
         'padding-inline': CONDITION_ROOM,
         'margin-inline': `calc(-1 * ${CONDITION_ROOM})`,
+        // At the top of its line rather than on the baseline, which Chromium took from the
+        // clamped box's bottom edge (backlog item 408); no room above it either way.
+        'vertical-align': 'top',
       },
     });
   });

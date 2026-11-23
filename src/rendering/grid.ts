@@ -1041,12 +1041,9 @@ function renderTimedEvent(
  * its start begins. Counting to the last day the event fills would print "(+1)" there,
  * which reads as the start of the next day, a whole day early. The one exception is an
  * event that runs until the midnight after it starts, 22:00 to 0:00: one block, reading
- * "22:00 - 0:00" as any calendar writes it. The end has to be the first instant of its day
- * and read 0:00. Not just read it: an Azores autumn day repeats 0:00 to 0:59, and an end at
- * the second 0:00, or at 0:00:30, is past midnight and keeps its count. Not just be the
- * first instant: an Azores spring day has no 00:00 and starts at 1:00, so "22:00 - 1:00"
- * would read as an end before the start, and it reads "(+1)". And the start must not read
- * 0:00, so a whole day from midnight reads "0:00 - 0:00 (+1)" rather than as no time at all.
+ * "22:00 - 0:00" as any calendar writes it. Which ends count as that midnight, where the
+ * clocks change at midnight, is `FormatUtils.endsAtNextMidnight`'s; the count is
+ * `FormatUtils.endDayCount`, which List's and Column's first row of a split event write too.
  *
  * The end and its count are a single droppable end (`eventTimeEnd`). The fit ladder wraps
  * them onto a second line together and drops them together, so a narrow block falls back
@@ -1154,14 +1151,7 @@ function gridTimedEventContentParts(
     };
   }
 
-  const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
-  const days = FormatUtils.getCalendarDayDiff(start, end);
-  const untilMidnight =
-    days === 1 &&
-    end.getTime() === Grid.startOfDay(end).getTime() &&
-    readsMidnight(end) &&
-    !readsMidnight(start);
-  const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
+  const count = FormatUtils.endDayCount(start, end);
   const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours, language)}${count}${lasts}`;
 
   return {

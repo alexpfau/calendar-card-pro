@@ -1344,6 +1344,55 @@ function resolveDisplayDate(startDate: Date, endDate: Date, referenceStart: Date
 const reportedExpiryValues = new Set<string>();
 
 /**
+ * Say once that a configured `allday_expires_at` is not a time.
+ *
+ * A number is said apart, because it is what a YAML-mode dashboard makes of an unquoted time:
+ * Home Assistant reads that YAML as YAML 1.1, where `14:30` is a number in base 60, 870. It is
+ * refused rather than read back, as `starts_after` and `starts_before` refuse one
+ * (`start-window.ts` › `readBound`), and the warning names the time it was written as where the
+ * number can only have been one, so the fix is a pair of quotes.
+ *
+ * @param configured The calendar's `allday_expires_at`, which `parseTimeOfDay` refused
+ */
+function reportUnreadExpiry(configured: unknown): void {
+  if (typeof configured === 'number') {
+    const key = `number:${configured}`;
+    if (reportedExpiryValues.has(key)) return;
+    reportedExpiryValues.add(key);
+    Logger.warn(
+      `allday_expires_at is the number ${configured}, not a time. Write the time in quotes, as ` +
+        `allday_expires_at: '${unquotedTimeOf(configured) ?? '10:00'}'. All-day events last ` +
+        'until midnight.',
+    );
+    return;
+  }
+
+  if (typeof configured !== 'string' || configured.trim() === '') return;
+  const value = configured.trim();
+  if (reportedExpiryValues.has(value)) return;
+  reportedExpiryValues.add(value);
+  Logger.warn(`Invalid allday_expires_at value "${value}" — expected a time such as 10:00`);
+}
+
+/**
+ * The time an unquoted `H:MM` or `H:MM:SS` was written as, from the number YAML 1.1 made of it.
+ * Its hour has no leading zero there (`09:30` stays a string), so `H:MM` is 60 to 1439 minutes
+ * and `H:MM:SS` is 3600 to 86399 seconds, and no number is both.
+ *
+ * @param value The configured number
+ * @returns The time, or `null` where no unquoted time becomes this number
+ */
+function unquotedTimeOf(value: number): string | null {
+  const pad = (part: number): string => String(part).padStart(2, '0');
+  if (!Number.isInteger(value)) return null;
+  if (value >= 60 && value < 1440) return `${Math.floor(value / 60)}:${pad(value % 60)}`;
+  if (value >= 3600 && value < 86400) {
+    return `${Math.floor(value / 3600)}:${pad(Math.floor(value / 60) % 60)}:${pad(value % 60)}`;
+  }
+  return null;
+}
+
+/**
  * Read a wall-clock time of day out of a configured string: `HH:MM` or `HH:MM:SS`, a single-digit
  * hour accepted, 24 and above not (`StartWindow.TIME_OF_DAY_PATTERN`).
  *
@@ -1402,13 +1451,7 @@ function allDayExpiryInstant(endDate: Date, configured: unknown): Date {
   const time = parseTimeOfDay(configured);
 
   if (!time) {
-    if (typeof configured === 'string' && configured.trim() !== '') {
-      const value = configured.trim();
-      if (!reportedExpiryValues.has(value)) {
-        reportedExpiryValues.add(value);
-        Logger.warn(`Invalid allday_expires_at value "${value}" — expected a time such as 10:00`);
-      }
-    }
+    reportUnreadExpiry(configured);
 
     // Midnight after the last day, built by adding a calendar day rather than by naming
     // 24:00, so a DST transition on that night shifts it correctly.

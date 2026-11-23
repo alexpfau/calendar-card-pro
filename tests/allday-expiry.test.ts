@@ -32,6 +32,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { groupEventsByDay } from '../src/utils/events';
+import * as Logger from '../src/utils/logger';
 
 /** Wednesday 2026-06-17. Mid-week and mid-month, clear of every boundary the card draws. */
 const TODAY = '2026-06-17';
@@ -463,5 +464,39 @@ describe('allday_expires_at: values it accepts and values it refuses', () => {
     // which is the shape of bug that would make it silently mean "unset". At 11:00 on the
     // event's own day, midnight has passed, so it must expire.
     expect(render(bin(), { allday_expires_at: '00:00' })).toEqual([]);
+  });
+
+  /**
+   * A YAML-mode dashboard is read as YAML 1.1, where an unquoted `10:00` is a number in base 60:
+   * 600. It is refused, as `starts_after` and `starts_before` refuse one, rather than read back,
+   * and said so once, in the time it was written as, so the fix is one pair of quotes.
+   */
+  it('warns once about the number an unquoted time became, and keeps the default', () => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const unquoted = 600 as unknown as string;
+
+    for (let pass = 0; pass < 3; pass++) {
+      expect(render(bin(), { allday_expires_at: unquoted })).toEqual(['Green bin']);
+    }
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('allday_expires_at is the number 600');
+    expect(warn.mock.calls[0][0]).toContain("allday_expires_at: '10:00'");
+    warn.mockRestore();
+  });
+
+  it.each([
+    [870, '14:30'],
+    [52215, '14:30:15'],
+    [2000, '10:00'],
+  ])('suggests the time %s was written as, or one such as 10:00', (value, suggested) => {
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+    expect(render(bin(), { allday_expires_at: value as unknown as string })).toEqual(['Green bin']);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain(`allday_expires_at is the number ${value}`);
+    expect(warn.mock.calls[0][0]).toContain(`allday_expires_at: '${suggested}'`);
+    warn.mockRestore();
   });
 });

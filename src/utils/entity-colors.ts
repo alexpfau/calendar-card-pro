@@ -8,7 +8,7 @@
  */
 
 import * as Logger from './logger';
-import * as Constants from '../config/constants';
+import { pageRetryDelay } from './page-backoff';
 import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
@@ -193,15 +193,22 @@ let retry: { timer: ReturnType<typeof setTimeout>; hass: Types.Hass } | undefine
 const watchedConnections = new WeakSet<object>();
 
 /**
- * First retry after a failed read, then doubling per further failure up to the cap.
- *
- * The calendar fetch's default schedule: the same first wait, capped at the default refresh
- * interval rather than at a card's own `refresh_interval`, because this cache is shared by
- * every card on the page and no one card's interval is the page's. A reconnect does not wait
- * for it at all; see {@link watchReconnects}.
+ * The newest `hass` a card handed over, which a registry event, a reconnect and a subscription
+ * retry read and subscribe with, so none of them pins a stale object.
  */
-const RETRY_FIRST_MS = Constants.CACHE.RETRY_INITIAL_SECONDS * 1000;
-const RETRY_MAX_MS = Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES * 60 * 1000;
+let latestHass: Types.Hass | undefined;
+
+/**
+ * A read asked for while another was on its way, made once that one lands (`read`), so a burst
+ * of `entity_registry_updated` events costs two reads rather than one each.
+ */
+let readAgain = false;
+
+/** Consecutive refused subscriptions, which decide how long the next attempt waits. */
+let subscribeFailures = 0;
+
+/** The attempt a refused subscription is waiting for. */
+let subscribeRetry: ReturnType<typeof setTimeout> | undefined;
 
 /** Cards waiting to be told the registry moved. */
 const listeners = new Set<() => void>();
@@ -313,6 +320,11 @@ function fetchColors(hass: Types.Hass): Promise<boolean> | undefined {
 /**
  * Read the registry for the cards, tell them when the colors land, and wait if it fails.
  *
+ * One read at a time: one asked for while another is on its way is made once that one lands, so
+ * a burst of registry events reads twice, not once per event. A failed read waits on the backoff
+ * whether or not colors were loaded before, keeping those colors meanwhile: a refresh that fails
+ * leaves a read owed, as the first one does.
+ *
  * 🚨 A failed read notifies nobody. It used to, and that was a loop: the card repaints on
  * notification, its `updated()` calls {@link ensureEntityColors} again, and with nothing
  * loaded and nothing in flight that reads again. A rejection that arrives at once — every
@@ -323,6 +335,11 @@ function fetchColors(hass: Types.Hass): Promise<boolean> | undefined {
  * @param hass - Home Assistant instance
  */
 function read(hass: Types.Hass): void {
+  if (inFlight) {
+    readAgain = true;
+    return;
+  }
+
   const request = fetchColors(hass);
   if (!request) {
     return;
@@ -337,7 +354,14 @@ function read(hass: Types.Hass): void {
     inFlight = undefined;
     if (succeeded) {
       notifyListeners();
-    } else {
+    }
+    if (readAgain) {
+      readAgain = false;
+      read(latestHass ?? hass);
+      return;
+    }
+    if (!succeeded) {
+      loaded = false;
       scheduleRetry(hass);
     }
   });
@@ -354,8 +378,7 @@ function scheduleRetry(hass: Types.Hass): void {
   }
 
   failures += 1;
-  const delay = Math.min(RETRY_FIRST_MS * 2 ** Math.min(failures - 1, 20), RETRY_MAX_MS);
-  retry = { timer: setTimeout(() => retryNow(false), delay), hass };
+  retry = { timer: setTimeout(() => retryNow(false), pageRetryDelay(failures)), hass };
 }
 
 function clearRetry(): void {
@@ -388,7 +411,9 @@ function retryNow(reconnected: boolean): void {
 
 /**
  * Cut a retry short when the connection comes back, which is when an outage's failed read can
- * first succeed.
+ * first succeed, and a refused subscription's wait with it. Where the colors were loaded, read
+ * them once more: the registry may have moved while the connection was down, and no event said
+ * so.
  *
  * One listener per connection, added once and never removed, as `live-calendars.ts` does it,
  * and a no-op unless a retry is owed. 🚨 Removing it is not the tidier alternative it looks:
@@ -412,6 +437,15 @@ function watchReconnects(hass: Types.Hass): void {
   connection.addEventListener('ready', () => {
     if (retry?.hass.connection === connection) {
       retryNow(true);
+    } else if (loaded && latestHass?.connection === connection && listeners.size > 0) {
+      read(latestHass);
+    }
+
+    if (subscribeRetry !== undefined && latestHass?.connection === connection) {
+      clearTimeout(subscribeRetry);
+      subscribeRetry = undefined;
+      subscribeFailures = 0;
+      subscribe(latestHass);
     }
   });
 }
@@ -428,7 +462,12 @@ function watchReconnects(hass: Types.Hass): void {
  */
 function subscribe(hass: Types.Hass): void {
   const connection = hass.connection;
-  if (unsubscribe || !connection || typeof connection.subscribeEvents !== 'function') {
+  if (
+    unsubscribe ||
+    subscribeRetry !== undefined ||
+    !connection ||
+    typeof connection.subscribeEvents !== 'function'
+  ) {
     return;
   }
 
@@ -446,14 +485,7 @@ function subscribe(hass: Types.Hass): void {
         return;
       }
 
-      const refresh = fetchColors(hass);
-      if (refresh) {
-        refresh.then((succeeded) => {
-          if (succeeded) {
-            notifyListeners();
-          }
-        });
-      }
+      read(latestHass ?? hass);
     }, 'entity_registry_updated')
     .then((off) => {
       // The last card can leave while this is still in flight, and the placeholder it
@@ -466,11 +498,23 @@ function subscribe(hass: Types.Hass): void {
       }
 
       unsubscribe = off;
+      subscribeFailures = 0;
     })
     .catch(() => {
-      if (generation === subscribeGeneration) {
-        unsubscribe = undefined;
+      if (generation !== subscribeGeneration) {
+        return;
       }
+
+      // Refused, as Home Assistant refuses a user it does not let read the registry. Asked
+      // again on the backoff rather than on the next card update, or every update asked.
+      unsubscribe = undefined;
+      subscribeFailures += 1;
+      subscribeRetry = setTimeout(() => {
+        subscribeRetry = undefined;
+        if (latestHass && listeners.size > 0) {
+          subscribe(latestHass);
+        }
+      }, pageRetryDelay(subscribeFailures));
     });
 }
 
@@ -498,8 +542,15 @@ function teardown(): void {
 
   loaded = false;
   inFlight = undefined;
+  readAgain = false;
   failures = 0;
   clearRetry();
+  latestHass = undefined;
+  subscribeFailures = 0;
+  if (subscribeRetry !== undefined) {
+    clearTimeout(subscribeRetry);
+    subscribeRetry = undefined;
+  }
 }
 
 /**
@@ -519,6 +570,7 @@ export function ensureEntityColors(
     return;
   }
 
+  latestHass = hass;
   listeners.add(onChange);
   subscribe(hass);
   watchReconnects(hass);
