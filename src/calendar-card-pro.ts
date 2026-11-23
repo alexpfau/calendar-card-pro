@@ -3578,7 +3578,7 @@ class CalendarCardPro extends LitElement {
     // events here are the loaded ones, which still hold those `show_past_events: false` hides.
     const countsUp = config.show_past_events;
 
-    return this._shownEvents.some((event) => {
+    return this._clockTextEvents().some((event) => {
       if (event._isEmptyDay) return false;
       if (
         progress &&
@@ -3594,6 +3594,19 @@ class CalendarCardPro extends LitElement {
         (countsUp && FormatUtils.countsUpTheClock(event, new Date(now)))
       );
     });
+  }
+
+  /**
+   * The events whose clock text the minute tick asks about (`_drawsMovingClockText`): the shown
+   * ones, or, where a compact limit cuts the list, the rows it keeps, so a countdown or a bar it
+   * hides asks for no tick. Grouped only then, since only a limited list leaves a running row
+   * out, and grouping is the render's own cost.
+   *
+   * @returns Events, or rows of them
+   */
+  private _clockTextEvents(): Types.CalendarEventData[] {
+    if (this.isExpanded || !this.hasCompactModeLimits()) return this._shownEvents;
+    return this.groupedEvents.flatMap((day) => day.events);
   }
 
   /**
