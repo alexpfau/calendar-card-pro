@@ -707,9 +707,10 @@ tap_action:
 
 The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
 opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
-The visual editor offers it as Open Full Size, and the layout it opens in under **Taps &
-Refresh** › Full-Size Overlay; the other options under `overlay` are YAML only. While the card is
-being edited, it opens nothing.
+The visual editor offers it as Open Full Size, and what it opens with under
+[**Full Size**](/features/editor#full-size) on its overview: the layout, the days and the toolbar,
+and whatever else `overlay` holds, each line with Remove. While the card is being edited, it opens
+nothing.
 
 ::: details If the Overlay Looks Different From the Card
 The overlay is drawn over the whole of Home Assistant, as the event popover is, so a theme set on

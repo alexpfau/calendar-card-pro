@@ -31,6 +31,7 @@ import {
   schemaCtx,
   universeIndex,
 } from './field-index';
+import * as FullSize from './full-size';
 import {
   ENTRY_GATES,
   GATES,
@@ -172,7 +173,11 @@ export interface StateWords {
       }
     | { readonly kind: 'from-all-layouts' }
     | { readonly kind: 'set-entry'; readonly shared: boolean }
-    | { readonly kind: 'follows-card'; readonly value: unknown };
+    | { readonly kind: 'follows-card'; readonly value: unknown }
+    /** Under `overlay:`: stored there, for the card opened full size. */
+    | { readonly kind: 'set-full-size' }
+    /** Under `overlay:`: the full-size card's own value, not the card's (`OVERLAY_DEFAULTS`). */
+    | { readonly kind: 'full-size-default' };
   /**
    * In All Layouts: "Grid Has Its Own: 20", per layout storing its own or defaulting the field to a
    * value other than the All Layouts one.
@@ -1242,6 +1247,35 @@ function overridingEntries(field: IndexedField, ctx: PlanCtx): number[] {
 }
 
 /**
+ * What a setting of the card opened full size says about its value: set for full size, the
+ * full-size card's own, or the card's, which reaches it unchanged (`full-size.ts`). Each layout
+ * whose own value `overlay:` holds says so, "Grid Has Its Own: 3", so Days To Show never claims a
+ * count a layout does not open with.
+ *
+ * @param path - Its path inside `overlay:`
+ * @param ctx - Plan context
+ * @returns The words
+ */
+function fullSizeState(path: ReadonlyArray<string>, ctx: PlanCtx): StateWords {
+  const source = FullSize.fullSizeSource(ctx.raw, path);
+  const words: StateWords['words'] =
+    source === 'set'
+      ? { kind: 'set-full-size' }
+      : source === 'default'
+        ? { kind: 'full-size-default' }
+        : {
+            kind: 'follows-card',
+            value: Routing.atPath(ctx.config, path.slice(0, -1), path[path.length - 1]),
+          };
+  const own = FullSize.fullSizeLayoutsOwn(ctx.raw, path).map(({ view, value }) => ({
+    view,
+    value,
+    stored: true,
+  }));
+  return own.length > 0 ? { words, layoutsOwn: own } : { words };
+}
+
+/**
  * What a field says about its value: the prototype's `stateOf`, plus the lines for
  * the layouts and the calendars that store their own.
  *
@@ -1284,6 +1318,9 @@ export function stateOf(field: IndexedField, ctx: PlanCtx): StateWords | undefin
       ? { ...onlyIn, ...monthMark }
       : undefined;
   }
+
+  const fullSize = FullSize.fullSizePath(field);
+  if (fullSize !== undefined) return fullSizeState(fullSize, ctx);
 
   const view = viewForWorkspace(ctx.workspace);
   const here = storedHere(field, ctx);

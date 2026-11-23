@@ -13,6 +13,7 @@ import {
   mdiCalendarToday,
   mdiCalendarWeekBegin,
   mdiCardTextOutline,
+  mdiFullscreen,
   mdiGestureTapButton,
   mdiResize,
   mdiWeatherPartlyCloudy,
@@ -35,7 +36,8 @@ export type PageId =
   | 'events'
   | 'size_spacing'
   | 'weather'
-  | 'taps_refresh';
+  | 'taps_refresh'
+  | 'full_size';
 
 export type FamilyId = 'compact_mode' | 'past_days' | 'weekend_colors' | 'replace';
 
@@ -87,8 +89,13 @@ export function isBorrowed(appearance: Appearance): appearance is 'copy' | 'refe
   return appearance === 'copy' || appearance === 'reference';
 }
 
-/** What a page draws besides its fields, at one heading. */
-export type HeadingExtra = 'own-buttons' | 'weather-calendar-links' | 'split';
+/**
+ * What a page draws besides its fields, at one heading. `full-size-lines` lists what `overlay:`
+ * holds beyond the Full Size page's own settings; `full-size-link` is the line leading to that
+ * page, drawn while a tap or a hold opens it.
+ */
+export type HeadingExtra =
+  'own-buttons' | 'weather-calendar-links' | 'split' | 'full-size-lines' | 'full-size-link';
 
 /** One heading of a page, and the fields under it in order. */
 export interface HeadingDef {
@@ -741,6 +748,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
     headings: [
       {
         key: 'heading.taps',
+        // While a tap or a hold opens the card full size, a line leads to what it opens with.
+        extras: ['full-size-link'],
         fields: [
           ['actions:tap_action', E],
           ['actions:hold_action', A],
@@ -753,16 +762,37 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
-        // After the taps, one of which opens it: the layout the card opens in full size.
-        key: 'heading.overlay',
-        fields: [['actions:overlay.view', A]],
-      },
-      {
         key: 'heading.refresh',
         fields: [
           ['actions:refresh_interval', A],
           ['actions:refresh_on_navigate', A],
         ],
+      },
+    ],
+  },
+  {
+    // What the card opens full size with, a section of the overview of its own: what it opens in,
+    // then how many days, then its controls, each always drawn, since each has a value of its own
+    // there (`OVERLAY_DEFAULTS`). Then whatever else `overlay:` holds, which is YAML's.
+    id: 'full_size',
+    titleKey: 'page.full_size',
+    iconPath: mdiFullscreen,
+    noteKey: 'page.full_size.note',
+    descriptionKey: 'page.full_size.description',
+    headings: [
+      {
+        key: 'heading.full_size_opens',
+        fields: [
+          ['actions:overlay.view', E],
+          ['actions:overlay.days_to_show', E],
+          ['actions:overlay.toolbar.show', E],
+        ],
+      },
+      {
+        key: 'heading.full_size_more',
+        helperKey: 'heading.full_size_more.helper',
+        extras: ['full-size-lines'],
+        fields: [],
       },
     ],
   },
@@ -941,10 +971,25 @@ export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set([
   'taps_refresh',
 ]);
 
-/** The topics every layout's page lists, in order: every page that is not the whole card's. */
-export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
-  (page) => !WHOLE_CARD_PAGES.has(page.id),
-);
+/**
+ * The page under Full Size on the overview: what the card opens full size with, one value for the
+ * whole card, written under `overlay:`.
+ */
+export const FULL_SIZE_PAGES: ReadonlySet<PageId> = new Set(['full_size']);
+
+/**
+ * Whether a page edits outside any layout: a Whole Card page, or Full Size. Such a page edits in
+ * the shared scope, and Back takes it to the overview.
+ *
+ * @param page - A page
+ * @returns `true` for a page no layout owns
+ */
+export function isUnscopedPage(page: PageId): boolean {
+  return WHOLE_CARD_PAGES.has(page) || FULL_SIZE_PAGES.has(page);
+}
+
+/** The topics every layout's page lists, in order: every page no layout leaves out. */
+export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter((page) => !isUnscopedPage(page.id));
 
 /**
  * Whether a card field keeps no copy per layout: one value whichever layout's page draws it. Unlike
