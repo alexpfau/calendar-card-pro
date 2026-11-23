@@ -2476,6 +2476,29 @@ export const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
   position: 'none',
 };
 
+/**
+ * Which layouts read an option of a layout's own `weather:`, by its path there, where not every
+ * layout that draws that part does. An absent path is read wherever its part is drawn.
+ *
+ * Columns and Grid always give an event's forecast a line of its own, which List does only when
+ * asked, and Month keeps it beside the title. Written into another layout's block, `own_line`
+ * does nothing, and the editor offers it nowhere else.
+ */
+export const WEATHER_OPTION_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  'event.own_line': new Set<Types.EffectiveView>(['list']),
+};
+
+/**
+ * Whether a layout reads an option of its own `weather:` ({@link WEATHER_OPTION_SCOPE}).
+ *
+ * @param path - The option's path under `weather`, such as `event.own_line`
+ * @param view - The layout
+ * @returns `true` unless its scope leaves the layout out
+ */
+export function readsWeatherOption(path: string, view: Types.EffectiveView): boolean {
+  return WEATHER_OPTION_SCOPE[path]?.has(view) ?? true;
+}
+
 /** The last answers of {@link resolveViewWeather}, by configuration, then by view. */
 const viewWeathers = new WeakMap<
   object,
