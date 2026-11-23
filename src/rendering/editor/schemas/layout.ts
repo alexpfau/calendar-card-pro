@@ -253,6 +253,10 @@ const layoutSchema = Helpers.memoizeLast(
       );
     }
 
+    // A List card's pair while it is compact, which takes the card's own while unset. Built in
+    // every layout and withheld outside List by `VIEW_SCOPE`, as the compact limits are.
+    cardBox.push(text('compact_card_height'), text('compact_card_max_height'));
+
     // The events area's own pair, which Card Height has replaced. Its page draws it only where a
     // card still holds one, so it can be read and cleared, and never offers it (`pages.ts`, kept).
     if (eventsArea) cardBox.push(text('height'), text('max_height'));

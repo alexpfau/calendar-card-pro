@@ -29,10 +29,11 @@ Every other option is shared with the other layouts; see [Choose a Layout](/feat
 
 ## 📊 Compact Mode & Event Limits
 
-Compact mode keeps a list card short: it shows only the first few events or days until someone
-expands it to everything in `days_to_show`. Set an event or day limit and the card starts
+Compact mode keeps a list card short: it shows only the first few events or days, or holds the
+card at a height of its own, until someone expands it to everything in `days_to_show`. Set an
+event or day limit, or a [compact height](#compact-expanded-heights), and the card starts
 compact; an [`expand` tap or hold action](/features/actions#expandable-calendar-card) lets
-people switch between the two. Without a limit, nothing can fold, and the card offers no tap or
+people switch between the two. Without either, nothing can fold, and the card offers no tap or
 hold for `expand`.
 
 ```yaml
@@ -51,8 +52,9 @@ list:
 ```
 
 ::: warning Compact Mode Applies to List View Only
-`compact_events_to_show`, its per-calendar form, `compact_days_to_show` and
-`compact_events_complete_days` are read in list view and ignored in column and grid view.
+`compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
+`compact_events_complete_days`, `compact_card_height` and `compact_card_max_height` are read in
+list view and ignored in column and grid view.
 
 They need not be removed: a card set to `view: column` or `view: grid` renders as a list
 whenever it is too narrow for even `min_days_to_show` under the default
@@ -144,6 +146,51 @@ second would not appear at all. Complete days stretch only the card's own limit:
 still shows no more days than `compact_days_to_show`, and events a calendar's own cap held
 back stay hidden.
 
+### Compact & Expanded Heights
+
+`compact_card_height` gives a list card a height of its own while it is compact, so it can sit
+at a fixed size above other cards and fill the screen once expanded. `compact_card_max_height`
+caps the compact card instead, which then grows with its events up to the cap.
+
+```yaml
+card_height: calc(100dvh - var(--header-height, 56px)) # expanded: the screen under the header
+list:
+  compact_events_to_show: 4
+  compact_card_height: 300px # compact: the cards below stay where they are
+tap_action:
+  action: expand
+```
+
+| Option                           | Type   | Default                    | Description                                                               |
+| -------------------------------- | ------ | -------------------------- | ------------------------------------------------------------------------- |
+| `list → compact_card_height`     | string | inherits `card_height`     | The whole card's height while it is compact; `auto` is its events' own    |
+| `list → compact_card_max_height` | string | inherits `card_max_height` | The tallest the card is while it is compact; it clamps the compact height |
+
+- **Unset, each follows the card's own**, [`card_height` and `card_max_height`](/features/layout-appearance#card-dimensions-scrolling),
+  so a card that sets neither keeps one height in both states. An explicit `auto` or `none`
+  keeps the card's own out: `compact_card_height: auto` beside a fixed `card_height` lets the
+  compact card fit its events.
+- **A height alone is enough to fold.** Without `compact_events_to_show` or
+  `compact_days_to_show`, the compact card shows every event and scrolls them inside its height,
+  and `expand` switches to the card's own height. Where both come to the same height, `expand`
+  does nothing, as on a card without limits.
+- **They take what `card_height` takes**: any CSS length, a viewport unit such as `dvh`, or a
+  `calc()`. A bare number is read in pixels.
+- **In the visual editor** they are **Compact Height** and **Compact Maximum Height**, under
+  **Compact Mode** on List's Size & Spacing.
+
+::: details Where the Compact Heights Change Nothing
+
+- **A Sections dashboard's rows**, set in its Layout tab, keep the card at the rows' height,
+  compact or expanded, as they do over `card_height`. Leave the rows at `auto` for the card to
+  change height.
+- **A cap alone beside a fixed `card_height`** draws the compact card at the cap, however few
+  its events; add `compact_card_height: auto` to let it fit them.
+- **The [full-size overlay](/features/actions#opening-the-card-full-size)** fills its dialog and
+  takes neither.
+
+:::
+
 ### Continuing a List on a Second Card
 
 `skip_first_events` leaves the first events off a list, so a second card can carry on where a
@@ -198,8 +245,8 @@ cards:
 ### Benefits of These Controls
 
 Together, these keep a dashboard card short: a few days, a cap on any calendar that would
-crowd out the rest, a card-wide limit that never cuts its last day off part-way, and the full
-range one expand away.
+crowd out the rest, a card-wide limit that never cuts its last day off part-way, a compact
+height that keeps the cards below in place, and the full range one expand away.
 
 ## 🔃 Event Order
 

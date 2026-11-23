@@ -120,7 +120,7 @@ These live only inside the `month:` block. All but the first two have no top-lev
 
 ### List-Only Options
 
-These ten apply in list view only and belong inside `list:`, which is where the visual editor
+These twelve apply in list view only and belong inside `list:`, which is where the visual editor
 writes them.
 
 | Option                                   | Type    | Default                          | Description                                                                                                                                  |
@@ -130,6 +130,8 @@ writes them.
 | `list → compact_events_to_show`          | number  | -                                | Most events shown while the card is compact; unset shows them all                                                                            |
 | `list → compact_days_to_show`            | number  | -                                | Most days shown while the card is compact; unset shows every day in range                                                                    |
 | `list → compact_events_complete_days`    | boolean | `false`                          | Never cut a day off part-way: if one of its events is shown, all of them are                                                                 |
+| `list → compact_card_height`             | string  | inherits `card_height`           | The whole card's height while it is compact; `auto` is its events' own. Set alone, it lets the card fold                                     |
+| `list → compact_card_max_height`         | string  | inherits `card_max_height`       | The tallest the card is while it is compact; it clamps `compact_card_height`                                                                 |
 | `list → event_order`                     | string  | `earliest_first`                 | `latest_first` puts the most recent day and event at the top                                                                                 |
 | `list → skip_first_events`               | number  | -                                | Events left off the top of the list, so a second card can continue another                                                                   |
 | `list → month_separator_label`           | boolean | `false`                          | Name the month, abbreviated, at the start of each month rule, the first month's too unless a toolbar names it; needs `month_separator_width` |
@@ -142,7 +144,8 @@ by hand. When the editor first adopts an older card, it moves these unambiguous 
 into `list:` automatically.
 :::
 
-**→ [Compact Mode & Event Limits](/features/list-view#compact-mode-event-limits)** — the three compact options, worked through.
+**→ [Compact Mode & Event Limits](/features/list-view#compact-mode-event-limits)** — the compact options, worked through.
+**→ [Compact & Expanded Heights](/features/list-view#compact-expanded-heights)** — `compact_card_height` and `compact_card_max_height`.
 **→ [Event Order](/features/list-view#event-order)** — `event_order`, for a calendar used as a log.
 **→ [Continuing a List on a Second Card](/features/list-view#continuing-a-list-on-a-second-card)** — `skip_first_events`.
 **→ [Spacing & Alignment](/features/layout-appearance#spacing-alignment)** — `date_vertical_alignment`.
@@ -152,12 +155,13 @@ into `list:` automatically.
 ### Options With No Effect in Column View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events` ·
+`compact_days_to_show` · `compact_events_complete_days` · `compact_card_height` ·
+`compact_card_max_height` · `event_order` · `skip_first_events` ·
 `month_separator_label` · `month_separator_label_color` · `month_separator_label_font_size` ·
 `multiday_banners` (card-wide and per-entity)
 
-These describe a date cell, a compact budget, a list's order and continuation, words on a
-horizontal month rule, or a grid's all-day band, which the column layout does not have. The first ten
+These describe a date cell, a compact budget or height, a list's order and continuation, words on a
+horizontal month rule, or a grid's all-day band, which the column layout does not have. The first twelve
 keep working in list view, including when a `view: column` card falls back to it on a
 narrow dashboard, and `multiday_banners` in grid and month view. The editor hides their controls on Columns' pages, without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
@@ -167,7 +171,8 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 ### Options With No Effect in Grid View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · `event_order` ·
+`compact_days_to_show` · `compact_events_complete_days` · `compact_card_height` ·
+`compact_card_max_height` · `event_order` ·
 `skip_first_events` · `month_separator_label` · `month_separator_label_color` ·
 `month_separator_label_font_size` · `split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color` ·
 `allday_badge` · `allday_badge_style` · `allday_badge_color` · `time_position` ·
@@ -186,7 +191,8 @@ pages, without deleting stored values.
 `height` · `max_height` ·
 `days_to_show` · `show_empty_days` · `show_empty_today` · `empty_day_text` · `empty_day_color` ·
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · `event_order` · `skip_first_events` ·
+`compact_days_to_show` · `compact_events_complete_days` · `compact_card_height` ·
+`compact_card_max_height` · `event_order` · `skip_first_events` ·
 `month_separator_label` · `month_separator_label_color` · `month_separator_label_font_size` ·
 `split_multiday_events` (card-wide and per-entity) · `show_multiday_allday_time` · `day_spacing` ·
 `day_separator_width` · `day_separator_color` · `week_separator_width` · `week_separator_color` ·
@@ -282,12 +288,15 @@ the card-wide options for that one calendar:
 | `additional_card_spacing` | string | `0px`                           | Extra top and bottom padding for the card                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `card_height`             | string | `auto`                          | The whole card's height, its title, toolbar and notices included, with the events filling what the header leaves. `auto` is each layout's own height: its content's, or Month's default. Any CSS length, such as `600px` or `calc(100dvh - 56px)`; a bare number is read in pixels, and a percentage or a word such as `fit-content` is refused for `auto`. A row count set in a Sections dashboard's Layout tab wins over it; see [Card Dimensions & Scrolling](/features/layout-appearance#card-dimensions-scrolling) |
 | `card_max_height`         | string | `none`                          | The tallest the whole card may be, as a CSS length; it clamps `card_height`, and alone lets the card grow with its events up to it in List, Columns and Grid. The wide Month keeps its own height under it; the narrow one grows                                                                                                                                                                                                                                                                                        |
+| `compact_card_height`     | string | inherits `card_height`          | The whole card's height while a list card is compact, so it can open short and expand to `card_height`; `auto` is its events' own height. Set alone, it lets `expand` fold the card without an event or day limit. List view only, so it belongs in `list:`; see [Compact & Expanded Heights](/features/list-view#compact-expanded-heights)                                                                                                                                                                             |
+| `compact_card_max_height` | string | inherits `card_max_height`      | The tallest a list card is while compact; it clamps `compact_card_height`. List view only, so it belongs in `list:`; see [Compact & Expanded Heights](/features/list-view#compact-expanded-heights)                                                                                                                                                                                                                                                                                                                     |
 | `height`                  | string | `auto`                          | Fixed height of the events area under the header, however much it holds; the whole card is taller by its header and padding. A `card_height` that is a length takes its place. Month view ignores it                                                                                                                                                                                                                                                                                                                    |
 | `max_height`              | string | `none`                          | Height the events area under the header may grow to with its content, and no further, under a `card_height` too. Month view ignores it                                                                                                                                                                                                                                                                                                                                                                                  |
 
 All four height options may also be set per layout, in `list:`, `column:` or `time_grid:`, and
 `card_height` and `card_max_height` in `month:` too, where a block wins over the top level; see
-[A Height Per Layout](/features/layout-appearance#a-height-per-layout). In grid view a
+[A Height Per Layout](/features/layout-appearance#a-height-per-layout). A list card's compact pair
+belongs in `list:`. In grid view a
 `card_height` or a fixed `height` fits the hours into the card, down to `24px` an hour or a smaller
 `hour_height`, rather than scrolling; see [Height in Grid View](/features/layout-appearance#height-in-grid-view). Month view
 takes neither `height` nor `max_height`; see
@@ -435,16 +444,20 @@ without one shows none.
 `weather → date` and `weather → event` each take an object of their own, and the two accept
 different options:
 
-| Scope             | Accepted options                                                                                                                                         |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `weather → date`  | `show_conditions` · `show_high_temp` · `show_low_temp` · `show_uv_index` · `uv_index_threshold` · `icon_size` · `font_size` · `color`                    |
-| `weather → event` | `show_conditions` · `show_temp` · `show_uv_index` · `uv_index_threshold` · `daily_forecast_fallback` · `max_lines` · `icon_size` · `font_size` · `color` |
+| Scope             | Accepted options                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weather → date`  | `show_conditions` · `show_high_temp` · `show_low_temp` · `show_uv_index` · `uv_index_threshold` · `icon_size` · `font_size` · `color`                                 |
+| `weather → event` | `show_conditions` · `show_temp` · `show_uv_index` · `uv_index_threshold` · `daily_forecast_fallback` · `own_line` · `max_lines` · `icon_size` · `font_size` · `color` |
 
 `show_conditions` means something different in each layout. In List and Month it shows or hides
 the condition icon. In Columns and Grid the event forecast has a row of its own, whose icon is
 always shown, so `show_conditions` writes the condition out in words instead:
 `21° · Partly cloudy`. `weather → event → max_lines` limits how many lines those words may
-take in Columns and Grid, with `0` meaning no limit; List and Month do not read it.
+take in Columns and Grid, with `0` meaning no limit; Month does not read it.
+
+One option is List's alone: `weather → event → own_line` gives the event forecast a row of its
+own under the time, where `show_conditions` and `max_lines` work as in Columns and Grid. It
+defaults to `false`; see [Weather In The List Layout](/features/weather#weather-in-the-list-layout).
 
 One calendar can leave the weather out beside its own events with `show_weather: false` on its
 entry under `entities`; see [Per-Entity Options](#per-entity-options).

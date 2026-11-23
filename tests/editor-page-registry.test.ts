@@ -487,6 +487,13 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:additional_card_spacing A',
     ],
   ],
+  // A List card's height while it is compact, which takes Card Height while its own are unset.
+  [
+    'Size & Spacing',
+    'Compact Mode',
+    '',
+    ['layout:compact_card_height A L', 'layout:compact_card_max_height A L'],
+  ],
   // Month's narrow form, which takes Card Height while its own are unset.
   [
     'Size & Spacing',
@@ -579,6 +586,7 @@ const APPROVED_MAP: ReadonlyArray<
       'weather:weather.event.show_uv_index E LCGM',
       'weather:weather.event.uv_index_threshold W LCGM',
       'weather:weather.event.daily_forecast_fallback E LCGM',
+      'weather:weather.event.own_line A L',
       'weather:weather.event.icon_size A LCGM',
       'weather:weather.event.font_size A LCGM',
       'weather:weather.event.color A LCGM',
@@ -678,17 +686,18 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 244 ids, Month's own nine, Layouts in Switcher, the three of the month's name
+    // map places 247 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
-    // own height pair, Full-Size Overlay's Layout, Open Full Size and a calendar's Image Size among
-    // them, and every one of them is built under some workspace and state.
+    // own height pair, Full-Size Overlay's Layout, Open Full Size, List's forecast on a line of its
+    // own, its two compact heights and a calendar's Image Size among them, and every one of them
+    // is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(244);
-    expect(PLACED).toHaveLength(244);
+    expect(BUILT.size).toBe(247);
+    expect(PLACED).toHaveLength(247);
   });
 
   it('has no field built but unplaced', () => {
@@ -1103,13 +1112,14 @@ describe('the registry heads what the builders used to', () => {
       'layout:time_grid.axis_label_minutes',
     ]);
     const spacing = PAGES.find((page) => page.id === 'size_spacing')!.headings.map((h) => h.key);
-    // Only headings Grid draws nothing under come between, so Hour Labels follows its height there.
+    // Only headings Grid draws nothing under come between, so Hour Labels follows its height there:
+    // List's compact heights, Month's narrow ones and the event rows Grid does not space.
     expect(
       spacing.slice(
         spacing.indexOf('heading_card_size') + 1,
         spacing.indexOf('heading_hour_labels'),
       ),
-    ).toEqual(['heading_narrow_month', 'heading_event_rows']);
+    ).toEqual(['heading_compact_card', 'heading_narrow_month', 'heading_event_rows']);
     expect(under('day_header', 'weekend_colors')).toContain(
       'layout:time_grid.weekend_background_color',
     );

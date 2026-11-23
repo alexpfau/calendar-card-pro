@@ -413,6 +413,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
       `${W}event.show_temp`,
       `${W}event.show_uv_index`,
       `${W}event.daily_forecast_fallback`,
+      `${W}event.own_line`,
       `${W}event.icon_size`,
       `${W}event.font_size`,
       `${W}event.color`,

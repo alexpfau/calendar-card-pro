@@ -83,12 +83,17 @@ const LIST_ONLY = [
   'content:compact_days_to_show',
   'content:compact_events_to_show',
   'content:compact_events_complete_days',
+  'layout:compact_card_height',
+  'layout:compact_card_max_height',
   'day_header:date_vertical_alignment',
   'day_header:today_indicator_position',
   'separators:month_separator_label',
   'separators:month_separator_label_color',
   'separators:month_separator_label_font_size',
   'calendar:compact_events_to_show',
+  // An event's forecast on a line of its own, which Columns and Grid always draw
+  // (`ViewConfig.WEATHER_OPTION_SCOPE`).
+  'weather:weather.event.own_line',
 ];
 
 /** Offered only in Columns. */
@@ -269,6 +274,7 @@ const LAYOUT_WEATHER = [
   'weather:weather.event.show_uv_index',
   'weather:weather.event.uv_index_threshold',
   'weather:weather.event.daily_forecast_fallback',
+  'weather:weather.event.own_line',
   'weather:weather.event.icon_size',
   'weather:weather.event.font_size',
   'weather:weather.event.color',
@@ -950,10 +956,13 @@ describe('the universe', () => {
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
     // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
     // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
-    // coming weeks from the start date's. Then a calendar gained Image Size, in every workspace.
+    // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
+    // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
+    // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then a calendar gained
+    // Image Size, in every workspace.
     expect(sizes).toEqual({
       shared: { card: 139, calendar: 31 },
-      list: { card: 166, calendar: 32 },
+      list: { card: 169, calendar: 32 },
       column: { card: 163, calendar: 31 },
       grid: { card: 162, calendar: 31 },
       month: { card: 109, calendar: 30 },
@@ -1272,6 +1281,7 @@ describe('the gate table', () => {
           `${W}event.show_temp`,
           `${W}event.show_uv_index`,
           `${W}event.daily_forecast_fallback`,
+          `${W}event.own_line`,
           `${W}event.icon_size`,
           `${W}event.font_size`,
           `${W}event.color`,

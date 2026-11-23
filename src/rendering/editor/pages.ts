@@ -595,6 +595,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // A List card's height while it is compact, which takes Card Height while unset.
+        key: 'heading_compact_card',
+        fields: [
+          ['layout:compact_card_height', A],
+          ['layout:compact_card_max_height', A],
+        ],
+      },
+      {
         // Month's narrow form, which takes Card Height while these are unset.
         key: 'heading_narrow_month',
         fields: [
@@ -714,6 +722,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           [`${W}event.show_uv_index`, E],
           [`${W}event.uv_index_threshold`, withMode(`${W}event.show_uv_index`)],
           [`${W}event.daily_forecast_fallback`, E],
+          // Where the parts above go, before how they look (List only).
+          [`${W}event.own_line`, A],
           [`${W}event.icon_size`, A],
           [`${W}event.font_size`, A],
           [`${W}event.color`, A],

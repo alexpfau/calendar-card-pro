@@ -88,6 +88,16 @@ export interface Config {
   card_height: string;
   /** The tallest the whole card may be, as a CSS length, clamping `card_height`; `none` sets none. */
   card_max_height: string;
+  /**
+   * `card_height` while a List card is compact, which takes `card_height` while this is unset;
+   * `auto` is its events' own height. List view only; read with `resolveCompactCardSize`.
+   */
+  compact_card_height?: string;
+  /**
+   * `card_max_height` while a List card is compact, which takes `card_max_height` while this is
+   * unset; `none` sets no cap. List view only; read with `resolveCompactCardSize`.
+   */
+  compact_card_max_height?: string;
 
   // Week numbers and horizontal separators
   first_day_of_week: 'sunday' | 'monday' | 'system';
@@ -519,7 +529,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The ten below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The twelve below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -527,6 +537,8 @@ export interface ListOverrides extends SharedViewOverrides {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+  compact_card_height?: string;
+  compact_card_max_height?: string;
 
   // Order and offset. Read at render, after every filter and before the card's limits.
   event_order?: EventOrder;
@@ -1117,6 +1129,11 @@ export interface WeatherPositionConfig {
    * no nested max-lines option.
    */
   max_lines?: number;
+  /**
+   * List only, **event** position: the forecast on a line of its own under the time, as Columns
+   * and Grid draw it, rather than at the end of the title's line.
+   */
+  own_line?: boolean;
   icon_size?: string;
   font_size?: string;
   color?: string;

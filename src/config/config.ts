@@ -68,6 +68,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   // The whole card's, title and toolbar included; `auto` is each layout's own height.
   card_height: 'auto',
   card_max_height: 'none',
+  // A List card's while it is compact; unset, each takes the card's own above.
+  compact_card_height: undefined,
+  compact_card_max_height: undefined,
 
   first_day_of_week: 'system',
   show_week_numbers: null,
@@ -196,6 +199,7 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_uv_index: false,
       uv_index_threshold: 0,
       daily_forecast_fallback: true,
+      own_line: false,
       max_lines: 0,
       icon_size: '14px',
       font_size: '12px',
@@ -987,14 +991,16 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
  * height, and a cap takes `none`; anything else that is not a length folds the same way.
  *
  * `card_height` and `card_max_height` fold to `auto` and `none`, at the top level and in every
- * layout's block. A narrow key has no default of its own: unusable, it counts as unset and the
- * narrow form takes the wide value. Its own table, for the reason the bar width has one.
+ * layout's block. A narrow or compact key has no default of its own: unusable, it counts as unset
+ * and its form takes the card's value. Its own table, for the reason the bar width has one.
  */
 export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'card_height',
   'card_max_height',
   'narrow_card_height',
   'narrow_card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
 ]);
 
 /**

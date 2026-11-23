@@ -82,7 +82,13 @@ describe('the overlay card’s configuration', () => {
       max_height: '300px',
       card_height: '400px',
       compact_events_to_show: 5,
-      list: { max_height: '200px', compact_days_to_show: 2, show_past_events: true },
+      compact_card_height: '200px',
+      list: {
+        max_height: '200px',
+        compact_days_to_show: 2,
+        compact_card_max_height: '250px',
+        show_past_events: true,
+      },
       month: { narrow_card_height: '500px', weekend_background_color: 'red' },
     });
     expect(config).not.toHaveProperty('type');
@@ -91,6 +97,7 @@ describe('the overlay card’s configuration', () => {
     expect(config).not.toHaveProperty('max_height');
     expect(config).not.toHaveProperty('card_height');
     expect(config).not.toHaveProperty('compact_events_to_show');
+    expect(config).not.toHaveProperty('compact_card_height');
     expect(config.list).toEqual({ show_past_events: true });
     expect(config.month).toEqual({ weekend_background_color: 'red' });
   });
@@ -104,8 +111,10 @@ describe('the overlay card’s configuration', () => {
         days_to_show: 14,
         compact_events_to_show: 3,
         card_height: '200px',
+        compact_card_height: '150px',
         toolbar: { refresh: false, view_switcher_layouts: ['grid', 'month'] },
         time_grid: { start_time: '07:00', max_height: '100px' },
+        list: { compact_card_max_height: '180px' },
       },
     });
     expect(config).toMatchObject({
@@ -124,7 +133,9 @@ describe('the overlay card’s configuration', () => {
     });
     expect(config).not.toHaveProperty('overlay');
     expect(config).not.toHaveProperty('card_height');
+    expect(config).not.toHaveProperty('compact_card_height');
     expect(config.time_grid).not.toHaveProperty('max_height');
+    expect(config.list).not.toHaveProperty('compact_card_max_height');
   });
 
   it('never opens another overlay, wherever the action was written', () => {

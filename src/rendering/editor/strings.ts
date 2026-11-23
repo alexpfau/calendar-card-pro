@@ -649,6 +649,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
   max_height: 'Events Area Maximum Height',
   'max_height.helper': 'Caps the events under the title, under any Card Height too.',
+  // A List card's pair while it is compact. Unset, each follows the card's own, which the folded
+  // row says ("Same as Card Height"), so the helpers say only what is not obvious.
+  compact_card_height: 'Compact Height',
+  'compact_card_height.helper':
+    'The card’s height until it is expanded. Set alone, it lets the card expand without an Events or Days limit.',
+  compact_card_max_height: 'Compact Maximum Height',
+  'compact_card_max_height.helper':
+    'Until it is expanded, the card grows with its events up to this height, then scrolls.',
 
   // --- Fit to width ---------------------------------------------------------
   //
@@ -1037,6 +1045,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
   heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
+  // A List card's height while it is compact, which follows Card Height while unset.
+  heading_compact_card: 'Compact Mode',
   // Month's narrow form's height, which follows Card Height while unset.
   heading_narrow_month: 'Narrow Month',
   // Under Card Size & Spacing on Month's page: its height is both forms' until the Narrow Month's
@@ -1759,7 +1769,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
-    'Columns and Grid always show the icon; there this adds the condition in words.',
+    'On a line of its own, as in Columns and Grid, the icon always shows and this adds the condition in words.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index Beside Events',
   'event.uv_index_threshold': 'UV Index Threshold Beside Events',
@@ -1767,11 +1777,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
+  // List's; Columns and Grid always draw it so.
+  'event.own_line': 'On a Line of Its Own',
+  'event.own_line.helper': 'Under the time, as in Columns and Grid.',
   'event.icon_size': 'Icon Size Beside Events',
   'event.font_size': 'Font Size Beside Events',
   'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
-  'event.max_lines.helper': 'Zero means no limit. Only Columns and Grid can reach a second line.',
+  'event.max_lines.helper':
+    'Zero means no limit. Only a forecast on a line of its own can reach a second line.',
 
   // --- Actions & Refresh ----------------------------------------------------
   tap_action: 'Tap Action',
