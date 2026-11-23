@@ -112,3 +112,66 @@ describe('the expand action', () => {
     expect(advertised(card)).toEqual(ON);
   });
 });
+
+describe('a compact height alone', () => {
+  /** The height and cap the card writes on `ha-card`. */
+  function drawn(card: Card) {
+    const style = card.shadowRoot!.querySelector<HTMLElement>('ha-card')!.style;
+    return { height: style.height, max: style.maxHeight };
+  }
+
+  /** Presses the card once, as a tap does. */
+  async function tap(card: Card): Promise<void> {
+    (card as unknown as { toggleExpanded(): void }).toggleExpanded();
+    await card.updateComplete;
+  }
+
+  it('folds a List card with no event or day limit: compact, then the card’s own once expanded', async () => {
+    const card = await mount({
+      view: 'list',
+      tap_action: { action: 'expand' },
+      card_height: 'calc(100dvh - 56px)',
+      list: { compact_card_height: '300px' },
+    });
+    expect(advertised(card)).toEqual(ON);
+    expect(drawn(card)).toEqual({ height: '300px', max: '' });
+    await tap(card);
+    expect(drawn(card)).toEqual({ height: 'calc(100dvh - 56px)', max: '' });
+    // Every event is drawn in both states; only the height changes.
+    expect(card.shadowRoot!.textContent).toContain('Event 20');
+    await tap(card);
+    expect(drawn(card)).toEqual({ height: '300px', max: '' });
+  });
+
+  it('caps the compact card, which grows with its events up to the cap', async () => {
+    const card = await mount({
+      view: 'list',
+      tap_action: { action: 'expand' },
+      compact_card_max_height: '20em',
+    });
+    expect(advertised(card)).toEqual(ON);
+    expect(drawn(card)).toEqual({ height: '', max: '20em' });
+    await tap(card);
+    expect(drawn(card)).toEqual({ height: '', max: '' });
+  });
+
+  it('is no action where it would change nothing: the card’s own height, or another layout', async () => {
+    const same = await mount({
+      view: 'list',
+      tap_action: { action: 'expand' },
+      card_height: '400px',
+      compact_card_height: '400px',
+    });
+    expect(advertised(same)).toEqual(OFF);
+    document.body.replaceChildren();
+    const column = await mount({
+      view: 'column',
+      tap_action: { action: 'expand' },
+      card_height: '600px',
+      compact_card_height: '300px',
+    });
+    expect(column.effectiveView).toBe('column');
+    expect(advertised(column)).toEqual(OFF);
+    expect(drawn(column)).toEqual({ height: '600px', max: '' });
+  });
+});

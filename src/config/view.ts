@@ -245,6 +245,8 @@ export const LIST_OVERRIDE_KEYS = [
   'compact_days_to_show',
   'compact_events_to_show',
   'compact_events_complete_days',
+  'compact_card_height',
+  'compact_card_max_height',
   'event_order',
   'skip_first_events',
   'date_vertical_alignment',
@@ -563,6 +565,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_to_show: new Set<Types.EffectiveView>(['list']),
   compact_days_to_show: new Set<Types.EffectiveView>(['list']),
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
+  // A compact card's height, which only a List card that can fold has.
+  compact_card_height: new Set<Types.EffectiveView>(['list']),
+  compact_card_max_height: new Set<Types.EffectiveView>(['list']),
   // A column reads left to right and a grid down its hours; both keep time running forward.
   event_order: new Set<Types.EffectiveView>(['list']),
   // A column or grid shows its days whatever their events, so a skip would leave holes rather
@@ -1472,6 +1477,55 @@ export function monthSetsCardSize(config: Types.Config): boolean {
     const { height, max } = resolveCardSize(config, 'month', form);
     return height !== 'auto' || max !== 'none';
   });
+}
+
+/**
+ * The whole height a List card is drawn at while it is compact, and its cap.
+ *
+ * `compact_card_height` and `compact_card_max_height`, from the `list:` block or the top level,
+ * each taking the card's own as List resolves it ({@link resolveCardSize}) while unset. A value
+ * written as nothing, or as something no card height can be, counts as unset at its level, so an
+ * unusable line in `list:` falls back to the top level's. An explicit `auto` or `none` is a value:
+ * it keeps the card's own out, as Month's narrow pair does. Expanded, or in any other layout, the
+ * card's own pair applies, which the caller decides.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The height and the cap the compact card is drawn at
+ */
+export function resolveCompactCardSize(config: Types.Config): CardSize {
+  const card = resolveCardSize(config, 'list');
+  const block = blockValues(config, 'list') as Types.ListOverrides | undefined;
+  const own = (
+    key: 'compact_card_height' | 'compact_card_max_height',
+    valid: (value: unknown) => string | undefined,
+  ): string | undefined => valid(block?.[key]) ?? valid(config[key]);
+
+  return {
+    height: own('compact_card_height', toValidCardHeight) ?? card.height,
+    max: own('compact_card_max_height', toValidCardMaxHeight) ?? card.max,
+  };
+}
+
+/**
+ * Whether the compact heights draw the card at another size than its own: a List card outside a
+ * Sections slot, whose compact pair resolves to a height or a cap the card's own pair does not.
+ * Then the card can fold by its height alone, and `expand` has something to do without an event
+ * or a day limit. A slot's rows win over both pairs, so in one nothing would change.
+ *
+ * @param config - Merged configuration
+ * @param view - The layout drawn
+ * @param holdsSlot - Whether a Sections dashboard gives the card a slot of its own
+ * @returns `true` where compact and expanded heights differ
+ */
+export function compactHeightsApply(
+  config: Types.Config,
+  view: Types.EffectiveView,
+  holdsSlot: boolean,
+): boolean {
+  if (holdsSlot || !viewAppliesCompactLimits(view)) return false;
+  const card = resolveCardSize(config, 'list');
+  const compact = resolveCompactCardSize(config);
+  return compact.height !== card.height || compact.max !== card.max;
 }
 
 /**
