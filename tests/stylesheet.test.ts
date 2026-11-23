@@ -654,6 +654,16 @@ describe('card stylesheet', () => {
       );
     });
 
+    it('sets the clamped words at the top of their line, beside the temperature', () => {
+      // A clamped box hides its overflow, and Chromium takes the baseline of such an inline box
+      // from its bottom edge: on the baseline the words sat 3.4px above the temperature, and on a
+      // line of their own the row grew by as much. Measured in Chromium and WebKit; every row
+      // without max_lines drew byte-identical with this in place.
+      expect(declared('.time-location .event-weather .weather-condition', 'vertical-align')).toBe(
+        'top',
+      );
+    });
+
     it('clamps the words with the same mechanism as every other line limit', () => {
       // -webkit-line-clamp needs a WebKit box display, and unlimited is the keyword `none`,
       // which generateCustomPropertiesObject emits when the option is 0.
@@ -4174,6 +4184,11 @@ describe('the time beside the title', () => {
     }),
     [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
     [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
+    // A folded countdown's words, which move to the next line whole, on the time's baseline.
+    [`${SHARED} .time-text > .time-countdown > .time-countdown-words`]: one({
+      display: 'inline-block',
+      'vertical-align': 'baseline',
+    }),
     // The countdown alone, with times off.
     [`${TIME} > .time-countdown`]: one({
       'margin-inline': '0',
