@@ -196,6 +196,7 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_uv_index: false,
       uv_index_threshold: 0,
       daily_forecast_fallback: true,
+      own_line: false,
       max_lines: 0,
       icon_size: '14px',
       font_size: '12px',

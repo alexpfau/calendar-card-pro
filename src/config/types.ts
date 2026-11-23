@@ -1104,6 +1104,11 @@ export interface WeatherPositionConfig {
    * no nested max-lines option.
    */
   max_lines?: number;
+  /**
+   * List only, **event** position: the forecast on a line of its own under the time, as Columns
+   * and Grid draw it, rather than at the end of the title's line.
+   */
+  own_line?: boolean;
   icon_size?: string;
   font_size?: string;
   color?: string;

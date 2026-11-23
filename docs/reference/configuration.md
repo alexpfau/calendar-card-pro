@@ -433,16 +433,20 @@ without one shows none.
 `weather → date` and `weather → event` each take an object of their own, and the two accept
 different options:
 
-| Scope             | Accepted options                                                                                                                                         |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `weather → date`  | `show_conditions` · `show_high_temp` · `show_low_temp` · `show_uv_index` · `uv_index_threshold` · `icon_size` · `font_size` · `color`                    |
-| `weather → event` | `show_conditions` · `show_temp` · `show_uv_index` · `uv_index_threshold` · `daily_forecast_fallback` · `max_lines` · `icon_size` · `font_size` · `color` |
+| Scope             | Accepted options                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weather → date`  | `show_conditions` · `show_high_temp` · `show_low_temp` · `show_uv_index` · `uv_index_threshold` · `icon_size` · `font_size` · `color`                                 |
+| `weather → event` | `show_conditions` · `show_temp` · `show_uv_index` · `uv_index_threshold` · `daily_forecast_fallback` · `own_line` · `max_lines` · `icon_size` · `font_size` · `color` |
 
 `show_conditions` means something different in each layout. In List and Month it shows or hides
 the condition icon. In Columns and Grid the event forecast has a row of its own, whose icon is
 always shown, so `show_conditions` writes the condition out in words instead:
 `21° · Partly cloudy`. `weather → event → max_lines` limits how many lines those words may
-take in Columns and Grid, with `0` meaning no limit; List and Month do not read it.
+take in Columns and Grid, with `0` meaning no limit; Month does not read it.
+
+One option is List's alone: `weather → event → own_line` gives the event forecast a row of its
+own under the time, where `show_conditions` and `max_lines` work as in Columns and Grid. It
+defaults to `false`; see [Weather In The List Layout](/features/weather#weather-in-the-list-layout).
 
 One calendar can leave the weather out beside its own events with `show_weather: false` on its
 entry under `entities`; see [Per-Entity Options](#per-entity-options).

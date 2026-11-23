@@ -714,6 +714,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           [`${W}event.show_uv_index`, E],
           [`${W}event.uv_index_threshold`, withMode(`${W}event.show_uv_index`)],
           [`${W}event.daily_forecast_fallback`, E],
+          // Where the parts above go, before how they look (List only).
+          [`${W}event.own_line`, A],
           [`${W}event.icon_size`, A],
           [`${W}event.font_size`, A],
           [`${W}event.color`, A],
