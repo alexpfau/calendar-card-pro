@@ -919,8 +919,7 @@ function translationsInEditor(code, translated, englishValues) {
 }
 
 /**
- * The Day.js locales the card imports, each by the two strings that mark it in a bundle: its
- * relative-time `future` and `past` patterns, such as "vor %s" and "in %s".
+ * The Day.js locales the card imports that carry relative-time grammar, by name.
  *
  * The editor needs none of them. They reach it only when an editor module imports something
  * that leads to `utils/format.ts`, which pulls in `translations/dayjs.ts` and with it Day.js and
@@ -931,32 +930,52 @@ function translationsInEditor(code, translated, englishValues) {
  * build uses, so a new locale is covered as soon as the card imports it. English is left out:
  * its grammar lives in the relativeTime plugin, not in a locale object.
  *
- * @returns Each locale's name and its two marker strings
+ * @returns The locales' names, sorted
  */
-function dayjsLocaleMarkers() {
+function dayjsLocaleNames() {
   const source = join(ROOT, 'src', 'translations', 'dayjs.ts');
   const require = createRequire(source);
-  const markers = [];
+  const names = [];
   for (const specifier of validateDayjsUsage(readFileSync(source, 'utf8'), source)) {
     if (!specifier.startsWith('dayjs/locale/')) continue;
     const { name, relativeTime } = require(specifier);
-    const strings = [relativeTime?.future, relativeTime?.past];
-    if (strings.every((value) => typeof value === 'string')) markers.push({ name, strings });
+    if (relativeTime) names.push(name);
   }
-  return markers;
+  return names.sort();
 }
 
 /**
- * The Day.js locales a bundle carries: those whose `future` and `past` strings both appear.
+ * The Day.js locale objects a bundle holds, by name: every object literal with a string `name`
+ * and an object `relativeTime`, which is what the build trims each locale to
+ * (`trimDayjsLocaleFields`). Read from the syntax tree, so neither the minifier's spelling nor a
+ * string two locales share ("om %s" is Danish and Bokmål alike) can stand in for one.
  *
- * @param code - The emitted file
- * @param markers - From `dayjsLocaleMarkers()`
- * @returns The names of the locales found
+ * @param ast - Parsed module
+ * @returns The names found, sorted and unique
  */
-function dayjsLocalesIn(code, markers) {
-  return markers
-    .filter(({ strings }) => strings.every((value) => code.includes(value)))
-    .map(({ name }) => name);
+function dayjsLocalesIn(ast) {
+  const found = new Set();
+  const key = (property) =>
+    property.key?.type === 'Identifier' && !property.computed
+      ? property.key.name
+      : property.key?.type === 'Literal'
+        ? String(property.key.value)
+        : undefined;
+  walk(ast.body, (node) => {
+    if (node.type !== 'ObjectExpression') return;
+    const fields = new Map(
+      node.properties.filter((p) => p.type === 'Property').map((p) => [key(p), p.value]),
+    );
+    const name = fields.get('name');
+    if (
+      name?.type === 'Literal' &&
+      typeof name.value === 'string' &&
+      fields.get('relativeTime')?.type === 'ObjectExpression'
+    ) {
+      found.add(name.value);
+    }
+  });
+  return [...found].sort();
 }
 
 /**
@@ -1318,6 +1337,7 @@ function main() {
   const scanWorks = lookbehindScanWorks();
   const syntaxWorks = syntaxCheckWorks();
   let literalsScanned = 0;
+  const asts = new Map();
   let readInFull = 0;
   let readInPart = 0;
 
@@ -1350,6 +1370,7 @@ function main() {
 
     const ast = parse(code, `dist/${file}`);
     if (!ast) continue;
+    asts.set(file, ast);
 
     // Each emitted file is a self-contained bundle.
     for (const specifier of importedSpecifiers(ast)) {
@@ -1474,27 +1495,25 @@ function main() {
   }
 
   // Day.js locales bundled into the editor or a language file. The card is the control: it
-  // carries every one, so a marker the build no longer emits verbatim fails here rather than
-  // passing the editor for the wrong reason.
+  // must hold every locale the card imports, so a shape the build no longer emits fails here
+  // rather than passing the editor for the wrong reason.
   let dayjsLine = '';
-  if (variant && jsFiles.includes(variant.card)) {
-    const markers = dayjsLocaleMarkers();
-    const inCard = dayjsLocalesIn(readFileSync(join(DIST, variant.card), 'utf8'), markers);
-    if (markers.length === 0 || inCard.length !== markers.length) {
-      const missing = markers.filter(({ name }) => !inCard.includes(name)).map(({ name }) => name);
+  if (variant && asts.has(variant.card)) {
+    const expected = dayjsLocaleNames();
+    const inCard = dayjsLocalesIn(asts.get(variant.card));
+    const missing = expected.filter((name) => !inCard.includes(name));
+    if (expected.length === 0 || missing.length) {
       error(
         `dist/${variant.card}`,
-        `carries ${inCard.length} of the ${markers.length} Day.js locales src/translations/` +
-          `dayjs.ts imports${missing.length ? ` (not ${missing.slice(0, 5).join(', ')})` : ''}, ` +
-          'so the editor could not be checked for them. See dayjsLocaleMarkers() in ' +
+        `holds ${expected.length - missing.length} of the ${expected.length} Day.js locales ` +
+          `src/translations/dayjs.ts imports${missing.length ? ` (not ${missing.slice(0, 5).join(', ')})` : ''}, ` +
+          'so the editor could not be checked for them. See dayjsLocalesIn() in ' +
           'scripts/check-bundle.mjs',
       );
     }
-    const editorFiles = [variant.editor, ...variant.languages].filter((file) =>
-      jsFiles.includes(file),
-    );
+    const editorFiles = [variant.editor, ...variant.languages].filter((file) => asts.has(file));
     for (const file of editorFiles) {
-      const found = dayjsLocalesIn(readFileSync(join(DIST, file), 'utf8'), markers);
+      const found = dayjsLocalesIn(asts.get(file));
       if (found.length) {
         error(
           `dist/${file}`,
@@ -1508,7 +1527,7 @@ function main() {
     }
     dayjsLine =
       ` No Day.js locale is inside ${variant.editor} or its ${editorFiles.length - 1} ` +
-      `language files; the card carries all ${inCard.length}.`;
+      `language files; the card holds all ${expected.length}.`;
   }
 
   // A scan that found nothing to scan passes exactly like one that found nothing wrong.
