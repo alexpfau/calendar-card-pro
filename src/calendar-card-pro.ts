@@ -2441,7 +2441,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The configuration a view draws a page with: the page's own, resolved for the view. For month
-   * it is its six weeks, from the page's first row (`_monthRowsStart`), so grouping holds exactly
+   * it is its weeks, from the page's first row (`_monthRowsStart`), so grouping holds exactly
    * the grid's days.
    *
    * @param page - First day of the page, or null for home
@@ -2460,7 +2460,7 @@ class CalendarCardPro extends LitElement {
     return {
       ...resolved,
       start_date: Paging.pageKey(this._monthRowsStart(page, now)),
-      days_to_show: ViewConfig.MONTH_DAYS,
+      days_to_show: this._monthPageDays,
       // Month draws none of the weather written before v6.
       weather: ViewConfig.drawnViewWeather(config, 'month'),
     };
@@ -2469,17 +2469,33 @@ class CalendarCardPro extends LitElement {
   /**
    * The first day of a month page's rows: at home the weeks of Month's home month
    * (`_monthHomeDay`), on a page the weeks of the month holding the page's day. Month's own moves
-   * key a month by its 1st; a layout switch keys it by the day it carried (`_openOnDate`).
+   * key a month by its 1st; a layout switch keys it by the day it carried (`_openOnDate`). Under
+   * `month → start: week` the week holding that day instead (`ViewConfig.monthPageRowsStart`),
+   * which a page's key already is.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
    * @returns The first row's first day, at local midnight
    */
   private _monthRowsStart(page: string | null, now: Date = new Date()): Date {
-    return ViewConfig.monthHomeRowsStart(
+    return ViewConfig.monthPageRowsStart(
       page === null ? this._monthHomeDay(now) : Paging.pageStart(page),
+      this.config,
       this._firstDayOfWeek,
     );
+  }
+
+  /**
+   * The days a month page draws: six weeks, or `month → weeks` under `month → start: week`
+   * (`ViewConfig.monthPageDays`).
+   */
+  private get _monthPageDays(): number {
+    return ViewConfig.monthPageDays(this.config);
+  }
+
+  /** Whether the month's first row is the week holding its start date (`month → start: week`). */
+  private get _monthStartsAtWeek(): boolean {
+    return ViewConfig.monthStartsAtWeek(this.config);
   }
 
   /**
@@ -2718,15 +2734,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The page the card opens with, as drawn now: the configured window, or the slice of it the
-   * card draws while the layout drops columns. For month, the six weeks of Month's home month:
-   * the start date's, or today's (`_monthHomeDay`).
+   * card draws while the layout drops columns. For month, the weeks of Month's home month:
+   * the start date's, or today's (`_monthHomeDay`), or under `month → start: week` the weeks from
+   * that day's.
    *
    * @param now - The current moment
    * @returns Home
    */
   private _homeRange(now: Date = new Date()): Paging.PageRange {
     if (this.effectiveView === 'month') {
-      return { start: this._monthRowsStart(null, now), days: ViewConfig.MONTH_DAYS };
+      return { start: this._monthRowsStart(null, now), days: this._monthPageDays };
     }
     return Paging.homeRange(this._homeWindowStart(now), this._viewDays, this._shedColumns, now);
   }
@@ -2741,7 +2758,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The days a page covers as drawn now: as many as the view on screen shows, from the page's
-   * first day. Month draws the six weeks of the month holding that day.
+   * first day. Month draws the weeks of the month holding that day, or under
+   * `month → start: week` the weeks from that day's.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -2750,7 +2768,7 @@ class CalendarCardPro extends LitElement {
   private _pageRange(page: string | null, now: Date = new Date()): Paging.PageRange {
     if (page === null) return this._homeRange(now);
     if (this.effectiveView === 'month') {
-      return { start: this._monthRowsStart(page, now), days: ViewConfig.MONTH_DAYS };
+      return { start: this._monthRowsStart(page, now), days: this._monthPageDays };
     }
     return {
       start: Paging.pageStart(page),
@@ -2893,14 +2911,14 @@ class CalendarCardPro extends LitElement {
   /**
    * Home's month, as `hide_when_empty` counts it: Month's own options, from the day its home is
    * the month of (`_monthHomeDay`: the start date, or today for Tomorrow and Start of Week) to the
-   * end of its six weeks, so an event in the weeks before that day does not count.
+   * end of its weeks, so an event in the weeks before that day does not count.
    *
    * @returns The configuration to count Month's events with
    */
   private _monthCountConfig(): Types.Config {
     const now = new Date();
     const start = this._monthHomeDay(now);
-    const end = Paging.addDays(this._monthRowsStart(null, now), ViewConfig.MONTH_DAYS);
+    const end = Paging.addDays(this._monthRowsStart(null, now), this._monthPageDays);
     return {
       ...ViewConfig.resolveEffectiveConfig(this.config, 'month'),
       start_date: FormatUtils.getLocalDateKey(start),
@@ -4283,6 +4301,7 @@ class CalendarCardPro extends LitElement {
       this._monthRowsStart(this._pageShown, now),
       now,
       this._monthOwnDay(this._pageShown, now),
+      this._monthPageDays,
     );
   }
 
@@ -4290,7 +4309,8 @@ class CalendarCardPro extends LitElement {
    * The day a month page lists by itself on a narrow month, with nothing selected: at home,
    * Month's home day (`_monthHomeDay`), the start date or today, so the card opens, and Home
    * returns, on the day it is configured to start; on any other page, today where it falls in the
-   * month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
+   * month the heading names, else that month's 1st, or under `month → start: week` today where
+   * the page holds it, else its first day (`MonthDay.defaultMonthDay`).
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -4299,7 +4319,11 @@ class CalendarCardPro extends LitElement {
   private _monthOwnDay(page: string | null, now: Date): Date {
     return page === null
       ? this._monthHomeDay(now)
-      : MonthDay.defaultMonthDay(this._monthRowsStart(page, now), now);
+      : MonthDay.defaultMonthDay(
+          this._monthRowsStart(page, now),
+          now,
+          this._monthStartsAtWeek ? this._monthPageDays : undefined,
+        );
   }
 
   /**
@@ -4357,7 +4381,7 @@ class CalendarCardPro extends LitElement {
       this._shownEvents,
       this.effectiveConfig,
       rowsStart,
-      ViewConfig.MONTH_DAYS,
+      this._monthPageDays,
       this.effectiveLanguage,
       this.hass,
     );
@@ -4395,21 +4419,23 @@ class CalendarCardPro extends LitElement {
   /**
    * The day whose cell is a month's one tab stop (`tabindex="0"`): the day the keyboard, a tap or
    * a pick last put it on while that day is among the rows, else the narrow form's selected
-   * day, else today where the rows show it, else the 1st of the month the header names.
+   * day, else today where the rows show it, else the 1st of the month the header names, or under
+   * `month → start: week` the page's first day.
    *
    * @param rowsStart - The page's first row's first day
    * @param now - The current moment
    * @returns The day, at local midnight
    */
   private _monthTabStop(rowsStart: Date, now: Date = new Date()): Date {
-    const range = { start: rowsStart, days: ViewConfig.MONTH_DAYS };
+    const range = { start: rowsStart, days: this._monthPageDays };
     if (this._monthFocusDay !== null) {
       const day = Paging.pageStart(this._monthFocusDay);
       if (Paging.rangeContains(range, day)) return day;
     }
     if (this._drawsNarrowMonth) return this._monthSelectedDay(now);
     const today = Paging.startOfDay(now);
-    return Paging.rangeContains(range, today) ? today : Paging.majorityMonth(range);
+    if (Paging.rangeContains(range, today)) return today;
+    return this._monthStartsAtWeek ? Paging.startOfDay(rowsStart) : Paging.majorityMonth(range);
   }
 
   /**
@@ -4428,18 +4454,24 @@ class CalendarCardPro extends LitElement {
    * Moves a month's keyboard focus to a day: its cell becomes the tab stop and takes focus once
    * drawn (`_syncMonthFocus`). A day past the rows drawn pages to its month's weeks first, as the
    * date navigation's arrows would, and so does any day where the key pages a month, though the
-   * day is drawn beside the month shown. Only where the card pages: with the date navigation, and
-   * not while it is being edited. Elsewhere focus moves only to a day drawn, and otherwise stays
-   * where it is.
+   * day is drawn beside the month shown. Under `month → start: week` it pages by whole pages from
+   * the one asked for, to the one holding the day. Only where the card pages: with the date
+   * navigation, and not while it is being edited. Elsewhere focus moves only to a day drawn, and
+   * otherwise stays where it is.
    *
    * @param day - The day, at local midnight
    * @param toItsMonth - Whether to page to the day's month even where its rows are drawn
    */
   private _moveMonthFocus(day: Date, toItsMonth = false): void {
-    const drawn = Paging.rangeContains(this._pageRange(this._pageRequested), day);
+    const from = this._pageRange(this._pageRequested);
+    const drawn = Paging.rangeContains(from, day);
     if (toItsMonth || !drawn) {
       if (this._wantsNavigation && !this._isBeingEdited) {
-        this._goToPage(new Date(day.getFullYear(), day.getMonth(), 1));
+        this._goToPage(
+          this._monthStartsAtWeek
+            ? Paging.pageContaining(day, from, from.days)
+            : new Date(day.getFullYear(), day.getMonth(), 1),
+        );
       } else if (!drawn) {
         return;
       }
@@ -4478,8 +4510,9 @@ class CalendarCardPro extends LitElement {
    * page to the month before or after the one the heading names (`majorityMonth`), to the cell's
    * date there where it has one, else its last day. Counted from the heading rather than from the
    * cell, since six rows draw days of the months either side: a step from the cell would land on
-   * a date already drawn, and the month would not move. A day past the rows drawn pages there
-   * (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a narrow
+   * a date already drawn, and the month would not move. Under `month → start: week` they page by
+   * a whole page instead, to the same weekday in the same row. A day past the rows drawn pages
+   * there (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a narrow
    * one, on its keydown; Space does on its keyup, as a native button does, so a panel it opened
    * never takes the keyup as a press on what it focused (`_handleKeyUp`). A key with a modifier,
    * and any key on anything but a cell, is left alone, so Home Assistant's own shortcuts work
@@ -4498,6 +4531,7 @@ class CalendarCardPro extends LitElement {
     const rowStart = ViewConfig.monthRowsStart(day, this._firstDayOfWeek);
     const across = this._cardRightToLeft ? -1 : 1;
     const monthAway = (months: number): Date => {
+      if (this._monthStartsAtWeek) return Paging.addDays(day, months * this._monthPageDays);
       const named = Paging.majorityMonth(this._pageRange(this._pageRequested));
       const year = named.getFullYear();
       const month = named.getMonth() + months;
@@ -9268,6 +9302,7 @@ class CalendarCardPro extends LitElement {
           rowsStart,
           this._monthCapacity,
           MonthRender.monthLinesOf(this.effectiveConfig, this._monthScaleLines),
+          ViewConfig.monthWeekRows(this.config),
         );
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
       }
@@ -9784,8 +9819,9 @@ class CalendarCardPro extends LitElement {
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
    * that of the day the page's list starts from (its first day, or its last for a list read
-   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks
-   * (`_headerMonth`), in full while every month in full fits beside the
+   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks, or under
+   * `month → start: week` the month of its first day (`_headerMonth`), in full while every month in
+   * full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -9826,12 +9862,17 @@ class CalendarCardPro extends LitElement {
   /**
    * The day the heading names a page's month by: the day its list starts from
    * (`Paging.leadingDay`), and for month the first day of the month holding most of its weeks
-   * (`Paging.majorityMonth`), since its first row often begins in the month before.
+   * (`Paging.majorityMonth`), since its first row often begins in the month before. Under
+   * `month → start: week`, whose page is the coming weeks rather than a month, the page's first
+   * day, the top left one, as the eye reads it.
    *
    * @param page - The page's days
    * @returns A day of the month to name
    */
   private _headerMonth(page: Paging.PageRange): Date {
+    if (this.effectiveView === 'month' && this._monthStartsAtWeek) {
+      return Paging.startOfDay(page.start);
+    }
     return this.effectiveView === 'month'
       ? Paging.majorityMonth(page)
       : Paging.leadingDay(page, this._listsLatestFirst);
@@ -9981,13 +10022,15 @@ class CalendarCardPro extends LitElement {
 
     return {
       homeName:
-        this.effectiveView === 'month'
+        this.effectiveView === 'month' && !this._monthStartsAtWeek
           ? Paging.monthHomeButtonName(this._homeRange(now), language, now)
           : Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
       languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
+      // The day the heading names its month by: a month's 1st, or under `month → start: week`
+      // the page's first day, where the picker then opens.
       pickerValue: Paging.pageKey(this._headerMonth(page)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
@@ -10035,7 +10078,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Moves one page back or forward, by exactly the days on screen; for month, to the weeks of
-   * the month before or after the one the heading names.
+   * the month before or after the one the heading names, or under `month → start: week` by its
+   * weeks, as the other layouts move.
    *
    * From the page asked for rather than the one shown, so quick presses add up while a page
    * is still loading.
@@ -10044,7 +10088,7 @@ class CalendarCardPro extends LitElement {
    */
   private _stepPage(direction: -1 | 1): void {
     const from = this._pageRange(this._pageRequested);
-    if (this.effectiveView === 'month') {
+    if (this.effectiveView === 'month' && !this._monthStartsAtWeek) {
       const month = Paging.majorityMonth(from);
       this._goToPage(new Date(month.getFullYear(), month.getMonth() + direction, 1));
       return;
@@ -10055,7 +10099,8 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens the page holding a day picked in the date picker, lined up with home, or home when
    * the day is one of its own. For month, the weeks of the picked day's month, or home when
-   * those are home's.
+   * those are home's; under `month → start: week`, the page lined up with home that holds the
+   * day, as the other layouts open.
    *
    * @param value - The picked day, `YYYY-MM-DD`
    */
@@ -10064,7 +10109,7 @@ class CalendarCardPro extends LitElement {
     const date = Paging.pageStart(value);
     if (isNaN(date.getTime())) return;
 
-    if (this.effectiveView === 'month') {
+    if (this.effectiveView === 'month' && !this._monthStartsAtWeek) {
       this._goToPage(new Date(date.getFullYear(), date.getMonth(), 1));
       return;
     }
@@ -10079,9 +10124,13 @@ class CalendarCardPro extends LitElement {
    * Asks for a page, and loads it.
    *
    * A page that draws what home does is home: it draws the card's own window, past events
-   * hidden as configured. For Month that is any day of home's month, whose weeks are home's; for
-   * the other layouts home's first day. Nothing happens for the page already asked for, so the
-   * home button at home is inert, and nothing at all while the card is being edited.
+   * hidden as configured. For Month that is any day of home's month, whose weeks are home's, or
+   * under `month → start: week` any day of home's first week; for the other layouts home's first
+   * day. Nothing happens for the page already asked for, so the home button at home is inert, and
+   * nothing at all while the card is being edited.
+   *
+   * A month page under `start: week` is keyed by its first row's first day, the week holding the
+   * day asked for, so a layout switch's day opens the weeks from its own.
    *
    * @param start - First day of the page, or null for home
    */
@@ -10091,14 +10140,20 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    const month = this.effectiveView === 'month';
+    const first =
+      start !== null && month && this._monthStartsAtWeek
+        ? ViewConfig.monthRowsStart(start, this._firstDayOfWeek)
+        : start;
     const page =
-      start === null ||
-      (this.effectiveView === 'month'
-        ? Paging.pageKey(ViewConfig.monthHomeRowsStart(start, this._firstDayOfWeek)) ===
-          Paging.pageKey(this._monthRowsStart(null))
-        : Paging.pageKey(start) === Paging.pageKey(this._homeRange().start))
+      first === null ||
+      (month
+        ? Paging.pageKey(
+            ViewConfig.monthPageRowsStart(first, this.config, this._firstDayOfWeek),
+          ) === Paging.pageKey(this._monthRowsStart(null))
+        : Paging.pageKey(first) === Paging.pageKey(this._homeRange().start))
         ? null
-        : Paging.pageKey(start);
+        : Paging.pageKey(first);
     if (page === this._pageRequested) return;
 
     Logger.debug(`Paging to ${page ?? 'home'}`);
@@ -11409,6 +11464,7 @@ class CalendarCardPro extends LitElement {
         page,
         this._monthRowsStart(page, now),
         now,
+        this._monthPageDays,
       );
       if (selected !== null) return selected;
       return page === null ? null : this._monthOwnDay(page, now);

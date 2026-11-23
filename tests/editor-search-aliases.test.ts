@@ -72,6 +72,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     queries: ['future weeks', 'weeks ahead'],
   },
   'start_date_mode.aliases': { field: 'start_date_mode', scope: 'card', queries: ['tomorrow'] },
+  // The words of the request for Month's coming weeks (#239): "the next weeks", "4 weeks".
+  'month.start.aliases': {
+    field: 'start',
+    scope: 'card',
+    queries: ['next weeks', 'rolling', 'four weeks'],
+  },
   // The names the choice's two options had before When Too Narrow stood over them.
   'narrow_fit.aliases': {
     field: 'narrow_fit',

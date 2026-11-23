@@ -1215,6 +1215,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'month.min_day_width': 'Minimum Day Width',
   'month.min_day_width.helper':
     'Narrower days draw the Narrow Month: a dot per event, and the chosen day’s Day List under the weeks.',
+  // Which week Month's first row is: the week of the 1st, a calendar month, or the week of the
+  // start date, the coming weeks.
+  'month.start': 'First Week',
+  // The words of the request that asked for it: the next weeks rather than a month.
+  'month.start.aliases':
+    'next weeks, coming weeks, upcoming weeks, rolling weeks, current week, this week, weeks ahead, four weeks',
+  'month.start.helper':
+    'Week of the start date shows the coming weeks instead of a calendar month, from today’s week without a start date, and pages by them.',
+  'month.start.option.month.label': 'Week of the 1st',
+  'month.start.option.week.label': 'Week of the start date',
+  'month.weeks': 'Weeks Shown',
+  'month.weeks.helper': 'Fewer weeks make each one taller; the card keeps its height.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //

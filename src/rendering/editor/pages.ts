@@ -190,13 +190,16 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         // First: how many days, and from when, is the widest question this page answers. Start
         // Date is the whole card's, at home on Events, Weather & Language; it stays editable
-        // here, where it is set together with the days it starts.
+        // here, where it is set together with the days it starts. Month's First Week after it,
+        // since it says what Month does with that date, and Weeks Shown is Month's Days To Show.
         key: 'heading.date_range',
         fields: [
           ['content:days_to_show', E],
           ['content:start_date_mode', 'copy'],
           ['content:start_date_fixed', 'copy'],
           ['content:start_date_offset', 'copy'],
+          ['layout:month.start', E],
+          ['layout:month.weeks', withMode('layout:month.start')],
         ],
       },
       {

@@ -26,7 +26,8 @@ editor names these the same way on every Month page: **Wide Month**, **Narrow Mo
 
 The month's heading and paging by month, with the arrows, a swipe or Page Up and Page Down,
 come with the [toolbar](/features/header-toolbar); without it the card shows the six weeks of
-the month it opens on.
+the month it opens on. To show the coming weeks rather than a calendar month, see
+[The Coming Weeks](#the-coming-weeks).
 
 In the [visual editor](/features/editor#options-for-the-selected-view), the circle on a layout's
 row under **Layouts** chooses the layout the card opens with. Select the **Month** row itself to
@@ -45,7 +46,8 @@ today, and `start_date: 2027-01-15` opens January 2027.
   days, or next month on its last.
 - **Always six rows.** Six weeks hold any month, whichever day its 1st falls on: the 1st is
   always in the first row, and the weeks after the month's last are drawn below it. The six share
-  the card's height, which paging never changes.
+  the card's height, which paging never changes. [The coming weeks](#the-coming-weeks) may draw
+  fewer.
 - **The toolbar's heading names one month:** the one with the most days on screen. Its tooltip
   gives the exact dates the six weeks span.
 - **Days of the months around it** are dimmed and keep their events, and the 1st of each month
@@ -76,6 +78,48 @@ while that month is today's, and otherwise by the month it goes to, such as "Jan
   card opens with is home again.
 - **Search** pages to the month of the event you pick, and opens the day's list where the
   event is behind "+N more", or selects its day on a [narrow month](#the-narrow-month).
+
+## ⏩ The Coming Weeks
+
+`month → start: week` shows the coming weeks instead of a calendar month: the first row is the
+week holding `start_date`, or today's week, and `month → weeks` sets how many weeks follow it, so
+a wall tablet can keep the next four weeks in view all month long.
+
+```yaml
+view: month
+month:
+  start: week
+  weeks: 4
+```
+
+| Option          | Type   | Default | Description                                                                                  |
+| --------------- | ------ | ------- | -------------------------------------------------------------------------------------------- |
+| `month → start` | string | `month` | `month`: the first row is the week of the 1st. `week`: it is the week holding the start date |
+| `month → weeks` | number | `6`     | How many weeks `start: week` shows, `1` to `6`; a calendar month always shows six            |
+
+In the visual editor they are **First Week** and **Weeks Shown**, under **Date Range** on Month's
+Which Events.
+
+- **The first row** is the week holding `start_date`, as the other layouts start on it. Without a
+  `start_date`, and for Tomorrow and Start of Week, it is today's week, so the weeks move on each
+  Monday, or on the first day of your week.
+- **Fewer weeks are taller.** The weeks share the card's height, which stays as
+  [How Tall the Month Is](#how-tall-the-month-is) describes, so each of four weeks holds more
+  events than each of six. On a [narrow month](#the-narrow-month) they leave the Day List more room.
+- **Paging moves a whole page**, every week shown at once, as the other layouts page by their
+  days, and so does a swipe, or Page Up and Page Down. The date picker and search open the page,
+  lined up with home, that holds the day; a layout switch opens the weeks from the day it carries.
+- **No day is dimmed:** the weeks are not one month, so each 1st keeps its month's name, such as
+  "1 Dec", to show where a month begins.
+- **The heading names the month of the first day shown**, the one at the top left, so four
+  weeks from November 23 read "November 2026", and its tooltip gives the exact dates. The date
+  picker opens on that day. The home button is called "Today" while home holds today, and
+  otherwise by its first day, such as "Mon, Jan 11".
+
+::: details Which Day a Narrow Month Lists
+At home a [narrow month](#the-narrow-month) lists `start_date`, or today, as a calendar month
+does. Paged away, it lists today where the page holds it, and otherwise the page's first day.
+:::
 
 ## 🟦 Bars & Lines
 
@@ -325,8 +369,9 @@ limit.
 The month is one stop in the tab order. The arrow keys move a day or a week, and Home and End go
 to the ends of the week. With the toolbar's
 [date navigation](/features/header-toolbar#paging-through-dates), Page Up and Page Down go to the
-month before or after the one shown, on the same date where it has one, and an arrow past the
-weeks drawn pages there too. Enter or Space opens the day's list in a panel, or on a narrow month
+month before or after the one shown, on the same date where it has one, or with
+[the coming weeks](#the-coming-weeks) to the page before or after, on the same weekday in the
+same row, and an arrow past the weeks drawn pages there too. Enter or Space opens the day's list in a panel, or on a narrow month
 selects the day. Each day is announced with its full date and how many events it holds, and on a
 wide month as opening a dialog. Rotating or zooming between the wide and narrow month keeps focus
 on your day.
@@ -434,7 +479,7 @@ in Wide Month** on Month's Event Appearance, beside the sizes the Day List and t
 
 The toolbar's [view switcher](/features/header-toolbar#switching-between-layouts) offers Month
 with the other layouts by default. Month shows six weeks, so a card that can switch to it loads
-those six weeks with its own days. To keep a card's loading small, name the layouts the switcher
+those weeks with its own days. To keep a card's loading small, name the layouts the switcher
 offers in `view_switcher_layouts` and leave Month out:
 
 ```yaml
@@ -522,8 +567,8 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 | Options                                                                                                                                        | In Month View                                                                                              |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `height`, `max_height`                                                                                                                         | Month sizes its whole card with `card_height`; see [How Tall the Month Is](#how-tall-the-month-is)         |
-| `days_to_show`                                                                                                                                 | A month always shows six weeks                                                                             |
-| `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the six weeks is drawn, events or not, so there is no empty day to hide or fill               |
+| `days_to_show`                                                                                                                                 | A month shows six weeks, or `month → weeks` with [the coming weeks](#the-coming-weeks)                     |
+| `show_empty_days`, `show_empty_today`, `empty_day_text`, `empty_day_color`                                                                     | Every day of the weeks is drawn, events or not, so there is no empty day to hide or fill                   |
 | `split_multiday_events`                                                                                                                        | A long event is one [bar](#bars-lines) across its days, and the day's list shows it on every day it covers |
 | `show_multiday_allday_time`                                                                                                                    | The day's list and the panel split every multi-day event, and a bar's length follows `show_duration`       |
 | `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `event_order`, `skip_first_events`                           | List-only: they shape a list card, and the [Day List](#the-day-list) always shows the whole day in order   |

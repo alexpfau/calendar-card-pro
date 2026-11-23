@@ -43,10 +43,10 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   While a tap on a day adds, each day's date or header is a button named by Home Assistant's "Add
   event". In Home Assistant's `preview` and `editMode`, events are not tap targets and the
   functions that open the popover refuse.
-- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven
+- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven, or `month → weeks` rows under `start: week`,
   `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
   them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the narrow
-  selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
+  selection, else today, else the header month's 1st, or the page's first day under `start: week`). The arrows move a day or a week, mirrored
   reading right to left, Home and End to the week's ends, Page Up and Page Down to the month either
   side of the one the heading names, always paging, since the rows draw days of both; a day off
   the rows pages there where the card pages, and focus follows once the page is drawn
