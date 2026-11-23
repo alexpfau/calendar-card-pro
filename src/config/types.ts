@@ -219,7 +219,7 @@ export interface Config {
   // Actions
   /**
    * What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`,
-   * `add-event`, `reset`.
+   * `add-event`, `reset`, `overlay`, `back`.
    */
   tap_action: ActionConfig;
   /** What a hold on the card does, with the same actions as `tap_action`. */
@@ -261,6 +261,12 @@ export interface Config {
   // Header toolbar
   toolbar?: ToolbarConfig;
 
+  /**
+   * The card opened full size by the `overlay` action: `view` is the layout it opens in, Grid by
+   * default, and any other option of the card may be set here for it (`config/overlay.ts`).
+   */
+  overlay?: OverlayConfig;
+
   // Cache and refresh settings
   refresh_interval: number;
   refresh_on_navigate: boolean;
@@ -280,6 +286,12 @@ export interface Config {
 
 /** Views the card can render. */
 export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
+
+/**
+ * The `overlay:` block: any option of the card, for the card the `overlay` action opens, which
+ * takes them over the card's own. Its size is the overlay's, so the height options do nothing here.
+ */
+export type OverlayConfig = Partial<Omit<Config, 'overlay'>>;
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
@@ -1149,6 +1161,11 @@ export interface ToolbarConfig {
    */
   search?: boolean;
   /**
+   * A button that opens the card full size in the overlay, as the `overlay` action does, last in
+   * the action row, after search: where the overlay's own toolbar draws Close. Off by default.
+   */
+  overlay?: boolean;
+  /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
    * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
@@ -1883,6 +1900,12 @@ export interface Translations {
    * "Layout: {view}", "Layout: Month".
    */
   layoutCurrent: string;
+  /**
+   * The name and tooltip of the toolbar's button that opens the card full size
+   * (`toolbar.overlay`), and of a button of the configuration's own that does with no name of its
+   * own: "Open full size".
+   */
+  openFullSize: string;
   /**
    * What a month day says in its last line about the events it has no room for, with `{count}`
    * where their number goes: "+{count} more", "+2 more".

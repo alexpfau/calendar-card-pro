@@ -20,6 +20,7 @@
   "viewMonth": "Mėnuo",
   "layout": "Išdėstymas",
   "layoutCurrent": "Išdėstymas: {view}",
+  "openFullSize": "Atidaryti visu dydžiu",
   "moreEvents": "Dar +{count}",
   "eventCount": "Įvykių: {count}",
   "eventCountOne": "{count} įvykis",

@@ -2884,6 +2884,7 @@ describe('editor: the Card & Header panel', () => {
         'reset',
         'refresh',
         'search',
+        'overlay',
         'navigation',
         'view_switcher_layouts',
         'size',
@@ -2914,8 +2915,9 @@ describe('editor: the Actions & Refresh panel', () => {
   /**
    * Pinned by value, both states. The event tap follows the hold rather than the tap it is
    * named after, the dialog's two switches sit directly under the dropdown that reveals
-   * them, and the refresh pair closes the panel. No headings: a split between card and
-   * event taps would misfile the hold, which runs on events too.
+   * them, then the layout the overlay opens in, and the refresh pair closes the panel. No
+   * headings: a split between card and event taps would misfile the hold, which runs on events
+   * too.
    */
   it('orders the gestures card, day, event, then refresh, with the dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
@@ -2926,6 +2928,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2939,6 +2943,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'event_tap_action',
       'event_hold_action',
       'open_links',
+      'overlay',
+      'view',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2981,6 +2987,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2999,6 +3007,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
       'refresh_interval',
       'refresh_on_navigate',
     ]);

@@ -20,6 +20,7 @@
   "viewMonth": "Monat",
   "layout": "Layout",
   "layoutCurrent": "Layout: {view}",
+  "openFullSize": "In voller Größe öffnen",
   "moreEvents": "+{count} mehr",
   "eventCount": "{count} Termine",
   "eventCountOne": "{count} Termin",

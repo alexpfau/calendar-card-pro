@@ -3,7 +3,8 @@
  * the view switcher draws its layouts or collapses into one button that lists them.
  *
  * The action row holds, from its start, the calendar filter's button, add and the configuration's
- * own buttons; the view switcher in its middle; reset, refresh and a search control at its end.
+ * own buttons; the view switcher in its middle; reset, refresh, a search control and, in an
+ * overlay, Close at its end.
  * As a card narrows, the row gives way in a fixed order: the switcher's words become pictograms
  * first, then the start group's controls move into one menu button, from its end: the last of the
  * configuration's buttons first, then the earlier ones, then add. The group's first control never
@@ -43,9 +44,10 @@ export type StartControl =
 
 /**
  * One control of the action row's end group. `search` is the slot for a search control at its
- * end, counted wherever the card draws one.
+ * end, counted wherever the card draws one; `overlay` opens the card full size, after it, and
+ * `close` is the overlay's Close in the same place.
  */
-export type EndControl = 'reset' | 'refresh' | 'search';
+export type EndControl = 'reset' | 'refresh' | 'search' | 'overlay' | 'close';
 
 /** What the action row holds, as the plan reckons with it. */
 export interface ActionRow {

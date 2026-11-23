@@ -46,6 +46,7 @@ const CONTROLS = [
   'card:toolbar.reset',
   'card:toolbar.refresh',
   'card:toolbar.search',
+  'card:toolbar.overlay',
   'card:toolbar.navigation',
 ];
 
@@ -141,6 +142,7 @@ describe('which fields are chips', () => {
       'card:toolbar.reset': 'toolbar.controls.reset',
       'card:toolbar.refresh': 'toolbar.controls.refresh',
       'card:toolbar.search': 'toolbar.controls.search',
+      'card:toolbar.overlay': 'toolbar.controls.overlay',
       'card:toolbar.navigation': 'toolbar.navigation',
     });
     expect(chipFields('parts')).toEqual(PARTS);
@@ -161,6 +163,7 @@ describe('which fields are chips', () => {
       'Reset',
       'Refresh',
       'Search',
+      'Open Full Size',
       'Date Navigation',
     ]);
   });
@@ -177,7 +180,7 @@ describe('which fields are chips', () => {
     expect(offered).toEqual(universe);
     // The denominator, and the one difference: Now is not offered in Grid.
     const grid = Object.fromEntries(offered)['grid'] as string[];
-    expect(grid).toHaveLength(14);
+    expect(grid).toHaveLength(15);
     expect(Object.keys(CHIP_LABELS).filter((id) => !grid.includes(id))).toEqual([
       'events:show_now_indicator',
     ]);
@@ -398,6 +401,7 @@ describe('the toolbar on Card & Header', () => {
       'Reset',
       'Refresh ✓',
       'Search ✓',
+      'Open Full Size',
       'Date Navigation ✓',
     ]);
     const heading = editor.shadowRoot!.querySelector('[data-heading="heading_toolbar"]')!;

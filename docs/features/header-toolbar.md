@@ -2,11 +2,11 @@
 
 The header toolbar puts the card's own controls in its header, for anyone at the dashboard:
 arrows to page through the dates, a view switcher, a calendar filter, refresh, search, an
-add-event button and buttons of your own.
+add-event button, a button that opens the card full size, and buttons of your own.
 
 ## 🧰 Turning the Toolbar On
 
-One option turns the toolbar on, with every control in it except reset.
+One option turns the toolbar on, with every control in it except reset and the full-size button.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="One card with its toolbar at two widths: a phone in List with pictograms for the layouts and a Reset button, and a dashboard section in Grid with the calendars folded into the filter button"><br>
 
@@ -37,7 +37,8 @@ nothing at all. With the toolbar off, the header is exactly what it always was.
 | [View switcher](#switching-between-layouts)      | `view_switcher` | Top row, in the middle                     | On                    |
 | [Reset](#resetting-the-card)                     | `reset`         | Top row, before refresh                    | Off                   |
 | [Refresh](#refreshing-the-events)                | `refresh`       | Top row, after reset                       | On                    |
-| [Search](#searching-the-card)                    | `search`        | Top row, last                              | On, with `navigation` |
+| [Search](#searching-the-card)                    | `search`        | Top row, after refresh                     | On, with `navigation` |
+| [Open full size](#opening-the-card-full-size)    | `overlay`       | Top row, last                              | Off                   |
 | [Date navigation](#paging-through-dates)         | `navigation`    | Month's row, at the end                    | On                    |
 
 Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
@@ -485,15 +486,18 @@ toolbar:
 
 A press runs the button's `tap_action`, as a tap on the card runs the card's: any of
 [Home Assistant's actions](/features/actions#available-actions), or one of the card's own,
-`back`, `refresh`, `add-event`, `reset` or `expand`. `add-event` opens the
-[event popover](/features/actions#the-event-popover) right under the button. For `toggle` and
+`back`, `refresh`, `add-event`, `reset`, `overlay` or `expand`. `add-event` opens the
+[event popover](/features/actions#the-event-popover) right under the button, and `overlay`
+[opens the card full size](/features/actions#opening-the-card-full-size), where the button is
+left out. For `toggle` and
 `more-info`, `entity` names what the button acts on; without one it is the card's first
 calendar. A button with no action, or with `none`, is drawn and does nothing, and buttons answer
 a tap only, not a hold.
 
 Give each button a `name`. It is the button's tooltip and what screen readers announce. Without
 one, a button running `back`, `refresh`, `add-event` or `reset` takes Home Assistant's own word
-for it, as the toolbar's own buttons do; any other is named after its icon,
+for it, as the toolbar's own buttons do, and one running `overlay` is called Open full size, in
+the card's language; any other is named after its icon,
 "view dashboard outline", for screen readers alone. An entry with no `icon`, or with a field of
 the wrong kind, is left out.
 
@@ -523,8 +527,9 @@ in YAML.
 - The first control in the row, the calendar filter's button wherever it is drawn, stays at any
   width, so the narrowest top row is that button and the menu button, the folded switcher, and
   the controls at the row's end.
-- Reset, refresh and search never move into the menu. A card too narrow even for the narrowest
-  top row, under 314px with all three, puts them on a line of their own.
+- Reset, refresh, search and the full-size button never move into the menu. A card too narrow
+  even for the narrowest top row, under 314px with reset, refresh and search, puts them on a line
+  of their own.
 - The menu lists what it holds in the order the row draws it, each with its icon and its name in
   words, and a press runs it and closes the menu. The add button there opens the new event under
   the menu button.
@@ -635,6 +640,36 @@ calendar answers, the search finds the events the card already holds.
 
 ::: tip Nothing Searches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the magnifier is drawn and does
+nothing.
+:::
+
+## 🖥️ Opening the Card Full Size
+
+`overlay: true` adds a button at the end of the top row that opens the card full size over the
+dashboard, as the [`overlay` action](/features/actions#opening-the-card-full-size) does from a tap
+or a hold. It is off until you turn it on.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+view: list
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  overlay: true
+```
+
+- The full-size card opens in Grid, on the dates the card shows, unless the card's `overlay`
+  option says otherwise; see [Opening the Card Full Size](/features/actions#opening-the-card-full-size).
+- In the full-size card, Close takes the button's place.
+- Its tooltip, and what screen readers announce, is "Open full size", in the card's language.
+- In the [visual editor](/features/editor) it is **Open Full Size** among the toolbar's controls,
+  and the layout it opens in is under **Taps & Refresh** › **Full-Size Overlay**.
+
+::: tip Nothing Opens While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the button is drawn and does
 nothing.
 :::
 

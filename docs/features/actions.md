@@ -5,7 +5,7 @@ Calendar Card Pro lets you add, open and change events from the dashboard. With 
 Whether a calendar's events can be added, changed or deleted is decided by the integration it comes from, not by the card: a Local Calendar allows all three, a subscribed holiday feed none. See [What Each Integration Allows](#what-each-integration-allows).
 
 ::: tip Nothing Opens While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` work there as always, except `add-event`, `reset` and `back`, which do nothing and offer no tap or hold.
+In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` work there as always, except `add-event`, `reset`, `overlay` and `back`, which do nothing and offer no tap or hold.
 :::
 
 ## ➕ Add Event Button
@@ -156,7 +156,7 @@ it, in a narrow month's list or at the top of a wide month's panel, is the butto
 
 A tap on an event acts on that event instead of on the whole card: it opens the event in the card's [event popover](#the-event-popover), right beside it, with its times, its location, its full description and, for a repeating event, how it repeats. That is what `event_tap_action` does by default, as `details`, in every layout.
 
-`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Set to `none`, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. In the visual editor, the Event Tap Action dropdown on the **Taps & Refresh** page offers Show Event Details, Nothing and Home Assistant's actions.
+`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Set to `none`, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back`, are about the whole card or the page, so on an event they read as `none` too. In the visual editor, the Event Tap Action dropdown on the **Taps & Refresh** page offers Show Event Details, Nothing and Home Assistant's actions.
 
 ::: warning Changed In v6
 In v6 a tap on an event opens its details by default, in every layout. Before v6 `event_tap_action` defaulted to `none`: a tap on an event was a tap on the card and ran `tap_action`, [`open_links`](#links-in-events) drew links in event rows, and grid view [dragged events](#dragging-in-grid-view) only where you had set `details`. Nothing picked in the visual editor before v6 was not stored, so those cards open details too. To keep a card as it was, add:
@@ -544,7 +544,7 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles five actions itself — `expand`, `refresh`, `add-event`, `reset` and `back` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles six actions itself — `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
@@ -554,6 +554,7 @@ The commonly used ones:
 | `refresh`                         | Load the events again now                                                    | None                                                                                 |
 | `add-event`                       | Add an event on the day you pressed                                          | None                                                                                 |
 | `reset`                           | Undo this device's choices, as the reset button does                         | None                                                                                 |
+| `overlay`                         | Open the card full size over the dashboard                                   | None; the card's `overlay` option sets how it opens                                  |
 | `back`                            | Go back to the page before this one, as Home Assistant's own back arrow does | `navigation_path` (optional, YAML only): where to go when no page is behind this one |
 | `more-info`                       | Open the Home Assistant entity dialog                                        | `entity` (optional): which entity; see below                                         |
 | `navigate`                        | Go to another Lovelace view                                                  | `navigation_path: /lovelace/view`                                                    |
@@ -581,7 +582,7 @@ To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-eve
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Card Tap Action and Card Hold Action dropdowns, on **Taps & Refresh**, offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. An action Home Assistant adds in a future release may not appear there straight away; it still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Card Tap Action and Card Hold Action dropdowns, on **Taps & Refresh**, offer `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. An action Home Assistant adds in a future release may not appear there straight away; it still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
@@ -648,6 +649,66 @@ with something it could undo: a toolbar with the date navigation, the view switc
 calendar filter, or an `expand` action. On any other card, the card offers no tap or hold for it.
 On a card that has the reset button, the button shows its check after a reset, as after a press.
 
+### Opening the Card Full Size
+
+`overlay` opens the card full size over the dashboard: in Grid with the toolbar, so a small list
+on a wall tablet opens onto its whole week, and Month is one press away on the layout switcher.
+
+```yaml
+tap_action:
+  action: overlay
+```
+
+| Option           | Type   | Default | Description                                                                         |
+| ---------------- | ------ | ------- | ----------------------------------------------------------------------------------- |
+| `overlay`        | object | -       | Options for the card the overlay shows, over the card's own, its size aside         |
+| `overlay → view` | string | `grid`  | The layout it opens in: `list`, `column`, `grid` or `month`; `view` for the overlay |
+
+- **It opens where the card is.** Paged a month ahead, it opens a month ahead, as the layout
+  switcher keeps your place, and on the full month in Month. Calendars hidden with the
+  [calendar filter](/features/header-toolbar#showing-hiding-calendars) stay hidden in it.
+- **It is the same card.** Its calendars, title, colors and every other option come along; its
+  height and its [compact limits](/features/list-view#compact-mode-event-limits) do not, since it
+  fills the overlay. Set any option for it under `overlay`, which it takes over the card's own:
+
+  ```yaml
+  overlay:
+    view: month
+    toolbar:
+      search: false
+  ```
+
+- **Close it** with the red Close button at the end of its toolbar, Back, Escape, or a tap
+  outside it. It keeps Close however its toolbar is set.
+- **Inside, it works as the card does.** Events open, the Day Panel, search and adding an event
+  all work, each closing before the overlay does on Back. `back` closes the overlay, and
+  `overlay` does nothing there.
+- **A tap on a day adds an event there,** as
+  [`day_tap_action: add-event`](#tapping-a-day-to-add-an-event) does, and so does
+  [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card sets a
+  `day_tap_action` of its own.
+- **A narrow month lists the whole day.** Where the full-size card draws Month's
+  [narrow form](/features/month-view#the-narrow-month), as on a phone, the day's list shows every
+  event and scrolls them, while the weeks stay put. A "+N more" with an arrow floats at its foot
+  while events are still below, and a tap on it scrolls down.
+- **Nothing chosen in it is kept.** A layout picked or a calendar hidden there lasts until it
+  closes, and the card it opened from stays as it was.
+- **Its size** is the whole screen on a phone, below 600 pixels wide or 500 tall, and otherwise
+  92% of the screen, up to 1600 pixels wide. On a phone it keeps clear of the home indicator at
+  the bottom of the screen, and a month's list scrolls under it.
+
+The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
+opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
+The visual editor offers it as Open Full Size, and the layout it opens in under **Taps &
+Refresh** › Full-Size Overlay; the other options under `overlay` are YAML only. While the card is
+being edited, it opens nothing.
+
+::: details If the Overlay Looks Different From the Card
+The overlay is drawn over the whole of Home Assistant, as the event popover is, so a theme set on
+one dashboard view rather than for all of Home Assistant does not reach it. Its Grid shows as many
+days as the card does; set `days_to_show` under `overlay` for another count.
+:::
+
 ### Going Back From a Tap or Hold
 
 `back` goes back to the page you came from, as the arrow in Home Assistant's own header does. On
@@ -705,8 +766,8 @@ The whole compact family is inert while the card is rendering as column or grid 
 `compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
 `compact_events_complete_days`, and the `expand` action that drives them. Wherever nothing
 can fold, in any layout but List or in a List without compact limits, `expand` counts as no
-action: no pointer cursor, ripple, hold circle or Tab stop, as with `add-event`, `reset` and
-`back` where they cannot run. A column or grid card that falls back to a list on a narrow screen
+action: no pointer cursor, ripple, hold circle or Tab stop, as with `add-event`, `reset`,
+`overlay` and `back` where they cannot run. A column or grid card that falls back to a list on a narrow screen
 still expands.
 
 Column density is controlled by [showing fewer columns on narrow cards](/features/column-view#showing-fewer-columns-on-narrow-cards), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.

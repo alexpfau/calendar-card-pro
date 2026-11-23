@@ -427,6 +427,7 @@ describe('editor filter: section headings', () => {
       'reset',
       'refresh',
       'search',
+      'overlay',
       'navigation',
       'view_switcher_layouts',
       'size',

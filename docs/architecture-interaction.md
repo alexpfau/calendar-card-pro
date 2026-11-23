@@ -91,8 +91,25 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 ## 🎬 Actions
 
 - **Card actions.** `handleAction` in `actions.ts` runs `tap_action` and `hold_action`: the card's
-  own `expand`, `refresh`, `add-event`, `reset` and `back` through callbacks handed in per press,
-  and everything else through `fireHassAction`, with the card's first calendar as the entity.
+  own `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` through callbacks handed in
+  per press, and everything else through `fireHassAction`, with the card's first calendar as the
+  entity.
+- **The overlay.** `overlay` dispatches `show-dialog` for `rendering/overlay.ts`, a dialog holding a
+  second card built from `config/overlay.ts` › `overlayConfig` and opened on `_dateInView`
+  (`openOn`). That card carries `overlayFrame`: it fills the dialog as a Sections slot would
+  (`_holdsSectionsSlot`), draws Close, closes the overlay for `back`, and keeps
+  `_configFingerprint` null, so it reads and writes no device choice. Its config takes the
+  `overlay` action out, so it never opens another. The dialog's guard on the page behind hears the
+  paging keys after the card (`_pagingKeysFirst`), or Month's arrows would be refused. The dialog
+  hands the card its width before the card's first render (`fitToWidth`, from `_position`), since
+  the card is drawn in plain view as the dialog grows: waiting out `WIDTH_SETTLE_DELAY`, as a
+  dashboard's card does, drew a phone's Grid on its configured days for six frames first. A narrow
+  month's list there lists every row and scrolls them (`_monthListScrolls`), with no staged copy
+  and no fit, since nothing outside the overlay scrolls for it to fight; a pill counts the rows
+  below its rest line (`_countMonthListBelow`). A full-screen overlay pads the device's safe areas
+  but the foot, which it hands the card as `--calendar-card-safe-area-bottom`: the card, marked
+  `in-overlay`, keeps the larger of its own foot room and the home indicator's, and a scrolling
+  list runs under the indicator with that room inside its scroll.
 - **Event actions** never reach `handleAction`. `eventActionKind` reads one as `details`, a Home
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the

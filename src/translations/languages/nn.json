@@ -12,6 +12,7 @@
   "viewMonth": "Månad",
   "layout": "Layout",
   "layoutCurrent": "Layout: {view}",
+  "openFullSize": "Opne i full storleik",
   "moreEvents": "+{count} til",
   "eventCount": "{count} hendingar",
   "eventCountOne": "{count} hending",

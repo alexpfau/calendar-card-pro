@@ -1236,14 +1236,42 @@ describe('the list fitted to its room', () => {
     expect(rule('.calendar-card-pro.month-view .content-container')).toContain(
       'flex: var(--calendar-card-month-content-flex, 1 1 0)',
     );
-    // Nothing a month draws scrolls on its own, so the card's height scrolls the whole.
+    // Nothing a month draws scrolls on its own on a dashboard, so the card's height scrolls the
+    // whole. The one scroller is the list in the overlay, which scrolls its rows alone, keeps a
+    // scroll that reaches its end, and is ringed where it takes focus.
     const scrolls = declarations(cardStyles.cssText).filter(
       (d) =>
         d.selectors.some((selector) => selector.includes('month-day-list')) &&
         /^overflow/.test(d.property) &&
         /auto|scroll/.test(d.value),
     );
-    expect(scrolls).toEqual([]);
+    expect(scrolls.map((d) => [d.at, d.selectors, d.property, d.value])).toEqual([
+      [[], ['.month-day-list-rows.scrolls'], 'overflow', 'hidden auto'],
+    ]);
+    expect(rule('.month-day-list-rows.scrolls')).toEqual([
+      'overflow: hidden auto',
+      'overscroll-behavior: contain',
+      'clip-path: none',
+      'padding-block-end: var(--calendar-card-overlay-foot, 0px)',
+    ]);
+    // It runs to the overlay card's foot, under the device's home indicator, and keeps the foot's
+    // room inside its scroll; any other card in the overlay keeps the larger of its own padding
+    // and the indicator's room at its foot.
+    expect(rule(':host([in-overlay]) ha-card')).toEqual([
+      '--calendar-card-overlay-foot: max( calc(var(--calendar-card-spacing-additional) + 16px), var(--calendar-card-safe-area-bottom, 0px) )',
+      'padding-bottom: var(--calendar-card-overlay-foot)',
+    ]);
+    expect(rule(':host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls)')).toEqual([
+      'padding-bottom: 0',
+    ]);
+    // Its pill floats just above where the rows come to rest.
+    expect(rule('.month-day-list-below')).toContain(
+      'bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px)',
+    );
+    expect(rule('.month-day-list-rows.scrolls:focus-visible')).toEqual([
+      'outline: 2px solid var(--calendar-card-line-color-vertical)',
+      'outline-offset: -2px',
+    ]);
     // The old room and its row are gone.
     expect(cardStyles.cssText).not.toContain('month-day-list-reserved');
     expect(cardStyles.cssText).not.toContain('--calendar-card-month-day-list-row');

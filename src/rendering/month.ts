@@ -29,6 +29,7 @@
  * @see utils/month-day.ts, which lists a day and decides the narrow form and the selected day
  */
 
+import { mdiChevronDown } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -136,9 +137,31 @@ export interface MonthNarrow {
    * day's count. Until the card has fitted this day, none, and "+N more" alone.
    */
   readonly shown?: number;
+  /**
+   * Where the list lists every event and scrolls them in its room, with nothing staged to fit
+   * from: in the overlay, where the card is all the screen shows. Undefined for a list fitted to
+   * its room.
+   */
+  readonly scroll?: MonthListScroll;
   /** Opens the day's panel from the list's "+N more", given the day and the button. */
   readonly more?: (day: Date, button: HTMLElement) => void;
 }
+
+/** What a narrow month's list that scrolls is handed (`MonthNarrow.scroll`). */
+export interface MonthListScroll {
+  /**
+   * How many of the day's events end below where its rows come to rest, as the card last counted
+   * them: what its "+N more" pill says, drawn while there are any.
+   */
+  readonly below: number;
+  /** Hears the box scroll, to count again. */
+  readonly scrolled: (ev: Event) => void;
+  /** Scrolls the box down, for the pill. */
+  readonly page: () => void;
+}
+
+/** The class a narrow month's list's rows' box carries while it scrolls them. */
+export const MONTH_LIST_SCROLLS_CLASS = 'scrolls';
 
 /**
  * The class of the hidden copy of the selected day's list the card fits the list from
@@ -1423,9 +1446,10 @@ function renderNarrowMonth(
       narrow.dayAdd,
       narrow.shown,
       narrow.more,
+      narrow.scroll,
     )}
     ${
-      selectedEvents.length > 0
+      selectedEvents.length > 0 && !narrow.scroll
         ? renderListStaging(selectedEvents, config, language, hass, narrow.weatherForecasts)
         : nothing
     }
@@ -1642,6 +1666,44 @@ function renderListMore(
 }
 
 /**
+ * The pill over the foot of a narrow month's list that scrolls, while some of its events end below
+ * where its rows come to rest: an arrow down and the count, in the words of "+N more", so it reads
+ * as the list's own "+N more" does on a dashboard. A press scrolls the list down. It only repeats
+ * what the rows say, every one of them in the list, so it is out of the tab order and hidden from
+ * assistive technology; the rows, or the box, take focus and scroll themselves into view. Its
+ * press is its own, never the card's nor the day's beneath it.
+ *
+ * @param count - The events below
+ * @param language - Card language
+ * @param hass - Home Assistant, which says which way the dashboard runs
+ * @param page - Scrolls the list down
+ * @returns The pill
+ */
+function renderListBelow(
+  count: number,
+  language: string,
+  hass: Types.Hass | null | undefined,
+  page: () => void,
+): TemplateResult {
+  return html`<button
+    class="month-day-list-below"
+    type="button"
+    tabindex="-1"
+    aria-hidden="true"
+    @pointerdown=${stopCardGesture}
+    @click=${(ev: MouseEvent) => {
+      stopCardGesture(ev);
+      page();
+    }}
+    .calendarCardDaySlot=${Activation.COVERED}
+  >
+    <svg class="month-day-list-below-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiChevronDown}></path></svg
+    ><span>${listMoreText(count, language, hass)}</span>
+  </button>`;
+}
+
+/**
  * The selected day's list as the card measures it, beside the list and out of sight, the tab order
  * and assistive technology: every one of the day's rows, drawn as the list draws them and as wide,
  * and its "+N more" at the day's count, the most digits it can show. It takes no room. The card
@@ -1727,8 +1789,14 @@ function renderDayTitleFit(
  * `shown`: the list draws those, in order, and "+N more" for the rest, which opens the day's panel.
  * Until the card has fitted the day, as on its first render or while it is not on screen, the list
  * draws "+N more" alone. Each part of a row keeps to one line (`MonthDay.monthRowsConfig`), so a
- * row is as tall here as where it was measured. Nothing scrolls inside the list: a card too short
- * for it scrolls the weeks and the list as one.
+ * row is as tall here as where it was measured. Nothing scrolls inside the list on a dashboard: a
+ * card too short for it scrolls the weeks and the list as one.
+ *
+ * In the overlay the list `scroll`s instead: it lists every row, and its box scrolls them under
+ * weeks that stay where they are. A pill over its foot says how many end below where its rows
+ * come to rest, in the words of "+N more", and pages down a press at a time
+ * (`renderListBelow`). Where no row takes focus, the box does, so the keyboard can scroll it in
+ * every browser.
  *
  * @param day - The day, at local midnight
  * @param events - Its events, as the day model lists them
@@ -1740,6 +1808,7 @@ function renderDayTitleFit(
  * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
  * @param shown - How many rows fit its room, as the card measured them, or undefined until it has
  * @param more - Opens the day's panel from "+N more"
+ * @param scroll - Where it lists every row and scrolls them, what it is handed for that
  * @returns The list
  */
 export function renderMonthDayList(
@@ -1753,6 +1822,7 @@ export function renderMonthDayList(
   dayAdd?: Activation.DayAddButtons,
   shown?: number,
   more?: MonthNarrow['more'],
+  scroll?: MonthListScroll,
 ): TemplateResult {
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
@@ -1764,7 +1834,13 @@ export function renderMonthDayList(
       >${renderDayTitleFit(titles, mark)}</span
     ></span
   >`;
-  const listed = Math.min(Math.max(shown ?? 0, 0), events.length);
+  const listed = scroll ? events.length : Math.min(Math.max(shown ?? 0, 0), events.length);
+  // A box that scrolls rows the keyboard cannot reach takes focus itself, named for its day.
+  const focusable = scroll !== undefined && !eventsTappable && events.length > 0;
+  const below =
+    scroll && scroll.below > 0 && events.length > 0
+      ? renderListBelow(Math.min(scroll.below, events.length), language, hass, scroll.page)
+      : nothing;
   const rows =
     events.length > 0
       ? html`${
@@ -1789,25 +1865,46 @@ export function renderMonthDayList(
           ${TextDirection.inLanguageDirection(Localize.getTranslations(language).noEvents, mark)}
         </div>`;
 
+  const header = dayAdd
+    ? html`<div
+        class="month-day-list-header day-add-button"
+        role="button"
+        tabindex="0"
+        aria-label=${dayAdd.label}
+        aria-describedby=${labelId ?? nothing}
+        .calendarCardDayAdd=${timestamp}
+      >
+        ${name}
+      </div>`
+    : html`<div class="month-day-list-header">${name}</div>`;
+
+  if (scroll) {
+    return html`<div
+      class="month-day-list ${MONTH_LIST_SCROLLS_CLASS}"
+      style=${styleMap(oneLineListStyle(config))}
+      .calendarCardDaySlot=${Activation.daySlot(timestamp)}
+    >
+      ${header}
+      <div
+        class="month-day-list-rows ${MONTH_LIST_SCROLLS_CLASS}"
+        lang=${language}
+        tabindex=${focusable ? '0' : nothing}
+        role=${focusable ? 'group' : nothing}
+        aria-label=${focusable ? titles[0] : nothing}
+        @scroll=${scroll.scrolled}
+      >
+        ${rows}
+      </div>
+      ${below}
+    </div>`;
+  }
+
   return html`<div
     class="month-day-list"
     style=${styleMap(oneLineListStyle(config))}
     .calendarCardDaySlot=${Activation.daySlot(timestamp)}
   >
-    ${
-      dayAdd
-        ? html`<div
-            class="month-day-list-header day-add-button"
-            role="button"
-            tabindex="0"
-            aria-label=${dayAdd.label}
-            aria-describedby=${labelId ?? nothing}
-            .calendarCardDayAdd=${timestamp}
-          >
-            ${name}
-          </div>`
-        : html`<div class="month-day-list-header">${name}</div>`
-    }
+    ${header}
     <div class="month-day-list-rows" lang=${language}>${rows}</div>
   </div>`;
 }

@@ -20,6 +20,7 @@
   "viewMonth": "Mánuður",
   "layout": "Útlit",
   "layoutCurrent": "Útlit: {view}",
+  "openFullSize": "Opna í fullri stærð",
   "moreEvents": "+{count} í viðbót",
   "eventCount": "{count} viðburðir",
   "eventCountOne": "{count} viðburður",

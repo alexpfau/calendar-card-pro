@@ -20,6 +20,7 @@
   "viewMonth": "Maand",
   "layout": "Indeling",
   "layoutCurrent": "Indeling: {view}",
+  "openFullSize": "Openen op volledige grootte",
   "moreEvents": "+{count} meer",
   "eventCount": "{count} afspraken",
   "eventCountOne": "{count} afspraak",

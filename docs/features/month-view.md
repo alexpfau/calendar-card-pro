@@ -324,6 +324,11 @@ month:
 
 See [How Tall the Month Is](#how-tall-the-month-is) for the heights and the maximum.
 
+When the card is [opened full size](/features/actions#opening-the-card-full-size), the list shows
+every event of the day instead and scrolls them, while the weeks above it stay where they are. A
+"+N more" with an arrow floats at its foot while events are still below, and a tap on it scrolls
+down.
+
 - **Times sit beside the titles**, whatever `time_position` says, as a phone's day list puts them:
   a row is a line shorter, and the times line up at its end.
 - **Each detail keeps to one line**: a title too long for the line beside its time ends in "…",
@@ -356,7 +361,8 @@ limit.
   the ones the weeks read, under each heading. The few only the wide month's days draw, the month's
   name beside a 1st and the banners of long timed events, it marks **Wide Month**.
 - **On a card too short** to show the weeks, the day's name and "+N more", the weeks and the
-  list scroll as one inside the card; nothing inside the list scrolls.
+  list scroll as one inside the card; nothing inside the list scrolls, except when the card is
+  opened full size.
 - **What fits.** The list keeps the day's order, so a later, shorter event never jumps ahead of
   an earlier one that does not fit. It fits again when the room or the events change size, as
   when the card is resized. Where not even one event fits beside "+N more", the list shows

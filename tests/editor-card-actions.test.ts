@@ -62,6 +62,7 @@ const EXPECTED_ACTIONS = [
   'refresh',
   'add-event',
   'reset',
+  'overlay',
   'back',
   'more-info',
   'toggle',
@@ -112,8 +113,15 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('names expand, refresh, add-event, reset and back as card actions rather than Home Assistant ones', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh', 'add-event', 'reset', 'back']);
+  it('names expand, refresh, add-event, reset, overlay and back as card actions rather than Home Assistant ones', () => {
+    expect([...CARD_ACTIONS]).toEqual([
+      'expand',
+      'refresh',
+      'add-event',
+      'reset',
+      'overlay',
+      'back',
+    ]);
   });
 
   it('puts the card actions ahead of Home Assistant’s, so they are not buried', () => {
@@ -121,7 +129,8 @@ describe('card action options', () => {
     expect(ACTION_OPTIONS.indexOf('refresh')).toBe(1);
     expect(ACTION_OPTIONS.indexOf('add-event')).toBe(2);
     expect(ACTION_OPTIONS.indexOf('reset')).toBe(3);
-    expect(ACTION_OPTIONS.indexOf('back')).toBe(4);
+    expect(ACTION_OPTIONS.indexOf('overlay')).toBe(4);
+    expect(ACTION_OPTIONS.indexOf('back')).toBe(5);
   });
 
   it('gives the card and event dropdowns their lists, through a ui_action selector', () => {
@@ -165,6 +174,7 @@ describe('card action options', () => {
     expect(EDITOR_STRINGS[cardActionLabelKey('expand')]).toBe('Toggle Compact/Expanded View');
     expect(EDITOR_STRINGS[cardActionLabelKey('refresh')]).toBe('Refresh Events');
     expect(EDITOR_STRINGS[cardActionLabelKey('reset')]).toBe('Reset Card');
+    expect(EDITOR_STRINGS[cardActionLabelKey('overlay')]).toBe('Open Full Size');
     expect(EDITOR_STRINGS[cardActionLabelKey('back')]).toBe('Go Back');
   });
 });
@@ -447,8 +457,9 @@ describe('the event tap action in the editor', () => {
     // Off, the switch is the toolbar's only field, and its form holds its value alone.
     expect(valueOf(element, 'card:toolbar')).toEqual({ show: false });
 
-    // Every control but reset arrives switched on, as the card reads them, search included
-    // (backlog item 182), the filter as a menu, and nothing but the switch is written.
+    // Every control but reset and Open Full Size arrives switched on, as the card reads them,
+    // search included (backlog item 182), the filter as a menu, and nothing but the switch is
+    // written.
     await changeField(element, 'card:toolbar.show', true);
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(cardIds()).toEqual(
@@ -460,6 +471,7 @@ describe('the event tap action in the editor', () => {
           'reset',
           'refresh',
           'search',
+          'overlay',
           'add_event',
           'legend',
         ].map((name) => `card:toolbar.${name}`),
@@ -473,6 +485,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       search: true,
+      overlay: false,
       legend: 'menu',
       // View Switcher is on, so its qualifier line is drawn, offering every layout.
       view_switcher_layouts: ['list', 'column', 'grid', 'month'],

@@ -25,6 +25,7 @@
   "viewMonth": "月",
   "layout": "版面配置",
   "layoutCurrent": "版面配置：{view}",
+  "openFullSize": "放大檢視",
   "moreEvents": "還有 {count} 項",
   "eventCount": "{count} 項活動",
   "eventCountOne": "{count} 項活動",

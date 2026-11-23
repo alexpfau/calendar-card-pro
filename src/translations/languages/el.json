@@ -20,6 +20,7 @@
   "viewMonth": "Μήνας",
   "layout": "Διάταξη",
   "layoutCurrent": "Διάταξη: {view}",
+  "openFullSize": "Άνοιγμα σε πλήρες μέγεθος",
   "moreEvents": "+{count} ακόμη",
   "eventCount": "{count} γεγονότα",
   "eventCountOne": "{count} γεγονός",

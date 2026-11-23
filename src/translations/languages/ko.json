@@ -12,6 +12,7 @@
   "viewMonth": "월",
   "layout": "레이아웃",
   "layoutCurrent": "레이아웃: {view}",
+  "openFullSize": "크게 열기",
   "moreEvents": "+{count}개 더",
   "eventCount": "일정 {count}개",
   "eventCountOne": "일정 {count}개",

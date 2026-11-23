@@ -414,6 +414,23 @@ export const cardStyles = css`
     }
   }
 
+  /* The overlay's card (IN_OVERLAY_ATTRIBUTE) takes the device's home indicator into its own foot
+     room where the overlay fills the screen, which hands it in as --calendar-card-safe-area-bottom:
+     the larger of its bottom padding and the indicator's room, rather than the overlay padding
+     the indicator's room away below the card's. A narrow month's list that scrolls runs to the
+     card's foot instead, under the indicator, and keeps that room inside its scroll. */
+  :host([in-overlay]) ha-card {
+    --calendar-card-overlay-foot: max(
+      calc(var(--calendar-card-spacing-additional) + 16px),
+      var(--calendar-card-safe-area-bottom, 0px)
+    );
+    padding-bottom: var(--calendar-card-overlay-foot);
+  }
+
+  :host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls) {
+    padding-bottom: 0;
+  }
+
   ha-card {
     display: flex;
     flex-direction: column;
@@ -637,6 +654,16 @@ export const cardStyles = css`
     font-weight: var(--ha-font-weight-medium, 500);
     letter-spacing: normal;
     line-height: 1.2;
+  }
+
+  /* Without a month under it, where the overlay's Close is all the toolbar holds, the title is the
+     card's headline again, as it is with no toolbar at all. */
+  .toolbar-heading.no-month > .toolbar-identity > .card-header {
+    color: var(--calendar-card-color-title, var(--primary-text-color));
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    font-weight: var(--ha-font-weight-normal, 400);
+    letter-spacing: -0.012em;
+    line-height: 1.33;
   }
 
   /* No inline-end padding anywhere in the toolbar, so its end edge is the content box's in
@@ -1360,6 +1387,63 @@ export const cardStyles = css`
   .refresh-failed .toolbar-button-icon,
   .refresh-failed .loading-indicator-icon {
     fill: var(--error-color, #db4437);
+  }
+
+  /* The overlay's Close: the pill every command is, washed with the theme's error color so it
+     reads as the way out at a glance, and its cross in that color. It deepens under the pointer
+     and while pressed as the others do, from its own wash. Specific enough to hold over the hover
+     and press rules. Without color-mix() the wash is a fixed translucent red, which reads on a
+     light card and a dark one alike. */
+  .toolbar-button.close-button {
+    color: var(--error-color, #db4437);
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 16%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @media (hover: hover) {
+    .toolbar-button.close-button:hover {
+      background: color-mix(
+        in srgb,
+        var(--error-color, #db4437) 24%,
+        var(--calendar-card-toolbar-fill)
+      );
+    }
+  }
+
+  .toolbar-button.close-button:active {
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 32%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .toolbar-button.close-button {
+      background: rgba(219, 68, 55, 0.18);
+    }
+    @media (hover: hover) {
+      .toolbar-button.close-button:hover {
+        background: rgba(219, 68, 55, 0.24);
+      }
+    }
+    .toolbar-button.close-button:active {
+      background: rgba(219, 68, 55, 0.3);
+    }
+  }
+
+  /* Alone at the heading row's end, where the action row would hold nothing else, it keeps the
+     action row's size and is centered where the date navigation's smaller pills are, on the
+     month's capitals, by taking back the 12px it stands taller than they do. */
+  .toolbar-heading-end > .close-button {
+    margin-block: -6px;
+  }
+
+  .toolbar-heading-end > .date-navigation + .close-button {
+    margin-inline-start: 8px;
   }
 
   /* Reset with nothing to undo: hidden, and out of the tab order and away from assistive
@@ -8912,6 +8996,80 @@ export const cardStyles = css`
     flex: var(--calendar-card-month-list-flex, 1 1 0);
     min-height: 0;
     clip-path: inset(-1em -1em 0 -1em);
+  }
+
+  /* In the overlay the box lists every row and scrolls them, under weeks that stay where they are
+     (MonthNarrow.scroll); the cut is the scroll's own. Its rows keep their own padding, as the
+     card's content scroller's do. It runs to the card's foot, under the device's home indicator,
+     and keeps the card's foot room inside its scroll instead, where its last row comes to rest
+     (--calendar-card-overlay-foot, below). A scroll that reaches either end stays in the box, and
+     where no row takes focus the box does, ringed as an event is. */
+  .month-day-list-rows.scrolls {
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    clip-path: none;
+    padding-block-end: var(--calendar-card-overlay-foot, 0px);
+  }
+
+  /* While some of the day's events end below where the rows come to rest, a pill over the list's
+     foot says how many, in the words of "+N more", and a press pages down (renderListBelow). It
+     floats over the rows, so it is drawn opaque: the toolbar buttons' tint over the card's
+     background, so it looks like them, lifted by a shadow. Its words are "+N more"'s. */
+  .month-day-list.scrolls {
+    position: relative;
+  }
+
+  .month-day-list-below {
+    position: absolute;
+    inset-inline: 0;
+    bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: max-content;
+    margin: 0 auto;
+    padding-block: 6px;
+    padding-inline: 8px 12px;
+    border: none;
+    border-radius: 16px;
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent),
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent)
+      ),
+      var(--calendar-card-background-color, var(--card-background-color));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+    font: inherit;
+    font-size: var(--calendar-card-font-size-time);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-day-list-below {
+      background:
+        linear-gradient(rgba(128, 128, 128, 0.15), rgba(128, 128, 128, 0.15)),
+        var(--calendar-card-background-color, var(--card-background-color));
+    }
+  }
+
+  .month-day-list-below-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  .month-day-list-rows.scrolls:focus {
+    outline: none;
+  }
+
+  .month-day-list-rows.scrolls:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
   }
 
   /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary

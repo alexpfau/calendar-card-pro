@@ -371,6 +371,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
       'card:toolbar.reset',
       'card:toolbar.refresh',
       'card:toolbar.search',
+      'card:toolbar.overlay',
       'card:toolbar.navigation',
       'card:toolbar.size',
     ],

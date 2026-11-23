@@ -75,6 +75,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
+  // The card opened full size over the dashboard by Open Full Size, on Taps & Refresh.
+  'heading.overlay': 'Full-Size Overlay',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -1417,6 +1419,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.search': 'Search Button',
   'toolbar.search.helper':
     'Finds events by title, location or description, a year either way. Needs Date Navigation.',
+  'toolbar.overlay': 'Open Full Size Button',
+  'toolbar.overlay.helper': 'Opens in the layout set under Full-Size Overlay.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper': 'Shown only when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
@@ -1425,6 +1429,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
+  // The layout the card opens in full size; its options are the layouts' names (`view.option.*`).
+  'overlay.view': 'Layout',
+  'overlay.view.helper':
+    'The layout Open Full Size opens the card in. Its other options are set in YAML, under overlay.',
   // Only the date navigation and the calendar chips change size; the label says so, since the
   // option's own name, `size`, leaves room for more. `normal` is named Small: they are small
   // beside the action row's buttons, and Normal reads as the font weight's Regular in most of
@@ -1442,6 +1450,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.controls.reset': 'Reset',
   'toolbar.controls.refresh': 'Refresh',
   'toolbar.controls.search': 'Search',
+  'toolbar.controls.overlay': 'Open Full Size',
   // The toolbar's own buttons: a row each under this sub-heading, after the toolbar's controls
   // and only while the toolbar is shown, which opens in place. The words on the rows themselves,
   // Add Button and the rest, are drawn by the editor rather than by a form; `button.summary` is
@@ -1782,7 +1791,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // Its fifth: the card opened full size over the dashboard, in the layout Full-Size Overlay
+  // names.
+  'card_action.option.overlay.label': 'Open Full Size',
+  // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.
   'card_action.option.back.label': 'Go Back',
   // The day's own dropdown, two choices over an action object. "Nothing" is the word Home

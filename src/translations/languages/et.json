@@ -33,6 +33,7 @@
   "viewMonth": "Kuu",
   "layout": "Paigutus",
   "layoutCurrent": "Paigutus: {view}",
+  "openFullSize": "Ava täissuuruses",
   "moreEvents": "Veel +{count}",
   "eventCount": "{count} sündmust",
   "eventCountOne": "{count} sündmus",

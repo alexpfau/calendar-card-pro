@@ -203,9 +203,9 @@ Which events and forecasts the card loads:
 
 `entities` · `start_date` · `first_day_of_week` · `weather_entity` · `refresh_interval` · `refresh_on_navigate`
 
-Its actions and its toolbar:
+Its actions, its toolbar and how it opens full size:
 
-`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar`
+`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar` · `overlay`
 
 Its title, its colors and how it writes dates and times:
 

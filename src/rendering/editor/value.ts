@@ -7,6 +7,7 @@
 import { LEGEND_OFF, normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSet, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
+import { overlayView } from '../../config/overlay';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
@@ -683,6 +684,9 @@ export function toStoredConfig(
   const toolbar = stripToolbarDefaults(config, authored?.toolbar);
   delete draft.toolbar;
 
+  const overlay = stripOverlayDefaults(config, authored?.overlay);
+  delete draft.overlay;
+
   const minimized = Helpers.filterDefaultValues(
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
@@ -714,6 +718,10 @@ export function toStoredConfig(
 
   if (toolbar !== undefined) {
     stored.toolbar = toolbar;
+  }
+
+  if (overlay !== undefined) {
+    stored.overlay = overlay;
   }
 
   return stored;
@@ -1078,6 +1086,42 @@ export function stripToolbarDefaults(
     result[key] = value;
   }
 
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Builds the `overlay:` block as the form should show it: the block as written, with the layout
+ * the overlay opens in, Grid where it names none (`overlayView`).
+ *
+ * @param config - Merged configuration
+ * @returns The block, its `view` filled in
+ */
+export function overlayFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  const block = Helpers.isConfigBlock(config.overlay) ? config.overlay : {};
+  return { ...block, view: overlayView(config) };
+}
+
+/**
+ * Strips the `overlay:` block down to what it does: its `view` goes where it is Grid, the default,
+ * unless the YAML holds it unchanged. Every other option in it is YAML's alone, written by no form,
+ * and kept as written, as is a value that is no block at all, which the card reads as none.
+ *
+ * @param config - Merged configuration
+ * @param authored - The `overlay:` block as the YAML holds it
+ * @returns The block, or `undefined` when there is none or nothing in it is doing anything
+ */
+export function stripOverlayDefaults(config: Readonly<Types.Config>, authored?: unknown): unknown {
+  const block: unknown = config.overlay;
+  if (!Helpers.isConfigBlock(block)) return block;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (key === 'view' && value === 'grid' && !unchangedFromAuthored(authored, key, value)) {
+      continue;
+    }
+    result[key] = value;
+  }
   return Object.keys(result).length > 0 ? result : undefined;
 }
 

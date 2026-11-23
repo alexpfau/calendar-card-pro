@@ -1297,7 +1297,14 @@ describe('the filled house a press on home shows', () => {
 
 describe("the controls beside the month, centered on the month's capitals", () => {
   /** Where the stubbed layout puts the heading row, and the top and foot of the month's capitals. */
-  const geometry = { rowTop: 100, rowHeight: 60, paddingBottom: 0, capTop: 134.6, baseline: 151.7 };
+  const geometry = {
+    rowTop: 100,
+    rowHeight: 60,
+    paddingBottom: 0,
+    capTop: 134.6,
+    baseline: 151.7,
+    width: 0,
+  };
 
   beforeEach(() => {
     Object.assign(geometry, {
@@ -1306,14 +1313,15 @@ describe("the controls beside the month, centered on the month's capitals", () =
       paddingBottom: 0,
       capTop: 134.6,
       baseline: 151.7,
+      width: 0,
     });
     const realRect = HTMLElement.prototype.getBoundingClientRect;
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      const { rowTop, rowHeight, capTop, baseline } = geometry;
+      const { rowTop, rowHeight, capTop, baseline, width } = geometry;
       if (this.classList.contains('toolbar-heading')) {
-        return { top: rowTop, bottom: rowTop + rowHeight, height: rowHeight } as DOMRect;
+        return { top: rowTop, bottom: rowTop + rowHeight, height: rowHeight, width } as DOMRect;
       }
       if (this.classList.contains('toolbar-month-cap')) {
         return { top: capTop, bottom: baseline, height: baseline - capTop } as DOMRect;
@@ -1360,6 +1368,25 @@ describe("the controls beside the month, centered on the month's capitals", () =
     Object.assign(geometry, { rowTop: -300, capTop: -265.4, baseline: -248.3 });
     const card = await mount();
     expect(middle(card)).toBe('16.85px');
+  });
+
+  it('writes the card’s own pixels where an ancestor scales it, as the overlay does opening', async () => {
+    // Drawn at a tenth of its size: every box a tenth of its layout, the row 500 wide.
+    Object.assign(geometry, {
+      rowTop: 10,
+      rowHeight: 6,
+      capTop: 13.46,
+      baseline: 15.17,
+      width: 50,
+    });
+    geometry.paddingBottom = 4;
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains('toolbar-heading') ? 500 : 0;
+    });
+    const card = await mount();
+    expect(middle(card)).toBe('12.85px');
   });
 
   it('writes nothing for a row with no layout, leaving the stylesheet its stand-in', async () => {

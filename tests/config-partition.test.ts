@@ -65,8 +65,19 @@ function declaredConfigKeys(): string[] {
   return [...block[1].matchAll(/^ {2}([a-z0-9_]+)\??:/gm)].map((match) => match[1]);
 }
 
-/** Options holding a nested block rather than a value of their own. */
-const CONTAINER_KEYS = ['weather', 'toolbar', 'list', 'column', 'time_grid', 'month'] as const;
+/**
+ * Options holding a nested block rather than a value of their own. `overlay` holds a whole
+ * configuration, the card's own options for the card opened full size.
+ */
+const CONTAINER_KEYS = [
+  'weather',
+  'toolbar',
+  'overlay',
+  'list',
+  'column',
+  'time_grid',
+  'month',
+] as const;
 
 /**
  * Why an option is decided at card level rather than routed into a view's block.
