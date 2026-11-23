@@ -3810,6 +3810,24 @@ export const cardStyles = css`
     overflow-wrap: normal;
   }
 
+  /* A countdown or day counter folded into the time is one phrase here: an atomic box, so where
+     the line has no room for it after the dot it moves to the next line whole, "16:00 - 17:30 ·" /
+     "in 6 hours", rather than break inside itself, "Day 12 of" / "45". The dot's zero-width space
+     is the break. A phrase wider than a whole line still wraps, inside its box: shrink-to-fit
+     never makes it wider than the line, and its floor stays its longest word, so the box beside
+     the title is no wider than before. On the baseline, not in the middle the .time span rule
+     sets, which sat the words a pixel below the time before them. Below the title the
+     countdown wraps as it always has. */
+  .time-beside-title
+    .summary-row
+    .title-aside
+    .time-text
+    > .time-countdown
+    > .time-countdown-words {
+    display: inline-block;
+    vertical-align: baseline;
+  }
+
   /* With times off, the countdown alone takes the time's place. It wraps like the time, against
      the end, and brings neither the end margin the time already has nor column view's
      leading dot: beside the title nothing comes before it but the badge's bullet. */
