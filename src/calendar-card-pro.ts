@@ -9819,8 +9819,9 @@ class CalendarCardPro extends LitElement {
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
    * that of the day the page's list starts from (its first day, or its last for a list read
-   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks
-   * (`_headerMonth`), in full while every month in full fits beside the
+   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks, or under
+   * `month → start: week` the month of its first day (`_headerMonth`), in full while every month in
+   * full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -9861,12 +9862,17 @@ class CalendarCardPro extends LitElement {
   /**
    * The day the heading names a page's month by: the day its list starts from
    * (`Paging.leadingDay`), and for month the first day of the month holding most of its weeks
-   * (`Paging.majorityMonth`), since its first row often begins in the month before.
+   * (`Paging.majorityMonth`), since its first row often begins in the month before. Under
+   * `month → start: week`, whose page is the coming weeks rather than a month, the page's first
+   * day, the top left one, as the eye reads it.
    *
    * @param page - The page's days
    * @returns A day of the month to name
    */
   private _headerMonth(page: Paging.PageRange): Date {
+    if (this.effectiveView === 'month' && this._monthStartsAtWeek) {
+      return Paging.startOfDay(page.start);
+    }
     return this.effectiveView === 'month'
       ? Paging.majorityMonth(page)
       : Paging.leadingDay(page, this._listsLatestFirst);
@@ -10023,12 +10029,9 @@ class CalendarCardPro extends LitElement {
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
-      // A month under `start: week` names no month of its own: the picker opens on its first day.
-      pickerValue: Paging.pageKey(
-        this.effectiveView === 'month' && this._monthStartsAtWeek
-          ? page.start
-          : this._headerMonth(page),
-      ),
+      // The day the heading names its month by: a month's 1st, or under `month → start: week`
+      // the page's first day, where the picker then opens.
+      pickerValue: Paging.pageKey(this._headerMonth(page)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),

@@ -111,9 +111,10 @@ Which Events.
   lined up with home, that holds the day; a layout switch opens the weeks from the day it carries.
 - **No day is dimmed:** the weeks are not one month, so each 1st keeps its month's name, such as
   "1 Dec", to show where a month begins.
-- **The heading names the month with the most days on screen**, and its tooltip gives the exact
-  dates. The home button is called "Today" while home holds today, and otherwise by its first day,
-  such as "Mon, Jan 11".
+- **The heading names the month of the first day shown**, the one at the top left, so four
+  weeks from November 23 read "November 2026", and its tooltip gives the exact dates. The date
+  picker opens on that day. The home button is called "Today" while home holds today, and
+  otherwise by its first day, such as "Mon, Jan 11".
 
 ::: details Which Day a Narrow Month Lists
 At home a [narrow month](#the-narrow-month) lists `start_date`, or today, as a calendar month

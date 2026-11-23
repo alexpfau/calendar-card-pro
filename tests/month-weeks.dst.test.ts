@@ -285,7 +285,7 @@ describe('the zone these tests run under', () => {
 describe('the weeks Month opens on', () => {
   it('starts at today’s week and draws the weeks asked for, no more', async () => {
     const card = await mount({});
-    // Sixteen of November's days against thirteen of December's: the heading names November.
+    // The heading names the month of the first day shown, top left.
     expect(month(card)).toEqual({
       heading: 'November 2026',
       rows: ['2026-11-16', '2026-12-13'],
@@ -325,6 +325,27 @@ describe('the weeks Month opens on', () => {
     expect(tooltip).toMatch(/Nov 16.*Dec 13/);
     expect(root(card).querySelector('.month-container')!.getAttribute('aria-label')).toBe(tooltip);
   });
+
+  it.each([
+    // Wednesday 25 November: four weeks from Monday 23 hold eight November days and twenty of
+    // December's.
+    ['four weeks mostly in the next month', new Date(2026, 10, 25, 10), 4, '2026-11-23'],
+    // Wednesday 2 December: one week from Monday 30 November holds one November day.
+    ['one week starting on a month’s last day', new Date(2026, 11, 2, 10), 1, '2026-11-30'],
+  ] as const)(
+    'names the month of the first day shown, not the one with most days: %s',
+    async (_name, now, weeks, first) => {
+      vi.setSystemTime(now);
+      const card = await mount({ month: { start: 'week', weeks } });
+      expect(month(card)).toMatchObject({
+        heading: 'November 2026',
+        rows: [first, expect.any(String)],
+      });
+      expect(root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!.value).toBe(first);
+      await press(card, 'next');
+      expect(month(card).heading).toBe('December 2026');
+    },
+  );
 
   it.each([
     // A fixed date opens its own week, named by its first day: it holds no today.
