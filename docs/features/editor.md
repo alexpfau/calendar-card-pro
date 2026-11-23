@@ -51,7 +51,9 @@ setting has a value for every layout:
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. Month's page offers
 Today, A Fixed Date and Relative to Today. It shows Tomorrow and Start of Week as Today, since
-Month opens today's month for them, and names what the other layouts start on instead. A tap on
+Month opens today's month for them, and names what the other layouts start on instead.
+Month's page also holds **First Week** and **Weeks Shown**, which show
+[the coming weeks](/features/month-view#the-coming-weeks) rather than a calendar month. A tap on
 an event opens its details; to change that, choose another action under **Event Tap Action** on
 Taps & Refresh.
 
@@ -509,7 +511,7 @@ these top-level values behave as follows:
 | `show_location: true`     | Shows locations   | Shows locations   | Hides locations   | Shows locations   |
 
 Set the corresponding value in `column:`, `time_grid:` or `month:` to change that view, or open
-that layout under **Layouts**; Month always draws every day of its six weeks. Grid also substitutes its own styling defaults, even when you
+that layout under **Layouts**; Month always draws every day of its weeks. Grid also substitutes its own styling defaults, even when you
 set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in

@@ -462,6 +462,11 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:height_mode', 'maximum')],
     kind: 'mode-value',
   },
+  month_weeks: {
+    fields: ['layout:month.weeks'],
+    requires: [oneOf('layout:month.start', 'week')],
+    kind: 'mode-value',
+  },
   fewer_days: {
     fields: ['layout:column.min_days_to_show', 'layout:time_grid.min_days_to_show'],
     requires: [oneOf('layout:narrow_fit', 'fewer', 'custom')],

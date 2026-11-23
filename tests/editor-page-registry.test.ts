@@ -150,8 +150,9 @@ const APPROVED_MAP: ReadonlyArray<
     'Which Events',
     'Date Range',
     '',
-    // Start Date's home is Events, Weather & Language; its copy here is in BORROWED_MAP.
-    ['content:days_to_show E SLCG'],
+    // Start Date's home is Events, Weather & Language; its copy here is in BORROWED_MAP. Month's
+    // First Week follows it, with Weeks Shown, Month's count of days, as its value.
+    ['content:days_to_show E SLCG', 'layout:month.start E M', 'layout:month.weeks W M'],
   ],
   // Grid's hours bound which events it draws, as the dates do.
   [
@@ -676,7 +677,7 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 241 ids, Month's own seven, Layouts in Switcher, the three of the month's name
+    // map places 243 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
     // own height pair, Full-Size Overlay's Layout and Open Full Size among them, and every one of
     // them is built under some workspace and state.
@@ -685,8 +686,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(241);
-    expect(PLACED).toHaveLength(241);
+    expect(BUILT.size).toBe(243);
+    expect(PLACED).toHaveLength(243);
   });
 
   it('has no field built but unplaced', () => {
@@ -855,7 +856,7 @@ describe('the page registry is consistent with itself', () => {
 
   it('names a mode control on the same page for every mode value', () => {
     const modes = PLACED.filter(({ appearance }) => modeControls(appearance).length > 0);
-    expect(modes).toHaveLength(22);
+    expect(modes).toHaveLength(23);
     for (const { id, appearance, page } of modes) {
       for (const control of modeControls(appearance)) {
         expect(PLACED.find((placed) => placed.id === control)?.page, `${id} with ${control}`).toBe(

@@ -95,7 +95,8 @@ toolbar:
 
 - **The arrows** move by as many days as the card shows, a week here. Where Columns or Grid
   draw fewer days on a narrow card, they move by the days drawn, so no day is skipped. A layout
-  with its own `days_to_show` pages by its own count, and Month moves a whole month; see
+  with its own `days_to_show` pages by its own count, and Month moves a whole month, or a page of
+  [the coming weeks](/features/month-view#the-coming-weeks); see
   [Paging Through Months](/features/month-view#paging-through-months).
 - **The house** returns to the days the card opens with, the window
   [`start_date`](/features/start-date-offset) sets. Its tooltip says "Today", or names the day

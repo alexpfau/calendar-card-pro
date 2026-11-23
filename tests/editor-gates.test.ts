@@ -147,6 +147,8 @@ const MONTH_ONLY = [
   'layout:month.cell_event_font_size',
   'layout:month.cell_time_font_size',
   'layout:month.min_day_width',
+  'layout:month.start',
+  'layout:month.weeks',
 ];
 
 /**
@@ -389,6 +391,8 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   // Zero in three spellings, a length and a keyword; the card draws a rule for the last two.
   month_separator_width: ['0px', '0', '0em', '1px', 'thin'],
   month_separator_label: [true, false],
+  // Anything but `week` reads as a calendar month, which draws no Weeks Shown.
+  'month.start': [undefined, 'month', 'week', 'Week'],
   'entity.accent_color': [undefined, '#ff0000', 'home-assistant'],
   'entity.label_type': [undefined, 'none', 'text', 'icon', 'image'],
   'entity.label': [undefined, 'A', 'mdi:star', 'home-assistant', '/local/a.png', 'person.anna'],
@@ -945,13 +949,14 @@ describe('the universe', () => {
     // its three controls and lost its wide pair, and every layout that reads the events area's own
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
     // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
-    // and the toolbar's Open Full Size.
+    // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
+    // coming weeks from the start date's.
     expect(sizes).toEqual({
       shared: { card: 139, calendar: 30 },
       list: { card: 166, calendar: 31 },
       column: { card: 163, calendar: 30 },
       grid: { card: 162, calendar: 30 },
-      month: { card: 107, calendar: 29 },
+      month: { card: 109, calendar: 29 },
     });
   });
 
@@ -1312,6 +1317,11 @@ describe('the gate table', () => {
         kind: 'mode-value',
         fields: ['layout:maximum_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
+      },
+      month_weeks: {
+        kind: 'mode-value',
+        fields: ['layout:month.weeks'],
+        requires: [p('layout:month.start', 'week', ['week'])],
       },
       fewer_days: {
         kind: 'mode-value',

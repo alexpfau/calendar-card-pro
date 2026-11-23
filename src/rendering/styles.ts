@@ -8134,10 +8134,12 @@ export const cardStyles = css`
     max-height: none;
   }
 
-  /* The weekday names, then six week rows sharing what the names leave of the content area, each
+  /* The weekday names, then the week rows sharing what the names leave of the content area: six,
+     or under month -> start: week as many as --calendar-card-month-rows says, which the renderer
+     writes only where they are not six. Each is
      at least a date and one line under its rule, which the card measures from the probes below and
-     writes here as --calendar-card-month-week-min, and the month at least the names and six such
-     weeks, --calendar-card-month-min, both in the card's own pixels (measureMonthFloors). Until it
+     writes here as --calendar-card-month-week-min, and the month at least the names and its
+     weeks at that, --calendar-card-month-min, both in the card's own pixels (measureMonthFloors). Until it
      has, each is reckoned in the card's em. Never a bare 1fr and never a basis taken from the
      content: either would let a week's lines size the week the line capacity is read from. So a
      row's height never depends on its events, the card stays one height from page to page, and the
@@ -8163,9 +8165,12 @@ export const cardStyles = css`
   .month-container {
     display: grid;
     flex: 1 1 0;
-    min-height: var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px));
+    min-height: var(
+      --calendar-card-month-min,
+      calc(var(--calendar-card-month-rows, 6) * (2.4em + 11px) + 1.2em + 7px)
+    );
     grid-template-rows: auto repeat(
-        6,
+        var(--calendar-card-month-rows, 6),
         minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr)
       );
     position: relative;
@@ -8713,7 +8718,7 @@ export const cardStyles = css`
   .month-container.month-narrow {
     flex: none;
     min-height: 0;
-    grid-template-rows: auto repeat(6, auto);
+    grid-template-rows: auto repeat(var(--calendar-card-month-rows, 6), auto);
     --calendar-card-month-week-gutter: 22px;
     border-block-end: 1px solid var(--calendar-card-month-rule);
   }

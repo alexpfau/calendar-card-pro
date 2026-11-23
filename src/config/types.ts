@@ -816,6 +816,12 @@ export type MonthPinnedKeys =
   | 'event_icon_vertical_alignment';
 
 /**
+ * Which week a month's first row is (`month → start`): the week of the 1st of the month, or the
+ * week holding the start date.
+ */
+export type MonthStart = 'month' | 'week';
+
+/**
  * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
  * and cell font size keys.
  *
@@ -840,6 +846,16 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /** Day-cell width in pixels below which the month draws its narrow form. */
   min_day_width?: number;
+
+  /**
+   * Which week the month's first row is: `month`, the week of the 1st of the month holding the
+   * start date, or `week`, the week holding the start date itself, so the month shows the coming
+   * weeks and pages by them rather than by calendar month.
+   */
+  start?: MonthStart;
+
+  /** How many weeks the month draws under `start: week`, 1 to 6. */
+  weeks?: number;
 
   /**
    * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under

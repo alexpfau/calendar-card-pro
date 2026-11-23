@@ -225,8 +225,8 @@ blocks: List, Columns and Grid draw it, Month draws none, and every block's `wea
 
 Three options sound as though they belong in the first list, and do not:
 
-- **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
-  six weeks, may set its own: the card loads the longest count among the layouts it can show,
+- **`days_to_show`** also decides what is loaded, yet each layout but Month, which counts in
+  weeks, may set its own: the card loads the longest count among the layouts it can show,
   with Month's weeks where it can show Month, and each draws its own days out of that load. See
   [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,

@@ -1393,12 +1393,20 @@ describe('editor: displayed view and the Layout panel', () => {
       'narrow_card_height',
       'narrow_card_max_height',
       'min_day_width',
+      'start',
       'weekend_background_color',
       'today_background_color',
       'cell_event_font_size',
       'cell_time_font_size',
     ];
     expect(own(buildConfig({ view: 'month' }))).toEqual(always);
+    // Weeks Shown only from the start date's week: a calendar month always draws six.
+    expect(own(buildConfig({ view: 'month', month: { weeks: 4 } }))).toEqual(always);
+    expect(own(buildConfig({ view: 'month', month: { start: 'week' } }))).toEqual([
+      ...always.slice(0, 4),
+      'weeks',
+      ...always.slice(4),
+    ]);
     // Month's, and nobody else's: the block is read only where Month is the view.
     expect(own(buildConfig({ view: 'grid', month: { min_day_width: 90 } }))).toEqual([]);
   });

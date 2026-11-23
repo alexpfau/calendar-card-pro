@@ -136,7 +136,7 @@ hide_when_empty: true
   not draw still count, so it stays visible when they fall outside grid view's hours, on days a
   narrow layout drops, or beyond a compact limit.
 - In [Month](/features/month-view), events count from the day the month opens on, the start
-  date or today, to the end of its six weeks. An event earlier in the month does not keep the
+  date or today, to the end of its weeks. An event earlier in the month does not keep the
   card, even though the month shows it.
 - With `show_past_events: false`, the card goes once its last event has finished, without
   waiting for another calendar fetch.

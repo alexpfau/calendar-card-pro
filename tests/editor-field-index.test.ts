@@ -282,8 +282,9 @@ describe('field ids', () => {
     // the two font sizes of its days, and Layouts in Switcher. List's month separator adds three:
     // Month Name on Rule, its color and its size. A calendar's start hours add two: Starts At or
     // After and Starts Before. Then the events area's own height pair and When Too Narrow,
-    // Full-Size Overlay's Layout, and the toolbar's Open Full Size.
-    expect(EVERY_FIELD.size).toBe(241);
+    // Full-Size Overlay's Layout, and the toolbar's Open Full Size. Then Month's First Week and
+    // Weeks Shown.
+    expect(EVERY_FIELD.size).toBe(243);
   });
 
   it('do not depend on the editor language', () => {

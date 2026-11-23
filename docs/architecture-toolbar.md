@@ -103,7 +103,7 @@ There are three views at once: the configured `view`, the requested view (`reque
 device's choice, else `view`) and the effective view the width fit makes of it (`_effectiveView`).
 
 - **No fetch.** The window's start is identical across views (`FETCH_TIME_KEYS`) and the load spans
-  the longest of them (`loadedDaysToShow`), with Month's six weeks added where it is reachable
+  the longest of them (`loadedDaysToShow`), with Month's weeks added where it is reachable
   (`ViewConfig.loadConfig`), so each view draws its range out of one load.
 - **Which layouts.** Two options: `toolbar → view_switcher` turns the switcher on or off, and
   `toolbar → view_switcher_layouts` lists the layouts it offers, all four by default.
