@@ -1969,7 +1969,10 @@ async function checkEditorBreakdown() {
 
   for (const { name, scope, counts, names } of EDITOR_BREAKDOWN_SITES) {
     const file = join(ROOT, name);
-    const paragraph = existsSync(file) ? readFileSync(file, 'utf8').match(scope)?.[0] : undefined;
+    // One space for every run of whitespace, so a sentence reads the same however it is wrapped.
+    const paragraph = existsSync(file)
+      ? readFileSync(file, 'utf8').match(scope)?.[0].replace(/\s+/g, ' ')
+      : undefined;
     if (!paragraph) {
       error(
         `${name} no longer states the editor's language breakdown in a form this check can ` +
@@ -1994,8 +1997,7 @@ async function checkEditorBreakdown() {
           : NUMBER_WORDS.findIndex((spelled) => spelled.toLowerCase() === word);
         if (found !== truth[which]) {
           error(
-            `${name} says "${match[0].replace(/\s+/g, ' ')}", but the number is ` +
-              `${truth[which]}. ${why[which]}`,
+            `${name} says "${match[0]}", but the number is ` + `${truth[which]}. ${why[which]}`,
           );
         }
       }
@@ -2020,10 +2022,18 @@ async function checkEditorBreakdown() {
 
     checked += 1;
     const inPart = /\bin part\b/.test(paragraph);
-    const unnamed = partial.filter((entry) => !paragraph.includes(nameOf(entry)));
-    if (partial.length && (!inPart || unnamed.length)) {
+    // Each partial language leads into "in part", on its own or in a list: "Korean in part",
+    // "Korean and Thai in part". A name elsewhere in the paragraph says nothing about it.
+    const unnamed = partial.filter(
+      (entry) =>
+        !new RegExp(
+          `\\b${nameOf(entry).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?:, | and )[\\p{L} ]+?)* in part\\b`,
+          'u',
+        ).test(paragraph),
+    );
+    if (partial.length && unnamed.length) {
       error(
-        `${name} does not say that ${listed(partial)} ${partial.length > 1 ? 'are' : 'is'} ` +
+        `${name} does not say that ${listed(unnamed)} ${unnamed.length > 1 ? 'are' : 'is'} ` +
           `translated in part, which check:i18n counts as below the line for in full. ` +
           `Name ${partial.length > 1 ? 'them' : 'it'}, as "Korean in part" was through v5.3.`,
       );
