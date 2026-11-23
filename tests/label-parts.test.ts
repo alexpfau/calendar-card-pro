@@ -233,6 +233,17 @@ describe('the height of a picture label', () => {
     );
   });
 
+  it('moves a one-line title beside the time down to a taller picture’s middle', () => {
+    // There the title is the flex line's one baseline item, which sits at the line's top: 5.6px
+    // above a 2em picture's middle before this rule, measured in Month's Day List and in List and
+    // Columns with time_position: title and title_max_lines: 1. Half the difference from its
+    // 1.2em line, and nothing for a picture no taller than that, which is every unsized one.
+    expect(cardStyles.cssText).toMatch(
+      /\.time-beside-title > \.summary-row > \.summary-scroll:has\(> \.label-image\) > \.event-title \{\s*margin-top: max\(0px, \(var\(--calendar-card-label-image-size, 1em\) - 1\.2em\) \/ 2\);/,
+    );
+    expect(cardStyles.cssText).toMatch(/\.event-title \{\s*font-weight: 500;\s*line-height: 1\.2;/);
+  });
+
   it('leaves a wide month line’s picture at the text’s height', () => {
     expect(cardStyles.cssText).toMatch(
       /\.month-line-label \{[^}]*--calendar-card-label-image-size: 1em;/,

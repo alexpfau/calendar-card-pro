@@ -110,7 +110,10 @@ describe('scrolling labels and titles share one vertical center', () => {
     );
     expect(padding.map((rule) => rule.selectors)).toEqual([RESET]);
 
-    // The correction is the existing reset widened, not a second mechanism.
+    // The correction is the existing reset widened, not a second mechanism. One rule moves a
+    // scrolling title for another reason, pinned here by value: beside the time the title is
+    // baseline-aligned, which put it at the top of a line a sized picture made taller
+    // (label-parts.test.ts).
     const nudges = rules.filter(
       (rule) =>
         targetsScrolling(rule.selectors) &&
@@ -118,7 +121,13 @@ describe('scrolling labels and titles share one vertical center', () => {
           rule.body,
         ),
     );
-    expect(nudges).toEqual([]);
+    expect(nudges).toEqual([
+      {
+        selectors:
+          '.time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title',
+        body: 'margin-top: max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2);',
+      },
+    ]);
 
     // And the base padding survives for every row the reset does not reach.
     expect(CSS).toMatch(/\.event-title\s*\{[^}]*padding-bottom:\s*2px/);

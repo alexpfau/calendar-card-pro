@@ -3753,6 +3753,15 @@ export const cardStyles = css`
     align-self: baseline;
   }
 
+  /* The flex line's one baseline item sits at its top, so beside a picture taller than the
+     title's 1.2em line, as label_image_size draws one, the title sat above the middle every
+     label is centered on: 5.6px above a 2em picture. It moves down by half the difference, and
+     the time, on its baseline, moves with it. A picture no taller than the line gives 0, which
+     is every picture whose calendar sets no size. */
+  .time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title {
+    margin-top: max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2);
+  }
+
   /* On one line, the time and its badge take what they need, normally up to the cap, at the end
      of the line, and the title has the rest: .summary grows from nothing and scrolls where that
      is too little.

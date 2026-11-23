@@ -4143,6 +4143,11 @@ describe('the time beside the title', () => {
     [ROW]: one({ 'align-items': 'baseline' }),
     // The title is its summary's baseline, beside every label kind.
     [`${ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // The flex line's one baseline item sits at its top, so beside a sized picture taller than the
+    // title's line the title moves down to the picture's middle (label-parts.test.ts).
+    [`${ROW} > .summary-scroll:has(> .label-image) > .event-title`]: one({
+      'margin-top': 'max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2)',
+    }),
     // The box: as wide as its content, up to 60% of the line less the title's gutter, and never
     // narrower than what it cannot wrap.
     [ASIDE]: one({
