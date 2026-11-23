@@ -1108,8 +1108,6 @@
   "date.show_uv_index": "Rodyti UV indeksą šalia dienų",
   "date.uv_index_threshold": "UV indekso riba šalia dienų",
   "date.uv_index_threshold.helper": "Slėpti indeksą, kai jis mažesnis už šią reikšmę. Nulis rodo jį visada.",
-  "date.stacked": "Sukrauti prognozę",
-  "date.stacked.helper": "Piktograma, aukščiausia ir žemiausia temperatūra – kiekviena savo eilutėje, kad tilptų ir didesnis dydis.",
   "date.icon_size": "Piktogramos dydis šalia dienų",
   "date.font_size": "Šrifto dydis šalia dienų",
   "date.color": "Spalva šalia dienų",

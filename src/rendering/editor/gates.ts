@@ -395,7 +395,6 @@ export const GATES: Readonly<Record<string, Gate>> = {
       `${W}date.show_high_temp`,
       `${W}date.show_low_temp`,
       `${W}date.show_uv_index`,
-      `${W}date.stacked`,
       `${W}date.icon_size`,
       `${W}date.font_size`,
       `${W}date.color`,

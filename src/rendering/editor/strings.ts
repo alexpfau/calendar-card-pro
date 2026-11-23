@@ -1744,10 +1744,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'date.show_uv_index': 'Show UV Index Beside Days',
   'date.uv_index_threshold': 'UV Index Threshold Beside Days',
   'date.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
-  // List's date column is as narrow as its day number, so it stacks rather than widens.
-  'date.stacked': 'Stack the Forecast',
-  'date.stacked.helper':
-    'The icon, the high and the low each on a line of their own, so a larger size still fits.',
   'date.icon_size': 'Icon Size Beside Days',
   'date.font_size': 'Font Size Beside Days',
   'date.color': 'Color Beside Days',

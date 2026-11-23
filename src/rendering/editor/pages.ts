@@ -695,8 +695,6 @@ export const PAGES: ReadonlyArray<PageDef> = [
           [`${W}date.show_low_temp`, E],
           [`${W}date.show_uv_index`, E],
           [`${W}date.uv_index_threshold`, withMode(`${W}date.show_uv_index`)],
-          // How the parts above are laid out, before the sizes, which it lets grow (List only).
-          [`${W}date.stacked`, A],
           [`${W}date.icon_size`, A],
           [`${W}date.font_size`, A],
           [`${W}date.color`, A],

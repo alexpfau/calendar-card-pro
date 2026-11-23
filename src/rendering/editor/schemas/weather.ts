@@ -50,8 +50,7 @@ const ENTITY_FIELD: HaFormSchema = {
  * @param language - Effective language code
  * @param layout - Whether a layout is being edited; All Layouts offers the entity alone
  * @param month - Whether the layout is Month, which draws the forecast beside events only
- * @param stacks - Whether the layout reads `date.stacked` (`ViewConfig.WEATHER_OPTION_SCOPE`)
- * @param ownLine - Whether the layout reads `event.own_line`
+ * @param ownLine - Whether the layout reads `event.own_line` (`ViewConfig.WEATHER_OPTION_SCOPE`)
  * @param hasEntity - Whether a weather entity is configured
  * @param position - Where this layout shows the forecast
  * @param dateUvIndex - Whether the day forecast shows a UV index
@@ -65,7 +64,6 @@ const weatherSchema = Helpers.memoizeLast(
     language: string,
     layout: boolean,
     month: boolean,
-    stacks: boolean,
     ownLine: boolean,
     hasEntity: boolean,
     position: string,
@@ -88,7 +86,6 @@ const weatherSchema = Helpers.memoizeLast(
           bool('show_high_temp'),
           bool('show_low_temp'),
           ...uvIndexFields(dateUvIndex),
-          ...(stacks ? [bool('stacked')] : []),
           ...styling(),
         ]),
       );
@@ -130,7 +127,6 @@ export function buildWeatherSchema(ctx: SchemaCtx): HaFormSchema[] {
     ctx.language,
     view !== undefined,
     view === 'month',
-    view !== undefined && ViewConfig.readsWeatherOption('date.stacked', view),
     view !== undefined && ViewConfig.readsWeatherOption('event.own_line', view),
     weatherEntityOf(ctx.config) !== undefined,
     weather?.position ?? 'none',

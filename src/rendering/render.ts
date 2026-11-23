@@ -683,12 +683,7 @@ function renderDateColumn(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const weatherContent = Leaves.renderDateWeather(
-    date,
-    config,
-    weatherForecasts,
-    config.weather?.date?.stacked === true,
-  );
+  const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
 
   return Leaves.renderDateContent(date, config, language, isToday, weatherContent, hass);
 }

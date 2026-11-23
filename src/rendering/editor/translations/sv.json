@@ -1109,8 +1109,6 @@
   "date.show_uv_index": "Visa UV-index vid dagarna",
   "date.uv_index_threshold": "UV-indextröskel vid dagarna",
   "date.uv_index_threshold.helper": "Dölj indexet under det här värdet. Noll visar det alltid.",
-  "date.stacked": "Stapla prognosen",
-  "date.stacked.helper": "Ikonen, högsta och lägsta temperatur på var sin rad, så att en större storlek också får plats.",
   "date.icon_size": "Ikonstorlek vid dagarna",
   "date.font_size": "Fontstorlek vid dagarna",
   "date.color": "Färg vid dagarna",

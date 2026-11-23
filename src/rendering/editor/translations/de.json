@@ -1109,8 +1109,6 @@
   "date.show_uv_index": "UV-Index beim Datum anzeigen",
   "date.uv_index_threshold": "UV-Index-Schwellenwert beim Datum",
   "date.uv_index_threshold.helper": "Blendet den Index unterhalb dieses Werts aus. Bei null wird er immer angezeigt.",
-  "date.stacked": "Vorhersage untereinander",
-  "date.stacked.helper": "Symbol, Höchst- und Tiefstwert je in einer eigenen Zeile, damit auch eine größere Schrift passt.",
   "date.icon_size": "Symbolgröße beim Datum",
   "date.font_size": "Schriftgröße beim Datum",
   "date.color": "Farbe beim Datum",

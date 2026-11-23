@@ -1008,8 +1008,6 @@
   "date.show_uv_index": "일자 옆 자외선 지수 표시",
   "date.uv_index_threshold": "일자 옆 자외선 지수 임계값",
   "date.uv_index_threshold.helper": "이 값보다 낮은 자외선 지수는 숨깁니다. 0은 항상 표시합니다.",
-  "date.stacked": "예보 세로로 쌓기",
-  "date.stacked.helper": "아이콘, 최고 기온, 최저 기온을 각각 한 줄에 표시하여 더 큰 크기도 들어가게 합니다.",
   "date.icon_size": "일자 옆 아이콘 크기",
   "date.font_size": "일자 옆 글꼴 크기",
   "date.color": "일자 옆 색상",

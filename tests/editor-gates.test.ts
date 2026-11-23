@@ -89,9 +89,8 @@ const LIST_ONLY = [
   'separators:month_separator_label_color',
   'separators:month_separator_label_font_size',
   'calendar:compact_events_to_show',
-  // The forecast stacked in List's narrow date column, and an event's on a line of its own, which
-  // Columns and Grid always draw (`ViewConfig.WEATHER_OPTION_SCOPE`).
-  'weather:weather.date.stacked',
+  // An event's forecast on a line of its own, which Columns and Grid always draw
+  // (`ViewConfig.WEATHER_OPTION_SCOPE`).
   'weather:weather.event.own_line',
 ];
 
@@ -265,7 +264,6 @@ const LAYOUT_WEATHER = [
   'weather:weather.date.show_low_temp',
   'weather:weather.date.show_uv_index',
   'weather:weather.date.uv_index_threshold',
-  'weather:weather.date.stacked',
   'weather:weather.date.icon_size',
   'weather:weather.date.font_size',
   'weather:weather.date.color',
@@ -956,11 +954,11 @@ describe('the universe', () => {
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
     // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
     // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
-    // coming weeks from the start date's. Then List gained Stack the Forecast and On a Line of
-    // Its Own, the weather layouts Columns and Grid have no use for.
+    // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
+    // forecast, which Columns and Grid always draw so.
     expect(sizes).toEqual({
       shared: { card: 139, calendar: 30 },
-      list: { card: 168, calendar: 31 },
+      list: { card: 167, calendar: 31 },
       column: { card: 163, calendar: 30 },
       grid: { card: 162, calendar: 30 },
       month: { card: 109, calendar: 29 },
@@ -1261,7 +1259,6 @@ describe('the gate table', () => {
           `${W}date.show_high_temp`,
           `${W}date.show_low_temp`,
           `${W}date.show_uv_index`,
-          `${W}date.stacked`,
           `${W}date.icon_size`,
           `${W}date.font_size`,
           `${W}date.color`,

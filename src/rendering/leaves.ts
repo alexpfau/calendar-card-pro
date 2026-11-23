@@ -31,22 +31,15 @@ import * as Weather from '../utils/weather';
 /**
  * Render the weather badge that belongs to a date block.
  *
- * `stacked` is List's `weather.date.stacked`, passed by List's date column alone: the badge's
- * parts one per line, the icon over the high and the high over the low, the low without the slash
- * that joins it to the high on one line. Columns and Grid never pass it, so their headers draw
- * what they always did whatever their own block says.
- *
  * @param date Date the badge describes
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
- * @param stacked Whether the parts go one per line
  * @returns Rendered badge, or `nothing`
  */
 export function renderDateWeather(
   date: Date,
   config: Types.Config,
   weatherForecasts?: Types.WeatherForecasts,
-  stacked = false,
 ): TemplateResult | typeof nothing {
   const position = Weather.resolveWeatherPosition(config.weather);
   const showDateWeather = (position === 'date' || position === 'both') && config.weather?.entity;
@@ -74,7 +67,7 @@ export function renderDateWeather(
   // Keep the rendered parts adjacent; whitespace here becomes text nodes in column headers.
   // prettier-ignore
   return html`
-    <div class=${stacked ? 'weather weather-stacked' : 'weather'}>${
+    <div class="weather">${
       showConditions
         ? html`<ha-icon .icon=${dailyForecast.icon}></ha-icon>`
         : nothing
@@ -84,9 +77,7 @@ export function renderDateWeather(
         : nothing
     }${
       showLowTemp
-        ? stacked
-          ? html`<span class="weather-temp-low">${dailyForecast.templow}°</span>`
-          : html`<span class="weather-temp-low">/${dailyForecast.templow}°</span>`
+        ? html`<span class="weather-temp-low">/${dailyForecast.templow}°</span>`
         : nothing
     }${
       showUvIndex

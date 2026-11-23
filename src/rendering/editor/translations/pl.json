@@ -1107,8 +1107,6 @@
   "date.show_uv_index": "Pokaż indeks UV przy dniach",
   "date.uv_index_threshold": "Próg indeksu UV przy dniach",
   "date.uv_index_threshold.helper": "Ukrywa indeks poniżej tej wartości. Zero powoduje, że jest pokazywany zawsze.",
-  "date.stacked": "Ułóż prognozę w pionie",
-  "date.stacked.helper": "Ikona, temperatura najwyższa i najniższa – każda w osobnym wierszu, by zmieścił się też większy rozmiar.",
   "date.icon_size": "Rozmiar ikony przy dniach",
   "date.font_size": "Rozmiar czcionki przy dniach",
   "date.color": "Kolor przy dniach",

@@ -2404,21 +2404,6 @@ export const cardStyles = css`
     justify-content: center;
   }
 
-  /* weather.date.stacked: one part per line, so a larger icon and text fit the date column,
-     which is sized from the day number and never widens for its badge. A column rather than a
-     wrapping row, so every day stacks alike whatever its temperatures measure, and the low,
-     drawn without its slash here, never leads a line of its own with one. The icon is centered
-     by the column; its end margin and the index's start margin only spaced parts on one line. */
-  .date-column .weather.weather-stacked {
-    flex-direction: column;
-    row-gap: 2px;
-  }
-
-  .date-column .weather.weather-stacked ha-icon,
-  .date-column .weather.weather-stacked .weather-uv-index {
-    margin-inline: 0;
-  }
-
   .weather ha-icon {
     margin-inline-end: 1px;
   }

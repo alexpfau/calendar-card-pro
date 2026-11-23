@@ -1114,8 +1114,6 @@
   "date.show_uv_index": "日付の横にUV指数を表示",
   "date.uv_index_threshold": "日付の横のUV指数のしきい値",
   "date.uv_index_threshold.helper": "この値未満のUV指数は非表示になります。0では常に表示されます。",
-  "date.stacked": "予報を縦に並べる",
-  "date.stacked.helper": "アイコン、最高気温、最低気温をそれぞれ1行に表示し、大きなサイズでも収まるようにします。",
   "date.icon_size": "日付の横のアイコンのサイズ",
   "date.font_size": "日付の横の文字サイズ",
   "date.color": "日付の横の色",

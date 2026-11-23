@@ -187,7 +187,6 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_low_temp: false,
       show_uv_index: false,
       uv_index_threshold: 0,
-      stacked: false,
       icon_size: '14px',
       font_size: '12px',
     },

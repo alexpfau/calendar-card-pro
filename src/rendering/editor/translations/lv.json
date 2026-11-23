@@ -1108,8 +1108,6 @@
   "date.show_uv_index": "Rādīt UV indeksu pie dienām",
   "date.uv_index_threshold": "UV indeksa slieksnis pie dienām",
   "date.uv_index_threshold.helper": "Paslēpt indeksu zem šīs vērtības. Nulle to rāda vienmēr.",
-  "date.stacked": "Sakraut prognozi",
-  "date.stacked.helper": "Ikona, augstākā un zemākā temperatūra katra savā rindā, lai ietilptu arī lielāks izmērs.",
   "date.icon_size": "Ikonas izmērs pie dienām",
   "date.font_size": "Fonta izmērs pie dienām",
   "date.color": "Krāsa pie dienām",

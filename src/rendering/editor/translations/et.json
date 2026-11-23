@@ -1108,8 +1108,6 @@
   "date.show_uv_index": "Näita UV-indeksit päevade kõrval",
   "date.uv_index_threshold": "UV-indeksi künnis päevade kõrval",
   "date.uv_index_threshold.helper": "Peida indeks sellest väärtusest allpool. Null näitab seda alati.",
-  "date.stacked": "Virnasta ilmateade",
-  "date.stacked.helper": "Ikoon, kõrgeim ja madalaim temperatuur igaüks oma real, et ka suurem kiri mahuks.",
   "date.icon_size": "Ikooni suurus päevade kõrval",
   "date.font_size": "Fondi suurus päevade kõrval",
   "date.color": "Värv päevade kõrval",

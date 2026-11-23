@@ -328,10 +328,10 @@ describe('the card draws each layout’s weather', () => {
 });
 
 //-----------------------------------------------------------------------------
-// LIST'S OWN LINES
+// LIST'S EVENT FORECAST LINE
 //-----------------------------------------------------------------------------
 
-describe('List’s stacked day forecast and an event’s forecast on a line of its own', () => {
+describe('List’s event forecast on a line of its own', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-06-17T10:00:00Z'));
@@ -365,7 +365,6 @@ describe('List’s stacked day forecast and an event’s forecast on a line of i
 
   it('changes what a layout draws exactly where WEATHER_OPTION_SCOPE says it reads the option', async () => {
     const cases: Array<{ path: string; weather: Record<string, unknown> }> = [
-      { path: 'date.stacked', weather: { position: 'both', date: { show_low_temp: true } } },
       { path: 'event.own_line', weather: { position: 'both' } },
     ];
     const verdicts: string[] = [];
@@ -393,34 +392,6 @@ describe('List’s stacked day forecast and an event’s forecast on a line of i
     expect(Object.keys(ViewConfig.WEATHER_OPTION_SCOPE).sort()).toEqual(
       cases.map(({ path }) => path).sort(),
     );
-  });
-
-  it('stacks a day’s icon, high and low one per line, the low without its slash', async () => {
-    const date = { show_low_temp: true };
-    const { card } = await mount({
-      weather_entity: ENTITY,
-      list: { weather: { position: 'date', date: { ...date, stacked: true } } },
-    });
-    const root = card.shadowRoot!;
-    const badges = [...root.querySelectorAll('.date-column .weather')];
-    expect(badges.length).toBeGreaterThan(0);
-    for (const badge of badges) {
-      expect(badge.classList.contains('weather-stacked')).toBe(true);
-      expect([...badge.children].map((child) => child.localName)).toEqual([
-        'ha-icon',
-        'span',
-        'span',
-      ]);
-      expect(badge.querySelector('.weather-temp-low')!.textContent).toBe('13°');
-    }
-    document.body.replaceChildren();
-
-    // Off, the low keeps the slash that joins it to the high on one line.
-    const plain = (
-      await mount({ weather_entity: ENTITY, list: { weather: { position: 'date', date } } })
-    ).card.shadowRoot!;
-    expect(plain.querySelectorAll('.weather-stacked')).toHaveLength(0);
-    expect(plain.querySelector('.weather-temp-low')!.textContent).toBe('/13°');
   });
 
   it('puts an event’s forecast under its time, icon always, and its words with conditions on', async () => {

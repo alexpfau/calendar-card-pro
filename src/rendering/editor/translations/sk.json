@@ -1108,8 +1108,6 @@
   "date.show_uv_index": "Zobraziť UV index pri dňoch",
   "date.uv_index_threshold": "Prah UV indexu pri dňoch",
   "date.uv_index_threshold.helper": "Skryje index pod touto hodnotou. Nula ho zobrazuje vždy.",
-  "date.stacked": "Predpoveď pod sebou",
-  "date.stacked.helper": "Ikona, najvyššia a najnižšia teplota – každá na vlastnom riadku, aby sa zmestila aj väčšia veľkosť.",
   "date.icon_size": "Veľkosť ikony pri dňoch",
   "date.font_size": "Veľkosť písma pri dňoch",
   "date.color": "Farba pri dňoch",

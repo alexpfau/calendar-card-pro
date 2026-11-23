@@ -1106,8 +1106,6 @@
   "date.show_uv_index": "Mostra indice UV accanto ai giorni",
   "date.uv_index_threshold": "Soglia indice UV accanto ai giorni",
   "date.uv_index_threshold.helper": "Nasconde l’indice al di sotto di questo valore. Zero lo mostra sempre.",
-  "date.stacked": "Impila la previsione",
-  "date.stacked.helper": "Icona, massima e minima ognuna su una riga, così ci sta anche una dimensione maggiore.",
   "date.icon_size": "Dimensione icona accanto ai giorni",
   "date.font_size": "Dimensione font accanto ai giorni",
   "date.color": "Colore accanto ai giorni",

@@ -1110,8 +1110,6 @@
   "date.show_uv_index": "Vis UV-indeks ved dagene",
   "date.uv_index_threshold": "UV-indeksterskel ved dagene",
   "date.uv_index_threshold.helper": "Skjul indeksen under denne verdien. Null viser den alltid.",
-  "date.stacked": "Stable varselet",
-  "date.stacked.helper": "Ikonet, høyeste og laveste temperatur på hver sin linje, så en større størrelse også får plass.",
   "date.icon_size": "Ikonstørrelse ved dagene",
   "date.font_size": "Skriftstørrelse ved dagene",
   "date.color": "Farge ved dagene",
