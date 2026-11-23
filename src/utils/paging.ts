@@ -353,17 +353,67 @@ export type MonthForm = 'long' | 'short';
  * @returns The format
  */
 function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
-  const key = `${language}|month|${form}`;
+  return cachedFormat(`${language}|month|${form}`, language, { month: form, year: 'numeric' });
+}
+
+/**
+ * A format of the card's in UTC, made once per key and emptied with every other `Intl` cache.
+ *
+ * @param key - What the format is cached under
+ * @param language - Card language
+ * @param options - What it writes
+ * @returns The format
+ */
+function cachedFormat(
+  key: string,
+  language: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
   let format = dateFormats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(intlLocales(language), {
-      month: form,
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
+    format = new Intl.DateTimeFormat(intlLocales(language), { ...options, timeZone: 'UTC' });
     dateFormats.set(key, format);
   }
   return format;
+}
+
+/**
+ * The month's name as it stands on its own, where a month heading's `Intl` wrote it as a date
+ * does: "listopad" where it wrote "listopada", "gener" where it wrote "de gener".
+ *
+ * Home Assistant's `Intl` polyfill (formatjs 7, which it installs where the browser has no data
+ * for its language) writes a month and year with the month's form inside a date, the genitive in
+ * Catalan, Czech, Greek, Finnish, Croatian, Lithuanian, Polish, Russian, Slovak and Ukrainian:
+ * "Ноября 2026 г.". The browser's own `Intl`, and formatjs 8, write the form that stands on its
+ * own. Both forms are asked of the same `Intl`, at the width the heading used, which is not
+ * always the width asked for: Czech's short heading names the month in full.
+ *
+ * Only what the browser's own `Intl` never writes is replaced, so a heading it writes is left
+ * byte for byte. A full name written as a date writes it takes the standalone form; where the
+ * browser's own `Intl` writes such a heading, the two are one word, up to the capital a heading
+ * gets anyway. A short name only where the form inside a date is the standalone one with a
+ * preposition before it, as Catalan's "de gen." is: German's "Jan.", Greek's "Μαΐ" and
+ * Vietnamese's "thg 1" are short forms inside a date that the browser writes in a heading too. A
+ * month written as a number is left as it is.
+ *
+ * @param written - The month as the heading's `Intl` wrote it
+ * @param day - The day, as a UTC calendar day
+ * @param language - Card language
+ * @returns The month to write
+ */
+function standaloneMonth(written: string, day: Date, language: string): string {
+  if (!/\p{L}/u.test(written)) return written;
+  const month = (options: Intl.DateTimeFormatOptions) =>
+    cachedFormat(`${language}|${JSON.stringify(options)}`, language, options)
+      .formatToParts(day)
+      .find((part) => part.type === 'month')?.value ?? '';
+  for (const width of ['long', 'short'] as const) {
+    if (written !== month({ day: 'numeric', month: width })) continue;
+    const alone = month({ month: width });
+    if (width === 'long') return alone;
+    return alone !== written && written.endsWith(alone) ? alone : written;
+  }
+  return written;
 }
 
 /** The letters that open a literal, which after a month written as a number are its unit: 月. */
@@ -386,9 +436,11 @@ export type MonthHeadingText = ReadonlyArray<MonthHeadingPart>;
  * Always the month of the first day, never two: the week of Nov 30 – Dec 6 reads "November
  * 2026", as a desktop calendar's week view does. `Intl` writes it in the card's language, in the
  * form a language uses for a month standing on its own ("listopad 2026", not the genitive a
- * date takes), so the card needs no month names of its own. Where the label starts with the
- * month it is capitalized in that language's own casing, as a heading is; a label that starts
- * with the year ("2026 m. lapkritis") is left as `Intl` writes it, since its month is mid-phrase.
+ * date takes), so the card needs no month names of its own. Home Assistant's `Intl` polyfill
+ * writes the genitive instead, and the month is put back in its own form (`standaloneMonth`).
+ * Where the label starts with the month it is capitalized in that language's own casing, as a
+ * heading is; a label that starts with the year ("2026 m. lapkritis") is left as `Intl` writes
+ * it, since its month is mid-phrase.
  *
  * Which run is the month comes from `Intl`'s own parts, never from where a word stands, since
  * the order is the language's: "2026년 11월" ends with it, and "2026年11月" holds it between two
@@ -413,8 +465,16 @@ export function monthHeadingParts(
 ): MonthHeadingText {
   const format = monthFormat(language, form);
   const day = utcCalendarDay(date);
-  const parts = format.formatToParts(day);
+  let parts = format.formatToParts(day);
   let text = format.format(day);
+  const at = parts.findIndex((part) => part.type === 'month');
+  const written = parts[at]?.value ?? '';
+  const month = at < 0 ? written : standaloneMonth(written, day, language);
+  const before = parts.slice(0, Math.max(at, 0)).reduce((n, part) => n + part.value.length, 0);
+  if (month !== written && text.slice(before, before + written.length) === written) {
+    text = text.slice(0, before) + month + text.slice(before + written.length);
+    parts = parts.map((part, i) => (i === at ? { ...part, value: month } : part));
+  }
   if (parts[0]?.type === 'month') {
     const locale = format.resolvedOptions().locale;
     text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
