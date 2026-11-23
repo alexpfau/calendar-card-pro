@@ -618,10 +618,13 @@ describe('every free-text editor field is accounted for', () => {
 
   const isColor = (name: string) => name === 'color' || name.endsWith('_color');
 
+  // A card height folds what it cannot use, and its fold reads a bare number in pixels before
+  // the length inference is asked (`coercePixelLengthAgainst`), so its table accounts for it.
   const isLength = (name: string) =>
     PIXEL_KEYS.includes(name) ||
     COLUMN_PIXEL_KEYS.includes(name) ||
-    Config.LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT.has(name);
+    Config.LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT.has(name) ||
+    Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE.has(name);
 
   it('classifies every one of them as a length or explicitly not', () => {
     const unaccounted = TEXT_FIELDS.filter(

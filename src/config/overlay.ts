@@ -43,8 +43,9 @@ export const OVERLAY_DEFAULTS: Readonly<Record<string, unknown>> = {
 };
 
 /**
- * The options that size the card, at the top level and in a layout's block. The overlay's card
- * fills the overlay instead, so none of them reaches it, from the card or from `overlay:`.
+ * The options that size the card, at the top level and in a layout's block, a compact List's
+ * pair included. The overlay's card fills the overlay instead, so none of them reaches it, from
+ * the card or from `overlay:`.
  */
 const SIZE_OPTIONS: ReadonlyArray<string> = [
   'height',
@@ -53,6 +54,8 @@ const SIZE_OPTIONS: ReadonlyArray<string> = [
   'card_max_height',
   'narrow_card_height',
   'narrow_card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
 ];
 
 /**
