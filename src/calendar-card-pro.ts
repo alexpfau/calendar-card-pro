@@ -33,6 +33,7 @@ import { customElement, property } from 'lit/decorators.js';
 
 import * as Config from './config/config';
 import * as Constants from './config/constants';
+import * as OverlayConfig from './config/overlay';
 import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
@@ -57,6 +58,7 @@ import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
 import * as MonthRender from './rendering/month';
+import * as Overlay from './rendering/overlay';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
@@ -544,6 +546,13 @@ class CalendarCardPro extends LitElement {
   public connectedWhileHidden = true;
 
   /**
+   * Set by the overlay on the card it opens, before configuring it (`Overlay.OverlayFrame`); never
+   * on a dashboard's card. The card then fills the overlay, draws Close, closes the overlay for
+   * `back`, and stores no choice on the device.
+   */
+  public overlayFrame?: Overlay.OverlayFrame;
+
+  /**
    * Load the editor on demand.
    *
    * The computed URL preserves the card's own cache-busting query string for the
@@ -956,8 +965,10 @@ class CalendarCardPro extends LitElement {
    * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
    * with nothing a reset could ever undo (`_canReset`), `expand` where nothing folds: a layout
    * other than List, or no compact limits (`hasCompactModeLimits`), nor `back` while the card is
-   * being edited, when leaving the page would take the editor with it. Such an action is no
-   * action at all: no tab stop, ripple or hold indicator promises what a press then refuses.
+   * being edited, when leaving the page would take the editor with it, nor `overlay` then, which
+   * would open over the editor. Such an action is no action at all: no tab stop, ripple or hold
+   * indicator promises what a press then refuses. The overlay's own card never holds `overlay`
+   * (`OverlayConfig.overlayConfig`).
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -968,7 +979,9 @@ class CalendarCardPro extends LitElement {
     if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
     if (action.action === Constants.RESET_ACTION) return this._canReset;
     if (action.action === 'expand') return this.hasCompactModeLimits();
-    if (action.action === Constants.BACK_ACTION) return !this._isBeingEdited;
+    if (action.action === Constants.BACK_ACTION || action.action === Constants.OVERLAY_ACTION) {
+      return !this._isBeingEdited;
+    }
     return true;
   }
 
@@ -1549,9 +1562,19 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Fingerprint of the configuration last set, which keys this device's remembered view.
-   * See `utils/view-choice.ts`.
+   * See `utils/view-choice.ts`. Always null for the overlay's card, which keys nothing there, so
+   * every path that reads or writes the device's choice passes it by.
    */
   private _configFingerprint: string | null = null;
+
+  /** Fingerprint of the configuration last set on the overlay's card (`_adoptOverlayChoice`). */
+  private _overlayFingerprint: string | null = null;
+
+  /**
+   * The configuration as Home Assistant last handed it to `setConfig`, before defaults are merged
+   * in, which the overlay builds its card's from (`_openOverlay`).
+   */
+  private _rawConfig: Readonly<Record<string, unknown>> = {};
 
   /**
    * The view this device picked with the toolbar's switcher, or null to follow `view`.
@@ -1780,6 +1803,7 @@ class CalendarCardPro extends LitElement {
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
       reset: () => this._resetFromAction(),
+      overlay: () => this._openOverlay(),
       back: (action) => this._goBack(action),
     };
   }
@@ -1787,7 +1811,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The card's `back` action: back to the page before this one where Home Assistant navigated
    * here from a page of its own, as its back arrow does, and otherwise this page replaced by the
-   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`).
+   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`). In an
+   * overlay it closes the overlay, which is what Home Assistant's own Back does there.
    *
    * The fallback goes through Home Assistant's own `navigate` action, so the card writes no
    * history of its own and Home Assistant routes the page as it routes any other. Nothing runs
@@ -1798,6 +1823,11 @@ class CalendarCardPro extends LitElement {
   private _goBack(action: Types.ActionConfig): void {
     if (this._isBeingEdited) {
       Logger.debug('Not going back while the card is being edited');
+      return;
+    }
+    if (this.overlayFrame) {
+      Logger.debug('Going back closes the overlay');
+      this.overlayFrame.close();
       return;
     }
 
@@ -5984,9 +6014,12 @@ class CalendarCardPro extends LitElement {
     return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
 
-  /** Whether a Sections dashboard gives the card a slot of its own to fill (`Sections.holdsSlot`). */
+  /**
+   * Whether the card fills a height it is given: a slot of its own on a Sections dashboard
+   * (`Sections.holdsSlot`), or the overlay it is in, which it fills the same way.
+   */
   private get _holdsSectionsSlot(): boolean {
-    return Sections.holdsSlot(this.layout, this.config);
+    return this.overlayFrame !== undefined || Sections.holdsSlot(this.layout, this.config);
   }
 
   /**
@@ -8304,6 +8337,7 @@ class CalendarCardPro extends LitElement {
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
     const previousInstanceId = this._instanceId;
+    this._rawConfig = config as Readonly<Record<string, unknown>>;
 
     for (const message of Config.findDeprecatedKeys(config)) {
       Logger.deprecation(message);
@@ -8458,6 +8492,7 @@ class CalendarCardPro extends LitElement {
    */
   private _syncDeviceChoice(rawConfig: unknown): boolean {
     const fingerprint = ViewChoice.configFingerprint(rawConfig);
+    if (this.overlayFrame) return this._adoptOverlayChoice(fingerprint, this.overlayFrame);
     if (fingerprint === this._configFingerprint) return false;
 
     this._configFingerprint = fingerprint;
@@ -8478,6 +8513,71 @@ class CalendarCardPro extends LitElement {
     this._hiddenMatchesStorage = stored !== undefined;
     this._legendFold = null;
     return true;
+  }
+
+  /**
+   * What the overlay's card takes for the device's choice: nothing it remembers, so it opens in
+   * the layout its configuration names every time, and the calendars the card that opened it
+   * hides. Nothing is read from the device's storage or written to it: `_configFingerprint`
+   * stays null.
+   *
+   * @param fingerprint - The configuration's fingerprint
+   * @param frame - The overlay the card is in
+   * @returns True when the configuration is a different one from the last
+   */
+  private _adoptOverlayChoice(fingerprint: string, frame: Overlay.OverlayFrame): boolean {
+    if (fingerprint === this._overlayFingerprint) return false;
+    this._overlayFingerprint = fingerprint;
+    this._configFingerprint = null;
+    this._viewChoice = null;
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const hidden = frame.hidden.filter((id) => calendars.has(id));
+    this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
+    this._hiddenMatchesStorage = false;
+    this._legendFold = null;
+    return true;
+  }
+
+  /**
+   * Opens the card on a day, as a layout switch carries one to the next layout (`_openOnDate`): a
+   * month on the weeks of the month holding it, the day selected, any other layout on the page
+   * starting that day; its own home for null. For the overlay's card, before it is attached, so
+   * the first load it makes is that page's.
+   *
+   * @param day - The day, at local midnight, or null
+   */
+  public openOn(day: Date | null): void {
+    this._openOnDate(day);
+  }
+
+  /**
+   * Opens the card full size in the overlay (`rendering/overlay.ts`): its configuration with its
+   * `overlay:` block on top (`OverlayConfig.overlayConfig`), on the date in view, the calendars
+   * its legend hides hidden there too. Nothing opens while the card is being edited, nor from the
+   * overlay's own card.
+   */
+  private _openOverlay(): void {
+    if (this._isBeingEdited || this.overlayFrame) {
+      Logger.debug('Not opening the overlay while the card is being edited, or from inside one');
+      return;
+    }
+    const first = this._shownEntries[0];
+    const firstId = typeof first === 'string' ? first : first?.entity;
+    const params: Overlay.OverlayParams = {
+      cardTag: this.localName,
+      config: OverlayConfig.overlayConfig(this._rawConfig),
+      day: this._dateInView(),
+      hidden: [...this._activeHiddenCalendars],
+      label: this.effectiveTitle?.trim() || (firstId ? this._calendarName(firstId) : ''),
+    };
+    const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
+    (showDialog as Event & { detail?: unknown }).detail = {
+      dialogTag: Overlay.OVERLAY_TAG,
+      dialogImport: () => customElements.whenDefined(Overlay.OVERLAY_TAG),
+      dialogParams: params,
+    };
+    this.dispatchEvent(showDialog);
+    Logger.debug(`Opened the overlay in ${String(params.config.view)}`);
   }
 
   /**
@@ -9397,6 +9497,7 @@ class CalendarCardPro extends LitElement {
       reset: this._resetButton(),
       refresh: this._refreshButton(),
       search: this._searchButton(),
+      close: this._closeButton(),
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
     };
@@ -9462,7 +9563,12 @@ class CalendarCardPro extends LitElement {
     if (!controls.viewSwitcher) return null;
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    const end = count([controls.reset, controls.refresh, controls.search]);
+    const end = count([
+      controls.reset,
+      controls.refresh,
+      controls.search,
+      Toolbar.closeInActionRow(controls) ? controls.close : undefined,
+    ]);
     return (
       ToolbarFold.switcherLabelWidth(controls.viewSwitcher.views.map((option) => option.view)) +
       ToolbarFold.groupWidth(Toolbar.startControls(controls).length) +
@@ -9489,6 +9595,7 @@ class CalendarCardPro extends LitElement {
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
       controls.search ? 'search' : '',
+      controls.close ? 'close' : '',
       controls.legend?.folded ? 'filter' : '',
       `buttons:${controls.customButtons?.length ?? 0}`,
     ].join('\u0000');
@@ -9559,6 +9666,7 @@ class CalendarCardPro extends LitElement {
       toolbar.search !== undefined ||
       toolbar.addEvent !== undefined ||
       toolbar.customButtons !== undefined ||
+      toolbar.close !== undefined ||
       drawsEventTarget
     );
   }
@@ -9630,6 +9738,19 @@ class CalendarCardPro extends LitElement {
       return AddEvent.newEventDate(this._monthOwnDay(this._pageShown, now), 1, now);
     }
     return AddEvent.newEventDate(range.start, range.days);
+  }
+
+  /**
+   * The button closing the overlay, on the overlay's card alone, whatever its toolbar asks for:
+   * it is the one way out a pointer always has. Named by Home Assistant's own word, as the add
+   * button is.
+   *
+   * @returns Button description for the wrapper, or undefined outside an overlay
+   */
+  private _closeButton(): Toolbar.CloseButton | undefined {
+    const frame = this.overlayFrame;
+    if (!frame) return undefined;
+    return { label: this._haString('ui.common.close'), onActivate: () => frame.close() };
   }
 
   /**
@@ -11044,6 +11165,7 @@ class CalendarCardPro extends LitElement {
     if (controls.reset) end.push('reset');
     if (controls.refresh) end.push('refresh');
     if (controls.search) end.push('search');
+    if (Toolbar.closeInActionRow(controls)) end.push('close');
     return {
       start: Toolbar.startControls(controls),
       end,

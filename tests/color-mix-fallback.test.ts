@@ -124,7 +124,8 @@ describe('color-mix() where Safari before 16.2 has none', () => {
   // all-day pill's ink and its two washes. Month view's seven: a pressed day's add wash, an image
   // so it washes over a tinted day, "+N more" under the pointer, the narrow day list's name under
   // the pointer and pressed, its own "+N more" under the pointer, and the month's two rules, the
-  // theme's divider at 75% and the stronger one under the weekday names.
+  // theme's divider at 75% and the stronger one under the weekday names. The overlay's Close, at
+  // rest, under the pointer and pressed.
   it('gives each a fallback', () => {
     expect(covered).toEqual([
       '.allday-badge { --badge-ink }',
@@ -170,6 +171,9 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.month-more:hover { background-color }',
       '.progress-bar { background-color }',
       ".result[aria-selected='true'] { background }",
+      '.toolbar-button.close-button { background }',
+      '.toolbar-button.close-button:active { background }',
+      '.toolbar-button.close-button:hover { background }',
       '.toolbar-button.refresh-button.refresh-done { background }',
       '.toolbar-button.refresh-button.refresh-failed { background }',
       '.toolbar-button.reset-button.reset-done { background }',

@@ -484,8 +484,10 @@ toolbar:
 
 A press runs the button's `tap_action`, as a tap on the card runs the card's: any of
 [Home Assistant's actions](/features/actions#available-actions), or one of the card's own,
-`back`, `refresh`, `add-event`, `reset` or `expand`. `add-event` opens the
-[event popover](/features/actions#the-event-popover) right under the button. For `toggle` and
+`back`, `refresh`, `add-event`, `reset`, `overlay` or `expand`. `add-event` opens the
+[event popover](/features/actions#the-event-popover) right under the button, and `overlay`
+[opens the card full size](/features/actions#opening-the-card-full-size), where the button is
+left out. For `toggle` and
 `more-info`, `entity` names what the button acts on; without one it is the card's first
 calendar. A button with no action, or with `none`, is drawn and does nothing, and buttons answer
 a tap only, not a hold.

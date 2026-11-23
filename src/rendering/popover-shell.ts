@@ -1,6 +1,7 @@
 /**
  * The shell the card's floating panels share: the event popover (`event-popover.ts`) and the
- * search panel (`search-panel.ts`).
+ * search panel (`search-panel.ts`). The overlay (`overlay.ts`) takes its dialog contract, its
+ * guard on the page behind and its closing, and none of its placing.
  *
  * Each is opened through Home Assistant's dialog manager (`show-dialog` with an element tag of
  * its own), which hands it `hass`, gives it Back to close, and puts focus back where it was, and
@@ -902,6 +903,15 @@ export abstract class PopoverShell extends LitElement {
   /** What the panel is called in the log. */
   protected abstract readonly _logName: string;
 
+  /**
+   * Whether the guard on the keys that page (`_onPagingKey`) hears them before anything in the
+   * panel, in the capture phase, or after, once the panel's content has had them. Before, for a
+   * panel whose content takes no such key; the overlay holds a card whose month moves its focus
+   * with the arrows, Home, End and the page keys, and refuses one already handled
+   * (`defaultPrevented`), so there it listens after.
+   */
+  protected readonly _pagingKeysFirst: boolean = true;
+
   /** The panel's width beside a press. */
   protected abstract readonly _panelWidth: number;
 
@@ -990,12 +1000,12 @@ export abstract class PopoverShell extends LitElement {
       window.addEventListener('wheel', this._onWheel, { capture: true, passive: false });
       window.addEventListener('touchstart', this._onTouchStart, { capture: true, passive: true });
       window.addEventListener('touchmove', this._onTouchMove, { capture: true, passive: false });
-      window.addEventListener('keydown', this._onPagingKey, { capture: true });
+      window.addEventListener('keydown', this._onPagingKey, { capture: this._pagingKeysFirst });
     } else {
       window.removeEventListener('wheel', this._onWheel, { capture: true });
       window.removeEventListener('touchstart', this._onTouchStart, { capture: true });
       window.removeEventListener('touchmove', this._onTouchMove, { capture: true });
-      window.removeEventListener('keydown', this._onPagingKey, { capture: true });
+      window.removeEventListener('keydown', this._onPagingKey, { capture: this._pagingKeysFirst });
       this._touchAt = undefined;
     }
   }

@@ -1,11 +1,11 @@
 /**
  * Action handling for Calendar Card Pro.
  *
- * Standard actions are delegated to Home Assistant via `hass-action`; only
- * card-specific actions (`expand`, `refresh`, `add-event`, `reset`, `back`) are handled locally.
+ * Standard actions are delegated to Home Assistant via `hass-action`; only card-specific actions
+ * (`expand`, `refresh`, `add-event`, `reset`, `overlay`, `back`) are handled locally.
  */
 
-import { ADD_EVENT_ACTION, BACK_ACTION, RESET_ACTION } from '../config/constants';
+import { ADD_EVENT_ACTION, BACK_ACTION, OVERLAY_ACTION, RESET_ACTION } from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
@@ -57,6 +57,8 @@ export interface CardActionCallbacks {
   addEvent?: () => void;
   /** `reset`: bring the card back to its configuration, as the toolbar's reset button does. */
   reset?: () => void;
+  /** `overlay`: open the card full size in an overlay. */
+  overlay?: () => void;
   /**
    * `back`: go back to the page before this one, handed the action for its `navigation_path`,
    * where it goes when there is no page behind this one.
@@ -86,6 +88,9 @@ function runCardAction(actionConfig: Types.ActionConfig, callbacks: CardActionCa
     case RESET_ACTION:
       callbacks.reset?.();
       break;
+    case OVERLAY_ACTION:
+      callbacks.overlay?.();
+      break;
     case BACK_ACTION:
       callbacks.back?.(actionConfig);
       break;
@@ -97,8 +102,8 @@ function runCardAction(actionConfig: Types.ActionConfig, callbacks: CardActionCa
 }
 
 /**
- * Handle an action: the card's own (`expand`, `refresh`, `add-event`, `reset`, `back`) here,
- * every other one by delegating to HA's native action handler.
+ * Handle an action: the card's own (`expand`, `refresh`, `add-event`, `reset`, `overlay`, `back`)
+ * here, every other one by delegating to HA's native action handler.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity

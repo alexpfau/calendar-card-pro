@@ -91,8 +91,16 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 ## 🎬 Actions
 
 - **Card actions.** `handleAction` in `actions.ts` runs `tap_action` and `hold_action`: the card's
-  own `expand`, `refresh`, `add-event`, `reset` and `back` through callbacks handed in per press,
-  and everything else through `fireHassAction`, with the card's first calendar as the entity.
+  own `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` through callbacks handed in
+  per press, and everything else through `fireHassAction`, with the card's first calendar as the
+  entity.
+- **The overlay.** `overlay` dispatches `show-dialog` for `rendering/overlay.ts`, a dialog holding a
+  second card built from `config/overlay.ts` › `overlayConfig` and opened on `_dateInView`
+  (`openOn`). That card carries `overlayFrame`: it fills the dialog as a Sections slot would
+  (`_holdsSectionsSlot`), draws Close, closes the overlay for `back`, and keeps
+  `_configFingerprint` null, so it reads and writes no device choice. Its config takes the
+  `overlay` action out, so it never opens another. The dialog's guard on the page behind hears the
+  paging keys after the card (`_pagingKeysFirst`), or Month's arrows would be refused.
 - **Event actions** never reach `handleAction`. `eventActionKind` reads one as `details`, a Home
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the

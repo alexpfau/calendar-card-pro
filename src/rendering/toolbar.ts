@@ -32,6 +32,7 @@ import {
   mdiCheck,
   mdiChevronLeft,
   mdiChevronRight,
+  mdiClose,
   mdiDotsVertical,
   mdiHome,
   mdiHomeOutline,
@@ -138,6 +139,13 @@ export interface SearchButton {
    * of pointer (`mouse`, `touch`, `pen`); undefined for a key.
    */
   onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
+}
+
+/** What the card in an overlay hands the wrapper for the button that closes it. */
+export interface CloseButton {
+  /** Home Assistant's own word for it, or undefined when it offers none. */
+  label: string | undefined;
+  onActivate: () => void;
 }
 
 /** What the card hands the wrapper when it should draw the reset button. */
@@ -280,6 +288,11 @@ export interface HeaderToolbar {
   refresh?: RefreshButton;
   /** The search button, last in the action row, after refresh. */
   search?: SearchButton;
+  /**
+   * In an overlay, the button closing it: last in the action row, after search, or at the end of
+   * the heading row where the action row would hold nothing else (`closeInActionRow`).
+   */
+  close?: CloseButton;
   /** The add-event button, at the start of the action row, after a folded filter. */
   addEvent?: AddEventButton;
   /** The configuration's own buttons, after add, in the order written. */
@@ -310,6 +323,12 @@ export const UNLOCALIZED_RESET_NAME = 'Reset';
 
 /** The search button's accessible name when Home Assistant has none, under the same rule. */
 export const UNLOCALIZED_SEARCH_NAME = 'Search';
+
+/** The close button's accessible name when Home Assistant has none, under the same rule. */
+export const UNLOCALIZED_CLOSE_NAME = 'Close';
+
+/** The close button's class, by which the overlay finds it to start focus there. */
+export const CLOSE_BUTTON_CLASS = 'close-button';
 
 /**
  * The accessible name of a button of the configuration's own that runs `back` and has no name,
@@ -849,6 +868,36 @@ function renderSearchButton(button: SearchButton): TemplateResult {
 }
 
 /**
+ * Render the close button: a cross, last in the action row, or at the end of the heading row where
+ * it would stand there alone, in the overlay alone. A command like every other, the same pill and
+ * icon, tinted with the theme's error color so it reads apart from them. Named as the add button
+ * is: by Home Assistant's own word, which is its tooltip, or in English for assistive technology
+ * alone.
+ *
+ * @param button - Button description from the card
+ * @returns The button
+ */
+function renderCloseButton(button: CloseButton): TemplateResult {
+  const onClick = (ev: Event) => {
+    ev.stopPropagation();
+    button.onActivate();
+  };
+
+  return html`<button
+    type="button"
+    class="toolbar-button ${CLOSE_BUTTON_CLASS}"
+    aria-label=${button.label ?? UNLOCALIZED_CLOSE_NAME}
+    title=${button.label ?? nothing}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiClose}></path>
+    </svg>
+  </button>`;
+}
+
+/**
  * Render a view's pictogram, in the current text color.
  *
  * @param view - The view to draw
@@ -1365,7 +1414,8 @@ export function drawsLegendChips(toolbar: HeaderToolbar): boolean {
  * Whether the toolbar draws an action row.
  *
  * @param toolbar - The controls the card wants
- * @returns True when it holds at least one control
+ * @returns True when it holds at least one control besides Close, which alone goes to the heading
+ *   row instead
  */
 export function drawsActionRow(toolbar: HeaderToolbar): boolean {
   return Boolean(
@@ -1378,8 +1428,19 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
 }
 
 /**
+ * Whether Close is drawn last in the action row: there is one, and the row holds something else.
+ * Otherwise it ends the heading row, so a toolbar holding Close alone is one row, not two.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns True to draw it in the action row
+ */
+export function closeInActionRow(toolbar: HeaderToolbar): boolean {
+  return toolbar.close !== undefined && drawsActionRow(toolbar);
+}
+
+/**
  * Render the action row: a folded filter, add and the configuration's own buttons at its start,
- * the view switcher in its middle, reset, refresh and search at its end.
+ * the view switcher in its middle, reset, refresh, search and, in an overlay, Close at its end.
  *
  * The start and the end are groups of their own, there even when empty, so the stylesheet
  * can share the room left beside the switcher out equally between them and the switcher sits
@@ -1403,7 +1464,8 @@ function renderActionRow(
     startControls(toolbar).length === 0 &&
     !toolbar.viewSwitcher &&
     !toolbar.refresh &&
-    !toolbar.search;
+    !toolbar.search &&
+    !toolbar.close;
 
   return html`<div class="card-toolbar toolbar-actions">
     <div class="toolbar-start">${renderStartGroup(toolbar)}</div>
@@ -1412,6 +1474,7 @@ function renderActionRow(
       ${toolbar.reset ? renderResetButton(toolbar.reset, resetAlone) : nothing}
       ${toolbar.refresh ? renderRefreshButton(toolbar.refresh) : nothing}
       ${toolbar.search ? renderSearchButton(toolbar.search) : nothing}
+      ${toolbar.close ? renderCloseButton(toolbar.close) : nothing}
     </div>
   </div>`;
 }
@@ -1446,6 +1509,8 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
     'card-toolbar',
     'toolbar-heading',
     chips ? 'chips-shown' : '',
+    // Only the overlay's Close, alone, draws the row without a month (`closeInActionRow`).
+    heading ? '' : 'no-month',
     heading?.short ? 'short-month' : '',
     toolbar.large ? 'large-controls' : '',
   ]
@@ -1459,6 +1524,7 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
     ${chips ? renderLegendChips(chips) : nothing}
     <div class="toolbar-heading-end">
       ${toolbar.navigation ? renderDateNavigation(toolbar.navigation) : nothing}
+      ${toolbar.close && !closeInActionRow(toolbar) ? renderCloseButton(toolbar.close) : nothing}
     </div>
   </div>`;
 }
@@ -1479,7 +1545,8 @@ export function drawsToolbar(toolbar: HeaderToolbar): boolean {
     toolbar.reset ||
     toolbar.refresh ||
     toolbar.search ||
-    toolbar.legend,
+    toolbar.legend ||
+    toolbar.close,
   );
 }
 

@@ -739,6 +739,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // After the taps, one of which opens it: the layout the card opens in full size.
+        key: 'heading.overlay',
+        fields: [['actions:overlay.view', A]],
+      },
+      {
         key: 'heading.refresh',
         fields: [
           ['actions:refresh_interval', A],

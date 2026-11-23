@@ -639,6 +639,16 @@ export const cardStyles = css`
     line-height: 1.2;
   }
 
+  /* Without a month under it, where the overlay's Close is all the toolbar holds, the title is the
+     card's headline again, as it is with no toolbar at all. */
+  .toolbar-heading.no-month > .toolbar-identity > .card-header {
+    color: var(--calendar-card-color-title, var(--primary-text-color));
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    font-weight: var(--ha-font-weight-normal, 400);
+    letter-spacing: -0.012em;
+    line-height: 1.33;
+  }
+
   /* No inline-end padding anywhere in the toolbar, so its end edge is the content box's in
      every view: list pads the card 16px on that side, column and grid 16px on both. The 8px
      inline start lines the rows up with the title's margin, and column and grid drop both. */
@@ -1360,6 +1370,63 @@ export const cardStyles = css`
   .refresh-failed .toolbar-button-icon,
   .refresh-failed .loading-indicator-icon {
     fill: var(--error-color, #db4437);
+  }
+
+  /* The overlay's Close: the pill every command is, washed with the theme's error color so it
+     reads as the way out at a glance, and its cross in that color. It deepens under the pointer
+     and while pressed as the others do, from its own wash. Specific enough to hold over the hover
+     and press rules. Without color-mix() the wash is a fixed translucent red, which reads on a
+     light card and a dark one alike. */
+  .toolbar-button.close-button {
+    color: var(--error-color, #db4437);
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 16%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @media (hover: hover) {
+    .toolbar-button.close-button:hover {
+      background: color-mix(
+        in srgb,
+        var(--error-color, #db4437) 24%,
+        var(--calendar-card-toolbar-fill)
+      );
+    }
+  }
+
+  .toolbar-button.close-button:active {
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 32%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .toolbar-button.close-button {
+      background: rgba(219, 68, 55, 0.18);
+    }
+    @media (hover: hover) {
+      .toolbar-button.close-button:hover {
+        background: rgba(219, 68, 55, 0.24);
+      }
+    }
+    .toolbar-button.close-button:active {
+      background: rgba(219, 68, 55, 0.3);
+    }
+  }
+
+  /* Alone at the heading row's end, where the action row would hold nothing else, it keeps the
+     action row's size and is centered where the date navigation's smaller pills are, on the
+     month's capitals, by taking back the 12px it stands taller than they do. */
+  .toolbar-heading-end > .close-button {
+    margin-block: -6px;
+  }
+
+  .toolbar-heading-end > .date-navigation + .close-button {
+    margin-inline-start: 8px;
   }
 
   /* Reset with nothing to undo: hidden, and out of the tab order and away from assistive

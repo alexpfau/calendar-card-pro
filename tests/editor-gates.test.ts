@@ -946,11 +946,11 @@ describe('the universe', () => {
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
     // over their Down To and Below That.
     expect(sizes).toEqual({
-      shared: { card: 137, calendar: 30 },
-      list: { card: 164, calendar: 31 },
-      column: { card: 161, calendar: 30 },
-      grid: { card: 160, calendar: 30 },
-      month: { card: 105, calendar: 29 },
+      shared: { card: 138, calendar: 30 },
+      list: { card: 165, calendar: 31 },
+      column: { card: 162, calendar: 30 },
+      grid: { card: 161, calendar: 30 },
+      month: { card: 106, calendar: 29 },
     });
   });
 

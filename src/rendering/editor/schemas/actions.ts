@@ -3,11 +3,12 @@
  */
 
 import { CARD_ACTION_VALUES, EVENT_DETAILS_ACTION } from '../../../config/constants';
+import { VIEWS } from '../../../config/views';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, number, select } from './common';
+import { blockScope, bool, number, select } from './common';
 
 /**
  * Actions this card implements itself, which Home Assistant cannot know about.
@@ -18,7 +19,8 @@ import { bool, number, select } from './common';
  * ever failed the people configuring the card through the UI. `refresh` loads the events
  * again now, as the toolbar's refresh button does. `add-event` opens Home Assistant's
  * new-event dialog on the day the press landed on. `reset` brings the card back to its
- * configuration on this device, as the toolbar's reset button does.
+ * configuration on this device, as the toolbar's reset button does. `overlay` opens the card full
+ * size over the dashboard, and `back` goes back to the page before this one.
  */
 export const CARD_ACTIONS = CARD_ACTION_VALUES;
 
@@ -137,6 +139,9 @@ const actionsSchema = Helpers.memoizeLast(
     // there is no dialog, so always-visible switches would be inert. Directly under the two
     // dropdowns that reveal them.
     ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
+    // The layout the card opens in full size. Offered whatever opens it: a tap, a hold, or a
+    // toolbar button, which this panel does not see. Every other option of the overlay is YAML's.
+    blockScope('overlay', [select(language, 'view', VIEWS, 'view')]),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
   ],

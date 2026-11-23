@@ -598,6 +598,7 @@ const APPROVED_MAP: ReadonlyArray<
       'actions:allow_event_delete E',
     ],
   ],
+  ['Taps & Refresh', 'Full-Size Overlay', '', ['actions:overlay.view A']],
   [
     'Taps & Refresh',
     'Refresh',
@@ -683,8 +684,8 @@ describe('the page registry places every built field exactly once', () => {
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(239);
-    expect(PLACED).toHaveLength(239);
+    expect(BUILT.size).toBe(240);
+    expect(PLACED).toHaveLength(240);
   });
 
   it('has no field built but unplaced', () => {

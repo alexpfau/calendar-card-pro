@@ -75,6 +75,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
+  // The card opened full size over the dashboard by Open Full Size, on Taps & Refresh.
+  'heading.overlay': 'Full-Size Overlay',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -1417,6 +1419,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // option's own name, `size`, leaves room for more. `normal` is named Small: they are small
   // beside the action row's buttons, and Normal reads as the font weight's Regular in most of
   // the editor's languages.
+  // The layout the card opens in full size; its options are the layouts' names (`view.option.*`).
+  'overlay.view': 'Layout',
+  'overlay.view.helper':
+    'The layout Open Full Size opens the card in. Its other options are set in YAML, under overlay.',
   'toolbar.size': 'Arrow & Chip Size',
   'toolbar.size.aliases': 'touch, bigger buttons, larger buttons',
   'toolbar.size.helper': 'Large makes them bigger and easier to tap on a touch screen.',
@@ -1770,7 +1776,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // Its fifth: the card opened full size over the dashboard, in the layout Full-Size Overlay
+  // names.
+  'card_action.option.overlay.label': 'Open Full Size',
+  // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.
   'card_action.option.back.label': 'Go Back',
   // The day's own dropdown, two choices over an action object. "Nothing" is the word Home

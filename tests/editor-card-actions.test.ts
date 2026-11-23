@@ -62,6 +62,7 @@ const EXPECTED_ACTIONS = [
   'refresh',
   'add-event',
   'reset',
+  'overlay',
   'back',
   'more-info',
   'toggle',
@@ -112,8 +113,15 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('names expand, refresh, add-event, reset and back as card actions rather than Home Assistant ones', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh', 'add-event', 'reset', 'back']);
+  it('names expand, refresh, add-event, reset, overlay and back as card actions rather than Home Assistant ones', () => {
+    expect([...CARD_ACTIONS]).toEqual([
+      'expand',
+      'refresh',
+      'add-event',
+      'reset',
+      'overlay',
+      'back',
+    ]);
   });
 
   it('puts the card actions ahead of Home Assistant’s, so they are not buried', () => {
@@ -121,7 +129,8 @@ describe('card action options', () => {
     expect(ACTION_OPTIONS.indexOf('refresh')).toBe(1);
     expect(ACTION_OPTIONS.indexOf('add-event')).toBe(2);
     expect(ACTION_OPTIONS.indexOf('reset')).toBe(3);
-    expect(ACTION_OPTIONS.indexOf('back')).toBe(4);
+    expect(ACTION_OPTIONS.indexOf('overlay')).toBe(4);
+    expect(ACTION_OPTIONS.indexOf('back')).toBe(5);
   });
 
   it('gives the card and event dropdowns their lists, through a ui_action selector', () => {
@@ -165,6 +174,7 @@ describe('card action options', () => {
     expect(EDITOR_STRINGS[cardActionLabelKey('expand')]).toBe('Toggle Compact/Expanded View');
     expect(EDITOR_STRINGS[cardActionLabelKey('refresh')]).toBe('Refresh Events');
     expect(EDITOR_STRINGS[cardActionLabelKey('reset')]).toBe('Reset Card');
+    expect(EDITOR_STRINGS[cardActionLabelKey('overlay')]).toBe('Open Full Size');
     expect(EDITOR_STRINGS[cardActionLabelKey('back')]).toBe('Go Back');
   });
 });

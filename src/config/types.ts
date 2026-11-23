@@ -219,7 +219,7 @@ export interface Config {
   // Actions
   /**
    * What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`,
-   * `add-event`, `reset`.
+   * `add-event`, `reset`, `overlay`, `back`.
    */
   tap_action: ActionConfig;
   /** What a hold on the card does, with the same actions as `tap_action`. */
@@ -261,6 +261,12 @@ export interface Config {
   // Header toolbar
   toolbar?: ToolbarConfig;
 
+  /**
+   * The card opened full size by the `overlay` action: `view` is the layout it opens in, Grid by
+   * default, and any other option of the card may be set here for it (`config/overlay.ts`).
+   */
+  overlay?: OverlayConfig;
+
   // Cache and refresh settings
   refresh_interval: number;
   refresh_on_navigate: boolean;
@@ -280,6 +286,12 @@ export interface Config {
 
 /** Views the card can render. */
 export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
+
+/**
+ * The `overlay:` block: any option of the card, for the card the `overlay` action opens, which
+ * takes them over the card's own. Its size is the overlay's, so the height options do nothing here.
+ */
+export type OverlayConfig = Partial<Omit<Config, 'overlay'>>;
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
