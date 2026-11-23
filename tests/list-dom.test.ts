@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENTS, FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as Render from '../src/rendering/render';
+import { generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 
 /**
@@ -155,6 +156,20 @@ function eventCellByTitle(container: ParentNode, title: string): HTMLTableCellEl
 function expectStyleColor(element: Element, expectedColor: string): void {
   const style = element.getAttribute('style')?.replace(/\s/g, '') ?? '';
   expect(style).toContain(`color:${expectedColor}`);
+}
+
+/**
+ * A date part drawn in the card's own color: none inline, so the stylesheet's custom property
+ * decides, and the card writes that property from the option.
+ */
+function expectCardColor(
+  element: Element,
+  config: Types.Config,
+  property: string,
+  expectedColor: string,
+): void {
+  expect(element.getAttribute('style')?.replace(/\s/g, '') ?? '').not.toContain('color:');
+  expect(generateCustomPropertiesObject(config)[property]).toBe(expectedColor);
 }
 
 describe('list view DOM', () => {
@@ -438,23 +453,36 @@ describe('list view DOM', () => {
     expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-weekend)');
     expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-weekend)');
 
-    container = renderListContainer(
-      weekdayEvent,
-      buildConfig({
-        days_to_show: 5,
-        weekday_color: 'var(--weekday-base)',
-        day_color: 'var(--day-base)',
-        month_color: 'var(--month-base)',
-        weekend_weekday_color: 'var(--weekday-weekend)',
-        weekend_day_color: 'var(--day-weekend)',
-        weekend_month_color: 'var(--month-weekend)',
-      }),
-    );
+    let config = buildConfig({
+      days_to_show: 5,
+      weekday_color: 'var(--weekday-base)',
+      day_color: 'var(--day-base)',
+      month_color: 'var(--month-base)',
+      weekend_weekday_color: 'var(--weekday-weekend)',
+      weekend_day_color: 'var(--day-weekend)',
+      weekend_month_color: 'var(--month-weekend)',
+    });
+    container = renderListContainer(weekdayEvent, config);
     dateColumn = requireElement(container, '.date-column');
     expect(dateColumn.classList.contains('weekend')).toBe(false);
-    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-base)');
-    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-base)');
-    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-base)');
+    expectCardColor(
+      requireElement(dateColumn, '.weekday'),
+      config,
+      '--calendar-card-color-weekday',
+      'var(--weekday-base)',
+    );
+    expectCardColor(
+      requireElement(dateColumn, '.day'),
+      config,
+      '--calendar-card-color-day',
+      'var(--day-base)',
+    );
+    expectCardColor(
+      requireElement(dateColumn, '.month'),
+      config,
+      '--calendar-card-color-month',
+      'var(--month-base)',
+    );
 
     container = renderListContainer(
       todayEvent,
@@ -473,22 +501,35 @@ describe('list view DOM', () => {
     expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-today)');
     expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-today)');
 
-    container = renderListContainer(
-      saturdayEvent,
-      buildConfig({
-        days_to_show: 5,
-        weekday_color: 'var(--weekday-base)',
-        day_color: 'var(--day-base)',
-        month_color: 'var(--month-base)',
-        weekend_weekday_color: '',
-        weekend_day_color: '',
-        weekend_month_color: '',
-      }),
-    );
+    config = buildConfig({
+      days_to_show: 5,
+      weekday_color: 'var(--weekday-base)',
+      day_color: 'var(--day-base)',
+      month_color: 'var(--month-base)',
+      weekend_weekday_color: '',
+      weekend_day_color: '',
+      weekend_month_color: '',
+    });
+    container = renderListContainer(saturdayEvent, config);
     dateColumn = requireElement(container, '.date-column');
-    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-base)');
-    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-base)');
-    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-base)');
+    expectCardColor(
+      requireElement(dateColumn, '.weekday'),
+      config,
+      '--calendar-card-color-weekday',
+      'var(--weekday-base)',
+    );
+    expectCardColor(
+      requireElement(dateColumn, '.day'),
+      config,
+      '--calendar-card-color-day',
+      'var(--day-base)',
+    );
+    expectCardColor(
+      requireElement(dateColumn, '.month'),
+      config,
+      '--calendar-card-color-month',
+      'var(--month-base)',
+    );
 
     vi.setSystemTime(new Date('2026-06-20T10:00:00.000Z'));
     container = renderListContainer(

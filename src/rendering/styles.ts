@@ -104,6 +104,45 @@ function dateStrutProperties(config: Types.Config): Record<string, string> {
   };
 }
 
+/** The date's three color options, each with the custom property the stylesheet reads it from. */
+const DATE_COLOR_OPTIONS = [
+  ['weekday_color', '--calendar-card-color-weekday'],
+  ['day_color', '--calendar-card-color-day'],
+  ['month_color', '--calendar-card-color-month'],
+] as const;
+
+/**
+ * The date's colors, each written only where its option sets one other than the default.
+ *
+ * Unwritten, every rule that reads one falls back to the default itself, the theme's text color,
+ * so a card that sets none draws exactly as one that writes the default. What that leaves open is
+ * the property: a theme, or a rule on `ha-card`, can set `--calendar-card-color-day` for every
+ * card that leaves `day_color` alone, where a value the card wrote on `ha-card` would have hidden
+ * it. A color option still wins, written here as before.
+ *
+ * The sizes are not treated this way. The date column's width, the struts and the month's
+ * geometry are computed from the size options, so a size the card did not know would be drawn in
+ * a box sized for another.
+ *
+ * A CSS-wide keyword is written as `currentColor`. A custom property takes the keyword for itself,
+ * which left it with no value, so a rule reading it without a fallback drew the color its element
+ * inherits; with the fallback it would draw the default instead. `currentColor` is that inherited
+ * color. The date's own parts carry the keyword inline (`Leaves.inlineCardValue`), where it means
+ * what it says, so this reaches only the month's weekday names and its day list's heading.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns Properties to write on `ha-card`
+ */
+function dateColorProperties(config: Types.Config): Record<string, string> {
+  const props: Record<string, string> = {};
+  for (const [key, property] of DATE_COLOR_OPTIONS) {
+    const value = config[key];
+    if (value === Config.DEFAULT_CONFIG[key]) continue;
+    props[property] = Leaves.isCssWideKeyword(value) ? 'currentColor' : value;
+  }
+  return props;
+}
+
 /**
  * Generate CSS custom properties from card configuration.
  * @param config Card configuration.
@@ -119,9 +158,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-font-size-time': config.time_font_size,
     '--calendar-card-font-size-location': config.location_font_size,
     '--calendar-card-font-size-description': config.description_font_size,
-    '--calendar-card-color-weekday': config.weekday_color,
-    '--calendar-card-color-day': config.day_color,
-    '--calendar-card-color-month': config.month_color,
+    ...dateColorProperties(config),
     '--calendar-card-color-event': config.event_color,
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
@@ -2105,25 +2142,32 @@ export const cardStyles = css`
      line height is a multiple of the element's own font size, so it stays equal to it for any
      font size. Read as a line height, 150% and 1.5em were 1.5x the font they had just set, and
      a keyword was no line height at all, so the date's lines spread apart or fell back to the
-     inherited one. */
+     inherited one.
+
+     These rules are the one path a date's color and size take. The renderer writes a part's
+     color or size inline only where that day departs from them (a weekend's or today's own
+     color, today's tile, a today or past scale), so a theme setting the color properties, or a
+     card-mod rule on the parts, applies without !important. The colors fall back to the
+     theme's text color, which the card writes on ha-card only where an option names another
+     (dateColorProperties). */
   .weekday {
     font-size: var(--calendar-card-font-size-weekday);
     line-height: 1;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
   }
 
   .day {
     font-size: var(--calendar-card-font-size-day);
     line-height: 1;
     font-weight: 500;
-    color: var(--calendar-card-color-day);
+    color: var(--calendar-card-color-day, var(--primary-text-color));
   }
 
   .month {
     font-size: var(--calendar-card-font-size-month);
     line-height: 1;
     text-transform: uppercase;
-    color: var(--calendar-card-color-month);
+    color: var(--calendar-card-color-month, var(--primary-text-color));
   }
 
   /* ===== The today tile: a tinted rounded rectangle behind today's day number =====
@@ -8301,7 +8345,7 @@ export const cardStyles = css`
     overflow: hidden;
     font-size: var(--calendar-card-font-size-weekday);
     line-height: 1.2;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
     text-align: end;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -8467,6 +8511,7 @@ export const cardStyles = css`
 
   .month-date-month {
     font-size: var(--calendar-card-font-size-month);
+    color: var(--calendar-card-color-month, var(--primary-text-color));
     white-space: pre;
   }
 
@@ -8484,7 +8529,7 @@ export const cardStyles = css`
      1 in its dark one, does; where the browser has relative colors the fill is darkened for its
      digits' sake (Month's two filled tiles, below). Light digits read thinner on a fill than dark
      ones on a wash, hence the weight. The ink is redefined rather than the color set, since the digits
-     take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
+     take it inline (Leaves.ownDateColors), so a today_day_color or weekend_day_color still wins as
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
      week-number pill and the week separators, keeps the list's tile.
 
@@ -8506,9 +8551,11 @@ export const cardStyles = css`
   }
 
   /* Today without the tile, where today_indicator names another style or none: its number in
-     the indicator's color, so today still reads as today. */
+     today's weight, and in the day's color like any other day's. The rule once named the
+     indicator color as well, but the day color written inline on every number always won over
+     it, so it never drew. That inline color is now written only where a day departs from
+     day_color, and the declaration went with it, so nothing changed on screen. */
   .month-day.today + .month-date > .day:not(.today-tile) {
-    color: var(--calendar-card-today-indicator-color);
     font-weight: 600;
   }
 
@@ -8938,7 +8985,7 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-weekday);
     font-weight: 600;
     line-height: 1.2;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
   }
 
   /* The day named in full, read out rather than shown; what is shown is the form below that

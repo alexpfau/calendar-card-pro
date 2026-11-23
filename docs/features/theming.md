@@ -37,6 +37,33 @@ so the theme decides them for as long as the option's value names the variable. 
 such as `#e67c73` stops following the theme, and another `var(--…)` follows that variable
 instead.
 
+### Date Colors From Your Theme
+
+Three of the card's own properties color the date in every layout. A theme can set them for every
+card that leaves `weekday_color`, `day_color` and `month_color` unset; in the theme's YAML they are
+written without the leading dashes:
+
+```yaml
+my_theme:
+  calendar-card-color-weekday: '#5c6bc0'
+  calendar-card-color-day: '#3949ab'
+  calendar-card-color-month: '#7986cb'
+```
+
+| Custom Property                 | Default                     | What It Colors                                                                    |
+| ------------------------------- | --------------------------- | --------------------------------------------------------------------------------- |
+| `--calendar-card-color-weekday` | `var(--primary-text-color)` | The weekday name: in a date, above a month's columns, and over a month's day list |
+| `--calendar-card-color-day`     | `var(--primary-text-color)` | The day number                                                                    |
+| `--calendar-card-color-month`   | `var(--primary-text-color)` | The month name: in a date, and beside a month's 1st                               |
+
+- A card's own option wins over the theme, and so does any color a day draws in on its own: a
+  weekend's or today's from `weekend_*_color` and `today_*_color`, today's
+  [date tile](/features/layout-appearance#the-date-tile), and a narrow month's weekend and today
+  numbers.
+- The date's sizes are not theme properties. `weekday_font_size`, `day_font_size` and
+  `month_font_size` also size the date column and the headers, so the card always writes them
+  itself; a [card-mod](#card-mod-examples) rule on the parts can still change them.
+
 ## 🌦️ Weather Custom Properties
 
 The weather badges read six custom properties, which mirror a layout's `weather → date` and
@@ -162,10 +189,13 @@ In column view, `.column-grid`, which holds the day columns, carries `data-pinne
 background.
 
 In list view, `weekend` is also on the date cell, `.date-column.weekend`, as a hook for your own
-rules. `weekend_weekday_color`, `weekend_day_color` and `weekend_month_color` are written inline
-on the `.weekday`, `.day` and `.month` inside it, so a color set there from card-mod needs
-`!important`. The same goes for the size, weight and opacity that
-[today's and past days' own options](/features/layout-appearance#today-past-days) write there.
+rules. The `.weekday`, `.day` and `.month` inside it take their colors and sizes from the
+stylesheet, so a card-mod rule there needs no `!important`, only a selector more specific than the
+card's own `.day`, such as `.date-column .day`. The exceptions are what a day's own options write
+on the part itself: `weekend_weekday_color`, `weekend_day_color` and `weekend_month_color` once
+set, and the size, weight and opacity that
+[today's and past days' own options](/features/layout-appearance#today-past-days) set. A rule
+changing one of those needs `!important`.
 Card-mod can add what the options do not, such as italic past days:
 
 ```yaml
@@ -256,7 +286,7 @@ Inside the card and its events, these parts have selectors of their own:
 | [Tap target](/features/actions#tapping-an-event)                                   | in list view, a `.event-button` inside `td.event`                                                                                                                                                                                                                 | `.event-interactive` alone reaches every view, while `.event.event-interactive` misses list view and a month's day list                                                                                                                                                                                                                                                                                                           |
 | Failed calendars line                                                              | `.fetch-error`, holding `.fetch-error-icon` and `.fetch-error-text`                                                                                                                                                                                               | It is drawn in the theme's `--error-color`                                                                                                                                                                                                                                                                                                                                                                                        |
 | [Month name on the rule](/features/layout-appearance#naming-the-month-on-its-rule) | with `month_separator_label` on, list view's `.month-separator-labeled`, holding `.month-separator-label`, the month's name, and `.month-separator-line`, the rule after it; the rule is that line's top border, no longer the `border-top` of `.month-separator` | `month_separator_label_color` and `month_separator_label_font_size`. The label's color is set on the element itself and its size comes from the card, so a card-mod rule changing either needs `!important`                                                                                                                                                                                                                       |
-| Title, time & location                                                             | `.event-title`, `.time` and `.location`                                                                                                                                                                                                                           | Plain element classes with no state attached                                                                                                                                                                                                                                                                                                                                                                                      |
+| Title, time & location                                                             | `.event-title`, `.time` and `.location`                                                                                                                                                                                                                           | Plain element classes with no state attached. A title in `event_color` takes it from the stylesheet, so a card-mod rule on `.event-title` changes it without `!important`; a calendar's own [`color`](/features/core-settings#available-options-for-entity-configuration-objects) is written on the title itself and needs it                                                                                                     |
 
 ::: details Restyling the Time Beside the Title
 In a `.title-wrap` row the card measures `.title-aside`, sizes `.title-room` to it and places the
