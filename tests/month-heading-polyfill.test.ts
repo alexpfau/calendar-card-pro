@@ -395,25 +395,35 @@ const FORMATJS_7: Readonly<Record<string, Recorded>> = {
 const NOVEMBER = new Date(2026, 10, 15);
 const NativeDateTimeFormat = Intl.DateTimeFormat;
 
+/** The options each recorded format was asked with, but for the month's width. */
+const RECORDED_OPTIONS: Readonly<Record<keyof Recorded, Intl.DateTimeFormatOptions>> = {
+  heading: { year: 'numeric' },
+  inDate: { day: 'numeric' },
+  alone: {},
+};
+
 /**
- * Which recorded format a set of options asks for, by the fields it names.
+ * Which recorded format a set of options asks for: exactly the options it was recorded with, in
+ * UTC, with the month long or short.
  *
  * @param options - What the card asked for
  * @returns The format's name in `Recorded`, or undefined for one not recorded
  */
 function recordedFormat(options: Intl.DateTimeFormatOptions): keyof Recorded | undefined {
-  const fields = (['weekday', 'year', 'month', 'day'] as const).filter((field) => options[field]);
-  return (
-    { 'year,month': 'heading', 'month,day': 'inDate', month: 'alone' } as const satisfies Record<
-      string,
-      keyof Recorded
-    >
-  )[fields.join(',')];
+  const { month, timeZone, ...rest } = options;
+  if (timeZone !== 'UTC' || (month !== 'long' && month !== 'short')) return undefined;
+  return (Object.keys(RECORDED_OPTIONS) as Array<keyof Recorded>).find(
+    (format) => JSON.stringify(rest) === JSON.stringify(RECORDED_OPTIONS[format]),
+  );
 }
+
+/** Set to leave the month out of what `{ month }` returns, as an engine might. */
+let aloneWithoutMonth = false;
 
 /** formatjs 7 for the formats recorded above, by the language and width asked for. */
 class Formatjs7 extends NativeDateTimeFormat {
   private readonly recorded: Parts;
+  private readonly alone: boolean;
 
   constructor(locales?: Intl.LocalesArgument, options: Intl.DateTimeFormatOptions = {}) {
     super(locales, options);
@@ -421,10 +431,13 @@ class Formatjs7 extends NativeDateTimeFormat {
     const entry = FORMATJS_7[`${super.resolvedOptions().locale.toLowerCase()} ${options.month}`];
     if (!format || !entry) throw new Error(`not recorded: ${JSON.stringify(options)}`);
     this.recorded = entry[format];
+    this.alone = format === 'alone';
   }
 
   formatToParts(date?: Date | number): Intl.DateTimeFormatPart[] {
-    if (new Date(date ?? NaN).getUTCMonth() !== 10) throw new Error('recorded for November only');
+    const day = new Date(date ?? NaN).toISOString().slice(0, 10);
+    if (day !== '2026-11-15') throw new Error('recorded for Nov 15, 2026, in UTC');
+    if (aloneWithoutMonth && this.alone) return [];
     return this.recorded.map(([type, value]) => ({ type, value }));
   }
 
@@ -470,6 +483,7 @@ describe('the month heading under formatjs 7', () => {
       value: NativeDateTimeFormat,
       configurable: true,
     });
+    aloneWithoutMonth = false;
     forgetIntlFormats();
   });
 
@@ -496,6 +510,11 @@ describe('the month heading under formatjs 7', () => {
 
   it.each(CASES)('names the month as the browser does: $key', ({ key, language, form }) => {
     expect(monthRun(language, form)).toBe(native.get(key)!.run);
+  });
+
+  it('keeps the month it was given where Intl names none on its own', () => {
+    aloneWithoutMonth = true;
+    expect(Paging.monthHeading(NOVEMBER, 'ru')).toBe('Ноября 2026\u202fг.');
   });
 
   it('keeps the rest of the heading as formatjs 7 writes it', () => {

@@ -394,7 +394,7 @@ function cachedFormat(
  * gets anyway. A short name only where the form inside a date is the standalone one with a
  * preposition before it, as Catalan's "de gen." is: German's "Jan.", Greek's "Μαΐ" and
  * Vietnamese's "thg 1" are short forms inside a date that the browser writes in a heading too. A
- * month written as a number is left as it is.
+ * month written as a number is left as it is, as is one `Intl` does not name on its own.
  *
  * @param written - The month as the heading's `Intl` wrote it
  * @param day - The day, as a UTC calendar day
@@ -410,6 +410,7 @@ function standaloneMonth(written: string, day: Date, language: string): string {
   for (const width of ['long', 'short'] as const) {
     if (written !== month({ day: 'numeric', month: width })) continue;
     const alone = month({ month: width });
+    if (!alone) return written;
     if (width === 'long') return alone;
     return alone !== written && written.endsWith(alone) ? alone : written;
   }
