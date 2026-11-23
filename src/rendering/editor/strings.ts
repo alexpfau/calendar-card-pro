@@ -130,6 +130,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.no_limit': 'No Limit',
   'value.theme_default': 'Theme Default',
   'value.map_marker': 'Map Marker',
+  'value.text_height': 'Text Height',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A row on a topic naming a whole-card setting at home on a Whole Card page: what it opens, for
@@ -410,7 +411,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.when.month_rule': 'a month rule is drawn',
   'gate.when.duplicates': 'duplicates are filtered',
   'gate.when.weather_entity': 'a Weather Entity is chosen',
-  'gate.when.label_icon': 'the label is an icon',
+  'gate.when.label_icon': 'the label is an icon or has several parts',
+  'gate.when.label_image': 'the label is an image or has several parts',
   'gate.when.location_shown': 'this calendar shows locations',
   // The same, as noun phrases for search's Needs tag, where the control's own label does not say
   // it. Read from the gate table by a condition, or by a gate for any of its conditions without a
@@ -936,6 +938,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
+  'entity.label_type.option.parts.label': 'Several Parts',
   'entity.label_icon_source': 'Icon Source',
   'entity.label_icon_source.helper':
     'Follows the icon under Settings, Devices & Services, Entities. Calendars without one show no label.',
@@ -947,6 +950,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_image_source.option.custom.label': 'Custom image',
   'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
+  'entity.label.helper':
+    'One part per line: text or an emoji, an icon such as mdi:star, an image path, or a person such as person.anna.',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
   'entity.accent_color': 'Custom Accent Color',
@@ -960,6 +965,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
   'entity.label_icon_color.helper': 'Left empty, the icon takes the text color around it.',
+  'entity.label_image_size': 'Image Size',
+  'entity.label_image_size.helper': 'The picture’s height, such as 2em or 40px.',
   // "Scale" and not "Size": a size reads as a pixel value, and this is a multiplier. The
   // translations keep that distinction, using each language's word for a display scale.
   'entity.text_scale': 'Text Scale',

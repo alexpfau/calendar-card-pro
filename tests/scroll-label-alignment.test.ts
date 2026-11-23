@@ -186,6 +186,7 @@ describe('scrolling labels and titles share one vertical center', () => {
     expect(CSS).toMatch(
       /\.summary:has\(> \.label-icon\) > \.event-title,[\s\S]*?vertical-align:\s*middle/,
     );
-    expect(CSS).toMatch(/\.summary:has\(> \.label-icon\),[\s\S]*?text-indent:\s*calc\(-1 \*/);
+    expect(CSS).toMatch(/\.summary:has\(> \.label-icon\) \{\s*text-indent:\s*calc\(-1 \*/);
+    expect(CSS).toMatch(/\.summary:has\(> \.label-image\) \{\s*text-indent:\s*calc\(-1 \*/);
   });
 });

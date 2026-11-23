@@ -27,7 +27,7 @@ import { writtenButtons } from './buttons';
 import type { HaFormSchema } from './ha-form';
 import { withCardActionLabels } from './hass-localize';
 import type * as Types from '../../config/types';
-import { isConfigBlock } from '../../utils/helpers';
+import { isConfigBlock, labelParts } from '../../utils/helpers';
 import { isPersonEntityId } from '../../utils/person-pictures';
 
 /**
@@ -71,7 +71,7 @@ export function editorEntityIds(
     if (!isConfigBlock(entry)) add(entry);
     else {
       add(entry.entity);
-      if (isPersonEntityId(entry.label)) add(entry.label);
+      for (const part of labelParts(entry.label)) if (isPersonEntityId(part)) add(part);
     }
   }
   if (isConfigBlock(config.weather)) add(config.weather.entity);

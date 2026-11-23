@@ -707,7 +707,8 @@ function renderLine(
   const parts = presentation.contentParts;
   const time = parts.shouldShowTime ? lineTime(item, config, language, hass) : null;
   // A merged duplicate's line draws every contributing calendar's label, as a row does
-  // (`Leaves.renderEventTitle`); `mergedLabels` is set only where there are two to draw.
+  // (`Leaves.renderEventTitle`), and so does a label written as a list; `mergedLabels` is set
+  // only where there are two to draw.
   const merged = parts.mergedLabels
     ?.map((entry) => Leaves.renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     .filter((drawn) => drawn !== nothing);

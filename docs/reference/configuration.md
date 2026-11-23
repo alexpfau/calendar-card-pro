@@ -218,7 +218,7 @@ Each item in `entities` may be a plain entity ID string, or an object that overr
 the card-wide options for that one calendar:
 
 `entity` · `name` · `show_in_legend` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
-`text_scale` ·
+`label_image_size` · `text_scale` ·
 `show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
@@ -238,6 +238,8 @@ the card-wide options for that one calendar:
 **→ [Using a picture Home Assistant already serves](/features/core-settings#using-a-picture-home-assistant-already-serves)** — a person's photo as a label by its address, where to find it, and which pictures do not work.
 **→ [Showing a person's picture](/features/core-settings#showing-a-persons-picture)** — `label: person.anna`, and that only `person.` IDs are read this way.
 **→ [Following the icon from Home Assistant](/features/core-settings#following-the-icon-from-home-assistant)** — `label: home-assistant`, and what a calendar with no icon shows.
+**→ [Combining a picture, an icon & text](/features/core-settings#combining-a-picture-an-icon-text)** — `label` as a list, and how each part is read.
+**→ [Sizing a picture label](/features/core-settings#sizing-a-picture-label)** — `label_image_size`, and the layouts it applies in.
 
 ## 🏷️ Header
 

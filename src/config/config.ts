@@ -1659,6 +1659,10 @@ export function normalizeEntities(
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,
+          // A length a picture can be drawn at, as a row's height is: a bare number is pixels,
+          // and a percentage, a keyword or a negative size draws the picture as tall as the text,
+          // as an unset size does, rather than at its own natural size.
+          label_image_size: toValidRowHeight(item.label_image_size),
           // A number above 0, or a string that reads as one; anything else draws at the card's
           // size, as an unset scale does.
           text_scale: toValidNumber(item.text_scale, Number.MIN_VALUE),

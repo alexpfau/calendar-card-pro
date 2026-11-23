@@ -525,8 +525,9 @@ of the entry whose copy was kept. The
 calendar's own color, so an event people share reads as a family event.
 
 ::: tip Pick a Label That Reads Well Beside Another One
-A person's picture, an image, an emoji or an `mdi:` icon is drawn at a fixed size, so several
-in a row read as a row of faces or badges. Plain text is not combined into a phrase: two
+A person's picture, an image, an emoji or an `mdi:` icon is drawn at the size of the text, or a
+picture at its [`label_image_size`](/features/core-settings#sizing-a-picture-label), so several in
+a row read as a row of faces or badges. Plain text is not combined into a phrase: two
 calendars labeled `Anna:` and `Ben:` render as `Anna: Ben:`, not `Anna & Ben:`. If you label
 calendars with names and share events between them, prefer
 [a person's picture](/features/core-settings#showing-a-persons-picture).

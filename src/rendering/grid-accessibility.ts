@@ -11,7 +11,6 @@ import { getNowString } from '../translations/dayjs';
 import { calendarName } from '../utils/calendar-names';
 import * as EventUtils from '../utils/events';
 import { resolveLabelType } from '../utils/helpers';
-import { isPersonEntityId } from '../utils/person-pictures';
 
 function labelNames(
   event: Types.CalendarEventData,
@@ -19,38 +18,22 @@ function labelNames(
   config: Types.Config,
   hass?: Types.Hass | null,
 ): string[] {
-  const labels =
+  // The row's one label, where it draws one, is the one part its calendar's label draws.
+  const labels: Types.ResolvedLabel[] =
     parts.mergedLabels ??
-    (parts.entityLabel
-      ? [{ value: parts.entityLabel, type: event._matchedConfig?.label_type }]
-      : []);
-  return labels.flatMap(({ value, type }) => {
+    (parts.entityLabel ? EventUtils.resolveLabelParts(event._entityId, config, event, hass) : []);
+  return labels.flatMap(({ value, type, entityId, person }) => {
     const shape = resolveLabelType(value, type);
     if (shape === 'none') return [];
     if (shape === 'text') return [value];
-    const contributor = parts.mergedLabels
-      ? event._mergedFrom?.find(
-          ({ entityId, config: matched }) =>
-            EventUtils.resolveEntityLabel(
-              entityId,
-              config,
-              { ...event, _entityId: entityId, _matchedConfig: matched },
-              hass,
-            ) === value,
-        )
-      : undefined;
-    const entityId = contributor?.entityId ?? event._entityId;
-    const source = contributor
-      ? { ...event, _entityId: entityId, _matchedConfig: contributor.config }
-      : event;
-    const authored = EventUtils.getEntityLabel(entityId, config, source);
     // A person's picture is named by the person, whose name is their own; any other icon or
     // picture stands for its calendar, named as the card names it everywhere else.
-    if (authored !== undefined && isPersonEntityId(authored)) {
-      const person = hass?.states[authored]?.attributes.friendly_name;
-      return [typeof person === 'string' && person.trim() ? person : authored];
+    if (person !== undefined) {
+      const name = hass?.states[person]?.attributes.friendly_name;
+      return [typeof name === 'string' && name.trim() ? name : person];
     }
-    return entityId ? [calendarName(entityId, config, hass)] : [];
+    const calendar = entityId ?? event._entityId;
+    return calendar ? [calendarName(calendar, config, hass)] : [];
   });
 }
 

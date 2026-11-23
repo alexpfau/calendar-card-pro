@@ -3119,15 +3119,35 @@ export const cardStyles = css`
    * it, so em is that size in whatever form the option takes. The offsets used
    * to add 4px to the option's value itself, and 150% made that a share of the
    * row's width: 749px of padding, and a title wrapped one letter to a line. */
-  .summary:has(> .label-icon),
-  .summary:has(> .label-image) {
+  .summary:has(> .label-icon) {
     text-indent: calc(-1 * (1em + 4px));
     padding-inline-start: calc(1em + 4px + var(--calendar-card-summary-inline-room));
+  }
+
+  /* A picture is as tall as its calendar's label_image_size, which the summary carries where it
+     is set, and the text's height where it is not, so its indent follows that height: labels
+     are pictures of faces and logos, about as wide as they are tall. After the icon rule, so a
+     run holding both hangs at the picture. */
+  .summary:has(> .label-image) {
+    text-indent: calc(-1 * (var(--calendar-card-label-image-size, 1em) + 4px));
+    padding-inline-start: calc(
+      var(--calendar-card-label-image-size, 1em) + 4px + var(--calendar-card-summary-inline-room)
+    );
   }
 
   .summary:has(> .label-emoji) {
     text-indent: calc(-1 * (1.25em + 4px));
     padding-inline-start: calc(1.25em + 4px + var(--calendar-card-summary-inline-room));
+  }
+
+  /* An emoji beside a picture, as a label of several parts draws them: the wider of the two,
+     which is the emoji's unless the picture is set larger. */
+  .summary:has(> .label-emoji):has(> .label-image) {
+    text-indent: calc(-1 * (max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px));
+    padding-inline-start: calc(
+      max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px +
+        var(--calendar-card-summary-inline-room)
+    );
   }
 
   /* scroll_long_titles -------------------------------------------------------
@@ -3385,7 +3405,7 @@ export const cardStyles = css`
   }
 
   .label-image {
-    height: 1em;
+    height: var(--calendar-card-label-image-size, 1em);
     width: auto;
     vertical-align: middle;
     margin-inline-end: 4px;
@@ -8574,11 +8594,14 @@ export const cardStyles = css`
     border-radius: 999px;
   }
 
+  /* A line is one line of text high, so its picture stays the text's height whatever
+     label_image_size says. The day's list and the panel draw rows, which take it. */
   .month-line-label {
     display: inline-flex;
     flex: none;
     align-items: center;
     font-size: var(--calendar-card-font-size-event);
+    --calendar-card-label-image-size: 1em;
   }
 
   .month-line-label > * {

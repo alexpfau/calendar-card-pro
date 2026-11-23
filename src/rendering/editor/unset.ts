@@ -71,6 +71,9 @@ export function unsetWord(
       // The marker the location row draws while the calendar names no icon of its own.
       case 'location_icon':
         return t('value.map_marker');
+      // A picture as tall as the text beside it.
+      case 'label_image_size':
+        return t('value.text_height');
       case 'allowlist':
       case 'blocklist':
       case 'replace_pattern':

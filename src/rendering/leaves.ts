@@ -670,9 +670,10 @@ function renderEventTitle(
 
   // A merged row answers for every calendar that contributed a copy, so it draws each of
   // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
-  // the inline-end margin every label kind already carries. The branch is behavioral rather
-  // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
-  // merge whose winner carries none renders as it always has.
+  // the inline-end margin every label kind already carries. A label written as a list draws
+  // its parts the same way. The branch is behavioral rather than defensive: `mergedLabels` is
+  // undefined unless there are two labels to draw, so a merge whose winner carries none
+  // renders as it always has.
   const labels = mergedLabels
     ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     : entityLabel
@@ -755,6 +756,17 @@ function renderEventTitle(
       ? (titleDirection(event.summary ?? '') ?? nothing)
       : nothing;
 
+  // `label_image_size`, written only where the calendar sets it: a picture label's height and its
+  // hanging indent read it, and fall back to the text's height without it (see `.label-image` in
+  // styles.ts). From the row's own entry, so a merged row's pictures take the size of the calendar
+  // listed first among them, as its `text_scale` does.
+  const labelImageSize = hasCalendarLabel
+    ? EventUtils.getEntitySetting(event._entityId, 'label_image_size', config, event)
+    : undefined;
+  const summaryStyle = labelImageSize
+    ? `--calendar-card-label-image-size: ${labelImageSize}`
+    : nothing;
+
   // 🚨 No whitespace between the last label and the title, and none inside the title before
   // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
   // collapses them into one visible word space after the label: about 3px on top of the
@@ -787,7 +799,7 @@ function renderEventTitle(
   if (aside && oneLineTitle) {
     return html`
       <div class="summary-row">
-        <div class="summary summary-scroll">${title}</div>
+        <div class="summary summary-scroll" style=${summaryStyle}>${title}</div>
         <div class="title-aside">
           ${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
@@ -809,7 +821,7 @@ function renderEventTitle(
   if (aside) {
     return html`
       <div class="summary-row title-wrap${besideLayout === 'cap' ? ' title-capped' : ''}">
-        <div class="summary" dir=${summaryDir}>${title}<span class="title-room"></span></div>
+        <div class="summary" dir=${summaryDir} style=${summaryStyle}>${title}<span class="title-room"></span></div>
         <div class="title-aside">
           <span class="title-strut" aria-hidden="true">\u2060</span>${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
@@ -823,7 +835,7 @@ function renderEventTitle(
   // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary${oneLineTitle ? ' summary-scroll' : ''}" dir=${summaryDir}>
+      <div class="summary${oneLineTitle ? ' summary-scroll' : ''}" dir=${summaryDir} style=${summaryStyle}>
         ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -1018,7 +1030,8 @@ export interface EventContentParts {
 
   /**
    * The label drawn before the event title: this calendar's own, or the icon Home Assistant
-   * holds for it where the label defers to Home Assistant.
+   * holds for it where the label defers to Home Assistant. A label of one part only; a list of
+   * two or more draws through `mergedLabels` instead.
    *
    * Resolved by the container for the same reason as `locationIcon` above — one answer for
    * both views, and no per-calendar config reads down here — and for one more that is
@@ -1034,8 +1047,10 @@ export interface EventContentParts {
   entityLabelAlt?: string;
 
   /**
-   * One label per calendar that contributed a copy of a merged duplicate, present only on
-   * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
+   * Every label of a row that has two or more to draw: one run of the labels of each calendar
+   * that contributed a copy of a merged duplicate, on a row `filter_duplicates` collapsed across
+   * calendars that carry them, or each part of a label written as a list. See
+   * `EventUtils.resolveMergedLabels`.
    *
    * 🚨 Kept beside `entityLabel` rather than replacing it, and **not** because an iterable
    * binding would disturb the DOM. That was the original justification here and it is

@@ -445,7 +445,7 @@ function calendarTexts(entry: unknown, ctx: SearchCtx): Texts {
   const config = Entities.asEntityConfig(entry as Types.EntityConfig);
   return [
     [config.entity, 'heading'],
-    [typeof config.label === 'string' ? config.label : undefined, 'heading'],
+    ...Helpers.labelParts(config.label).map((part): Texts[number] => [part, 'heading']),
     [configuredCalendarName([...(ctx.config.entities ?? []), config], config.entity), 'heading'],
     [homeAssistantName(config.entity, ctx.hass), 'heading'],
   ];

@@ -544,7 +544,16 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
   },
   label_icon_color: {
     fields: ['calendar:label_icon_color'],
-    requires: [phrased(oneOf('calendar:label_type', 'icon'), undefined, 'gate.when.label_icon')],
+    requires: [
+      phrased(oneOf('calendar:label_type', 'icon', 'parts'), undefined, 'gate.when.label_icon'),
+    ],
+    kind: 'gate',
+  },
+  label_image_size: {
+    fields: ['calendar:label_image_size'],
+    requires: [
+      phrased(oneOf('calendar:label_type', 'image', 'parts'), undefined, 'gate.when.label_image'),
+    ],
     kind: 'gate',
   },
   label_image_source: {
@@ -559,6 +568,7 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
       [oneOf('calendar:label_type', 'text')],
       [oneOf('calendar:label_type', 'icon'), oneOf('calendar:label_icon_source', 'custom')],
       [oneOf('calendar:label_type', 'image')],
+      [oneOf('calendar:label_type', 'parts')],
     ],
     kind: 'mode-value',
   },

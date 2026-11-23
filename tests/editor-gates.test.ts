@@ -950,13 +950,13 @@ describe('the universe', () => {
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
     // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
     // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
-    // coming weeks from the start date's.
+    // coming weeks from the start date's. Then a calendar gained Image Size, in every workspace.
     expect(sizes).toEqual({
-      shared: { card: 139, calendar: 30 },
-      list: { card: 166, calendar: 31 },
-      column: { card: 163, calendar: 30 },
-      grid: { card: 162, calendar: 30 },
-      month: { card: 109, calendar: 29 },
+      shared: { card: 139, calendar: 31 },
+      list: { card: 166, calendar: 32 },
+      column: { card: 163, calendar: 31 },
+      grid: { card: 162, calendar: 31 },
+      month: { card: 109, calendar: 30 },
     });
   });
 
@@ -1391,7 +1391,12 @@ describe('the gate table', () => {
       label_icon_color: {
         kind: 'gate',
         fields: ['calendar:label_icon_color'],
-        requires: [p('calendar:label_type', 'icon', ['icon'])],
+        requires: [p('calendar:label_type', 'icon', ['icon', 'parts'])],
+      },
+      label_image_size: {
+        kind: 'gate',
+        fields: ['calendar:label_image_size'],
+        requires: [p('calendar:label_type', 'image', ['image', 'parts'])],
       },
       label_image_source: {
         kind: 'mode-value',
@@ -1409,6 +1414,7 @@ describe('the gate table', () => {
             p('calendar:label_icon_source', 'custom', ['custom']),
           ],
           [p('calendar:label_type', 'image', ['image'])],
+          [p('calendar:label_type', 'parts', ['parts'])],
         ],
       },
       location_icon: {
