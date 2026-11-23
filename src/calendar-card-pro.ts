@@ -8551,6 +8551,24 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Fits the card to its width at once, from a host that knows the width before the card is first
+   * drawn: the overlay, whose own stylesheet sizes it. A card on a dashboard waits for its width to
+   * settle before fitting its days (`WIDTH_SETTLE_DELAY`), since Home Assistant's sections grid
+   * lays it out at a wrong width for a frame first, and until then draws every day it is
+   * configured with. Nothing settles the overlay's width later, and its card is drawn in plain view
+   * as the overlay grows: waiting, a phone's Grid drew five days for six frames, then two. The
+   * measurements that follow find the same width and change nothing.
+   *
+   * @param widthPx - The card's laid-out width in CSS pixels
+   */
+  public fitToWidth(widthPx: number): void {
+    if (!(widthPx > 0)) return;
+    this._syncToolbarLabels(widthPx);
+    this._syncMonthForm(widthPx);
+    this._handleWidthMeasured(widthPx);
+  }
+
+  /**
    * Opens the card full size in the overlay (`rendering/overlay.ts`): its configuration with its
    * `overlay:` block on top (`OverlayConfig.overlayConfig`), on the date in view, the calendars
    * its legend hides hidden there too. It grows out of the press, as a popover does, or out of

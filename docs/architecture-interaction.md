@@ -100,7 +100,10 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   (`_holdsSectionsSlot`), draws Close, closes the overlay for `back`, and keeps
   `_configFingerprint` null, so it reads and writes no device choice. Its config takes the
   `overlay` action out, so it never opens another. The dialog's guard on the page behind hears the
-  paging keys after the card (`_pagingKeysFirst`), or Month's arrows would be refused.
+  paging keys after the card (`_pagingKeysFirst`), or Month's arrows would be refused. The dialog
+  hands the card its width before the card's first render (`fitToWidth`, from `_position`), since
+  the card is drawn in plain view as the dialog grows: waiting out `WIDTH_SETTLE_DELAY`, as a
+  dashboard's card does, drew a phone's Grid on its configured days for six frames first.
 - **Event actions** never reach `handleAction`. `eventActionKind` reads one as `details`, a Home
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the

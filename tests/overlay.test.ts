@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 
 import { memoryStorage } from './memory-storage';
 import type * as Types from '../src/config/types';
+import { resolveColumnFit } from '../src/config/view';
 import {
   FADE_IN_EASING,
   FADE_IN_MS,
@@ -280,6 +281,26 @@ describe('opening the overlay', () => {
     expect(lastParams().day).toEqual(new Date(2026, 10, 25));
     expect((opened as unknown as { _pageRequested: string | null })._pageRequested).toBe(
       '2026-11-25',
+    );
+  });
+
+  it('draws the days that fit its width from its first frame, without waiting for it to settle', async () => {
+    // A phone's overlay: the card laid out 390 pixels wide. The card's own resize observer stays
+    // silent here, as it is until a frame has been laid out.
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.localName === 'calendar-card-pro-dev'
+        ? new DOMRect(0, 0, 390, 0)
+        : realRect.call(this);
+    });
+    const opened = await open(await mount());
+    const fit = resolveColumnFit('grid', opened.config, 390, null);
+    expect(fit.columns).toBeGreaterThan(0);
+    expect(fit.columns).toBeLessThan(7);
+    expect(opened.shadowRoot!.querySelectorAll('.grid-head > .grid-day-header')).toHaveLength(
+      fit.columns,
     );
   });
 

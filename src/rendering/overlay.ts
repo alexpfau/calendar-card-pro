@@ -48,6 +48,8 @@ export interface OverlayCard extends HTMLElement {
   setConfig(config: Partial<Types.Config>): void;
   /** Opens the card on a day, as a layout switch carries one; null for its own home. */
   openOn(day: Date | null): void;
+  /** Fits the card to its width at once, rather than once its width has settled. */
+  fitToWidth(widthPx: number): void;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -183,7 +185,10 @@ export class CardOverlay extends Shell.PopoverShell {
 
   /**
    * Sized by its stylesheet, never placed: called once it is open, before it is first drawn, to
-   * play its way in. It grows out of where it was opened from (`OverlayParams.from`), or its
+   * fit its card and play its way in. The card is handed its width before its own first render,
+   * which its stylesheet has fixed by now, so its first frame draws the days that fit
+   * (`OverlayCard.fitToWidth`). Read before anything scales the frame, and in the frame's own
+   * pixels all the same. It grows out of where it was opened from (`OverlayParams.from`), or its
    * middle, which is where it shrinks back to as it leaves (`_leave`). Nothing plays where the
    * system asks for less motion, or where the browser cannot animate.
    */
@@ -192,6 +197,12 @@ export class CardOverlay extends Shell.PopoverShell {
     this._entering = false;
     const frame = this._frame;
     if (!frame) return;
+    const card = this._card;
+    if (card?.isConnected) {
+      const rect = card.getBoundingClientRect();
+      const laid = card.offsetWidth;
+      card.fitToWidth(laid > 0 && Math.abs(rect.width - laid) >= 1 ? laid : rect.width);
+    }
     const from = this._params?.from;
     const box = frame.getBoundingClientRect();
     frame.style.transformOrigin = from ? `${from.x - box.left}px ${from.y - box.top}px` : 'center';
