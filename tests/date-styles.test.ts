@@ -165,9 +165,10 @@ describe("drawing today's date", () => {
       today_date_font_weight: 'bold',
     } satisfies Partial<Types.Config>;
 
+    // No size of its own: the day takes `day_font_size` from the stylesheet's custom property.
     for (const day of [YESTERDAY, TOMORROW]) {
       const date = drawDate(day, options);
-      expect(date.day.fontSize).toBe('26px');
+      expect(date.day.fontSize).toBe('');
       expect(date.day.fontWeight).toBe('');
     }
   });
@@ -208,7 +209,7 @@ describe("drawing a past day's date", () => {
       [TOMORROW, false],
     ] as const) {
       const date = drawDate(day, options, isToday);
-      expect(date.day.fontSize).toBe('26px');
+      expect(date.day.fontSize).toBe('');
       expect(date.day.fontWeight).toBe('');
       expect(date.day.opacity).toBe('');
     }
@@ -234,9 +235,28 @@ describe("drawing a past day's date", () => {
       for (const part of [date.weekday, date.day, date.month]) {
         expect(part.fontWeight).toBe('');
         expect(part.opacity).toBe('');
+        expect(part.fontSize).toBe('');
       }
-      expect(date.day.fontSize).toBe('26px');
     }
+  });
+});
+
+describe('a card-wide value a custom property cannot carry', () => {
+  it('stays on the part itself', () => {
+    // Every other card-wide size and color reaches the part through its custom property. A
+    // CSS-wide keyword is taken by the property for itself, so `initial` would no longer be
+    // `medium` on the number; `!important` belongs to the part's own declaration.
+    const date = drawDate(TOMORROW, {
+      day_font_size: 'initial',
+      weekday_color: 'inherit',
+      month_color: 'rgb(1, 2, 3) !important',
+    });
+
+    expect(date.day.fontSize).toBe('initial');
+    expect(date.weekday.color).toBe('inherit');
+    expect(date.month.getPropertyValue('color')).toBe('rgb(1, 2, 3)');
+    expect(date.month.getPropertyPriority('color')).toBe('important');
+    expect(date.day.color).toBe('');
   });
 });
 

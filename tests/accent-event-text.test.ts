@@ -344,21 +344,46 @@ describe('accent event text, view by view', () => {
     },
   );
 
-  it('drops the title\u2019s inline color so the property it would fight can win', () => {
-    // The title is the one governed field colored inline rather than through its property.
-    // Left alone it would emit `color: accent`, which is not a color: the browser discards
-    // the declaration and the right thing happens by accident. Dropping the attribute
-    // hands the question to `.event-title`'s own `var(--calendar-card-color-event)`, which
-    // the event element has just set to this calendar's accent.
+  it('leaves the title\u2019s color to its property, sentinel or not', () => {
+    // `event_color` reaches the title through `.event-title`'s own
+    // `var(--calendar-card-color-event)`, which the card writes on ha-card and, under the
+    // sentinel, the event element writes over with this calendar's accent. Written inline as
+    // well, a plain color hid the property from a card-mod rule, and the sentinel would emit
+    // `color: accent`, which is not a color: the browser discards it and the right thing
+    // happens by accident. Only a calendar's own color goes inline (below).
     const plain = renderView('list', twoCalendars(), PAIR()).querySelector('.event-title')!;
+    const set = renderView(
+      'list',
+      twoCalendars({ event_color: 'rgb(9, 9, 9)' }),
+      PAIR(),
+    ).querySelector('.event-title')!;
     const sentinel = renderView(
       'list',
       twoCalendars({ event_color: ACCENT_TEXT_SENTINEL }),
       PAIR(),
     ).querySelector('.event-title')!;
 
-    expect(plain.getAttribute('style')).toBe(`color: ${DEFAULT_CONFIG.event_color}`);
+    expect(plain.getAttribute('style')).toBeNull();
+    expect(set.getAttribute('style')).toBeNull();
     expect(sentinel.getAttribute('style')).toBeNull();
+  });
+
+  it('keeps on the title what the property cannot carry, and a calendar\u2019s own color', () => {
+    // A CSS-wide keyword is taken by the property for itself rather than passed on. A calendar's
+    // own color is its own option, so it stays even where it equals `event_color`.
+    const keyword = renderView(
+      'list',
+      twoCalendars({ event_color: 'initial' }),
+      PAIR(),
+    ).querySelector('.event-title')!;
+    const config = twoCalendars({ event_color: 'rgb(9, 9, 9)' });
+    config.entities = [{ entity: 'calendar.work', accent_color: WORK, color: 'rgb(9, 9, 9)' }];
+    const own = renderView('list', config, [
+      timed(17, '09:00', '10:00', 'Standup', 'calendar.work'),
+    ]).querySelector('.event-title')!;
+
+    expect(keyword.getAttribute('style')).toBe('color: initial');
+    expect(own.getAttribute('style')).toBe('color: rgb(9, 9, 9)');
   });
 
   it('keeps an explicit per-calendar title color ahead of the sentinel', () => {

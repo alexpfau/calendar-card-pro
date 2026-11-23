@@ -552,7 +552,7 @@ function renderDay(
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(date.getTime());
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
   const todayTile = isToday && Leaves.isTileIndicator(config);
-  const colors = Leaves.dateColors(config, isWeekendDay, isToday, todayTile);
+  const own = Leaves.ownDateColors(config, isWeekendDay, isToday, todayTile);
   const { weight, opacity } = Leaves.dateEmphasis(config, isToday, isPast);
   const otherMonth = isOtherMonth(date, headerMonth);
   const translations = Localize.getTranslations(language);
@@ -562,9 +562,14 @@ function renderDay(
   // The date is a flex row, so the whitespace between its parts draws nothing; a literal space
   // in a part, as between "Dec" and "1", is part of the text and stays.
   // A past day's fade goes on the parts rather than the date, so it composes with the fade of a
-  // day outside the header's month instead of replacing it.
-  const ink = (color: string) => styleMap({ color, 'font-weight': weight, opacity });
-  const number = html`<span class=${todayTile ? 'day today-tile' : 'day'} style=${ink(colors.day)}
+  // day outside the header's month instead of replacing it. A part's color is written only where
+  // the day has one of its own (`Leaves.ownDateColors`); the card's reaches it through the
+  // stylesheet's custom property.
+  const ink = (color: string | undefined) =>
+    Leaves.datePartStyle({ color, 'font-weight': weight, opacity });
+  const number = html`<span
+    class=${todayTile ? 'day today-tile' : 'day'}
+    style=${ink(own.day ?? Leaves.inlineCardValue(config.day_color))}
     >${date.getDate()}</span
   >`;
   const parts =
@@ -572,7 +577,9 @@ function renderDay(
       ? firstOfMonthParts(date, language, translations).map((part) =>
           part.day
             ? number
-            : html`<span class="month-date-month" style=${ink(colors.month)}
+            : html`<span
+                class="month-date-month"
+                style=${ink(own.month ?? Leaves.inlineCardValue(config.month_color))}
                 >${TextDirection.inLanguageDirection(part.text, mark)}</span
               >`,
         )
@@ -1316,21 +1323,22 @@ function renderNarrowDay(
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(date.getTime());
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
   const todayTile = isToday && Leaves.isTileIndicator(config);
-  const colors = Leaves.dateColors(config, isWeekendDay, isToday, todayTile);
+  const own = Leaves.ownDateColors(config, isWeekendDay, isToday, todayTile);
   const { weight, opacity } = Leaves.dateEmphasis(config, isToday, isPast);
   const otherMonth = isOtherMonth(date, headerMonth);
   // The selected day's mark sets its own ink. Today off the tile is written in the indicator's
   // color, so it still reads as today. A weekend's number steps back to the secondary text, as a
-  // phone's month does, unless the card names a weekend color for it.
+  // phone's month does, unless the card names a weekend color for it. Any other number takes the
+  // card's day color from the stylesheet (`Leaves.inlineCardValue`).
   const ink = selected
     ? undefined
     : isToday
       ? todayTile
-        ? colors.day
+        ? own.day
         : config.today_day_color || 'var(--calendar-card-today-indicator-color)'
       : isWeekendDay
         ? config.weekend_day_color || 'var(--secondary-text-color)'
-        : colors.day;
+        : Leaves.inlineCardValue(config.day_color);
 
   return html`<div
     class=${classMap({
@@ -1353,7 +1361,7 @@ function renderNarrowDay(
     <span class="month-date"
       ><span
         class=${todayTile ? 'day today-tile' : 'day'}
-        style=${styleMap({ color: ink, 'font-weight': weight, opacity })}
+        style=${Leaves.datePartStyle({ color: ink, 'font-weight': weight, opacity })}
         >${date.getDate()}</span
       ></span
     >

@@ -25,19 +25,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   44
                 </div>
 <div role="gridcell" class=" month-day past-day other-month " tabindex="-1" aria-label="Monday, October 26, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">26</span></span>
+<span class="month-date"><span class="day">26</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day other-month " tabindex="-1" aria-label="Tuesday, October 27, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">27</span></span>
+<span class="month-date"><span class="day">27</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day other-month " tabindex="-1" aria-label="Wednesday, October 28, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">28</span></span>
+<span class="month-date"><span class="day">28</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day other-month " tabindex="-1" aria-label="Thursday, October 29, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">29</span></span>
+<span class="month-date"><span class="day">29</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day other-month " tabindex="-1" aria-label="Friday, October 30, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">30</span></span>
+<span class="month-date"><span class="day">30</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day other-month weekend " tabindex="-1" aria-label="Saturday, October 31, 2026, No events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">31</span></span>
@@ -51,19 +51,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   45
                 </div>
 <div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Monday, November 2, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">2</span></span>
+<span class="month-date"><span class="day">2</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Tuesday, November 3, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">3</span></span>
+<span class="month-date"><span class="day">3</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Wednesday, November 4, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">4</span></span>
+<span class="month-date"><span class="day">4</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Thursday, November 5, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">5</span></span>
+<span class="month-date"><span class="day">5</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Friday, November 6, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">6</span></span>
+<span class="month-date"><span class="day">6</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day weekend " tabindex="-1" aria-label="Saturday, November 7, 2026, No events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">7</span></span>
@@ -77,19 +77,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   46
                 </div>
 <div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Monday, November 9, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">9</span></span>
+<span class="month-date"><span class="day">9</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Tuesday, November 10, 2026, 5 events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">10</span></span>
+<span class="month-date"><span class="day">10</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Wednesday, November 11, 2026, 3 events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">11</span></span>
+<span class="month-date"><span class="day">11</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Thursday, November 12, 2026, 2 events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">12</span></span>
+<span class="month-date"><span class="day">12</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Friday, November 13, 2026, 1 event" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">13</span></span>
+<span class="month-date"><span class="day">13</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
 </div><div role="gridcell" class=" month-day past-day weekend " tabindex="-1" aria-label="Saturday, November 14, 2026, 1 event" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">14</span></span>
@@ -103,19 +103,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   47
                 </div>
 <div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Monday, November 16, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">16</span></span>
+<span class="month-date"><span class="day">16</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day past-day " tabindex="-1" aria-label="Tuesday, November 17, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">17</span></span>
+<span class="month-date"><span class="day">17</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day today month-selected " tabindex="0" aria-label="Wednesday, November 18, 2026, 4 events" aria-selected="true" aria-current="date">
-<span class="month-date"><span class="day today-tile" style="opacity: null;">18</span></span>
+<span class="month-date"><span class="day today-tile">18</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
 </div><div role="gridcell" class=" month-day tomorrow " tabindex="-1" aria-label="Thursday, November 19, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">19</span></span>
+<span class="month-date"><span class="day">19</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day " tabindex="-1" aria-label="Friday, November 20, 2026, 1 event" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">20</span></span>
+<span class="month-date"><span class="day">20</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
 </div><div role="gridcell" class=" month-day weekend " tabindex="-1" aria-label="Saturday, November 21, 2026, 1 event" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">21</span></span>
@@ -129,19 +129,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   48
                 </div>
 <div role="gridcell" class=" month-day " tabindex="-1" aria-label="Monday, November 23, 2026, 1 event" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">23</span></span>
+<span class="month-date"><span class="day">23</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
 </div><div role="gridcell" class=" month-day " tabindex="-1" aria-label="Tuesday, November 24, 2026, 1 event" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">24</span></span>
+<span class="month-date"><span class="day">24</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #16a34a;"></span></span>
 </div><div role="gridcell" class=" month-day " tabindex="-1" aria-label="Wednesday, November 25, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">25</span></span>
+<span class="month-date"><span class="day">25</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day " tabindex="-1" aria-label="Thursday, November 26, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">26</span></span>
+<span class="month-date"><span class="day">26</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day " tabindex="-1" aria-label="Friday, November 27, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">27</span></span>
+<span class="month-date"><span class="day">27</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day weekend " tabindex="-1" aria-label="Saturday, November 28, 2026, No events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">28</span></span>
@@ -155,19 +155,19 @@ exports[`a narrow day > matches its snapshot 1`] = `
                   49
                 </div>
 <div role="gridcell" class=" month-day " tabindex="-1" aria-label="Monday, November 30, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">30</span></span>
+<span class="month-date"><span class="day">30</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day other-month " tabindex="-1" aria-label="Tuesday, December 1, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">1</span></span>
+<span class="month-date"><span class="day">1</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day other-month " tabindex="-1" aria-label="Wednesday, December 2, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">2</span></span>
+<span class="month-date"><span class="day">2</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day other-month " tabindex="-1" aria-label="Thursday, December 3, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">3</span></span>
+<span class="month-date"><span class="day">3</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day other-month " tabindex="-1" aria-label="Friday, December 4, 2026, No events" aria-selected="false">
-<span class="month-date"><span class="day" style="color: var(--primary-text-color); opacity: null;">4</span></span>
+<span class="month-date"><span class="day">4</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day other-month weekend " tabindex="-1" aria-label="Saturday, December 5, 2026, No events" aria-selected="false">
 <span class="month-date"><span class="day" style="color: var(--secondary-text-color); opacity: null;">5</span></span>
@@ -186,7 +186,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
 <div class="summary-row">
-<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" dir="ltr">
           Holiday
         </span></div>
 <div class="title-aside">
@@ -204,7 +204,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
 <div class="summary-row">
-<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" dir="ltr">
           Swim
         </span></div>
 <div class="title-aside">
@@ -222,7 +222,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
 <div class="summary-row">
-<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" dir="ltr">
           Standup
         </span></div>
 <div class="title-aside">
@@ -240,7 +240,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="event-accent-bar"></span>
 <div class="event-content time-beside-title">
 <div class="summary-row">
-<div class="summary summary-scroll"><span class="event-title title-scrollable" style="color: var(--primary-text-color);" dir="ltr">
+<div class="summary summary-scroll"><span class="event-title title-scrollable" dir="ltr">
           Lunch
         </span></div>
 <div class="title-aside">
