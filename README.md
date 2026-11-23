@@ -8,6 +8,15 @@
 
 **A calendar card for Home Assistant in four layouts**, from a few lines on a phone to the whole family's week on a wall tablet, set up in the visual editor.
 
+## ☕ Support This Project
+
+If you find **Calendar Card Pro** useful, consider supporting its development:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/alexpfau)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor%20on%20GitHub-30363d?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/alexpfau)
+
+<p>&nbsp;</p>
+
 ## 🗓️ Every Layout, One Card
 
 The same calendars in every layout. Pick one, or let the [toolbar](https://calendar-card-pro.alexpfau.com/features/header-toolbar) switch between them.
@@ -65,15 +74,6 @@ Two columns, a full-width section or a wall tablet.
 **▶️ [Watch the 30-second tour](https://calendar-card-pro.alexpfau.com/#see-it-move)** on the documentation site.
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
-
-## ☕ Support This Project
-
-If you find **Calendar Card Pro** useful, consider supporting its development:
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/alexpfau)
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor%20on%20GitHub-30363d?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/alexpfau)
-
-<p>&nbsp;</p>
 
 ## 🎬 Video Review
 
