@@ -13,8 +13,8 @@ import { changeField, entry, fakeHass, lastConfig, mountEditor } from './helpers
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { resolvedLabel } from '../src/rendering/editor/entities';
-import { wordValue } from '../src/rendering/editor/summary';
 import styles from '../src/rendering/editor/styles';
+import { wordValue } from '../src/rendering/editor/summary';
 import { resolveEntityLabel, resolveLabelParts } from '../src/utils/events';
 import { resolveLabelType } from '../src/utils/helpers';
 

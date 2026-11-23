@@ -3141,8 +3141,10 @@ export const cardStyles = css`
   }
 
   /* An emoji beside a picture, as a label of several parts draws them: the wider of the two,
-     which is the emoji's unless the picture is set larger. */
-  .summary:has(> .label-emoji):has(> .label-image) {
+     which is the emoji's unless the picture is set larger. The second condition is in :where()
+     so the rule weighs what the one above it weighs, and grid view's and a scrolling title's
+     own indents below still win by their place or their weight. */
+  .summary:has(> .label-emoji):where(:has(> .label-image)) {
     text-indent: calc(-1 * (max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px));
     padding-inline-start: calc(
       max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px +

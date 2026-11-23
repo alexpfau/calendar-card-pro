@@ -456,11 +456,17 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
           'margin-inline-start': `calc(12px - ${SUMMARY_ROOM})`,
         },
       // A hanging indent's padding holds the room as well; the text-indent leaves it out.
-      '.summary:has(> .label-icon), .summary:has(> .label-image)': {
+      '.summary:has(> .label-icon)': {
         'padding-inline-start': `calc(1em + 4px + ${SUMMARY_ROOM})`,
+      },
+      '.summary:has(> .label-image)': {
+        'padding-inline-start': `calc(var(--calendar-card-label-image-size, 1em) + 4px + ${SUMMARY_ROOM})`,
       },
       '.summary:has(> .label-emoji)': {
         'padding-inline-start': `calc(1.25em + 4px + ${SUMMARY_ROOM})`,
+      },
+      '.summary:has(> .label-emoji):where(:has(> .label-image))': {
+        'padding-inline-start': `calc(max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px + ${SUMMARY_ROOM})`,
       },
       '.summary.summary-scroll:has(> .label-icon), .summary.summary-scroll:has(> .label-image), .summary.summary-scroll:has(> .label-emoji)':
         { 'padding-inline-start': SUMMARY_ROOM },
@@ -698,7 +704,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       starts += 1;
       expect(start, selectors).toContain(SUMMARY_ROOM);
     }
-    expect(starts).toBe(4);
+    expect(starts).toBe(6);
   });
 
   it('is given back exactly, wherever one rule keeps it and nothing else', () => {
