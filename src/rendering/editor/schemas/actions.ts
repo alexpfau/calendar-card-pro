@@ -139,9 +139,15 @@ const actionsSchema = Helpers.memoizeLast(
     // there is no dialog, so always-visible switches would be inert. Directly under the two
     // dropdowns that reveal them.
     ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
-    // The layout the card opens in full size. Offered whatever opens it: a tap, a hold, or a
-    // toolbar button, which this panel does not see. Every other option of the overlay is YAML's.
-    blockScope('overlay', [select(language, 'view', VIEWS, 'view')]),
+    // What the card opens full size with, drawn on the Full Size page rather than here: its layout,
+    // its days and its toolbar, offered whatever opens it, a tap, a hold or a toolbar button. Every
+    // other option of the overlay is YAML's, listed on that page.
+    blockScope('overlay', [
+      select(language, 'view', VIEWS, 'view'),
+      number('days_to_show', 1),
+      // Its own key: the card's Show Toolbar names the card's toolbar.
+      blockScope('toolbar', [{ ...bool('show'), titleKey: 'overlay.toolbar.show' }]),
+    ]),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
   ],

@@ -60,6 +60,7 @@ import {
   universeIndex,
 } from './field-index';
 import * as Filter from './filter';
+import * as FullSize from './full-size';
 import { whenText } from './gates';
 import { type HaFormSchema, warmSchema } from './ha-form';
 import * as HassKey from './hass-key';
@@ -75,6 +76,7 @@ import {
   CALENDARS_BLOCK,
   ENTRY_GROUPS,
   FAMILIES,
+  FULL_SIZE_PAGES,
   type FamilyId,
   type HeadingDef,
   PAGES,
@@ -82,6 +84,7 @@ import {
   type PageId,
   STARTING_LAYOUT_BLOCK,
   WHOLE_CARD_PAGES,
+  isUnscopedPage,
   keepsNoLayoutCopy,
   placementOf,
   topicsFor,
@@ -121,6 +124,7 @@ import * as CalendarView from './views/calendars';
 import * as ChipsView from './views/chips';
 import * as ColorView from './views/color';
 import * as Focus from './views/focus';
+import * as FullSizeView from './views/full-size';
 import * as HistoryView from './views/history';
 import { icon } from './views/icon';
 import { escapeAction, historyKey, inTextField } from './views/keys';
@@ -141,6 +145,7 @@ import * as WordLists from './word-lists';
 import * as Workspace from './workspace';
 import * as WriteFrames from './write-frames';
 import * as Config from '../../config/config';
+import * as Constants from '../../config/constants';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as WeatherMigration from '../../config/weather-migration';
@@ -558,6 +563,9 @@ function describedBy(show: FieldShow | undefined): string | typeof nothing {
 type PlanOwner = { readonly kind: 'card' } | { readonly kind: 'entry'; readonly key: number };
 
 const CARD: PlanOwner = { kind: 'card' };
+
+/** The toolbar's Open Full Size chip, which leads to what it opens the card with while pressed. */
+const OPEN_FULL_SIZE = 'card:toolbar.overlay' as FieldId;
 
 /** Below this width of its own, the editor draws its narrow layout. */
 const NARROW_WIDTH = 440;
@@ -1225,7 +1233,7 @@ export class CalendarCardProEditor extends LitElement {
     if (qualified !== undefined) return qualified;
     const searched = this._searchFrom && Navigation.routeScope(this._searchFrom.nav.route);
     if (route.kind === 'overview' && searched !== undefined) return searched;
-    if (route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page)) return 'shared';
+    if (route.kind === 'page' && isUnscopedPage(route.page)) return 'shared';
     return this._viewForConfig(this._config!);
   }
 
@@ -1277,7 +1285,7 @@ export class CalendarCardProEditor extends LitElement {
     if ((route.kind === 'audit' || route.kind === 'notices') && edited !== undefined) {
       return edited;
     }
-    const whole = route.kind === 'page' && WHOLE_CARD_PAGES.has(route.page);
+    const whole = route.kind === 'page' && isUnscopedPage(route.page);
     return whole ? this._viewForConfig(this._config!) : this._workspace;
   }
 
@@ -1293,7 +1301,7 @@ export class CalendarCardProEditor extends LitElement {
     route: Navigation.Route,
     scope: Workspace.EditorWorkspace = this._layoutInView,
   ): Navigation.Route {
-    if (route.kind !== 'page' || WHOLE_CARD_PAGES.has(route.page)) return route;
+    if (route.kind !== 'page' || isUnscopedPage(route.page)) return route;
     const under = route.scope ?? scope;
     // A topic the scope has no page for, as Layout Defaults has no Weather, opens under the
     // layout the card opens in.
@@ -4213,7 +4221,9 @@ export class CalendarCardProEditor extends LitElement {
       const helperKey = heading.helperKeyByView?.[ctx.view] ?? heading.helperKey;
       const helper = helperKey === undefined ? undefined : this._string(ctx, helperKey);
       const crossLink =
-        this._crossLink(heading, ctx) ?? this._pointer(heading, owner, ctx, labelOf);
+        this._crossLink(heading, ctx) ??
+        this._pointer(heading, owner, ctx, labelOf) ??
+        this._fullSizeLink(heading, ctx);
       // One line per condition the stored values of settings not in use wait on.
       const byWhen = new Map<string, { names: string[]; held: number }>();
       for (const each of plan.inactive) {
@@ -5724,6 +5734,177 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Full Size, a section of its own between Layouts and More: one row opening the Open Full Size
+   * page. Unlike every other row it names values, the layout, the days and what else is set,
+   * since what the card opens full size with is the one thing people open it to check.
+   *
+   * @param ctx - Schema context
+   * @returns The section
+   */
+  private _renderFullSizeSection(ctx: SchemaCtx): TemplateResult {
+    const page = PAGES.find((each) => FULL_SIZE_PAGES.has(each.id))!;
+    return Overview.rowGroup(this._string(ctx, 'overview.full_size'), [
+      Overview.navRow(
+        {
+          key: `nav:${page.id}`,
+          iconPath: page.iconPath,
+          title: this._pageTitle(page, ctx),
+          summary: this._fullSizeSummary(ctx),
+        },
+        () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
+      ),
+    ]);
+  }
+
+  /**
+   * What the card opens full size with, for Full Size's row: "Grid · 7 days", Month alone since it
+   * draws its weeks, then "Toolbar Off" and "2 More Set" where they apply.
+   *
+   * @param ctx - Schema context
+   * @returns The line
+   */
+  private _fullSizeSummary(ctx: SchemaCtx): string {
+    const { view, days, toolbar } = FullSize.fullSizeSummary(this._rawConfig);
+    const more = Audit.fullSizeLines(this._rawConfig.overlay, this._config!).length;
+    const parts = [this._layoutTitle(view, ctx)];
+    if (view !== 'month') {
+      parts.push(
+        days === 1
+          ? this._string(ctx, 'full_size.days_one')
+          : this._string(ctx, 'full_size.days', { count: days }),
+      );
+    }
+    if (!toolbar) parts.push(this._string(ctx, 'full_size.toolbar_off'));
+    if (more > 0) {
+      parts.push(
+        more === 1
+          ? this._string(ctx, 'full_size.more_set_one')
+          : this._string(ctx, 'full_size.more_set', { count: more }),
+      );
+    }
+    return parts.join(' · ');
+  }
+
+  /**
+   * A line leading to the Open Full Size page, saying what the card opens with: "Opens full size
+   * in Grid, 7 days: Full Size › Open Full Size".
+   *
+   * @param key - Its `data-focus` key, which Back returns focus to
+   * @param ctx - Schema context
+   * @returns The link
+   */
+  private _fullSizeLinkTo(key: string, ctx: SchemaCtx): PageView.CrossLink {
+    const page = PAGES.find((each) => FULL_SIZE_PAGES.has(each.id))!;
+    const { view, days } = FullSize.fullSizeSummary(this._rawConfig);
+    const layout = this._layoutTitle(view, ctx);
+    const count =
+      days === 1
+        ? this._string(ctx, 'full_size.days_one')
+        : this._string(ctx, 'full_size.days', { count: days });
+    return {
+      text:
+        view === 'month'
+          ? this._string(ctx, 'full_size.link_month', { layout })
+          : this._string(ctx, 'full_size.link', { layout, days: count }),
+      label: this._string(ctx, 'nav.crumb', {
+        page: this._string(ctx, 'overview.full_size'),
+        heading: this._pageTitle(page, ctx),
+      }),
+      key,
+      onOpen: () => this._open({ kind: 'page', page: page.id }, key, 'cross-link'),
+    };
+  }
+
+  /**
+   * Taps' line leading to the Open Full Size page, while the card's tap or hold opens it.
+   *
+   * @param heading - The heading
+   * @param ctx - Schema context
+   * @returns The link, or `undefined` where the heading draws none or nothing opens it
+   */
+  private _fullSizeLink(heading: HeadingDef, ctx: SchemaCtx): PageView.CrossLink | undefined {
+    if (!heading.extras?.includes('full-size-link')) return undefined;
+    const opens = (action: unknown): boolean =>
+      Helpers.isConfigBlock(action) && action.action === Constants.OVERLAY_ACTION;
+    const config = this._config!;
+    if (!opens(config.tap_action) && !opens(config.hold_action)) return undefined;
+    return this._fullSizeLinkTo('xlink:full_size', ctx);
+  }
+
+  /**
+   * What `overlay:` holds beyond the Open Full Size page's own settings (`audit.ts` ›
+   * `fullSizeLines`), a row each: the setting and its value, "Days To Show in Grid" for a layout's
+   * own, the YAML path where no setting writes it, and Remove, one undo step. Nothing where the
+   * block holds nothing else, so its heading is not drawn.
+   *
+   * @param ctx - Schema context
+   * @returns The rows, or nothing
+   */
+  private _renderFullSizeLines(ctx: SchemaCtx): unknown {
+    const t = this._t(ctx);
+    const layout = this._layoutName(ctx);
+    const lines = Audit.fullSizeLines(this._rawConfig.overlay, this._config!);
+    if (lines.length === 0) return nothing;
+    return lines.map((line, at) => {
+      const field =
+        line.field === undefined
+          ? undefined
+          : (universeIndex(ctx.language, line.view ?? 'shared').fields.get(line.field) ??
+            Audit.anyField(line.field, ctx.language));
+      const own = line.text.slice(`${FullSize.FULL_SIZE_KEY}.`.length);
+      const name = field === undefined ? own : fieldLabel(field, ctx.language);
+      const label =
+        line.view === undefined || field === undefined
+          ? name
+          : t('audit.in_layout', { label: name, layout: layout(line.view) });
+      const value =
+        field === undefined
+          ? Audit.plainValue(line.value)
+          : Audit.outsideOptions(field.node, line.value)
+            ? t('value.from_yaml', { value: String(line.value) })
+            : this._auditWord(field, line.value, ctx);
+      const next = lines[at + 1] ?? lines[at - 1];
+      return keyed(
+        line.text,
+        FullSizeView.fullSizeRow({
+          path: line.text,
+          label,
+          value,
+          yaml: this._prefs.yaml ? line.text : undefined,
+          remove: {
+            label: t('reset.remove'),
+            name: t('history.remove', { name: label }),
+            focus: `full-size:remove:${line.text}`,
+            kind: 'remove',
+            onPress: () => this._removeFullSizeLine(line.path, label, next?.text),
+          },
+        }),
+      );
+    });
+  }
+
+  /**
+   * Removes one line of `overlay:`, as one undo step, so the card opened full size takes the
+   * card's own again. Focus moves to the next line's Remove, else to the page's first heading.
+   *
+   * @param path - The line's path, `overlay` first
+   * @param label - The setting, as its row names it
+   * @param next - The YAML path of the line that takes focus, where one is left
+   */
+  private _removeFullSizeLine(path: ReadonlyArray<string>, label: string, next?: string): void {
+    const ctx = this._ctx;
+    this._commit(this._string(ctx, 'history.remove', { name: label }), undefined, () =>
+      this._applyReset({ kind: 'path', path }, []),
+    );
+    this._say(this._string(ctx, 'status.removed', { name: label }));
+    this._focusSoon([
+      ...(next === undefined ? [] : [Focus.byFocusKey(`full-size:remove:${next}`)]),
+      '.page-group[data-heading="heading.full_size_opens"] .heading',
+      '.page-title',
+    ]);
+  }
+
+  /**
    * Writes the layout the card opens in, with the switcher's list it keeps, as one step.
    *
    * @param ctx - Schema context
@@ -5972,7 +6153,7 @@ export class CalendarCardProEditor extends LitElement {
       wholeRows,
       html`<p class="hint frame-hint">${t('overview.whole_card.hint')}</p>`,
     )}
-    ${this._renderLayouts(ctx, chassis)}
+    ${this._renderLayouts(ctx, chassis)} ${this._renderFullSizeSection(ctx)}
     ${Overview.rowGroup(t('overview.more'), [
       Overview.navRow(
         {
@@ -6510,7 +6691,11 @@ export class CalendarCardProEditor extends LitElement {
       { card: this._formData() },
       (field, show) => this._renderField(field, ctx, show),
       (heading) =>
-        heading.extras?.includes('own-buttons') ? this._renderToolbarButtons(ctx) : nothing,
+        heading.extras?.includes('own-buttons')
+          ? this._renderToolbarButtons(ctx)
+          : heading.extras?.includes('full-size-lines')
+            ? this._renderFullSizeLines(ctx)
+            : nothing,
     );
     if (page.id === 'size_spacing') {
       const layout = PANELS.find((panel) => panel.id === 'layout')!;
@@ -6730,7 +6915,13 @@ export class CalendarCardProEditor extends LitElement {
           : nothing
       }
       <p class="hint">${t(kind === 'parts' ? 'chip.hint' : 'toolbar.controls.hint')}</p>
-      ${kind === 'toolbar' ? this._renderQualifiers(heading, ctx) : nothing}`;
+      ${kind === 'toolbar' ? this._renderQualifiers(heading, ctx) : nothing}
+      ${
+        // While Open Full Size is pressed, the line leading to what it opens the card with.
+        kind === 'toolbar' && chips.some(({ id, pressed }) => id === OPEN_FULL_SIZE && pressed)
+          ? PageView.crossLinkLine(this._fullSizeLinkTo('xlink:full_size:toolbar', ctx))
+          : nothing
+      }`;
   }
 
   /**
@@ -7063,11 +7254,19 @@ export class CalendarCardProEditor extends LitElement {
     const t = this._t(ctx);
     const route = this._nav.route;
     const scope = route.kind === 'page' ? route.scope : undefined;
-    const whole = WHOLE_CARD_PAGES.has(page.id) || scope === undefined;
-    const sub = whole ? t('overview.whole_card') : this._layoutTitle(scope, ctx);
-    const lead = whole
-      ? PageView.pageLine(this._string(ctx, 'value_source.card'))
-      : this._renderAlsoFor(page, scope, ctx);
+    const whole = isUnscopedPage(page.id) || scope === undefined;
+    // Full Size's page says what it is for in its note, and the overview's section in its sub-line.
+    const fullSize = FULL_SIZE_PAGES.has(page.id);
+    const sub = fullSize
+      ? t('overview.full_size')
+      : whole
+        ? t('overview.whole_card')
+        : this._layoutTitle(scope, ctx);
+    const lead = fullSize
+      ? nothing
+      : whole
+        ? PageView.pageLine(this._string(ctx, 'value_source.card'))
+        : this._renderAlsoFor(page, scope, ctx);
     const next = whole ? undefined : this._nextTopic(page.id, scope);
     return html`<div class="page" data-page=${page.id}>
       ${PageView.pageHead(

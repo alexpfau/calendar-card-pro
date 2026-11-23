@@ -2,6 +2,7 @@
  * Localization hooks for Home Assistant form labels and helpers.
  */
 
+import { FULL_SIZE_KEY } from './full-size';
 import type { HaFormSchema } from './ha-form';
 import { EDITOR_STRINGS, interpolate } from './strings';
 import { EDITOR_HELD_STRINGS } from './translations/held';
@@ -117,12 +118,16 @@ export function computeHelper(
   path: ReadonlyArray<string> = [],
   direct = false,
 ): string | undefined {
-  const own =
-    lookup(language, `${stringKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
+  const key = stringKey(schema, path);
+  const own = lookup(language, `${key}.helper`) ?? fallbackHelper(language, schema);
 
-  const note =
-    applicabilityNote(language, schema.name, view) ??
-    (direct ? undefined : divergentDefaultNote(language, schema.name, view));
+  // A setting of the card opened full size, filed under `overlay.`, shares its name with the
+  // card's own option, not its layouts: the full-size card shows every layout, whichever one this
+  // page edits.
+  const note = key.startsWith(`${FULL_SIZE_KEY}.`)
+    ? undefined
+    : (applicabilityNote(language, schema.name, view) ??
+      (direct ? undefined : divergentDefaultNote(language, schema.name, view)));
 
   if (note === undefined) {
     return own;

@@ -7,7 +7,7 @@
 import { LEGEND_OFF, normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSet, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
-import { overlayView } from '../../config/overlay';
+import { OVERLAY_DEFAULTS, overlayView } from '../../config/overlay';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
@@ -1090,21 +1090,68 @@ export function stripToolbarDefaults(
 }
 
 /**
- * Builds the `overlay:` block as the form should show it: the block as written, with the layout
- * the overlay opens in, Grid where it names none (`overlayView`).
+ * The full-size card's own value for a path inside `overlay:` that the Full Size page edits:
+ * `OVERLAY_DEFAULTS`' Grid, seven days, its toolbar.
+ *
+ * @param path - Keys inside the block, outermost first
+ * @returns The default, or `undefined` for a path it does not hold
+ */
+function overlayDefault(path: ReadonlyArray<string>): unknown {
+  let at: unknown = OVERLAY_DEFAULTS;
+  for (const key of path) at = Helpers.isConfigBlock(at) ? at[key] : undefined;
+  return at;
+}
+
+/** The Full Size page's settings inside `overlay:` that have a default of their own. */
+const OVERLAY_DEFAULTED: ReadonlyArray<readonly [string, ...string[]]> = [
+  ['days_to_show'],
+  ['toolbar', 'show'],
+];
+
+/**
+ * Builds the `overlay:` block as the form should show it: the block as written, with what the
+ * full-size card opens with where it says nothing (`OVERLAY_DEFAULTS`): the layout, Grid where it
+ * names none or one the card does not offer (`overlayView`), seven days, and its toolbar.
  *
  * @param config - Merged configuration
- * @returns The block, its `view` filled in
+ * @returns The block, the Full Size page's settings filled in
  */
 export function overlayFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   const block = Helpers.isConfigBlock(config.overlay) ? config.overlay : {};
-  return { ...block, view: overlayView(config) };
+  const toolbar = Helpers.isConfigBlock(block.toolbar) ? block.toolbar : {};
+  return {
+    ...block,
+    view: overlayView(config),
+    days_to_show: block.days_to_show ?? overlayDefault(['days_to_show']),
+    toolbar: { ...toolbar, show: toolbar.show ?? overlayDefault(['toolbar', 'show']) },
+  };
 }
 
 /**
- * Strips the `overlay:` block down to what it does: its `view` goes where it is Grid, the default,
- * unless the YAML holds it unchanged. Every other option in it is YAML's alone, written by no form,
- * and kept as written, as is a value that is no block at all, which the card reads as none.
+ * A block without the keys the editor emptied: each `undefined` line goes, and so does a block left
+ * with nothing in it, which a reset of its last line leaves behind (`reset.ts` › `removePath`). A
+ * block the YAML holds empty stays as written.
+ *
+ * @param value - A value inside `overlay:`
+ * @param authored - The same value as the YAML holds it
+ * @returns The value, or `undefined` for one with nothing left in it
+ */
+function withoutEmptied(value: unknown, authored: unknown): unknown {
+  if (!Helpers.isConfigBlock(value)) return value;
+  const kept: Record<string, unknown> = {};
+  for (const [key, inner] of Object.entries(value)) {
+    const left = withoutEmptied(inner, Helpers.isConfigBlock(authored) ? authored[key] : undefined);
+    if (left !== undefined) kept[key] = left;
+  }
+  if (Object.keys(kept).length > 0) return kept;
+  return Helpers.isConfigBlock(authored) && Object.keys(authored).length === 0 ? kept : undefined;
+}
+
+/**
+ * Strips the `overlay:` block down to what it does. The Full Size page's settings go where they
+ * equal what the full-size card opens with anyway (Grid, seven days, the toolbar shown), unless the
+ * YAML holds them unchanged; so do the lines and blocks a reset emptied. Every other option in it
+ * is kept as written, as is a value that is no block at all, which the card reads as none.
  *
  * @param config - Merged configuration
  * @param authored - The `overlay:` block as the YAML holds it
@@ -1122,7 +1169,29 @@ export function stripOverlayDefaults(config: Readonly<Types.Config>, authored?: 
     }
     result[key] = value;
   }
-  return Object.keys(result).length > 0 ? result : undefined;
+  for (const path of OVERLAY_DEFAULTED) {
+    const key = path[path.length - 1];
+    const parents = path.slice(0, -1);
+    let holder: unknown = result;
+    let held: unknown = authored;
+    for (const each of parents) {
+      holder = Helpers.isConfigBlock(holder) ? holder[each] : undefined;
+      held = Helpers.isConfigBlock(held) ? held[each] : undefined;
+    }
+    if (!Helpers.isConfigBlock(holder) || !Helpers.hasOwn(holder, key)) continue;
+    const value = holder[key];
+    if (!deepEqual(value, overlayDefault(path)) || unchangedFromAuthored(held, key, value))
+      continue;
+    // Copied on the way down, so the merged configuration's own blocks are not changed.
+    let copy: Record<string, unknown> = result;
+    for (const each of parents) {
+      copy[each] = { ...(copy[each] as Record<string, unknown>) };
+      copy = copy[each] as Record<string, unknown>;
+    }
+    copy[key] = undefined;
+  }
+  const kept = withoutEmptied(result, authored);
+  return Helpers.isConfigBlock(kept) && Object.keys(kept).length > 0 ? kept : undefined;
 }
 
 /**

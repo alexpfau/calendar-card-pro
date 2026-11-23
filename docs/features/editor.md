@@ -26,6 +26,7 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                                                                                   |
 | **Whole Card**                 | The pages whose settings are the same in every layout, a row each saying in one line what the page holds                                                                         |
 | **Layouts**                    | List, Columns, Grid and Month, a row each with its picture, then Layout Defaults; see [Options for the Selected View](#options-for-the-selected-view)                            |
+| **Full Size**                  | **Open Full Size**, saying what the card opens with full size, such as Grid · 7 days; see [Full Size](#full-size)                                                                |
 | **More**                       | [Stored Settings](#stored-settings) and Start From an Example                                                                                                                    |
 
 **Whole Card**'s rows open these pages, each row saying in a line what its page holds:
@@ -88,6 +89,26 @@ browser for every card, with a box that is checked while it is on. It shows each
 option name beside its label, and the YAML path in search results and in Stored Settings,
 which helps when you move between the editor and YAML. The **⋯** button opens and closes the
 menu, Down Arrow opens it from the button, and Escape closes it.
+
+### Full Size
+
+**Full Size**, between Layouts and More, opens **Open Full Size**: what the card opens with when
+the [`overlay` action](/features/actions#opening-the-card-full-size) or the toolbar's Open Full
+Size button opens it over the dashboard. Its row says so in a line, such as **Grid · 7 days**.
+
+The page holds **Layout**, **Days To Show** and **Show Toolbar**, which write `view`,
+`days_to_show` and `toolbar → show` under `overlay`. Each says where its value comes from:
+**Full-Size Default** for what the card opens with on its own, Grid, seven days and the toolbar,
+or **Set for Full Size**, with Reset. Opening the page writes nothing. Show Toolbar off leaves the
+full-size card its Close button alone.
+
+Below them, **Also Set for Full Size** lists whatever else `overlay` holds, set in YAML, each line
+with its value and **Remove**, after which the full-size card takes the card's own again. A count
+of days `overlay` holds for one layout, as in `overlay: { time_grid: { days_to_show: 3 } }`, is
+listed there and named under Days To Show too, as **Grid Has Its Own: 3**.
+
+On Taps & Refresh, while the card's tap or hold opens it full size, a line under Taps leads to the
+page, and so does one under the toolbar's controls on Card & Header while Open Full Size is on.
 
 ### Pages & Back
 

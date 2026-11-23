@@ -38,6 +38,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
+  // The page under Full Size on the overview, named as the toolbar chip and the action are.
+  'page.full_size': 'Open Full Size',
+  'page.full_size.aliases': 'overlay, fullscreen, full screen, expand, enlarge, maximize, popup',
+  'page.full_size.note':
+    'What the card opens with when Open Full Size opens it over the dashboard. Everything else comes from the card.',
   // Month's Event Appearance page: where its marks say a setting acts, in the four names Month's
   // pages use for what it draws (Wide Month, Narrow Month, Day List, Day Panel).
   'page.month_rows.note':
@@ -51,6 +56,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.description': 'Title, colors and toolbar controls',
   'page.events_weather_language.description': 'Start date, week start and time format',
   'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
+  'page.full_size.description': 'The layout, days and toolbar the card opens full size with',
   'page.which_events.description': 'Date range, filters and empty days',
   'panel.day_header.description': 'Dates, week numbers, today and weekends',
   'panel.events.description': 'Event details, text styles and colors',
@@ -75,8 +81,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
-  // The card opened full size over the dashboard by Open Full Size, on Taps & Refresh.
-  'heading.overlay': 'Full-Size Overlay',
+  // The Open Full Size page: its own settings, then what else `overlay:` holds.
+  'heading.full_size_opens': 'Opens With',
+  'heading.full_size_more': 'Also Set for Full Size',
+  'heading.full_size_more.helper':
+    'Set in YAML, under overlay. Remove one, and the card opened full size takes the card’s own again.',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -152,6 +161,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.whole_card': 'Whole Card',
   'overview.whole_card.hint': 'The same in every layout.',
   'overview.layouts': 'Layouts',
+  // The section between Layouts and More, and its row's line: what the card opens full size with.
+  'overview.full_size': 'Full Size',
+  'full_size.days': '{count} days',
+  'full_size.days_one': '1 day',
+  'full_size.toolbar_off': 'Toolbar off',
+  'full_size.more_set': '{count} more set',
+  'full_size.more_set_one': '1 more set',
+  // The line leading to the Open Full Size page, from Taps and from the toolbar's chips.
+  'full_size.link': 'Opens full size in {layout}, {days}:',
+  'full_size.link_month': 'Opens full size in {layout}:',
   'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
   'layouts.help_pick': 'The circle picks the layout the card opens in.',
@@ -217,6 +236,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.shared_entries': 'Also Applies to Entries {entries}',
   // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
+  // On the Open Full Size page: a value set under `overlay:`, and the full-size card's own.
+  'state.set_full_size': 'Set for Full Size',
+  'state.full_size_default': 'Full-Size Default',
   // Under a field in Layout Defaults, for each layout its value does not reach: one that
   // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
@@ -1430,7 +1452,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.search.helper':
     'Finds events by title, location or description, a year either way. Needs Date Navigation.',
   'toolbar.overlay': 'Open Full Size Button',
-  'toolbar.overlay.helper': 'Opens in the layout set under Full-Size Overlay.',
+  'toolbar.overlay.helper': 'Opens the card as set under Full Size.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper': 'Shown only when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
@@ -1439,10 +1461,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
-  // The layout the card opens in full size; its options are the layouts' names (`view.option.*`).
+  // What the card opens full size with; Layout's options are the layouts' names (`view.option.*`).
   'overlay.view': 'Layout',
-  'overlay.view.helper':
-    'The layout Open Full Size opens the card in. Its other options are set in YAML, under overlay.',
+  'overlay.view.helper': 'The others are a press away on its toolbar.',
+  'overlay.days_to_show': 'Days To Show',
+  'overlay.days_to_show.helper':
+    'In List, Columns and Grid. Where fewer fit, Columns and Grid show as many as fit.',
+  'overlay.toolbar.show': 'Show Toolbar',
+  'overlay.toolbar.show.helper': 'Off leaves Close alone: no arrows, and no other layout.',
   // Only the date navigation and the calendar chips change size; the label says so, since the
   // option's own name, `size`, leaves room for more. `normal` is named Small: they are small
   // beside the action row's buttons, and Normal reads as the font weight's Regular in most of
@@ -1805,8 +1831,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // Its fifth: the card opened full size over the dashboard, in the layout Full-Size Overlay
-  // names.
+  // Its fifth: the card opened full size over the dashboard, as the Open Full Size page sets it.
   'card_action.option.overlay.label': 'Open Full Size',
   // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.
