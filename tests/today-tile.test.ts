@@ -199,7 +199,7 @@ describe('the editor', () => {
 describe("Month's filled tile", () => {
   const css = cardStyles.cssText.replace(/\s+/g, ' ');
   const WIDE = '.month-container:not(.month-narrow) .month-date > .day.today-tile';
-  const NARROW = '.month-narrow .month-day.month-selected.today .month-date > .day';
+  const NARROW = '.month-narrow .month-day.month-selected .month-date > .day.today-tile';
 
   const linear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   function oklab(r: number, g: number, b: number): [number, number, number] {
@@ -234,8 +234,11 @@ describe("Month's filled tile", () => {
     const factors = [...body.matchAll(/calc\(([lab]) \* ([\d.]+) \/ max\(l, ([\d.]+)\)\)/g)];
     expect(factors.map((f) => f[1])).toEqual(['l', 'a', 'b']);
     expect(new Set(factors.flatMap((f) => [f[2], f[3]])).size).toBe(1);
-    expect(body).toMatch(/--calendar-card-today-indicator-ink: #fff/);
-    expect(body).toMatch(/color: #fff/);
+    // Both fills redefine the ink their digits read inline, in the same rule as the fill, and
+    // set no color of their own, which would outrank a color named for the digits.
+    const shared = body.slice(body.indexOf(`${WIDE}, ${NARROW} {`)).split('}')[0];
+    expect(shared).toMatch(/--calendar-card-today-indicator-ink: #fff;/);
+    expect(shared).not.toMatch(/[;{] color:/);
   });
 
   it('gives white digits at least 4.5 to 1 on every sRGB indicator color', () => {
