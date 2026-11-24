@@ -625,7 +625,7 @@ function lineTime(
   const end = new Date(event.end.dateTime);
   return end.getTime() === Grid.startOfDay(end).getTime()
     ? null
-    : `${Localize.getTranslations(language).multiDay} ${reading(end)}`;
+    : Localize.getTranslations(language).untilTime.replace('{time}', () => reading(end));
 }
 
 /**

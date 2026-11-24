@@ -17,6 +17,7 @@
   ],
   "allDay": "цял ден",
   "multiDay": "до",
+  "untilTime": "до {time}",
   "at": "в",
   "separator": ", ",
   "viewList": "Списък",

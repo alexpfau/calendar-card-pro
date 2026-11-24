@@ -25,9 +25,13 @@ When enabled, multi-day events are split in a way that preserves their original 
 
 - **All-day events** appear as single-day all-day events on each day they cover
 - **Timed multi-day events** are split into:
-  - First day: Event from start time to end of day (e.g., 10:00-23:59)
-  - Middle days: Full all-day events
-  - Last day: Event from start of day to end time (e.g., 00:00-15:00)
+  - First day: its start and its own end, as the event reads unsplit (below), such as
+    "10:00 until Friday, Oct 23 at 15:00"
+  - Middle days: full all-day events, reading "All day"
+  - Last day: its end alone, such as "Until 15:00"
+
+Each row names a time the event really starts or ends at, so a day seen on its own, as a month's
+[day list](/features/month-view#the-day-list) shows it, reads true.
 
 A timed event ending exactly at midnight has no row on the date that midnight opens, even when
 it spans several days. An event ending after midnight still has a final-day row.
