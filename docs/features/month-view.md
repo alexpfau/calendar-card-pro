@@ -86,6 +86,8 @@ while that month is today's, and otherwise by the month it goes to, such as "Jan
 week holding `start_date`, or today's week, and `month → weeks` sets how many weeks follow it, so
 a wall tablet can keep the next four weeks in view all month long.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_month_coming_weeks.png" alt="A wide month card showing four weeks from Monday, October 19 to Sunday, November 15 rather than the calendar month: its heading reads October 2026, Wednesday the 21st is today, no day is dimmed, and November 1 carries its month's name where the new month begins" width="1100"><br>
+
 ```yaml
 view: month
 month:

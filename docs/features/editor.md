@@ -12,7 +12,7 @@ have not added a card yet, start with [Usage](/guide/usage).
 
 ## 🗺️ The Overview
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of a Family card: a search field with Undo, Redo and Pick From Preview, the four calendars with their colors and faces, Whole Card's three pages, and Layouts with List selected over Columns, Grid and Month, then Layout Defaults" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.1.png" alt="The visual editor in dark mode beside a live preview of a Family card: a search field with Undo, Redo and Pick From Preview, the four calendars with their colors and faces, Whole Card's three pages, Layouts with List selected over Columns, Grid and Month, then Layout Defaults, Full Size with its Full-Size Settings row, and More with Stored Settings and Start From an Example" width="600"><br>
 
 The overview is the first thing the editor shows. It holds the card's calendars, the settings
 the whole card shares, and its layouts, each leading to pages of their own. Top to bottom:

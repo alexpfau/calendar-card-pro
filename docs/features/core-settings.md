@@ -522,12 +522,16 @@ A person's picture can then carry an icon or an emoji that says what kind of eve
 type: custom:calendar-card-pro
 entities:
   - entity: calendar.anna
-    label: [person.anna, mdi:soccer]
-    allowlist: Football
+    label: [person.anna, mdi:briefcase]
+    label_image_size: 2em
+    allowlist: Office|WFH
   - entity: calendar.anna
     label: person.anna
-    blocklist: Football
+    label_image_size: 2em
+    blocklist: Office|WFH
 ```
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_label_parts.png" alt="Three days of Anna's events, each led by her face drawn at twice the text's height: her Office and WFH rows also carry a briefcase icon after the face, while Baby gym, Book club, Call Ben, Coffee with Jana and Pilates show the face alone" width="450"><br>
 
 Each part is read on its own, as a single `label` is: text or an emoji, an `mdi:` icon, an image
 address, a `person.` entity ID, or `home-assistant`. `label_icon_color` tints every icon in the
