@@ -12,6 +12,7 @@
   "months": ["Jan", "Feb", "Mar", "Apr", "Maí", "Jún", "Júl", "Ágú", "Sep", "Okt", "Nóv", "Des"],
   "allDay": "Allur dagurinn",
   "multiDay": "þar til",
+  "untilTime": "þar til {time}",
   "at": "kl",
   "separator": ", ",
   "viewList": "Listi",

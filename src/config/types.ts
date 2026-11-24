@@ -1807,6 +1807,13 @@ export interface Translations {
   allDay: string;
   multiDay: string;
   /**
+   * A time an event runs until, with `{time}` where the reading goes: "until {time}", "until
+   * 1:35". The last day of a timed event drawn a day at a time reads it, as does a wide month's
+   * later day of an overnight event. Apart from `multiDay`, which a date follows: Spanish writes
+   * "hasta el viernes" but "hasta las 1:35", French "jusqu'au vendredi" but "jusqu'à 1:35".
+   */
+  untilTime: string;
+  /**
    * What puts a time in a sentence, "at" in "ends tomorrow at 0:30". A language that marks the
    * time itself writes a template with `{time}` where the reading goes, as Hungarian does with
    * its suffix: "{time}-kor". Korean writes "{time}", the reading with nothing before it.

@@ -132,6 +132,7 @@ The card now speaks Japanese, its 39th language, and the visual editor its 13th,
 - **Continuation Marks Pointed Backward** - On a right-to-left dashboard, such as one in Hebrew, a grid banner that runs past the days shown drew its ◂ and ▸ marks pointing back at its own title instead of the way the event carries on
 - **An All-Day Banner Lost Its Length** - With `show_duration: true`, a grid all-day banner's length disappeared where `show_single_allday_time` or `show_multiday_allday_time` was off, two options that otherwise do nothing in grid view
 - **The Rule Under Column Headers Pushed the Events Down** - In column view, `day_header_separator_width` drew its rule below the header's gap and then added the gap again, so turning it on moved every event down. The rule now sits in the middle of `day_header_gap` and moves nothing
+- **An Overnight Event Seemed to End at 23:59** - In column view, and in a list with `split_multiday_events`, an event running past midnight read "22:05 - 23:59" on its first day and "0:00 - 1:35" on the next, or "0:00" alone with `show_end_time: false`. The first day now reads as the event does unsplit, "22:05, ends tomorrow at 1:35", and the next "Until 1:35"
 - **A Countdown Beside the Title Broke Mid-Phrase** - With `time_position: title`, a countdown or day counter folded into the time wrapped wherever its line ran out, reading "Day 12 of" over "45". It now moves to the next line whole, after its dot
 
 ### Weather & Loading
