@@ -699,6 +699,8 @@ On a card that has the reset button, the button shows its check after a reset, a
 small list on a wall tablet opens onto seven days, and Month is one press away on the layout
 switcher.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_overlay.png" alt="A wall tablet whose two-day Family list has opened full size over the dimmed dashboard: Grid on a week from Wednesday, October 21 to Tuesday, October 27, each event in its calendar's color with the family's faces, the layout switcher with Grid selected, and a red Close button at the end of the top row"><br>
+
 ```yaml
 tap_action:
   action: overlay
