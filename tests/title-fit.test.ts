@@ -151,6 +151,7 @@ describe('fitTitlesBesideTime', () => {
       start: '',
       end: '',
       below: '',
+      lift: '',
     });
   });
 
@@ -274,6 +275,7 @@ describe('fitTitlesBesideTime', () => {
       start: '',
       end: '',
       below: '',
+      lift: '',
     });
   });
 
@@ -372,7 +374,130 @@ describe('fitTitlesBesideTime', () => {
       start: '',
       end: '',
       below: '',
+      lift: '',
     });
+  });
+});
+
+/**
+ * The time beside a title of one line, on the line a picture label taller than the title's leads.
+ * The title sits in the middle of that line, beside the picture's middle, and the stylesheet places
+ * the time by the line's end, where it sat 5.6px below the title beside a 2em picture in Chromium
+ * and WebKit (List, Columns and Month's Day Panel). The card lifts it by how far the strut's text,
+ * at the title's size, sits below the title's there, which put the two on one baseline in both.
+ */
+describe('lifting the time onto the title beside a taller picture', () => {
+  /** A 2em picture beside a 14px title. */
+  const PICTURE = 28;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  interface PictureRow {
+    picture: number;
+    titleLines: number;
+    /** Whether the time takes a line of its own below the title. */
+    alone?: boolean;
+  }
+
+  /**
+   * A wrapping row led by a picture, with the geometry a browser gave it: the picture's line as
+   * tall as the picture where that is taller than the title's line, the title in its middle, and
+   * the time placed by the end of the room's line, as the stylesheet places it with no lift.
+   */
+  function pictureRow({ picture, titleLines, alone = false }: PictureRow, capped = false) {
+    const element = row({ titleLines, timeLines: 1, alone, timeWidth: NARROW }, capped);
+    const summary = element.querySelector<HTMLElement>('.summary')!;
+    const image = document.createElement('img');
+    image.className = 'label-image';
+    summary.prepend(image);
+    const first = Math.max(picture, LINE);
+    const lineTop = (index: number) => PAD + (index === 0 ? 0 : first + (index - 1) * LINE);
+    const lineHeight = (index: number) => (index === 0 ? first : LINE);
+    place(image, { top: PAD + (first - picture) / 2, height: picture, width: picture });
+    place(summary, {
+      top: 0,
+      height: PAD + first + (titleLines - 1 + (alone ? 1 : 0)) * LINE + PAD,
+    });
+    // As in row(): the font's box reaches 0.6px past the title's line either side.
+    const titleTop = (index: number) => lineTop(index) + (lineHeight(index) - LINE) / 2 - 0.6;
+    Object.defineProperty(element.querySelector('.event-title')!, 'getClientRects', {
+      configurable: true,
+      value: () =>
+        Array.from({ length: titleLines }, (_, index) => ({
+          top: titleTop(index),
+          bottom: titleTop(index) + LINE + 1.2,
+          width: 100,
+        })),
+    });
+    const roomLine = alone ? titleLines : titleLines - 1;
+    place(element.querySelector('.title-room')!, { top: lineTop(roomLine), height: LINE });
+    // The strut's text, where the time's box is placed: its top a line short of its line's end.
+    const strutTop = lineTop(roomLine) + lineHeight(roomLine) - LINE - 0.6;
+    const strut = element.querySelector('.title-strut')!;
+    const read = vi.fn(function (this: Range) {
+      const at = this.startContainer;
+      const top = at === strut || strut.contains(at) ? strutTop : 0;
+      return { top, bottom: top + LINE + 1.2, height: LINE + 1.2 } as DOMRect;
+    });
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(read);
+    return { element, read };
+  }
+
+  const lift = (element: HTMLElement) => element.style.getPropertyValue(P.lift);
+
+  it("lifts the time by half what the picture adds to the title's line, which puts it on the title's", () => {
+    for (const picture of [PICTURE, 40]) {
+      const { element } = pictureRow({ picture, titleLines: 1 });
+      fitTitlesBesideTime([element], 0);
+      expect(parseFloat(lift(element)), `${picture}px`).toBeCloseTo((picture - LINE) / 2, 6);
+    }
+  });
+
+  it('lifts a capped title that fits, which draws as it does with no limit', () => {
+    const { element } = pictureRow({ picture: PICTURE, titleLines: 1 }, true);
+    fitTitlesBesideTime([element], 2);
+    expect(element.getAttribute(TITLE_CUT)).toBeNull();
+    expect(parseFloat(lift(element))).toBeCloseTo((PICTURE - LINE) / 2, 6);
+  });
+
+  it("leaves a time on a later line, or on a line of its own, where the title's line ends", () => {
+    const later = pictureRow({ picture: PICTURE, titleLines: 2 }).element;
+    const alone = pictureRow({ picture: PICTURE, titleLines: 1, alone: true }).element;
+    fitTitlesBesideTime([later, alone], 0);
+    expect(lift(later)).toBe('');
+    expect(lift(alone)).toBe('');
+    // Fitted all the same.
+    expect(later.getAttribute(TITLE_FIT)).toBe('ltr');
+  });
+
+  it("reads nothing more for a picture no taller than the title's line, or a row without one", () => {
+    // Every picture whose calendar sets no size is the text's height, 14px on a 16.8px line.
+    const unsized = pictureRow({ picture: 14, titleLines: 1 });
+    const plain = row({ titleLines: 1, timeLines: 1, alone: false, timeWidth: NARROW }, false);
+    fitTitlesBesideTime([unsized.element, plain], 0);
+    expect(lift(unsized.element)).toBe('');
+    expect(lift(plain)).toBe('');
+    expect(unsized.read).not.toHaveBeenCalled();
+  });
+
+  it('takes a lift off a row whose time no longer shares the picture’s line', () => {
+    const { element } = pictureRow({ picture: PICTURE, titleLines: 1 });
+    fitTitlesBesideTime([element], 0);
+    expect(lift(element)).not.toBe('');
+    // The card narrows, and the time takes a line of its own below the title.
+    place(element.querySelector('.title-room')!, { top: PAD + PICTURE, height: LINE });
+    fitTitlesBesideTime([element], 0);
+    expect(lift(element)).toBe('');
+    // And a row the card can no longer measure loses it with the rest.
+    place(element.querySelector('.title-room')!, { top: PAD, height: LINE });
+    fitTitlesBesideTime([element], 0);
+    expect(lift(element)).not.toBe('');
+    Object.defineProperty(element.querySelector('.summary'), 'offsetWidth', { value: 0 });
+    fitTitlesBesideTime([element], 0);
+    expect(lift(element)).toBe('');
   });
 });
 

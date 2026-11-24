@@ -23,6 +23,7 @@ import * as Render from '../src/rendering/render';
 import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 import * as FormatUtils from '../src/utils/format';
+import { fitTitlesBesideTime } from '../src/utils/title-fit';
 
 const PICTURE = '/api/image/serve/anna/512x512';
 
@@ -242,6 +243,65 @@ describe('the height of a picture label', () => {
       /\.time-beside-title > \.summary-row > \.summary-scroll:has\(> \.label-image\) > \.event-title \{\s*margin-top: max\(0px, \(var\(--calendar-card-label-image-size, 1em\) - 1\.2em\) \/ 2\);/,
     );
     expect(cardStyles.cssText).toMatch(/\.event-title \{\s*font-weight: 500;\s*line-height: 1\.2;/);
+  });
+
+  it('lifts the time beside a wrapping title onto the title’s line beside a taller picture', () => {
+    // The rule above reaches a title kept to one line only. A title that wraps beside the time,
+    // the default, sits in the middle of the line a 2em picture makes taller, and the time is
+    // placed by that line's end: 5.6px below the title in List, Columns and Month's Day Panel,
+    // measured in Chromium and WebKit. The card lifts it (title-fit.test.ts), reading the parts
+    // this row draws: the picture as the summary's own child, the room and the strut.
+    const config = buildConfig({
+      time_position: 'title',
+      entities: [
+        {
+          entity: 'calendar.anna',
+          label: ['person.anna', 'mdi:soccer'],
+          label_image_size: '2em',
+        },
+      ],
+    });
+    const row = rows(config).querySelector<HTMLElement>('.summary-row')!;
+    expect(row.matches('.time-beside-title > .summary-row.title-wrap')).toBe(true);
+    const summary = row.querySelector<HTMLElement>(':scope > .summary')!;
+    const picture = summary.querySelector(':scope > .label-image')!;
+    const room = summary.querySelector(':scope > .title-room')!;
+    const aside = row.querySelector(':scope > .title-aside')!;
+    const strut = aside.querySelector(':scope > .title-strut')!;
+    expect([picture, room, strut, summary.querySelector('.event-title')]).not.toContain(null);
+
+    // One 33.6px line: the 28px picture between 2.8px of padding, the title's 16.8px line in its
+    // middle, the room at the line's top and the time a line short of its end.
+    document.body.appendChild(row);
+    const box = (top: number, height: number, width = 300) =>
+      ({ top, bottom: top + height, height, width, left: 0, right: width }) as DOMRect;
+    const stub = (element: Element, rect: DOMRect) =>
+      Object.defineProperty(element, 'getBoundingClientRect', { value: () => rect });
+    Object.defineProperty(summary, 'offsetWidth', { value: 300 });
+    Object.defineProperty(summary, 'clientWidth', { value: 300 });
+    stub(summary, box(0, 33.6));
+    stub(picture, box(2.8, 28, 28));
+    stub(room, box(2.8, 16.8, 80));
+    stub(aside, box(14, 16.8, 80));
+    stub(strut, box(14, 16.8, 0));
+    Object.defineProperty(summary.querySelector('.event-title')!, 'getClientRects', {
+      value: () => [box(8.4, 16.8, 100)],
+    });
+    const range = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Range,
+    ) {
+      return this.startContainer === strut ? box(14, 16.8, 0) : box(0, 0);
+    });
+    try {
+      fitTitlesBesideTime([row], 0);
+    } finally {
+      range.mockRestore();
+      row.remove();
+    }
+    expect(row.style.getPropertyValue('--calendar-card-title-room-lift')).toBe('5.6px');
+    expect(cardStyles.cssText).toMatch(
+      /\.summary-row\.title-wrap\[data-title-fit\] > \.title-aside \{[^}]*margin-top: calc\(-1 \* var\(--calendar-card-title-room-lift, 0px\)\);/,
+    );
   });
 
   it('leaves a wide month line’s picture at the text’s height', () => {
