@@ -1973,7 +1973,7 @@ describe('the weeks’ lines and bars', () => {
 
 describe('today’s tile in the wide month', () => {
   const WIDE_TILE = '.month-container:not(.month-narrow) .month-date > .day.today-tile';
-  const SELECTED_TODAY = '.month-narrow .month-day.month-selected.today .month-date > .day';
+  const SELECTED_TODAY = '.month-narrow .month-day.month-selected .month-date > .day.today-tile';
   const NARROW_DAY = '.month-narrow .month-date > .day';
 
   /** A rule's declarations outside any at-rule, by property. */
@@ -1996,12 +1996,17 @@ describe('today’s tile in the wide month', () => {
       ink: 'var(--text-primary-color, #fff)',
       weight: '600',
     });
-    // Drawn as the narrow form draws today while it is the selected day.
+    // Drawn as the narrow form draws today while it is the selected day, its ink redefined
+    // the same way.
     expect([
       wide.background,
       wide['--calendar-card-today-indicator-ink'],
       wide['font-weight'],
-    ]).toEqual([selected.background, selected.color, selected['font-weight']]);
+    ]).toEqual([
+      selected.background,
+      selected['--calendar-card-today-indicator-ink'],
+      selected['font-weight'],
+    ]);
   });
 
   it('rounds its corners as the narrow tile does, short of a pill, and leaves the list’s', () => {
@@ -2044,5 +2049,121 @@ describe('today’s tile in the wide month', () => {
     const listTile = root(list).querySelector('.day.today-tile');
     expect(listTile).not.toBeNull();
     expect(listTile!.matches(WIDE_TILE)).toBe(false);
+  });
+});
+
+/**
+ * Month marks today with the tile or not at all, as the other layouts do: under any other
+ * `today_indicator` they draw today's number as any other day's beside their dot, and Month,
+ * which draws no dot, draws it as any other day's. So today's number reaches exactly the rules,
+ * and carries exactly the inline style, an ordinary day's does: unselected beside an unselected
+ * weekday, selected beside a selected one. The default tile is the control in each, where today
+ * must differ.
+ */
+describe('today without the tile', () => {
+  /** Every declaration of a rule whose subject is a day's number and which reaches it. */
+  const NUMBER_RULES = declarations(cardStyles.cssText).filter((d) =>
+    d.selectors.some((selector) => /\.day(?![\w-])[^\s>+~]*$/.test(selector)),
+  );
+
+  /**
+   * The rules reaching a number, with the declarations written on it. Those are read sorted and
+   * without happy-dom's `null`: Lit's styleMap clears a property it set before by assigning it
+   * null, which a browser reads as removing it and happy-dom writes as the word, after the
+   * declarations still standing, so the same style read differently after another render.
+   */
+  function paints(element: Element): string[] {
+    const inline = (element.getAttribute('style') ?? '')
+      .split(';')
+      .map((declaration) => declaration.trim())
+      .filter((declaration) => declaration !== '' && !declaration.endsWith(': null'))
+      .sort();
+    return [
+      ...NUMBER_RULES.filter((d) => d.selectors.some((selector) => element.matches(selector))).map(
+        (d) => `${d.at.join(' ')} { ${d.property}: ${d.value} }`,
+      ),
+      ...inline.map((declaration) => `inline ${declaration}`),
+    ];
+  }
+
+  /** A wide day's number, by its date in November. */
+  const wideNumber = (card: CardUnderTest, date: number) =>
+    [
+      ...root(card).querySelectorAll<HTMLElement>(
+        '.month-day:not(.other-month) + .month-date > .day',
+      ),
+    ].find((element) => text(element) === String(date))!;
+
+  /** A narrow day's number, by its date in November. */
+  const narrowNumber = (card: CardUnderTest, date: number) =>
+    day(card, date).querySelector<HTMLElement>('.month-date > .day')!;
+
+  it('finds rules for a day’s number, so the comparisons below compare something', () => {
+    // A denominator for the comparisons below, which would pass on an empty list.
+    expect(NUMBER_RULES.length).toBeGreaterThan(10);
+  });
+
+  it.each([false, 'dot'])(
+    'draws today’s number in a wide month as any other day’s, under %s',
+    async (indicator) => {
+      const card = await mount({ today_indicator: indicator });
+      expect(wideNumber(card, 18).classList.contains('today-tile')).toBe(false);
+      expect(paints(wideNumber(card, 18))).toEqual(paints(wideNumber(card, 20)));
+      // The control: the tile is today's own.
+      const tile = await mount();
+      expect(paints(wideNumber(tile, 18))).not.toEqual(paints(wideNumber(tile, 20)));
+    },
+  );
+
+  it.each([false, 'dot'])(
+    'draws today unselected in a narrow month as any other day, under %s',
+    async (indicator) => {
+      const card = await mount({ today_indicator: indicator }, 375);
+      await tap(card, day(card, 25));
+      expect(selected(card)).toEqual(['25']);
+      expect(paints(narrowNumber(card, 18))).toEqual(paints(narrowNumber(card, 20)));
+      const tile = await mount({}, 375);
+      await tap(tile, day(tile, 25));
+      expect(paints(narrowNumber(tile, 18))).not.toEqual(paints(narrowNumber(tile, 20)));
+    },
+  );
+
+  it.each([false, 'dot'])(
+    'marks today selected in a narrow month as any other day selected, under %s',
+    async (indicator) => {
+      // Each selected from the first render, the other day by the start date the month opens
+      // on: happy-dom keeps a color a tap's render clears, where a browser drops it.
+      const card = await mount({ today_indicator: indicator }, 375);
+      const other = await mount({ today_indicator: indicator, start_date: '2026-11-20' }, 375);
+      expect([selected(card), selected(other)]).toEqual([['18'], ['20']]);
+      expect(paints(narrowNumber(card, 18))).toEqual(paints(narrowNumber(other, 20)));
+      // The control: today's tile selected is filled, not the neutral mark.
+      const tile = await mount({}, 375);
+      const otherTile = await mount({ start_date: '2026-11-20' }, 375);
+      expect(paints(narrowNumber(tile, 18))).not.toEqual(paints(narrowNumber(otherTile, 20)));
+    },
+  );
+
+  it('steps a weekend today back with the other weekend days in a narrow month', async () => {
+    vi.setSystemTime(new Date('2026-11-21T10:00:00Z'));
+    const card = await mount({ today_indicator: false }, 375);
+    await tap(card, day(card, 20));
+    expect(day(card, 21).classList.contains('today')).toBe(true);
+    expect(narrowNumber(card, 21).style.color).toBe('var(--secondary-text-color)');
+    expect(paints(narrowNumber(card, 21))).toEqual(paints(narrowNumber(card, 22)));
+  });
+});
+
+describe('today’s tile selected in a narrow month', () => {
+  it('takes the digits’ color the card names, as every tile does', async () => {
+    const card = await mount({ today_day_color: 'rgb(1, 2, 3)' }, 375);
+    expect(selected(card)).toEqual(['18']);
+    const tile = day(card, 18).querySelector<HTMLElement>('.day.today-tile')!;
+    expect(tile.style.color).toBe('rgb(1, 2, 3)');
+    // The control: unset, the digits read the ink the fill redefines.
+    const plain = await mount({}, 375);
+    expect(day(plain, 18).querySelector<HTMLElement>('.day.today-tile')!.style.color).toBe(
+      'var(--calendar-card-today-indicator-ink)',
+    );
   });
 });

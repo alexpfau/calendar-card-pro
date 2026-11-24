@@ -1184,7 +1184,8 @@ function renderMarks(
 
 /**
  * One narrow day: its number and its capsule. The selected day's number sits on a neutral
- * mark, today's on the today tile, and both at once on the tile filled. A tap selects the day
+ * mark, today's on the today tile, and both at once on the tile filled. Where today_indicator
+ * draws no tile, today is drawn as any other day, selected or not. A tap selects the day
  * (`calendarCardMonthPick`), and never adds on it or runs `day_tap_action`: adding is the
  * toolbar's add, dated on the selected day, and `day_tap_action` the list's.
  *
@@ -1219,18 +1220,17 @@ function renderNarrowDay(
   const { weight, opacity } = Leaves.dateEmphasis(config, isToday, isPast);
   const otherMonth =
     date.getMonth() !== headerMonth.getMonth() || date.getFullYear() !== headerMonth.getFullYear();
-  // The selected day's mark sets its own ink. Today off the tile is written in the indicator's
-  // color, so it still reads as today. A weekend's number steps back to the secondary text, as a
-  // phone's month does, unless the card names a weekend color for it.
-  const ink = selected
-    ? undefined
-    : isToday
-      ? todayTile
-        ? colors.day
-        : config.today_day_color || 'var(--calendar-card-today-indicator-color)'
-      : isWeekendDay
-        ? config.weekend_day_color || 'var(--secondary-text-color)'
-        : colors.day;
+  // Today's tile takes its own ink, a named day color winning over it (`Leaves.dateColors`),
+  // whether or not it is selected; the fill redefines the ink. Any other selected day's mark
+  // sets its own. Off the tile, today is drawn as any other day, in today_day_color where one is
+  // named: Month marks today with the tile or not at all. A weekend's number steps back to the
+  // secondary text, as a phone's month does, unless the card names a weekend color for it.
+  const ink = todayTile
+    ? colors.day
+    : selected
+      ? undefined
+      : (isToday && config.today_day_color) ||
+        (isWeekendDay ? config.weekend_day_color || 'var(--secondary-text-color)' : colors.day);
 
   return html`<div
     class=${classMap({

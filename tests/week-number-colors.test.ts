@@ -449,11 +449,17 @@ describe('the stylesheet', () => {
         '--calendar-card-today-indicator-wash',
         '--calendar-card-today-indicator-ink',
       ]) {
-        // Month's filled tile redefines its own ink in the relative tier, for white digits on its
-        // darkened fill; it is set on that tile alone, so the pill keeps reading the card's.
+        // Month's two filled tiles redefine their own ink in the relative tier, for white digits
+        // on their darkened fill; it is set on those tiles alone, so the pill keeps reading the
+        // card's.
         const monthTile =
           pattern === RELATIVE && property === '--calendar-card-today-indicator-ink'
-            ? [['.month-container:not(.month-narrow) .month-date > .day.today-tile']]
+            ? [
+                [
+                  '.month-container:not(.month-narrow) .month-date > .day.today-tile',
+                  '.month-narrow .month-day.month-selected .month-date > .day.today-tile',
+                ],
+              ]
             : [];
         expect(
           tier(pattern, property).map((d) => d.selectors),
@@ -500,10 +506,15 @@ describe('the stylesheet', () => {
     );
     expect(floors.map((d) => [d.at, d.selectors, d.value])).toEqual([
       [[], ['.day.today-tile'], 'var(--text-primary-color, #fff)'],
-      // The wide month's filled tile, declared on the tile as well and never on ha-card.
+      // Month's two filled tiles, each declared on the tile as well and never on ha-card.
       [
         [],
         ['.month-container:not(.month-narrow) .month-date > .day.today-tile'],
+        'var(--text-primary-color, #fff)',
+      ],
+      [
+        [],
+        ['.month-narrow .month-day.month-selected .month-date > .day.today-tile'],
         'var(--text-primary-color, #fff)',
       ],
     ]);

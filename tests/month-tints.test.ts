@@ -337,11 +337,11 @@ describe('the stylesheet', () => {
       (d) => d.property === 'background' && d.selectors.some((s) => s.includes('.month-selected')),
     );
     expect(marks.flatMap((d) => d.selectors)).toEqual([
-      '.month-narrow .month-day.month-selected:not(.today) .month-date > .day',
-      '.month-narrow .month-day.month-selected.today .month-date > .day',
+      '.month-narrow .month-day.month-selected .month-date > .day:not(.today-tile)',
+      '.month-narrow .month-day.month-selected .month-date > .day.today-tile',
       // The darkened fill where the browser has relative colors, shared with the wide tile.
       '.month-container:not(.month-narrow) .month-date > .day.today-tile',
-      '.month-narrow .month-day.month-selected.today .month-date > .day',
+      '.month-narrow .month-day.month-selected .month-date > .day.today-tile',
     ]);
     // The ring is an outline drawn inside the cell's edges, over its background.
     expect(rule('.month-day:focus-visible')).toMatchObject({ 'outline-offset': '-2px' });

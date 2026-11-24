@@ -8357,7 +8357,9 @@ export const cardStyles = css`
   }
 
   /* The existing tile, set in the date's size. Its own centering margin would push it to the
-     middle of the line, so it sits at the end like any date. */
+     middle of the line, so it sits at the end like any date. Month marks today with the tile or
+     not at all: under any other today_indicator, today's number is drawn as any other day's in
+     both forms, as the other layouts draw it beside a dot. */
   .month-date > .day.today-tile {
     margin: 0;
     font-weight: 500;
@@ -8389,13 +8391,6 @@ export const cardStyles = css`
     .month-container:not(.month-narrow) .month-date > .day.today-tile {
       border-radius: 0.6em;
     }
-  }
-
-  /* Today without the tile, where today_indicator names another style or none: its number in
-     the indicator's color, so today still reads as today. */
-  .month-day.today + .month-date > .day:not(.today-tile) {
-    color: var(--calendar-card-today-indicator-color);
-    font-weight: 600;
   }
 
   /* Days of the months either side of the one the header names. Their events stay as they are;
@@ -8699,19 +8694,24 @@ export const cardStyles = css`
     justify-content: center;
   }
 
-  /* The day selected, where it is not today: a neutral mark, the theme's text color with the
-     card's background as its ink, as distinct from today's tile as a phone's. */
-  .month-narrow .month-day.month-selected:not(.today) .month-date > .day {
+  /* The day selected, where today's tile is not on it: a neutral mark, the theme's text color
+     with the card's background as its ink, as distinct from today's tile as a phone's. Today
+     takes the same mark where today_indicator draws no tile, since Month then draws no mark of
+     today's own. */
+  .month-narrow .month-day.month-selected .month-date > .day:not(.today-tile) {
     background: var(--primary-text-color);
     color: var(--calendar-card-background-color, var(--card-background-color));
     font-weight: 600;
   }
 
-  /* Today selected: the tile filled, in the indicator's color, with Home Assistant's text on it. */
-  .month-narrow .month-day.month-selected.today .month-date > .day {
+  /* Today's tile selected: filled, in the indicator's color, with Home Assistant's text on it.
+     The ink is redefined rather than the color set, as on the wide month's tile, since the
+     digits take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color
+     still wins as on every tile. */
+  .month-narrow .month-day.month-selected .month-date > .day.today-tile {
     background: var(--calendar-card-today-indicator-color);
-    color: var(--text-primary-color, #fff);
     font-weight: 600;
+    --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
   }
 
   /* Month's two filled tiles, darkened until white digits pass WCAG's 4.5 to 1. The digits are
@@ -8727,19 +8727,12 @@ export const cardStyles = css`
   @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
     (width: round(1px, 1px)) {
     .month-container:not(.month-narrow) .month-date > .day.today-tile,
-    .month-narrow .month-day.month-selected.today .month-date > .day {
+    .month-narrow .month-day.month-selected .month-date > .day.today-tile {
       background: oklab(
         from var(--calendar-card-today-indicator-color) calc(l * 0.54 / max(l, 0.54))
           calc(a * 0.54 / max(l, 0.54)) calc(b * 0.54 / max(l, 0.54)) / alpha
       );
-    }
-
-    .month-container:not(.month-narrow) .month-date > .day.today-tile {
       --calendar-card-today-indicator-ink: #fff;
-    }
-
-    .month-narrow .month-day.month-selected.today .month-date > .day {
-      color: #fff;
     }
   }
 
