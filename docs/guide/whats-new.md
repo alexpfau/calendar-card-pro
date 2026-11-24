@@ -6,7 +6,18 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v6.0
+## Latest Release: v6.1
+
+- 🖥️ **The Card, Full Size**: [`tap_action: { action: overlay }`](/features/actions#opening-the-card-full-size), the same in `hold_action`, or the toolbar's [Open Full Size button](/features/header-toolbar#opening-the-card-full-size) opens the same card full size over the dashboard, in Grid on seven days where they fit, with every layout a press away, on the dates the card shows. It closes back to where it was, and [Full-Size Settings](/features/editor#full-size-settings) in the editor says what it opens with
+- ⏩ **Month Shows the Coming Weeks**: [`month: { start: week }`](/features/month-view#the-coming-weeks) starts Month on the current week rather than the week of the 1st, and `weeks` shows one to six of them, taller in the wide month the fewer they are. The arrows page a whole page at a time
+- 📏 **A Height for a Compact List**: [`compact_card_height` and `compact_card_max_height`](/features/list-view#compact-expanded-heights) size a list card while it is compact, so it can sit at a fixed size above other cards and fill the screen once expanded
+- 🏷️ **Larger Pictures & Labels of Several Parts**: [`label_image_size`](/features/core-settings#sizing-a-picture-label) draws a calendar's picture label larger, and [`label` as a list](/features/core-settings#combining-a-picture-an-icon-text), such as a face and an icon, draws each part before the title
+- 🌦️ **An Event's Forecast on Its Own Line in List**: [`own_line`](/features/weather#weather-in-the-list-layout) gives an event's forecast the line under its time, as Columns and Grid draw it, with room for the condition in words
+- 👆 **A Tap on a Day Runs Your Own Action**: [`day_tap_action`](/features/actions#running-another-action-from-a-day) takes Home Assistant's own actions, such as your own script, with the day you tapped as `{date}`
+- 🎨 **Date Colors From Your Theme**: a theme can set [the date's colors](/features/theming#date-colors-from-your-theme) for every card that leaves them unset
+- ⚠️ **Changes to Existing Cards**: a `day_tap_action` holding one of Home Assistant's own actions, which the card read as `none`, now runs it, and a theme or card-mod rule that sets the date's colors now reaches the date. The [release notes](/RELEASE_NOTES) list every change
+
+## v6.0
 
 - 📅 **Month View**: [`view: month`](/features/month-view) lays the card out as a wall calendar, six weeks at a glance with every event on its day, and on a phone draws [a narrow month](/features/month-view#the-narrow-month) with the chosen day's events listed underneath. The toolbar pages it a month at a time, and switching layouts keeps the date in view
 - ✏️ **A Rebuilt Visual Editor**: the editor opens on [an overview of the card](/features/editor#the-overview) with pages for the whole card and for each layout, and says in words what every setting is set to and where that comes from. [Search](/features/editor#search) reaches every setting, [Pick From Preview](/features/editor#pick-from-preview) opens one when you point at the card, [Undo & Redo](/features/editor#undo-redo) take back any step, and [Stored Settings](/features/editor#stored-settings) lists what the card sets. It loads only your language, and now speaks Japanese
