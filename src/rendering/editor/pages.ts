@@ -771,9 +771,11 @@ export const PAGES: ReadonlyArray<PageDef> = [
     ],
   },
   {
-    // What the card opens full size with, a section of the overview of its own: what it opens in,
-    // then how many days, then its controls, each always drawn, since each has a value of its own
-    // there (`OVERLAY_DEFAULTS`). Then whatever else `overlay:` holds, which is YAML's.
+    // What the card opens full size with, a section of the overview of its own: what it opens in
+    // and how many days, each always drawn, since each has a value of its own there
+    // (`OVERLAY_DEFAULTS`). Then its toolbar, drawn as the card's own is on Card & Header, but
+    // without Open Full Size, which the full-size card never draws, and without its own buttons,
+    // which stay YAML's. Then whatever else `overlay:` holds, which is YAML's.
     id: 'full_size',
     titleKey: 'page.full_size',
     iconPath: mdiFullscreen,
@@ -785,7 +787,24 @@ export const PAGES: ReadonlyArray<PageDef> = [
         fields: [
           ['actions:overlay.view', E],
           ['actions:overlay.days_to_show', E],
+        ],
+      },
+      {
+        key: 'heading_toolbar',
+        fields: [
           ['actions:overlay.toolbar.show', E],
+          ['actions:overlay.toolbar.add_event', CONTROL],
+          ['actions:overlay.toolbar.view_switcher', CONTROL],
+          ['actions:overlay.toolbar.legend', CONTROL],
+          ['actions:overlay.toolbar.reset', CONTROL],
+          ['actions:overlay.toolbar.refresh', CONTROL],
+          ['actions:overlay.toolbar.search', CONTROL],
+          ['actions:overlay.toolbar.navigation', CONTROL],
+          [
+            'actions:overlay.toolbar.view_switcher_layouts',
+            { qualifies: 'actions:overlay.toolbar.view_switcher' },
+          ],
+          ['actions:overlay.toolbar.size', A],
         ],
       },
       {

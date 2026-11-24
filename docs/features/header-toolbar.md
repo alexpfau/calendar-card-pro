@@ -663,10 +663,24 @@ toolbar:
 
 - The full-size card opens in Grid on a week, where the card is, unless the card's `overlay`
   option says otherwise; see [Opening the Card Full Size](/features/actions#opening-the-card-full-size).
+- Its toolbar draws date navigation and the view switcher whatever the card's toolbar says, and
+  takes every other control from the card's toolbar, so a control the card turns off is off
+  there too. Set one under `overlay → toolbar` to draw it full size alone:
+
+  ```yaml
+  toolbar:
+    show: true
+    overlay: true
+    search: false
+  overlay:
+    toolbar:
+      search: true
+  ```
+
 - In the full-size card, Close takes the button's place.
 - Its tooltip, and what screen readers announce, is "Open full size", in the card's language.
 - In the [visual editor](/features/editor) it is **Open Full Size** among the toolbar's controls,
-  and what it opens with is on the overview's
+  and what it opens with, its toolbar's controls included, is on the overview's
   [**Full-Size Settings**](/features/editor#full-size-settings) page.
 
 ::: tip Nothing Opens While You Edit

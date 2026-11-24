@@ -397,9 +397,6 @@ const START_DATE_EXPRESSION: FieldId = 'content:start_date_offset';
 
 /** Tapping an Event Opens It, which gives way to a line while another action is stored. */
 
-/** Calendar Filter: a toolbar chip, whose form is its qualifier line under the chips. */
-const LEGEND_FIELD = Chips.LEGEND_FIELD;
-
 const { WORD_LIST_FIELDS } = WordLists;
 
 /** What a color control is drawn for (`element.ts` › `_renderColor`). */
@@ -505,9 +502,43 @@ interface StatusLine {
 function isSwitchRow(field: IndexedField): boolean {
   return (
     'boolean' in field.node.selector &&
-    field.id !== LEGEND_FIELD &&
+    !Chips.isLegendField(field.id) &&
     !(field.id in Chips.CHIP_LABELS)
   );
+}
+
+/**
+ * Where a chip's state comes from, as the line under the chips groups them: stored here, set for
+ * full size, the full-size card's own default, the card's, from All Layouts, or this layout's own
+ * default; none at the default.
+ */
+type ChipSource = 'set' | 'set-full-size' | 'full-size-default' | 'card' | 'source' | 'layout';
+
+/**
+ * Where a chip's state comes from (`ChipSource`), from what `plan.ts` › `stateOf` found.
+ *
+ * @param state - The chip's state
+ * @param t - The editor's strings
+ * @returns The source, or `undefined` at the default
+ */
+function chipSource(
+  state: Plan.StateWords | undefined,
+  t: Shown.Translate,
+): ChipSource | undefined {
+  switch (state?.words?.kind) {
+    case 'from-all-layouts':
+      return 'source';
+    case 'layout-default':
+      return 'layout';
+    case 'set-full-size':
+      return 'set-full-size';
+    case 'full-size-default':
+      return 'full-size-default';
+    case 'follows-card':
+      return 'card';
+    default:
+      return Shown.stateText(state, t) === undefined ? undefined : 'set';
+  }
 }
 
 /** What a live field shows besides its control: its state words, and the line under it. */
@@ -992,9 +1023,10 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Calendar Filter's form last named this session, by the YAML the editor holds or by its
-   * qualifier line, which pressing its chip on writes; Menu, the default, until one is named.
+   * qualifier line, which pressing its chip on writes; Menu, the default, until one is named. The
+   * card's own and the full-size card's are remembered apart, by their chip's field.
    */
-  private _legendForm?: Types.ToolbarLegendMode;
+  private _legendForms = new Map<FieldId, Types.ToolbarLegendMode>();
 
   /** Draws the preview in the layout being edited (`views/scope-preview.ts`). */
   private _scopePreview = new ScopePreview(() => PickView.findPreviewCard(this), this);
@@ -2758,13 +2790,25 @@ export class CalendarCardProEditor extends LitElement {
     const typed = moved && ('text' in moved.node.selector || 'number' in moved.node.selector);
     const cleared =
       moved && path ? this._clearedSelect(frame, moved, path, incoming, focusKey) : undefined;
+    const kept =
+      frame.owner.kind === 'card' && path !== undefined
+        ? this._fullSizeLayoutsKept(path, incoming)
+        : undefined;
     this._commit(
       label,
       // By owner as well: two entries' pages give the same field the same focus key.
       typed
         ? `${WriteFrames.ownerKey(frame.owner)}|${focusKey}|${path!.join('.')}|${frame.workspace}`
         : undefined,
-      cleared ? () => this._applyReset(cleared, []) : () => this._writeOwned(frame, incoming),
+      cleared
+        ? () => this._applyReset(cleared, [])
+        : () => {
+            this._writeOwned(frame, incoming);
+            // After the layout: the list's form counts the layout opened in as offered.
+            if (kept !== undefined) {
+              this._writeFieldValue(WriteFrames.CARD_OWNER, Chips.FULL_SIZE_LAYOUTS_FIELD, kept);
+            }
+          },
       focusKey,
     );
     // A setting edited this session stays where it is, even once its value is cleared: a box
@@ -2774,6 +2818,27 @@ export class CalendarCardProEditor extends LitElement {
       const added = frame.owner.kind === 'entry' ? `entry:${frame.owner.key}:${id}` : id;
       if (!this._added.has(added)) this._added = new Set([...this._added, added]);
     }
+  }
+
+  /**
+   * The list of layouts the full-size card's switcher keeps beside a change of the layout it opens
+   * in, where the list stored would otherwise leave it offering one, as Starting Layout keeps the
+   * card's own (`chips.ts` › `layoutsKeptOnStart`), so the two are written as one step.
+   *
+   * @param path - The data path of the field that moved, its name last
+   * @param incoming - The form's whole data, as it sent it
+   * @returns The list to write beside it, or `undefined` where none is needed
+   */
+  private _fullSizeLayoutsKept(
+    path: ReadonlyArray<string>,
+    incoming: Record<string, unknown>,
+  ): Types.EffectiveView[] | undefined {
+    if (path.join('.') !== `${FullSize.FULL_SIZE_KEY}.view`) return undefined;
+    const to = Routing.atPath(incoming, [FullSize.FULL_SIZE_KEY], 'view');
+    const view = ViewConfig.VIEWS.find((each) => each === to);
+    if (view === undefined) return undefined;
+    const before = FullSize.fullSizeConfig(this._config! as unknown as Record<string, unknown>);
+    return Chips.layoutsKeptOnStart(before, before.view as Types.EffectiveView, view);
   }
 
   /**
@@ -3068,9 +3133,19 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _adopt(raw: object, merged?: object): void {
     this._rawConfig = structuredClone(raw) as Record<string, unknown>;
-    // A form of Calendar Filter's the YAML names is one named this session, for its chip.
-    const legend = (this._rawConfig.toolbar as { legend?: unknown } | undefined)?.legend;
-    if (legend === 'menu' || legend === 'chips') this._legendForm = legend;
+    // A form of Calendar Filter's the YAML names is one named this session, for its chip: the
+    // card's own, and the full-size card's under `overlay:`.
+    const toolbars: ReadonlyArray<readonly [FieldId, unknown]> = [
+      [Chips.LEGEND_FIELD, this._rawConfig.toolbar],
+      [
+        Chips.FULL_SIZE_LEGEND_FIELD,
+        (this._rawConfig.overlay as { toolbar?: unknown } | undefined)?.toolbar,
+      ],
+    ];
+    for (const [id, toolbar] of toolbars) {
+      const legend = (toolbar as { legend?: unknown } | undefined)?.legend;
+      if (legend === 'menu' || legend === 'chips') this._legendForms.set(id, legend);
+    }
     this._config = {
       ...Config.DEFAULT_CONFIG,
       ...((merged ?? this._rawConfig) as Types.Config),
@@ -3149,9 +3224,9 @@ export class CalendarCardProEditor extends LitElement {
     const composed =
       field.id === START_DATE_FIELD
         ? this._renderStartDate(field, ctx, show)
-        : field.id === Chips.SWITCHER_LAYOUTS_FIELD
+        : Chips.isSwitcherLayoutsField(field.id)
           ? this._renderSwitcherLayouts(field, ctx, show)
-          : field.id === LEGEND_FIELD
+          : Chips.isLegendField(field.id)
             ? this._renderLegendAlone(field, ctx, show)
             : field.id in Chips.CHIP_LABELS
               ? this._renderLoneChip(field, ctx)
@@ -6706,8 +6781,9 @@ export class CalendarCardProEditor extends LitElement {
         typeof appearance === 'object' && 'chips' in appearance && appearance.chips === kind,
     );
     // The chips by where their state comes from: stored here, from All Layouts, this layout's own
-    // default. A chip a layout defaults otherwise reads as wrongly off without its fact.
-    const sources = new Map<'set' | 'source' | 'layout', string[]>();
+    // default. A chip a layout defaults otherwise reads as wrongly off without its fact. The
+    // full-size card's are set for full size, its own default, or the card's.
+    const sources = new Map<ChipSource, string[]>();
     // The chips stored here, which the group's one Reset resets.
     const stored: IndexedField[] = [];
     const chips = placed.flatMap(([id, appearance]): ChipsView.ChipModel[] => {
@@ -6737,14 +6813,7 @@ export class CalendarCardProEditor extends LitElement {
       const state = Plan.stateOf(field, pctx);
       const stateKind = state?.words?.kind;
       const words = stateKind === 'layout-default' ? t('state.default') : Shown.stateText(state, t);
-      const where =
-        stateKind === 'from-all-layouts'
-          ? 'source'
-          : stateKind === 'layout-default'
-            ? 'layout'
-            : words === undefined
-              ? undefined
-              : 'set';
+      const where = chipSource(state, t);
       // Each part says whether it is on, so where its state comes from never reads as "on".
       const named = t('chip.part_state', {
         part: label(id),
@@ -6769,7 +6838,7 @@ export class CalendarCardProEditor extends LitElement {
                 this._writeFieldValue(
                   WriteFrames.CARD_OWNER,
                   id,
-                  Chips.pressValue(id, pressed, this._legendForm),
+                  Chips.pressValue(id, pressed, this._legendForms.get(id)),
                 ),
               `field:${id}`,
             ),
@@ -6780,16 +6849,7 @@ export class CalendarCardProEditor extends LitElement {
     // The qualifier lines' fields stored here are part of the group's facts and its one Reset.
     const qualifiers = kind === 'toolbar' ? this._qualifierFields(heading, present) : [];
     for (const field of qualifiers) {
-      const state = Plan.stateOf(field, pctx);
-      const stateKind = state?.words?.kind;
-      const where =
-        stateKind === 'from-all-layouts'
-          ? 'source'
-          : stateKind === 'layout-default'
-            ? 'layout'
-            : Shown.stateText(state, t) === undefined
-              ? undefined
-              : 'set';
+      const where = chipSource(Plan.stateOf(field, pctx), t);
       const named = fieldLabel(field, ctx.language);
       if (where !== undefined) sources.set(where, [...(sources.get(where) ?? []), named]);
       if (this._resetActionOf(field.id, Plan.appearanceOf(field.id)!, pctx, CARD) !== undefined) {
@@ -6809,30 +6869,42 @@ export class CalendarCardProEditor extends LitElement {
             })
         : [];
     // In the order a setting's facts take: stored here, then where the rest come from.
-    const order = ['set', 'source', 'layout'] as const;
+    const order: ReadonlyArray<ChipSource> = [
+      'set',
+      'set-full-size',
+      'full-size-default',
+      'card',
+      'source',
+      'layout',
+    ];
+    const pair = (label: string, names: ReadonlyArray<string>): string =>
+      t('summary.pair', { label: t(label), value: names.join(', ') });
     const facts: Shown.Fact[] = order
       .filter((where) => sources.has(where))
       .map((where) => [where, sources.get(where)!] as const)
-      .map(([where, names]) =>
-        where === 'set'
-          ? { kind: 'set', text: t('chip.chosen_here', { names: names.join(', ') }) }
-          : where === 'source'
-            ? {
-                kind: 'source',
-                text: t('summary.pair', {
-                  label: t('state.from_all_layouts'),
-                  value: names.join(', '),
-                }),
-              }
-            : {
-                kind: 'layout',
-                view,
-                text:
-                  view === undefined
-                    ? t('summary.pair', { label: t('state.default'), value: names.join(', ') })
-                    : t('state.layout_default', { layout: layout(view), value: names.join(', ') }),
-              },
-      );
+      .map(([where, names]): Shown.Fact => {
+        switch (where) {
+          case 'set':
+            return { kind: 'set', text: t('chip.chosen_here', { names: names.join(', ') }) };
+          case 'set-full-size':
+            return { kind: 'set', text: pair('state.set_full_size', names) };
+          case 'full-size-default':
+            return { kind: 'source', text: pair('state.full_size_default', names) };
+          case 'card':
+            return { kind: 'source', text: pair('state.from_card', names) };
+          case 'source':
+            return { kind: 'source', text: pair('state.from_all_layouts', names) };
+          case 'layout':
+            return {
+              kind: 'layout',
+              view,
+              text:
+                view === undefined
+                  ? pair('state.default', names)
+                  : t('state.layout_default', { layout: layout(view), value: names.join(', ') }),
+            };
+        }
+      });
     const action = kind === 'parts' ? t('reset.parts') : t('reset.controls');
     const names = stored.map((field) =>
       field.id in Chips.CHIP_LABELS ? label(field.id) : fieldLabel(field, ctx.language),
@@ -6924,7 +6996,7 @@ export class CalendarCardProEditor extends LitElement {
       const chip = present.get(id);
       if (chip === undefined || !(id in Chips.CHIP_LABELS)) continue;
       if (!Chips.isPressed(Routing.atPath(data, chip.dataPath, chip.node.name))) continue;
-      if (id === LEGEND_FIELD) {
+      if (Chips.isLegendField(id)) {
         lines.push(this._legendQualifier(chip, ctx));
         continue;
       }
@@ -7053,7 +7125,7 @@ export class CalendarCardProEditor extends LitElement {
       notes: [{ text: this._string(ctx, 'toolbar.legend.helper') }],
       line: show?.line,
       onPick: (next) => {
-        this._legendForm = next as Types.ToolbarLegendMode;
+        this._legendForms.set(id, next as Types.ToolbarLegendMode);
         this._commit(
           this._string(ctx, 'history.change', { setting: name }),
           undefined,
@@ -7117,7 +7189,7 @@ export class CalendarCardProEditor extends LitElement {
                 this._writeFieldValue(
                   WriteFrames.CARD_OWNER,
                   id,
-                  Chips.pressValue(id, pressed, this._legendForm),
+                  Chips.pressValue(id, pressed, this._legendForms.get(id)),
                   workspace,
                 ),
               `field:${id}`,
@@ -7134,8 +7206,9 @@ export class CalendarCardProEditor extends LitElement {
    * layout's and, beside it alone, the one other layout's stay checked, focusable and
    * `aria-disabled`, their reason after their name and read in it. A check writes the whole list
    * through `_writeFieldValue`, one undo step, so checking every layout again leaves the default.
+   * The full-size card's switcher reads the layout the full-size card opens in, and its toolbar.
    *
-   * @param field - `card:toolbar.view_switcher_layouts`
+   * @param field - `card:toolbar.view_switcher_layouts`, or the full-size card's
    * @param ctx - Schema context
    * @param show - Its state words and the line under it, where drawn alone
    * @returns The line
@@ -7150,7 +7223,13 @@ export class CalendarCardProEditor extends LitElement {
     const all = this._formDataFor(this._config!, workspace, this._pending);
     const value = Routing.atPath(all, field.dataPath, field.node.name);
     const offered: ReadonlyArray<unknown> = Array.isArray(value) ? value : [];
-    const starting = this._viewForConfig(this._config!);
+    const fullSize = Chips.isFullSizeToolbarField(id);
+    const target = fullSize
+      ? FullSize.fullSizeConfig(this._config! as unknown as Record<string, unknown>)
+      : this._config!;
+    const starting = fullSize
+      ? (target.view as Types.EffectiveView)
+      : this._viewForConfig(this._config!);
     const name = fieldLabel(field, ctx.language);
     const choices = Chips.layoutChips(offered, starting).map((chip): ChipsView.QualifierChoice => ({
       value: chip.view,
@@ -7163,11 +7242,11 @@ export class CalendarCardProEditor extends LitElement {
     }));
     // A list written by hand can offer the starting layout alone: then the switcher is on and the
     // card draws none, which the line under the checkboxes says, and the group is described by.
-    const alone = Chips.switcherAlone(this._config!, starting)
+    const alone = Chips.switcherAlone(target, starting)
       ? `alone-${id.replace(/\W/g, '-')}`
       : undefined;
     return ChipsView.qualifier({
-      qualifies: 'card:toolbar.view_switcher',
+      qualifies: fullSize ? 'actions:overlay.toolbar.view_switcher' : 'card:toolbar.view_switcher',
       field: id,
       legend: this._string(ctx, 'chip.qualifier.layouts'),
       kind: 'checkbox',

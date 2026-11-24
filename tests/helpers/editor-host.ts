@@ -56,6 +56,7 @@ import { afterAll } from 'vitest';
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
+import { isLegendField } from '../../src/rendering/editor/chips';
 import * as Colors from '../../src/rendering/editor/colors';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
@@ -874,7 +875,7 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       }
       return true;
     }
-    if (kind === 'toggle' && id === 'card:toolbar.legend') {
+    if (kind === 'toggle' && isLegendField(id)) {
       // Calendar Filter: its chip for on and off, its qualifier line for the form, as a user
       // presses the one and then picks in the other.
       const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };

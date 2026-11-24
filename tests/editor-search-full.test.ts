@@ -609,16 +609,16 @@ describe('Edit Here', () => {
   });
 
   // One option, two controls: found, Calendar Filter is drawn as its page draws it, the chip and
-  // under it, while pressed, its form.
+  // under it, while pressed, its form. The full-size card's is found beside it, drawn the same.
   it('draws Calendar Filter as its chip and, while pressed, the line with its form', async () => {
     const editor = await mount({ ...LIST, toolbar: { show: true, legend: 'chips' } });
     await searchFor(editor, 'calendar filter');
     await toggle(editor);
-    expect(controls(editor)).toEqual(['card:toolbar.legend']);
+    expect(controls(editor)).toEqual(['card:toolbar.legend', 'actions:overlay.toolbar.legend']);
     const form = (value: string) =>
       $(
         editor,
-        `.result--edit .qualifier input[type="radio"][value="${value}"]`,
+        `.result--edit .qualifier[data-qualifies="card:toolbar.legend"] input[type="radio"][value="${value}"]`,
       ) as HTMLInputElement | null;
     expect(form('chips')?.checked).toBe(true);
     form('menu')!.checked = true;

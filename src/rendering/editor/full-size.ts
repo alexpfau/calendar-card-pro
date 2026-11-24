@@ -14,7 +14,7 @@ import { overlayConfig, overlayView } from '../../config/overlay';
 import type * as Types from '../../config/types';
 import { routeForKey, viewBlockFor } from '../../config/view';
 import { VIEWS } from '../../config/views';
-import { isConfigBlock } from '../../utils/helpers';
+import { isConfigBlock, memoizeLast } from '../../utils/helpers';
 
 /** The card option holding the full-size card's own options. */
 export const FULL_SIZE_KEY = 'overlay';
@@ -26,12 +26,46 @@ export const FULL_SIZE_KEY = 'overlay';
  */
 export type FullSizeSource = 'set' | 'default' | 'card';
 
+/**
+ * The full-size card's toolbar settings the page edits, by their key inside `overlay.toolbar`:
+ * Show Toolbar, and every built-in control the card's own toolbar offers with its qualifiers and
+ * its size, but Open Full Size, which the full-size card never draws. Its own buttons stay YAML's.
+ */
+export const FULL_SIZE_TOOLBAR_KEYS: ReadonlyArray<string> = [
+  'show',
+  'legend',
+  'add_event',
+  'view_switcher',
+  'view_switcher_layouts',
+  'reset',
+  'refresh',
+  'search',
+  'navigation',
+  'size',
+];
+
 /** The page's own settings, by their path inside `overlay:`. */
 export const FULL_SIZE_PATHS: ReadonlyArray<ReadonlyArray<string>> = [
   ['view'],
   ['days_to_show'],
-  ['toolbar', 'show'],
+  ...FULL_SIZE_TOOLBAR_KEYS.map((key) => ['toolbar', key]),
 ];
+
+/**
+ * The configuration the full-size card is given (`overlayConfig`), in the layout it opens in,
+ * which `overlayView` reads as the card does. Kept for the configuration last asked about, by
+ * identity, since the editor asks for one configuration many times a render.
+ *
+ * @param config - The card's configuration, as stored or merged with the defaults
+ * @returns The full-size card's configuration
+ */
+export const fullSizeConfig = memoizeLast(
+  (config: Readonly<Record<string, unknown>>): Types.Config =>
+    ({
+      ...overlayConfig(config),
+      view: overlayView(config as Pick<Types.Config, 'overlay'>),
+    }) as unknown as Types.Config,
+);
 
 /** A string no configuration holds, so a value that reaches the full-size card is told apart. */
 const PROBE = '\u0000full-size-probe';
