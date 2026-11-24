@@ -1269,8 +1269,8 @@ function checkEditorLanguageUrls(file, ast, variant) {
     const named = urlTemplates.filter((v) => v.includes('editor'));
     error(
       `dist/${file}`,
-      `never constructs a URL like '${expected.replace('*', '<code>')}'` +
-        `${named.length ? ` (found ${named.map((v) => `'${v.replace('*', '<code>')}'`).join(', ')})` : ''}. ` +
+      `never constructs a URL like '${expected.replace(/\*/g, '<code>')}'` +
+        `${named.length ? ` (found ${named.map((v) => `'${v.replace(/\*/g, '<code>')}'`).join(', ')})` : ''}. ` +
         `This is a ${variant.label} build, so it must name the ${variant.label} language files — ` +
         "the replace() entry for './editor-dev-' in rollup.config.mjs is what rewrites it. A " +
         'mismatch is an editor that stays in English, with nothing failing anywhere',
