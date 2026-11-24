@@ -247,6 +247,33 @@ function timeTextParts(
 
   const use24h = resolveTimeFormat24h(config, hass);
 
+  // A day of a timed event List or Column split across its days. Neither the moment the split
+  // falls (23:59) nor the midnight the last day starts at is the event's, and a row is often
+  // read without the others: Month's day list shows one day. So the first day reads as the
+  // event does unsplit, from its start to its own end, and the last names only its end, as a
+  // wide month's later day does: "until 1:35".
+  const splitRow = splitTimedRow(event);
+  if (splitRow?.row === 'first') {
+    if (!config.show_end_time) {
+      return { text: formatTime(startDate, use24h, config.time_two_digit_hours, language) };
+    }
+    return {
+      text: formatMultiDayTime(
+        startDate,
+        splitRow.end,
+        language,
+        translations,
+        use24h,
+        config.time_two_digit_hours,
+        true,
+      ),
+    };
+  }
+  if (splitRow?.row === 'last') {
+    const end = formatTime(endDate, use24h, config.time_two_digit_hours, language);
+    return { text: translations.untilTime.replace('{time}', () => end) };
+  }
+
   if (startDate.toDateString() !== endDate.toDateString()) {
     return {
       text: formatMultiDayTime(
@@ -317,7 +344,8 @@ export function formatEventDuration(
 
 /**
  * The whole event a row stands for, and whether the row shows only part of it: a day of a
- * split list or column event, or a grid block other than the one that starts its event.
+ * split list or column event other than its first, which shows the whole event's times, or a
+ * grid block other than the one that starts its event.
  *
  * @param event Calendar event, or a row of one
  * @returns The event's start and end, and whether the row shows part of it
@@ -332,9 +360,34 @@ function shownInterval(
     };
   }
   if (event._isMultiDaySegment && event._sourceStart && event._sourceEnd) {
-    return { start: event._sourceStart, end: event._sourceEnd, part: true };
+    const part = splitTimedRow(event)?.row !== 'first';
+    return { start: event._sourceStart, end: event._sourceEnd, part };
   }
   return { start: event.start, end: event.end, part: false };
+}
+
+/**
+ * Which day of its event a row of a timed event List or Column split is, where it is the first
+ * or the last, and the event's own end. A middle day is all-day and is neither, nor is anything
+ * Grid's splitter drew, nor a row whose times were put back to the whole event's, as a search
+ * result's are.
+ *
+ * @param event A row
+ * @returns The row's place and the event's end, or null
+ */
+function splitTimedRow(
+  event: Types.CalendarEventData,
+): { row: 'first' | 'last'; end: Date } | null {
+  if (!event._splitFromTimedEvent || !event.start.dateTime || !event.end.dateTime) return null;
+  const sourceStart = event._sourceStart?.dateTime;
+  const sourceEnd = event._sourceEnd?.dateTime;
+  if (!sourceStart || !sourceEnd) return null;
+
+  const startsEvent = new Date(event.start.dateTime).getTime() === new Date(sourceStart).getTime();
+  const end = new Date(sourceEnd);
+  const endsEvent = new Date(event.end.dateTime).getTime() === end.getTime();
+  if (startsEvent === endsEvent) return null;
+  return { row: startsEvent ? 'first' : 'last', end };
 }
 
 /**
@@ -1816,6 +1869,21 @@ function endsWithoutTime(phrase: string): string {
   return `${before}${gap}${after}`.trim();
 }
 
+/**
+ * A timed event's time text where it runs past the day it starts on: its start and its end,
+ * named from today ("22:05, ends tomorrow at 1:35", "22:05 until Thursday, Nov 26 at 1:35"),
+ * or only its end where it began before today and its start is not on screen.
+ *
+ * @param startDate Event start
+ * @param endDate Event end
+ * @param language Language code
+ * @param translations Resolved translations for that language
+ * @param use24h Whether to format on a 24-hour clock
+ * @param twoDigitHours Whether to pad the hour
+ * @param withStart Whether to write the start whenever the event began: on the first day of a
+ *   split event, the row stands on the start's own day
+ * @returns The time text
+ */
 function formatMultiDayTime(
   startDate: Date,
   endDate: Date,
@@ -1823,6 +1891,7 @@ function formatMultiDayTime(
   translations: Types.Translations,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
+  withStart: boolean = false,
 ): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1842,7 +1911,7 @@ function formatMultiDayTime(
     endPart = `${sentenceDate(endDate, language, translations)} ${endTime}`;
   }
 
-  if (today.getTime() <= startDate.getTime()) {
+  if (withStart || today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
     // "Ends tomorrow at 0:30" is a sentence of its own, so joining it after `multiDay`
     // ("until") read "22:30 until ends tomorrow at 0:30". It takes the language's `separator`

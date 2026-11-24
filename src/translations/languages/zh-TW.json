@@ -17,6 +17,7 @@
   ],
   "allDay": "整天",
   "multiDay": "直到",
+  "untilTime": "直到 {time}",
   "at": "{time}",
   "separator": "，",
   "viewList": "列表",

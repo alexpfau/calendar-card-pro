@@ -392,10 +392,11 @@ show_duration: true
   midnight to midnight.
 - **An all-day event counts its days**: "(1 day)", "(3 days)".
 - **An event drawn on several days shows its whole length on each of them, marked as a
-  total.** Split into a row per day, a night shift reads "20:30 - 23:59 (8 hr total)" and
-  "0:00 - 4:30 (8 hr total)", and each day of a weekend away "All day (3 days total)". Column
-  view's days and grid view's later blocks read the same way. A row that shows the whole event
-  has no "total".
+  total where the row shows part of it.** Split into a row per day, a night shift reads
+  "20:30, ends tomorrow at 4:30 (8 hr)" on its first day, which shows the whole event, and
+  "Until 4:30 (8 hr total)" on the next; each day of a weekend away reads "All day (3 days
+  total)". Column view's days and grid view's later blocks read the same way. A row that shows
+  the whole event has no "total".
 - **An event that starts and ends in the same minute, such as a reminder, shows none.**
 - **It follows the time wherever the time goes**: after the start alone with
   `show_end_time: false`, beside the title with
