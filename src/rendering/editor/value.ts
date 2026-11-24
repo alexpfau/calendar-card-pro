@@ -4,7 +4,7 @@
  * set, and a value the YAML already holds is kept unless the write changed it.
  */
 
-import { FULL_SIZE_KEY, FULL_SIZE_TOOLBAR_KEYS, fullSizeConfig } from './full-size';
+import { FULL_SIZE_KEY, FULL_SIZE_TOOLBAR_KEYS, fullSizeToolbarConfig } from './full-size';
 import { LEGEND_OFF, normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSet, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
@@ -1117,7 +1117,7 @@ const OVERLAY_DEFAULTED: ReadonlyArray<readonly [string, ...string[]]> = [['days
  * @returns The settings, by key
  */
 function fullSizeToolbarForm(config: Readonly<Types.Config>): Record<string, unknown> {
-  const form = toolbarFormBlock(fullSizeConfig(config as unknown as Record<string, unknown>));
+  const form = toolbarFormBlock(fullSizeToolbarConfig(config.toolbar, config.overlay));
   return Object.fromEntries(FULL_SIZE_TOOLBAR_KEYS.map((key) => [key, form[key]]));
 }
 

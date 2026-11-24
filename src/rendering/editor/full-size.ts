@@ -52,18 +52,24 @@ export const FULL_SIZE_PATHS: ReadonlyArray<ReadonlyArray<string>> = [
 ];
 
 /**
- * The configuration the full-size card is given (`overlayConfig`), in the layout it opens in,
- * which `overlayView` reads as the card does. Kept for the configuration last asked about, by
- * identity, since the editor asks for one configuration many times a render.
+ * What the full-size card's toolbar is read from: the configuration `overlayConfig` makes of the
+ * card's `toolbar:` and its `overlay:` block, in the layout the full-size card opens in, which
+ * `overlayView` reads as the card does. Nothing else of the card's reaches the full-size toolbar,
+ * so only those two are read, and the answer is kept for the pair last asked about, which every
+ * form the editor draws asks for again.
  *
- * @param config - The card's configuration, as stored or merged with the defaults
- * @returns The full-size card's configuration
+ * @param toolbar - The card's `toolbar:`, as stored or merged with the defaults
+ * @param overlay - The card's `overlay:`
+ * @returns A configuration holding the full-size card's toolbar and layout
  */
-export const fullSizeConfig = memoizeLast(
-  (config: Readonly<Record<string, unknown>>): Types.Config =>
+export const fullSizeToolbarConfig = memoizeLast(
+  (toolbar: unknown, overlay: unknown): Types.Config =>
     ({
-      ...overlayConfig(config),
-      view: overlayView(config as Pick<Types.Config, 'overlay'>),
+      ...overlayConfig({
+        ...(toolbar !== undefined && { toolbar }),
+        ...(overlay !== undefined && { overlay }),
+      }),
+      view: overlayView({ overlay } as Pick<Types.Config, 'overlay'>),
     }) as unknown as Types.Config,
 );
 
@@ -125,11 +131,53 @@ export function fullSizePath(field: {
     : undefined;
 }
 
+/** The full-size card's configuration without `overlay:`, by the configuration it is built from. */
+const withoutOwn = new WeakMap<object, Record<string, unknown>>();
+
+/**
+ * The configuration the full-size card would be given from the card's own options alone, without
+ * its `overlay:` block. Kept for each stored configuration, which a page asks about once for every
+ * full-size setting it draws.
+ *
+ * @param raw - The configuration as stored
+ * @returns The full-size card's configuration, `overlay:` left out
+ */
+function cardOnly(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  let known = withoutOwn.get(raw);
+  if (known === undefined) {
+    const card: Record<string, unknown> = { ...raw };
+    delete card[FULL_SIZE_KEY];
+    withoutOwn.set(raw, (known = overlayConfig(card)));
+  }
+  return known;
+}
+
+/** Whether the card's own value at a path reaches the full-size card, by the path. */
+const reaching = new Map<string, boolean>();
+
+/**
+ * Whether a value the card holds at a path reaches the full-size card, which a probe value set in
+ * its place tells. The path alone decides: the card holds a block at every step of it, and what
+ * `overlayConfig` leaves out or puts in its place is named by path (`OVERLAY_DEFAULTS`, the sizes,
+ * the compact limits, the day count, the overlay action), so the answer is kept by path.
+ *
+ * @param path - The path inside the card
+ * @returns `true` where the card's value comes through
+ */
+function reaches(path: ReadonlyArray<string>): boolean {
+  const key = path.join('\u0000');
+  let known = reaching.get(key);
+  if (known === undefined) {
+    known = atPath(overlayConfig(withPath({}, path, PROBE)), path) === PROBE;
+    reaching.set(key, known);
+  }
+  return known;
+}
+
 /**
  * Where the value the full-size card uses at a path comes from. Set where `overlay:` holds one.
  * Otherwise the full-size card's own where the card holds none and the full-size card has one
- * anyway, or where the card's own would not reach it, which a probe value set in the card's place
- * tells; else the card's.
+ * anyway, or where the card's own would not reach it (`reaches`); else the card's.
  *
  * @param raw - The configuration as stored
  * @param path - The path inside `overlay:`
@@ -141,12 +189,11 @@ export function fullSizeSource(
 ): FullSizeSource {
   const own = atPath(raw[FULL_SIZE_KEY], path);
   if (own !== undefined && own !== null && own !== '') return 'set';
-  const card: Record<string, unknown> = { ...raw };
-  delete card[FULL_SIZE_KEY];
-  if (atPath(card, path) === undefined) {
-    return atPath(overlayConfig(card), path) === undefined ? 'card' : 'default';
+  const held = atPath(raw, path);
+  if (held === undefined || path[0] === FULL_SIZE_KEY) {
+    return atPath(cardOnly(raw), path) === undefined ? 'card' : 'default';
   }
-  return atPath(overlayConfig(withPath(card, path, PROBE)), path) === PROBE ? 'card' : 'default';
+  return reaches(path) ? 'card' : 'default';
 }
 
 /**

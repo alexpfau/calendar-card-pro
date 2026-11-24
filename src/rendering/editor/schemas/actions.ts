@@ -10,7 +10,7 @@ import {
 } from '../../../config/constants';
 import { VIEWS } from '../../../config/views';
 import * as Helpers from '../../../utils/helpers';
-import { fullSizeConfig } from '../full-size';
+import { fullSizeToolbarConfig } from '../full-size';
 import type { HaFormSchema } from '../ha-form';
 import { LEGEND_EDITOR_VALUES } from '../normalize';
 import type { SchemaCtx } from '../panels';
@@ -212,7 +212,7 @@ const actionsSchema = Helpers.memoizeLast(
  */
 export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
   const fullSize = Config.resolveToolbar(
-    fullSizeConfig(ctx.config as unknown as Record<string, unknown>),
+    fullSizeToolbarConfig(ctx.config.toolbar, ctx.config.overlay),
   );
   return actionsSchema(
     ctx.language,

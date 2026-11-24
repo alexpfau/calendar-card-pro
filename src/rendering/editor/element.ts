@@ -2837,7 +2837,7 @@ export class CalendarCardProEditor extends LitElement {
     const to = Routing.atPath(incoming, [FullSize.FULL_SIZE_KEY], 'view');
     const view = ViewConfig.VIEWS.find((each) => each === to);
     if (view === undefined) return undefined;
-    const before = FullSize.fullSizeConfig(this._config! as unknown as Record<string, unknown>);
+    const before = FullSize.fullSizeToolbarConfig(this._config!.toolbar, this._config!.overlay);
     return Chips.layoutsKeptOnStart(before, before.view as Types.EffectiveView, view);
   }
 
@@ -7225,7 +7225,7 @@ export class CalendarCardProEditor extends LitElement {
     const offered: ReadonlyArray<unknown> = Array.isArray(value) ? value : [];
     const fullSize = Chips.isFullSizeToolbarField(id);
     const target = fullSize
-      ? FullSize.fullSizeConfig(this._config! as unknown as Record<string, unknown>)
+      ? FullSize.fullSizeToolbarConfig(this._config!.toolbar, this._config!.overlay)
       : this._config!;
     const starting = fullSize
       ? (target.view as Types.EffectiveView)
