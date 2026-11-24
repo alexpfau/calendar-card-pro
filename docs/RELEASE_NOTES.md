@@ -116,6 +116,7 @@ The card now speaks Japanese, its 39th language, and the visual editor its 13th,
 ### Chrome & Edge
 
 - **Muted Colors Turned Pink** - In Chrome and Edge, a muted color lost its hue wherever the card draws a shade of it. The all-day badge's subtle wash of Home Assistant's default blue came out pink in a light theme and maroon in a dark one; text in a muted calendar color, as grid view draws its events by default and as the all-day badge and the Now time draw theirs, came out mauve; and today's date tile turned pink on a muted `today_indicator_color`. They now keep their hue, as Safari always drew them, so with `allday_badge` on, the default badge wash in those browsers turns from pink to light blue
+- **Clamped Forecast Words Sat Above the Temperature** - In Chrome and Edge, an event's forecast cut to `max_lines` drew its words 3px above the temperature beside them, and where the words took a line of their own, the row grew by as much. They now line up with the temperature, as Safari drew them
 
 ### Languages & Dates
 
@@ -123,6 +124,7 @@ The card now speaks Japanese, its 39th language, and the visual editor its 13th,
 - **12-Hour Times in Korean & Chinese** - With a 12-hour clock, a Korean or Chinese card wrote "11:00 AM" in the middle of its own language. It now writes the time of day as the language does, such as 오전 11:00 or 上午11:00
 - **Week Numbers on a Week Starting Midweek** - With ISO week numbers and a week that starts on a Tuesday to a Saturday, as Home Assistant's own first day of the week can set it through `first_day_of_week: system`, a week took the number of the ISO week holding as few as one or two of its days, and a list changed number in the middle of the week, drawing its week rule there. Each week now takes the number of the ISO week that holds most of its days
 - **A Day-Long Event Read "(24 hr)"** - With `show_duration`, a timed event running from midnight to midnight read "(24 hr)", or "(23 hr)" and "(25 hr)" on the days the clocks change. It now reads "(1 day)"
+- **Month Headings Named the Month as a Date Does** - Where Home Assistant fills in date formats the browser lacks for its language, the month heading in the toolbar, month view and search read "Ноября 2026 г." or "Listopada 2026", the form a date uses, in Catalan, Croatian, Czech, Finnish, Greek, Lithuanian, Polish, Russian, Slovak and Ukrainian. It now names the month on its own, as in "Ноябрь 2026 г."
 
 ### Grid & Columns
 
@@ -130,11 +132,13 @@ The card now speaks Japanese, its 39th language, and the visual editor its 13th,
 - **Continuation Marks Pointed Backward** - On a right-to-left dashboard, such as one in Hebrew, a grid banner that runs past the days shown drew its ◂ and ▸ marks pointing back at its own title instead of the way the event carries on
 - **An All-Day Banner Lost Its Length** - With `show_duration: true`, a grid all-day banner's length disappeared where `show_single_allday_time` or `show_multiday_allday_time` was off, two options that otherwise do nothing in grid view
 - **The Rule Under Column Headers Pushed the Events Down** - In column view, `day_header_separator_width` drew its rule below the header's gap and then added the gap again, so turning it on moved every event down. The rule now sits in the middle of `day_header_gap` and moves nothing
+- **A Countdown Beside the Title Broke Mid-Phrase** - With `time_position: title`, a countdown or day counter folded into the time wrapped wherever its line ran out, reading "Day 12 of" over "45". It now moves to the next line whole, after its dot
 
 ### Weather & Loading
 
 - **The Forecast Froze After a Restart** - After Home Assistant restarted, the events came back but the forecast stayed as it was until the dashboard was reloaded. The card now subscribes to it again until the weather entity has loaded, and dims a forecast that has gone twice its interval without an update, so an old one no longer reads as current. See [When the Forecast Stops Updating](https://calendar-card-pro.alexpfau.com/features/weather#when-the-forecast-stops-updating)
 - **A Silent Calendar Held the Card for a Minute** - A calendar that answered neither its live subscription nor the request after it was reported failed only after 60 seconds, 30 for each. The two now share one 30-second wait
+- **A Changed Calendar Color Could Stay Old** - A color changed in Home Assistant while the connection was down, or whose read failed, stayed as it was until the dashboard was reloaded. It is now read again on reconnecting and after a failed read. Where Home Assistant refused the card's request for weather words or color updates, the card asked again on every update; it now waits a minute, then longer
 
 ### Event Popover & Search
 
@@ -148,6 +152,7 @@ The card now speaks Japanese, its 39th language, and the visual editor its 13th,
 - **Set It at the Top Level, Where It Did Nothing Either** - An option written in a layout's block that the layout ignores was reported as belonging at the top level, and the editor offered to move it there, where the layout ignores it just the same. The notice now says it has no effect in that layout and offers no move
 - **`expand` Looked Pressable Where Nothing Folds** - With `tap_action: expand` or `hold_action: expand`, column and grid view, and a list with no compact limits, drew a pointer, a ripple and a Tab stop, and a press did nothing. They now appear only where the card can fold
 - **A Calendar Listed Twice Could Change What a Limit Keeps** - Of two events starting at the same time on a calendar listed twice, such as split by `event_type`, the one drawn first followed the order of the entries rather than the calendar's own, so `compact_events_to_show` or `skip_first_events` could keep a different event than the same calendar listed once
+- **An Unquoted `allday_expires_at` Was Ignored Without a Word** - In a dashboard in YAML mode, `allday_expires_at: 14:30` without quotes is read as the number 870, so all-day events stayed until midnight with nothing to say why. The browser console now says to write the time in quotes
 
 ### The Editor
 
