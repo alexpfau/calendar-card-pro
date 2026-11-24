@@ -472,7 +472,7 @@ entry under `entities`; see [Per-Entity Options](#per-entity-options).
 | ------------------------ | ------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tap_action`             | object  | `none`    | What tapping the card does. Besides Home Assistant's own actions, `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` are the card's. `more-info` without an `entity` opens the first calendar its visibility conditions show                                                                                                                                                                                                                   |
 | `hold_action`            | object  | `none`    | What holding the card does, on an event too unless it has an `event_hold_action` of its own                                                                                                                                                                                                                                                                                                                                                                 |
-| `day_tap_action`         | object  | `none`    | What tapping a day where it shows no event does: `add-event` opens a new event for that day in the event popover, in place of `tap_action`, and in grid view also lets you draw one. `none`, and any other action, leaves the tap to `tap_action`; see [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)                                                                                                                     |
+| `day_tap_action`         | object  | `none`    | What tapping a day where it shows no event does, in place of `tap_action`: `add-event` opens a new event for that day in the event popover, and in grid view also lets you draw one, and Home Assistant's own actions run with the day's date and times, such as `{date}`, filled in. `none` and the card's other own actions leave the tap to `tap_action`; see [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)           |
 | `event_tap_action`       | object  | `details` | What tapping an event does, in place of `tap_action`: `details` opens it in the [event popover](/features/actions#the-event-popover), and Home Assistant's own actions run with the event's fields, such as `{title}`, filled in. `none` and the card's own actions leave the tap to `tap_action`; see [Tapping an Event](/features/actions#tapping-an-event)                                                                                               |
 | `event_hold_action`      | object  | `none`    | What holding an event does, in place of `hold_action`, with the same actions as `event_tap_action`; `none` and the card's own actions leave the hold to `hold_action`                                                                                                                                                                                                                                                                                       |
 | `open_links`             | boolean | `false`   | Make the `http` and `https` addresses in an event row's location and description links that open in a new tab, in List and Columns, and the locations in Month's day list and its More panel. Read only while neither `event_tap_action` nor `event_hold_action` runs anything of its own on an event; see [Links in Events](/features/actions#links-in-events)                                                                                             |
@@ -486,8 +486,9 @@ entry under `entities`; see [Per-Entity Options](#per-entity-options).
 
 Each action option takes an object whose `action` key picks the behavior. In `tap_action` and
 `hold_action`, every action but the card's own `expand`, `refresh`, `add-event`, `reset`,
-`overlay` and `back` is run by Home Assistant; in `event_tap_action` and `event_hold_action`, every action but
-`details`. The other keys are therefore Home Assistant's and depend on the action you chose:
+`overlay` and `back` is run by Home Assistant; in `day_tap_action`, every action but `add-event`; in
+`event_tap_action` and `event_hold_action`, every action but `details`. The other keys are
+therefore Home Assistant's and depend on the action you chose:
 
 `action` · `entity` · `navigation_path` · `navigation_replace` · `url_path` · `perform_action` · `data` · `target` · `confirmation`
 
@@ -496,15 +497,16 @@ The older `service` and `service_data` still work in place of `perform_action` a
 `url` action opens its link.
 
 `back` takes `navigation_path`, where it goes when no page of Home Assistant's is behind this
-one; the card's other own actions, and `details`, take no further keys. `day_tap_action` takes
-`action` alone: `add-event`, or `none`, its default. In `event_tap_action` and
-`event_hold_action`, Home Assistant's keys take the event's fields in braces, such as `{title}`
-or `{start}`; the title, location and description only in `data`, `service_data`, a
+one; the card's other own actions, and `details`, take no further keys. In `day_tap_action`,
+Home Assistant's keys take the tapped day's fields in braces, such as `{date}`, anywhere. In
+`event_tap_action` and `event_hold_action`, they take the event's fields in braces, such as
+`{title}` or `{start}`; the title, location and description only in `data`, `service_data`, a
 confirmation's `text`, or after the `?` or `#` of a URL or path.
 
 **→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
 **→ [Opening the Card Full Size](/features/actions#opening-the-card-full-size)** — the `overlay` action, what it opens on and what its `overlay` option takes.
 **→ [Using the Event's Fields in an Action](/features/actions#using-the-events-fields-in-an-action)** — every field an event action can fill in, and how each is encoded.
+**→ [Running Another Action From a Day](/features/actions#running-another-action-from-a-day)** — the day's fields a day action can fill in.
 
 ## ⚡ Cache & Refresh
 

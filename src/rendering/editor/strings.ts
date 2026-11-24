@@ -138,6 +138,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.follow_card': 'Follow the card',
   'value.end_of_day': 'End of Day',
   'value.none': 'None',
+  // An action set to `null`, worded before Home Assistant has named its `none`. "Nothing" is the
+  // word Home Assistant's action editor uses for it, and each translation takes Home Assistant's
+  // own word, so the editor says it one way in every language.
+  'value.nothing': 'Nothing',
   'value.no_limit': 'No Limit',
   'value.theme_default': 'Theme Default',
   'value.map_marker': 'Map Marker',
@@ -1843,15 +1847,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.
   'card_action.option.back.label': 'Go Back',
-  // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
-  // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
-  // takes Home Assistant's own word for it, so the panel says it one way in every language.
-  // "Add Event" is the card action's label.
-  day_tap_action_mode: 'Day Tap Action',
-  'day_tap_action_mode.option.none.label': 'Nothing',
-  'day_tap_action_mode.option.add-event.label': 'Add Event',
-  'day_tap_action_mode.helper':
-    'Add Event opens a new event when you tap an empty spot of a day. In Grid you can also hold and drag to draw one.',
+  // Home Assistant's action editor, as for an event: Add Event, the card action's label, then
+  // Home Assistant's own actions, which run with the tapped day filled in.
+  day_tap_action: 'Day Tap Action',
+  'day_tap_action.helper':
+    'Add Event opens a new event when you tap an empty spot of a day. In Grid you can also hold and drag to draw one. Home Assistant\u2019s own actions can use the tapped day\u2019s date and time.',
   // Home Assistant's action editor, as for the card's two. `details` is the one action only an
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.

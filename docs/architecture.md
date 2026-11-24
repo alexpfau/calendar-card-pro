@@ -415,12 +415,12 @@ write side is on [Interaction & Event Writes](/architecture-interaction).
 One recognizer on `ha-card` decides every press, so a tap, a hold, a swipe and a drag can never
 both happen. It reads the target at pointer-down and runs the innermost target's action.
 
-| Target                                               | Tap                | Hold                |
-| ---------------------------------------------------- | ------------------ | ------------------- |
-| An event                                             | `event_tap_action` | `event_hold_action` |
-| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
-| A narrow month's day                                 | selects the day    | `hold_action`       |
-| The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
+| Target                                               | Tap                | Hold                       |
+| ---------------------------------------------------- | ------------------ | -------------------------- |
+| An event                                             | `event_tap_action` | `event_hold_action`        |
+| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid that adds |
+| A narrow month's day                                 | selects the day    | `hold_action`              |
+| The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`              |
 
 - **Precedence.** A tap or a hold runs the innermost target's action, else the next target out's.
   An event covers its slot: a press on an event falls through to the card, never to the slot. A

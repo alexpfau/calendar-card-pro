@@ -2,7 +2,11 @@
  * Action schema rows.
  */
 
-import { CARD_ACTION_VALUES, EVENT_DETAILS_ACTION } from '../../../config/constants';
+import {
+  ADD_EVENT_ACTION,
+  CARD_ACTION_VALUES,
+  EVENT_DETAILS_ACTION,
+} from '../../../config/constants';
 import { VIEWS } from '../../../config/views';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
@@ -75,13 +79,18 @@ export const EVENT_ACTION_OPTIONS: ReadonlyArray<string> = [
 ];
 
 /**
- * What the day tap dropdown offers, the default first. A plain dropdown rather than Home
- * Assistant's action selector, because a tap on a day does one thing of its own and the card
- * reads every other action as `none`; that selector would offer Home Assistant's whole list,
- * none of it about a day. Nothing stores nothing; see `day_tap_action_mode` in
- * `SYNTHETIC_FIELDS`.
+ * Every action the day tap dropdown offers: adding an event on the day first, then Home
+ * Assistant's, which run with the tapped day's date and times filled in.
+ *
+ * Home Assistant's selector, as for an event, since it is what shows each action's own keys
+ * (the URL, the path, the action and its data) to fill in. `toggle` is left out, as there: a
+ * calendar cannot be toggled. The card's other own actions are left out too, since on a day they
+ * are nothing (`dayActionKind`).
  */
-export const DAY_TAP_CHOICES = ['none', 'add-event'] as const;
+export const DAY_ACTION_OPTIONS: ReadonlyArray<string> = [
+  ADD_EVENT_ACTION,
+  ...HA_ACTIONS.filter((action) => action !== 'toggle'),
+];
 
 /**
  * String key naming one card-specific action in the editor's own table.
@@ -126,7 +135,7 @@ const actionsSchema = Helpers.memoizeLast(
       titleKey: 'card_hold_action',
       selector: { ui_action: { actions: ACTION_OPTIONS } },
     },
-    select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
+    { name: 'day_tap_action', selector: { ui_action: { actions: DAY_ACTION_OPTIONS } } },
     { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     { name: 'event_hold_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     // What a press on an event's text can do when the event does nothing of its own: follow a

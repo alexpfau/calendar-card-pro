@@ -181,9 +181,10 @@ export function maxDateScale(config: Types.Config): number {
  *   or its language when no country is set
  * @param id The day's id, given only while the day's events are tap targets or the header is
  *   the day's add button; see `dayLabelId` in `activation.ts`
- * @param dayAdd The header as the day's add button: its name and its day. While it is one,
- *   the id moves from the header to the date inside it, which describes the button and the
- *   day's events alike; on the header it would describe both by the button's name.
+ * @param dayAdd The header as the day's add button: its name where it adds an event, and its
+ *   day. While it is one, the id moves from the header to the date inside it, which describes
+ *   the button and the day's events alike; on the header it would describe both by the button's
+ *   name. Without a name, the button runs another action and the date names it.
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -195,7 +196,7 @@ export function renderSharedDayHeader(
   separator?: { width: string; color: string } | null,
   hass?: Types.Hass | null,
   id?: string,
-  dayAdd?: { label: string; timestamp: number },
+  dayAdd?: { label?: string; timestamp: number },
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -217,8 +218,8 @@ export function renderSharedDayHeader(
       id=${dayAdd ? nothing : (id ?? nothing)}
       role=${dayAdd ? 'button' : nothing}
       tabindex=${dayAdd ? '0' : nothing}
-      aria-label=${dayAdd ? dayAdd.label : nothing}
-      aria-describedby=${dayAdd && id ? id : nothing}
+      aria-label=${dayAdd?.label ?? nothing}
+      aria-describedby=${dayAdd?.label && id ? id : nothing}
       .calendarCardDayAdd=${dayAdd?.timestamp}
     >
       <div

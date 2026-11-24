@@ -139,6 +139,24 @@ export function handleAction(
 }
 
 /**
+ * Run a day's `day_tap_action` that Home Assistant runs, its fields already filled in
+ * (`fillDayAction`). The first calendar the card shows is its entity, as for the card's own
+ * `tap_action`, so `more-info` opens it; an action that names an `entity` of its own keeps it.
+ *
+ * @param node - Element that triggered the action
+ * @param action - The filled action
+ * @param entities - The calendars the card shows
+ */
+export function handleDayAction(
+  node: HTMLElement,
+  action: Types.ActionConfig,
+  entities: Array<string | Types.EntityConfig>,
+): void {
+  fireHassAction(node, { entity: getPrimaryEntityId(entities), tap_action: action }, 'tap');
+  Logger.debug(`Delegated day tap action (${action.action}) to HA native handler`);
+}
+
+/**
  * Run a toolbar button's `tap_action`, as the card runs its own: the card's own actions through
  * their callbacks, every other one handed to Home Assistant.
  *

@@ -41,6 +41,7 @@ import * as AddEvent from './interaction/add-event';
 import * as Back from './interaction/back';
 import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
+import * as DayActions from './interaction/day-actions';
 import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
 import type * as Times from './interaction/event-times';
@@ -840,8 +841,8 @@ class CalendarCardPro extends LitElement {
   private _spaceArmedOn: EventTarget | null = null;
 
   /**
-   * The day a press on a day that adds an event landed on, read at pointer-down while a tap on
-   * a day adds (`_dayTapsActive`); null otherwise. Never set for a press on an event, which
+   * The day a press on a day landed on, read at pointer-down while a tap on a day runs
+   * something (`_dayTapsActive`); null otherwise. Never set for a press on an event, which
    * covers its day.
    */
   private _pointerDayHit: Activation.DayHit | null = null;
@@ -1022,21 +1023,33 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a tap on a day, where it shows no event, adds an event there: `day_tap_action` is
-   * `add-event`, and the card can add one now. Every other value reads as `none`, which leaves
-   * such a tap to `tap_action`, as `event_tap_action` does for events.
+   * Whether a tap on a day, where it shows no event, runs something there: `day_tap_action` adds
+   * an event and the card can add one now, or it is one of Home Assistant's actions and the card
+   * is not being edited. Every other value reads as `none`, which leaves such a tap to
+   * `tap_action`, as `event_tap_action` does for events (`dayActionKind`).
    */
   private get _dayTapsActive(): boolean {
-    const dayTapAction: Types.ActionConfig | null | undefined = this.config.day_tap_action;
-    return dayTapAction?.action === Constants.ADD_EVENT_ACTION && this._canAddEvents;
+    const kind = DayActions.dayActionKind(this.config.day_tap_action);
+    if (kind === 'add') return this._canAddEvents;
+    return kind === 'forward' && !this._isBeingEdited;
   }
 
   /**
-   * How this render draws each day as a button that adds an event on it, or undefined while a
-   * tap on a day adds nothing. Named by Home Assistant's own "Add event", as the add button is.
+   * Whether a tap on a day adds an event there: `day_tap_action` is `add-event`, and the card can
+   * add one now. What draws a new event in a grid, and names each day's button "Add event".
+   */
+  private get _dayTapsAdd(): boolean {
+    return DayActions.dayActionKind(this.config.day_tap_action) === 'add' && this._canAddEvents;
+  }
+
+  /**
+   * How this render draws each day as a button that runs `day_tap_action` on it, or undefined
+   * while a tap on a day runs nothing. Named by Home Assistant's own "Add event" where it adds, as
+   * the add button is, and by the day itself where it runs another action.
    */
   private get _dayAddButtons(): Activation.DayAddButtons | undefined {
     if (!this._dayTapsActive) return undefined;
+    if (!this._dayTapsAdd) return {};
     return { label: AddEvent.addEventLabel(this.safeHass) ?? AddEvent.UNLOCALIZED_ADD_EVENT_NAME };
   }
 
@@ -4855,8 +4868,8 @@ class CalendarCardPro extends LitElement {
             ? this._runEventHold(target, origin)
             : this._activate({ event: target }, origin),
         holds: () => this._eventHoldRuns || this._hasHoldAction,
-        addLabel: () => this._dayAddButtons?.label,
-        add: (origin) => this._activate({ day: day.getTime() }, origin),
+        dayButton: () => this._dayAddButtons,
+        tapDay: (origin) => this._activate({ day: day.getTime() }, origin),
       },
       title: MonthRender.monthDayTitle(day, language),
       anchor: at && { ...at, rect: at.rect ?? anchor.getBoundingClientRect() },
@@ -6619,8 +6632,8 @@ class CalendarCardPro extends LitElement {
    * later event of the gesture, the click included, to `ha-card`, so the event the pointer
    * landed on, or the day and in a grid's time area the hour, is read from this
    * pointer-down's path and position and held until pointer-up. A press arms only when it
-   * could end in something: an action of the card's own, the event's own, a day that adds
-   * an event, or a swipe. So turning any of them on changes nothing about a press anywhere
+   * could end in something: an action of the card's own, the event's own, a day whose tap
+   * runs something, or a swipe. So turning any of them on changes nothing about a press anywhere
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
@@ -6767,13 +6780,14 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Where a press may draw a new event from: a grid's time area or its all-day band, while a
-   * tap on a day adds an event there (`_dayTapsActive`), so the same switch turns both on.
+   * tap on a day adds an event there (`_dayTapsAdd`), so the same switch turns both on. A day
+   * tap that runs another action draws nothing, and a hold there is the card's.
    *
    * @param hit - The day the press landed on, if any
    * @returns The draft's anchor, or undefined where nothing may be drawn
    */
   private _draftAnchorFor(hit: Activation.DayHit | undefined): GridDraft.DraftAnchor | undefined {
-    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsActive) return undefined;
+    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsAdd) return undefined;
     if (hit.allDay) return { allDay: true, timestamp: hit.timestamp };
     if (hit.minute === undefined) return undefined;
     return { allDay: false, point: { timestamp: hit.timestamp, minute: hit.minute } };
@@ -7228,7 +7242,7 @@ class CalendarCardPro extends LitElement {
 
   /** Whether a press on this card may draw a new event: a grid whose day taps add. */
   private get _drawsNewEvents(): boolean {
-    return this.effectiveView === 'grid' && this._dayTapsActive;
+    return this.effectiveView === 'grid' && this._dayTapsAdd;
   }
 
   /**
@@ -7735,8 +7749,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The day a press landed on, and in a grid's time area the hour, while a tap on a day adds
-   * an event there (`_dayTapsActive`). Undefined on an event, which covers its day, and off the
+   * The day a press landed on, and in a grid's time area the hour, while a tap on a day runs
+   * something there (`_dayTapsActive`). Undefined on an event, which covers its day, and off the
    * days.
    *
    * @param ev - A pointer-down on `ha-card`
@@ -7803,10 +7817,10 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Washes the day a press is on, where the new event would go: the date or header, and in a
-   * grid's time area the hour a tap there adds. Through an attribute and two custom properties on the day's own
-   * element, so the grid's structure observers, which watch elements come and go, see nothing.
-   * Undefined unwashes the day washed last.
+   * Washes the day a press is on, where its tap runs: the date or header, and in a grid's time
+   * area the hour a tap there adds at, or hands to another action. Through an attribute and two
+   * custom properties on the day's own element, so the grid's structure observers, which watch
+   * elements come and go, see nothing. Undefined unwashes the day washed last.
    *
    * @param hit - The day to wash, or undefined for none
    */
@@ -8003,7 +8017,7 @@ class CalendarCardPro extends LitElement {
       } else if (dayHit && this._dayTapsActive) {
         Logger.debug('Executing day tap action');
         this._releasePressFocus();
-        this._addEventAt(dayHit, origin);
+        this._runDayTap(dayHit, origin);
         ranOffEvents = true;
       } else if (this._hasTapAction) {
         Logger.debug('Executing tap action');
@@ -8377,8 +8391,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Activates a button of the card's own from the keyboard or assistive technology: an
-   * event's own action, or a day's add button. Neither has a hold there, so an event runs its
-   * tap where it has one, and otherwise its hold.
+   * event's own action, or a day's button, which runs `day_tap_action`. Neither has a hold
+   * there, so an event runs its tap where it has one, and otherwise its hold.
    *
    * @param target - What the button acts on
    * @param origin - Where the button is, for the cue while the dialog loads
@@ -8391,8 +8405,52 @@ class CalendarCardPro extends LitElement {
       this._runEventAction(target.event, this._eventTapRuns ? 'tap' : 'hold', origin);
     } else {
       Logger.debug('Executing day tap action');
-      this._addEventAt(undefined, origin, target.day);
+      this._runDayTap(undefined, origin, target.day);
     }
+  }
+
+  /**
+   * Runs `day_tap_action` on a day: a press on it where it shows no event, its button from the
+   * keyboard, or the day panel's title.
+   *
+   * `add-event` opens a new event there (`_addEventAt`). One of Home Assistant's actions goes to
+   * Home Assistant with the day's fields filled in (`fillDayAction`): the day, and in a grid's
+   * time area the quarter hour pressed, as `add-event` would start a new event there. Nothing runs
+   * while the card is being edited.
+   *
+   * @param hit - The day the press landed on, if any
+   * @param origin - Where the press was, for a new event's popover to open beside
+   * @param dayTimestamp - A day to run on with no hit, from a day's button
+   */
+  private _runDayTap(
+    hit: Activation.DayHit | undefined,
+    origin?: Feedback.PressOrigin,
+    dayTimestamp?: number,
+  ): void {
+    const action = this.config.day_tap_action;
+    const kind = DayActions.dayActionKind(action);
+    if (kind === 'add') {
+      this._addEventAt(hit, origin, dayTimestamp);
+      return;
+    }
+    if (kind !== 'forward' || !action || this._isBeingEdited) return;
+
+    // A narrow month runs on the day it lists, wherever nothing names another, as it adds.
+    const timestamp =
+      hit?.timestamp ??
+      dayTimestamp ??
+      (this._drawsNarrowMonth ? this._monthSelectedDay().getTime() : undefined);
+    if (timestamp === undefined) return;
+
+    const filled = DayActions.fillDayAction(
+      action,
+      DayActions.dayFields(timestamp, hit?.allDay ? undefined : hit?.minute),
+    );
+    if (!filled) {
+      Logger.warn('Not running day tap action: its URL would not open over http or https');
+      return;
+    }
+    Actions.handleDayAction(this, filled, this._shownEntries);
   }
 
   /**
@@ -9868,7 +9926,7 @@ class CalendarCardPro extends LitElement {
    *
    * The one place that answers it, so every control that makes the card a host joins here:
    * the toolbar's controls, the events while they are targets, the days while each is a
-   * button that adds an event, and the links in event rows (`open_links`). Answered from what
+   * button that runs `day_tap_action`, and the links in event rows (`open_links`). Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. A card that hosts controls hands its tap action to a control of its own
