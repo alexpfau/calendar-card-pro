@@ -23,6 +23,7 @@
 
 import { hashString, isConfigBlock } from './helpers';
 import * as Types from '../config/types';
+import { VIEWS } from '../config/views';
 
 //-----------------------------------------------------------------------------
 // CONSTANTS
@@ -44,8 +45,6 @@ const STORAGE_VERSION = 1;
  * without a cap the map would only grow. The oldest choices go first.
  */
 export const MAX_VIEW_CHOICES = 50;
-
-const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
 
 //-----------------------------------------------------------------------------
 // TYPES

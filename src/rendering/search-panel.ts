@@ -26,6 +26,7 @@ import { TemplateResult, css, html, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 
 import * as Shell from './popover-shell';
+import * as PrivateLock from './private-lock';
 import type * as Model from '../interaction/popover-model';
 import type * as Search from '../utils/search';
 
@@ -689,7 +690,13 @@ export class SearchPanel extends Shell.PopoverShell {
     >
       <span class="bar"></span>
       <span class="lines">
-        <span class="result-title">${marked(row.title, hit.title)}</span>
+        <span class="result-title"
+          >${
+            row.privateTitle
+              ? html`${PrivateLock.renderInlineLock()}${marked(row.title, hit.title)}`
+              : marked(row.title, hit.title)
+          }</span
+        >
         <span class="result-detail"
           >${row.dayText} ·
           ${row.timeText}${
@@ -935,6 +942,13 @@ export class SearchPanel extends Shell.PopoverShell {
     }
     .result-title {
       font-weight: 500;
+    }
+    .private-lock {
+      width: 1em;
+      height: 1em;
+      margin-inline-end: 4px;
+      vertical-align: -0.125em;
+      fill: currentColor;
     }
     .result-detail {
       font-size: 13px;

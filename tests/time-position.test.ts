@@ -172,24 +172,14 @@ describe('time_position', () => {
       ]);
       expect(lookup('en', 'time_position')).toBe('Time Position');
       const helper = lookup('en', 'time_position.helper');
-      expect(helper).toMatch(/^Puts the time on the title's line, without its clock\./);
-      // The wrap, and where the time goes when the last line has no room.
-      expect(helper).toMatch(
-        /A long title wraps, and the time ends its last line, or takes a line of its own where it does not fit\./,
-      );
-      // The two settings that keep it shorter, by the names the editor gives them.
-      expect(helper).toMatch(
-        /Title Line Limit cuts a longer title with the time at the end of its last line, so 1 keeps both on one line\./,
-      );
-      expect(helper).toMatch(/Scroll Long Titles keeps the title on one line and scrolls it\./);
-      // The warning, now about the one line only: it needs width, and the extras that raise how
-      // much.
-      expect(helper).toMatch(/On one line, the title needs a wide event row: in narrow cards/);
-      expect(helper).toMatch(/countdowns, event weather or long text labels/);
-      expect(helper).toMatch(/it can shrink to a few characters\.$/);
+      expect(helper).toMatch(/^Puts the time on the title’s line, without its clock\./);
+      // The two settings that keep both on one line, by the names the editor gives them, and
+      // the width that one line needs.
+      expect(helper).toMatch(/Title Line Limit 1 or Scroll Long Titles keeps both on one line/);
+      expect(helper).toMatch(/needs a wide event row\.$/);
       // And the option that keeps a title on one line says so where a reader looks for why.
       expect(lookup('en', 'scroll_long_titles.helper')).toMatch(
-        /With the time beside the title, this keeps the title on one line beside it, where it otherwise wraps\.$/,
+        /^Keeps a long title on one line and scrolls it/,
       );
     });
   });
@@ -203,7 +193,7 @@ describe('time_position', () => {
     const files = readdirSync(dir).filter(
       (file) => file.endsWith('.json') && file !== 'en-GB.json',
     );
-    expect(files).toHaveLength(10);
+    expect(files).toHaveLength(11);
     for (const file of files) {
       const strings = JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<string, string>;
       const helper = strings['time_position.helper'];
@@ -224,6 +214,8 @@ describe('time_position', () => {
       expect(moved(container)).toEqual([]);
       expect(container.querySelector('.title-aside')).toBeNull();
       expect(container.querySelector('.summary-row .time')).toBeNull();
+      // A folded countdown's words are a box of their own only beside the title.
+      expect(container.querySelector('.time-countdown-words')).toBeNull();
     });
 
     it.each([
@@ -245,6 +237,23 @@ describe('time_position', () => {
   });
 
   describe('each view on its own', () => {
+    it.each(['list', 'column'] as const)(
+      'keeps a folded countdown whole as one box beside the title, in %s view',
+      (view) => {
+        const container = render(view, {
+          time_position: 'title',
+          show_countdown: true,
+          show_progress_bar: true,
+        });
+        const folded = [...container.querySelectorAll('.title-aside .time-text > .time-countdown')];
+        expect(folded.length).toBeGreaterThan(0);
+        for (const countdown of folded) {
+          const words = countdown.querySelector(':scope > .time-countdown-words');
+          expect(words?.textContent).toBe(countdown.textContent);
+          expect(words?.textContent?.trim()).not.toBe('');
+        }
+      },
+    );
     it('moves the time in list view alone when list: asks for it', () => {
       const config = { list: { time_position: 'title' } };
       expect(moved(render('list', config)).length).toBeGreaterThan(0);
@@ -691,6 +700,11 @@ describe('time_position', () => {
           expected.querySelector(':scope > .time-actual > ha-icon')?.remove();
           expected.querySelector(':scope > .time-actual:empty')?.remove();
           const time = rest.querySelector(':scope > .summary-row > .title-aside > .time')!;
+          // Beside the title a folded countdown's words are a box of their own, so they move to
+          // the next line whole; unwrapped, they are the countdown below the title.
+          time.querySelectorAll('.time-countdown > .time-countdown-words').forEach((words) => {
+            words.replaceWith(...words.childNodes);
+          });
           expect(withoutFlexWhitespace(time), label).toBe(withoutFlexWhitespace(expected));
 
           // The rest of the row, with the time taken out of both and its box gone, is the

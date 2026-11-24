@@ -1,5 +1,8 @@
+import { render } from 'lit';
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
+import { renderBanner } from '../src/rendering/grid';
 import { cardStyles } from '../src/rendering/styles';
 
 /**
@@ -303,5 +306,54 @@ describe('right-to-left mirroring', () => {
     ).toBe('isolate');
     // Left-to-right is left as it was.
     expect(declared(separator, 'unicode-bidi')).toBe('');
+  });
+});
+
+describe('a grid banner read right to left', () => {
+  // A banner whose event runs past the window marks its ends with arrows that point the way it
+  // carries on. Read left to right that is outward; read right to left the window's start is on
+  // the right, so the same arrows pointed back at the banner's own title until the marks were
+  // turned around for the banner as a whole, and a month's bar, which is the banner, with it.
+  // happy-dom resolves no :dir(), so the rule is read here; the pictures are taken in Chromium.
+  const marks = (selector: string) =>
+    ['--calendar-card-banner-carry-before', '--calendar-card-banner-carry-after'].map((prop) =>
+      declared(selector, prop),
+    );
+
+  it('turns both marks around under :dir(rtl), on the banner itself', () => {
+    expect(marks('.grid-banner:dir(rtl)')).toEqual(["'\\25B8\\00A0'", "'\\00A0\\25C2'"]);
+    // Read left to right, nothing writes them, so each mark falls back to the glyph it always
+    // drew and the left-to-right card is unchanged.
+    expect(marks('.grid-banner')).toEqual(['', '']);
+    expect(declared('.grid-banner.continues-before .grid-banner-title::before', 'content')).toBe(
+      "var(--calendar-card-banner-carry-before, '\\25C2\\00A0')",
+    );
+    expect(declared('.grid-banner.continues-after .grid-banner-title::after', 'content')).toBe(
+      "var(--calendar-card-banner-carry-after, '\\00A0\\25B8')",
+    );
+  });
+
+  it('reaches a grid view banner, which carries no class of a month’s', () => {
+    const host = document.createElement('div');
+    host.dir = 'rtl';
+    render(
+      renderBanner(
+        {
+          summary: 'Holiday',
+          start: { date: '2026-11-01' },
+          end: { date: '2026-11-10' },
+          _entityId: 'calendar.anna',
+        },
+        { columnIndex: 0, span: 3, continuesBefore: true, continuesAfter: true },
+        undefined,
+        buildConfig({ view: 'grid', entities: ['calendar.anna'] }),
+        'en',
+      ),
+      host,
+    );
+    const banner = host.querySelector<HTMLElement>('.event')!;
+    expect(banner.matches('.grid-banner.continues-before.continues-after')).toBe(true);
+    expect(banner.classList.contains('month-bar')).toBe(false);
+    expect(banner.querySelector('.grid-banner-title')?.textContent).toBe('Holiday');
   });
 });

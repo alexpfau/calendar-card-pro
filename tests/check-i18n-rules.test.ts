@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  aliasKeyProblem,
   capitalizedAgainst,
   capitalizedRunningTextWeekday,
   checkSeparators,
@@ -19,6 +20,8 @@ import {
   separatorProblem,
 } from '../scripts/check-i18n.mjs';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { PAGES } from '../src/rendering/editor/pages';
+import { HA_TAB_KEYS } from '../src/rendering/editor/search';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 import deEditor from '../src/rendering/editor/translations/de.json';
@@ -292,7 +295,9 @@ describe('the gate itself', () => {
     expect(run.stdout).toContain(`${count} languages, `);
     expect(run.stdout).toContain(`${count} of ${count} languages compared with CLDR`);
     expect(run.stdout).toContain(`list punctuation in ${count} of ${count} languages`);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 describe('the keys an alias string may sit on', () => {
@@ -311,13 +316,56 @@ describe('the keys an alias string may sit on', () => {
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((key) => !aliasKeys.has(key))).toEqual([]);
 
-    // The view picker, the workspace picker and the filter bar sit above the panels, where the
-    // search never looks, so words filed under them would find nothing. The search box shares
-    // its name with the toolbar's Search button, a panel field, whose words do reach the search.
-    const { displayView, workspace, filter } = chassisSchemas();
-    const chassis = [...names(displayView), ...names(workspace), ...names(filter)];
-    expect(chassis).toEqual(expect.arrayContaining(['view', 'customized_only', 'essentials_only']));
+    // The filter bar sits above the panels, where the search never looks, so words filed under it
+    // would find nothing. The search box shares its name with the toolbar's Search button, a
+    // panel field, whose words do reach the search. Starting Layout, the overview's `view`
+    // picker, is the one chassis control search reads (`startingLayoutRow`).
+    const { displayView, filter } = chassisSchemas();
+    const chassis = [...names(displayView), ...names(filter)];
+    expect(chassis).toEqual(expect.arrayContaining(['view', 'search']));
     expect(aliasKeys.has('toolbar.search')).toBe(true);
-    expect(chassis.filter((name) => name !== 'search' && aliasKeys.has(name))).toEqual([]);
+    expect(aliasKeys.has('view')).toBe(true);
+    expect(
+      chassis.filter((name) => name !== 'search' && name !== 'view' && aliasKeys.has(name)),
+    ).toEqual([]);
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
+
+  it('take a page’s title key and a Home Assistant tab’s name, and nothing filed beside them', async () => {
+    const { aliasKeys, registry } = await readEditorSchemaKeys();
+
+    // Every page's words sit on its title key, which is not always `page.<id>`: Weather's is
+    // `panel.weather`, the title it kept from the panel it was.
+    for (const page of PAGES) {
+      expect(aliasKeyProblem(`${page.titleKey}.aliases`, aliasKeys), page.id).toBeUndefined();
+    }
+    for (const key of HA_TAB_KEYS)
+      expect(aliasKeyProblem(`${key}.aliases`, aliasKeys)).toBeUndefined();
+    // The words the full search added, each accepted where it sits.
+    for (const key of [
+      'page.size_spacing.aliases',
+      'page.which_events.aliases',
+      'page.taps_refresh.aliases',
+      'search.ha_tab.layout.aliases',
+      'event_type.aliases',
+      'week_number_mode.aliases',
+    ]) {
+      expect(EDITOR_STRINGS[key], key).toBeDefined();
+      expect(aliasKeyProblem(key, aliasKeys), key).toBeUndefined();
+      if (key.startsWith('page.')) expect(registry.named.has(key), key).toBe(true);
+    }
+
+    // Planted on a page's name rather than its title key, words are refused twice: as an alias
+    // nothing reads, and as a page-registry key no page names.
+    const weather = PAGES.find((page) => page.id === 'weather')!;
+    expect(weather.titleKey).toBe('panel.weather');
+    expect(aliasKeyProblem('page.weather.aliases', aliasKeys)).toMatch(/can never be searched/);
+    expect(registry.named.has('page.weather.aliases')).toBe(false);
+    expect(aliasKeyProblem('size_spacing.aliases', aliasKeys)).toMatch(/can never be searched/);
+    // Nor on a heading's title, which search reads as a field's place, not as its own words.
+    expect(aliasKeyProblem('heading_between_days.aliases', aliasKeys)).toMatch(
+      /can never be searched/,
+    );
   });
 });

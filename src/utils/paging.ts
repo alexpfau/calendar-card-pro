@@ -13,7 +13,7 @@
  */
 
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
-import { intlCache, intlLocales } from '../translations/intl-locales';
+import { intlCache, intlLocales, utcCalendarDay } from '../translations/intl-locales';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -173,6 +173,32 @@ export function rangeContains(range: PageRange, date: Date): boolean {
   return offset >= 0 && offset < range.days;
 }
 
+/**
+ * The month a page mostly shows: the one holding the most of its days, which is the month a
+ * month grid names, since its first row often starts in the month before and its last ends in
+ * the month after. A tie goes to the month of its middle day, day 21 of a grid's 42.
+ *
+ * @param range - The page
+ * @returns The first day of that month, at local midnight
+ */
+export function majorityMonth(range: PageRange): Date {
+  const days = Math.max(1, Math.floor(range.days));
+  const counts = new Map<number, number>();
+  for (let i = 0; i < days; i++) {
+    const day = addDays(range.start, i);
+    const month = day.getFullYear() * 12 + day.getMonth();
+    counts.set(month, (counts.get(month) ?? 0) + 1);
+  }
+  const most = Math.max(...counts.values());
+  const middle = addDays(range.start, Math.floor(days / 2));
+  const middleMonth = middle.getFullYear() * 12 + middle.getMonth();
+  const month =
+    counts.get(middleMonth) === most
+      ? middleMonth
+      : [...counts].find(([, count]) => count === most)![0];
+  return new Date(Math.floor(month / 12), month % 12, 1);
+}
+
 //-----------------------------------------------------------------------------
 // WORDS
 //-----------------------------------------------------------------------------
@@ -180,7 +206,8 @@ export function rangeContains(range: PageRange, date: Date): boolean {
 const dateFormats = intlCache<string, Intl.DateTimeFormat>();
 
 /**
- * A cached date format for a language and a set of fields.
+ * A cached date format for a language and a set of fields. It reads its days in UTC: hand it
+ * `utcCalendarDay`'s, so it names the same day after the device's zone changes.
  *
  * @param language - Card language
  * @param withYear - Whether the year is part of it
@@ -200,6 +227,7 @@ function dateFormat(
       month: 'short',
       day: 'numeric',
       ...(withYear ? { year: 'numeric' as const } : {}),
+      timeZone: 'UTC',
     });
     dateFormats.set(key, format);
   }
@@ -247,21 +275,21 @@ export function rangeLabel(range: PageRange, language: string, now: Date): strin
   const year = now.getFullYear();
 
   if (range.days <= 1) {
-    return dateFormat(language, start.getFullYear() !== year, true).format(start);
+    return dateFormat(language, start.getFullYear() !== year, true).format(utcCalendarDay(start));
   }
 
   if (start.getFullYear() === end.getFullYear()) {
     const format = dateFormat(language, start.getFullYear() !== year, false) as RangeFormat;
     const separator = rangeSeparator(dateFormat(language, false, false) as RangeFormat);
     return typeof format.formatRange === 'function'
-      ? format.formatRange(start, end)
-      : `${format.format(start)}${separator}${format.format(end)}`;
+      ? format.formatRange(utcCalendarDay(start), utcCalendarDay(end))
+      : `${format.format(utcCalendarDay(start))}${separator}${format.format(utcCalendarDay(end))}`;
   }
 
   const withYear = end.getFullYear() !== nearestNewYear(now);
   const startFormat = dateFormat(language, false, false) as RangeFormat;
   const endFormat = dateFormat(language, withYear, false);
-  return `${startFormat.format(start)}${rangeSeparator(startFormat)}${endFormat.format(end)}`;
+  return `${startFormat.format(utcCalendarDay(start))}${rangeSeparator(startFormat)}${endFormat.format(utcCalendarDay(end))}`;
 }
 
 /**
@@ -292,7 +320,10 @@ function rangeSeparator(format: RangeFormat): string {
   if (separator === undefined) {
     const parts =
       typeof format.formatRangeToParts === 'function'
-        ? format.formatRangeToParts(new Date(2000, 0, 31), new Date(2000, 1, 1))
+        ? format.formatRangeToParts(
+            new Date(Date.UTC(2000, 0, 31, 12)),
+            new Date(Date.UTC(2000, 1, 1, 12)),
+          )
         : [];
     const lastStart = parts.map((part) => part.source).lastIndexOf('startRange');
     const firstEnd = parts.findIndex((part) => part.source === 'endRange');
@@ -322,13 +353,68 @@ export type MonthForm = 'long' | 'short';
  * @returns The format
  */
 function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
-  const key = `${language}|month|${form}`;
+  return cachedFormat(`${language}|month|${form}`, language, { month: form, year: 'numeric' });
+}
+
+/**
+ * A format of the card's in UTC, made once per key and emptied with every other `Intl` cache.
+ *
+ * @param key - What the format is cached under
+ * @param language - Card language
+ * @param options - What it writes
+ * @returns The format
+ */
+function cachedFormat(
+  key: string,
+  language: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
   let format = dateFormats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(intlLocales(language), { month: form, year: 'numeric' });
+    format = new Intl.DateTimeFormat(intlLocales(language), { ...options, timeZone: 'UTC' });
     dateFormats.set(key, format);
   }
   return format;
+}
+
+/**
+ * The month's name as it stands on its own, where a month heading's `Intl` wrote it as a date
+ * does: "listopad" where it wrote "listopada", "gener" where it wrote "de gener".
+ *
+ * Home Assistant's `Intl` polyfill (formatjs 7, which it installs where the browser has no data
+ * for its language) writes a month and year with the month's form inside a date, the genitive in
+ * Catalan, Czech, Greek, Finnish, Croatian, Lithuanian, Polish, Russian, Slovak and Ukrainian:
+ * "Ноября 2026 г.". The browser's own `Intl`, and formatjs 8, write the form that stands on its
+ * own. Both forms are asked of the same `Intl`, at the width the heading used, which is not
+ * always the width asked for: Czech's short heading names the month in full.
+ *
+ * Only what the browser's own `Intl` never writes is replaced, so a heading it writes is left
+ * byte for byte. A full name written as a date writes it takes the standalone form; where the
+ * browser's own `Intl` writes such a heading, the two are one word, up to the capital a heading
+ * gets anyway. A short name only where the form inside a date is the standalone one with a
+ * preposition before it, as Catalan's "de gen." is: German's "Jan.", Greek's "Μαΐ" and
+ * Vietnamese's "thg 1" are short forms inside a date that the browser writes in a heading too. A
+ * month written as a number is left as it is, as is one `Intl` does not name on its own.
+ *
+ * @param written - The month as the heading's `Intl` wrote it
+ * @param day - The day, as a UTC calendar day
+ * @param language - Card language
+ * @returns The month to write
+ */
+function standaloneMonth(written: string, day: Date, language: string): string {
+  if (!/\p{L}/u.test(written)) return written;
+  const month = (options: Intl.DateTimeFormatOptions) =>
+    cachedFormat(`${language}|${JSON.stringify(options)}`, language, options)
+      .formatToParts(day)
+      .find((part) => part.type === 'month')?.value ?? '';
+  for (const width of ['long', 'short'] as const) {
+    if (written !== month({ day: 'numeric', month: width })) continue;
+    const alone = month({ month: width });
+    if (!alone) return written;
+    if (width === 'long') return alone;
+    return alone !== written && written.endsWith(alone) ? alone : written;
+  }
+  return written;
 }
 
 /** The letters that open a literal, which after a month written as a number are its unit: 月. */
@@ -351,9 +437,11 @@ export type MonthHeadingText = ReadonlyArray<MonthHeadingPart>;
  * Always the month of the first day, never two: the week of Nov 30 – Dec 6 reads "November
  * 2026", as a desktop calendar's week view does. `Intl` writes it in the card's language, in the
  * form a language uses for a month standing on its own ("listopad 2026", not the genitive a
- * date takes), so the card needs no month names of its own. Where the label starts with the
- * month it is capitalized in that language's own casing, as a heading is; a label that starts
- * with the year ("2026 m. lapkritis") is left as `Intl` writes it, since its month is mid-phrase.
+ * date takes), so the card needs no month names of its own. Home Assistant's `Intl` polyfill
+ * writes the genitive instead, and the month is put back in its own form (`standaloneMonth`).
+ * Where the label starts with the month it is capitalized in that language's own casing, as a
+ * heading is; a label that starts with the year ("2026 m. lapkritis") is left as `Intl` writes
+ * it, since its month is mid-phrase.
  *
  * Which run is the month comes from `Intl`'s own parts, never from where a word stands, since
  * the order is the language's: "2026년 11월" ends with it, and "2026年11月" holds it between two
@@ -377,8 +465,17 @@ export function monthHeadingParts(
   form: MonthForm = 'long',
 ): MonthHeadingText {
   const format = monthFormat(language, form);
-  const parts = format.formatToParts(date);
-  let text = format.format(date);
+  const day = utcCalendarDay(date);
+  let parts = format.formatToParts(day);
+  let text = format.format(day);
+  const at = parts.findIndex((part) => part.type === 'month');
+  const written = parts[at]?.value ?? '';
+  const month = at < 0 ? written : standaloneMonth(written, day, language);
+  const before = parts.slice(0, Math.max(at, 0)).reduce((n, part) => n + part.value.length, 0);
+  if (month !== written && text.slice(before, before + written.length) === written) {
+    text = text.slice(0, before) + month + text.slice(before + written.length);
+    parts = parts.map((part, i) => (i === at ? { ...part, value: month } : part));
+  }
   if (parts[0]?.type === 'month') {
     const locale = format.resolvedOptions().locale;
     text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
@@ -431,6 +528,41 @@ export function monthHeadingText(heading: MonthHeadingText): string {
   return heading.map((part) => part.text).join('');
 }
 
+/**
+ * Whether a form of the month heading writes the month by name rather than as a bare number:
+ * "Dec" or "12월", not the "12" of "2026-12".
+ *
+ * @param date - Any day of the month
+ * @param language - Card language
+ * @param form - The month in full or short
+ * @returns True where the month's own part holds a letter
+ */
+function namesMonth(date: Date, language: string, form: MonthForm): boolean {
+  const month = monthFormat(language, form)
+    .formatToParts(utcCalendarDay(date))
+    .find((part) => part.type === 'month');
+  return month !== undefined && /\p{L}/u.test(month.value);
+}
+
+/**
+ * The words a list writes at the start of a month rule: the month the rule opens, with its year,
+ * abbreviated as the toolbar's heading is in its short form ("Dec 2026", "Dez. 2026").
+ *
+ * Some languages abbreviate a month to its number: Lithuanian writes "2026-12" and Bulgarian
+ * "12.2026 г.", where the full form names it. There the full form is written instead, so the label
+ * always names its month. A language whose full form is a number as well, such as Japanese's
+ * "2026年12月", keeps the short form, which is the same.
+ *
+ * @param date - Any day of the month the rule opens
+ * @param language - Card language
+ * @returns The label
+ */
+export function monthRuleLabel(date: Date, language: string): string {
+  const form: MonthForm =
+    namesMonth(date, language, 'short') || !namesMonth(date, language, 'long') ? 'short' : 'long';
+  return monthHeading(date, language, form);
+}
+
 const monthHeadingSets = intlCache<string, ReadonlyArray<MonthHeadingText>>();
 
 /**
@@ -469,7 +601,7 @@ export function monthHeadings(
  * @returns The day's name
  */
 export function dayName(date: Date, language: string): string {
-  return dateFormat(language, false, true).format(date);
+  return dateFormat(language, false, true).format(utcCalendarDay(date));
 }
 
 const todayWords = intlCache<string, string>();
@@ -513,4 +645,22 @@ export function homeButtonName(
 ): string {
   if (rangeContains(home, now)) return todayWord(language);
   return rangeLabel({ start: leadingDay(home, latestFirst), days: 1 }, language, now);
+}
+
+/**
+ * What a month's home button is called: "Today" while home's heading names today's month, and
+ * otherwise that month, as the heading writes it in full ("January 2027"), so the name says where
+ * the button goes. Today drawn among another month's first or last days does not count, as it does
+ * for the other views (`homeButtonName`), since the button goes to the month the heading names.
+ *
+ * @param home - The month page the card opens with, its six weeks
+ * @param language - Card language
+ * @param now - The current moment
+ * @returns The button's name
+ */
+export function monthHomeButtonName(home: PageRange, language: string, now: Date): string {
+  const month = majorityMonth(home);
+  return month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth()
+    ? todayWord(language)
+    : monthHeading(month, language);
 }

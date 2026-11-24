@@ -22,10 +22,11 @@ import * as Activation from './activation';
 import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as PrivateLock from './private-lock';
 import * as TextScale from './text-scale';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
-import * as Localize from '../translations/localize';
 import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
@@ -58,10 +59,19 @@ interface DayBoundary {
 
 type SeparatorKind = 'day' | 'week' | 'month';
 
+/**
+ * The rows a column-long element spans: the all-day band (`3`), the time body (`4`), or both
+ * (`3 / span 2`). The band's piece is drawn in the band's own box (`.grid-allday-row`) and the
+ * body's below it; one element spans both only while there is no band, when row 3 is empty.
+ */
+type GridRows = '3' | '4' | '3 / span 2';
+
 interface GridSeparator {
   kind: SeparatorKind;
   width: string;
   color: string;
+  /** The pill's number color, for a week separator that takes the pill's background. */
+  ink?: string;
 }
 
 /**
@@ -145,7 +155,8 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
     return {
       kind: 'week',
       width: config.week_separator_width,
-      color: config.week_separator_color,
+      color: Leaves.weekSeparatorColor(config),
+      ink: Leaves.weekSeparatorInk(config),
     };
   }
 
@@ -174,24 +185,32 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
  * shows the day columns it belongs to. Removing that `z-index` brings the original defect
  * straight back, which is why it is a declaration with a comment rather than a default.
  *
+ * While there is a band, a rule is drawn as two pieces, one per row: the band's in its own
+ * box (`.grid-allday-row`), which stays put while the hours scroll, and the body's below it.
+ * One element spanning both rows would scroll away from under the band. The pieces meet on a
+ * row line, so the two read as the one rule they replace.
+ *
  * @param separator - The resolved rule for this gutter
  * @param columnIndex - Zero-based day column the rule precedes
  * @param gap - The grid's column gap, i.e. the resolved `day_spacing`
+ * @param rows - The rows the rule spans: the band's, the body's, or both while there is no band
  * @returns Rendered separator
  */
 function renderGridSeparator(
   separator: GridSeparator,
   columnIndex: number,
   gap: string,
+  rows: GridRows,
 ): TemplateResult {
   return html`
     <div
       class="grid-separator grid-separator-${separator.kind}"
       style=${styleMap({
         gridColumn: String(columnIndex + 2),
-        gridRow: '3 / span 2',
+        gridRow: rows,
         width: separator.width,
         '--calendar-card-grid-rule-paint': ColorMix.floorColor(separator.color),
+        color: separator.ink,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
@@ -245,22 +264,25 @@ function renderGridSeparator(
  * is sized from the rule so the banners above it keep the same clear space they keep under
  * the upper rule.
  *
- * With no banners there is no band to grow into: row 3 collapses, so the rule stays at the
- * top of row 4 and the caller says so by passing the row.
+ * With no banners there is no band to grow into: row 3 collapses, so the rule hangs from the
+ * top of the empty row 3 into the top of the body, by a negative margin as deep as the rule.
+ * That draws it on the same pixels as a rule at the top of row 4 while keeping it in the
+ * band's box, which then stays with the day headers when the hours scroll; the margin is what
+ * keeps the empty row at no height.
  *
  * @param kind - Which boundary this is, used for the class
  * @param width - Resolved CSS length for the rule
  * @param color - Resolved CSS color for the rule
- * @param row - Grid row the rule is placed in
- * @param alignSelf - Which edge of that row it sits on
+ * @param alignSelf - Which edge of row 3 it sits on
+ * @param overhang - Whether it hangs below the row rather than sitting inside it
  * @returns The rendered rule
  */
 function renderGridBoundary(
   kind: 'band-top' | 'band-bottom',
   width: string,
   color: string,
-  row: number,
   alignSelf: 'start' | 'end',
+  overhang = false,
 ) {
   return html`
     <div
@@ -268,9 +290,10 @@ function renderGridBoundary(
       aria-hidden="true"
       style=${styleMap({
         gridColumn: '2 / -1',
-        gridRow: String(row),
+        gridRow: '3',
         alignSelf,
         height: width,
+        ...(overhang ? { 'margin-block-end': `calc(-1 * ${width})` } : {}),
         '--calendar-card-grid-rule-paint': ColorMix.floorColor(color),
       })}
     ></div>
@@ -361,16 +384,21 @@ function renderGridEndRule(color: string): TemplateResult {
  * replaces the weekend one rather than stacking on it, which two translucent colors would
  * otherwise do. The gutter beside today then stays clear, as it does beside a weekday.
  *
+ * While there is a band, each run is drawn twice, once per row, as the day separators are
+ * (`renderGridSeparator`): the band's piece in the band's box, the body's below it.
+ *
  * @param days - Days on screen, in order
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
  * @param todayIndex - Today's position in `days` when today carries a tint of its own, or -1
+ * @param rows - The rows each stripe spans
  * @returns One stripe per run of adjacent weekend days
  */
 function renderWeekendStripes(
   days: Types.EventsByDay[],
-  hass?: Types.Hass | null,
-  todayIndex = -1,
+  hass: Types.Hass | null | undefined,
+  todayIndex: number,
+  rows: GridRows,
 ): TemplateResult[] {
   const runs: Array<{ start: number; span: number }> = [];
 
@@ -403,7 +431,7 @@ function renderWeekendStripes(
       <div
         class="grid-weekend"
         aria-hidden="true"
-        style=${styleMap({ gridColumn: `${start + 2} / span ${span}`, gridRow: '3 / span 2' })}
+        style=${styleMap({ gridColumn: `${start + 2} / span ${span}`, gridRow: rows })}
       ></div>
     `,
   );
@@ -418,14 +446,15 @@ function renderWeekendStripes(
  * into a gutter.
  *
  * @param todayIndex - Today's position among the days on screen
+ * @param rows - The rows the stripe spans
  * @returns Today's stripe
  */
-function renderTodayStripe(todayIndex: number): TemplateResult {
+function renderTodayStripe(todayIndex: number, rows: GridRows): TemplateResult {
   return html`
     <div
       class="grid-today"
       aria-hidden="true"
-      style=${styleMap({ gridColumn: `${todayIndex + 2} / span 1`, gridRow: '3 / span 2' })}
+      style=${styleMap({ gridColumn: `${todayIndex + 2} / span 1`, gridRow: rows })}
     ></div>
   `;
 }
@@ -446,6 +475,7 @@ function renderTodayStripe(todayIndex: number): TemplateResult {
  * @param hass - Home Assistant instance, which decides the weekend
  * @param weekendTint - Resolved `weekend_background_color`
  * @param todayTint - Resolved `today_background_color`
+ * @param rows - The rows the stripes span
  * @returns The stripes, or `nothing` when neither tint paints
  */
 function renderDayTints(
@@ -453,9 +483,10 @@ function renderDayTints(
   hass: Types.Hass | null | undefined,
   weekendTint: string,
   todayTint: string,
+  rows: GridRows,
 ): TemplateResult[] | typeof nothing {
-  const weekend = paintsSomething(weekendTint);
-  const today = paintsSomething(todayTint);
+  const weekend = ColorMix.paintsSomething(weekendTint);
+  const today = ColorMix.paintsSomething(todayTint);
 
   if (!weekend && !today) {
     return nothing;
@@ -466,26 +497,9 @@ function renderDayTints(
     : -1;
 
   return [
-    ...(weekend ? renderWeekendStripes(days, hass, todayIndex) : []),
-    ...(todayIndex === -1 ? [] : [renderTodayStripe(todayIndex)]),
+    ...(weekend ? renderWeekendStripes(days, hass, todayIndex, rows) : []),
+    ...(todayIndex === -1 ? [] : [renderTodayStripe(todayIndex, rows)]),
   ];
-}
-
-/**
- * Whether a resolved color value would paint anything at all.
- *
- * `transparent` and `none` are what a user writes to switch an optional fill off, and an
- * empty string is what an editor text field hands back when it is cleared. None of them
- * needs a custom property emitted for it, and leaving the property unset lets the
- * stylesheet's own fallback stand rather than overriding it with a no-op.
- *
- * @param value - A resolved CSS color
- * @returns `true` when the value is worth writing to the DOM
- */
-function paintsSomething(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-
-  return normalized !== '' && normalized !== 'transparent' && normalized !== 'none';
 }
 
 //-----------------------------------------------------------------------------
@@ -1109,7 +1123,12 @@ function gridTimedEventContentParts(
     const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
     return {
       ...parts,
-      eventTime: FormatUtils.formatTime(segmentStart, use24h, config.time_two_digit_hours),
+      eventTime: FormatUtils.formatTime(
+        segmentStart,
+        use24h,
+        config.time_two_digit_hours,
+        language,
+      ),
       eventTimeEnd: undefined,
     };
   }
@@ -1120,7 +1139,7 @@ function gridTimedEventContentParts(
   const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
+  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours, language);
   const duration = config.show_duration
     ? FormatUtils.formatEventDuration({ ...event, start: source.start, end: source.end }, language)
     : null;
@@ -1143,7 +1162,7 @@ function gridTimedEventContentParts(
     readsMidnight(end) &&
     !readsMidnight(start);
   const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
-  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}${lasts}`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours, language)}${count}${lasts}`;
 
   return {
     ...counted,
@@ -1222,9 +1241,15 @@ function renderOverflow(
  * @param eventsTappable - Whether the banner is a tap target of its own
  * @param dayLabelId - The id of the header of the first day the banner covers on screen,
  *   which describes a tappable banner
+ * @param layout - Where its columns start and the class it adds, for a view that draws the
+ *   banner in a grid of its own: Grid's first day column is its second, after the hour axis,
+ *   and Month's is its first, with `month-bar`. Month also gives it an id, which its day's cell
+ *   owns it by, and takes a tappable banner out of the Tab order (`tabIndex: '-1'`), since its
+ *   day's panel is the keyboard's way to it, and the lines a bar set in larger text takes
+ *   (`rows`)
  * @returns Rendered banner
  */
-function renderBanner(
+export function renderBanner(
   event: Types.CalendarEventData,
   placement: Grid.BannerPlacement,
   row: number | undefined,
@@ -1233,17 +1258,28 @@ function renderBanner(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  layout: {
+    firstColumn: number;
+    className?: string;
+    id?: string;
+    tabIndex?: string;
+    rows?: number;
+  } = {
+    firstColumn: 2,
+  },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const timed = event.start.dateTime !== undefined;
   const times = timed
-    ? bannerTimes(event, placement, presentation.contentParts, config, hass)
+    ? bannerTimes(event, placement, presentation.contentParts, config, language, hass)
     : null;
   // The whole event's length, after the title, marked as such where the banner shows only part
-  // of it. It goes with the time, as on every row.
+  // of it. It goes with the time, as on every row. Only `show_duration` and the calendar's
+  // `show_time` decide it: the all-day time-row switches are List's and Column's, and a bar has
+  // no time row for them to hide.
   const lasts =
-    config.show_duration && presentation.contentParts.shouldShowTime
+    config.show_duration && presentation.showsTime
       ? FormatUtils.formatEventDuration(event, language, bannerShowsPart(event, placement))
       : null;
   const duration = lasts ? html`<span class="grid-banner-duration">${lasts}</span>` : nothing;
@@ -1261,16 +1297,22 @@ function renderBanner(
         'event-interactive': tap !== undefined,
         'search-ring': event._searchRing === true,
         [TextScale.TEXT_SCALED_CLASS]: presentation.textScaled,
+        ...(layout.className ? { [layout.className]: true } : {}),
       })}
       style=${styleMap({
-        gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
-        ...(row === undefined ? {} : { gridRow: String(row) }),
+        gridColumn: `${placement.columnIndex + layout.firstColumn} / span ${placement.span}`,
+        ...(row === undefined
+          ? {}
+          : layout.rows && layout.rows > 1
+            ? { gridRow: `${row} / span ${layout.rows}`, alignSelf: 'start' }
+            : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
         ...presentation.textScaleProperties,
       })}
+      id=${layout.id ?? nothing}
       role=${tap ? 'button' : nothing}
-      tabindex=${tap ? '0' : nothing}
+      tabindex=${tap ? (layout.tabIndex ?? '0') : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
@@ -1287,11 +1329,23 @@ function renderBanner(
               duration,
             )
           : lasts
-            ? html`<span class="grid-banner-title">${event.summary ?? ''}</span>${duration}`
-            : html`<span class="grid-banner-title">${event.summary ?? ''}</span>`
+            ? html`<span class="grid-banner-title">${bannerTitle(event)}</span>${duration}`
+            : html`<span class="grid-banner-title">${bannerTitle(event)}</span>`
       }
     </div>
   `;
+}
+
+/**
+ * A banner's title: the event's, after a lock where it is a private event's Private.
+ *
+ * @param event - The banner's event
+ * @returns The title
+ */
+function bannerTitle(event: Types.CalendarEventData): TemplateResult | string {
+  return event._privateTitle
+    ? html`${PrivateLock.renderRowLock()}${event.summary ?? ''}`
+    : (event.summary ?? '');
 }
 
 /**
@@ -1337,6 +1391,7 @@ interface BannerTimes {
  * @param placement - The days it spans on screen
  * @param parts - Its shared content, for whether it shows a time at all
  * @param config - Card configuration
+ * @param language - Card language code, for a 12-hour day period
  * @param hass - Home Assistant instance
  * @returns The start and end texts, and whether they are 12-hour readings
  */
@@ -1345,6 +1400,7 @@ function bannerTimes(
   placement: Grid.BannerPlacement,
   parts: Leaves.EventContentParts,
   config: Types.Config,
+  language: string,
   hass?: Types.Hass | null,
 ): BannerTimes {
   const none = { start: null, end: null, long: false };
@@ -1358,7 +1414,7 @@ function bannerTimes(
     date.getTime() === Grid.startOfDay(date).getTime()
       ? null
       : FormatUtils.isolateClockReadings(
-          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours),
+          FormatUtils.formatTime(date, use24h, config.time_two_digit_hours, language),
         );
   return {
     start: placement.continuesBefore ? null : reading(start),
@@ -1404,7 +1460,7 @@ function renderTimedBannerContent(
       aria-hidden="true"
     >
       ${times.start === null ? nothing : html`<span class="grid-banner-time">${times.start}</span>`}
-      <span class="grid-banner-title">${event.summary ?? ''}</span>${duration}
+      <span class="grid-banner-title">${bannerTitle(event)}</span>${duration}
       ${
         times.end === null
           ? nothing
@@ -1494,7 +1550,8 @@ export function renderNewBanner(
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
  * axis over. Banners beyond `allday_band_max_rows` are dropped, so the band cannot grow
- * without bound on a week containing a long holiday.
+ * without bound on a week containing a long holiday. The runs and the first fit are
+ * `resolveBannerRuns` and `lowestFreeRows` in `utils/grid.ts`, which Month's bars share.
  *
  * Nothing marks the ones that did not fit, which is the opposite of the timed path's
  * `+N` block, and the asymmetry is forced rather than chosen: a timed overflow marker
@@ -1512,50 +1569,10 @@ function layoutBanners(
   days: Types.EventsByDay[],
   maxRows: number,
 ): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
-  const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
-  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
-  const sources = new Map<
-    Pick<Types.CalendarEventData, 'start' | 'end'>,
-    Map<string, { event: Types.CalendarEventData; columns: number[] }>
-  >();
-  days.forEach((day, column) => {
-    for (const event of sortDayEvents(day).allDay) {
-      const source = event._gridSource ?? event;
-      let variants = sources.get(source);
-      if (!variants) {
-        variants = new Map();
-        sources.set(source, variants);
-      }
-      // Per-day filters can change which calendars contribute while the winning
-      // source stays the same. Keep their shared-color boundaries in the banner band.
-      const contributors = JSON.stringify(event._mergedFrom?.map((entry) => entry.entityId) ?? []);
-      const existing = variants.get(contributors);
-      if (existing) {
-        existing.columns.push(column);
-      } else {
-        variants.set(contributors, { event: { ...event, ...source }, columns: [column] });
-      }
-    }
-  });
-
-  const bannerRuns = [...sources.values()].flatMap((variants) => [...variants.values()]);
-  for (const { event, columns } of bannerRuns) {
-    const runs: Array<{ first: number; last: number }> = [];
-    for (const column of columns) {
-      const previous = runs[runs.length - 1];
-      if (previous && previous.last + 1 === column) previous.last = column;
-      else runs.push({ first: column, last: column });
-    }
-    for (const { first, last } of runs) {
-      const placement = Grid.computeBannerPlacement(event, visibleDayStarts.slice(first, last + 1));
-      if (placement) {
-        banners.push({
-          event,
-          placement: { ...placement, columnIndex: placement.columnIndex + first },
-        });
-      }
-    }
-  }
+  const banners = Grid.resolveBannerRuns(
+    days.map((day) => sortDayEvents(day).allDay),
+    days.map((day) => Grid.startOfDay(new Date(day.timestamp))),
+  );
 
   // Longest first, so a week-long banner takes the top row and the short ones tuck in
   // beneath it rather than the other way round.
@@ -1564,35 +1581,17 @@ function layoutBanners(
       b.placement.span - a.placement.span || a.placement.columnIndex - b.placement.columnIndex,
   );
 
-  const rowSpans: Array<Array<[number, number]>> = [];
-  const placed: Array<{
-    event: Types.CalendarEventData;
-    placement: Grid.BannerPlacement;
-    row: number;
-  }> = [];
+  const rows = Grid.lowestFreeRows(
+    banners.map(({ placement }) => ({
+      start: placement.columnIndex,
+      end: placement.columnIndex + placement.span,
+    })),
+    maxRows,
+  );
 
-  for (const banner of banners) {
-    const start = banner.placement.columnIndex;
-    const end = start + banner.placement.span;
-
-    let row = rowSpans.findIndex((occupied) =>
-      occupied.every(([from, to]) => end <= from || start >= to),
-    );
-
-    if (row < 0) {
-      if (rowSpans.length >= maxRows) {
-        continue;
-      }
-
-      row = rowSpans.length;
-      rowSpans.push([]);
-    }
-
-    rowSpans[row].push([start, end]);
-    placed.push({ ...banner, row: row + 1 });
-  }
-
-  return placed;
+  return banners.flatMap((banner, index) =>
+    rows[index] < 0 ? [] : [{ ...banner, row: rows[index] + 1 }],
+  );
 }
 
 /**
@@ -1665,6 +1664,9 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  * @param bandOpenForNew - Whether the card draws a new all-day event it is adding into the
  *   band (`renderNewBanner`), which opens the band, one row, on days with no all-day event of
  *   their own
+ * @param fillsCard - Whether the card has a height of its own the events area fills, a
+ *   `card_height` or a Sections slot (`CardSize.fillsCard`), which compresses the hours as a
+ *   fixed `height` does
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1680,6 +1682,7 @@ export function renderGridGroupedEvents(
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
   bandOpenForNew = false,
+  fillsCard = false,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1735,10 +1738,19 @@ export function renderGridGroupedEvents(
   // by its banners. A height written for the row instead would restate the banner's padding and
   // line height, a second copy of both for the band to drift from.
   const bandRows = Math.max(bannerRows, bandOpenForNew ? 1 : 0);
-  const separators = boundaries
+  const banded = bandRows > 0;
+  // What runs the length of a day column, the tints and the day rules, is drawn in two pieces
+  // while there is a band: the band's in the band's box and the body's below it. With no band
+  // row 3 is empty and one piece spanning both rows draws exactly what the body's would.
+  const bodyRows: GridRows = banded ? '4' : '3 / span 2';
+  const ruled = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
-    .filter(({ separator, index }) => separator !== null && index > 0)
-    .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
+    .filter(
+      (entry): entry is { separator: GridSeparator; index: number } =>
+        entry.separator !== null && entry.index > 0,
+    );
+  const separators = (rows: GridRows) =>
+    ruled.map(({ separator, index }) => renderGridSeparator(separator, index, gutter, rows));
 
   // The two horizontal rules framing the all-day band, each on its own option now.
   //
@@ -1759,17 +1771,18 @@ export function renderGridGroupedEvents(
   // collapses to nothing and the two rules would land on the same line, a hairline
   // stacked under a heavier one. The lower rule is the boundary either way.
   //
-  // Which row the lower rule sits in is the band's presence, not a constant. With a band
-  // it belongs at the END of row 3, growing up into the band's bottom padding rather than
-  // down into the first events of the day; with no band there is no row 3 to grow into and
-  // it stays at the top of row 4.
+  // Which edge of row 3 the lower rule sits on is the band's presence, not a constant. With a
+  // band it belongs at the END of row 3, growing up into the band's bottom padding rather than
+  // down into the first events of the day; with no band there is no row 3 to grow into, and it
+  // hangs from the empty row into the top of the body (`renderGridBoundary`), where it stays
+  // in the sticky head with the day headers it closes.
   const bandTopWidth = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_width');
   const bandTopColor = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_color');
   const bandBottomWidth = ViewConfig.resolveTimeGridOption(config, 'allday_band_line_width');
   const bandBottomColor = ViewConfig.resolveTimeGridOption(config, 'allday_band_line_color');
   const bandBoundaries = [
-    ...(bandRows > 0 && !ViewConfig.isZeroLength(bandTopWidth)
-      ? [renderGridBoundary('band-top', bandTopWidth, bandTopColor, 3, 'start')]
+    ...(banded && !ViewConfig.isZeroLength(bandTopWidth)
+      ? [renderGridBoundary('band-top', bandTopWidth, bandTopColor, 'start')]
       : []),
     ...(!ViewConfig.isZeroLength(bandBottomWidth)
       ? [
@@ -1777,60 +1790,48 @@ export function renderGridGroupedEvents(
             'band-bottom',
             bandBottomWidth,
             bandBottomColor,
-            bandRows > 0 ? 3 : 4,
-            bandRows > 0 ? 'end' : 'start',
+            banded ? 'end' : 'start',
+            !banded,
           ),
         ]
       : []),
   ];
 
-  // A configured `height` turns the axis from a fixed scale into a share of the content
-  // area, as both `docs/features/grid-view.md` and the `.grid-container` stylesheet
-  // comment promise.
-  // Reserve at least half the content height for time, letting the all-day band scroll
-  // in the remaining space rather than starving the body. That remainder is what the day
-  // headers leave behind, and they do not compress -- so the band's share is roughly
-  // `0.5 * height - <header height>`, measured at 40px on a 180px card.
+  // A fixed height turns the axis from a fixed scale into a share of the content area, as both
+  // `docs/features/grid-view.md` and the `.grid-container` stylesheet comment promise: a
+  // configured `height`, or a whole card with a height of its own (`card_height`, or a Sections
+  // slot) whose content area fills what its header leaves (`fillsCard`). `max_height` and
+  // `card_max_height` are deliberately excluded: they cap and scroll rather than compress, so the
+  // body keeps its natural pixel height. `height` defaults to the string `'auto'`, so a truthy
+  // check is not enough -- a fixed height is a real length, matching the editor's own
+  // `heightMode` 'fixed' predicate.
   //
-  // Two things follow, both measured in a browser rather than derived, because happy-dom
-  // computes no layout. Shrinking the card drives that share to zero at about twice the
-  // header height, but the band does not vanish there: it floors at its own 4px padding
-  // and keeps `overflow-y: auto` with its full scrollHeight (127px for six banners), so
-  // its events are still scrollable and still a labeled tab stop -- unreachable by mouse
-  // at that size, never dropped. Past the same threshold the non-compressing header plus
-  // the body's 50% floor exceed the declared height, so the container overflows and
-  // `ha-card`'s `overflow: hidden` clips the bottom of the axis (10px at 80px, 20px at
-  // 60px). Growing the card cannot starve the band in the opposite direction: the cap
-  // rises with the height, and once it passes the content the band simply stops there
-  // (126.8px of 126.8px, nothing clipped, at 400px, 800px and 1200px).
+  // Only the hours compress. The day headers and the all-day band keep their height, the band at
+  // most `allday_band_max_rows` rows of banners. The hours take what those leave, and never less
+  // than `GRID_MIN_HOUR_HEIGHT` an hour, or the configured `hour_height` where that is smaller,
+  // so an hour-long event keeps a line of title. Below that the container grows past the content
+  // area, which scrolls, as a list does; the headers stay at its top while it does (`.grid-head`),
+  // and the band with them while there is room (`.grid-allday-row`), so an all-day event stays in
+  // sight on all but the shortest card.
   //
-  // There is no floor, deliberately: giving the band one guaranteed row only moves the
-  // overflow point up to roughly 146px, trading a scroll-only band for a clipped time
-  // axis, and `height` is a free-text CSS length so it cannot be clamped in JS from here.
-  //
-  // Fractional tracks only distribute space once the grid itself has a definite height --
-  // so the container is stretched to `100%` of the fixed-height `.content-container` it
-  // sits directly inside. `max_height` is deliberately excluded: it caps and scrolls rather
-  // than compresses, so its body stays the natural pixel height and only the container
-  // clips. `height` defaults to the string `'auto'`, so a truthy check is not enough -- a
-  // fixed height is a real length, matching the editor's own `heightMode` 'fixed' predicate.
-  const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
+  // Fractional tracks only distribute space once the grid has a definite height, so the
+  // container is at least `100%` of the content area it sits directly inside; `min-height` rather
+  // than `height` is what lets it grow past it once the floor binds, and the fr track still fills
+  // the content area while there is room. Measured in Chromium, since happy-dom computes no
+  // layout: 15 hours on a 400px events area hold 24px each and scroll by 39px, the band intact.
+  const fixedHeight =
+    fillsCard || (config.height != null && config.height !== '' && config.height !== 'auto');
+  const bodyFloor = `calc(${bandHours} * min(${Constants.UI.GRID_MIN_HOUR_HEIGHT}, ${hourHeight}))`;
   // Cramp trades readability for keeping days, not for losing zero-width tracks.
   // Below two root-font units per day, preserve the tracks and scroll horizontally.
   const cramp = ViewConfig.resolveMinDaysFallback(config, 'grid') === 'cramp';
 
-  // Both scroll regions are focusable so a keyboard user can reach them, and a tab stop
-  // with no accessible name is announced as nothing useful. The band is therefore named
-  // wherever it is focusable, with `group` rather than `region`: the latter is a landmark,
-  // which would list a card-internal strip of banners beside the page's own navigation.
-  // The container is deliberately left unnamed — naming it needs a new string in all 35
-  // card languages, and axe's scrollable-region-focusable is satisfied by the tab stop
-  // alone; a name there is APG best practice, not a conformance requirement.
-  //
-  // A band open only for a new event the card is adding holds nothing to reach: that banner
-  // is hidden from assistive technology and answers no press. So it is a group with a name and
-  // a tab stop only while it holds banners of its own.
-  const bandReachable = fixedHeight && bannerRows > 0;
+  // The container is a scroll region while cramped, so it is focusable for a keyboard user. It
+  // is deliberately left unnamed — naming it needs a new string in all 35 card languages, and
+  // axe's scrollable-region-focusable is satisfied by the tab stop alone; a name there is APG best
+  // practice, not a conformance requirement. The all-day band never scrolls on its own: it keeps
+  // its rows under any height, so it is read through its banners and needs no tab stop of its
+  // own.
 
   return html`
     <div
@@ -1846,11 +1847,9 @@ export function renderGridGroupedEvents(
         // function instead of a length, and the block above stretches the container so the
         // `1fr` has room to fill.
         '--calendar-card-grid-body-height': fixedHeight
-          ? 'minmax(50%, 1fr)'
+          ? `minmax(${bodyFloor}, 1fr)`
           : `calc(${hourHeight} * ${bandHours})`,
-        ...(fixedHeight
-          ? { height: '100%', '--calendar-card-grid-allday-height': 'minmax(0, auto)' }
-          : {}),
+        ...(fixedHeight ? { minHeight: '100%' } : {}),
         '--calendar-card-column-header-gap': headerGap,
         // The band's padding is sized from the two rules it has to clear, one per edge, so
         // the banners keep the same clear space under the upper rule as above the lower one
@@ -1872,64 +1871,63 @@ export function renderGridGroupedEvents(
         // transparent fallback is the off state rather than a placeholder. `transparent` and
         // `none` are how a user turns either off, and both are cheaper to drop here than to
         // paint.
-        ...(paintsSomething(weekendTint)
+        ...(ColorMix.paintsSomething(weekendTint)
           ? { '--calendar-card-grid-weekend': ColorMix.floorColor(weekendTint) }
           : {}),
-        ...(paintsSomething(todayTint)
+        ...(ColorMix.paintsSomething(todayTint)
           ? { '--calendar-card-grid-today': ColorMix.floorColor(todayTint) }
           : {}),
       })}
     >
-      ${renderDayTints(gridDays, hass, weekendTint, todayTint)}
-      ${renderWeekNumbers(gridDays, config)}
-      ${gridDays.map((day, index) =>
-        renderDayHeader(
-          day,
-          config,
-          language,
-          index,
-          weatherForecasts,
-          hass,
-          dayLabelIds[index],
-          dayAdd,
-        ),
-      )}
-      ${
-        bandRows > 0
-          ? html`
-              <div
-                class="grid-allday-band"
-                role=${bandReachable ? 'group' : nothing}
-                aria-label=${
-                  bandReachable
-                    ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
-                    : nothing
-                }
-                tabindex=${bandReachable ? '0' : nothing}
-                style=${styleMap({
-                  gridColumn: `1 / span ${gridDays.length + 1}`,
-                  gridRow: '3',
-                  gridTemplateColumns: 'subgrid',
-                  gridTemplateRows: `repeat(${bandRows}, auto)`,
-                })}
-                .calendarCardDaySlot=${Activation.COLUMNS_AMONG_SIBLINGS}
-              >
-                ${banners.map((banner) =>
-                  renderBanner(
-                    banner.event,
-                    banner.placement,
-                    banner.row,
-                    config,
-                    language,
-                    hass,
-                    eventsTappable,
-                    dayLabelIds[banner.placement.columnIndex],
-                  ),
-                )}
-              </div>
-            `
-          : nothing
-      }
+      ${renderDayTints(gridDays, hass, weekendTint, todayTint, bodyRows)}
+      <div class="grid-head">
+        ${renderWeekNumbers(gridDays, config)}
+        ${gridDays.map((day, index) =>
+          renderDayHeader(
+            day,
+            config,
+            language,
+            index,
+            weatherForecasts,
+            hass,
+            dayLabelIds[index],
+            dayAdd,
+          ),
+        )}
+      </div>
+      <div class="grid-allday-row">
+        ${banded ? renderDayTints(gridDays, hass, weekendTint, todayTint, '3') : nothing}
+        ${
+          banded
+            ? html`
+                <div
+                  class="grid-allday-band"
+                  style=${styleMap({
+                    gridColumn: `1 / span ${gridDays.length + 1}`,
+                    gridRow: '3',
+                    gridTemplateColumns: 'subgrid',
+                    gridTemplateRows: `repeat(${bandRows}, auto)`,
+                  })}
+                  .calendarCardDaySlot=${Activation.COLUMNS_IN_HEAD}
+                >
+                  ${banners.map((banner) =>
+                    renderBanner(
+                      banner.event,
+                      banner.placement,
+                      banner.row,
+                      config,
+                      language,
+                      hass,
+                      eventsTappable,
+                      dayLabelIds[banner.placement.columnIndex],
+                    ),
+                  )}
+                </div>
+              `
+            : nothing
+        }
+        ${banded ? separators('3') : nothing} ${bandBoundaries}
+      </div>
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing} ${renderRules(gridDays.length)}
       ${Grid.bandEndHasRule(band, slotMinutes) ? renderGridEndRule(hourLineColor) : nothing}
       ${gridDays.map((day, index) =>
@@ -1950,7 +1948,7 @@ export function renderGridGroupedEvents(
           dayLabelIds[index],
         ),
       )}
-      ${separators} ${bandBoundaries}
+      ${separators(bodyRows)}
     </div>
   `;
 }

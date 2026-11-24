@@ -163,16 +163,26 @@ export interface ViewOption {
   view: Types.EffectiveView;
   /** The view's name in the card's language. */
   label: string;
-  /** False when the card is too narrow to draw it; the segment is shown but inert. */
-  available: boolean;
 }
 
 /** What the card hands the wrapper when it should draw the view switcher. */
 export interface ViewSwitcher {
   /** Every view, in the switcher's order. */
   views: ReadonlyArray<ViewOption>;
-  /** The view marked as current. */
+  /** The view marked as current: the one asked for, which a narrow card may draw as a list. */
   selected: Types.EffectiveView;
+  /** The switcher's name in the card's language, "Layout", for its group and its menu. */
+  name: string;
+  /** The collapsed switcher's name and tooltip, the selected view's included: "Layout: Month". */
+  currentName: string;
+  /**
+   * True where the row has no room for a segment per view, after every start control that can
+   * fold has: one button then stands for the switcher, opening a menu of the views
+   * (`utils/toolbar-fold.ts`).
+   */
+  collapsed?: boolean;
+  /** True while the card is being edited: everything is drawn, and the menu opens nothing. */
+  inert: boolean;
   onSelect: (view: Types.EffectiveView) => void;
 }
 
@@ -248,6 +258,11 @@ export interface HeaderToolbar {
    * tooltip. The commands are icons either way.
    */
   labeled?: boolean;
+  /**
+   * Whether the heading row draws its date navigation and chips nearly as large as the action
+   * row's buttons (`toolbar.size: large`), for a touch screen. They are smaller otherwise.
+   */
+  large?: boolean;
   /** The month heading, which the heading row carries whenever the toolbar is drawn. */
   heading?: MonthHeading;
   /** Previous, home and next beside the month, which then opens a date picker. */
@@ -315,11 +330,19 @@ const OVERFLOW_MENU: Menu.MenuParts = {
   page: 'custom-menu-page',
 };
 
+/** The menu the collapsed view switcher opens, to the same controller. */
+const LAYOUT_MENU: Menu.MenuParts = {
+  kind: 'layout',
+  surface: 'layout-menu-surface',
+  page: 'layout-menu-page',
+};
+
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
   list: 'viewList',
   column: 'viewColumns',
   grid: 'viewGrid',
+  month: 'viewMonth',
 } as const satisfies Record<Types.EffectiveView, keyof Types.Translations>;
 
 //-----------------------------------------------------------------------------
@@ -327,7 +350,8 @@ export const VIEW_LABEL_KEYS = {
 //-----------------------------------------------------------------------------
 
 /**
- * Keep a press on a toolbar control from also becoming a press on the card.
+ * Keep a press on a toolbar control from also becoming a press on the card. Month view's
+ * "+N more" keeps its presses the same way.
  *
  * Only the controls keep their presses: each button, and the two groups drawn as one, the view
  * switcher's track and the date arrows, whose gaps are a near miss rather than room. The rows
@@ -344,7 +368,7 @@ export const VIEW_LABEL_KEYS = {
  *
  * @param ev - The event to keep inside the control
  */
-function stopCardGesture(ev: Event): void {
+export function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
 }
 
@@ -850,10 +874,9 @@ function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
  * Render the view switcher: one segment per view, the current one raised.
  *
  * Native buttons in a group, each a toggle with `aria-pressed`, so every segment is its own
- * tab stop and Enter and Space work without any key handling of ours. A view the card is
- * too narrow to draw stays in place, dimmed and `aria-disabled`, rather than disappearing:
- * the bar keeps its shape as a tablet turns, and a screen reader still learns the view
- * exists. Pressing it does nothing.
+ * tab stop and Enter and Space work without any key handling of ours. Every view stays
+ * pressable at any width: one the card is too narrow for is drawn as a list while it stays
+ * marked, so the bar keeps its shape as a tablet turns and never strands a view.
  *
  * Each view is its word, which says what a pictogram cannot, wherever the card is wide enough for
  * all three; narrower, each is its pictogram, named by its word for assistive technology and as
@@ -864,10 +887,12 @@ function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
  * @returns The switcher
  */
 function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateResult {
+  if (switcher.collapsed) return renderCollapsedSwitcher(switcher);
   // The gray track around the segments is the switcher's too, so a near miss on it does nothing.
   return html`<div
     class="view-switcher"
     role="group"
+    aria-label=${switcher.name}
     @pointerdown=${stopCardGesture}
     @click=${stopCardGesture}
   >
@@ -876,14 +901,13 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
       const className = [
         'view-switcher-segment',
         pressed ? 'selected' : '',
-        option.available ? '' : 'unavailable',
         labeled ? '' : 'icon-only',
       ]
         .filter((cls) => cls !== '')
         .join(' ');
       const onClick = (ev: Event) => {
         ev.stopPropagation();
-        if (option.available) switcher.onSelect(option.view);
+        switcher.onSelect(option.view);
       };
 
       return html`<button
@@ -891,7 +915,6 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
         class=${className}
         data-view=${option.view}
         aria-pressed=${pressed ? 'true' : 'false'}
-        aria-disabled=${option.available ? nothing : 'true'}
         aria-label=${labeled ? nothing : option.label}
         title=${labeled ? nothing : option.label}
         @pointerdown=${stopCardGesture}
@@ -904,6 +927,143 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
         }${pressed ? SURFACE_PROBES : nothing}
       </button>`;
     })}
+  </div>`;
+}
+
+/**
+ * Moves focus between the rows of the collapsed switcher's menu with the arrow keys, Home and
+ * End, wrapping at either end. Only those keys, and only in this menu: Tab, Enter, Space and
+ * Escape keep their native meaning, and every other key reaches Home Assistant's shortcuts.
+ *
+ * @param ev - A key pressed in the menu
+ */
+function moveInLayoutMenu(ev: KeyboardEvent): void {
+  const rows = [
+    ...(ev.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('.layout-menu-row'),
+  ];
+  if (rows.length === 0) return;
+  const at = rows.indexOf(ev.target as HTMLButtonElement);
+  let next: number;
+  switch (ev.key) {
+    case 'ArrowDown':
+      next = at < 0 ? 0 : (at + 1) % rows.length;
+      break;
+    case 'ArrowUp':
+      next = at < 0 ? rows.length - 1 : (at - 1 + rows.length) % rows.length;
+      break;
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = rows.length - 1;
+      break;
+    default:
+      return;
+  }
+  ev.preventDefault();
+  rows[next].focus();
+}
+
+/**
+ * Render the view switcher collapsed into one button, and the menu it opens: a narrow card's
+ * switcher, once its start group has folded all it can (`utils/toolbar-fold.ts`).
+ *
+ * The button is a pill, wider than the round commands, holding the selected view's pictogram, the
+ * one the switcher raises, and the month's caret, the toolbar's sign for a control that opens a
+ * picker. Named "Layout: Month", which is its tooltip too, and marked as opening a dialog.
+ *
+ * The menu is the toolbar's: a modal `<dialog>` in the top layer, placed, painted and closed by
+ * the controller every toolbar menu shares (`menu.ts`), a row per view in the switcher's order,
+ * its pictogram and its word, the selected one washed and checked. Each row is a toggle with
+ * `aria-pressed`, as each segment is, so the switcher reads alike in both forms. A key that opens
+ * it focuses the selected row, a press the menu itself; the arrows, Home and End move between
+ * rows (`moveInLayoutMenu`); Escape focuses the button. A row picked closes the menu and selects
+ * its view, and a key's pick hands focus back to the button, which a press's leaves to the
+ * browser, as every toolbar menu does.
+ *
+ * The two share one wrapper, so the row still holds three parts, the start group, the switcher
+ * and the end group, whichever form the switcher takes.
+ *
+ * `aria-expanded` is written once by the template and then kept by the menu itself, so a
+ * re-render while the menu is open does not reset it.
+ *
+ * @param switcher - Switcher description from the card
+ * @returns The button and its menu
+ */
+function renderCollapsedSwitcher(switcher: ViewSwitcher): TemplateResult {
+  const onClick = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const dialog = (ev.currentTarget as HTMLElement).nextElementSibling;
+    if (dialog instanceof HTMLDialogElement) {
+      Menu.pressMenuButton(ev, dialog, switcher.inert, LAYOUT_MENU);
+    }
+  };
+  const pick = (view: Types.EffectiveView) => (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const dialog = (ev.currentTarget as HTMLElement).closest('dialog');
+    const opener = dialog?.previousElementSibling;
+    if (!dialog) return;
+    Menu.closeMenu(dialog, 'picked');
+    if (ev.detail === 0 && opener instanceof HTMLElement) opener.focus({ preventScroll: true });
+    switcher.onSelect(view);
+  };
+
+  return html`<div class="view-switcher-collapsed">
+    <button
+      type="button"
+      class="toolbar-button view-switcher-pill"
+      data-view=${switcher.selected}
+      aria-haspopup="dialog"
+      aria-expanded="false"
+      aria-label=${switcher.currentName}
+      title=${switcher.currentName}
+      @pointerdown=${stopCardGesture}
+      @click=${onClick}
+    >
+      ${renderViewPictogram(switcher.selected)}
+      <svg class="view-switcher-caret" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d=${mdiMenuDown}></path>
+      </svg>
+    </button>
+    <dialog
+      class="layout-menu"
+      tabindex="-1"
+      aria-label=${switcher.name}
+      @pointerdown=${stopCardGesture}
+      @click=${Menu.closeOnPressOutside}
+      @keydown=${moveInLayoutMenu}
+    >
+      <div class="layout-menu-list" role="group" aria-label=${switcher.name}>
+        ${switcher.views.map((option) => {
+          const selected = option.view === switcher.selected;
+          return html`<button
+            type="button"
+            class=${selected ? 'layout-menu-row selected' : 'layout-menu-row'}
+            data-view=${option.view}
+            aria-pressed=${selected ? 'true' : 'false'}
+            ?autofocus=${selected}
+            @click=${pick(option.view)}
+          >
+            ${renderViewPictogram(option.view)}
+            <span class="layout-menu-label">${option.label}</span>
+            ${
+              selected
+                ? html`<svg
+                    class="layout-menu-check"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d=${mdiCheck}></path>
+                  </svg>`
+                : nothing
+            }
+          </button>`;
+        })}
+      </div>
+      <span class="layout-menu-surface" aria-hidden="true"></span>
+      <span class="layout-menu-page" aria-hidden="true"></span>
+    </dialog>
   </div>`;
 }
 
@@ -1262,8 +1422,9 @@ function renderActionRow(
  *
  * The title and the month are one block, the title a small label over the month, so a long
  * title wraps within it and the controls beside it never move. Those controls are smaller than
- * the action row's and centered on the month's capitals, so they read as level with its words
- * rather than raised above them. The arrows keep to the row's end in every layout, so a press on
+ * the action row's, unless `toolbar.size` is `large`, and centered on the month's capitals, so
+ * they read as level with its words rather than raised above them. The arrows keep to the row's
+ * end in every layout, so a press on
  * next lands on the same spot page after page however long each month's name is. The chips sit
  * between, in the middle of the card under the view switcher while there is room for that, by
  * the switcher's own rule: the title's block and the group holding the arrows share the room
@@ -1286,6 +1447,7 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
     'toolbar-heading',
     chips ? 'chips-shown' : '',
     heading?.short ? 'short-month' : '',
+    toolbar.large ? 'large-controls' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -1299,6 +1461,26 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
       ${toolbar.navigation ? renderDateNavigation(toolbar.navigation) : nothing}
     </div>
   </div>`;
+}
+
+/**
+ * Whether the header toolbar is drawn at all: only while it holds a control. Its heading row, and
+ * the month in it, come with it.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns True when `renderHeaderToolbar` draws it
+ */
+export function drawsToolbar(toolbar: HeaderToolbar): boolean {
+  return Boolean(
+    toolbar.addEvent ||
+    toolbar.customButtons?.length ||
+    toolbar.viewSwitcher ||
+    toolbar.navigation ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.search ||
+    toolbar.legend,
+  );
 }
 
 /**
@@ -1319,18 +1501,7 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   title: TemplateResult,
 ): TemplateResult | undefined {
-  if (
-    !toolbar.addEvent &&
-    !toolbar.customButtons?.length &&
-    !toolbar.viewSwitcher &&
-    !toolbar.navigation &&
-    !toolbar.reset &&
-    !toolbar.refresh &&
-    !toolbar.search &&
-    !toolbar.legend
-  ) {
-    return undefined;
-  }
+  if (!drawsToolbar(toolbar)) return undefined;
 
   const labeled = toolbar.labeled === true;
   return html`${renderActionRow(toolbar, labeled)}${renderHeadingRow(toolbar, title)}`;

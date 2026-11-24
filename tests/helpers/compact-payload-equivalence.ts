@@ -14,12 +14,6 @@ interface PayloadLibrary {
   EDITOR_STRINGS: StringMap;
   EDITOR_LANGUAGE_STRINGS: Readonly<Record<string, StringMap>>;
   lookup: (language: string, key: string) => string | undefined;
-  lookupForView: (
-    language: string,
-    key: string,
-    view: string,
-    suffix?: string,
-  ) => string | undefined;
   getRelativeTimeString: (date: Date, language: string, reference?: Date) => string;
   getRelativeUnitString: (value: number, unit: 'day' | 'hour', language: string) => string;
   getNowString: (language: string) => string;
@@ -40,7 +34,12 @@ const ENTRY = [
   `export * from ${JSON.stringify(resolve('src/translations/dayjs.ts'))};`,
   `export { EDITOR_STRINGS } from ${JSON.stringify(resolve('src/rendering/editor/strings.ts'))};`,
   `export { EDITOR_LANGUAGE_STRINGS } from ${JSON.stringify(resolve('src/rendering/editor/translations/index.ts'))};`,
-  `export { lookup, lookupForView } from ${JSON.stringify(resolve('src/rendering/editor/localize.ts'))};`,
+  `export { lookup } from ${JSON.stringify(resolve('src/rendering/editor/localize.ts'))};`,
+  // `lookup` reads the languages the editor holds, which in the built editor arrive one at a time
+  // from their own files; this library holds them all, as the test setup does for the sources.
+  `import { EDITOR_LANGUAGE_STRINGS as registry } from ${JSON.stringify(resolve('src/rendering/editor/translations/index.ts'))};`,
+  `import { EDITOR_HELD_STRINGS as held } from ${JSON.stringify(resolve('src/rendering/editor/translations/held.ts'))};`,
+  'Object.assign(held, registry);',
 ].join('\n');
 
 function filenames(directory: string): string[] {
@@ -249,7 +248,7 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
       );
     });
 
-    it('preserves every key lookup and view-qualified fallback precedence', () => {
+    it('preserves every key lookup', () => {
       const result = comparison();
       for (const language of languages) {
         for (const key of keys) {
@@ -259,19 +258,13 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
             candidate.library.lookup(language, key),
             control.library.lookup(language, key),
           );
-          for (const view of ['list', 'column', 'grid', 'shared']) {
-            for (const suffix of ['', '.helper']) {
-              compare(
-                result,
-                `${language}/${key}/${view}${suffix}`,
-                candidate.library.lookupForView(language, key, view, suffix),
-                control.library.lookupForView(language, key, view, suffix),
-              );
-            }
-          }
         }
       }
-      assertEquivalent('editor lookups', result, languages.length * keys.length * 9);
+      assertEquivalent('editor lookups', result, languages.length * keys.length);
+      // Translated, not two English fallbacks agreeing with each other.
+      const german = candidate.library.EDITOR_LANGUAGE_STRINGS.de.show_time;
+      expect(candidate.library.lookup('de', 'show_time')).toBe(german);
+      expect(german).not.toBe(candidate.library.EDITOR_STRINGS.show_time);
     });
 
     it('detects altered translations and removed fallback in a tiny mutation control', async () => {

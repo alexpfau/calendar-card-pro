@@ -6,6 +6,7 @@ import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
+import * as Month from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import * as Styles from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
@@ -419,6 +420,67 @@ describe('time_max_lines in grid', () => {
       ).not.toBeNull();
     }
   });
+});
+
+describe('all-day time switches and the length on a bar', () => {
+  /**
+   * A month's six weeks, from a week before today so that the today-relative fixture lands on
+   * them, handed to the renderer as the card hands them.
+   */
+  function renderMonth(overrides: Partial<Types.Config>): string {
+    const rowsStart = new Date();
+    rowsStart.setDate(rowsStart.getDate() - 7);
+    rowsStart.setHours(0, 0, 0, 0);
+    const config = buildConfig({
+      view: 'month',
+      ...BASE,
+      ...overrides,
+      start_date: day(-7),
+      days_to_show: 42,
+    });
+    const effective = ViewConfig.resolveEffectiveConfig(config, 'month');
+    const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'month');
+    const container = document.createElement('div');
+    litRender(Month.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null), container);
+    return container.innerHTML;
+  }
+
+  const RENDER = {
+    grid: (overrides: Partial<Types.Config>) => renderView('grid', overrides),
+    month: renderMonth,
+  };
+
+  it.each(['grid', 'month'] as const)(
+    'show_duration draws the length on each all-day bar in %s, the control',
+    (view) => {
+      const on = RENDER[view]({ show_duration: true });
+      expect(on).not.toBe(RENDER[view]({ show_duration: false }));
+      expect(on.match(/grid-banner-duration/g)?.length).toBe(2);
+      expect(on).toContain('(3 days)');
+    },
+  );
+
+  it.each([
+    ['grid', 'show_single_allday_time'],
+    ['grid', 'show_multiday_allday_time'],
+    ['month', 'show_single_allday_time'],
+    ['month', 'show_multiday_allday_time'],
+  ] as const)('%s: %s leaves the length to show_duration', (view, key) => {
+    expect(RENDER[view]({ show_duration: true, [key]: false })).toBe(
+      RENDER[view]({ show_duration: true }),
+    );
+  });
+
+  it.each(['grid', 'month'] as const)(
+    'the show_time of a calendar still takes it away in %s',
+    (view) => {
+      const off = {
+        show_duration: true,
+        entities: [{ entity: 'calendar.personal', show_time: false }],
+      } as Partial<Types.Config>;
+      expect(RENDER[view](off)).not.toContain('grid-banner-duration');
+    },
+  );
 });
 
 describe('multiday_banners outside grid', () => {

@@ -123,7 +123,7 @@ describe('remembered choices', () => {
     ['no choices object', JSON.stringify({ version: 1, choices: [] })],
     [
       'a view that does not exist',
-      JSON.stringify({ version: 1, choices: { a: { view: 'month', at: 1 } } }),
+      JSON.stringify({ version: 1, choices: { a: { view: 'week', at: 1 } } }),
     ],
     ['a choice with no time', JSON.stringify({ version: 1, choices: { a: { view: 'grid' } } })],
   ])('ignores %s', (_name, text) => {
@@ -210,6 +210,14 @@ describe('the calendars the legend hides', () => {
     expect(readHiddenCalendars(`card-${MAX_VIEW_CHOICES}`, storage)).toEqual(['calendar.ben']);
   });
 
+  it('keeps every view the card can render, month included', () => {
+    const storage = memoryStorage();
+    for (const view of ['list', 'column', 'grid', 'month'] as const) {
+      writeViewChoice('a', view, storage);
+      expect(readViewChoice('a', storage)).toBe(view);
+    }
+  });
+
   it('drops what is not a calendar id, and repeats, and keeps the rest of the choice', () => {
     const storage = memoryStorage();
     storage.items.set(
@@ -218,7 +226,7 @@ describe('the calendars the legend hides', () => {
         version: 1,
         choices: {
           a: { view: 'grid', hidden: ['calendar.ben', 7, '', 'calendar.ben', null], at: 1 },
-          b: { view: 'month', hidden: 'calendar.ben', at: 1 },
+          b: { view: 'week', hidden: 'calendar.ben', at: 1 },
           c: { hidden: ['calendar.anna'], at: 1 },
         },
       }),

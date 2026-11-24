@@ -5,6 +5,19 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import {
+  CARD,
+  changeField,
+  entry,
+  formOf,
+  formsOf,
+  keysOf,
+  mountEditor,
+  openPanels,
+  resetButton,
+  unfoldAll,
+  valueOf,
+} from './helpers/editor-host';
+import {
   CURRENT_CONFIG_VERSION,
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
@@ -27,7 +40,6 @@ import {
   resolveColumnFit,
   resolveEffectiveConfig,
 } from '../src/config/view';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
   clearCopiedSettings,
   copiedSettings,
@@ -80,7 +92,6 @@ import {
   timeGridFormBlock,
   toStoredConfig,
 } from '../src/rendering/editor/value';
-import { getEffectiveLanguage } from '../src/translations/localize';
 import { memoizeLast, resolveLabelType } from '../src/utils/helpers';
 
 /**
@@ -100,6 +111,9 @@ import { memoizeLast, resolveLabelType } from '../src/utils/helpers';
 function columnConfig(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ view: 'column', ...overrides });
 }
+
+/** A toolbar with the date navigation, where Columns sheds down to two by default. */
+const PAGING = { toolbar: { show: true, navigation: true } } as const;
 
 function gridConfig(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ view: 'grid', ...overrides });
@@ -138,7 +152,7 @@ describe('editor: default stripping', () => {
 
   /**
    * `filterDefaultValues` recurses into any key whose default is an object, and an
-   * action config's default is `{ action: 'none' }`. Left to that recursion,
+   * action config's default is one, such as `{ action: 'none' }`. Left to that recursion,
    * `{ action: 'none', navigation_path: '/x' }` loses its `action` key and becomes an
    * action with no action in it. `value.ts` holds these out and treats them whole.
    */
@@ -155,14 +169,20 @@ describe('editor: default stripping', () => {
     },
   );
 
-  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+  it.each(['tap_action', 'hold_action', 'event_tap_action'] as const)(
     'drops %s when it equals the default',
     (key) => {
-      const stored = toStoredConfig(buildConfig({ [key]: { action: 'none' } }));
+      const stored = toStoredConfig(buildConfig({ [key]: structuredClone(DEFAULT_CONFIG[key]) }));
 
       expect(stored).not.toHaveProperty(key);
     },
   );
+
+  it('keeps event_tap_action none, which is not its default', () => {
+    const stored = toStoredConfig(buildConfig({ event_tap_action: { action: 'none' } }));
+
+    expect(stored.event_tap_action).toEqual({ action: 'none' });
+  });
 
   /**
    * `filterDefaultValues` passes `weather` through unconditionally — its comment says
@@ -294,30 +314,36 @@ describe('editor: the column block', () => {
     expect(toStoredConfig(config).column).toEqual({ show_empty_days: false });
   });
 
-  it('drops a column floor at or above days_to_show, which cannot reduce anything', () => {
-    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+  it('drops a column floor of two, the default, which changes nothing', () => {
+    const config = columnConfig({ ...PAGING, days_to_show: 5, column: { min_days_to_show: 2 } });
 
     expect(toStoredConfig(config)).not.toHaveProperty('column');
   });
 
+  it('keeps a column floor at days_to_show, which keeps every day', () => {
+    const config = columnConfig({ ...PAGING, days_to_show: 3, column: { min_days_to_show: 3 } });
+
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 3 });
+  });
+
   /**
-   * The runtime parses this with `parseFloat` and clamps the result, so `'2junk'` is a
-   * floor of 2. Re-deriving the arithmetic with `Number()` would read it as `NaN`,
+   * The runtime parses this with `parseFloat` and clamps the result, so `'3junk'` is a
+   * floor of 3. Re-deriving the arithmetic with `Number()` would read it as `NaN`,
    * delete the line and silently change the rendered column count.
    */
   it('keeps a malformed floor the runtime still resolves to something', () => {
     const config = columnConfig({
-      days_to_show: 3,
-      column: { min_days_to_show: '2junk' as unknown as number },
+      days_to_show: 5,
+      column: { min_days_to_show: '3junk' as unknown as number },
     });
 
-    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: '2junk' });
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: '3junk' });
   });
 
-  it('keeps a column floor that genuinely reduces', () => {
-    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 2 } });
+  it('keeps a column floor that differs from the default', () => {
+    const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 3 } });
 
-    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 2 });
+    expect(toStoredConfig(config).column).toEqual({ min_days_to_show: 3 });
   });
 
   /**
@@ -532,7 +558,7 @@ describe('editor: start_date_offset survives being typed', () => {
  * the user can transiently empty.
  *
  * Two of the six candidates were live. `today_indicator_icon`, `today_indicator_custom`,
- * `card_height` and `card_max_height` were already held; `location_country_pattern`
+ * `fixed_height` and `maximum_height` were already held; `location_country_pattern`
  * stores `''` deliberately so its mode still reads *custom*; and the empty-day fields are
  * gated on a switch rather than on a value, so they cannot reach this state at all.
  *
@@ -579,39 +605,18 @@ describe('editor: a cleared field keeps its control', () => {
     expect(retyped.pending).not.toHaveProperty('start_date_fixed');
   });
 
-  /**
-   * `language` is a real config key bound straight to a text box, so it cannot be held
-   * the way a synthetic field is — naming it in `SYNTHETIC_FIELDS` would have
-   * `toStoredConfig` delete it as UI state. The mode reads presence instead, so an empty
-   * box is still *custom*.
-   *
-   * Safe because the card already agrees: `getEffectiveLanguage` tests
-   * `configLanguage.trim() !== ''`, so an empty custom language follows Home Assistant
-   * exactly as *system* does. The preview does not change while the box is empty.
-   */
-  it('keeps the language box on screen while it is cleared and retyped', () => {
-    const config = buildConfig({ language: 'de' });
-    expect(languageMode(config)).toBe('custom');
-
-    const step = clear(config, 'language');
-
-    expect(languageMode(step.config), 'the box survived').toBe('custom');
-    expect(getEffectiveLanguage(step.config.language, { language: 'fr' })).toBe('fr');
-
-    const before = { ...step.config, ...deriveSyntheticData(step.config, step.pending) };
-    const retyped = applyFormChange(
-      step.config,
-      before,
-      { ...before, language: 'nl' },
-      step.pending,
-    );
-
-    expect(retyped.config.language).toBe('nl');
-    expect(languageMode(retyped.config)).toBe('custom');
+  it('names a language the card speaks in one dropdown, and Home Assistant’s otherwise', () => {
+    expect(languageMode(buildConfig({ language: 'de' }))).toBe('de');
+    // Any case, as the card reads it.
+    expect(languageMode(buildConfig({ language: 'en-GB' }))).toBe('en-gb');
+    // The card follows Home Assistant for a code it does not speak, and so does the dropdown.
+    expect(languageMode(buildConfig({ language: 'xx' }))).toBe('system');
+    expect(languageMode(buildConfig({ language: '' }))).toBe('system');
+    expect(languageMode(buildConfig())).toBe('system');
   });
 
-  it('still returns the language to the system when the mode says so', () => {
-    const config = buildConfig({ language: '' });
+  it('still returns the language to the system when the dropdown says so', () => {
+    const config = buildConfig({ language: 'de' });
     const before = { ...config, ...deriveSyntheticData(config) };
     const switched = applyFormChange(config, before, { ...before, language_mode: 'system' }, {});
 
@@ -627,20 +632,26 @@ describe('editor: the column block as the form shows it', () => {
    * every density control renders blank while the card is quietly using 140px.
    */
   it('shows the effective value of an option the user has not set', () => {
-    const block = columnFormBlock(columnConfig());
+    const block = columnFormBlock(columnConfig(PAGING));
 
     expect(block).toEqual({
       day_header_gap: '8px',
       day_header_separator_width: '0px',
-      day_header_separator_color: 'var(--divider-color)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       min_day_width: 140,
       min_days_fallback: 'list',
-      min_days_to_show: 3,
+      min_days_to_show: 2,
     });
   });
 
   it('resolves the dynamic default of the column floor', () => {
+    expect(columnFormBlock(columnConfig({ ...PAGING, days_to_show: 5 })).min_days_to_show).toBe(2);
     expect(columnFormBlock(columnConfig({ days_to_show: 5 })).min_days_to_show).toBe(5);
+    expect(columnFormBlock(columnConfig({ days_to_show: 1 })).min_days_to_show).toBe(1);
+    expect(
+      columnFormBlock(columnConfig({ days_to_show: 5, column: { min_days_fallback: 'cramp' } }))
+        .min_days_to_show,
+    ).toBe(5);
   });
 
   it('lets a configured override win over the projected default', () => {
@@ -688,11 +699,11 @@ describe('editor: the grid block as the form shows it', () => {
       // rule between the date row and the all-day band in grid — a rule the grid has
       // always drawn, and which used to come out of `day_separator_*`.
       day_header_separator_width: '1px',
-      day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      day_header_separator_color: 'color-mix(in srgb, var(--primary-text-color) 18%, transparent)',
       hour_line_width: '1px',
-      hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      hour_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       allday_band_line_width: '2px',
-      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 75%, transparent)',
     });
   });
 
@@ -735,40 +746,42 @@ describe('editor: synthetic height mode', () => {
 
   it('derives the mode from which height key is set', () => {
     expect(deriveSyntheticData(buildConfig()).height_mode).toBe('auto');
-    expect(deriveSyntheticData(buildConfig({ height: '400px' })).height_mode).toBe('fixed');
-    expect(deriveSyntheticData(buildConfig({ max_height: '400px' })).height_mode).toBe('maximum');
+    expect(deriveSyntheticData(buildConfig({ card_height: '400px' })).height_mode).toBe('fixed');
+    expect(deriveSyntheticData(buildConfig({ card_max_height: '400px' })).height_mode).toBe(
+      'maximum',
+    );
   });
 
   it('clears both height keys when switching back to automatic', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const stored = toStoredConfig(change(config, 'auto').config);
 
-    expect(stored).not.toHaveProperty('height');
-    expect(stored).not.toHaveProperty('max_height');
+    expect(stored).not.toHaveProperty('card_height');
+    expect(stored).not.toHaveProperty('card_max_height');
   });
 
   it('carries a measurement across a mode switch rather than discarding it', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const viaAuto = change(config, 'auto');
     const back = change(viaAuto.config, 'fixed');
 
     // The value is gone, so the mode switch seeds a usable one instead of an empty
     // field that renders as a zero-height card.
-    expect(back.config.height).toBe('300px');
+    expect(back.config.card_height).toBe('300px');
   });
 
   it('keeps the two height keys mutually exclusive', () => {
-    const config = buildConfig({ height: '400px' });
+    const config = buildConfig({ card_height: '400px' });
 
     const maximum = change(config, 'maximum');
 
     // The measurement is not carried across, matching the editor that ships: a fixed
     // height and a maximum height are different claims about the card, and reusing
     // one as the other would silently change what a switch does.
-    expect(maximum.config.height).toBeUndefined();
-    expect(maximum.config.max_height).toBe('300px');
+    expect(maximum.config.card_height).toBeUndefined();
+    expect(maximum.config.card_max_height).toBe('300px');
   });
 });
 
@@ -789,7 +802,7 @@ describe('editor: change detection', () => {
 
   /**
    * Walking `SYNTHETIC_FIELDS` to assert something about each entry cannot notice a
-   * deleted entry — the loop simply runs one fewer time. Deleting `card_max_height`
+   * deleted entry — the loop simply runs one fewer time. Deleting `maximum_height`
    * left the whole suite green even though the field then stopped deriving its value,
    * silently discarded every edit, and wrote its own name into the stored YAML. Pin
    * the membership instead, so both a removal and an unreviewed addition fail here.
@@ -800,16 +813,16 @@ describe('editor: change detection', () => {
       'accent_event_text',
       'allday_badge_color_mode',
       'allday_badge_position',
-      'calendars',
-      'card_height',
-      'card_max_height',
       'countdown_once_per_day',
       'day_tap_action_mode',
       'filter_duplicates_mode',
+      'fixed_height',
       'height_mode',
       'language_mode',
       'location_country_mode',
       'location_country_pattern',
+      'maximum_height',
+      'narrow_fit',
       'start_date_fixed',
       'start_date_mode',
       'start_date_offset',
@@ -918,42 +931,103 @@ describe('editor: applicability', () => {
       // Column and grid view draw their days whatever their events, so leaving rows out
       // would leave holes rather than continue a list.
       skip_first_events: ['list'],
+      // A column's or grid's month rule is a vertical line in a gutter, with no room for words,
+      // and the Month layout draws no month separator at all.
+      month_separator_label: ['list'],
+      month_separator_label_color: ['list'],
+      month_separator_label_font_size: ['list'],
+      // A month sizes its whole card with the heights in its own block, so the events area's
+      // shared height and cap have nothing to size there.
+      height: ['column', 'grid', 'list'],
+      max_height: ['column', 'grid', 'list'],
+      // A month always draws its six weeks, every day of them: no day count, and no empty day
+      // to hide or keep.
+      days_to_show: ['column', 'grid', 'list'],
+      show_empty_days: ['column', 'grid', 'list'],
+      show_empty_today: ['column', 'grid', 'list'],
+      // A month rules its days with hairlines of its own and its day list holds one day, so
+      // there is no space or rule between days, weeks or months to set.
+      day_spacing: ['column', 'grid', 'list'],
+      day_separator_width: ['column', 'grid', 'list'],
+      day_separator_color: ['column', 'grid', 'list'],
+      week_separator_width: ['column', 'grid', 'list'],
+      week_separator_color: ['column', 'grid', 'list'],
+      month_separator_width: ['column', 'grid', 'list'],
+      month_separator_color: ['column', 'grid', 'list'],
+      // A month's week numbers are plain text, with no background.
+      week_number_background_color: ['column', 'grid', 'list'],
+      // A month sets its dates at one scale on every day.
+      today_date_scale: ['column', 'grid', 'list'],
+      past_date_scale: ['column', 'grid', 'list'],
+      // A month marks today with the tile and draws none of the indicators this sizes.
+      today_indicator_size: ['column', 'grid', 'list'],
+      // A month names its weekdays once, over their columns, so no weekday is today's.
+      today_weekday_color: ['column', 'grid', 'list'],
       // Grid's card-level value is inert: all-day spans become one banner, and timed
-      // events are segmented by the renderer instead of by the upstream list splitter.
+      // events are segmented by the renderer instead of by the upstream list splitter. Month
+      // takes Grid's coverage, and its day list splits every multi-day event across its days.
       split_multiday_events: ['column', 'list'],
-      // Only grid has an all-day band above an hour axis for a timed event to move into.
-      multiday_banners: ['grid'],
+      // Only grid has an all-day band above an hour axis for a timed event to move into, and
+      // month draws such an event as a bar across its days in the same way.
+      multiday_banners: ['grid', 'month'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
-      // label whatever the option resolves to.
-      show_now_indicator: ['column', 'list'],
+      // label whatever the option resolves to. Month's day list draws List's rows, which
+      // carry it.
+      show_now_indicator: ['column', 'list', 'month'],
+      // Grid discards empty-day rows, and a month has no empty day to fill.
       empty_day_text: ['column', 'list'],
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
       // the five options deciding what an all-day row carries are computed and discarded.
-      show_single_allday_time: ['column', 'list'],
+      // Month's day list draws a row's time and location, and so the row's padding and its
+      // links below; it splits every multi-day event across its days, so it draws no multi-day
+      // time row, and a bar's length follows show_duration alone.
+      show_single_allday_time: ['column', 'list', 'month'],
       show_multiday_allday_time: ['column', 'list'],
-      show_location_allday: ['column', 'list'],
+      show_location_allday: ['column', 'list', 'month'],
+      // A month keeps its description, countdown, progress bar, badge, line limits and the
+      // icons' alignment at their shipped values (`MONTH_PINNED`): its rows draw a title, a
+      // time, a location and a forecast, and leave the rest to the event's details.
       show_description_allday: ['column', 'list'],
       show_countdown_allday: ['column', 'list'],
       allday_badge: ['column', 'list'],
       allday_badge_style: ['column', 'list'],
       allday_badge_color: ['column', 'list'],
+      show_description: ['column', 'grid', 'list'],
+      description_font_size: ['column', 'grid', 'list'],
+      description_color: ['column', 'grid', 'list'],
+      description_icon_size: ['column', 'grid', 'list'],
+      description_max_lines: ['column', 'grid', 'list'],
+      show_countdown: ['column', 'grid', 'list'],
+      countdown_max_days: ['column', 'grid', 'list'],
+      countdown_exact_days: ['column', 'grid', 'list'],
+      show_progress_bar: ['column', 'grid', 'list'],
+      progress_bar_color: ['column', 'grid', 'list'],
+      progress_bar_height: ['column', 'grid', 'list'],
+      progress_bar_width: ['column', 'grid', 'list'],
+      title_max_lines: ['column', 'grid', 'list'],
+      location_max_lines: ['column', 'grid', 'list'],
+      event_icon_vertical_alignment: ['column', 'grid', 'list'],
+      // A month draws no clock beside a time.
+      time_icon_size: ['column', 'grid', 'list'],
       // A grid block fits its own rows and has no title row for the time to join; its
-      // renderer never passes the placement to the leaf.
+      // renderer never passes the placement to the leaf. A month's day list puts every time
+      // beside its title, whatever the option says.
       time_position: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
-      event_spacing: ['column', 'list'],
+      event_spacing: ['column', 'list', 'month'],
       // A grid block is placed by its time and kept apart by the grid's own layout; only
-      // the list and column renderers emit the class that draws the gap.
-      event_gap: ['column', 'list'],
+      // the list, column and month renderers emit the class that draws the gap, a month's
+      // between the rows of its day list.
+      event_gap: ['column', 'list', 'month'],
       // Grid blockifies the plain time span and resets the properties the folded-countdown
-      // span reads, so neither clamp path acts there.
+      // span reads, so neither clamp path acts there; a month keeps it at its shipped value.
       time_max_lines: ['column', 'list'],
       // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
       // so it draws no links in them.
-      open_links: ['column', 'list'],
+      open_links: ['column', 'list', 'month'],
     });
 
     expect(
@@ -1275,21 +1349,28 @@ describe('editor: displayed view and the Layout panel', () => {
    * Pinned by value, as a whole ordered set. The test above walks `viewOptions()` and so
    * cannot notice one leaving it — the `Object.keys` trap `AGENTS.md` records — and the
    * one two above pins the option *values*, which are the config vocabulary rather than
-   * the words on the tile. Nothing else asserts what a user reads.
+   * the words on the row. Nothing else asserts what a user reads.
    *
    * Built through `buildDisplayViewSchema` rather than read out of `strings.ts`, so a
    * lookup wired to the wrong key fails here too: the fallback is `humanize(view)`, which
    * yields `Grid` for grid either way but `Column` — not `Columns` — for column.
    */
-  it('labels the tiles List, Columns and Grid', () => {
-    expect(viewOptions().map((option) => option.label)).toEqual(['List', 'Columns', 'Grid']);
+  // A row per layout, derived from `VIEWS`: four since Month, each drawn as Quick Setup draws its
+  // examples (`tests/editor-overview.test.ts`); this pins their labels, in the selector's order.
+  it('labels the rows List, Columns, Grid and Month', () => {
+    expect(viewOptions().map((option) => option.label)).toEqual([
+      'List',
+      'Columns',
+      'Grid',
+      'Month',
+    ]);
   });
 
   /**
-   * The tile deliberately disagrees with Home Assistant's card-picker entry, which stays
+   * The row deliberately disagrees with Home Assistant's card-picker entry, which stays
    * "Time Grid" — the reasoning is on `SUGGESTION_TIME_GRID_LABEL` in `config.ts`. Pinned
    * from both sides so the split stays a decision somebody has to revisit rather than
-   * drift somebody has to notice, and so the descriptive word the tile gave up is still
+   * drift somebody has to notice, and so the descriptive word the row gave up is still
    * carried somewhere the user meets it.
    */
   it('drops the word the card picker keeps, and leaves it in the description', () => {
@@ -1302,15 +1383,35 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(names(buildConfig({ view: 'list' }))).not.toContain('min_day_width');
   });
 
+  it('builds Month’s own options in its block', () => {
+    const own = (config: Types.Config) =>
+      [...walkSchema(buildLayoutSchema(ctx(config)))]
+        .filter(({ node, dataPath }) => 'selector' in node && dataPath[0] === 'month')
+        .map(({ node }) => node.name);
+
+    const always = [
+      'narrow_card_height',
+      'narrow_card_max_height',
+      'min_day_width',
+      'weekend_background_color',
+      'today_background_color',
+      'cell_event_font_size',
+      'cell_time_font_size',
+    ];
+    expect(own(buildConfig({ view: 'month' }))).toEqual(always);
+    // Month's, and nobody else's: the block is read only where Month is the view.
+    expect(own(buildConfig({ view: 'grid', month: { min_day_width: 90 } }))).toEqual([]);
+  });
+
   it('nests the density options under the block they are stored in', () => {
     const found = [...walkSchema(buildLayoutSchema(ctx(columnConfig())))].find(
       ({ node }) => node.name === 'min_day_width',
     );
 
-    expect(found?.path).toEqual(['column']);
+    expect(found?.dataPath).toEqual(['column']);
   });
 
-  it('bounds the column floor by the number of days shown', () => {
+  it('bounds the column floor a day short of the number of days shown', () => {
     const found = [...walkSchema(buildLayoutSchema(ctx(columnConfig({ days_to_show: 5 }))))].find(
       ({ node }) => node.name === 'min_days_to_show',
     );
@@ -1319,17 +1420,19 @@ describe('editor: displayed view and the Layout panel', () => {
     if (!node || !('selector' in node) || !('number' in node.selector)) {
       throw new Error('min_days_to_show is expected to be a number selector');
     }
-    expect(node.selector.number?.max).toBe(5);
+    // Down To at the day count would shed nothing, which reads as Show a List and takes the
+    // field away while it is being edited.
+    expect(node.selector.number?.max).toBe(4);
   });
 
   it('shows the height field the chosen mode calls for, and only that one', () => {
-    // The two measurements are bound to synthetic fields rather than to `height` and
-    // `max_height`, so that clearing one to retype it does not delete the value and
+    // The two measurements are bound to synthetic fields rather than to `card_height` and
+    // `card_max_height`, so that clearing one to retype it does not delete the value and
     // take the field with it. See the typing tests below.
-    expect(names(buildConfig({ height: '400px' }))).toContain('card_height');
-    expect(names(buildConfig({ height: '400px' }))).not.toContain('card_max_height');
-    expect(names(buildConfig({ max_height: '400px' }))).toContain('card_max_height');
-    expect(names(buildConfig())).not.toContain('card_height');
+    expect(names(buildConfig({ card_height: '400px' }))).toContain('fixed_height');
+    expect(names(buildConfig({ card_height: '400px' }))).not.toContain('maximum_height');
+    expect(names(buildConfig({ card_max_height: '400px' }))).toContain('maximum_height');
+    expect(names(buildConfig())).not.toContain('fixed_height');
   });
 });
 
@@ -1343,8 +1446,21 @@ describe('editor: the width table', () => {
     expect(widthTableRows(ctx(config))).toHaveLength(4);
   });
 
-  it('reduces to one band and a fallback at the default floor', () => {
+  it('describes the default floor of two, then the list, where the card pages', () => {
+    const rows = widthTableRows(ctx(columnConfig({ ...PAGING, days_to_show: 3 })));
+
+    expect(rows.map((row) => row.layout)).toEqual(['3 columns', '2 columns', 'as a list']);
+  });
+
+  it('describes every day, then the list, where nothing pages', () => {
     const rows = widthTableRows(ctx(columnConfig({ days_to_show: 3 })));
+
+    expect(rows.map((row) => row.layout)).toEqual(['3 columns', 'as a list']);
+  });
+
+  it('reduces to one band and a fallback where every day is kept', () => {
+    const config = columnConfig({ days_to_show: 3, column: { min_days_to_show: 3 } });
+    const rows = widthTableRows(ctx(config));
 
     expect(rows).toHaveLength(2);
     expect(rows[1].layout).toBe('as a list');
@@ -1490,22 +1606,13 @@ describe('editor: the chassis', () => {
    * bound to — which is all this needs. Nothing about the assertions below depends on
    * Home Assistant actually rendering a field.
    */
-  // Registered once, under a tag of this suite's own, because a custom element has to
-  // be defined before it can be constructed.
-  const TAG = 'test-calendar-card-pro-editor';
-  if (!customElements.get(TAG)) {
-    customElements.define(TAG, class extends CalendarCardProEditor {});
-  }
-
   async function mount(config: Partial<Types.Config>) {
-    const element = document.createElement(TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       config_version: CURRENT_CONFIG_VERSION,
       ...config,
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -1514,37 +1621,13 @@ describe('editor: the chassis', () => {
       dispatched.push(next);
     });
 
-    /**
-     * Fires a form change the way `ha-form` does: the whole merged data object.
-     *
-     * Selects the form that actually offers the changed field. Pass an index where
-     * the panel itself is under test; unrelated fields in a form's data are not edits.
-     */
-    const change = async (patch: Record<string, unknown>, panelIndex?: number) => {
-      const forms = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')];
-      const target =
-        panelIndex === undefined
-          ? forms.find((form) =>
-              [...walkSchema(schemaOf(form))].some(({ node }) =>
-                Object.prototype.hasOwnProperty.call(patch, node.name),
-              ),
-            )
-          : forms[panelIndex];
-      if (!target) throw new Error('No rendered form offers this edit');
-      const data = (target as unknown as { data: Record<string, unknown> }).data;
-      target.dispatchEvent(
-        new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-      );
-      await element.updateComplete;
-    };
-
-    return { element, dispatched, change };
+    return { element, dispatched };
   }
 
   it('reports an ordinary edit to Home Assistant', async () => {
-    const { dispatched, change } = await mount({ entities: ['calendar.personal'] });
+    const { element, dispatched } = await mount({ entities: ['calendar.personal'] });
 
-    await change({ first_day_of_week: 'sunday' });
+    await changeField(element, 'content:first_day_of_week', 'sunday');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].first_day_of_week).toBe('sunday');
@@ -1557,7 +1640,7 @@ describe('editor: the chassis', () => {
    * of the keystroke that produced it. The field then appears to reject `-` entirely.
    */
   it('says nothing when an edit only moved uncommitted text', async () => {
-    const { dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
       // Stored explicitly at its default, so the first write would otherwise strip it
@@ -1565,19 +1648,19 @@ describe('editor: the chassis', () => {
       days_to_show: DEFAULT_CONFIG.days_to_show,
     });
 
-    await change({ start_date_offset: '-' });
+    await changeField(element, 'content:start_date_offset', '-');
 
     expect(dispatched).toEqual([]);
   });
 
   it('keeps held text through Home Assistant echoing the config back', async () => {
-    const { element, dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
     });
 
-    await change({ days_to_show: 9 });
-    await change({ start_date_offset: '-' });
+    await changeField(element, 'content:days_to_show', 9);
+    await changeField(element, 'content:start_date_offset', '-');
 
     // Home Assistant answers a `config-changed` by feeding the configuration back in.
     // That echo must not reset the editor's uncommitted state.
@@ -1587,15 +1670,13 @@ describe('editor: the chassis', () => {
     } as unknown as Types.Config);
     await element.updateComplete;
 
-    const form = element.shadowRoot!.querySelector('ha-form.panel-form')!;
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    expect(data.start_date_offset).toBe('-');
+    expect(valueOf(element, 'content:start_date_offset')).toBe('-');
   });
 
   it('never writes a synthetic key out to Home Assistant', async () => {
-    const { dispatched, change } = await mount({ entities: ['calendar.personal'] });
+    const { element, dispatched } = await mount({ entities: ['calendar.personal'] });
 
-    await change({ height_mode: 'fixed' });
+    await changeField(element, 'layout:height_mode', 'fixed');
 
     const stored = dispatched[0] as Record<string, unknown>;
     const block = (stored.list ?? {}) as Record<string, unknown>;
@@ -1606,15 +1687,20 @@ describe('editor: the chassis', () => {
     // Asserted wherever the router put it rather than at root. The List workspace writes
     // into `list:`, the same way Column and Grid write into theirs — pinning the location
     // here would make this a test of the routing table rather than of the synthetic key.
-    expect(block.height ?? stored.height).toBe('300px');
+    expect(block.card_height ?? stored.card_height).toBe('300px');
   });
 
-  it('mounts one form per registered panel', async () => {
+  it('draws each card field in a form of its own, once, across every page', async () => {
     const { element } = await mount({ entities: ['calendar.personal'] });
+    await openPanels(element);
 
-    // `.panel-form` rather than every form: the two hand-written widgets render forms
-    // of their own inside the panels that own them, and those are not panels.
-    expect(element.shadowRoot!.querySelectorAll('ha-form.panel-form')).toHaveLength(PANELS.length);
+    // Every card form sits in the frame of the one field it draws, and no field is drawn twice.
+    const ids = formsOf(element, CARD).map(
+      (form) => form.closest('[data-field]')?.getAttribute('data-field') ?? '',
+    );
+    expect(ids.length).toBeGreaterThan(PANELS.length);
+    expect(ids.filter((id) => id === '')).toEqual([]);
+    expect(ids.filter((id, at) => ids.indexOf(id) !== at)).toEqual([]);
   });
 
   /**
@@ -1625,39 +1711,35 @@ describe('editor: the chassis', () => {
    * wired to each other.
    */
   it('keeps the offset field standing while a lone minus is typed into it', async () => {
-    const { element, dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       start_date: '-7',
       days_to_show: DEFAULT_CONFIG.days_to_show,
     });
 
-    const panelIndex = PANELS.findIndex((panel) => panel.id === 'content');
-    const contentForm = () =>
-      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[panelIndex];
-    const dataOf = (form: Element) => (form as unknown as { data: Record<string, unknown> }).data;
-    const namesOf = (form: Element) =>
-      [...walkSchema((form as unknown as { schema: HaFormSchema[] }).schema)].map(
-        (entry) => entry.node.name,
-      );
-
-    await change({ start_date_offset: '-' }, panelIndex);
+    await changeField(element, 'content:start_date_offset', '-');
 
     expect(dispatched).toEqual([]);
-    expect(dataOf(contentForm()).start_date_offset).toBe('-');
-    expect(namesOf(contentForm())).toContain('start_date_offset');
+    expect(valueOf(element, 'content:start_date_offset')).toBe('-');
+    expect(formOf(element, 'content:start_date_offset')).toBeDefined();
 
-    await change({ start_date_offset: '-14' }, panelIndex);
+    await changeField(element, 'content:start_date_offset', '-14');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].start_date).toBe('-14');
   });
 
-  it('keeps a calendar object through being reordered in the picker', async () => {
-    const { dispatched, change } = await mount({
+  it('keeps a calendar object through being moved in the calendar list', async () => {
+    const { element, dispatched } = await mount({
       entities: [{ entity: 'calendar.a', label: 'Home', color: '#0f0' }, 'calendar.b'],
     });
 
-    await change({ calendars: ['calendar.b', 'calendar.a'] });
+    // Moved as a user moves it: its row's ⋮, then Move Down.
+    const [a] = keysOf(element, 'entry');
+    for (const control of [`more:entry:${a}`, `strip:entry:${a}:down`]) {
+      element.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${control}"]`)!.click();
+      await element.updateComplete;
+    }
 
     expect(dispatched[0].entities).toEqual([
       'calendar.b',
@@ -1666,12 +1748,12 @@ describe('editor: the chassis', () => {
   });
 
   it('does not persist the projected column defaults just by being opened', async () => {
-    const { dispatched, change } = await mount({
+    const { element, dispatched } = await mount({
       entities: ['calendar.personal'],
       view: 'column',
     });
 
-    await change({ first_day_of_week: 'sunday' });
+    await changeField(element, 'content:first_day_of_week', 'sunday');
 
     expect(dispatched[0]).not.toHaveProperty('column');
   });
@@ -1766,15 +1848,6 @@ describe('editor: the panel set', () => {
     ]);
   });
 
-  it('gives every panel a heading and a sentence saying what it is for', () => {
-    for (const panel of PANELS) {
-      expect(computeLabel('en', { name: panel.titleKey, selector: { text: {} } })).not.toBe(
-        panel.titleKey,
-      );
-      expect(EDITOR_STRINGS[`${panel.titleKey}.helper`]).toBeTypeOf('string');
-    }
-  });
-
   /**
    * A helper that repeats its label is worse than no helper: it costs a line of vertical
    * space and teaches the reader that helpers are not worth reading. Two shipped that
@@ -1812,10 +1885,23 @@ describe('editor: the panel set', () => {
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * Calendars is the one panel with no field of its own: the overview's calendar list stands
+   * where its picker was, and what it offers is the entry schema each entry page draws. So it
+   * is held to that instead, and named, so a second empty panel still fails.
+   */
   it('builds every panel for every view without producing an empty one', () => {
     for (const view of VIEWS) {
       for (const panel of PANELS) {
-        const schema = panel.build({ view, config: buildConfig({ view }), language: 'en' });
+        const ctx = { view, config: buildConfig({ view }), language: 'en' };
+        const schema = panel.build(ctx);
+        if (panel.id === 'calendars') {
+          expect(schema, `${panel.id} in ${view} view`).toEqual([]);
+          const subforms = panel.subforms?.(ctx) ?? [];
+          expect(subforms.map((subform) => subform.path)).toEqual([['entity']]);
+          expect(subforms[0].schema.length, `${panel.id} in ${view} view`).toBeGreaterThan(0);
+          continue;
+        }
         expect(schema.length, `${panel.id} in ${view} view`).toBeGreaterThan(0);
       }
     }
@@ -1865,6 +1951,9 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
+      // The month's name on its rule is held back until a month rule is drawn, and its color
+      // and size until it is on.
+      buildConfig({ month_separator_width: '1px', month_separator_label: true }),
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),
@@ -1875,8 +1964,8 @@ describe('editor: the panel set', () => {
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
       buildConfig({ filter_duplicates: true }),
-      // The event dialog's two permissions are held back until an event tap opens it.
-      buildConfig({ event_tap_action: { action: 'details' } }),
+      // Links in rows are held back while an event tap opens the event, as it does by default.
+      buildConfig({ event_tap_action: { action: 'none' } }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1894,9 +1983,10 @@ describe('editor: the panel set', () => {
     }
 
     // Synthetic fields stand in for the config keys whose stored shape no selector can
-    // emit, so a key is covered when either it or its stand-in is offered.
+    // emit, so a key is covered when either it or its stand-in is offered. `entities` is
+    // offered as the calendar list, which Add Calendar's picker adds to.
     const standIns: Record<string, string> = {
-      entities: 'calendars',
+      entities: 'pick',
       start_date: 'start_date_mode',
       language: 'language_mode',
       time_24h: 'time_format',
@@ -1904,8 +1994,8 @@ describe('editor: the panel set', () => {
       allday_badge: 'allday_badge_position',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
-      height: 'height_mode',
-      max_height: 'height_mode',
+      card_height: 'height_mode',
+      card_max_height: 'height_mode',
       day_tap_action: 'day_tap_action_mode',
       filter_duplicates: 'filter_duplicates_mode',
     };
@@ -1939,20 +2029,20 @@ describe('editor: the panel set', () => {
    *
    * The members are reconciled against the source that defines each one rather than
    * against a list written here, so a new column or weather option is covered the day
-   * it is added. The paths are the ones `walkSchema` yields: an expandable group adds
-   * its own name, so a weather member arrives as `date.icon_size`, not
-   * `weather.date.icon_size`.
+   * it is added. The paths are the ones `walkSchema` yields, by where each member is
+   * stored: a weather member arrives as `weather.date.icon_size`.
    */
   it('covers every member of the options it offers as a container', () => {
     const weather = DEFAULT_CONFIG.weather as unknown as Record<string, unknown>;
     const group = (name: string) => Object.keys(weather[name] as Record<string, unknown>);
 
     const expected = [
-      // `entity` and `position` sit directly on the Weather panel, outside either group.
-      'entity',
+      // The entity sits at the top level, `position` directly on a layout's Weather panel,
+      // outside either group.
+      'weather_entity',
       'position',
-      ...group('date').map((key) => `date.${key}`),
-      ...group('event').map((key) => `event.${key}`),
+      ...group('date').map((key) => `weather.date.${key}`),
+      ...group('event').map((key) => `weather.event.${key}`),
       ...COLUMN_ONLY_KEYS.map((key) => `column.${key}`),
       // Grid's own keys are reconciled the same way column's are. Listing only column's
       // would leave the grid block in exactly the position this test was written to fix:
@@ -1968,23 +2058,35 @@ describe('editor: the panel set', () => {
     const configs = [
       buildConfig({ view: 'column' }),
       buildConfig({ view: 'grid' }),
+      // Below That is built only while When Too Narrow is Custom.
+      buildConfig({
+        view: 'column',
+        column: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+        time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+      }),
+      buildConfig({
+        view: 'grid',
+        column: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+        time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 },
+      }),
       // The UV threshold is held back until UV is on, in both groups.
       buildConfig({
-        weather: {
-          entity: 'weather.home',
-          position: 'both',
-          date: { show_uv_index: true },
-          event: { show_uv_index: true },
+        weather_entity: 'weather.home',
+        list: {
+          weather: {
+            position: 'both',
+            date: { show_uv_index: true },
+            event: { show_uv_index: true },
+          },
         },
       }),
     ];
 
-    // Both paths, because the expectations above are written in both languages and a node
-    // can be qualified by one and not the other. Weather's members are named by their
-    // label path (`date.show_conditions`), while a block's members are named as they are
-    // written in YAML (`column.day_header_gap`) — and the day-header rule is qualified by
-    // the data path alone, since a named `grid` nests storage without nesting labels.
-    // Asking only one question missed three of the six the day it moved.
+    // Both paths, because a node can be qualified by one and not the other: `entity` and
+    // `position` by their label path, the members of a block by where they are written in
+    // YAML (`weather.date.show_conditions`, `column.day_header_gap`), since a named `grid`
+    // nests storage without nesting labels. Asking only one question once missed three of
+    // the six day-header rule members the day they moved.
     for (const config of configs) {
       for (const { node, path, dataPath } of everyNode(config)) {
         if (!node.name) continue;
@@ -2132,97 +2234,96 @@ describe('editor: the fields whose stored shape no selector can emit', () => {
     expect(stored).not.toHaveProperty('language');
   });
 
-  it('seeds a language rather than leaving the field to vanish on the next render', () => {
-    const { config } = applyOne(buildConfig(), 'language_mode', 'custom');
+  it('writes the language a dropdown option names', () => {
+    const { config } = applyOne(buildConfig(), 'language_mode', 'nl');
 
-    expect(config.language).toBeTruthy();
-    expect(deriveSyntheticData(config).language_mode).toBe('custom');
+    expect(config.language).toBe('nl');
+    expect(deriveSyntheticData(config).language_mode).toBe('nl');
   });
 });
 
-describe('editor: the calendars picker', () => {
-  /**
-   * A configuration as the *editor* sees one.
-   *
-   * `buildConfig` mirrors the card's `setConfig`, which normalizes every entity into an
-   * object. The editor's does not, deliberately: it edits the configuration the user
-   * wrote, and rewriting a bare `calendar.x` into an object on open would rewrite every
-   * card's YAML the moment its editor was looked at.
-   */
-  function editorConfig(overrides: Partial<Types.Config> = {}): Types.Config {
-    return { ...DEFAULT_CONFIG, ...overrides } as Types.Config;
+/**
+ * The calendar list, through the editor: what it shows for each entry and what its controls write.
+ * The list's algebra is pinned in `editor-calendar-list.test.ts`; these hold the editor's write
+ * path to it.
+ */
+describe('editor: the calendar list', () => {
+  async function mount(entities: Types.Config['entities']) {
+    const element = await mountEditor({ config_version: CURRENT_CONFIG_VERSION, entities });
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const next = { ...((event as CustomEvent).detail.config as Record<string, unknown>) };
+      delete next.config_version;
+      dispatched.push(next);
+    });
+    return { element, dispatched };
   }
 
-  it('shows a per-calendar object as its entity id', () => {
-    const config = editorConfig({
-      entities: ['calendar.a', { entity: 'calendar.b', label: 'Work', color: '#f00' }],
-    });
+  /** Presses the editor's own controls in turn, by `data-focus`. */
+  async function press(element: Awaited<ReturnType<typeof mountEditor>>, ...controls: string[]) {
+    for (const control of controls) {
+      const button = element.shadowRoot!.querySelector<HTMLElement>(`[data-focus="${control}"]`);
+      expect(button, control).not.toBeNull();
+      button!.click();
+      await element.updateComplete;
+    }
+  }
 
-    expect(deriveSyntheticData(config).calendars).toEqual(['calendar.a', 'calendar.b']);
+  it('shows a per-calendar object as its entity id', async () => {
+    const { element } = await mount([
+      'calendar.a',
+      { entity: 'calendar.b', label: 'Work', color: '#f00' },
+    ]);
+
+    expect(
+      [...element.shadowRoot!.querySelectorAll('.cal-group')].map((group) =>
+        group.getAttribute('data-calendar'),
+      ),
+    ).toEqual(['calendar.a', 'calendar.b']);
   });
 
-  it('leaves a bare entity id bare rather than promoting it to an object', () => {
-    const config = editorConfig({ entities: ['calendar.a'] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+  it('leaves a bare entity id bare rather than promoting it to an object', async () => {
+    const { element, dispatched } = await mount(['calendar.a']);
 
-    const added = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a'] },
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      {},
-    );
+    await press(element, 'add-calendar');
+    await changeField(element, 'add_calendar:pick', 'calendar.b');
+    await press(element, 'add-confirm');
 
-    expect(added.config.entities).toEqual(['calendar.a', 'calendar.b']);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].entities).toEqual(['calendar.a', 'calendar.b']);
   });
 
   /**
-   * The behavior that makes a picker safe to use at all. Home Assistant's multi-entity
-   * selector hands back a list of ids, so writing it through would replace every
-   * per-calendar object with a bare string — silently deleting the label, color and
-   * filters the user configured for it.
+   * The behavior that makes the list safe to use at all. A write that rebuilt `entities` from
+   * the calendars' ids would replace every per-calendar object with a bare string, silently
+   * deleting the label, color and filters the user configured for it. Removing a calendar and
+   * taking it back, with Undo, is the case a user hits.
    */
-  it('keeps a calendar object through being deselected and selected again', () => {
+  it('keeps a calendar object through being removed and brought back', async () => {
     const entry = { entity: 'calendar.b', label: 'Work', color: '#f00' };
-    const config = editorConfig({ entities: ['calendar.a', entry] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const { element, dispatched } = await mount(['calendar.a', entry]);
+    const [, b] = keysOf(element, 'entry');
 
-    const removed = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      { ...previous, calendars: ['calendar.a'] },
-      {},
-    );
-    expect(removed.config.entities).toEqual(['calendar.a']);
+    await press(element, `more:entry:${b}`, `strip:entry:${b}:remove`);
+    expect(dispatched[dispatched.length - 1].entities).toEqual(['calendar.a']);
 
-    // Re-added from the configuration that still held it — which is the case a user
-    // hits by unticking and reticking without leaving the editor.
-    const readded = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a'] },
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      {},
-    );
-    expect(readded.config.entities).toEqual(['calendar.a', entry]);
+    await press(element, 'status-undo');
+    expect(dispatched[dispatched.length - 1].entities).toEqual(['calendar.a', entry]);
   });
 
-  it('follows the order of the picker, because the order decides which copy wins', () => {
-    const config = editorConfig({ entities: ['calendar.a', 'calendar.b'] });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
+  /**
+   * Under Filter Duplicates the calendar listed first is the one whose copy of a shared event is
+   * drawn, so the order the list shows is the order it writes. And it writes nothing of its own:
+   * the keys it holds per entry stay in the editor.
+   */
+  it('follows the order of the list, because the order decides which copy wins', async () => {
+    const { element, dispatched } = await mount(['calendar.a', 'calendar.b']);
+    const [, b] = keysOf(element, 'entry');
 
-    const reordered = applyFormChange(
-      config,
-      { ...previous, calendars: ['calendar.a', 'calendar.b'] },
-      { ...previous, calendars: ['calendar.b', 'calendar.a'] },
-      {},
-    );
+    await press(element, `more:entry:${b}`, `strip:entry:${b}:top`);
 
-    expect(reordered.config.entities).toEqual(['calendar.b', 'calendar.a']);
-  });
-
-  it('never writes the picker own key to the configuration', () => {
-    const config = editorConfig({ entities: ['calendar.a'] });
-
-    expect(toStoredConfig(config)).not.toHaveProperty('calendars');
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toEqual({ entities: ['calendar.b', 'calendar.a'] });
   });
 });
 
@@ -2239,11 +2340,12 @@ describe('editor: the Weather panel', () => {
   }
 
   it('offers nothing but the entity until one is chosen', () => {
-    expect(namesIn(buildConfig())).toEqual(['weather', 'entity']);
+    expect(namesIn(buildConfig())).toEqual(['weather_entity']);
   });
 
-  it('nests the whole panel under the key it is stored in, without a second heading', () => {
-    const [root] = weatherSchemaFor(buildConfig());
+  it('nests the layout’s weather under the key it is stored in, without a second heading', () => {
+    const [entity, root] = weatherSchemaFor(buildConfig({ weather_entity: 'weather.home' }));
+    expect(entity.name).toBe('weather_entity');
 
     // A named grid nests the data exactly as an expandable would and draws no heading,
     // which is what keeps a "Weather" group out of the Weather panel.
@@ -2274,18 +2376,6 @@ describe('editor: the Weather panel', () => {
       weather: { entity: 'weather.home', position: 'date', date: { show_uv_index: true } },
     });
     expect(namesIn(on)).toContain('uv_index_threshold');
-  });
-
-  it('labels the two positions after where the forecast appears', () => {
-    const config = buildConfig({ weather: { entity: 'weather.home', position: 'both' } });
-    const groups = [...walkSchema(weatherSchemaFor(config))]
-      .map((entry) => entry.node)
-      .filter((node) => 'titleKey' in node);
-
-    expect(groups.map((node) => (node as { titleKey?: string }).titleKey)).toEqual([
-      'weather.date',
-      'weather.event',
-    ]);
   });
 });
 
@@ -2318,15 +2408,12 @@ describe('editor: the day-header rule', () => {
   });
 
   /**
-   * Captioned by a bare heading rather than wrapped in a collapsible, which is the whole
-   * point of the move — three fields behind a disclosure nobody opened.
+   * In no collapsible, which is the whole point of the move — three fields behind a
+   * disclosure nobody opened. The heading over them is the registry's.
    */
-  it('captions them with a heading and no collapsible', () => {
+  it('wraps them in no collapsible', () => {
     for (const config of [columnConfig(), gridConfig()]) {
       const nodes = panelNodes(config);
-      const heading = nodes.find((entry) => entry.node.name === 'heading_gap_and_rule');
-
-      expect(heading?.node).toEqual({ name: 'heading_gap_and_rule', type: 'constant' });
 
       for (const key of RULE_KEYS) {
         const entry = nodes.find((item) => item.node.name === key)!;
@@ -2370,9 +2457,6 @@ describe('editor: the day-header rule', () => {
     expect(column).toBeDefined();
     expect(grid).toBeDefined();
     expect(column).not.toEqual(grid);
-    expect(helperFor(columnConfig(), 'day_header_gap')).not.toEqual(
-      helperFor(gridConfig(), 'day_header_gap'),
-    );
   });
 });
 
@@ -2409,13 +2493,10 @@ describe('editor: the Separators panel', () => {
   it('offers only day, week and month rules in the views ruled one way', () => {
     for (const config of [buildConfig(), columnConfig()]) {
       expect(namesIn(config)).toEqual([
-        '',
         'day_separator_width',
         'day_separator_color',
-        '',
         'week_separator_width',
         'week_separator_color',
-        '',
         'month_separator_width',
         'month_separator_color',
       ]);
@@ -2431,29 +2512,21 @@ describe('editor: the Separators panel', () => {
    * grid defaults a 1px rule in a 1px gutter fills it exactly — so gutter and rule are one
    * visual decision, the same argument that moved the day-header gap to sit with its rule.
    *
-   * Pinned by value, in order, because the headings are the point: each has to caption the
-   * run that follows it, and a key appended to the wrong run would be captioned wrongly
-   * while every `toContain` still passed.
+   * Pinned by value, in order, so a key arriving fails as loudly as one leaving. The split by
+   * direction, under a heading for each, is the registry's.
    */
-  it('gathers every rule the grid draws, split by direction', () => {
+  it('gathers every rule the grid draws', () => {
     expect(namesIn(gridConfig())).toEqual([
-      'heading_between_days',
       'day_spacing',
-      '',
       'day_separator_width',
       'day_separator_color',
-      '',
       'week_separator_width',
       'week_separator_color',
-      '',
       'month_separator_width',
       'month_separator_color',
-      'heading_across_the_grid',
       'time_grid',
-      '',
       'hour_line_width',
       'hour_line_color',
-      '',
       'allday_band_line_width',
       'allday_band_line_color',
     ]);
@@ -2555,12 +2628,9 @@ describe('editor: what Layout no longer holds', () => {
 });
 
 /**
- * The Events panel's opening run, which nothing captioned until now.
- *
- * Its four field groups — Time, Location, Description, Countdown & Progress — were already
- * collapsibles with titles of their own. The eleven options above them were not: they ran
- * unbroken from a color switch to an all-day badge, mixing three subjects, with the
- * title's four options split in two by the accent's four.
+ * The Events panel's opening run: the switches deciding which lines an event is made of, then
+ * its state, its accent, its title and its markers, ahead of the styling of each line. Which
+ * heading each sits under on a page is the registry's (`tests/editor-page-registry.test.ts`).
  */
 describe('editor: the Events panel opening run', () => {
   function namesIn(config: Types.Config): string[] {
@@ -2568,19 +2638,18 @@ describe('editor: the Events panel opening run', () => {
     const names: string[] = [];
 
     for (const entry of walkSchema(panel.build({ view: config.view, config, language: 'en' }))) {
-      // Stop at the first group: those carry their own titles and are not what moved.
-      if ('type' in entry.node && entry.node.type === 'expandable') break;
-      if (entry.node.name !== '') names.push(entry.node.name);
+      // Stop at the first line's styling: what follows styles one line each.
+      if (entry.node.name === 'show_end_time') break;
+      names.push(entry.node.name);
     }
 
     return names;
   }
 
   /**
-   * Pinned by value and in order, because the order is the change. Every field is under a
-   * heading — a bare option above the first one would be captioned by nothing.
+   * Pinned by value and in order, so a field arriving in or leaving the run fails here.
    */
-  it('captions each subject, with state before accent and the title kept together', () => {
+  it('keeps state before accent and the title together', () => {
     // The default config resolves the accent mode to `custom`, so the conditional color
     // field is present — which is the shape the row was designed around.
     //
@@ -2592,29 +2661,24 @@ describe('editor: the Events panel opening run', () => {
     // because that group is withheld while times are off and the choice still moves a
     // countdown-only row then.
     expect(namesIn(buildConfig())).toEqual([
-      'heading_details',
       'show_time',
       'time_position',
       'show_location',
       'show_description',
       'show_countdown',
       'show_progress_bar',
-      'heading_event_state',
       'show_now_indicator',
       'now_color',
       'past_event_opacity',
-      'heading_accent',
       'accent_event_text',
       'accent_color_mode',
       'accent_color',
       'vertical_line_width',
       'event_background_opacity',
-      'heading_title',
       'event_font_size',
       'event_color',
       'title_max_lines',
       'scroll_long_titles',
-      'heading_icon_and_badge',
       'event_icon_vertical_alignment',
       'allday_badge_position',
     ]);
@@ -2632,20 +2696,6 @@ describe('editor: the Events panel opening run', () => {
 
       expect(names.indexOf('accent_event_text')).toBeLessThan(names.indexOf('event_color'));
     }
-  });
-
-  /**
-   * The tint is mixed from the resolved accent in `presentation.ts`, so it is the third
-   * place the accent appears rather than a property of the event box. Sitting beside a
-   * font size is what made it read as the latter.
-   */
-  it('keeps the background tint with the accent it is mixed from', () => {
-    const names = namesIn(buildConfig());
-    const accent = names.indexOf('heading_accent');
-    const title = names.indexOf('heading_title');
-
-    expect(names.indexOf('event_background_opacity')).toBeGreaterThan(accent);
-    expect(names.indexOf('event_background_opacity')).toBeLessThan(title);
   });
 });
 
@@ -2680,9 +2730,10 @@ describe('editor: the Time Range & Content panel', () => {
     expect(applied.config.start_date).toBe('-7');
   });
 
-  it('holds the language field in place while its code is being retyped', () => {
+  it('offers Language as one dropdown, with no code box beside it', () => {
     const config = buildConfig({ language: 'de' });
-    expect(namesIn(config)).toContain('language');
+    expect(namesIn(config)).toContain('language_mode');
+    expect(namesIn(config)).not.toContain('language');
   });
 
   /**
@@ -2802,29 +2853,21 @@ describe('editor: the Card & Header panel', () => {
   }
 
   /**
-   * Pinned by value and in order, because the position is the decision. The toolbar's
-   * switches close the panel under a sub-heading of their own, and a heading claims every
-   * field that follows it, so the background has to come before that heading rather than
-   * after the switches; a `toContain` would pass with it stranded under "Toolbar". Under it,
-   * the bar's own switch, then the controls in the order the toolbar is read: the top row from
-   * start to end, the filter leading as its default button does, then the date navigation in
-   * the row under it.
+   * Pinned by value and in order. The toolbar's switches close the panel: the bar's own switch,
+   * then the controls in the order the toolbar is read: the top row from start to end, the
+   * filter leading as its default button does, then the date navigation in the row under it,
+   * then the layouts the switcher offers, and last how large the row under it draws its
+   * controls. The heading over them is the registry's.
    */
-  it('closes the panel with the toolbar under its own heading', () => {
-    const head = ['title', '', 'title_font_size', 'title_color', 'background_color'];
+  it('closes the panel with the toolbar', () => {
+    const head = ['title', 'title_font_size', 'title_color', 'background_color'];
     for (const view of VIEWS) {
-      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([
-        ...head,
-        'heading_toolbar',
-        'toolbar',
-        'show',
-      ]);
+      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([...head, 'toolbar', 'show']);
       expect(
         namesIn(buildConfig({ view, toolbar: { show: true } })),
         `${view} view, toolbar on`,
       ).toEqual([
         ...head,
-        'heading_toolbar',
         'toolbar',
         'show',
         'legend',
@@ -2834,7 +2877,14 @@ describe('editor: the Card & Header panel', () => {
         'refresh',
         'search',
         'navigation',
+        'view_switcher_layouts',
+        'size',
       ]);
+      // Which layouts the switcher offers is offered only while it is on.
+      expect(
+        namesIn(buildConfig({ view, toolbar: { show: true, view_switcher: false } })),
+        `${view} view, toolbar on, switcher off`,
+      ).not.toContain('view_switcher_layouts');
     }
   });
 });
@@ -2859,8 +2909,22 @@ describe('editor: the Actions & Refresh panel', () => {
    * them, and the refresh pair closes the panel. No headings: a split between card and
    * event taps would misfile the hold, which runs on events too.
    */
-  it('orders the gestures card, day, event, then refresh, with no dialog switches by default', () => {
+  it('orders the gestures card, day, event, then refresh, with the dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
+      'tap_action',
+      'hold_action',
+      'day_tap_action_mode',
+      'event_tap_action',
+      'event_hold_action',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers open_links in their place where events open nothing', () => {
+    expect(namesIn(withEventTap('none'))).toEqual([
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
@@ -2915,7 +2979,10 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 
   it('offers the two dialog switches once the event hold opens details', () => {
-    const config = buildConfig({ event_hold_action: { action: 'details' } });
+    const config = buildConfig({
+      event_tap_action: { action: 'none' },
+      event_hold_action: { action: 'details' },
+    });
     expect(namesIn(config)).toEqual([
       'tap_action',
       'hold_action',
@@ -2972,57 +3039,11 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 });
 
-describe('editor: a group states its family applicability once', () => {
-  /**
-   * All three compact fields are list-only, so each carried the same sentence and the
-   * group read as three separate problems rather than one scoped family.
-   *
-   * Asserted through `computeHelper` rather than against the string table, because the
-   * question is what a user reads. The note has to appear once, on the group, and not
-   * again on the fields inside it.
-   */
-  function contentNodes(view: Types.EffectiveView) {
-    const panel = PANELS.find((entry) => entry.id === 'content')!;
-    const config = buildConfig({ view, compact_events_to_show: 3 });
-    return [...walkSchema(panel.build({ view, config, language: 'en' }))];
-  }
-
-  it('states it on the group', () => {
-    const group = contentNodes('column').find((entry) => entry.node.name === 'compact_mode')!;
-
-    expect(computeHelper('en', 'column', group.node, group.path)).toMatch(/list layout/i);
-  });
-
-  it('does not repeat it on the fields inside', () => {
-    for (const { node, path } of contentNodes('column')) {
-      if (!path.includes('compact_mode')) continue;
-      if ('schema' in node || node.name === '') continue;
-
-      expect(computeHelper('en', 'column', node, path) ?? '', node.name).not.toMatch(
-        /list layout/i,
-      );
-    }
-  });
-
-  it('says nothing at all on a list card', () => {
-    for (const { node, path } of contentNodes('list')) {
-      if (node.name !== 'compact_mode' && !path.includes('compact_mode')) continue;
-
-      expect(computeHelper('en', 'list', node, path) ?? '', node.name).not.toMatch(/list layout/i);
-    }
-  });
-
-  /**
-   * The silencing is keyed on the enclosing group's path, so the same option outside
-   * that group still carries its own note.
-   *
-   * This is the half of the rule that can be exercised today: every entry in
-   * `VIEW_SCOPE` currently states the same scope, so a field whose scope *differs* from
-   * its group's cannot be built from real keys. `sameScope` is what will keep that case
-   * annotated when a differently-scoped option, or a third view, arrives — the group
-   * speaks only for children that share its statement.
-   */
-  it('still annotates the same option outside the group', () => {
+/**
+ * A list-only option says where it applies, beside the control, in the layouts it does not.
+ */
+describe('editor: a list-only option states its applicability', () => {
+  it('annotates the compact event limit outside List', () => {
     const note = computeHelper('en', 'column', {
       name: 'compact_events_to_show',
       selector: { number: { min: 1 } },
@@ -3276,6 +3297,7 @@ describe('editor: fields that must survive being typed into', () => {
       'de',
       'et',
       'it',
+      'ja',
       'ko',
       'lt',
       'lv',
@@ -3309,59 +3331,59 @@ describe('editor: fields that must survive being typed into', () => {
 
   /**
    * Home Assistant's text selector reports every keystroke and turns an emptied field
-   * into `undefined`, so binding `height` directly would delete the measurement the
+   * into `undefined`, so binding `card_height` directly would delete the measurement the
    * moment the box was cleared to retype it — and take the field with it, since the
    * height mode is derived from whether the key is set.
    */
   it('keeps the height field standing while its measurement is retyped', () => {
-    const start = buildConfig({ height: '500px' });
-    const cleared = type(start, 'card_height', ['']);
+    const start = buildConfig({ card_height: '500px' });
+    const cleared = type(start, 'fixed_height', ['']);
 
-    expect(cleared.config.height).toBe('500px');
-    expect(cleared.pending.card_height).toBe('');
+    expect(cleared.config.card_height).toBe('500px');
+    expect(cleared.pending.fixed_height).toBe('');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_height');
+    ).toContain('fixed_height');
 
-    const retyped = type(start, 'card_height', ['', '4', '40', '400px']);
-    expect(retyped.config.height).toBe('400px');
+    const retyped = type(start, 'fixed_height', ['', '4', '40', '400px']);
+    expect(retyped.config.card_height).toBe('400px');
   });
 
   it('keeps the maximum-height field standing on the same terms', () => {
-    const start = buildConfig({ height: 'auto', max_height: '600px' });
-    const cleared = type(start, 'card_max_height', ['']);
+    const start = buildConfig({ card_height: 'auto', card_max_height: '600px' });
+    const cleared = type(start, 'maximum_height', ['']);
 
-    expect(cleared.config.max_height).toBe('600px');
+    expect(cleared.config.card_max_height).toBe('600px');
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
-    ).toContain('card_max_height');
+    ).toContain('maximum_height');
   });
 
   /**
    * The assertions above hold whether or not the field is synthetic at all — clearing it
    * is meant to be a no-op, so a version that never handled the key passed them too. These
    * are the three that fail when it stops being synthetic: the field renders empty over a
-   * configured maximum, a typed measurement never reaches `max_height`, and the synthetic
+   * configured maximum, a typed measurement never reaches `card_max_height`, and the synthetic
    * name itself is written into the user's YAML.
    */
   it('derives, commits and hides the maximum-height measurement', () => {
-    const config = buildConfig({ height: 'auto', max_height: '600px' });
+    const config = buildConfig({ card_height: 'auto', card_max_height: '600px' });
     const before = { ...config, ...deriveSyntheticData(config) } as Record<string, unknown>;
-    expect(before.card_max_height).toBe('600px');
+    expect(before.maximum_height).toBe('600px');
 
-    const applied = applyFormChange(config, before, { ...before, card_max_height: '900px' }, {});
+    const applied = applyFormChange(config, before, { ...before, maximum_height: '900px' }, {});
     const stored = toStoredConfig(applied.config);
 
-    expect(stored.max_height).toBe('900px');
-    expect(stored).not.toHaveProperty('card_max_height');
+    expect(stored.card_max_height).toBe('900px');
+    expect(stored).not.toHaveProperty('maximum_height');
   });
 
   it('never lets a held measurement reach the stored configuration', () => {
-    const { config, pending } = type(buildConfig({ height: '500px' }), 'card_height', ['']);
+    const { config, pending } = type(buildConfig({ card_height: '500px' }), 'fixed_height', ['']);
 
-    expect(toStoredConfig(config).height).toBe('500px');
-    expect(toStoredConfig(config)).not.toHaveProperty('card_height');
-    expect(pending.card_height).toBe('');
+    expect(toStoredConfig(config).card_height).toBe('500px');
+    expect(toStoredConfig(config)).not.toHaveProperty('fixed_height');
+    expect(pending.fixed_height).toBe('');
   });
 });
 
@@ -3410,34 +3432,6 @@ describe('editor: group headings resolve their own strings', () => {
     }
   });
 
-  /**
-   * The compact-mode group states one scope on behalf of its three fields, and the two
-   * sentences have to read as one paragraph. They did not: the note was prefixed, so the
-   * group opened with "These apply to the list layout…" above the sentence that said
-   * what "these" were, and both halves used the word "apply".
-   */
-  it('reads a group and its scope note as one paragraph', () => {
-    const group = [
-      ...walkSchema(
-        PANELS.find((panel) => panel.id === 'content')!.build({
-          view: 'column',
-          config: buildConfig({ view: 'column' }),
-          language: 'en',
-        }),
-      ),
-    ].find((entry) => (entry.node as { titleKey?: string }).titleKey === 'compact_mode')!;
-
-    const helper = computeHelper('en', 'column', group.node, group.path)!;
-
-    expect(helper.startsWith(EDITOR_STRINGS['compact_mode.helper'])).toBe(true);
-    expect(helper.endsWith(EDITOR_STRINGS['scope.list_only.compact_mode'])).toBe(true);
-
-    // In the layout it applies to there is no note at all, so the helper stands alone.
-    expect(computeHelper('en', 'list', group.node, group.path)).toBe(
-      EDITOR_STRINGS['compact_mode.helper'],
-    );
-  });
-
   it('does not fall back to a bare key that belongs to the old namespace', () => {
     const config = buildConfig({ weather: { entity: 'weather.home', position: 'both' } });
     const groups = [
@@ -3459,33 +3453,9 @@ describe('editor: group headings resolve their own strings', () => {
   });
 });
 
-/**
- * A tag of this file's own for the widgets mounted below, since a custom element has to
- * be defined before it can be constructed and may only be defined once.
- */
-const CHASSIS_TAG = 'test-calendar-card-pro-editor-widgets';
-if (!customElements.get(CHASSIS_TAG)) {
-  customElements.define(CHASSIS_TAG, class extends CalendarCardProEditor {});
-}
-
 /** Reads a mounted form's schema. */
 function schemaOf(form: Element): HaFormSchema[] {
   return (form as unknown as { schema: HaFormSchema[] }).schema;
-}
-
-/** Fires a change from one of the editor's forms, the way `ha-form` does. */
-async function fire(
-  element: CalendarCardProEditor,
-  selector: string,
-  patch: Record<string, unknown>,
-  index = 0,
-) {
-  const form = element.shadowRoot!.querySelectorAll(selector)[index];
-  const data = (form as unknown as { data: Record<string, unknown> }).data;
-  form.dispatchEvent(
-    new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-  );
-  await element.updateComplete;
 }
 
 /**
@@ -3498,32 +3468,40 @@ async function fire(
 describe('editor: the weather block', () => {
   /** Mounts the editor on a raw config and returns the panel form data holding `weather`. */
   async function weatherFormData(weather: unknown): Promise<Record<string, unknown>> {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'], weather } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'], weather });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
-    const form = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].find(
-      (candidate) =>
-        (candidate as unknown as { data: Record<string, unknown> }).data?.weather !== undefined,
-    )!;
-
-    return (form as unknown as { data: { weather: Record<string, unknown> } }).data.weather;
+    return valueOf(element, 'weather:weather') as Record<string, unknown>;
   }
 
   it('binds every defaulted option a minimal weather block leaves out', async () => {
-    const bound = await weatherFormData({ entity: 'weather.home', position: 'both' });
-    const defaults = DEFAULT_CONFIG.weather as unknown as Record<string, Record<string, unknown>>;
-
-    const unbound = ['date', 'event'].flatMap((group) => {
-      const group_bound = (bound[group] ?? {}) as Record<string, unknown>;
-
-      return Object.keys(defaults[group])
-        .filter((option) => group_bound[option] === undefined)
-        .map((option) => `${group}.${option}`);
+    const element = await mountEditor({
+      entities: ['calendar.a'],
+      weather: { entity: 'weather.home', position: 'both' },
     });
+    await openPanels(element);
+    const bound = valueOf(element, 'weather:weather') as Record<string, unknown>;
+    const defaults = DEFAULT_CONFIG.weather as unknown as Record<string, Record<string, unknown>>;
+    const options = ['date', 'event'].flatMap((group) =>
+      Object.keys(defaults[group]).map((option) => [group, option] as const),
+    );
+    // Each field's form holds its own value alone, so an option drawn nowhere is bound nowhere:
+    // only the thresholds, which wait for Show UV Index.
+    const drawn = options.filter(
+      ([group, option]) => formOf(element, `weather:weather.${group}.${option}`) !== undefined,
+    );
+    expect(
+      options
+        .filter((each) => !drawn.includes(each))
+        .map(([group, option]) => `${group}.${option}`),
+    ).toEqual(['date.uv_index_threshold', 'event.uv_index_threshold']);
 
+    const unbound = drawn
+      .filter(
+        ([group, option]) => (bound[group] as Record<string, unknown>)?.[option] === undefined,
+      )
+      .map(([group, option]) => `${group}.${option}`);
     expect(unbound).toEqual([]);
   });
 
@@ -3573,37 +3551,51 @@ describe('editor: per-calendar settings', () => {
     return calendars.subforms!({ view: config.view, config, language: 'en' })[0];
   }
 
+  /**
+   * The names an entry's page draws: each of its fields is a form of its own there, so these
+   * are what all of that entry's forms draw together.
+   *
+   * @param element - Editor
+   * @param index - The entry's position in `entities`
+   * @returns The top-level names of every form the entry draws
+   */
+  function entryNames(element: Awaited<ReturnType<typeof mountEditor>>, index: number): string[] {
+    const forms = formsOf(element, entry(index));
+    expect(forms.length, `entry ${index} draws no form`).toBeGreaterThan(0);
+    return forms.flatMap((form) => schemaOf(form)).map((node) => node.name);
+  }
+
   beforeEach(() => {
     clearCopiedSettings();
   });
 
-  it('renders one collapsible form per configured calendar', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a', 'calendar.b'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+  it('renders the forms of each configured calendar on its own entry page', async () => {
+    const element = await mountEditor({ entities: ['calendar.a', 'calendar.b'] });
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
-    expect(element.shadowRoot!.querySelectorAll('ha-form.entity-form')).toHaveLength(2);
+    // An entry page draws one form per field, so the count is of which entries draw forms.
+    expect([0, 1].map((index) => formsOf(element, entry(index)).length > 0)).toEqual([true, true]);
+    expect(formsOf(element, entry())).toEqual([
+      ...formsOf(element, entry(0)),
+      ...formsOf(element, entry(1)),
+    ]);
   });
 
   /**
-   * The wiring, not the pure functions. Each calendar's form is narrowed to its own
-   * label shape, which is the one place the per-calendar list renders something other
+   * The wiring, not the pure functions. Each calendar's page is narrowed to its own
+   * label shape, which is the one place an entry page renders something other
    * than the schema the panel declares — so it is worth seeing it happen through the
    * element rather than only through `entitySchemaFor`.
    */
   it('narrows each calendar to its own label shape, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
-    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
-    const names = forms.map((form) => schemaOf(form).map((node) => node.name));
+    const names = [0, 1].map((index) => entryNames(element, index));
 
     // The calendar with an icon label gets the picker and the icon color; the one with
     // no label at all gets neither, and its shape dropdown reads *None*.
@@ -3611,8 +3603,7 @@ describe('editor: per-calendar settings', () => {
     expect(names[1]).not.toContain('label_icon_color');
     expect(names[1]).not.toContain('label');
 
-    const data = (forms[1] as unknown as { data: Record<string, unknown> }).data;
-    expect(data.label_type).toBe('none');
+    expect(valueOf(element, 'calendar:label_type', entry(1))).toBe('none');
   });
 
   /**
@@ -3624,39 +3615,38 @@ describe('editor: per-calendar settings', () => {
    * passes. Checked by dropping it: 2810 unit tests, none of them noticed.
    */
   it('renders the person picker for a calendar labeled with a person, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: [
         { entity: 'calendar.a', label: 'person.anna' },
         { entity: 'calendar.b', label: '/local/work.png' },
       ],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
-    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
+    const first = formOf(element, 'calendar:label', entry(0))!;
 
-    const person = schemaOf(forms[0]).find((node) => node.name === 'label')!;
-    expect(schemaOf(forms[0]).map((node) => node.name)).toContain('label_image_source');
+    const person = schemaOf(first).find((node) => node.name === 'label')!;
+    expect(entryNames(element, 0)).toContain('label_image_source');
     expect('selector' in person && 'entity' in person.selector, 'person mode wants a picker').toBe(
       true,
     );
 
     // The other mode through the same wiring, so the assertion above is about the source
     // rather than about every image label getting a picker.
-    const typed = schemaOf(forms[1]).find((node) => node.name === 'label')!;
+    const typed = schemaOf(formOf(element, 'calendar:label', entry(1))!).find(
+      (node) => node.name === 'label',
+    )!;
     expect('selector' in typed && 'text' in typed.selector, 'custom mode wants a text box').toBe(
       true,
     );
   });
 
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    // Every setting the page can draw, so the icon color shows as the shape opens it.
+    const element = await mountEditor({ entities: ['calendar.a'] }, { every: true });
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -3665,7 +3655,7 @@ describe('editor: per-calendar settings', () => {
       element.setConfig(config);
     });
 
-    await fire(element, 'ha-form.entity-form', { label_type: 'icon' });
+    await changeField(element, 'calendar:label_type', 'icon', entry(0));
 
     // The shape is what is stored; nothing is seeded into the picker for the user to
     // clear first. It has to be stored here, because an icon shape with no icon in it
@@ -3674,14 +3664,15 @@ describe('editor: per-calendar settings', () => {
       { entity: 'calendar.a', label_type: 'icon' },
     ]);
 
-    // The picker is now on screen, empty, with the color that only applies to it.
-    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
-    expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
+    // The picker is now on screen, empty, with the color that only applies to it, once opened.
+    await unfoldAll(element);
+    expect(entryNames(element, 0)).toContain('label_icon_color');
 
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    expect(data.label_type).toBe('icon');
-    expect(data.label ?? '').toBe('');
-  });
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
+    expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   /**
    * The reported bug, as reported: pick *Text or Emoji*, type a label, clear it, and the
@@ -3699,49 +3690,43 @@ describe('editor: per-calendar settings', () => {
    * from it, and it is that second half that dropped the field.
    */
   it('keeps the label field on screen while the text is cleared and retyped', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'] });
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
     });
 
-    /** The names the one calendar's form is currently rendering. */
-    const rendered = () =>
-      schemaOf(element.shadowRoot!.querySelector('ha-form.entity-form')!).map((node) => node.name);
-    /** That form's data, as `ha-form` would read it. */
-    const formData = () =>
-      (
-        element.shadowRoot!.querySelector('ha-form.entity-form') as unknown as {
-          data: Record<string, unknown>;
-        }
-      ).data;
+    /** The names the one calendar's page is currently rendering. */
+    const rendered = () => entryNames(element, 0);
 
-    await fire(element, 'ha-form.entity-form', { label_type: 'text' });
+    await changeField(element, 'calendar:label_type', 'text', entry(0));
 
     // Choosing the shape is enough to put the field on screen. It arrives empty: a seeded
     // value only ever existed to stop the shape deriving straight back to *None*, and an
     // explicit shape does not need one.
     expect(rendered()).toContain('label');
-    expect(formData().label_type).toBe('text');
-    expect(formData().label ?? '').toBe('');
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('text');
+    expect(valueOf(element, 'calendar:label', entry(0)) ?? '').toBe('');
 
-    await fire(element, 'ha-form.entity-form', { label: 'Fam' });
-    expect(formData().label).toBe('Fam');
+    await changeField(element, 'calendar:label', 'Fam', entry(0));
+    expect(valueOf(element, 'calendar:label', entry(0))).toBe('Fam');
 
     // The step that used to break it.
-    await fire(element, 'ha-form.entity-form', { label: '' });
+    await changeField(element, 'calendar:label', '', entry(0));
 
     expect(rendered(), 'the field survived being cleared').toContain('label');
-    expect(formData().label_type, 'the shape did not snap back').toBe('text');
+    expect(valueOf(element, 'calendar:label_type', entry(0)), 'the shape did not snap back').toBe(
+      'text',
+    );
 
     // And the user can now type the label they wanted all along.
-    await fire(element, 'ha-form.entity-form', { label: 'Familienkalender' });
-    expect(formData().label).toBe('Familienkalender');
-  });
+    await changeField(element, 'calendar:label', 'Familienkalender', entry(0));
+    expect(valueOf(element, 'calendar:label', entry(0))).toBe('Familienkalender');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   /**
    * The same failure one door along. An icon label's color field is shown only while the
@@ -3749,26 +3734,26 @@ describe('editor: per-calendar settings', () => {
    * the label, re-derive the shape as *None*, and take both controls away at once.
    */
   it('keeps the icon picker and its color on screen while the icon is cleared', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
-      entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor(
+      { entities: [{ entity: 'calendar.a', label: 'mdi:home' }] },
+      // Every setting the page can draw, so the icon color stays drawn as the icon is cleared.
+      { every: true },
+    );
+    // Visits every page, each entry's included, as this reads forms across the editor.
+    await openPanels(element);
 
     element.addEventListener('config-changed', (event) => {
       element.setConfig((event as CustomEvent).detail.config as Types.Config);
     });
 
-    await fire(element, 'ha-form.entity-form', { label: '' });
+    await changeField(element, 'calendar:label', '', entry(0));
+    await unfoldAll(element);
 
-    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
-    const names = schemaOf(form).map((node) => node.name);
+    const names = entryNames(element, 0);
 
     expect(names, 'the picker survived being cleared').toContain('label');
     expect(names, 'so did the icon color').toContain('label_icon_color');
-    expect((form as unknown as { data: Record<string, unknown> }).data.label_type).toBe('icon');
+    expect(valueOf(element, 'calendar:label_type', entry(0))).toBe('icon');
   });
 
   it('offers every per-calendar option the card reads', () => {
@@ -3779,8 +3764,9 @@ describe('editor: per-calendar settings', () => {
       .map((entry) => entry.node.name)
       .filter(Boolean);
 
-    // Every member of `EntityConfig` except the entity id itself, which is the
-    // picker's business rather than a setting of the calendar's — plus `label_type`,
+    // Every member of `EntityConfig` except the entity id itself, which is the business of
+    // Add Calendar and the entry page's Calendar rather than a setting of the calendar's — plus
+    // `label_type`,
     // `accent_color_mode`, `label_icon_source` and `label_image_source`, which are not config
     // keys at all. Each names which of several shapes one value holds, or where it comes
     // from, exactly as `today_indicator_style` does at card level, and none is ever written
@@ -3804,6 +3790,7 @@ describe('editor: per-calendar settings', () => {
         'label_type',
         'location_icon',
         'name',
+        'private',
         'replace_field',
         'replace_pattern',
         'replace_with',
@@ -3813,6 +3800,8 @@ describe('editor: per-calendar settings', () => {
         'show_time',
         'show_weather',
         'split_multiday_events',
+        'starts_after',
+        'starts_before',
         'text_scale',
         'multiday_banners',
         'visibility',
@@ -3932,6 +3921,32 @@ describe('editor: per-calendar settings', () => {
       entity: 'calendar.a',
       show_weather: false,
     });
+  });
+
+  it('keeps a written field of Title until another field is chosen, then Title stores nothing', () => {
+    const written = {
+      entity: 'calendar.a',
+      filter_field: 'title',
+      replace_field: 'title',
+    } as Types.EntityConfig;
+    const data = toEntityFormData(written, [written]);
+    expect([data.filter_field, data.replace_field]).toEqual(['title', 'title']);
+
+    expect(writeEntity([written], 0, data)[0]).toEqual(written);
+
+    const moved = fromEntityFormData(
+      'calendar.a',
+      { ...data, filter_field: 'location', replace_field: 'description' },
+      written,
+    );
+    expect(moved).toEqual({
+      entity: 'calendar.a',
+      filter_field: 'location',
+      replace_field: 'description',
+    });
+    expect(
+      fromEntityFormData('calendar.a', { filter_field: 'title', replace_field: 'title' }, moved),
+    ).toBe('calendar.a');
   });
 
   it('offers the weather switch only on a card that draws weather beside events', () => {
@@ -4784,21 +4799,11 @@ describe('editor: removing view overrides', () => {
   });
 });
 
-function routedFormIndex(element: CalendarCardProEditor, key: string): number {
-  const index = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].findIndex((form) =>
-    [...walkSchema(schemaOf(form))].some(({ node }) => node.name === key),
-  );
-  if (index < 0) throw new Error(`No routed form for ${key}`);
-  return index;
-}
-
 describe('editor: direct view controls in the chassis', () => {
   async function mountColumn(config: Partial<Types.Config>) {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ view: 'column', ...config } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ view: 'column', ...config });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4839,39 +4844,31 @@ describe('editor: direct view controls in the chassis', () => {
   it('renders the effective field immediately without storing an override', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    expect(routedFormIndex(element, 'event_font_size')).toBeGreaterThanOrEqual(0);
+    expect(formOf(element, 'events:event_font_size')).toBeDefined();
     expect(dispatched).toEqual([]);
   });
 
   it('stores the exception once its value differs, and only then', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    const formIndex = routedFormIndex(element, 'event_font_size');
-    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
+    await changeField(element, 'events:event_font_size', '22px');
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].column).toEqual({ event_font_size: '22px' });
   });
 
   it('shows the active view’s effective values rather than another view’s overrides', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
     const config = {
       entities: ['calendar.a'],
       column: { event_font_size: '22px' },
       time_grid: { event_font_size: '23px' },
     } as Types.Config;
 
-    document.body.appendChild(element);
-    element.setConfig({ ...config, view: 'grid' });
-    await element.updateComplete;
+    const element = await mountEditor({ ...config, view: 'grid' });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
-    const current = () =>
-      (
-        element.shadowRoot!.querySelectorAll('ha-form.panel-form')[
-          routedFormIndex(element, 'event_font_size')
-        ] as unknown as { data: Record<string, unknown> }
-      ).data.event_font_size;
+    const current = () => valueOf(element, 'events:event_font_size');
     expect(current()).toBe('23px');
 
     element.setConfig({ ...config, view: 'column' });
@@ -4885,11 +4882,9 @@ describe('editor: direct view controls in the chassis', () => {
    * input. That remains true when Home Assistant echoes every write immediately.
    */
   it('survives add, differ, revert and remove with Home Assistant echoing each write', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({ entities: ['calendar.a'], view: 'column' } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    const element = await mountEditor({ entities: ['calendar.a'], view: 'column' });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4898,38 +4893,29 @@ describe('editor: direct view controls in the chassis', () => {
       element.setConfig(config);
     });
 
-    const rowShown = () =>
-      [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].some((form) =>
-        [...walkSchema(schemaOf(form))].some(({ node }) => node.name === 'event_font_size'),
-      );
+    const rowShown = () => formOf(element, 'events:event_font_size') !== undefined;
 
     expect(dispatched, 'opening the editor configures nothing').toEqual([]);
     expect(rowShown()).toBe(true);
 
-    const formIndex = routedFormIndex(element, 'event_font_size');
-    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
+    await changeField(element, 'events:event_font_size', '22px');
     expect(dispatched.slice(-1)[0]!.column).toEqual({ event_font_size: '22px' });
 
     // Set back to what it inherits: the key goes, the row stays.
-    await fire(
-      element,
-      'ha-form.panel-form',
-      { event_font_size: DEFAULT_CONFIG.event_font_size },
-      formIndex,
-    );
+    await changeField(element, 'events:event_font_size', DEFAULT_CONFIG.event_font_size);
     expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
-    await fire(element, 'ha-form.panel-form', { event_font_size: '24px' }, formIndex);
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    );
+    await changeField(element, 'events:event_font_size', '24px');
+    const reset = await resetButton(element, 'event_font_size');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
     expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown()).toBe(true);
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('deletes the key and the block when the exception is taken away again', async () => {
     const { element, dispatched } = await mountColumn({
@@ -4937,9 +4923,7 @@ describe('editor: direct view controls in the chassis', () => {
       column: { event_font_size: '22px' } as Types.ColumnOverrides,
     });
 
-    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
-      '[data-reset-keys="event_font_size"]',
-    );
+    const reset = await resetButton(element, 'event_font_size');
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
@@ -4960,15 +4944,13 @@ describe('editor: stored and rendered union values', () => {
   });
 
   it('edits one through the chassis, end to end', async () => {
-    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
-    element.hass = {} as Types.Hass;
-    element.setConfig({
+    const element = await mountEditor({
       entities: ['calendar.a'],
       view: 'column',
       show_week_numbers: 'iso',
-    } as Types.Config);
-    document.body.appendChild(element);
-    await element.updateComplete;
+    });
+    // A closed panel mounts no form: open every panel, as this reads forms behind them.
+    await openPanels(element);
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
@@ -4978,21 +4960,17 @@ describe('editor: stored and rendered union values', () => {
     });
 
     expect(dispatched, 'opening the editor configures nothing').toEqual([]);
-    const formIndex = routedFormIndex(element, 'week_number_mode');
-    expect(formIndex).toBeGreaterThanOrEqual(0);
+    expect(formOf(element, 'day_header:week_number_mode')).toBeDefined();
 
-    await fire(element, 'ha-form.panel-form', { week_number_mode: 'none' }, formIndex);
+    await changeField(element, 'day_header:week_number_mode', 'none');
 
     expect(dispatched.slice(-1)[0]!.column).toEqual({ show_week_numbers: null });
 
     // The row survives the echo, and still shows the shape that was chosen.
-    const data = (
-      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[formIndex] as unknown as {
-        data: Record<string, unknown>;
-      }
-    ).data;
-    expect(data.week_number_mode).toBe('none');
-  });
+    expect(valueOf(element, 'day_header:week_number_mode')).toBe('none');
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 });
 
 /**
@@ -5024,8 +5002,11 @@ function editorOptions(): Map<string, string[]> {
   // dropdowns such as `overlap_layout` are only discoverable from here.
   const configs = [
     buildConfig({ view: 'grid' }),
+    // When Too Narrow's Custom, the one state that builds Below That.
+    buildConfig({ view: 'grid', time_grid: { min_days_fallback: 'cramp', min_days_to_show: 2 } }),
     buildConfig({}),
     buildConfig({ view: 'column' }),
+    buildConfig({ view: 'column', column: { min_days_fallback: 'cramp', min_days_to_show: 2 } }),
     buildConfig({ weather: { entity: 'weather.home' } }),
     buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
   ] as Types.Config[];
@@ -5102,6 +5083,10 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // A list option whose dropdown is exactly the union: `earliest_first` is the shipped
     // order rather than an absent value.
     event_order: { field: 'event_order' },
+    // Discovered once `merge_locations` gave the union a second string literal. Its two
+    // boolean members are the dropdown's `off` and `exact`, which a union of literals
+    // cannot spell, the way `show_week_numbers` spells `null` as `none`.
+    filter_duplicates: { field: 'filter_duplicates_mode', editorOnly: ['off', 'exact'] },
   };
 
   /**
@@ -5268,6 +5253,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'height_mode',
       'language_mode',
       'location_country_mode',
+      'narrow_fit',
       'start_date_mode',
       'time_format',
       'today_indicator_style',
@@ -5275,7 +5261,9 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ]);
   });
 
-  it.each(syntheticDropdowns())(
+  // When Too Narrow answers only on Columns' and Grid's pages, which `pick` does not stand on;
+  // `editor-narrow-fit.test.ts` round-trips it there.
+  it.each(syntheticDropdowns().filter(([name]) => name !== 'narrow_fit'))(
     'shows %s back after picking it from any other value',
     (field, values) => {
       for (const from of values) {

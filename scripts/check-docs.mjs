@@ -33,6 +33,7 @@ const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
  */
 const ENTITY_OPTIONS_DOC = join(DOCS_DIR, 'features/core-settings.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
+const MOVED_ANCHORS = join(DOCS_DIR, '.vitepress/moved-anchors.json');
 const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
 const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
 
@@ -268,6 +269,9 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   ['language', '`System`, fallback `en`'],
   // Absent renders no title at all; there is nothing to fall back to.
   ['title', '-'],
+  // utils/weather-position.ts `weatherEntityOf` — absent, and no top-level `weather:` naming an
+  // entity as written before v6, means no layout draws weather; there is nothing to fall back to.
+  ['weather_entity', '-'],
   // rendering/styles.ts — the custom property is only written when the option is set, so
   // absence leaves the stylesheet's own value in place. The documented default is that
   // variable because that is literally what applies.
@@ -1513,9 +1517,23 @@ function readColumnRows() {
  * therefore have no `COLUMN_DEFAULTS` entry to reconcile against.
  *
  * Listing dynamic rows here keeps every documented row either checked against code or
- * named as an exception.
+ * named as an exception. `min_days_to_show` is documented as its usual value,
+ * `COLUMN_MIN_DAYS_DEFAULT`, read from the source so the two cannot drift; the row's
+ * description says what changes it.
  */
-const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', '`days_to_show`']]);
+function readColumnMinDaysDefault() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const m = src.match(/^export const COLUMN_MIN_DAYS_DEFAULT = (\d+);$/m);
+  if (!m) {
+    console.error(
+      `\n✗ FATAL: could not locate COLUMN_MIN_DAYS_DEFAULT in ${relative(ROOT, VIEW_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+  return `\`${m[1]}\``;
+}
+
+const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', readColumnMinDaysDefault()]]);
 
 function checkColumnDefaults(columnDefaults, columnRows) {
   for (const [key, expected] of DYNAMIC_COLUMN_DEFAULTS) {
@@ -1885,6 +1903,151 @@ function checkLanguageCounts() {
 }
 
 /**
+ * The editor's breakdown, by the paragraph that states it. `scope` finds the paragraph, each
+ * count pattern must match inside it at least once, and `names` (where given) captures the
+ * list of languages translated in full.
+ */
+const EDITOR_BREAKDOWN_SITES = [
+  {
+    name: 'docs/contributing.md',
+    scope: /The editor is available in \d+ of the[\s\S]*?render the editor in English/,
+    counts: [
+      [/the (\w+) with a file here/g, 'files'],
+      [/(\w+) translated\s+in full/g, 'full'],
+      [/The other (\d+) render the editor in English/g, 'none'],
+    ],
+  },
+  {
+    name: 'docs/features/editor.md',
+    scope: /The editor is available in \*\*\d+ languages\*\*[\s\S]*?differs from US English\./,
+    counts: [[/Besides English, (\w+) are translated in full/g, 'full']],
+    names: /translated in full \(([^)]+)\)/,
+  },
+];
+
+/**
+ * Reconcile the editor's published breakdown with the coverage `check:i18n` reports.
+ *
+ * The editor total above is only the sum. The contributing guide and the editor page also
+ * say how many files there are, how many are translated in full, which, and how many card
+ * languages have no editor at all, and before this only the total was checked. "In full" is
+ * `check:i18n`'s classification (`FULL_TRANSLATION_SHARE`), read through the same function
+ * that prints its coverage lines, so the two gates cannot disagree about a file. A partial
+ * translation has to be named as one, as "Korean in part" was through v5.3.
+ *
+ * @returns How many counts and name lists were checked
+ */
+async function checkEditorBreakdown() {
+  const { editorTranslationCoverage, FULL_TRANSLATION_SHARE } = await import('./check-i18n.mjs');
+  const coverage = await editorTranslationCoverage();
+  const cardFiles = readdirSync(join(ROOT, 'src/translations/languages')).filter((f) =>
+    f.endsWith('.json'),
+  );
+  const handWritten = coverage.files.filter(({ code }) => code !== 'en-gb');
+  const full = handWritten.filter((entry) => entry.full);
+  const partial = handWritten.filter((entry) => !entry.full);
+  assertFound(full, 'editor translations in full', 'src/rendering/editor/translations');
+
+  const english = new Intl.DisplayNames(['en'], { type: 'language' });
+  const nameOf = ({ code }) => english.of(code);
+  const listed = (entries) => entries.map(nameOf).sort().join(', ');
+  const truth = {
+    files: coverage.files.length,
+    full: full.length,
+    // +1 for US English again: these are the card languages with no editor of their own.
+    none: cardFiles.length - (coverage.files.length + 1),
+  };
+  const why = {
+    files: 'Counted from src/rendering/editor/translations/*.json, en-GB.json included.',
+    full:
+      `npm run check:i18n counts a file in full when it carries at least ` +
+      `${Math.ceil(coverage.total * FULL_TRANSLATION_SHARE)} of the ${coverage.total} strings, and its coverage ` +
+      `lines say which: ${listed(full)}.`,
+    none: 'That is the card languages less the editor languages.',
+  };
+  let checked = 0;
+
+  for (const { name, scope, counts, names } of EDITOR_BREAKDOWN_SITES) {
+    const file = join(ROOT, name);
+    // One space for every run of whitespace, so a sentence reads the same however it is wrapped.
+    const paragraph = existsSync(file)
+      ? readFileSync(file, 'utf8').match(scope)?.[0].replace(/\s+/g, ' ')
+      : undefined;
+    if (!paragraph) {
+      error(
+        `${name} no longer states the editor's language breakdown in a form this check can ` +
+          `read. Update EDITOR_BREAKDOWN_SITES rather than dropping the check.`,
+      );
+      continue;
+    }
+
+    for (const [pattern, which] of counts) {
+      const matches = [...paragraph.matchAll(pattern)];
+      if (!matches.length) {
+        error(
+          `${name} no longer states how many editor languages are ${which} in a form ` +
+            `EDITOR_BREAKDOWN_SITES can read. Update the pattern rather than dropping it.`,
+        );
+      }
+      for (const match of matches) {
+        checked += 1;
+        const word = match[1].toLowerCase();
+        const found = /^\d+$/.test(word)
+          ? Number(word)
+          : NUMBER_WORDS.findIndex((spelled) => spelled.toLowerCase() === word);
+        if (found !== truth[which]) {
+          error(
+            `${name} says "${match[0]}", but the number is ` + `${truth[which]}. ${why[which]}`,
+          );
+        }
+      }
+    }
+
+    if (names) {
+      checked += 1;
+      const written = paragraph
+        .match(names)?.[1]
+        .split(/,\s*|\s+and\s+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .sort()
+        .join(', ');
+      if (written !== listed(full)) {
+        error(
+          `${name} names the editor translations in full as ${written ?? 'nothing'}, but they ` +
+            `are ${listed(full)}. ${why.full}`,
+        );
+      }
+    }
+
+    checked += 1;
+    const inPart = /\bin part\b/.test(paragraph);
+    // Each partial language leads into "in part", on its own or in a list: "Korean in part",
+    // "Korean and Thai in part". A name elsewhere in the paragraph says nothing about it.
+    const unnamed = partial.filter(
+      (entry) =>
+        !new RegExp(
+          `\\b${nameOf(entry).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?:, | and )[\\p{L} ]+?)* in part\\b`,
+          'u',
+        ).test(paragraph),
+    );
+    if (partial.length && unnamed.length) {
+      error(
+        `${name} does not say that ${listed(unnamed)} ${unnamed.length > 1 ? 'are' : 'is'} ` +
+          `translated in part, which check:i18n counts as below the line for in full. ` +
+          `Name ${partial.length > 1 ? 'them' : 'it'}, as "Korean in part" was through v5.3.`,
+      );
+    } else if (!partial.length && inPart) {
+      error(
+        `${name} says an editor translation is in part, but every hand-written one is in ` +
+          `full: ${listed(full)}.`,
+      );
+    }
+  }
+  return checked;
+}
+
+/**
  * Print what was inspected, then the errors and warnings.
  *
  * 🚨 **Every clause on the summary line is a count of what was *inspected*, never a
@@ -1924,6 +2087,7 @@ function report(counts) {
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
+      `${counts.movedAnchors} moved sections forwarded, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
       `${counts.listFences} YAML examples checked for list-only keys, ` +
@@ -2391,11 +2555,17 @@ const SENTINEL_OPTIONS = [
   },
   {
     // Not a string option, but check 21 is as blind to it: the type is
-    // `boolean | 'ignore_location'`, and a union with one string literal registers nothing
+    // `boolean | 'ignore_location' | …`, and a union of string literals registers nothing
     // there, so the value the editor's third choice writes could leave its row unnoticed.
     fields: ['filter_duplicates'],
     file: 'src/config/constants.ts',
     constant: 'DUPLICATES_IGNORE_LOCATION',
+  },
+  {
+    // The fourth choice, `merge_locations`, is as invisible to check 21 as the third.
+    fields: ['filter_duplicates'],
+    file: 'src/config/constants.ts',
+    constant: 'DUPLICATES_MERGE_LOCATIONS',
   },
   {
     // `boolean | 'once_per_day'`, the same shape as `filter_duplicates` and as blind to
@@ -2828,6 +2998,50 @@ function checkDeprecatedTable(maps) {
   }
 
   return maps.card.size;
+}
+
+// ---------------------------------------------------------------------------
+// Check 35 — every moved section forwards from an anchor that is gone to one that exists
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconcile `moved-anchors.json` against the pages, in both directions an entry can go wrong.
+ *
+ * The site's theme forwards a link to a section that moved to another page, so release notes,
+ * issue comments and installed editors keep landing on it. It forwards only where the old page
+ * no longer has the anchor, so an entry whose anchor came back is dead weight that would hide the
+ * next move of the same name; and a target nothing publishes forwards a reader into a 404.
+ *
+ * @param docs - Every markdown page under `docs/`
+ * @returns The number of forwards checked
+ */
+function checkMovedAnchors(docs) {
+  const { anchors } = buildAnchorMap(docs);
+  const rel = relative(ROOT, MOVED_ANCHORS);
+  const moved = JSON.parse(readFileSync(MOVED_ANCHORS, 'utf8'));
+  const entries = Object.entries(moved);
+  assertFound(entries, 'moved anchors', MOVED_ANCHORS);
+  for (const [from, to] of entries) {
+    const [page, anchor] = from.split('#');
+    if (anchor === undefined) {
+      error(`${rel}: ${from} names no anchor; only a section's anchor can be forwarded.`);
+      continue;
+    }
+    if (anchors.get(page)?.has(anchor)) {
+      error(
+        `${rel}: ${from} is still a heading on ${page}, so the forward never fires. ` +
+          `Remove the entry, or rename the heading.`,
+      );
+    }
+    const [toPage, toAnchor] = to.split('#');
+    const slugs = anchors.get(toPage);
+    if (slugs === undefined) {
+      error(`${rel}: ${from} forwards to ${toPage}, which no page under docs/ publishes.`);
+    } else if (toAnchor !== undefined && !slugs.has(toAnchor)) {
+      error(`${rel}: ${from} forwards to ${to}, but #${toAnchor} is not a heading on ${toPage}.`);
+    }
+  }
+  return entries.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -3301,6 +3515,12 @@ const NO_EFFECT_SURFACES = [
     page: join(DOCS_DIR, 'features/grid-view.md'),
     section: '## 🚫 Options That Do Nothing in Grid View',
   },
+  {
+    view: 'month',
+    list: '### Options With No Effect in Month View',
+    page: join(DOCS_DIR, 'features/month-view.md'),
+    section: '## 🚫 Options That Do Nothing in Month View',
+  },
 ];
 
 /**
@@ -3337,7 +3557,7 @@ function sectionBody(text, heading, rel) {
  * "(card-wide and per-entity)", is ignored.
  *
  * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
- * @returns The number of inert options reconciled across both views
+ * @returns The number of inert options reconciled across the views listed
  */
 function checkNoEffectLists(viewScope) {
   const reference = readFileSync(REFERENCE_DOC, 'utf8');
@@ -3936,7 +4156,7 @@ function printCardNameDigest(name) {
   return 0;
 }
 
-function main() {
+async function main() {
   const digestFlag = process.argv.indexOf('--digest');
   if (digestFlag !== -1) process.exit(printCardNameDigest(process.argv[digestFlag + 1]));
 
@@ -3985,12 +4205,13 @@ function main() {
     checkRuntimeEnumUsages(readRuntimeEnums(), docs);
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
+  const movedAnchors = checkMovedAnchors(docs);
   const themed = checkThemeDefaults(readThemeTable());
   const viewScope = readViewScope();
   const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
   const inertOptions = checkNoEffectLists(viewScope);
   const citations = checkCitations();
-  const languages = checkLanguageCounts();
+  const languages = checkLanguageCounts() + (await checkEditorBreakdown());
   const thirdParty = checkThirdPartyCards();
 
   process.exit(
@@ -4010,6 +4231,7 @@ function main() {
       runtimeEnums,
       removed,
       reachable,
+      movedAnchors,
       themed,
       citations,
       listFences,
@@ -4024,4 +4246,4 @@ function main() {
   );
 }
 
-main();
+await main();

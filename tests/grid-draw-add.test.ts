@@ -706,6 +706,84 @@ describe('the new event while the popover adds it', () => {
     expect(newBlock(body)!.textContent).toContain('Riverside Pool');
   });
 
+  it('is drawn with the entry whose hours its start falls in, as the saved event will be', async () => {
+    const config = (entities: unknown[]) => ({ ...ADD, entities });
+    const morning = { entity: ANNA, starts_before: '16:00', accent_color: 'rgb(204, 51, 102)' };
+    const afternoon = { entity: ANNA, starts_after: '16:00', accent_color: 'rgb(51, 102, 204)' };
+    const { card, dialogs } = await mount(config([morning, afternoon]));
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    const accent = () =>
+      newBlock(body)!.style.getPropertyValue('--calendar-card-event-accent-bar-color');
+    expect(accent()).toBe('rgb(204, 51, 102)');
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { times: { allDay: false, start: AT(18, 17), end: AT(18, 18) } }) as never,
+    );
+    expect(accent()).toBe('rgb(51, 102, 204)');
+
+    // With no entry keeping 10:00, it is drawn as it stands, with the calendar's first entry.
+    const piano = {
+      summary: 'Piano',
+      start: { dateTime: '2026-06-17T17:00:00Z' },
+      end: { dateTime: '2026-06-17T18:00:00Z' },
+      uid: 'uid-piano',
+    };
+    const alone = await mount(config([afternoon]), false, [piano, ...EVENTS]);
+    await drawAndRelease(alone.card);
+    expect(label(bodies(alone.card)[1])).toBe('New event\n10:00 - 12:30');
+    expect(
+      newBlock(bodies(alone.card)[1])!.style.getPropertyValue(
+        '--calendar-card-event-accent-bar-color',
+      ),
+    ).toBe('rgb(51, 102, 204)');
+  });
+
+  it("is drawn as Private behind a lock where its calendar's entry is private, typed words or not", async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      // Ben's calendar draws "Dentist" for the mount to wait on; Anna's only entry is private.
+      entities: [BEN, { entity: ANNA, allowlist: 'Sports', private: true }],
+    });
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    // The control: on Ben's calendar it reads as typed.
+    expect(label(body)).toBe('New event\n10:00 - 12:30');
+
+    // "New event" passes no filter of Anna's, so it is drawn as it stands with her one entry:
+    // still private.
+    dialogs[0].dialogParams.changed?.(draftOf(dialogs, { calendarId: ANNA }) as never);
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+    expect(newBlock(body)!.querySelector('.private-lock')).not.toBeNull();
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { calendarId: ANNA, summary: 'Dentist visit', location: 'Clinic' }) as never,
+    );
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+    expect(newBlock(body)!.textContent).not.toMatch(/Dentist|Clinic/);
+  });
+
+  it('is drawn as Private where the entry it matches is private and hides it, not the first', async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      // The new event passes the first entry's filter no more than its words would, so the
+      // second, private entry takes it, and hides it on June 18, a Thursday.
+      entities: [
+        { entity: ANNA, allowlist: 'Dentist' },
+        { entity: ANNA, blocklist: 'Dentist', private: true, days_of_week: 'weekends' },
+      ],
+    });
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { summary: 'Secret plan', location: 'Clinic' }) as never,
+    );
+    expect(label(body)).toBe('Private\n10:00 - 12:30');
+    expect(newBlock(body)!.textContent).not.toMatch(/Secret|Clinic/);
+  });
+
   it("is drawn by the day, as the grid draws an event's days", async () => {
     // Today is June 17 at 10:00. From 9:00 today to 11:00 tomorrow, with progress bars, drawn
     // as a block a day rather than the banner a full day or longer is by default.
@@ -1187,8 +1265,8 @@ describe('the all-day band while a new all-day event is drawn on days without on
     expect(opened.banners).toBe(1);
   });
 
-  it('is no group, no name and no tab stop while it holds only the new event', async () => {
-    // A fixed height is what makes a band a scrolling group of its own.
+  it('is no group, no name and no tab stop, the new event alone or with its own', async () => {
+    // A fixed height compresses only the hours: the band keeps its rows and never scrolls.
     const fixed = { ...ADD, height: '360px' };
     const { card, dialogs } = await mount(fixed, false, TIMED);
     await tapTen(card);
@@ -1203,11 +1281,11 @@ describe('the all-day band while a new all-day event is drawn on days without on
     document.body.replaceChildren();
     localStorage.clear();
 
-    // One with an all-day event of its own is all three.
+    // One with an all-day event of its own is none of the three either.
     const holding = await mount(fixed);
     expect(
       ['role', 'aria-label', 'tabindex'].map((name) => bandOf(holding.card)!.getAttribute(name)),
-    ).toEqual(['group', 'All day', '0']);
+    ).toEqual([null, null, null]);
   });
 
   it("opens no band for an event the toolbar's button or the card's own action adds", async () => {
@@ -1344,10 +1422,15 @@ describe('the all-day band while a new all-day event is drawn on days without on
         'switching to the list view and back',
         BOTH,
         async ({ card }) => {
-          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="list"]')[0].click();
+          // A card not measured draws its switcher collapsed, a menu of views.
+          const pick = (view: string) => {
+            all<HTMLButtonElement>(card, '.view-switcher-pill')[0].click();
+            all<HTMLButtonElement>(card, `.layout-menu-row[data-view="${view}"]`)[0].click();
+          };
+          pick('list');
           await land(card);
           expect(card.shadowRoot!.querySelector('.grid-container')).toBeNull();
-          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="grid"]')[0].click();
+          pick('grid');
           await land(card);
         },
       ],

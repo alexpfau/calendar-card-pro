@@ -43,10 +43,20 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   While a tap on a day adds, each day's date or header is a button named by Home Assistant's "Add
   event". In Home Assistant's `preview` and `editMode`, events are not tap targets and the
   functions that open the popover refuse.
+- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven
+  `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
+  them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the narrow
+  selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
+  reading right to left, Home and End to the week's ends, Page Up and Page Down to the month either
+  side of the one the heading names, always paging, since the rows draw days of both; a day off
+  the rows pages there where the card pages, and focus follows once the page is drawn
+  (`_syncMonthFocus`). Enter or Space opens a wide day's panel, or selects a narrow day. A wide
+  day's bars, lines and "+N more" are out of the Tab order and owned by its cell (`aria-owns`),
+  since the panel lists them. Keys with a modifier, and keys off the cells, are Home Assistant's.
 
 ### Movement & Drags
 
-- **Pans.** Vertical pans are always the browser's. Sideways pans are the card's while it swipes,
+- **Pans.** Vertical pans are the browser's. Sideways pans are the card's while it swipes,
   declared by `touch-action: pan-y pinch-zoom` on the card and again on its body and everything in
   it, since a scroll container does not honor a restriction it only inherits. A crammed grid
   scrolls sideways itself. The swipe's motion runs through the Web Animations API, so the grid's
@@ -58,7 +68,10 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 - **Moving.** Where the popover could change an event (`_movesEvents`, `_moveFrom`), a timed grid
   block on one day moves by mouse drag at once, or by finger after the hold. A single event is
   written on release (`_writeMove`); a repeating one opens the popover to ask which occurrences
-  move (`_dropMove`). Escape puts it back.
+  move (`_dropMove`). Escape puts it back. Lifted and let go before it left its span
+  (`move.left`), the press runs the event's hold, else the card's, else the tap, as on an event
+  that cannot move (`liftedForNothing`). Its derived click is owed by `clickOwner`, the event a
+  touch was handed to where it was read from under the finger.
 - **The block** is drawn by the grid's own renderers from the event run through `processEvents`
   and `groupEventsByDay` (`_newEventByDay`), so it looks like the real event, inside an element the
   structure observer skips (`NEW_EVENT_HOST_CLASS`). After a save it stays until the save's own
@@ -133,7 +146,9 @@ another event still refreshes the calendar it wrote to, but neither closes nor c
 one. Any new asynchronous step in the popover needs the same check.
 :::
 
-`popover-shell.ts` (`PopoverShell`) holds what the popover and the search panel share, including a
+`popover-shell.ts` (`PopoverShell`) holds what the popover, the search panel and the day panel share
+(`day-panel.ts`, a wide month's "+N more" or Enter on its day: a day's List rows, where pressing a
+row closes the panel and then runs what a tap on the event runs on the card), including a
 scroll guard on the window (`_guardScroll`), which Chromium needs because it scrolls the page under
 a modal's backdrop, and placement by inline position alone (`inset: auto`), which right-to-left
 pages need.
@@ -181,5 +196,10 @@ owned by the card's `SearchSession`.
 - **Rows** come from the card's own `processEvents` and `groupEventsByDay` for the view on screen
   (`searchGroupingConfig`), so filters, duplicates and replacements are the card's.
 - **A pick** pages through the date picker's path (`_pickDate`) and rings the event through a class
-  render binds (`_searchRing`), never an element added in `updated()`.
+  render binds (`_searchRing`), never an element added in `updated()`. A month decides where once
+  it knows what it discloses: a narrow month selects the day and rings the row in its list, once
+  the list has been fitted in a render after the pick, a wide one rings the bar or line where it
+  draws one (`monthDrawsRing`), and otherwise opens the day's panel, once the search panel has
+  gone, with the row rung and focused. A ring whose row a later fit leaves out of the list goes to
+  the panel the same way.
 - **Closing.** The panel closes before anything takes its magnifier away.

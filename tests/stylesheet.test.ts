@@ -5,6 +5,7 @@ import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import { PINNED_HEAD_HEIGHT_PROPERTY } from '../src/utils/head-pin';
 import * as Helpers from '../src/utils/helpers';
 
 /**
@@ -650,6 +651,16 @@ describe('card stylesheet', () => {
       // to inline when max_lines is 0, and to an inline box when the user asks to clamp.
       expect(declared('.time-location .event-weather .weather-condition', 'display')).toBe(
         'var(--calendar-card-weather-event-condition-display)',
+      );
+    });
+
+    it('sets the clamped words at the top of their line, beside the temperature', () => {
+      // A clamped box hides its overflow, and Chromium takes the baseline of such an inline box
+      // from its bottom edge: on the baseline the words sat 3.4px above the temperature, and on a
+      // line of their own the row grew by as much. Measured in Chromium and WebKit; every row
+      // without max_lines drew byte-identical with this in place.
+      expect(declared('.time-location .event-weather .weather-condition', 'vertical-align')).toBe(
+        'top',
       );
     });
 
@@ -2189,6 +2200,162 @@ describe('card stylesheet', () => {
       expect(declared('.grid-now-dot', 'z-index')).toBe('2');
     });
 
+    it('pins the rows above the hours over them, and only while the card marks them pinned', () => {
+      // D54: under a card_height, a card_max_height or a max_height the whole grid scrolled,
+      // and the dates and the all-day band went with the hours. The rows above the hours are
+      // two boxes, the dates' and the band's, both axes subgrids over every column, so each
+      // item inside keeps the track it had as a child of .grid-container. The band's box spans
+      // the dates' rows too, so pinned at the top it holds the band under them with no offset.
+      const box = (selector: string) =>
+        Object.fromEntries(
+          [
+            'display',
+            'grid-template-columns',
+            'grid-template-rows',
+            'grid-column',
+            'grid-row',
+            'position',
+            'z-index',
+            'background-color',
+            'pointer-events',
+          ].map((prop) => [prop, declared(selector, prop)]),
+        );
+      const unpinned = {
+        display: 'grid',
+        'grid-template-columns': 'subgrid',
+        'grid-template-rows': 'subgrid',
+        'grid-column': '1 / -1',
+        // Unpinned they paint on the grid's own ladder, as their children did before them.
+        position: '',
+        'z-index': '',
+        'background-color': '',
+      };
+      expect(box('.grid-head')).toEqual({
+        ...unpinned,
+        'grid-row': '1 / span 2',
+        'pointer-events': '',
+      });
+      // The band's box takes no pointer over the dates' rows it spans, and the band takes it back.
+      expect(box('.grid-allday-row')).toEqual({
+        ...unpinned,
+        'grid-row': '1 / span 3',
+        'pointer-events': 'none',
+      });
+      expect(declared('.grid-allday-row > .grid-allday-band', 'pointer-events')).toBe('auto');
+
+      // Pinned, each sticks to the top of the scrolling area above every rung the hours paint
+      // on, read from the ladder rather than restated, so a rung that climbs past them fails;
+      // and the head above the band's box, which spans its rows.
+      for (const pinned of ['.grid-head[data-pinned]', '.grid-allday-row[data-pinned]']) {
+        expect(declared(pinned, 'position'), pinned).toBe('sticky');
+        expect(declared(pinned, 'top'), pinned).toBe('0');
+      }
+      const rungs = [
+        '.grid-separator',
+        '.grid-allday-band',
+        '.grid-boundary',
+        '.grid-now-dot',
+        '.grid-day-body',
+      ].map((selector) => Number(declared(selector, 'z-index') || 0));
+      const bandZ = Number(declared('.grid-allday-row[data-pinned]', 'z-index'));
+      expect(bandZ).toBeGreaterThan(Math.max(...rungs));
+      expect(Number(declared('.grid-head[data-pinned]', 'z-index'))).toBeGreaterThan(bandZ);
+
+      // The ground is the card's own background, so nothing scrolled under shows through: on the
+      // band's box while it is pinned, which grounds the head's rows too, and on the head only
+      // where it is pinned alone, so a translucent background is never laid twice.
+      const card = declared('ha-card', 'background');
+      expect(card).not.toBe('');
+      expect(declared('.grid-allday-row[data-pinned]', 'background-color')).toBe(card);
+      expect(declared(".grid-head[data-pinned='alone']", 'background-color')).toBe(card);
+      expect(declared('.grid-head[data-pinned]', 'background-color')).toBe('');
+
+      // Where scroll timelines exist the ground goes on only once the area has scrolled, so an
+      // unscrolled card on a translucent background is not given a second coat of it. Read
+      // from the text: the scanner skips at-rules.
+      const supports = /@supports \(animation-timeline: scroll\(\)\)\s*\{([\s\S]*?\})\s*\}/.exec(
+        CSS,
+      );
+      expect(supports, 'no scroll-timeline block').not.toBeNull();
+      const timed = supports![1].replace(/\s+/g, ' ');
+      expect(timed).toContain(".grid-head[data-pinned='alone'], .grid-allday-row[data-pinned],");
+      expect(timed).toContain('background-color: transparent;');
+      expect(timed).toContain('animation-timeline: scroll(nearest block);');
+      const ground =
+        /@keyframes calendar-card-pinned-ground\s*\{\s*to\s*\{\s*background-color:\s*([^;]+);/.exec(
+          CSS,
+        );
+      expect(ground?.[1].replace(/\s+/g, ' ')).toBe(card);
+
+      // What scrolls under the pinned rows comes into view below them, by the height the card
+      // writes: the hours, and the band while the head is pinned alone. Nothing pinned takes the
+      // margin, or its own focus would scroll the area back to the top.
+      const margin = `var(${PINNED_HEAD_HEIGHT_PROPERTY}, 0px)`;
+      expect(declared('.grid-head[data-pinned] ~ .grid-day-body *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+      expect(
+        declared(".grid-head[data-pinned='alone'] ~ .grid-allday-row *", 'scroll-margin-top'),
+      ).toBe(margin);
+      expect(declared('.grid-allday-row[data-pinned] *', 'scroll-margin-top')).toBe('');
+
+      // The week numbers moved into the head with their row.
+      expect(declared('.grid-head > .column-week-number', 'margin-bottom')).toBe('2px');
+      expect(declared('.grid-container > .column-week-number', 'margin-bottom')).toBe('');
+    });
+
+    it("pins a column view's day headers and a wide month's weekday names, and nothing else", () => {
+      // Backlog item 402: what stays at the top of a scrolling area in the other two layouts.
+      const header = '.column-grid[data-pinned] > .day-column > .column-day-header';
+      expect(declared(header, 'position')).toBe('sticky');
+      expect(declared(header, 'top')).toBe('0');
+      // Over the events, which take no z-index of their own.
+      expect(Number(declared(header, 'z-index'))).toBeGreaterThan(0);
+      // A sticky box holds only within its column, so the columns reach the row's foot.
+      expect(declared('.column-grid[data-pinned] > .day-column', 'align-self')).toBe('stretch');
+      // Ground under the header's content, and its wash laid back over the ground.
+      const card = declared('ha-card', 'background');
+      expect(declared(`${header}::before`, 'background-color')).toBe(card);
+      expect(declared(`${header}::before`, 'z-index')).toBe('-1');
+      expect(declared(`${header}::after`, 'background-color')).toBe(
+        'var(--calendar-card-day-add-wash, transparent)',
+      );
+      expect(declared(header, 'background-color')).toBe('transparent');
+      const pressed = '.day-column[data-add-pressed] > .column-day-header';
+      expect(declared(pressed, 'background-color')).toBe('var(--calendar-card-day-add-wash)');
+      expect(declared(pressed, '--calendar-card-day-add-wash')).toContain('color-mix(');
+      // The hover wash, inside its media query, which the scanner skips.
+      const hover = /\.column-day-header\.day-add-button:hover\s*\{([^}]*)\}/.exec(CSS);
+      expect(hover?.[1].replace(/\s+/g, ' ')).toContain(
+        'background-color: var(--calendar-card-day-add-wash);',
+      );
+      expect(hover?.[1]).toContain('--calendar-card-day-add-wash: color-mix(');
+
+      const names = '.month-container:not(.month-narrow) > .month-weekdays[data-pinned]';
+      expect(declared(names, 'position')).toBe('sticky');
+      expect(declared(names, 'top')).toBe('0');
+      expect(declared(names, 'background-color')).toBe(card);
+      // A narrow month's weeks and list scroll as one, so nothing there sticks: every pinned
+      // month rule names the wide form only.
+      const monthPins = RULES.flatMap((rule) => rule.selectors).filter(
+        (selector) => selector.includes('.month-') && selector.includes('[data-pinned]'),
+      );
+      expect(monthPins.length).toBeGreaterThan(0);
+      for (const selector of monthPins) {
+        if (selector.includes('.month-weekdays[data-pinned] ~')) continue;
+        expect(selector).toContain('.month-container:not(.month-narrow) > ');
+      }
+      expect(declared('.month-weekdays[data-pinned]', 'position')).toBe('');
+
+      const margin = `var(${PINNED_HEAD_HEIGHT_PROPERTY}, 0px)`;
+      expect(declared('.column-grid[data-pinned] .column-events *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+      expect(declared('.month-weekdays[data-pinned] ~ .month-week *', 'scroll-margin-top')).toBe(
+        margin,
+      );
+    });
+
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {
       // The two families are one system in the reader's eye, so they have to match, and
       // matching them is a claim about two files: the color of a vertical rule comes from
@@ -2210,10 +2377,10 @@ describe('card stylesheet', () => {
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
 
       // The dilution lives in the option's own default, so a user's color is never
-      // quietly halved. Half of the divider token, spelled as a mix rather than as an
-      // alpha, so it follows a theme that redefines the token.
+      // quietly softened. 75% of the divider token, the card's rule in every layout, spelled
+      // as a mix rather than as an alpha, so it follows a theme that redefines the token.
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
-        'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        'color-mix(in srgb, var(--divider-color) 75%, transparent)',
       );
 
       // ...and only then: nothing may dim one side of the pair. An element opacity is
@@ -2856,12 +3023,12 @@ describe('card stylesheet', () => {
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
     });
 
-    it('lets the all-day track shrink and scroll while the time track retains its floor', () => {
+    it('keeps the all-day track at its banners while the time track takes the rest', () => {
       expect(declared('.grid-container', 'grid-template-rows').replace(/\s+/g, ' ')).toBe(
-        'auto auto var(--calendar-card-grid-allday-height, auto) var(--calendar-card-grid-body-height, 720px)',
+        'auto auto auto var(--calendar-card-grid-body-height, 720px)',
       );
-      expect(declared('.grid-allday-band', 'min-height')).toBe('0');
-      expect(declared('.grid-allday-band', 'overflow-y')).toBe('auto');
+      expect(declared('.grid-allday-band', 'min-height')).toBe('');
+      expect(declared('.grid-allday-band', 'overflow-y')).toBe('');
       expect(declared('.grid-allday-band', 'align-content')).toBe('start');
     });
 
@@ -3139,7 +3306,9 @@ describe('the toolbar controls', () => {
 
   it('paint hover and press from those properties, and never tint the selected view', () => {
     const hover = atRuleBlock('@media (hover: hover)');
-    expect(hover).toMatch(/\.view-switcher-segment:not\(\.selected\):not\(\.unavailable\):hover/);
+    expect(hover).toMatch(/\.view-switcher-segment:not\(\.selected\):hover/);
+    // Every segment is pressable at any width, so none is ever drawn as unavailable.
+    expect(cardStyles.cssText).not.toMatch(/\.view-switcher-segment[^,{]*\.unavailable/);
     expect(bodyIn(hover, '.toolbar-month-button:hover')).toBe(
       'background: var(--calendar-card-toolbar-fill-hover);',
     );
@@ -3169,6 +3338,8 @@ describe("the card's ripple over the toolbar", () => {
     '.legend-menu',
     // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
     '.custom-menu',
+    // And so does the menu of views a collapsed switcher opens.
+    '.layout-menu',
   ];
 
   it('stays still while the pointer is on a control, as it does over an event', () => {
@@ -3530,6 +3701,17 @@ describe('the toolbar layout', () => {
     // The card adds each command's width and the gaps between them to the switcher's own
     // threshold, so its numbers must be the ones the row is drawn with.
     expect(declared('.toolbar-button', 'width')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
+    // A switcher offering fewer views gives back each one's word and its segment's padding.
+    expect(declared('.view-switcher-segment', 'padding')).toBe(
+      `0 ${Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING}px`,
+    );
+    // All four views need what List, Columns and Grid needed before Month, 248px, and Month's
+    // segment as the stylesheet draws it, so leaving Month out gives back exactly the 248px.
+    expect(Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH).toBe(
+      248 +
+        Constants.UI.TOOLBAR_SWITCHER_WORD_WIDTH.month +
+        2 * Constants.UI.TOOLBAR_SWITCHER_SEGMENT_PADDING,
+    );
     for (const gap of [
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),
@@ -3562,7 +3744,7 @@ describe('the toolbar layout', () => {
     expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
     const list =
       border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
-    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    // Column, grid and month pad the card alike on both sides, and drop the row's own padding.
     const column =
       border +
       2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
@@ -3574,7 +3756,30 @@ describe('the toolbar layout', () => {
       border +
       2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
       px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
-    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+    // Month pads the card as column does.
+    const month =
+      border +
+      2 * px(declared('.calendar-card-pro.month-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.month-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid, month }).toEqual(UI.TOOLBAR_ROW_INSET);
+  });
+
+  it('draws the collapsed switcher as a 60px pill, its pictogram and caret inside it', () => {
+    // The plan collapses the switcher where its segments do not fit; the pill's 60px is what
+    // the narrowest row then needs, 314px for the reported card (toolbar-fold.test.ts).
+    const px = (selector: string, property: string) =>
+      Number.parseFloat(declared(selector, property));
+    const [start, end] = declared('.toolbar-button.view-switcher-pill', 'padding-inline')
+      .split(/\s+/)
+      .map(Number.parseFloat);
+    const content =
+      px('.view-switcher-icon', 'width') +
+      px('.toolbar-button.view-switcher-pill', 'gap') +
+      px('.view-switcher-caret', 'width');
+    expect(start + content + end).toBe(60);
+    expect(declared('.toolbar-button.view-switcher-pill', 'width')).toBe('60px');
+    // As tall as every command, so the row keeps one height in either form.
+    expect(declared('.toolbar-button', 'height')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {
@@ -3635,6 +3840,90 @@ describe('the toolbar layout', () => {
     expect(declared('.toolbar-month-button::before', 'position')).toBe('absolute');
     expect(declared('.toolbar-month-button::before', 'inset-block')).toBe('-2px -10px');
     expect(declared('.toolbar-month-button::before', 'inset-inline')).toBe('0');
+  });
+
+  describe('under toolbar.size: large', () => {
+    const L = '.large-controls';
+    const height = (selector: string) => px(declared(selector, 'height'));
+    /** The action row's buttons, whose spacing and icons the large controls take. */
+    const button = () => height('.toolbar-button');
+
+    it('draws the arrows, home and the chips between their usual size and the action row', () => {
+      const large = height(`${L} .date-navigation-segment`);
+      expect(large).toBe(32);
+      expect(large).toBeGreaterThan(height('.date-navigation-segment'));
+      expect(large).toBeLessThan(button());
+      expect(px(declared(`${L} .date-navigation-segment`, 'width'))).toBe(large);
+      expect(height(`${L} .date-navigation`)).toBe(large);
+      expect(height(`${L} .legend-chip`)).toBe(large);
+      expect(declared(`${L} .date-navigation-segment`, 'border-radius')).toBe(`${large / 2}px`);
+      expect(declared(`${L} .legend-chip`, 'border-radius')).toBe(`${large / 2}px`);
+      // The chips keep their text size. Nothing else in either row changes size.
+      expect(declared(`${L} .legend-chip`, 'font-size')).toBe('');
+      const enlarged = RULES.flatMap((rule) => rule.selectors).filter((s) => s.includes(L));
+      expect(
+        enlarged.every((s) =>
+          /\.(date-navigation|legend-chip|toolbar-legend|toolbar-heading-end)/.test(s),
+        ),
+      ).toBe(true);
+    });
+
+    it("spaces them and draws their icons as the action row's buttons, so the bar reads as one", () => {
+      // An icon's lines grow with the icon, so the arrows and home take the action row's icon
+      // size, and their lines are as heavy as search's and refresh's.
+      const icon = declared('.toolbar-button-icon', 'width');
+      for (const selector of [
+        `${L} .date-navigation-segment .toolbar-button-icon`,
+        `${L} .date-navigation-segment .date-navigation-direction`,
+      ]) {
+        expect(declared(selector, 'width')).toBe(icon);
+        expect(declared(selector, 'height')).toBe(icon);
+      }
+      const gap = declared('.toolbar-end', 'gap');
+      expect(declared(`${L} .date-navigation`, 'gap')).toBe(gap);
+      expect(declared(`${L} .legend-chips`, 'gap')).toBe(gap);
+    });
+
+    it("centers them on the month's capitals by half their own height, as at the usual size", () => {
+      const half = (selector: string) => height(`${L} ${selector}`) / 2;
+      expect(
+        flat(declared(`.toolbar-heading${L} > .toolbar-heading-end`, 'margin-block-end')),
+      ).toBe(`calc(var(--calendar-card-heading-middle, 15px) - ${half('.date-navigation')}px)`);
+      const [padBlock, padInline] = declared(`${L} .toolbar-legend`, 'padding').split(' ');
+      expect(flat(declared(`${L} .toolbar-legend`, 'margin-block-end'))).toBe(
+        `calc(var(--calendar-card-heading-middle, 15px) - ${half('.legend-chip') + px(padBlock)}px)`,
+      );
+      expect(declared(`${L} .toolbar-legend`, 'margin')).toBe(`-${padBlock} -${padInline}`);
+    });
+
+    it("gives each a touch target 44px tall, reaching across as the action row's do", () => {
+      const across = -px(declared('.toolbar-button::before', 'inset'));
+      const reaches = [
+        `${L} .legend-chip::before`,
+        `${L} .date-navigation-segment::before`,
+        `${L} .date-navigation-segment:first-child::before`,
+        `${L} .date-navigation-segment:last-child::before`,
+      ].map((selector) => ({
+        block: -px(declared(selector, 'inset-block')),
+        inline: -px(declared(selector, 'inset-inline')),
+      }));
+      for (const reach of reaches) {
+        expect(height(`${L} .date-navigation-segment`) + 2 * reach.block).toBe(44);
+        expect(reach.inline).toBe(across);
+      }
+      // Two neighbors, each reaching across their gap, never overlap: between the arrows,
+      // between the chips, and an outer arrow beside the last chip across the row's gap.
+      for (const gap of [
+        declared(`${L} .date-navigation`, 'gap'),
+        declared(`${L} .legend-chips`, 'gap'),
+        declared('.card-toolbar.toolbar-heading', 'gap'),
+      ]) {
+        expect(px(gap)).toBeGreaterThanOrEqual(2 * across);
+      }
+      // The chips' box pads itself by as much as their targets reach, so it never clips them.
+      const [padBlock, padInline] = declared(`${L} .toolbar-legend`, 'padding').split(' ');
+      expect({ block: px(padBlock), inline: px(padInline) }).toEqual(reaches[0]);
+    });
   });
 
   it('measures the months in full in a box of no size, so the measurement widens nothing', () => {
@@ -3895,6 +4184,11 @@ describe('the time beside the title', () => {
     }),
     [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
     [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
+    // A folded countdown's words, which move to the next line whole, on the time's baseline.
+    [`${SHARED} .time-text > .time-countdown > .time-countdown-words`]: one({
+      display: 'inline-block',
+      'vertical-align': 'baseline',
+    }),
     // The countdown alone, with times off.
     [`${TIME} > .time-countdown`]: one({
       'margin-inline': '0',

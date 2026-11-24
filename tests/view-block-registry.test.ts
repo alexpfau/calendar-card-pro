@@ -53,7 +53,7 @@ const baseConfig = (overrides: Record<string, unknown> = {}): Types.Config =>
 
 describe('the registry is the single source', () => {
   it('registers exactly the views that own a block', () => {
-    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list']);
+    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list', 'month']);
   });
 
   // List's entry is what makes the three views symmetric, and it is the only one whose
@@ -120,6 +120,7 @@ describe('every registered view is internally consistent', () => {
     // resolved by `resolveMinDaysToShow`, which is why it is absent from
     // `COLUMN_DEFAULTS` by design rather than by omission. Grid's sibling key defaults
     // to a literal 1, so it belongs in `TIME_GRID_DEFAULTS` and is not an exception here.
+    // Month's narrow heights default to the wide ones, through `resolveMonthCardSize`.
     //
     // 🚨 Reconciled in both directions rather than skipped. A bare exception list
     // silently stops covering anything added to it, and stops meaning anything when a
@@ -128,6 +129,7 @@ describe('every registered view is internally consistent', () => {
     // missing fails too.
     const derived: Readonly<Record<string, ReadonlyArray<string>>> = {
       column: ['min_days_to_show'],
+      month: ['narrow_card_height', 'narrow_card_max_height'],
     };
     const expected = derived[_view] ?? [];
 

@@ -94,6 +94,7 @@ function renderGrid(
   hass: Types.Hass | null = null,
   weatherForecasts: Types.WeatherForecasts | undefined = undefined,
   overflowStripPct?: number,
+  fillsCard = false,
 ): HTMLElement {
   // Both of these mirror what the card host does, and skipping either renders something
   // the card never would. `groupEventsByDay` resolves per-view overrides, so grouping
@@ -115,6 +116,10 @@ function renderGrid(
       FROZEN_NOW,
       undefined,
       overflowStripPct,
+      false,
+      undefined,
+      false,
+      fillsCard,
     ),
     container,
   );
@@ -344,50 +349,76 @@ describe('the grid shares one column template', () => {
   });
 });
 
-describe('a fixed content height compresses the band, a max height does not', () => {
+describe('a fixed height compresses the hours down to a floor, a max height does not', () => {
   // The event blocks are already percentages (see "uses percentages, never pixels"), but a
   // percentage of what? The body row is `hour_height * bandHours` pixels by default, a fixed
   // scale that cannot shrink, so a `height` smaller than the content scrolled instead of
   // compressing -- the feature `docs/features/grid-view.md` and the `.grid-container`
   // stylesheet comment both promise. Compression needs the body row to become fractional
-  // AND the container stretched to a definite `100%` so the `1fr` has room to resolve.
-  function bodyHeightVar(container: ParentNode): string {
-    return requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
-      '--calendar-card-grid-body-height',
-    );
+  // AND the container at least a definite `100%` so the `1fr` has room to resolve, and a
+  // minimum an hour, so the hours never shrink below a readable height.
+  function container(node: ParentNode): HTMLElement {
+    return requireElement<HTMLElement>(node, '.grid-container');
   }
-  function containerHeight(container: ParentNode): string {
-    return requireElement<HTMLElement>(container, '.grid-container').style.height;
+  function bodyHeightVar(node: ParentNode): string {
+    return container(node).style.getPropertyValue('--calendar-card-grid-body-height');
   }
   const oneEvent = [timed(17, '09:00', '10:00', 'Standup')];
+  // The default band, 07:00 to 22:00, at the floor of 24px an hour.
+  const FLOOR = 'minmax(calc(15 * min(24px, 48px)), 1fr)';
 
   it('keeps a pixel scale and no container height at the default auto height', () => {
-    const container = renderGrid(oneEvent, buildConfig({ view: 'grid', days_to_show: 3 }));
+    const node = renderGrid(oneEvent, buildConfig({ view: 'grid', days_to_show: 3 }));
 
-    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
-    expect(containerHeight(container)).toBe('');
+    expect(bodyHeightVar(node)).toMatch(/^calc\(/);
+    expect(container(node).style.minHeight).toBe('');
+    expect(container(node).style.height).toBe('');
   });
 
-  it('switches the body row to a fraction and stretches the container under a fixed height', () => {
-    const container = renderGrid(
+  it('switches the body row to a fraction with a floor an hour under a fixed height', () => {
+    const node = renderGrid(
       oneEvent,
       buildConfig({ view: 'grid', days_to_show: 3, height: '400px' }),
     );
 
-    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
-    expect(containerHeight(container)).toBe('100%');
-    expect(
-      requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
-        '--calendar-card-grid-allday-height',
-      ),
-    ).toBe('minmax(0, auto)');
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(container(node).style.minHeight).toBe('100%');
+    expect(container(node).style.height).toBe('');
   });
 
-  it('makes a tall all-day band keyboard-scrollable without dropping its admitted banners', () => {
+  it('compresses the same way where the whole card has a height of its own', () => {
+    const node = renderGrid(
+      oneEvent,
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+      null,
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(container(node).style.minHeight).toBe('100%');
+  });
+
+  it('keeps a smaller hour_height as the floor, since it was asked for', () => {
+    const node = renderGrid(
+      oneEvent,
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        height: '400px',
+        time_grid: { hour_height: '12px' },
+      }),
+    );
+
+    expect(bodyHeightVar(node)).toBe('minmax(calc(15 * min(24px, 12px)), 1fr)');
+  });
+
+  it('keeps every all-day banner under any height, with no scroller of its own', () => {
     const events = Array.from({ length: 6 }, (_, index) =>
       allDay('2026-06-17', '2026-06-19', `Workshop ${index}`),
     );
-    const container = renderGrid(
+    const node = renderGrid(
       events,
       buildConfig({
         view: 'grid',
@@ -396,41 +427,24 @@ describe('a fixed content height compresses the band, a max height does not', ()
       }),
     );
 
-    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
-    expect(container.querySelectorAll('.grid-banner')).toHaveLength(6);
+    expect(bodyHeightVar(node)).toBe(FLOOR);
+    expect(node.querySelectorAll('.grid-banner')).toHaveLength(6);
 
-    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
-    expect(band.tabIndex).toBe(0);
-    // A tab stop with no accessible name is announced as nothing useful, so the band is
-    // named wherever it is focusable. `group`, not `region`: the latter is a landmark and
-    // would list a card-internal strip of banners beside the page's own navigation.
-    expect(band.getAttribute('role')).toBe('group');
-    expect(band.getAttribute('aria-label')).toBe('All day');
-  });
-
-  it('leaves the band unfocusable and unlabeled when it cannot scroll', () => {
-    // The control for the case above. The name is tied to the tab stop, not to the band:
-    // an unfocusable band is read through its banners and needs no group of its own, so a
-    // role and label that appeared unconditionally would be noise on every default card.
-    const container = renderGrid(
-      [allDay('2026-06-17', '2026-06-19', 'Workshop')],
-      buildConfig({ view: 'grid' }),
-    );
-
-    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
+    const band = requireElement<HTMLElement>(node, '.grid-allday-band');
+    // The band never scrolls, so it is read through its banners and has no tab stop or group.
     expect(band.hasAttribute('tabindex')).toBe(false);
     expect(band.hasAttribute('role')).toBe(false);
     expect(band.hasAttribute('aria-label')).toBe(false);
   });
 
   it('leaves a max height on the pixel scale so it caps and scrolls rather than compresses', () => {
-    const container = renderGrid(
+    const node = renderGrid(
       oneEvent,
       buildConfig({ view: 'grid', days_to_show: 3, max_height: '400px' }),
     );
 
-    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
-    expect(containerHeight(container)).toBe('');
+    expect(bodyHeightVar(node)).toMatch(/^calc\(/);
+    expect(container(node).style.minHeight).toBe('');
   });
 });
 
@@ -1842,8 +1856,18 @@ describe('separators between grid days', () => {
     });
   }
 
+  /**
+   * The grid's own pieces of what runs the length of a day column, its day rules and tints:
+   * those down the hours, or down the band and the hours while there is no band. While there
+   * is one, the band's piece of each is drawn in the band's own box (`.grid-allday-row`), which
+   * the pinned head tests below hold to these.
+   */
+  function own(container: ParentNode, selector: string): HTMLElement[] {
+    return Array.from(container.querySelectorAll<HTMLElement>(`.grid-container > ${selector}`));
+  }
+
   function separators(container: HTMLElement): HTMLElement[] {
-    return Array.from(container.querySelectorAll<HTMLElement>('.grid-separator'));
+    return own(container, '.grid-separator');
   }
 
   function separatorSummary(overrides: Partial<Types.Config>) {
@@ -2051,8 +2075,8 @@ describe('separators between grid days', () => {
       }),
     );
 
-    const weekRules = Array.from(container.querySelectorAll<HTMLElement>('.grid-separator-week'));
-    const monthRules = Array.from(container.querySelectorAll<HTMLElement>('.grid-separator-month'));
+    const weekRules = own(container, '.grid-separator-week');
+    const monthRules = own(container, '.grid-separator-month');
 
     expect(weekRules.map((rule) => rule.style.gridColumn)).toEqual(['7', '14']);
     expect(weekRules.map((rule) => rule.style.width)).toEqual(['3px', '3px']);
@@ -2064,7 +2088,7 @@ describe('separators between grid days', () => {
     expect(monthRules[0].style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
       'rgb(7, 8, 9)',
     );
-    expect(container.querySelectorAll('.grid-separator-day')).toHaveLength(11);
+    expect(own(container, '.grid-separator-day')).toHaveLength(11);
   });
 
   it('places separators explicitly without displacing grid rows', () => {
@@ -2078,13 +2102,14 @@ describe('separators between grid days', () => {
 
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
-    expect(rules[0].style.gridRow).toBe('3 / span 2');
+    // The hours' piece: EVENTS has all-day events, so the band's piece is in the head.
+    expect(rules[0].style.gridRow).toBe('4');
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 1px))');
   });
 
   it('runs the weekend tint from under the date row through the band and the grid', () => {
     const rendered = renderGrid(EVENTS, spanConfig());
-    const stripes = Array.from(rendered.querySelectorAll<HTMLElement>('.grid-weekend'));
+    const stripes = own(rendered, '.grid-weekend');
     const bodies = Array.from(rendered.querySelectorAll<HTMLElement>('.grid-day-body'));
     const weekendColumns = bodies
       .map((body, index) => ({ body, index }))
@@ -2108,8 +2133,15 @@ describe('separators between grid days', () => {
     ]);
     expect(weekendColumns).toHaveLength(4);
     // Rows 3 and 4 — the all-day band and the time body. Row 2 is the date row and stays
-    // clear; a stripe on row 4 alone is the shading stopping at the top of the grid.
-    expect(new Set(stripes.map((stripe) => stripe.style.gridRow))).toEqual(new Set(['3 / span 2']));
+    // clear. EVENTS has all-day events, so the band's piece of each stripe is in the pinned
+    // head and the grid's own is the hours'; a stripe on row 4 with no piece in the head
+    // would be the shading stopping at the top of the grid.
+    expect(new Set(stripes.map((stripe) => stripe.style.gridRow))).toEqual(new Set(['4']));
+    expect(
+      Array.from(rendered.querySelectorAll<HTMLElement>('.grid-allday-row > .grid-weekend')).map(
+        (stripe) => `${stripe.style.gridColumn} | ${stripe.style.gridRow}`,
+      ),
+    ).toEqual(stripes.map((stripe) => `${stripe.style.gridColumn} | 3`));
   });
 
   it('bleeds the tint across the gutter only BETWEEN two weekend days', () => {
@@ -2134,9 +2166,7 @@ describe('separators between grid days', () => {
 
       return {
         weekendDays,
-        stripes: Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend')).map(
-          (stripe) => stripe.style.gridColumn,
-        ),
+        stripes: own(container, '.grid-weekend').map((stripe) => stripe.style.gridColumn),
       };
     };
 
@@ -2186,7 +2216,7 @@ describe('separators between grid days', () => {
     // stops at one column rather than reaching for a track that is not there.
     const container = renderGrid(EVENTS, spanConfig({ start_date: '2026-06-15', days_to_show: 6 }));
     const bodies = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'));
-    const stripes = Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend'));
+    const stripes = own(container, '.grid-weekend');
 
     // Mon 15 to Sat 20: the last column is the Saturday and the Sunday is outside.
     expect(bodies).toHaveLength(6);
@@ -2201,11 +2231,9 @@ describe('separators between grid days', () => {
     expect(opening[0].classList.contains('weekend'), 'fixture does not open on a weekend').toBe(
       true,
     );
-    expect(
-      Array.from(opens.querySelectorAll<HTMLElement>('.grid-weekend')).map(
-        (stripe) => stripe.style.gridColumn,
-      ),
-    ).toEqual(['2 / span 1']);
+    expect(own(opens, '.grid-weekend').map((stripe) => stripe.style.gridColumn)).toEqual([
+      '2 / span 1',
+    ]);
   });
 
   it('joins two weekend days only when they are adjacent DATES, not just columns', () => {
@@ -2223,7 +2251,7 @@ describe('separators between grid days', () => {
       config,
     );
     const bodies = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'));
-    const stripes = Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend'));
+    const stripes = own(container, '.grid-weekend');
 
     // Two columns, both weekend days, adjacent as columns and six days apart as dates.
     expect(bodies, 'the fixture did not collapse to two columns').toHaveLength(2);
@@ -2285,9 +2313,7 @@ describe('separators between grid days', () => {
     }
 
     function columnsOf(container: ParentNode, selector: string): string[] {
-      return Array.from(container.querySelectorAll<HTMLElement>(selector)).map(
-        (stripe) => stripe.style.gridColumn,
-      );
+      return own(container, selector).map((stripe) => stripe.style.gridColumn);
     }
 
     function todayBodyColumn(container: ParentNode): string {
@@ -2322,14 +2348,18 @@ describe('separators between grid days', () => {
     it("runs down today's column from under the date row, beneath the rules", () => {
       const rendered = renderGrid(EVENTS, todayConfig('rgb(1, 2, 3)'));
       const container = requireElement<HTMLElement>(rendered, '.grid-container');
-      const stripe = requireElement<HTMLElement>(rendered, '.grid-today');
+      const stripe = requireElement<HTMLElement>(rendered, '.grid-container > .grid-today');
 
       expect(container.style.getPropertyValue('--calendar-card-grid-today')).toBe('rgb(1, 2, 3)');
       // Wed 17 is today, the third day from Mon 15, so column 4 after the hour axis.
       expect(todayBodyColumn(rendered)).toBe('4');
       expect(columnsOf(rendered, '.grid-today')).toEqual(['4 / span 1']);
-      // The weekend stripe's rows: the all-day band and the hours, not the date row.
-      expect(stripe.style.gridRow).toBe('3 / span 2');
+      // The weekend stripe's rows: the all-day band and the hours, not the date row. EVENTS
+      // has all-day events, so the band's piece is in the pinned head.
+      expect(stripe.style.gridRow).toBe('4');
+      expect(
+        requireElement<HTMLElement>(rendered, '.grid-allday-row > .grid-today').style.gridRow,
+      ).toBe('3');
       expect(stripe.getAttribute('aria-hidden')).toBe('true');
       // A weekday today leaves the weekend's runs alone.
       expect(columnsOf(rendered, '.grid-weekend')).toEqual(['7 / span 2', '14 / span 2']);
@@ -2339,7 +2369,7 @@ describe('separators between grid days', () => {
       const order = Array.from(container.children);
       const rules = requireElement(container, '.grid-rules');
       expect(order.indexOf(stripe)).toBeLessThan(order.indexOf(rules));
-      for (const weekend of Array.from(container.querySelectorAll('.grid-weekend'))) {
+      for (const weekend of own(container, '.grid-weekend')) {
         expect(order.indexOf(weekend)).toBeLessThan(order.indexOf(stripe));
       }
     });
@@ -2446,15 +2476,22 @@ describe('separators between grid days', () => {
       spanConfig({ week_separator_width: '3px', month_separator_width: '5px' }),
     );
 
-    // Rows 3 and 4, so a day column is ruled from under its date to the foot of the axis.
+    // Rows 3 and 4, so a day column is ruled from under its date to the foot of the axis:
+    // the band's piece in the pinned head, the hours' in the grid.
     // The label rows above stay clear. All three families move together: a week boundary
     // that stopped at the band while a day boundary crossed it would draw the *larger*
     // boundary as the shorter line.
     for (const kind of ['day', 'week', 'month'] as const) {
       expect(
-        requireElement<HTMLElement>(container, `.grid-separator-${kind}`).style.gridRow,
-        `${kind} rule`,
-      ).toBe('3 / span 2');
+        requireElement<HTMLElement>(container, `.grid-allday-row > .grid-separator-${kind}`).style
+          .gridRow,
+        `${kind} rule in the band`,
+      ).toBe('3');
+      expect(
+        requireElement<HTMLElement>(container, `.grid-container > .grid-separator-${kind}`).style
+          .gridRow,
+        `${kind} rule in the hours`,
+      ).toBe('4');
     }
   });
 
@@ -2469,13 +2506,15 @@ describe('separators between grid days', () => {
       spanConfig({ days_to_show: 3 }),
     );
     const banner = requireElement<HTMLElement>(container, '.grid-banner');
-    const rules = separators(container);
+    const rules = own(container, '.grid-allday-row > .grid-separator');
 
     expect(banner.style.gridColumn).toBe('2 / span 3');
     expect(banner.style.gridRow).toBe('1');
     expect(rules.length, 'no rules to cross the banner').toBeGreaterThan(0);
+    // The band's pieces, beside the band in the head and so under the same banner.
+    expect(banner.closest('.grid-allday-row')).toBe(rules[0].parentElement);
     for (const rule of rules) {
-      expect(rule.style.gridRow).toBe('3 / span 2');
+      expect(rule.style.gridRow).toBe('3');
     }
   });
 
@@ -2663,14 +2702,156 @@ describe('separators between grid days', () => {
     expect(container.querySelectorAll('.grid-boundary-band-top')).toHaveLength(0);
     expect(container.querySelectorAll('.grid-boundary-band-bottom')).toHaveLength(1);
 
-    // ...and with no band there is nothing to grow up into, so the rule stays at the top
-    // of the time body rather than overflowing into the day headers. The row is the
-    // band's presence, not a constant — which is the half a single-fixture test cannot
-    // see, so the framed card above asserts the other value.
-    const alone = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
+    // ...and with no band there is nothing to grow up into, so the rule hangs from the top
+    // of the empty band row into the top of the time body rather than overflowing into the
+    // day headers: the pixels a rule at the top of row 4 would draw, kept in the band's box,
+    // which then stays with the headers while the hours scroll. The negative margin as deep as
+    // the rule is what keeps the empty row at no height. Which edge it takes is the band's
+    // presence, not a constant — the half a single-fixture test cannot see, so the framed
+    // card above asserts the other value.
+    const alone = requireElement<HTMLElement>(
+      container,
+      '.grid-allday-row > .grid-boundary-band-bottom',
+    );
 
-    expect(alone.style.gridRow).toBe('4');
+    expect(alone.style.gridRow).toBe('3');
     expect(alone.style.alignSelf).toBe('start');
+    expect(alone.style.getPropertyValue('margin-block-end')).toBe(
+      `calc(-1 * ${alone.style.height})`,
+    );
+    // A band has no overhang to cancel.
+    const framed = requireElement<HTMLElement>(
+      renderGrid(EVENTS, spanConfig()),
+      '.grid-allday-row > .grid-boundary-band-bottom',
+    );
+    expect(framed.style.getPropertyValue('margin-block-end')).toBe('');
+  });
+});
+
+describe('the head pinned over the hours (D54)', () => {
+  // Under a card_height, a card_max_height or a max_height the whole grid scrolled, and the
+  // dates and the all-day band scrolled away with the hours. The rows above the hours are two
+  // boxes now, `.grid-head` with the dates and `.grid-allday-row` with the band, which the
+  // stylesheet pins while the card marks them (see `tests/stylesheet.test.ts` and
+  // `tests/pinned-rows.test.ts`): both while they fit, the head alone where the band would take
+  // too much. What this pins is which element is in which: everything a scrolled card has to keep
+  // in sight, and nothing that has to scroll under it.
+  function config(overrides: Partial<Types.Config> = {}): Types.Config {
+    const built = buildConfig({
+      view: 'grid',
+      days_to_show: 15,
+      show_week_numbers: 'iso',
+      week_separator_width: '3px',
+      ...overrides,
+    });
+    built.time_grid = { today_background_color: 'rgb(1, 2, 3)' };
+    return built;
+  }
+
+  const classes = (elements: Iterable<Element>) =>
+    [...new Set(Array.from(elements, (element) => element.classList[0]))].sort();
+  const placement = (element: HTMLElement) => `${element.className} | ${element.style.gridColumn}`;
+
+  it('holds the week numbers and the day headers in the head, the band and its rules beside it, and no hour', () => {
+    const rendered = renderGrid(EVENTS, config());
+    const grid = requireElement<HTMLElement>(rendered, '.grid-container');
+    const head = requireElement<HTMLElement>(rendered, '.grid-head');
+    const band = requireElement<HTMLElement>(rendered, '.grid-allday-row');
+
+    expect(head.parentElement).toBe(grid);
+    expect(band.parentElement).toBe(grid);
+    expect(rendered.querySelectorAll('.grid-head')).toHaveLength(1);
+    expect(rendered.querySelectorAll('.grid-allday-row')).toHaveLength(1);
+    // The head first, so the keyboard meets the dates before the banners, as it always did.
+    expect(head.nextElementSibling).toBe(band);
+    // Placed by the stylesheet, which happy-dom does not apply, so nothing inline to drift.
+    expect(head.getAttribute('style')).toBeNull();
+    expect(band.getAttribute('style')).toBeNull();
+    expect(classes(head.children)).toEqual(['column-week-number', 'grid-day-header']);
+    expect(classes(band.children)).toEqual([
+      'grid-allday-band',
+      'grid-boundary',
+      'grid-separator',
+      'grid-today',
+      'grid-weekend',
+    ]);
+    // Every one of each, not just one.
+    for (const [box, selector] of [
+      [head, '.column-week-number'],
+      [head, '.grid-day-header'],
+      [band, '.grid-allday-band'],
+    ] as const) {
+      expect(rendered.querySelectorAll(selector).length, selector).toBeGreaterThan(0);
+      expect(box.querySelectorAll(`:scope > ${selector}`).length, selector).toBe(
+        rendered.querySelectorAll(selector).length,
+      );
+    }
+    expect(
+      Array.from(band.querySelectorAll(':scope > .grid-boundary'), (rule) => rule.classList[1]),
+    ).toEqual(['grid-boundary-band-top', 'grid-boundary-band-bottom']);
+
+    // What scrolls under them stays out of both.
+    expect(
+      classes(Array.from(grid.children).filter((child) => child !== head && child !== band)),
+    ).toEqual([
+      'grid-axis',
+      'grid-boundary',
+      'grid-day-body',
+      'grid-rules',
+      'grid-separator',
+      'grid-today',
+      'grid-weekend',
+    ]);
+    for (const box of [head, band]) {
+      expect(
+        box.querySelector('.grid-day-body, .grid-axis, .grid-rules, .grid-now-line'),
+      ).toBeNull();
+    }
+  });
+
+  it("splits each tint and day rule into the band's piece beside the head and the hours' below", () => {
+    const rendered = renderGrid(EVENTS, config());
+    const inBand = Array.from(
+      rendered.querySelectorAll<HTMLElement>(
+        '.grid-allday-row > :is(.grid-weekend, .grid-today, .grid-separator)',
+      ),
+    );
+    const below = Array.from(
+      rendered.querySelectorAll<HTMLElement>(
+        '.grid-container > :is(.grid-weekend, .grid-today, .grid-separator)',
+      ),
+    );
+
+    // Week, day and both tints, so every family is in the denominator.
+    expect(classes(below)).toEqual(['grid-separator', 'grid-today', 'grid-weekend']);
+    expect(below.some((rule) => rule.classList.contains('grid-separator-week'))).toBe(true);
+    // One piece in the band for every piece in the hours, on the same tracks.
+    expect(inBand.map(placement)).toEqual(below.map(placement));
+    expect(new Set(inBand.map((piece) => piece.style.gridRow))).toEqual(new Set(['3']));
+    expect(new Set(below.map((piece) => piece.style.gridRow))).toEqual(new Set(['4']));
+  });
+
+  it("keeps one piece spanning both rows while there is no band, and the rule in the band's box", () => {
+    const rendered = renderGrid([timed(17, '09:00', '10:00', 'Standup')], config());
+    const band = requireElement<HTMLElement>(rendered, '.grid-allday-row');
+
+    expect(rendered.querySelector('.grid-allday-band')).toBeNull();
+    expect(
+      rendered.querySelector(
+        ':is(.grid-head, .grid-allday-row) > :is(.grid-weekend, .grid-today, .grid-separator)',
+      ),
+    ).toBeNull();
+    const below = Array.from(
+      rendered.querySelectorAll<HTMLElement>(
+        '.grid-container > :is(.grid-weekend, .grid-today, .grid-separator)',
+      ),
+    );
+    expect(below.length).toBeGreaterThan(0);
+    expect(new Set(below.map((piece) => piece.style.gridRow))).toEqual(new Set(['3 / span 2']));
+    // The rule under the headers, which the card pins with them while there is no band.
+    expect(classes(band.querySelectorAll(':scope > .grid-boundary-band-bottom'))).toEqual([
+      'grid-boundary',
+    ]);
   });
 });
 

@@ -82,16 +82,24 @@ class RecordingResizeObserver {
   }
 }
 
-/** The only observer the card created. Fails loudly rather than returning undefined. */
+/**
+ * The one observer watching the card itself, which measures its width. Fails loudly rather than
+ * returning undefined. Once the columns are drawn the card also watches them, to pin their day
+ * headers while the events area scrolls (`_syncHeadPin`), which is no part of this wiring.
+ */
 function soleObserver(): RecordingResizeObserver {
-  expect(RecordingResizeObserver.instances).toHaveLength(1);
-  return RecordingResizeObserver.instances[0];
+  const watching = RecordingResizeObserver.instances.filter((observer) =>
+    observer.observed.some((element) => element.localName === 'calendar-card-pro-dev'),
+  );
+  expect(watching).toHaveLength(1);
+  return watching[0];
 }
 
 function columnConfig(overrides: Record<string, unknown> = {}) {
   const config = buildConfig();
   config.view = 'column';
-  config.column = { day_spacing: '4px' };
+  // Every day kept, so the decision edge is the one between three columns and the list.
+  config.column = { day_spacing: '4px', min_days_to_show: 3 };
   return Object.assign(config, overrides);
 }
 
@@ -303,7 +311,7 @@ describe('teardown', () => {
   });
 
   it('abandons a hold in progress when the card is removed', () => {
-    const card = mount({ hold_action: { action: 'expand' } });
+    const card = mount({ hold_action: { action: 'more-info' } });
 
     card._handlePointerDown(
       new PointerEvent('pointerdown', {
@@ -328,7 +336,7 @@ describe('teardown', () => {
   it('completes a hold that matures while the card is still connected', () => {
     // Control: the assertions above only mean something because an untouched
     // hold does mature on this timeline.
-    const card = mount({ hold_action: { action: 'expand' } });
+    const card = mount({ hold_action: { action: 'more-info' } });
 
     card._handlePointerDown(
       new PointerEvent('pointerdown', {

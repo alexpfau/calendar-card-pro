@@ -6,10 +6,14 @@ import esbuild from 'rollup-plugin-esbuild';
 import json from '@rollup/plugin-json';
 import { readdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import ts from 'typescript';
 import {
+  BUILT_IN_EDITOR_LANGUAGES,
+  collapseTemplateWhitespace,
   compactDayjsLocales,
   compactEditorStrings,
   EDITOR_TRANSLATION_GLOB,
+  emitEditorLanguages,
 } from './scripts/compact-payloads.mjs';
 
 // Use the existing NODE_ENV variable for both purposes
@@ -22,6 +26,21 @@ const isProd = process.env.NODE_ENV === 'prod';
 const suffix = isProd ? '' : '-dev';
 const cardFile = `calendar-card-pro${suffix}.js`;
 const editorFile = `editor${suffix}.js`;
+// Each editor language ships as a file of its own beside the editor, `editor-de.js` and so on
+// (`emitEditorLanguages`), and the editor builds their URLs from this prefix.
+const languagePrefix = `editor${suffix}-`;
+
+/**
+ * The language files this build emits, read from the translations on disk when asked.
+ *
+ * @returns File names
+ */
+function languageFiles() {
+  return readdirSync('src/rendering/editor/translations')
+    .filter((file) => file.endsWith('.json'))
+    .filter((file) => !BUILT_IN_EDITOR_LANGUAGES.includes(file.slice(0, -5)))
+    .map((file) => `${languagePrefix}${file.slice(0, -5).toLowerCase()}.js`);
+}
 
 // Get version from package.json reliably
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
@@ -153,19 +172,122 @@ export function stripComments(css) {
 }
 
 /**
+ * Collapses the indentation inside the editor's `html` and `css` templates, the way
+ * `stripCssComments` strips the stylesheets: a template's static text is a string literal, so no
+ * minifier touches it, and the editor's templates are indented to their nesting depth. In
+ * markup, each run of whitespace that spans a line break becomes one space, which a browser
+ * renders exactly as it renders the run; in a stylesheet it goes entirely beside a brace or a
+ * semicolon (see `collapseTemplateWhitespace`).
+ *
+ * Editor only. The card's templates are left as written, because there whitespace beside a
+ * text node is part of the list view's snapshots (AGENTS.md). Safe only while no editor
+ * template renders text under `white-space: pre`, `pre-wrap`, `pre-line` or `break-spaces`.
+ */
+const collapseEditorTemplateWhitespace = {
+  name: 'collapse-editor-template-whitespace',
+  transform(code, id) {
+    if (!/[\\/]src[\\/]rendering[\\/]editor[\\/].*\.ts$/.test(id)) return null;
+    const out = collapseTemplateWhitespace(code, id);
+    return out === null ? null : { code: out, map: null };
+  },
+};
+
+/**
+ * Fails when a source file holds one of `names` as a whole string literal, the form in which a
+ * member is read by name (`changed.has('_x')`, `'_x' in el`, `el['_x']`). Comments do not count.
+ *
+ * @param path - Source file
+ * @param names - Member names the editor build renames
+ */
+function refuseQuoted(path, names) {
+  const ast = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest);
+  (function visit(node) {
+    if (ts.isStringLiteralLike(node) && names.has(node.text)) {
+      throw new Error(`${path} quotes ${node.text}, which the editor build renames`);
+    }
+    ts.forEachChild(node, visit);
+  })(ast);
+}
+
+/**
+ * The editor element's own members that terser may rename: every `private` or `protected`
+ * member of `element.ts` declared without a decorator. Terser leaves property names alone by
+ * default, so each of these reached the bundle in full, hundreds of times. Renaming is
+ * consistent across the bundle, and nothing outside it reads them: Home Assistant uses the
+ * element's public members only. A decorated member is left out, because its decorator names
+ * it in a string Lit reads.
+ *
+ * A name written in quotes anywhere in `src/` would be read by its string and break once
+ * renamed, so the build refuses to start rather than ship that.
+ *
+ * @returns A pattern matching exactly those names
+ */
+function editorPrivateMembers() {
+  const element = readFileSync('src/rendering/editor/element.ts', 'utf8');
+  const decorated = new Set(
+    [...element.matchAll(/@\w+\([^)]*\)\s*(?:(?:private|protected|public|accessor) )*(_\w+)/g)].map(
+      (match) => match[1],
+    ),
+  );
+  const names = [
+    ...new Set(
+      [
+        ...element.matchAll(
+          /^ {2}(?:private|protected) (?:readonly )?(?:async )?(?:get |set )?(_\w+)/gm,
+        ),
+      ].map((match) => match[1]),
+    ),
+  ].filter((name) => !decorated.has(name));
+  const renamed = new Set(names);
+  (function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith('.ts')) refuseQuoted(path, renamed);
+    }
+  })('src');
+  return new RegExp(`^(?:${names.join('|')})$`);
+}
+
+/**
+ * Rechecks the renamed members on every build, `--watch` rebuilds included. Terser is built once
+ * with the list read when the build started, so a member decorated, added or quoted since then
+ * would be renamed by a stale list; the build stops and asks for a restart instead.
+ *
+ * @param renamed - The pattern terser was built with
+ * @returns The plugin
+ */
+function keepRenamedMembers(renamed) {
+  return {
+    name: 'keep-renamed-members',
+    buildStart() {
+      if (editorPrivateMembers().source !== renamed.source) {
+        this.error(
+          'The private members of element.ts changed since this build started; restart it so terser renames the current set',
+        );
+      }
+    },
+  };
+}
+
+/**
  * The plugin chain, built fresh for each output.
  *
  * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
  * and handing one instance to two configs in the same process is a documented way to get
  * results that depend on which build ran first.
  *
- * @param options - Disable compaction only for the emitted equivalence test's control
+ * @param options - Disable compaction only for the emitted equivalence test's control; `editor`
+ *   adds the editor's own template whitespace collapse, terser options and member renaming
  * @returns The plugins, in order
  */
-export function createBuildPlugins({ compactPayloads = true } = {}) {
+export function createBuildPlugins({ compactPayloads = true, editor = false } = {}) {
+  const renamed = editor ? editorPrivateMembers() : undefined;
   return [
+    ...(editor ? [keepRenamedMembers(renamed)] : []),
     ...(compactPayloads ? [compactDayjsLocales(), compactEditorStrings()] : []),
     stripCssComments,
+    ...(editor ? [collapseEditorTemplateWhitespace] : []),
     replace({
       preventAssignment: true,
       delimiters: ['', ''],
@@ -184,6 +306,9 @@ export function createBuildPlugins({ compactPayloads = true } = {}) {
       // it builds, and it 404s only when someone opens the editor.
       // `scripts/check-bundle.mjs` asserts the emitted card names the right one.
       './editor-dev.js': `./${editorFile}`,
+      // The editor's language files, by the same mechanism: `translations/files.ts` names the
+      // dev prefix, and a mismatch is an editor that silently stays in English.
+      './editor-dev-': `./${languagePrefix}`,
     }),
     json({ exclude: compactPayloads ? EDITOR_TRANSLATION_GLOB : undefined }),
     esbuild({
@@ -229,7 +354,14 @@ export function createBuildPlugins({ compactPayloads = true } = {}) {
         // possible once another call site is gone. Two, not more: a third shrank the raw
         // file further but made the gzipped one larger, and gzipped is what transfers.
         passes: 2,
+        // The editor only, measured against its own bundle: inlining single-use and
+        // non-trivial functions into their callers made the gzipped file larger, because the
+        // copies stop matching each other. None of the three changes what the code does; the
+        // first two only do less, and function declarations are hoisted by the language anyway.
+        // The card keeps the options above exactly.
+        ...(editor ? { reduce_funcs: false, inline: 1, hoist_funs: true } : {}),
       },
+      ...(editor ? { mangle: { properties: { regex: renamed } } } : {}),
       format: {
         // Remove comments in production
         comments: false,
@@ -241,8 +373,8 @@ export function createBuildPlugins({ compactPayloads = true } = {}) {
 /**
  * Removes anything in `dist/` that this build will not itself write.
  *
- * Both outputs have stable names and are overwritten on every build, so this is not about
- * stale copies of *these* files. It is about the other build's: `dist/` is one flat
+ * Every output has a stable name and is overwritten on every build (the card, the editor and
+ * the editor's language files), so this is not about stale copies of *these* files. It is about the other build's: `dist/` is one flat
  * directory, `release.yml` attaches `dist/*.js`, and the dev deploy copies whatever it
  * finds — so a `calendar-card-pro-dev.js` left behind by an earlier `npm run dev` would be
  * published as a release asset by the next `npm run build`. It also sweeps up the
@@ -258,7 +390,7 @@ export function createBuildPlugins({ compactPayloads = true } = {}) {
 const cleanDist = {
   name: 'clean-dist',
   buildStart() {
-    const keep = new Set([cardFile, editorFile]);
+    const keep = new Set([cardFile, editorFile, ...languageFiles()]);
 
     let existing;
     try {
@@ -324,6 +456,9 @@ export default [
   {
     input: 'src/rendering/editor/index.ts',
     output: output(editorFile),
-    plugins: createBuildPlugins(),
+    plugins: [
+      ...createBuildPlugins({ editor: true }),
+      emitEditorLanguages({ version, prefix: languagePrefix }),
+    ],
   },
 ];

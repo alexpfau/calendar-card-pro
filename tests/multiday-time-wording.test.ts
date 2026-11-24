@@ -182,11 +182,11 @@ describe('the end time in a sentence', () => {
       '~ 10월 23일 금요일 17:00',
     ]);
     expect(events.map((event) => FormatUtils.formatEventTime(event, twelveHour, 'ko'))).toEqual([
-      '10:30 PM, 내일 12:30 AM에 종료',
-      '9:00 AM ~ 10월 23일 금요일 5:00 PM',
-      '오늘 12:00 PM에 종료',
-      '내일 8:00 AM에 종료',
-      '~ 10월 23일 금요일 5:00 PM',
+      '오후 10:30, 내일 오전 12:30에 종료',
+      '오전 9:00 ~ 10월 23일 금요일 오후 5:00',
+      '오늘 오후 12:00에 종료',
+      '내일 오전 8:00에 종료',
+      '~ 10월 23일 금요일 오후 5:00',
     ]);
   });
 
@@ -196,6 +196,28 @@ describe('the end time in a sentence', () => {
       '종일, 오늘 종료',
       '종일, 내일 종료',
       '종일, ~ 10월 25일 일요일',
+    ]);
+  });
+
+  it('writes a Japanese time inside the end phrase, and bare after a date', () => {
+    // Japanese sets the time off with a space on each side, as Chinese does, and writes a date
+    // and time side by side. The weekday is the short day in full-width brackets, as Japanese
+    // writes it after a date. The range mark is the fullwidth tilde (U+FF5E) that CLDR's
+    // Japanese ranges use, so it matches the range the toolbar names a page by.
+    expect(events.map((event) => timeOf(event, 'ja'))).toEqual([
+      '22:30、明日 0:30 終了',
+      '9:00 ～ 10月23日（金） 17:00',
+      '今日 12:00 終了',
+      '明日 8:00 終了',
+      '～ 10月23日（金） 17:00',
+    ]);
+  });
+
+  it('reads a Japanese all-day end without the time or its spaces', () => {
+    expect(allDays.map((event) => timeOf(event, 'ja'))).toEqual([
+      '終日、今日終了',
+      '終日、明日終了',
+      '終日、～ 10月25日（日）',
     ]);
   });
 
@@ -255,10 +277,10 @@ describe('the end time in a sentence', () => {
     return [t.at, t.endsToday, t.endsTomorrow].some((text) => /\{\w+\}/.test(text));
   };
 
-  it('is a template in Hungarian, Korean, Lithuanian and Chinese alone', () => {
+  it('is a template in Hungarian, Japanese, Korean, Lithuanian and Chinese alone', () => {
     // A language that takes up the template gets a test of its own above or below, rather
     // than passing the one after this by being skipped.
-    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ko', 'lt', 'zh-cn', 'zh-tw']);
+    expect(LANGUAGES.filter(templated)).toEqual(['hu', 'ja', 'ko', 'lt', 'zh-cn', 'zh-tw']);
   });
 
   it('ends every other language with `at`, a space and the time', () => {
@@ -274,7 +296,7 @@ describe('the end time in a sentence', () => {
         compared++;
       }
     }
-    expect(compared).toBe((LANGUAGES.length - 5) * shapes.length);
+    expect(compared).toBe((LANGUAGES.length - 6) * shapes.length);
   });
 
   it('leaves no placeholder behind in any language, on either clock', () => {
@@ -287,7 +309,11 @@ describe('the end time in a sentence', () => {
         expect(day, `${language}, ${shape}`).not.toMatch(/[{}]/);
         expect(half, `${language}, ${shape}, 12-hour`).not.toMatch(/[{}]/);
         expect(day, `${language}, ${shape}`).toContain(reading);
-        expect(half, `${language}, ${shape}, 12-hour`).toContain(twelve);
+        // Japanese, Korean and Chinese write their own day period, before the time.
+        const end = FormatUtils.formatTime(new Date(event.end.dateTime!), false, false, language);
+        expect(half, `${language}, ${shape}, 12-hour`).toContain(
+          ['ja', 'ko', 'zh-cn', 'zh-tw'].includes(language) ? end : twelve,
+        );
       }
       for (const event of allDays) {
         expect(timeOf(event, language), `${language}, all day`).not.toMatch(/[{}]/);
@@ -484,11 +510,11 @@ describe('the end time in a sentence', () => {
         '直到 10月23日星期五 17:00',
       ],
       h12: [
-        '10:30 PM，明天 12:30 AM 结束',
-        '9:00 AM 直到 10月23日星期五 5:00 PM',
-        '今天 12:00 PM 结束',
-        '明天 8:00 AM 结束',
-        '直到 10月23日星期五 5:00 PM',
+        '下午10:30，明天 上午12:30 结束',
+        '上午9:00 直到 10月23日星期五 下午5:00',
+        '今天 下午12:00 结束',
+        '明天 上午8:00 结束',
+        '直到 10月23日星期五 下午5:00',
       ],
       allDay: ['整天，今天结束', '整天，明天结束', '整天，直到 10月25日星期日'],
     },
@@ -501,11 +527,11 @@ describe('the end time in a sentence', () => {
         '直到 10月23日星期五 17:00',
       ],
       h12: [
-        '10:30 PM，明天 12:30 AM 結束',
-        '9:00 AM 直到 10月23日星期五 5:00 PM',
-        '今天 12:00 PM 結束',
-        '明天 8:00 AM 結束',
-        '直到 10月23日星期五 5:00 PM',
+        '下午10:30，明天 上午12:30 結束',
+        '上午9:00 直到 10月23日星期五 下午5:00',
+        '今天 下午12:00 結束',
+        '明天 上午8:00 結束',
+        '直到 10月23日星期五 下午5:00',
       ],
       allDay: ['整天，今天結束', '整天，明天結束', '整天，直到 10月25日星期日'],
     },

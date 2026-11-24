@@ -34,11 +34,11 @@ export type Place = string | null;
  * @returns `true` when the move would overwrite nothing
  */
 export function isFree(raw: Readonly<Record<string, unknown>>, key: string, place: Place): boolean {
-  if (place === null) return !Object.prototype.hasOwnProperty.call(raw, key);
+  if (place === null) return !Helpers.hasOwn(raw, key);
 
   const block = raw[place];
   if (block === undefined || block === null) return true;
-  return Helpers.isConfigBlock(block) && !Object.prototype.hasOwnProperty.call(block, key);
+  return Helpers.isConfigBlock(block) && !Helpers.hasOwn(block, key);
 }
 
 /**
@@ -62,8 +62,7 @@ export function moveOption(
 
   const next = structuredClone(raw) as Record<string, unknown>;
   const source = finding.from === null ? next : next[finding.from];
-  if (!Helpers.isConfigBlock(source) || !Object.prototype.hasOwnProperty.call(source, finding.key))
-    return undefined;
+  if (!Helpers.isConfigBlock(source) || !Helpers.hasOwn(source, finding.key)) return undefined;
 
   const value = source[finding.key];
   delete source[finding.key];

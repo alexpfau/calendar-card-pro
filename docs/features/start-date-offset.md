@@ -10,37 +10,44 @@ or jump to the coming weekend, and a relative start moves on by itself as the da
 
 ## 📅 Start Date Configuration
 
-The `start_date` option can be configured in multiple ways:
+`start_date` takes a fixed date or an expression relative to today. Each fence below shows one
+value, with the others commented out:
 
-- **Fixed dates**: Use a specific date in YYYY-MM-DD format
+| Option       | Type   | Default | Description                                                                                                        |
+| ------------ | ------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `start_date` | string | Today   | The first day the card shows: a fixed date (`YYYY-MM-DD`) or a relative expression such as `today+7` or `saturday` |
+
+- **Fixed dates**: Use a specific date in YYYY-MM-DD format. A date in the past needs
+  `show_past_events: true` in list and column view, or its finished events are hidden.
 
   ```yaml
   start_date: '2025-07-01' # Always start from July 1st, 2025
+  show_past_events: true
   ```
 
 - **Relative date expressions**: Use dynamic offsets relative to the current date
 
   ```yaml
   start_date: 'today+7' # Always show events starting 7 days in the future
-  start_date: '+3' # Shorthand for today+3 (3 days from today)
-  start_date: 'today-2' # Show events starting from 2 days ago
-  start_date: '-1' # Shorthand for today-1 (yesterday)
+  # start_date: '+3' # Shorthand for today+3 (3 days from today)
+  # start_date: 'today-2' # Show events starting from 2 days ago
+  # start_date: '-1' # Shorthand for today-1 (yesterday)
   ```
 
 - **Week anchors**: Start from the first day of the current week
 
   ```yaml
   start_date: 'start_of_week' # First day of this week - Monday or Sunday, per first_day_of_week
-  start_date: 'start_of_week+7' # First day of next week
-  start_date: 'start_of_week-7' # First day of last week
+  # start_date: 'start_of_week+7' # First day of next week
+  # start_date: 'start_of_week-7' # First day of last week
   ```
 
 - **Weekday names**: Jump to the next occurrence of a given weekday
 
   ```yaml
   start_date: 'saturday' # The next Saturday (today counts, if today is Saturday)
-  start_date: 'today+sat' # Same thing, written explicitly
-  start_date: 'monday+1w' # One week after that Monday
+  # start_date: 'today+sat' # Same thing, written explicitly
+  # start_date: 'monday+1w' # One week after that Monday
   ```
 
 ### Relative Expression Syntax
@@ -61,6 +68,10 @@ weekday   monday | tuesday | ... | sunday   (or mon, tue, wed, thu, fri, sat, su
 Expressions are case-insensitive, spaces are ignored (`start_of_week + 7` works), and the
 keywords are always English so a card does not change meaning when `language` changes.
 
+Month opens today's month for `today+1` (or `+1`) and `start_of_week`, however they are written,
+so `Today + 1` opens the same month as `today+1`. Every other expression opens the month holding
+the date it resolves to. See [Dynamic vs. Fixed Date Ranges](#dynamic-vs-fixed-date-ranges).
+
 A bare number is **always days**, never weeks — `monday+1` is Tuesday, and `monday+1w` is the
 following Monday. A bare weekday is shorthand for `today+<weekday>`.
 
@@ -80,11 +91,12 @@ can make the start of the week look empty, so pair `start_of_week` with `show_pa
 there to see the full week. Grid view shows past events by default and needs nothing.
 :::
 
-When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
+When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
 
 ```yaml
 start_date: '2025-07-01'
 days_to_show: 14 # Shows July 1-14, 2025
+show_past_events: true # the range is in the past
 ```
 
 ```yaml
@@ -128,6 +140,7 @@ days_to_show: 2
 ```yaml
 start_date: 'start_of_week+mon' # then +tue, +wed, +thu, +fri
 days_to_show: 1
+show_past_events: true # otherwise a day already gone looks empty
 ```
 
 Anchor each card to `start_of_week`. With bare `monday`…`friday`, each card rolls over to next week the moment its day passes, so on a Wednesday the Monday and Tuesday cards already show next week: the row runs 17, 18, 12, 13, 14 instead of 10, 11, 12, 13, 14.
@@ -138,7 +151,11 @@ Anchor each card to `start_of_week`. With bare `monday`…`friday`, each card ro
 - **Dynamic date range**: Using relative offsets creates a "floating" window that automatically adjusts as time passes
 
 Either way, `start_date` sets the days the card opens with. The toolbar's
-[date navigation](/features/layout-appearance#paging-through-dates) can page away from them,
+[date navigation](/features/header-toolbar#paging-through-dates) can page away from them,
 and its home button always returns to them, today or not.
+
+Month shows a whole month: the month holding the date, fixed or relative, or today's month for
+Tomorrow (`today+1` or `+1`) and `start_of_week`, in any case and with any spaces. A narrow month opens with that day selected. See
+[The Six Weeks](/features/month-view#the-six-weeks).
 
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

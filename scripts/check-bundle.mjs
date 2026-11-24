@@ -2,15 +2,17 @@
 /**
  * Bundle integrity checks, run after every build.
  *
- * The card ships as two self-contained files, the card and the editor. This script checks
- * the real emitted output for code-splitting, stale editor URLs, lost `import.meta.url`,
- * missing query propagation, sourcemap leaks, unpublished files, and syntax and regular
- * expressions Safari 15 cannot parse.
+ * The card ships as self-contained files: the card, the editor, and one file per editor
+ * language. This script checks the real emitted output for code-splitting, stale editor and
+ * language URLs, lost `import.meta.url`, missing query propagation, language files built for
+ * another editor, translations or Day.js locales left inside the editor, sourcemap leaks,
+ * unpublished files, and syntax and regular expressions Safari 15 cannot parse.
  *
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { createRequire } from 'module';
 import { basename, join } from 'path';
 import { fileURLToPath } from 'url';
 import { gzipSync } from 'zlib';
@@ -18,16 +20,46 @@ import { gzipSync } from 'zlib';
 import { parse as parseAcorn } from 'acorn';
 import { parseAst } from 'rollup/parseAst';
 
+import {
+  BUILT_IN_EDITOR_LANGUAGES,
+  editorKeyFingerprint,
+  parseEditorTranslation,
+  parseEnglishStrings,
+  validateDayjsUsage,
+} from './compact-payloads.mjs';
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
 
 /**
- * The two files each build variant emits.
+ * The card and editor each build variant emits, and the prefix of its language files.
  */
 const VARIANTS = {
-  'calendar-card-pro.js': { editor: 'editor.js', label: 'production' },
-  'calendar-card-pro-dev.js': { editor: 'editor-dev.js', label: 'dev' },
+  'calendar-card-pro.js': { editor: 'editor.js', languages: 'editor-', label: 'production' },
+  'calendar-card-pro-dev.js': {
+    editor: 'editor-dev.js',
+    languages: 'editor-dev-',
+    label: 'dev',
+  },
 };
+
+const STRINGS_TS = join(ROOT, 'src', 'rendering', 'editor', 'strings.ts');
+const TRANSLATIONS = join(ROOT, 'src', 'rendering', 'editor', 'translations');
+const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+
+/**
+ * The editor translations shipped as files of their own: every JSON on disk but the built-in.
+ *
+ * @returns Lowercase language codes, sorted
+ */
+function languageCodes() {
+  return readdirSync(TRANSLATIONS)
+    .filter((file) => file.endsWith('.json'))
+    .map((file) => file.slice(0, -5))
+    .filter((code) => !BUILT_IN_EDITOR_LANGUAGES.includes(code))
+    .map((code) => code.toLowerCase())
+    .sort();
+}
 
 /**
  * The smallest a real build can plausibly be.
@@ -158,12 +190,13 @@ function isNewUrl(node) {
  * Shape-based checks survive minification and identifier mangling.
  *
  * @param ast - Parsed card module
- * @returns What the card does: the editor filenames it constructs URLs from, whether
- *   `import.meta.url` survived, and whether a query is read from one URL and written to
- *   another
+ * @returns What the card does: the editor filenames it constructs URLs from, the fixed parts
+ *   of the URL templates it builds (`*` for each interpolation), whether `import.meta.url`
+ *   survived, and whether a query is read from one URL and written to another
  */
 function editorImportShape(ast) {
   const urlLiterals = [];
+  const urlTemplates = [];
   let hasImportMetaUrl = false;
   let readsSearchFromUrl = false;
   let writesSearch = false;
@@ -177,6 +210,11 @@ function editorImportShape(ast) {
       urlLiterals.push(node.arguments[0].value);
     }
 
+    // `new URL(`./editor-${code}.js`, …)` — a language file's URL, as its fixed parts.
+    if (isNewUrl(node) && node.arguments[0]?.type === 'TemplateLiteral') {
+      urlTemplates.push(node.arguments[0].quasis.map((quasi) => quasi.value.cooked).join('*'));
+    }
+
     // `new URL(cardUrl).search` — the value being propagated.
     if (isMemberNamed(node, 'search') && isNewUrl(node.object)) {
       readsSearchFromUrl = true;
@@ -188,7 +226,12 @@ function editorImportShape(ast) {
     }
   });
 
-  return { urlLiterals, hasImportMetaUrl, propagatesQuery: readsSearchFromUrl && writesSearch };
+  return {
+    urlLiterals,
+    urlTemplates,
+    hasImportMetaUrl,
+    propagatesQuery: readsSearchFromUrl && writesSearch,
+  };
 }
 
 /**
@@ -761,18 +804,27 @@ function findVariant(jsFiles) {
   }
 
   const card = cards[0];
-  const { editor, label } = VARIANTS[card];
-  const expected = [card, editor];
+  const { editor, languages: prefix, label } = VARIANTS[card];
+  const languages = languageCodes().map((code) => `${prefix}${code}.js`);
+  const expected = [card, editor, ...languages];
   const unexpected = jsFiles.filter((f) => !expected.includes(f));
 
-  // Exactly two files: the card and the matching editor.
+  // Exactly the card, the matching editor and one file per shipped editor language.
   for (const file of unexpected) {
     error(
       `dist/${file}`,
-      `is not part of a ${label} build, which emits exactly ${expected.join(' and ')}. ` +
-        'Either a build code-split (which is what reintroduces the ?hacstag= double-evaluation ' +
-        'trap) or this ran over a dirty dist/. release.yml attaches dist/*.js, so it would be ' +
-        'published',
+      `is not part of a ${label} build, which emits exactly ${card}, ${editor} and ` +
+        `${languages.length} language files named ${prefix}<code>.js. Either a build ` +
+        'code-split (which is what reintroduces the ?hacstag= double-evaluation trap) or this ' +
+        'ran over a dirty dist/. release.yml attaches dist/*.js, so it would be published',
+    );
+  }
+
+  for (const file of languages.filter((f) => !jsFiles.includes(f))) {
+    error(
+      'dist/',
+      `holds no ${file}, though its translation is on disk. The editor asks for it by URL, so ` +
+        'nothing fails until someone opens the editor in that language — and then it is English',
     );
   }
 
@@ -785,11 +837,150 @@ function findVariant(jsFiles) {
     return null;
   }
 
-  return { card, editor, label };
+  return { card, editor, prefix, languages, label };
 }
 
 /**
- * The four transfer sizes `docs/guide/installation.md` quotes.
+ * The exact shape the build writes a language file in (`editorLanguageFileSource`).
+ */
+const LANGUAGE_FILE = /^export default\{v:("[^"\\]*"),k:("[0-9a-f]{8}"),s:(\[[\s\S]*\])\};\n$/;
+
+/**
+ * Check one language file against the editor it ships with and the translation it came from.
+ *
+ * The editor reads a language file by position and refuses one whose version or key fingerprint
+ * is not its own, falling back to English. So a file built against another key list, another
+ * version or other strings is an editor that is silently English, or worse, every string on the
+ * wrong setting. Each file must hold exactly what its JSON holds, in the English key order.
+ *
+ * @param file - File name in `dist/`
+ * @param code - Lowercase language code
+ * @param english - The English keys, sorted
+ * @returns The translated values the file holds, for the leak check
+ */
+function checkLanguageFile(file, code, english) {
+  const label = `dist/${file}`;
+  const found = readFileSync(join(DIST, file), 'utf8').match(LANGUAGE_FILE);
+  if (!found) {
+    error(label, 'is not in the form the build writes, export default{v:…,k:…,s:[…]};');
+    return [];
+  }
+
+  const [version, fingerprint, values] = found.slice(1).map((part) => JSON.parse(part));
+  if (version !== VERSION) {
+    error(
+      label,
+      `is stamped ${version}, but package.json is ${VERSION}. The editor refuses a language ` +
+        'file from another version and shows English',
+    );
+  }
+  if (fingerprint !== editorKeyFingerprint(english)) {
+    error(
+      label,
+      'was built for a different set of editor strings than strings.ts holds now. The editor ' +
+        'refuses it and shows English',
+    );
+  }
+
+  const json = readdirSync(TRANSLATIONS).find((name) => name.toLowerCase() === `${code}.json`);
+  const expected = parseEditorTranslation(
+    readFileSync(join(TRANSLATIONS, json), 'utf8'),
+    english,
+    json,
+  );
+  if (JSON.stringify(values) !== JSON.stringify(expected)) {
+    error(
+      label,
+      `does not hold exactly the strings of translations/${json} in the English key order. ` +
+        'The editor reads it by position, so every string would land on the wrong setting',
+    );
+  }
+  return values.filter((value) => typeof value === 'string');
+}
+
+/**
+ * Translated strings found inside the editor, which ships English and British English alone.
+ *
+ * Every other language costs nothing until someone opens the editor in it, which holds only
+ * while the editor bundles none of them: importing `translations/index.ts` where `held.ts` is
+ * meant would put all of them back into every editor open, and still pass every other check.
+ * Reads the translated strings long enough to be unambiguous and unlike any English one.
+ *
+ * @param code - The emitted editor
+ * @param translated - Every language file's strings
+ * @param englishValues - Every English string
+ * @returns How many strings were looked for, and those found
+ */
+function translationsInEditor(code, translated, englishValues) {
+  const looked = translated.filter(
+    (value) => value.length >= 24 && !/["'`\\]/.test(value) && !englishValues.has(value),
+  );
+  return { looked: looked.length, found: looked.filter((value) => code.includes(value)) };
+}
+
+/**
+ * The Day.js locales the card imports that carry relative-time grammar, by name.
+ *
+ * The editor needs none of them. They reach it only when an editor module imports something
+ * that leads to `utils/format.ts`, which pulls in `translations/dayjs.ts` and with it Day.js and
+ * every locale: about 29 KB, paid by everyone who opens the editor and seen by no other gate.
+ * `entities.ts` › `resolvedLabel` mirrors the card's resolver by hand for exactly this reason.
+ *
+ * Read from the locale modules `translations/dayjs.ts` imports, through the same validator the
+ * build uses, so a new locale is covered as soon as the card imports it. English is left out:
+ * its grammar lives in the relativeTime plugin, not in a locale object.
+ *
+ * @returns The locales' names, sorted
+ */
+function dayjsLocaleNames() {
+  const source = join(ROOT, 'src', 'translations', 'dayjs.ts');
+  const require = createRequire(source);
+  const names = [];
+  for (const specifier of validateDayjsUsage(readFileSync(source, 'utf8'), source)) {
+    if (!specifier.startsWith('dayjs/locale/')) continue;
+    const { name, relativeTime } = require(specifier);
+    if (relativeTime) names.push(name);
+  }
+  return names.sort();
+}
+
+/**
+ * The Day.js locale objects a bundle holds, by name: every object literal with a string `name`
+ * and an object `relativeTime`, which is what the build trims each locale to
+ * (`trimDayjsLocaleFields`). Read from the syntax tree, so neither the minifier's spelling nor a
+ * string two locales share ("om %s" is Danish and Bokmål alike) can stand in for one.
+ *
+ * @param ast - Parsed module
+ * @returns The names found, sorted and unique
+ */
+function dayjsLocalesIn(ast) {
+  const found = new Set();
+  const key = (property) =>
+    property.key?.type === 'Identifier' && !property.computed
+      ? property.key.name
+      : property.key?.type === 'Literal'
+        ? String(property.key.value)
+        : undefined;
+  walk(ast.body, (node) => {
+    if (node.type !== 'ObjectExpression') return;
+    const fields = new Map(
+      node.properties.filter((p) => p.type === 'Property').map((p) => [key(p), p.value]),
+    );
+    const name = fields.get('name');
+    if (
+      name?.type === 'Literal' &&
+      typeof name.value === 'string' &&
+      fields.get('relativeTime')?.type === 'ObjectExpression'
+    ) {
+      found.add(name.value);
+    }
+  });
+  return [...found].sort();
+}
+
+/**
+ * The six transfer sizes `docs/guide/installation.md` quotes: the card, the editor, and the
+ * largest language file, since a user downloads at most one of those.
  *
  * The page tells someone deciding whether to gzip by hand exactly what they save, so the
  * numbers have to be the numbers this build actually emits. They are prose, and prose does
@@ -812,17 +1003,19 @@ function findVariant(jsFiles) {
  */
 const DOC_SIZES = {
   path: join(ROOT, 'docs', 'guide', 'installation.md'),
-  files: ['calendar-card-pro.js', 'editor.js'],
+  files: ['calendar-card-pro.js', 'editor.js', 'the largest language file'],
   claims: [
     {
       what: 'uncompressed',
-      pattern: /the card transfers at its full\s+(\d+)\s*KB and the editor at\s+(\d+)\s*KB/,
+      pattern:
+        /the card transfers at its full\s+(\d+)\s*KB, the editor at\s+(\d+)\s*KB and a language\s+file at up to\s+(\d+)\s*KB/,
       tolerance: 0,
       measure: (file) => statSync(join(DIST, file)).size,
     },
     {
       what: 'gzipped',
-      pattern: /brings the card to\s+(\d+)\s*KB and the editor to\s+(\d+)\s*KB/,
+      pattern:
+        /brings the card to\s+(\d+)\s*KB, the editor to\s+(\d+)\s*KB and a language file to\s+at most\s+(\d+)\s*KB/,
       tolerance: 1,
       measure: (file) => gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length,
     },
@@ -840,8 +1033,10 @@ const DOC_SIZES = {
 function checkDocumentedSizes() {
   const label = 'docs/guide/installation.md';
 
-  // The page quotes the released pair; a dev-only build has nothing to compare against.
-  if (!DOC_SIZES.files.every((file) => existsSync(join(DIST, file)))) return;
+  // The page quotes the released files; a dev-only build has nothing to compare against.
+  const languages = languageCodes().map((code) => `editor-${code}.js`);
+  const sets = [['calendar-card-pro.js'], ['editor.js'], languages];
+  if (!sets.flat().every((file) => existsSync(join(DIST, file)))) return;
 
   let page;
   try {
@@ -856,7 +1051,7 @@ function checkDocumentedSizes() {
     if (!found) {
       error(
         label,
-        `no longer states the ${what} size of both files in a form this check can read. The ` +
+        `no longer states the ${what} sizes of the card, the editor and a language file in a form this check can read. The ` +
           'sentence moved or was reworded — update the matching pattern in ' +
           'scripts/check-bundle.mjs, because a check that cannot find its subject reports ' +
           'success forever',
@@ -866,7 +1061,7 @@ function checkDocumentedSizes() {
 
     for (const [index, file] of DOC_SIZES.files.entries()) {
       const claimed = Number(found[index + 1]);
-      const actual = Math.floor(measure(file) / 1000);
+      const actual = Math.floor(Math.max(...sets[index].map(measure)) / 1000);
       if (Math.abs(claimed - actual) > tolerance) {
         error(
           label,
@@ -1051,6 +1246,48 @@ function checkSizeClaims() {
 }
 
 /**
+ * Check how the editor locates its language files, the way the card's editor URL is checked.
+ *
+ * @param file - The editor's file name
+ * @param ast - Its parsed module
+ * @param variant - The build variant
+ */
+function checkEditorLanguageUrls(file, ast, variant) {
+  const { urlTemplates, hasImportMetaUrl, propagatesQuery } = editorImportShape(ast);
+  const expected = `./${variant.prefix}*.js`;
+
+  if (!hasImportMetaUrl) {
+    error(
+      `dist/${file}`,
+      'does not contain import.meta.url. The editor locates its language files relative to ' +
+        'its own module URL, so without it no language but English can load — see the ' +
+        'import-meta note in rollup.config.mjs',
+    );
+  }
+
+  if (!urlTemplates.includes(expected)) {
+    const named = urlTemplates.filter((v) => v.includes('editor'));
+    error(
+      `dist/${file}`,
+      `never constructs a URL like '${expected.replace(/\*/g, '<code>')}'` +
+        `${named.length ? ` (found ${named.map((v) => `'${v.replace(/\*/g, '<code>')}'`).join(', ')})` : ''}. ` +
+        `This is a ${variant.label} build, so it must name the ${variant.label} language files — ` +
+        "the replace() entry for './editor-dev-' in rollup.config.mjs is what rewrites it. A " +
+        'mismatch is an editor that stays in English, with nothing failing anywhere',
+    );
+  }
+
+  if (!propagatesQuery) {
+    error(
+      `dist/${file}`,
+      'does not copy its own query string onto the language file URL, so a language file would ' +
+        'be fetched at a URL that never changes and served from a month-long cache after an ' +
+        'update — see languageFileUrl() in src/rendering/editor/translations/files.ts',
+    );
+  }
+}
+
+/**
  * Run every check.
  *
  * @returns Nothing; failures are collected in `errors`
@@ -1095,9 +1332,12 @@ function main() {
   }
 
   const variant = findVariant(jsFiles);
+  const english = parseEnglishStrings(readFileSync(STRINGS_TS, 'utf8'), STRINGS_TS);
+  const translated = [];
   const scanWorks = lookbehindScanWorks();
   const syntaxWorks = syntaxCheckWorks();
   let literalsScanned = 0;
+  const asts = new Map();
   let readInFull = 0;
   let readInPart = 0;
 
@@ -1111,18 +1351,26 @@ function main() {
       );
     }
 
+    // A language file is data, checked for its exact content; a partial translation is small.
+    const language = variant?.languages.includes(file);
+    if (language) {
+      const lang = file.slice(variant.prefix.length, -'.js'.length);
+      translated.push(...checkLanguageFile(file, lang, english.keys));
+    }
+
     const bytes = Buffer.byteLength(code);
-    if (bytes < STUB_MAX_BYTES) {
+    if (!language && bytes < STUB_MAX_BYTES) {
       error(
         `dist/${file}`,
-        `is only ${bytes} B — too small to be a real build, so it is a stub or a facade. Both ` +
-          'files are meant to be self-contained bundles; a facade entry is the shape this build ' +
-          'deliberately left behind',
+        `is only ${bytes} B — too small to be a real build, so it is a stub or a facade. The ` +
+          'card and the editor are meant to be self-contained bundles; a facade entry is the ' +
+          'shape this build deliberately left behind',
       );
     }
 
     const ast = parse(code, `dist/${file}`);
     if (!ast) continue;
+    asts.set(file, ast);
 
     // Each emitted file is a self-contained bundle.
     for (const specifier of importedSpecifiers(ast)) {
@@ -1175,6 +1423,11 @@ function main() {
       }
     }
 
+    if (variant && file === variant.editor) {
+      checkEditorLanguageUrls(file, ast, variant);
+      continue;
+    }
+
     if (!variant || file !== variant.card) continue;
 
     const { urlLiterals, hasImportMetaUrl, propagatesQuery } = editorImportShape(ast);
@@ -1216,6 +1469,67 @@ function main() {
     }
   }
 
+  // Translations bundled back into the editor, which every editor open would pay for.
+  let leakLine = '';
+  if (variant && jsFiles.includes(variant.editor)) {
+    const englishValues = new Set(english.entries.values());
+    const editorCode = readFileSync(join(DIST, variant.editor), 'utf8');
+    const { looked, found } = translationsInEditor(editorCode, translated, englishValues);
+    if (variant.languages.length > 0 && looked === 0) {
+      error(
+        `dist/${variant.editor}`,
+        'could not be checked for bundled translations: no translated string qualified, so ' +
+          'the check proved nothing. See translationsInEditor() in scripts/check-bundle.mjs',
+      );
+    }
+    for (const value of found.slice(0, 3)) {
+      error(
+        `dist/${variant.editor}`,
+        `holds the translated string ${JSON.stringify(value)}. Every editor language but ` +
+          'English and British English ships as a file of its own, so a translation inside ' +
+          'the editor is downloaded by everyone who opens it. Look for an import of ' +
+          'translations/index.ts where translations/held.ts is meant',
+      );
+    }
+    leakLine = ` None of ${looked} translated strings is inside ${variant.editor}.`;
+  }
+
+  // Day.js locales bundled into the editor or a language file. The card is the control: it
+  // must hold every locale the card imports, so a shape the build no longer emits fails here
+  // rather than passing the editor for the wrong reason.
+  let dayjsLine = '';
+  if (variant && asts.has(variant.card)) {
+    const expected = dayjsLocaleNames();
+    const inCard = dayjsLocalesIn(asts.get(variant.card));
+    const missing = expected.filter((name) => !inCard.includes(name));
+    if (expected.length === 0 || missing.length) {
+      error(
+        `dist/${variant.card}`,
+        `holds ${expected.length - missing.length} of the ${expected.length} Day.js locales ` +
+          `src/translations/dayjs.ts imports${missing.length ? ` (not ${missing.slice(0, 5).join(', ')})` : ''}, ` +
+          'so the editor could not be checked for them. See dayjsLocalesIn() in ' +
+          'scripts/check-bundle.mjs',
+      );
+    }
+    const editorFiles = [variant.editor, ...variant.languages].filter((file) => asts.has(file));
+    for (const file of editorFiles) {
+      const found = dayjsLocalesIn(asts.get(file));
+      if (found.length) {
+        error(
+          `dist/${file}`,
+          `holds Day.js locale data (${found.slice(0, 5).join(', ')}${found.length > 5 ? ', …' : ''}). ` +
+            'An editor module imports something that reaches src/utils/format.ts or ' +
+            'src/translations/dayjs.ts, which bundles Day.js and every locale into the editor, ' +
+            'about 29 KB for everyone who opens it. Import what the editor needs from a module ' +
+            'that does not lead there, as entities.ts › resolvedLabel does',
+        );
+      }
+    }
+    dayjsLine =
+      ` No Day.js locale is inside ${variant.editor} or its ${editorFiles.length - 1} ` +
+      `language files; the card holds all ${expected.length}.`;
+  }
+
   // A scan that found nothing to scan passes exactly like one that found nothing wrong.
   if (scanWorks && literalsScanned === 0) {
     error(
@@ -1245,7 +1559,7 @@ function main() {
   console.log(
     `Bundle is intact: ${sizes}. Every file parses as ES${SYNTAX_FLOOR} with no class static ` +
       `block, as Safari 15 does. No lookbehind in ${readInFull} regular expressions read in ` +
-      `full, or in the fixed parts of ${readInPart} built at runtime`,
+      `full, or in the fixed parts of ${readInPart} built at runtime.${leakLine}${dayjsLine}`,
   );
 }
 

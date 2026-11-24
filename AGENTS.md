@@ -60,17 +60,38 @@ Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
-**The card ships as two files.** `rollup.config.mjs` exports an **array of two configs**,
-so each build emits the pair named in the table above, and the editor is fetched only when
-someone opens it — which keeps it and its
-translations off every dashboard load. Both files are self-contained bundles with stable,
-human-readable names. `hacs.json` names the card and needs no change; HACS downloads every
-asset attached to a release, and `filename` only selects which one becomes the Lovelace
-resource. Four consequences worth holding on to: **neither file may import the other**,
-**every emitted file must sit directly in `dist/`** because HACS fetches no
-subdirectories, **`import.meta` must survive into the output** (below), and **both files
-stamp the same version** so the card can warn when a stale editor is paired with a fresh
-card. `npm run check:bundle` enforces all four.
+**The card ships as two bundles and a file per editor language.** `rollup.config.mjs`
+exports an **array of two configs**, so each build emits the pair named in the table above,
+and the editor is fetched only when someone opens it — which keeps it off every dashboard
+load. The editor build also writes each editor translation but British English into a file
+of its own, `editor-de.js` and so on (`editor-dev-de.js` in a dev build), and the editor
+fetches only the language it is drawn in. Every file has a stable, human-readable name.
+`hacs.json` names the card and needs no change; HACS downloads every asset attached to a
+release, and `filename` only selects which one becomes the Lovelace resource. Five
+consequences worth holding on to: **no emitted file may import another**, **every emitted
+file must sit directly in `dist/`** because HACS fetches no subdirectories, **`import.meta`
+must survive into the output** (below), **both bundles stamp the same version** so the card
+can warn when a stale editor is paired with a fresh card, and **each language file carries
+the version and a fingerprint of the English keys**, so the editor refuses a stale one and
+shows English instead. `npm run check:bundle` enforces all five, and also that no
+translation is left inside `editor.js`, and no Day.js locale inside it or a language file:
+any editor import that leads to `utils/format.ts` brings Day.js and every locale with it,
+about 29 KB, which is why `entities.ts` › `resolvedLabel` mirrors the card's resolver by hand.
+
+**Why a language is a file of its own.** The translations were half the editor: 539 KB of
+1,040 KB raw, measured on a production build of cd58d4ac, and every editor open downloaded
+all eleven.
+A language file is the same positional vector the editor already decoded, so each costs about
+14 KB gzip -9 and opening the editor in German downloads about 161 KB rather than 297 KB.
+Nothing changes for a dashboard, which never loaded the editor, or for what HACS stores, which
+is every release asset. Three alternatives were weighed: grouping languages saves file count
+and makes every user download someone else's; JSON is fetched rather than imported, and HACS
+writes a `.gz` beside `.js` files only, so it transfers four to six times more; and a keyed
+map instead of a vector is 40% larger per file. The editor draws nothing until its language
+settles (`_language` in `element.ts`), because labels, helpers and the search index are kept
+by language; drawing in German before German arrived left Quick Setup in English for good.
+Tests hold every language from the start (`tests/setup/editor-languages.ts`);
+`tests/editor-language-files.test.ts` takes that away to test the loading.
 
 **Why two builds and not one build with code-splitting.** Rollup, given one entry and a
 dynamic `import()`, puts the modules the card and editor share into a chunk that the
@@ -128,7 +149,9 @@ only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` t
 copies the card's own query onto the editor's URL, making the editor bust exactly when the
 card busts. It is strictly better than the content hashes it replaced, which never
 responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
-itself changes, so a shared-module change reloaded the card and left a stale editor.
+itself changes, so a shared-module change reloaded the card and left a stale editor. The
+editor passes the query on to its language file in turn (`languageFileUrl`), so all three
+bust together.
 
 🚨 **`import.meta` compiles to `{}` under any esbuild target below `es2020`.** That makes
 `import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
@@ -584,12 +607,21 @@ mistake for leftovers. They are not. What each one is:
 | `vitest-limits.mjs`         | test library   | imported by `vitest.config.mjs`      |
 
 `compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
-and packs the editor's English and translated string maps behind one shared key vector.
-Both are build-only representations; keep the authoring files and the i18n gate's independent
+and packs the editor's English and translated string maps behind one shared key vector,
+writing each translation but British English as a language file of its own
+(`emitEditorLanguages`). All are build-only representations; keep the authoring files and the i18n gate's independent
 loader unchanged. New Day.js APIs require revisiting the subset, not bypassing its source
 guard. The emitted equivalence tests run through the real Rollup plugin chain under UTC and
 the DST projects. Incremental builds must regenerate every language vector when English keys
 change. See _Compact Payloads, Readable Sources_ in `docs/architecture.md`.
+
+The editor build goes further, and two of its steps constrain source. It collapses the
+indentation in editor `html` and `css` templates, so an editor template must never render text
+under `white-space: pre`, `pre-wrap`, `pre-line` or `break-spaces`. And it renames the
+undecorated `private` and `protected` members of `element.ts` (`rollup.config.mjs` ›
+`editorPrivateMembers`), so never read one by its name as a string; the build refuses to start
+if one appears as a whole string literal in `src/`. The editor's component tests import source,
+so neither step is visible to them; compare a built bundle when changing either.
 
 **`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
 is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
@@ -820,12 +852,16 @@ videos there: name any whose frames or steps a change alters.
   **The `+ 1` is not a rounding error, and the editor count is the one that keeps going
   wrong.** US English has no file — it lives in `src/rendering/editor/strings.ts` — so
   counting the directory undercounts by one. `en-GB.json` is a _delta_ of a few dozen strings
-  rather than a full translation, so it is easy to skip as well, and the nine complete
+  rather than a full translation, so it is easy to skip as well, and the eleven complete
   files are easy to mistake for the whole set. All three are languages the editor renders
-  in, and the total is **12**: US English in code, British English as a delta, nine
-  translated in full, and Korean in part. Do not write "nine editor languages" — that is the count of the
+  in, and the total is **13**: US English in code, British English as a delta, and eleven
+  translated in full. Do not write "eleven editor languages" — that is the count of the
   files that happen to be complete, not the count of languages a user can get.
-  `docs/contributing.md` states the breakdown correctly; check against it.
+  `docs/contributing.md` states the breakdown correctly; check against it. `check:docs`
+  reconciles that breakdown too, there and on the editor page, the languages named in full
+  included. "In full" is `check:i18n`'s call (`FULL_TRANSLATION_SHARE`, 90% of the strings,
+  because no complete file carries the punctuation formats and language names that read the
+  same in every language); its coverage lines mark each file in full or in part.
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
 internal link to a heading you renamed fails the build instead of shipping broken.
@@ -1124,7 +1160,7 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
    **This merge is also the docs deploy.** The moment it lands, the site and the README
    advertise the new version and — since the two-file split — tell manual installers to
-   download both files "from the latest release", while `releases/latest` still resolves
+   download both files and their language "from the latest release", while `releases/latest` still resolves
    to the _previous_ release, which carries only one of them. Steps 4–7 are therefore one
    operation rather than a merge now and a publish when convenient: the gap between them
    is a window in which the published install instructions describe a release that does
@@ -1139,8 +1175,8 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    passes the tag/`package.json` check — would otherwise have produced a complete,
    publishable draft release built from code that never went through the release PR.
 7. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
-   attaches `dist/*.js` and nothing else — since the two-file split that is **both**
-   `calendar-card-pro.js` and `editor.js`. Publish it manually.
+   attaches `dist/*.js` and nothing else — `calendar-card-pro.js`, `editor.js` and every
+   `editor-<code>.js`, a set `check:bundle` has already asserted. Publish it manually.
 8. **Answer the issues the release resolved.** The merge to `main` closes whichever ones a
    commit message named with a closing keyword, and leaves every other one open — see
    _Branch model_. So part of this now happens for you, silently, and the part that
@@ -1196,6 +1232,54 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    signal you want. A backtick is not enough on its own to rely on; in that PR `#251` appeared
    both backticked and bare, so which form suppressed the reference was never established.
 
+### Beta releases
+
+A beta is a GitHub prerelease, cut from an integration branch before the release PR exists so
+users can test the next version early. Only users who ask for it get it, but anyone who asks
+does, invited or not:
+
+- **Home Assistant 2026.11 and later** ship the Marketplace, the successor to HACS, built in.
+  On the card's page (Settings → Marketplace → Calendar Card Pro), the ⋮ menu has **Include
+  pre-releases**, which makes betas arrive as updates, and **Install another version**, which
+  lists every release with betas marked Pre-release. Read on 2026.11.2.
+- **Older installs with the HACS integration** do the same through **Redownload → Need a
+  different version?**, or through a Pre-release switch entity HACS creates per repository,
+  disabled until enabled. That path is read from the HACS source and was not tried in a running
+  Home Assistant.
+
+1. Leave `package.json` at the last stable version. Nothing is bumped or committed for a beta.
+2. Tag a commit on `dev` or a `feature/*` branch `vX.Y.Z-beta.N`, N counting from 1, and push
+   the tag. A tag runs the `release.yml` of its own commit, so the beta path exists only on
+   commits that carry it. The workflow checks the commit is reachable from `origin/dev` or an
+   `origin/feature/*` branch, that `X.Y.Z` is newer than `package.json`'s version and not yet
+   tagged, stamps the beta version into `package.json` and both lockfile fields of its
+   throwaway checkout, runs lint, `tsc`, the build and `check:bundle`, checks every file carries
+   the version, and creates a **draft** prerelease with the `.js` files and a placeholder
+   body.
+3. Put the notes in the draft with `gh release edit vX.Y.Z-beta.N --notes-file <file>`, then
+   publish it. Beta notes stay out of `docs/RELEASE_NOTES.md`, which records what shipped.
+
+Any other tag shape fails the job at its first step; delete such a tag with
+`git push origin :refs/tags/<tag>`. Stable tags take the path described above, unchanged.
+
+Both decide what to offer the same way: the Marketplace in Home Assistant core
+(`homeassistant/components/marketplace/repositories/base.py` and `utils/version.py`, read at
+2026.11.2, with frontend 20261028.6) and the HACS integration (`repositories/base.py`, read at
+hacs/integration 8a543828).
+
+- They walk releases newest first, take the first prerelease they meet, and stop at the first
+  stable one. **A stable release published after a beta hides that beta**, so while a beta
+  cycle runs, follow any stable patch with a new beta.
+- Versions compare with AwesomeVersion: `6.0.0-beta.1` < `6.0.0-beta.2` < `6.0.0`, and
+  `-beta.10` sorts above `-beta.9`. Testers get the stable release as an ordinary update when it
+  ships.
+- Only a higher version is offered as an update, so turning pre-releases off on a beta offers
+  nothing; the Marketplace's own confirmation says an installed pre-release stays until a newer
+  stable version is out. Going back is **Install another version** (or Redownload) with the
+  stable version picked, and the beta notes have to say so.
+- `releases/latest` ignores prereleases, so the installation docs keep pointing at the stable
+  release.
+
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
@@ -1210,7 +1294,9 @@ that renders perfectly and then reports a missing file the first time someone op
 visual editor, a failure that appears nowhere near the omission that caused it. So
 `README.md` and `docs/guide/installation.md` both say "both files, in a folder of their
 own" in as many words. If the file layout ever changes again, those two pages are the fix;
-there is no packaging step to lean on.
+there is no packaging step to lean on. A language file is optional by design: without it the
+editor opens in English, and logs which file it could not load. Both pages say so, and that a
+manual installer needs only the language they use.
 
 **The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
 release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
@@ -1244,10 +1330,11 @@ between them.**
 
 - **One bundled file.** A single asset, so there is nothing to choose. Splitting the editor
   out is what took this card off this shape.
-- **Attach every chunk and absorb the cost.** This card's shape, with two chunks: the card
-  and its editor. A build that splits further attaches every hashed chunk it emits —
-  editors, engines, one file per language — and every HACS user then downloads all of them,
-  used or not. Nothing in `hacs.json` narrows that (see below), so the cost is simply paid.
+- **Attach every chunk and absorb the cost.** This card's shape: the card, its editor and one
+  file per editor language. Every HACS user downloads all of them, used or not, and nothing in
+  `hacs.json` narrows that (see below), so the cost is simply paid. Splitting the languages
+  out cost HACS nothing to speak of, because it stores the same bytes as before in more files;
+  what it bought is the browser fetching one language rather than all of them.
 - **Deliver through the repository tree and attach nothing.** Commit `dist/` and publish
   releases with **zero** assets. `gather_files_to_download()` appends assets then returns
   `if files:` — _conditionally_ — so a release with no assets falls through to the tree
@@ -1303,7 +1390,8 @@ download would have to live outside the release assets entirely.
   no releases, so until v5 every outside contribution failed with _"Repository structure …
   is not compliant"_ whatever it changed. The fork path only runs for a fork; to exercise it
   without one, `gh workflow run hacs-validate.yml --ref <branch> -f pull_request=<n>`.
-- `release.yml` — tag-triggered draft release.
+- `release.yml` — tag-triggered draft release: `vX.Y.Z` from main, or a `vX.Y.Z-beta.N`
+  prerelease from `dev` or a `feature/*` branch (see _Beta releases_).
 - `docs-preview.yml` — manual only (`workflow_dispatch`); publishes the docs preview
   described under _Docs site deployment_. Its Cloudflare credentials are secrets on the
   `docs-preview` environment, not the repository; only `main` may deploy to that environment,
@@ -1523,10 +1611,10 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
    here is now a `check:i18n` error, because these files are imported statically for all
-   38 languages and land on every dashboard load.
+   39 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Eleven of the 38 languages translate the editor; the other 27 have no
+   may be partial**. Twelve of the 39 languages translate the editor; the other 27 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.
@@ -1547,14 +1635,17 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    It is complete by construction and already held to a **stricter** standard than
    coverage. Measured against the full editor string table it reads in the low teens, so any "warn below
    N%" rule flags it permanently — and a permanently-red gate is the one people learn to
-   ignore, which is the failure such a gate exists to prevent. The ten hand-maintained
+   ignore, which is the failure such a gate exists to prevent. The eleven hand-maintained
    files are the only meaningful denominator.
 
-   These files are reachable **only** from `src/rendering/editor/`, so they are built into
-   `editor.js` rather than loaded on every dashboard load, and they may not go back into
-   `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
-   entry in `translations/index.ts`, under a lowercase key naming a language that already
-   exists — a file nothing imports is silently never registered.
+   These files are reachable **only** from `src/rendering/editor/`, and they may not go back
+   into `languages/`. British English is built into `editor.js` (`translations/held.ts`);
+   every other one ships as `editor-<code>.js`, which the editor loads only when it is drawn in
+   that language (see _Why a language is a file of its own_). A new file also needs an
+   `import` **and** an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, under a
+   lowercase key naming a language that already exists — a file nothing imports is silently
+   never registered — and its code in `EDITOR_LANGUAGE_FILES` in `translations/files.ts`, or
+   the build writes its file and the editor never asks for it. `check:i18n` fails on either.
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
@@ -1571,7 +1662,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    (see _Documenting a change_). `check:docs` reconciles these against the
    files on disk, so a wrong count now fails the build instead of shipping. Count the editor
    languages as files **+ 1**, because US English lives in `strings.ts` and not in
-   `translations/`; the answer is 12, not 10 and not 11.
+   `translations/`; the answer is 13, not 11 and not 12.
 
 Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
@@ -1595,10 +1686,14 @@ the same edit, and let `check:i18n` tell you the exact keys it asked for.
 setting whose label says something else (`time_format.aliases` holds `12h`). `check:i18n` holds
 it to the key `computeAliases` reads, exactly as it holds a `.helper`, so one filed under a
 group, a heading, an option or a control outside the panels fails rather than silently finding
-nothing. Aliases are exempt from
+nothing. Two more keys take words: a page's title key, which finds the page (`page.size_spacing`
+carries "separators", the title of the panel whose settings it took), and a job of Home
+Assistant's own tabs (`search.ts` › `HA_TAB_KEYS`). Words filed under a page's id where its title
+key differs (`page.weather` beside `panel.weather`) fail. Aliases are exempt from
 the label rules and from the glossary's rejected forms, because they exist to catch the words the
-interface chose not to use. Add one only for a word users have used and the search misses;
-`tests/editor-search-aliases.test.ts` pins the families by value.
+interface chose not to use. Add one only for a word users have used and the search misses, and
+none for a British spelling: search reads every label in British English as well, so the
+British spelling of color finds every color setting. `tests/editor-search-aliases.test.ts` pins the families by value.
 
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
@@ -1822,12 +1917,14 @@ moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
 
 ## Editor (`src/rendering/editor/`)
 
-The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
-plain schema objects, and a schema names a **selector** rather than an element. That is
+The visual editor is **schema-driven**: each field is an `<ha-form>` of its own, fed a plain
+schema object, and a schema names a **selector** rather than an element. That is
 the whole point — Home Assistant renames its input components without notice (`ha-textfield`
 became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
-selectors is not exposed to it. The element names three Home Assistant components in total:
-`ha-form`, `ha-expansion-panel` and `ha-svg-icon`, plus one exception below.
+selectors is not exposed to it. The element names one Home Assistant component, `ha-form`, plus
+two exceptions below; its own icons are inline SVG (`views/icon.ts`), sized by the `--mdc-icon-size`
+Home Assistant's own icons read. The last `ha-expansion-panel`, each toolbar button's, became a
+row of the editor's own in v6.
 
 **Never name an HA input element in a schema.** If a panel seems to need one, that is the
 signal to stop, not to reach for `static-html`.
@@ -1836,25 +1933,39 @@ signal to stop, not to reach for `static-html`.
 visibility conditions are edited in Home Assistant's own Visibility editor, the element under
 every card's Visibility tab, because no selector reaches it: the `condition` selector edits an
 automation's conditions, which have no `user`, `screen`, `time` or `location`. It is named in
-`element.ts` alone, outside every schema, between two halves of the calendar's form
-(`splitAtVisibility`), and only where `customElements.get()` finds it **and** Lit's
+`element.ts` alone, outside every schema, in an entry page's Who Sees It in place of the
+`calendar:visibility` field, and only where `customElements.get()` finds it **and** Lit's
 `elementProperties` on it declare the `hass` and `conditions` the editor sets. Anywhere else,
-including a Home Assistant that renames or removes it, the panel keeps the `object` selector, a
+including a Home Assistant that renames or removes it, the page keeps the `object` selector, a
 YAML box, which is how the conditions were edited before. So a rename costs the nicer editor and
-never a dead panel; `tests/editor-visibility.test.ts` pins both sides. The panel also tells the
+never a dead page; `tests/editor-visibility.test.ts` pins both sides. The page also tells the
 element which calendar it edits against, answering Lit's `context-request` for Home Assistant's
 key `conditions-entity-context` as Home Assistant's own card dialog does for a card with one
 entity; should that key be renamed, nothing answers and the element works without an entity, as
 on a card that has none. Two facts it relies on:
 Home Assistant's card editor imports it statically to draw the Visibility tab, so it is defined
-before this editor opens, and its name and those two properties have held since 2023.11. Do not
-add a second exception without the same guard and fallback.
+before this editor opens, and its name and those two properties have held since 2023.11.
 
-Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
+**The second exception: `ha-icon`, in a calendar row's label slot only, and behind the same kind
+of guard.** A calendar's label is drawn on its overview row as the card draws it beside an event,
+and an icon label (`mdi:…`, or the `home-assistant` sentinel resolved to the calendar's icon) has
+no way to draw but Home Assistant's own icon element: the editor's inline SVG holds only the paths
+it ships, not the icon set a user picks from. `views/calendars.ts` › `rowLabel` draws `ha-icon`
+only where `customElements.get('ha-icon')` finds it, and otherwise leaves the slot empty, so a
+rename costs the icon and never the row; `tests/editor-calendar-labels.test.ts` pins both sides.
+Labels resolve through `entities.ts` › `resolvedLabel`, a mirror of the card's
+`resolveEntityLabel` held to it by the same test: importing `utils/events.ts` for it added about
+30 KB to `editor.js`. Do not add a third exception without the same guard and fallback.
+
+Everything except `element.ts`, `styles.ts` and `views/` is free of Lit and of the DOM. That is
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
+`views/` holds the overview's and pages' templates and the DOM helpers behind focus, scrolling
+and Escape; what they decide (where Back goes, what Escape does, what each scope stores,
+a value in words) lives in DOM-free modules beside the schemas (`navigation.ts`,
+`announce.ts`, `summary.ts`, `workspace.ts`) and is tested there, so a template stays a template.
 
-Four things are easy to get wrong:
+Five things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
@@ -1865,9 +1976,10 @@ Four things are easy to get wrong:
   default change cannot move the card. That needs the stored YAML as its third argument
   (`_rawConfig`), and every editor write passes it. A new write path that omits it
   compiles, passes every type check, and silently drops `show_month: true` on the next
-  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. Anything
-  that labels or resets a view value reads `storedViewBlocks`, the same rule, so a kept
-  line is never shown as inherited.
+  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. What a page
+  shows and the words it labels a value with read the YAML as stored (`plan.ts` › `storedAt`),
+  never the merged configuration or the re-serialized view blocks, so a kept line is never
+  shown as inherited.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
@@ -1875,100 +1987,392 @@ Four things are easy to get wrong:
 - **Colors are `text`, not `ui_color`.** HA's color selector emits a theme token that
   cards pass through `computeCssColor()`; this card writes colors straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
+- **A calendar's or a toolbar button's write names its owner by key, never by place.** Each
+  entry and button carries a key the editor keeps beside its list (`_entryKeys`,
+  `_buttonKeys`). An entry's page is keyed by its key, and a button's row is drawn with Lit's
+  keyed `repeat` by it, so a removal above either cannot hand it another's forms and listeners.
+  What Home Assistant's Visibility editor last sent is kept by entry key too
+  (`_emittedConditions`), so a move keeps an open condition open. Its forms write through a frame
+  (`write-frames.ts` › `OwnedFrame`) that resolves the key when the change arrives, re-reads the
+  owner whole and lays over it only what that form changed. A control the editor draws itself
+  writes the same way, through `_writeFieldValue(owner, fieldId, value)`: never through the
+  card's write path, which would put a calendar's color at the card's root, and never through
+  `writeEntity` or `writeButton` with partial data, which keeps only the keys it is handed.
+  A row drawn by key also takes its focused control with it when its owner leaves, so
+  Remove puts focus back itself: on the line the removal left, then on the row now in its place
+  (`_focusAfterRemove`). `tests/editor-write-owners.test.ts` pins each of these.
 
-### The picker shows calendars; the panel list shows blocks
+**Some fields are drawn as the editor's own controls rather than forms**, by their appearance in
+the page registry: the event parts and the toolbar's built-in controls as toggle chips
+(`{ chips: 'parts' | 'toolbar' }`, `chips.ts`, `views/chips.ts`), and Start Date's chips as a radio
+group with no head row (`'segmented'`). Each writes through `_writeFieldValue`, one undo step, and carries
+`data-field` with its field's id, so Undo and a search's jump find it as they find a form; a jump
+to a chip focuses that chip, not its group. A chip's name carries its state words, and the line
+under the chips holds one Reset for the parts stored in the scope, after Chosen Here.
+Drawn alone, as Stored Settings' Edit mounts a line, `_renderField` draws a chip or the
+radio group rather than a switch or a dropdown. A chip whose field the scope offers but a gate
+withholds is still drawn, `aria-disabled` with its reason ("Needs Time"), and focusable, and it
+carries no `data-composed`, since no field is built for it. The test harness reaches the others
+through `data-composed` (`toggle` on a chip, `chips` on the radio group) as it reaches every
+composed control, with a form standing in that holds the field's own schema: `changeField` presses
+a chip where it is not already as asked (true or false only) or picks a radio, and `valueOf`,
+`labelOf` and `formOf` read it as they read a form.
 
-`SYNTHETIC_FIELDS.calendars` derives **one row per calendar**, not one per entry in
-`config.entities`. A calendar listed twice — the pattern `event_type` needs, and what
-**Duplicate** creates — is one picker row and two panels. That split is deliberate: the
-picker decides _which calendars are on this card_, the panels decide _how many blocks each
-has and what is on them_. Deriving 1:1 made the picker answer both and agree with itself on
-neither, because Home Assistant's picker refuses to hold one entity twice — so a duplicate
-could be **seen** there and **cleared** there, but never **added** there.
+**A pressed toolbar control with a choice has a qualifier line under the chips**
+(`views/chips.ts` › `qualifier`), drawn alike for each and unlike the chips: native radios or
+checkboxes under a legend, in the chips' order, and none while the control is not pressed. Two
+exist, and they are one option each, never two:
 
-**`derive` and `apply` cannot be changed apart.** `apply` used to shift one block off a
-per-id queue per row, which is correct only when rows and blocks are 1:1. Deduplicating
-`derive` alone therefore loses every block after the first, silently, on the next thing the
-user touches in the picker. Each row emits its calendar's **whole** queue.
+- **Calendar Filter** (`toolbar.legend`) is a toolbar chip whose value is a form, `menu` or
+  `chips`, or `false`. Pressed on, it writes the form last named in the editing session, by the
+  YAML the editor adopts or in its line, else `menu` (`chips.ts` › `pressValue`, `_legendForm`,
+  set in `_adopt`); its line, **Calendar Filter
+  shows**, writes the form. The chip carries `data-field` and its line carries none, so
+  `[data-field]` still finds one element. Drawn alone, as Stored Settings' Edit and a
+  result's Edit Here mount it, it is the chip and, while pressed, its line
+  (`_renderLegendAlone`). The harness's `changeField` takes `off`, `menu` or `chips`, pressing
+  the chip and then picking in the line.
+- **View Switcher offers** is Layouts in Switcher (`toolbar.view_switcher_layouts`), placed with
+  the appearance `{ qualifies: 'card:toolbar.view_switcher' }`: no head row, no gate line while
+  its chip is off, its facts and Reset the Controls' own. It is a checkbox per layout
+  (`chips.ts` › `layoutChips`, `data-composed="layouts"` and `data-field` on the line, each box's
+  layout in `data-value`). A check writes the whole list through `_writeFieldValue`. Two boxes can
+  be kept checked, `aria-disabled` but focusable, a click on them changing nothing, with the
+  reason after the name and in it: the starting layout's, and the last other one's, so the editor
+  never writes a list offering one layout, and never turns the switcher off, which is the View
+  Switcher chip's alone. Starting Layout keeps to the same rule: a change that would leave the
+  stored list offering one layout writes the list too, in the same step, adding the layout it
+  leaves (`chips.ts` › `layoutsKeptOnStart`). A list written by hand can still offer the starting
+  layout alone; then a line under the checkboxes says no switcher is drawn, and the line's
+  `aria-describedby` names it (`switcherAlone`). `changeField` asks for the whole list and clicks
+  each box that differs, drawing between clicks.
 
-**Collapsing duplicates costs no ordering, and this is provable rather than probable** —
-worth knowing before anyone "restores" interleaving. Only three things read the order of
-`config.entities`, and none can see block multiplicity:
+### Pick From Preview reads the card's class names
 
-- `deduplicateEvents` walks `config.entities` and matches `event._entityId === entityId`.
-  A second block of the same id finds every signature already in `seen` and contributes
-  nothing, **whatever its `event_type`** — so priority under `filter_duplicates` is fixed
-  by where an id **first** appears, and multiplicity is structurally invisible to it.
-- `fetchEvents` requests each id once (`uniqueEntityIds`), in first-occurrence order.
-- `getPrimaryEntityId` reads `entities[0]`.
+Pick From Preview (`pick.ts`, `views/pick.ts`) maps the card's own class names to the page and
+heading each part opens, and where a part is one setting, as the view switcher is Layouts in
+Switcher, to that setting (`PickTarget.field`), so those class names are a contract with the
+editor. It lives in the editor alone: it finds the card in Home Assistant's dialog by the card's
+tag, with `preview` set, in the shadow root holding the editor's host or one shadow root below it
+(a sections dashboard previews the card inside a section), and only while a pick is on adds a
+style, an outline and capture-phase listeners to the card's shadow root. The card ships no byte
+of it. A dashboard's own cards also run with `preview` set while it is edited, so the search must
+never reach further.
 
-First-occurrence order preserves all three, so `[a, b, c, b]` collapsing to `[a, b, b, c]`
-changes nothing observable. Note the trap in the weaker version of this argument, which is
-the one that comes to mind first: _"two blocks split by complementary `event_type` never
-carry the same event"_ is true but far narrower, and it would stop holding the moment
-someone duplicated a calendar without differentiating it. The id-matching argument does not
-depend on the blocks differing at all.
+`tests/editor-pick-map.test.ts` renders the card in every layout, Month wide and compact, and fails
+on a selector that matches nothing, on a drawn leaf that reaches only a catch-all, and on any change to what each
+part takes in from inside it, which is pinned by value. So a markup change that renames or adds a
+part fails there: map the new class in `PICK_PARTS`, specific before the part that holds it, and
+read the pinned table's diff rather than copying it over.
 
-**Removal splits along the same seam.** Clearing a picker row drops every block for that
-calendar, because the row stands for the calendar; **Remove** on a panel drops one block,
-and is the only control that can. Its earlier justification — that `_entityChanged`
-upstream filters by value, so clearing one of two identical rows took both — described a
-picker that no longer exists here, and should not be restored as the reason.
+### The editor renders only what it draws
 
-### Sub-headings are `constant` nodes, and they can lie
+Home Assistant hands an open editor a new `hass` several times a second, so the editor follows
+the card's rule above, with four consequences for new code and tests:
 
-A section heading is a `constant` schema node **with no `value`** — that renders as a bare
-bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
-a heading. The type was already declared and unused, so this needs no new mechanism, and
-`check:i18n` treats it as a labeled field and requires one English string for it —
-enforcement, not cost.
+- **`shouldUpdate` skips a `hass` whose `editorHassKey` (`hass-key.ts`) is unchanged**: the
+  members in `EDITOR_HASS_MEMBERS` and the states of `editorEntityIds`. A test that sets
+  `editor.hass = { ...editor.hass }` to force a render now renders nothing; call
+  `requestUpdate()`, which the editor carries through a batched `hass` as the card does.
+- **Two feeds.** Forms whose schema uses a selector in `LIVE_SELECTORS` get a fresh `hass` on
+  every update (`data-hass="live"`); every other form gets `steadyHass`, whose states are stale
+  by design. A selector found reading `states` belongs in `LIVE_SELECTORS`.
+  `tests/editor-hass-read-set.test.ts` records every `hass` read the editor makes from its first
+  render on, through both feeds, and fails on one outside the key.
+- **A page draws only its own fields, and a toolbar button's row draws its forms only while it is
+  open**, in the update its toggle asks for. A test reaches a form as a user does, through
+  `tests/helpers/editor-host.ts` by field id and owner: `openPageOf` clicks the overview's row for
+  the field's page, or an entry's row for a calendar field (and opens a button's row),
+  `openPanels` visits every page and every entry's, and `changeField` does the first for you. A form read off a page the editor has since left is
+  kept by the harness and redrawn when the editor changes, so a test may still read it.
+  `tests/editor-reachability.test.ts` walks every present field to its page over the gate corpus
+  in every scope, which is what proves no field was lost to a page.
+- **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first time a
+  form needs it, so a page or a row drawing its forms as it opens would draw them while those
+  modules still load, and fill in late. The editor therefore draws one hidden form (`ha-form.ts` ›
+  `warmSchema`) holding a node for each element its schemas need that is not defined yet, and a node
+  for each value its forms hold in a field whose element draws what that value picks, holding the
+  value: a `navigate` or `assist` action draws a form of its own, a `perform-action` a service's
+  controls. Beside it, Home Assistant's Visibility editor holds every calendar's conditions, whose
+  forms load the same way. It is drawn away once a search of everything below it finds no element
+  left undefined, or after ten searches or ten seconds. It takes the live feed while it is drawn,
+  and holds a value again once Home Assistant's services, or the attributes of an entity the value
+  names, move: a service's controls draw a field only for a target that supports it. What a control
+  loads for itself once drawn, as the assist pipeline picker loads its pipeline list, no warm-up
+  reaches, since Home Assistant keeps it per instance. It reads the element types from the schemas,
+  so a new selector type needs nothing here; a selector whose subtree depends on its value goes in
+  `VALUE_SELECTORS` (`hass-key.ts`), which nothing can derive. Removing any of it as dead code, or
+  leaving such a selector out of that list, brings the late first draws back, and only Home
+  Assistant shows them: the test suite cannot see a control fill in late, and its stand-ins draw
+  only what they are written to draw.
 
-A heading is the one node type that can **actively lie**, because it makes a claim about
-what follows it. Adding them forced three changes to the panel filter, each preventing a
-distinct false statement:
+### The calendar list shows entries, grouped by calendar
+
+The overview's Calendars block is the editor's own list (`views/calendars.ts`), drawn from
+`calendar-list.ts`, which is DOM-free and tested on its own. It took over both jobs Home
+Assistant's calendar picker and the per-calendar panels used to split: **which calendars are on
+this card** and **how many entries each has, and what is on them**. A calendar listed once is one
+row; a calendar listed twice — the pattern `event_type` needs, and what **Duplicate** creates —
+gets a calendar row of its own with its entries indented under it, even where the YAML has another
+calendar between them. Each entry opens a page of its own (route `{ kind: 'entry', key }`).
+
+**Every list operation writes `entities` grouped, and nothing reorders the entries of one
+calendar.** `groups`, `moveCalendar`, `duplicateEntry`, `removeEntry`, `removeCalendar`,
+`addCalendar` and `repointEntry` all return each calendar's entries together, the calendars in
+first-occurrence order, and one calendar's entries in their relative order. The two halves of that
+rule rest on different facts:
+
+- **Order across calendars is invisible.** `deduplicateEvents`, `fetchEvents`
+  (`uniqueEntityIds`) and `getPrimaryEntityId` read each calendar's first occurrence only, so
+  `[a, b, c, b]` grouped to `[a, b, b, c]` changes nothing they see. That is why the list may group
+  a YAML list that interleaves, and why a move acts on a whole calendar.
+- **Order inside one calendar is not.** When two entries of one calendar keep the same event,
+  `processEvents` stamps one copy per entry, and with Filter Duplicates on the first entry's copy is
+  the one drawn, its color and label included (`groupEventsByDay`'s `firstEligible`). So no
+  operation swaps two entries of one calendar, there is no entry-level move, and a re-pointed entry
+  joins the **end** of its new calendar's entries. `tests/editor-calendar-list.test.ts` runs the
+  card's own pipeline over that case and fails on a planted reversal. An older version of this
+  section called within-calendar order invisible too; it was wrong. For drawing order alone,
+  `groupEventsByDay` puts a calendar listed more than once back in the order it sent its events
+  (`_arrival`) before sorting, so its tied events are drawn as if it were listed once (after the
+  title for all-day ones), and Split This Calendar keeps what a card-wide event limit or Skip
+  First Events keeps (`tests/split-membership.dst.test.ts`). Which copy of a duplicate wins still
+  follows the entries.
+
+**Keys move with their entries.** Every operation takes `{ entities, keys }` and returns both, so an
+entry page, which holds a key rather than a place, opens the right entry after a move, a removal
+above it or an undo. `_writeList` stores the keys **before** `_report`, because Home Assistant's echo
+can arrive before it returns. Quick Setup still rebuilds the list a calendar at a time and carries
+the keys through `write-frames.ts` › `carryEntryKeys`, which relies on the same rule: each
+calendar's entries keep their order, so the n-th entry of a calendar keeps the n-th key it had.
+
+**A calendar's page belongs to no layout.** Its options are stored once and apply wherever a
+layout reads them, so its fields are built for every layout the card can show, plus the one a
+search result adds (`field-index.ts` › `entryViews`), and an option only some of them apply carries
+"Only in List" (`plan.ts` › `stateOf`). `entrySchemaAcross` is the one builder: the page, search,
+the warm-up forms, Stored Settings and the plan all read an entry's fields through it, and one
+built by `entrySchema` in a single workspace disagrees with the page the moment the card shows two
+layouts. Every one of them builds in the calendar page's own workspace (`element.ts` ›
+`_entryWorkspace`: the layout a result added, else the starting one), never in the scope a search
+runs in, or a search begun on Layout Defaults drops an option none of the card's layouts applies,
+and one begun on another layout's page adds that layout. A calendar option left to follow the card
+takes each layout's value, so its Reset names one only where those agree (`resetOutcome`'s
+`differs`). `tests/editor-entry-layouts.test.ts` and `tests/editor-search-jump.test.ts` pin it.
+
+**Two options belong to the calendar, not the entry**: `name` and `show_in_legend`
+(`entities.ts` › `CALENDAR_OPTIONS`), which the card reads from a calendar's first entry. So
+Remove leaves them on the entries that remain, Copy Settings does not carry them, and a re-pointed
+entry takes the new calendar's where that calendar already has entries, saying so on its page.
+
+**Removal splits along the same seam.** **Remove** on an entry, from its strip or its page's foot,
+drops that entry alone; **Remove** on a calendar row drops every entry the calendar has. Neither
+asks for confirmation: the line it leaves where the row was carries Undo, and takes focus.
+
+**Add Calendar adds a calendar only once.** Home Assistant's entity selector is handed the
+calendars already on the card as `exclude_entities`; where a Home Assistant does not honor it,
+choosing one already on the card shows "Anna is already on the card." with Open Anna instead of
+enabling Add. A second entry of one calendar comes only from Duplicate.
+
+**Reordering never moves a row in the DOM until it writes.** A calendar has one drag handle, on its
+own row (`reorder.ts` decides the order; `views/reorder.ts` draws the handle and follows the
+pointer). While the keyboard grab holds a calendar, the list shows the preview order by CSS `order`
+on each `[data-reorder]` row, so the focused handle is never detached: a keyed `repeat` moving it
+would blur it, and a blur during the grab means focus left the handle, which puts the calendar back.
+A pointer drag moves the rows by `transform` for the same reason, and to keep the handle's pointer
+capture. Both write once, on the drop, through `_moveCalendar`, which puts focus on the moved
+calendar's handle on the overview. Anything else drawn inside `.cal-list` takes the removal line's
+`order` (`--bar`), so it does not jump to the top during a grab.
+
+**The entry schema stays declared as the Calendars panel's sub-form** (`schemas/calendars.ts` ›
+`calendarsSubforms`), although the panel draws no field of its own now. That is what keeps
+`check:i18n` reading the entry schema as searched (`readEditorSchemaKeys` › `collect`): moved into
+the chassis, whose sub-forms are not searched, every `entity.*.aliases` string would fail as
+unsearchable.
+
+### Headings are the registry's, and they can lie
+
+A heading is drawn by the page that holds it. `pages.ts` names it (`HeadingDef.key`, with
+`keyByView` where a layout words it differently) and `views/page.ts` draws it as an element, so
+assistive technology announces it as a heading, which a `constant` node never was. **A builder
+emits fields and the named scopes that store them, and nothing else.** A heading, a row or a
+collapsible in a builder renders nowhere, since a page lifts every field into a form of its own,
+while `check:i18n` would keep its strings alive; `tests/editor-layout-structure.test.ts` fails on
+any of the three in any panel, workspace or corpus state.
+
+A field whose value nests (`time_grid:`, `weather.date:`) goes in `schemas/common.ts` ›
+`blockScope`, never a bare `scope`: a named `grid` nests data and not labels, and `blockScope`
+stamps the `titleKey` that keeps the field's string key, and with it every translation, where it
+was.
+
+No builder draws a `constant` heading any more. A calendar's panel was the last; since each entry
+has a page of its own, its headings are the registry's `ENTRY_GROUPS` like every other page's, and
+`schemas/entity.ts` emits fields only. Where a form does hold one, a `constant` node **with no
+`value`** renders as a bare bold label, and given a `value` it becomes a `Label: value` data row
+instead, which is not a heading, and the filter holds three rules, each preventing a distinct false
+statement:
 
 1. **A heading must never be a search hit of its own.** Its text matches like any field's,
    so searching a word that appears only in a heading returned the heading alone,
    captioning an empty section.
 2. **A heading whose section the filter emptied must be pruned**, or it strands above the
    next section and relabels someone else's options.
-3. **`hasFields` must not count a heading**, or a panel reduced to nothing but labels is
+3. **`hasFields` must not count a heading**, or a form reduced to nothing but labels is
    still offered as having content.
 
-The rule governing placement: **a heading over a non-contiguous category is worse than no
-heading**, because it silently claims whatever follows it. Introducing headings therefore
-drags the reorder into the same change; they cannot be sequenced apart.
+On a page, a query naming a heading's title or the line under it brings every field under that
+heading with it, as a page's title brings the page; the heading is never shown alone.
 
-Two smaller ones. A heading named the same as its only field reads as a stutter, and a DOM
-probe cannot see that — only a screenshot can. And when a schema gains headings, the test
-helpers enumerating _options_ should exclude them, with heading behavior pinned separately;
-sprinkling heading names through a dozen expectations makes each assertion less about what
-it was for.
+Wherever it is drawn, a heading is the one thing that can **actively lie**, because it makes a
+claim about what follows it: **a heading over a non-contiguous category is worse than no
+heading**. A heading named the same as its only field reads as a stutter, and a DOM probe cannot
+see that — only a screenshot can.
+
+### A page shows what applies, and every reset takes one path
+
+**What a page draws is `plan.ts`'s answer, and nothing else decides it.** Every field that
+applies here is drawn (the editor always plans with `showEverySetting`), each under a 44 px head
+row of its own (`views/shown.ts` › `settingHead`): its name, while folded its value, a chevron and
+its ⓘ, the last column on every row, with the setting's facts under the name (`shown.ts` ›
+`stateFacts`); a switch takes the chevron's column. A field the plan draws only because every setting is (`why: 'every'`),
+at its default and not opened this session, is folded to that head; pressing the head opens Home
+Assistant's control below it and adds the field's own key to the added set, which leaving a page
+clears. Applies here means the builders built it: they stay the one authority on presence, and
+`plan.ts` reads them through the present index. What a gate withholds stays in its place, "Appears
+once {when}.", consecutive ones on one condition sharing a line, with any value stored for it all
+the same listed at the heading's end with its Reset. `element.ts` draws the plan
+(`_renderHeadings`) and never filters a form itself; there are no switches any more that narrow
+the editor.
+
+🚨 **Nothing of the editor's sits inside Home Assistant's field box, and nothing in a head moves
+when its setting opens.** Home Assistant owns its box: the arrow, the ✕, a number's spinner, a
+suffix, the switch. An earlier version overlaid a state pill there and collided with all of them,
+and the pill and chevron jumped on opening, so a second press missed. The head is one template in both
+states, so its toggle is the same element and keeps focus; a folded head's toggle carries
+`data-field`, and the open control's wrapper carries it once open, so `[data-field="id"]` finds
+exactly one element either way. A family's members open and fold one at a time, by their own key,
+or opening one moves the head of another. Measure a layout change in Home Assistant, not here: the
+test suite cannot see an overlap.
+
+**A helper is shown once, behind ⓘ.** A control the editor composes itself (a color, Who Sees It)
+draws its own helper only where `show.describedBy` is undefined, i.e. where no head row carries the
+ⓘ; a new composed control follows the same rule, or its helper shows twice.
+
+**An open setting's facts go in its name, its helper alone in its description.** Its wrapper is
+named through `groupName` (the setting's name, then its facts and "Default", joined as a folded
+row's name is) and described through `describedBy` (the helper's id, nothing else). Accessible-name
+computation joins the elements an `aria-describedby` names with a bare space, so facts and helper
+described together read as one sentence: "Default Large makes them bigger…", as though Large were
+the default. A new wrapper uses both; `tests/editor-shown-set.test.ts` checks every open setting
+on two pages in each of the 13 editor languages, and on a calendar's page, and
+`tests/editor-visibility.test.ts` both of Who Sees It's editors.
+
+**Every ring the editor draws reads `--calendar-card-editor-focus-ring`**, defined on `:host` in
+`styles.ts`: the primary and the text color mixed half and half, the text color without
+`color-mix()`. Never write a ring in `--primary-color`; on Home Assistant's light theme it measures
+2.59:1 on the gray of a strip or a status bar. Nor may a ring touch a color it does not clear: a
+ring drawn inside a bordered row goes 4px in, a border drawn with a ring takes the ring's color,
+and a swatch's tooltip sits clear of its ring, with a hovered swatch's hidden while the keyboard
+is in the color control or on the field that holds it, which Undo focuses. `tests/editor-focus-ring.test.ts` pins every outline, shadow and tooltip rule by
+value, with the rules around them; checks the ring against every background and frame the sheet
+paints, on the default themes and with each Material primary, a frame in the color that wins and
+over each background its element shows; fails on a background or frame it has not been taught;
+and makes every ring that reaches its element's edge name the frame it touches (`FRAMES`), since a
+stylesheet read as text cannot say what touches what. The guarantee is
+the default themes': a custom theme with a mid-gray text color and a light primary can still fall
+under 3:1, and no fixed mix, the text color alone included, clears every theme.
+
+**Only what can be pressed looks pressable.** A setting's facts (Set, Whole Card, From All
+Layouts, a layout's own value) are words in a form of their kind, never a pill, a link color or a
+button; at a default the state is a `visually-hidden` "Default", read but not seen. Reset and
+Remove are the one exception: buttons in plain view among the facts, right after Set
+(`views/shown.ts` › `factLine`), on the side away from ⓘ, and 16 px below a switch's row, whose
+whole label toggles it. A stored setting never folds, so its Reset is always in view.
+`tests/editor-shown-set.test.ts` fails on any other pressable among the facts, and on a Reset
+anywhere but after Set. **A folded row is never
+empty**: where nothing is stored, it names what applies (`unset.ts`: "Same as …" for a setting
+that follows another, what it does for any other), and `tests/editor-folded-values.test.ts` walks
+every page, scope and entry for an empty one.
+
+Four things follow for new code:
+
+- **One appearance draws less than the builders build: `'kept'`**, a setting another has replaced,
+  drawn only while the scope holds or inherits a value of its own (`plan.ts` › `leavesKeptOut`). The
+  events area's `height` and `max_height`, which Card Height replaced, are the two. A check that
+  walks what is built against what is drawn asks `leavesKeptOut` rather than restating the rule.
+- **A new field's appearance is a decision.** `'essential'` draws it on every card, so most new
+  fields are `'add'`. Placing one is the same question as under _Where a new option goes_ below.
+- **A new gate condition on anything but a switch needs a clause** (`Prereq.whenKey` or
+  `Gate.whenKey`), written to follow "Appears once". A switch reads "{label} is on" by itself.
+  `tests/editor-gate-lines.test.ts` reconciles every condition against the built schema, so a
+  dropdown condition without a clause fails there rather than reading "Style is on".
+- **A field edited this session stays open**, even once its value is cleared: an edit adds it to
+  the added set (`_valueChanged`), so a box emptied to type anew never folds under the cursor. A
+  setting's Reset adds it back after the reset retires it, for the same reason.
+- **Every Reset and Remove goes through `reset.ts` › `reset`**, applied by `_applyReset`, which
+  updates the YAML, the authored root keys, the Grid reset keys, the held text and the added set
+  together, as one undo step. Do not delete a key from `_config` for a reset by hand: a root key
+  left among the authored ones is written back by the next unrelated edit, and a Grid default
+  that came back without its reset key is replaced the next time the card switches to Grid.
+  `plan.ts` › `resetAction` decides Reset (the control stays) or Remove (it leaves) by planning
+  the state the reset would leave; its one shortcut, Reset for an essential field, rests on
+  resetting a field's own line never withholding it, which `tests/editor-shown-set.test.ts`
+  checks over the gate corpus. A mode value's own reset can withhold it, so it takes the full
+  path.
+
+**Tests read a page as a user sees it, folded settings folded.** A test about every form a page
+can draw opens them first with `unfoldAll`, as `openPanels` does on every page it visits, and
+`changeField` on a folded setting opens it first, as a user would. A state word is read off the
+setting's facts (`stateWordOf`, `factsOf`), and a Reset from its facts, after Set (`lineOf`); `resetButtons` collects them page by page. `openPanels` yields one macrotask before its visit: happy-dom keeps the
+targets of `WeakRef`s reached during a job until the job ends, so a long run of microtask awaits
+holds every node earlier renders let go of, and the gate corpus ran out of heap without it.
 
 ### Where a new option goes is a decision, not a default
 
-**Placing a new option at the end of its section is not placement — it is the absence of
-it.** Picking the right section is the first half of the question; the second half is where
-in that section it belongs, and appending answers it by accident. This has been raised on
-two consecutive pull requests, both times because a session chose the category carefully
-and then appended.
+**A new field is placed in the page registry, and placing it at the end of a heading is not
+placement — it is the absence of it.** A field a builder builds and no page places fails
+`tests/editor-page-registry.test.ts` ("built but unplaced"), so the question cannot be skipped;
+it can only be answered by accident. Picking the right page and heading is the first half of the
+question; the second half is where under that heading it belongs, and with which appearance
+(`essential`, `add`, a mode value or a family member), and appending answers both by accident.
+This was raised on two consecutive pull requests, both times because a session chose the
+category carefully and then appended.
 
-The sections are ordered coarse-to-fine by **scope**, and the options inside them follow
-the same rule: what qualifies a whole day, then what qualifies a class of event, then what
-retires an event, then patterns matching one event's text, then the budget capping how many
-survive. That is why `compact_events_to_show` sits last in _Which Events Appear_ — it is a
-budget rather than a predicate, applied to the result set rather than to an event.
+Headings, and the options under each, are ordered coarse-to-fine by **scope**: what qualifies a
+whole day, then what qualifies a class of event, then what retires an event, then patterns
+matching one event's text, then the budget capping how many survive. That is why
+`compact_events_to_show` closes a calendar's filters — it is a budget rather than a predicate,
+applied to the result set rather than to an event.
 
-Do **not** order a section by the pipeline stage the options run in. It is a real ordering
-and it is invisible to the reader, who cannot tell which options are resolved at fetch time
-and which at render time, and should not have to. `days_of_week` is resolved last of the
-per-calendar filters and belongs first, because it is the broadest question a reader asks.
+Do **not** order by the pipeline stage the options run in. It is a real ordering and it is
+invisible to the reader, who cannot tell which options are resolved at fetch time and which at
+render time, and should not have to. `days_of_week` is resolved last of the per-calendar filters
+and belongs first, because it is the broadest question a reader asks.
 
-Treat a new option's position as needing a stated reason, the same way its name and its
-default do. Say in the PR body where it went and why.
+**Month's pages draw one exception, and it is a rule rather than a placement.** Under each heading
+a Month page draws the settings its weeks read first, then those it reads only in the Day List and
+the Day Panel, the ones marked Day List & Day Panel, each group in the registry's order
+(`plan.ts` › `fieldsInDrawOrder`): the wide month is what most Month cards draw. The registry holds
+one order for every layout, so moving a shared field there for Month would move it in List and
+Columns too. Place a field by the rule above and let Month's split follow;
+`tests/editor-month-day-list.test.ts` holds Month's drawn order and every other scope's to the
+registry's.
 
-`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
-both directions, by importing the schema modules. A new field with no string fails it.
+**Month's pages name what Month draws with four terms, and only these:** the **Wide Month** and
+the **Narrow Month**, its two forms; the **Day List** under the narrow weeks; and the **Day Panel**
+"+N more" opens in either form. They are glossary terms in `scripts/editor-glossary.mjs`, so write a
+new Month string with them rather than "the panel", "a day's list" or "in days". A setting Month
+draws in one place only says so by a mark, Day List & Day Panel (`MONTH_DAY_LIST_OPTIONS`) or Wide
+Month (`MONTH_WIDE_ONLY_OPTIONS`), and an unmarked one acts in both forms; measure a new one by
+rendering each form with the panel open from each before marking it.
+
+Treat a new option's position as needing a stated reason, the same way its name and its default
+do. Say in the PR body which page, heading and appearance it took, and why. The approved map in
+`tests/editor-page-registry.test.ts` pins every placement by value, so the move shows up there as
+a deliberate edit.
+
+`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference and the
+strings the page registry names, in both directions, by importing both. A new field with no
+string fails it, and so does a heading string no page names any more.
 
 ## Style
 
@@ -2092,8 +2496,8 @@ nowhere near the backtick. Write property names bare in CSS comments.
   [`architecture-rendering.md`](./docs/architecture-rendering.md) (rendering and views),
   [`architecture-interaction.md`](./docs/architecture-interaction.md) (gestures, actions and
   event writes) and [`architecture-toolbar.md`](./docs/architecture-toolbar.md) (toolbar and
-  navigation). Read before making structural changes. The overview's _Three Views, One
-  Agenda_ and _Two Files, One Card_ sections are the current description of the view split
+  navigation). Read before making structural changes. The overview's _Four Views, One
+  Agenda_ and _One Card, Its Editor & Its Languages_ sections are the current description of the view split
   and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,
   which options it overrides per view, and which it deliberately ignores. Read before

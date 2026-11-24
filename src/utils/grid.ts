@@ -1605,3 +1605,114 @@ export function computeBannerPlacement(
     continuesAfter: lastDay > normalizedDays[lastVisible],
   };
 }
+
+/** One banner as it is drawn: an event and the run of day columns it spans. */
+export interface BannerRun {
+  /** The banner's event: its first day's copy, carrying its whole event's start and end. */
+  readonly event: Types.CalendarEventData;
+
+  /** The columns it spans, among all the columns passed in. */
+  readonly placement: BannerPlacement;
+}
+
+/**
+ * Join each banner's days into runs of consecutive columns, one banner per run.
+ *
+ * A day's copies of one event are joined by their whole event (`_gridSource`), and kept apart
+ * where the calendars a deduplicated copy stands for change from one day to the next
+ * (`_mergedFrom`), since a per-day filter can change which calendars contribute while the
+ * winning event stays the same. A day the event is missing from, such as one `days_of_week`
+ * leaves out, ends a run, so the banner breaks there.
+ *
+ * Shared by Grid's all-day band and Month's bars, so a run means the same thing in both.
+ *
+ * @param columns - Each day column's banner events, in column order
+ * @param visibleDayStarts - Local midnights of the same columns
+ * @returns One banner per run, grouped by event in the order each was first met
+ */
+export function resolveBannerRuns(
+  columns: ReadonlyArray<ReadonlyArray<Types.CalendarEventData>>,
+  visibleDayStarts: readonly Date[],
+): BannerRun[] {
+  const banners: BannerRun[] = [];
+  const sources = new Map<
+    Pick<Types.CalendarEventData, 'start' | 'end'>,
+    Map<string, { event: Types.CalendarEventData; columns: number[] }>
+  >();
+  columns.forEach((events, column) => {
+    for (const event of events) {
+      const source = event._gridSource ?? event;
+      let variants = sources.get(source);
+      if (!variants) {
+        variants = new Map();
+        sources.set(source, variants);
+      }
+      // Per-day filters can change which calendars contribute while the winning
+      // source stays the same. Keep their shared-color boundaries in the banner band.
+      const contributors = JSON.stringify(event._mergedFrom?.map((entry) => entry.entityId) ?? []);
+      const existing = variants.get(contributors);
+      if (existing) {
+        existing.columns.push(column);
+      } else {
+        variants.set(contributors, { event: { ...event, ...source }, columns: [column] });
+      }
+    }
+  });
+
+  const bannerRuns = [...sources.values()].flatMap((variants) => [...variants.values()]);
+  for (const { event, columns: covered } of bannerRuns) {
+    const runs: Array<{ first: number; last: number }> = [];
+    for (const column of covered) {
+      const previous = runs[runs.length - 1];
+      if (previous && previous.last + 1 === column) previous.last = column;
+      else runs.push({ first: column, last: column });
+    }
+    for (const { first, last } of runs) {
+      const placement = computeBannerPlacement(event, visibleDayStarts.slice(first, last + 1));
+      if (placement) {
+        banners.push({
+          event,
+          placement: { ...placement, columnIndex: placement.columnIndex + first },
+        });
+      }
+    }
+  }
+  return banners;
+}
+
+/**
+ * Put each span on the lowest row free across all its columns, in the order given.
+ *
+ * Greedy first fit, the same shape as the timed lane packing: a span takes the first row in
+ * which nothing placed before it overlaps its columns, or opens a row below the others. Shared
+ * by Grid's all-day band and Month's lines. A span `rows` tall, as Month's line of larger text
+ * is, takes the first run of that many rows all free across its columns.
+ *
+ * @param spans - Column ranges, each from `start` up to `end`, exclusive, and how many rows
+ *   each takes, 1 where it does not say
+ * @param maxRows - Rows that may be opened; a span finding none free past them gets none
+ * @returns Each span's first row, from 0, index-aligned with `spans`; -1 for a span left out
+ */
+export function lowestFreeRows(
+  spans: ReadonlyArray<{ readonly start: number; readonly end: number; readonly rows?: number }>,
+  maxRows = Infinity,
+): number[] {
+  const rowSpans: Array<Array<[number, number]>> = [];
+  const free = (row: number, start: number, end: number) =>
+    (rowSpans[row] ?? []).every(([from, to]) => end <= from || start >= to);
+  return spans.map(({ start, end, rows = 1 }) => {
+    let row = 0;
+    while (
+      Array.from({ length: rows }, (_, offset) => row + offset).some((at) => !free(at, start, end))
+    ) {
+      row++;
+    }
+
+    if (row + rows > maxRows) return -1;
+    for (let at = row; at < row + rows; at++) {
+      while (rowSpans.length <= at) rowSpans.push([]);
+      rowSpans[at].push([start, end]);
+    }
+    return row;
+  });
+}

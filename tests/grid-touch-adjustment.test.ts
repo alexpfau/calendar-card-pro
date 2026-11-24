@@ -28,9 +28,9 @@ vi.mock('../src/utils/logger', () => ({
  * a tap beside an event still opens it, but a hold never lifts it.
  *
  * happy-dom computes no layout and has no `elementFromPoint` on a shadow root, so both are
- * stubbed: the hours' axis left of x = 50, day columns 100 px wide from there, the all-day band
- * above y = 80 and the time areas below it, a pixel a minute from 07:00, and Dentist's block from
- * 14:00 to 15:00 on June 17. The unit project runs in UTC.
+ * stubbed: the hours' axis left of x = 50, day columns 100 px wide from there, the day headers
+ * above y = 40, the all-day band above y = 80 and the time areas below it, a pixel a minute
+ * from 07:00, and Dentist's block from 14:00 to 15:00 on June 17. The unit project runs in UTC.
  */
 
 interface Card extends HTMLElement {
@@ -45,6 +45,13 @@ const DENTIST = {
   start: { dateTime: '2026-06-17T14:00:00Z' },
   end: { dateTime: '2026-06-17T15:00:00Z' },
   uid: 'uid-dentist',
+};
+// Right under Dentist, so a finger on it is beside Dentist.
+const LUNCH = {
+  summary: 'Lunch',
+  start: { dateTime: '2026-06-17T15:00:00Z' },
+  end: { dateTime: '2026-06-17T16:00:00Z' },
+  uid: 'uid-lunch',
 };
 // An all-day event, so the grid draws its all-day band.
 const SPORTS_DAY = {
@@ -64,7 +71,7 @@ const Y = (hour: number, minute = 0) => 80 + hour * 60 + minute - 7 * 60;
 /** The x in the middle of a day's column: 0 is June 17. */
 const X = (column: number) => 100 + column * 100;
 
-async function mount(config: Record<string, unknown>) {
+async function mount(config: Record<string, unknown>, events: unknown[] = [DENTIST, SPORTS_DAY]) {
   const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
   card.setConfig({
     entities: [ANNA],
@@ -79,7 +86,7 @@ async function mount(config: Record<string, unknown>) {
       [ANNA]: { entity_id: ANNA, state: 'off', attributes: { supported_features: 7 } },
     } as unknown as Types.Hass['states'],
     locale: { language: 'en', time_format: '24' },
-    callApi: vi.fn(async () => [DENTIST, SPORTS_DAY]),
+    callApi: vi.fn(async () => events),
     callService: vi.fn(),
     callWS,
     localize: () => '',
@@ -94,6 +101,10 @@ async function mount(config: Record<string, unknown>) {
   for (const [index, body] of all(card, '.grid-day-body').entries()) {
     placeAt(body, { left: 50 + index * 100, top: 80, width: 100, height: 900 });
   }
+  // The band finds its day by the headers beside it in the grid's head.
+  for (const [index, header] of all(card, '.grid-day-header').entries()) {
+    placeAt(header, { left: 50 + index * 100, top: 0, width: 100, height: 40 });
+  }
   const hitTest = stubHitTest(card);
   const writes = () =>
     callWS.mock.calls
@@ -107,13 +118,14 @@ const all = <T extends Element = HTMLElement>(card: Card, selector: string): T[]
 const bodies = (card: Card) => all(card, '.grid-day-body');
 const plane = (card: Card, column: number) =>
   bodies(card)[column].querySelector('.grid-day-plane')!;
-/** The grid's own block of Dentist; never one a press draws. */
-const dentist = (card: Card) =>
+/** The grid's own block of an event, by its title; never one a press draws. */
+const block = (card: Card, title: string) =>
   all(card, '.grid-event').find(
     (element) =>
       !element.closest('.grid-new-event') &&
-      element.querySelector('.event-title')?.textContent?.includes('Dentist'),
-  )!;
+      element.querySelector('.event-title')?.textContent?.includes(title),
+  );
+const dentist = (card: Card) => block(card, 'Dentist')!;
 const sportsDay = (card: Card) => all(card, '.grid-allday-band > .grid-banner')[0];
 /** Where a block a press draws is: each day's time area holding one. */
 const drawn = (card: Card) =>
@@ -152,7 +164,8 @@ function placeAt(
 
 /**
  * What a hit test finds at a point, as a browser's would: the hours' axis, the all-day band,
- * Dentist's title on its block, and a day's plane anywhere else in the time areas.
+ * Dentist's title on its block, Lunch's on its own where it is drawn, and a day's plane anywhere
+ * else in the time areas.
  */
 function stubHitTest(card: Card) {
   const root = card.shadowRoot!;
@@ -164,6 +177,9 @@ function stubHitTest(card: Card) {
     if (column === 0 && y >= Y(14) && y < Y(15)) {
       return dentist(card).querySelector('.event-title');
     }
+    const lunch = block(card, 'Lunch');
+    if (lunch && column === 0 && y >= Y(15) && y < Y(16))
+      return lunch.querySelector('.event-title');
     return plane(card, column);
   });
   Object.assign(card.shadowRoot!, { elementFromPoint });
@@ -309,6 +325,22 @@ describe('a press the browser hands to an event beside the finger', () => {
     await settle();
 
     expect(opened(dialogs)).toEqual([['new', AT(17, 15), AT(17, 16)]]);
+  });
+
+  it('opens the event a finger held in place, and not the one the press was handed to', async () => {
+    const { card, dialogs, writes } = await mount({ ...ADD, ...DETAILS }, [DENTIST, LUNCH]);
+
+    // On Lunch, six pixels below Dentist, as the browser hands it on: to Dentist.
+    handedToDentist(card, 'pointerdown', X(0), Y(15, 6));
+    hold();
+    expect(block(card, 'Lunch')?.getAttribute('data-move-origin')).toBe('lifted');
+    handedToDentist(card, 'pointerup', X(0), Y(15, 6));
+    // The click the browser derives from the press names Dentist, which the finger never was on.
+    dentist(card).dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    await settle();
+
+    expect(opened(dialogs)).toEqual([['event', 'Lunch']]);
+    expect(writes()).toEqual([]);
   });
 
   it('adds in the all-day band where the finger is, beside a banner it was handed to', async () => {

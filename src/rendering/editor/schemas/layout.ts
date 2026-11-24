@@ -2,21 +2,23 @@
  * Layout schema rows.
  */
 
-import { blockScope, bool, color, heading, row, text } from './common';
+import { blockScope, bool, color, select, text } from './common';
+import * as Config from '../../../config/config';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
+import { intlLocales } from '../../../translations/intl-locales';
 import * as Helpers from '../../../utils/helpers';
 import { VIEW_PICTOGRAM_VIEWBOX, pictogramMarkup } from '../../view-pictograms';
 import type { HaFormSchema, SelectOption } from '../ha-form';
 import { humanize, lookup } from '../localize';
-import type { PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
+import type { FitSummaryRow, PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
 import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
 
 /**
- * The picker's tile for a view: the card's shared pictogram in a fixed gray, which reads on
- * both light and dark editor themes. The toolbar's view switcher draws the same shapes in
- * the text color instead.
+ * Starting Layout's picture for a view: the card's shared pictogram in a fixed gray, which
+ * reads on both light and dark editor themes. The toolbar's view switcher draws the same shapes
+ * in the text color instead.
  *
  * @param view - The view to draw
  * @returns Standalone SVG markup
@@ -57,166 +59,91 @@ export function buildDisplayViewSchema(language: string): HaFormSchema[] {
   return [{ name: 'view', selector: { select: { mode: 'box', options: viewOptions(language) } } }];
 }
 
+/** When Too Narrow's choices, in the order they read: the default first, Custom last. */
+export const NARROW_FIT_CHOICES = ['fewer', 'list', 'cramp', 'custom'] as const;
+
 /**
- * Column density — the options that decide how narrow the card may get.
+ * How a side-by-side layout fits a narrow card: When Too Narrow, one choice over the two options
+ * below it (`Synthetic.SYNTHETIC_FIELDS.narrow_fit`), and Minimum Day Width, how narrow a day may
+ * get. Down To, the fewest days, is built while the choice sheds days or is Custom; Below That,
+ * what happens past them, only while it is Custom. The choice is a top-level field, since the
+ * editor routes a synthetic field from there into the block of the layout being edited; the rest
+ * are stored in that block.
  *
  * @param blockKey - Config key holding this view's override block
- * @param daysToShow - Configured day count, which bounds the column floor
+ * @param fit - When Too Narrow as the configuration reads (`ViewConfig.narrowFit`)
+ * @param daysToShow - The layout's day count, which Down To stays below
  * @param language - Effective language code
- * @returns The density group
+ * @returns The fields
  */
-function densityGroup(blockKey: string, daysToShow: number, language: string): HaFormSchema {
-  const schema: HaFormSchema[] = [
+function densityFields(
+  blockKey: string,
+  fit: string,
+  daysToShow: number,
+  language: string,
+): HaFormSchema[] {
+  const block: HaFormSchema[] = [
     {
-      type: 'grid',
-      name: '',
-      schema: [
-        {
-          name: 'min_day_width',
-          // No ceiling: `normalizeColumnValue` accepts any positive number, and the
-          // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
-          // large floor simply means "give me columns only if each can be this wide",
-          // which is a real config on a wide dashboard card. A `max` here made that
-          // unauthorable in the editor while YAML accepted it, and it was the only
-          // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
-          // derives its own from `days_to_show`). The floor is `1` for the same reason:
-          // it is the smallest integer the runtime's `parsed > 0` test admits at this
-          // step. Dropping `max` also settles the control type, since Home Assistant
-          // renders a slider only when both bounds are present — `mode` states that
-          // rather than leaving it to be inferred.
-          selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
-        },
-        {
-          name: 'min_days_to_show',
-          selector: {
-            number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
-          },
-        },
-      ],
-    },
-    {
-      name: 'min_days_fallback',
-      selector: {
-        select: {
-          mode: 'dropdown',
-          options: (['list', 'cramp'] as const).map((value) => ({
-            value,
-            label:
-              lookup(language, `${blockKey}.min_days_fallback.option.${value}.label`) ??
-              humanize(value),
-          })),
-        },
-      },
+      name: 'min_day_width',
+      // No ceiling: `normalizeColumnValue` accepts any positive number, and the
+      // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
+      // large floor simply means "give me columns only if each can be this wide",
+      // which is a real config on a wide dashboard card. A `max` here made that
+      // unauthorable in the editor while YAML accepted it, and it was the only
+      // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
+      // derives its own from `days_to_show`). The floor is `1` for the same reason:
+      // it is the smallest integer the runtime's `parsed > 0` test admits at this
+      // step. Dropping `max` also settles the control type, since Home Assistant
+      // renders a slider only when both bounds are present — `mode` states that
+      // rather than leaving it to be inferred.
+      selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
     },
   ];
-
-  return {
-    type: 'expandable',
-    name: blockKey,
-    title: lookup(language, `${blockKey}.density`) ?? humanize('density'),
-    titleKey: `${blockKey}.density`,
-    iconPath: 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z',
-    schema,
-  };
+  // Down To stops a day short of the day count: shedding to every day sheds none, which is what
+  // Show a List and Keep the Days, Narrower write, so reaching it would switch the choice under
+  // the field being edited. A one-day layout has nothing to shed.
+  const days = Math.floor(daysToShow);
+  if ((fit === 'fewer' || fit === 'custom') && days > 1) {
+    block.push({
+      name: 'min_days_to_show',
+      selector: { number: { min: 1, max: days - 1, step: 1 } },
+    });
+  }
+  if (fit === 'custom') {
+    block.push(
+      select(language, 'min_days_fallback', ['list', 'cramp'], `${blockKey}.min_days_fallback`),
+    );
+  }
+  // A one-day layout has nothing to shed to, so no Custom, unless it already reads so.
+  const choices = NARROW_FIT_CHOICES.filter(
+    (choice) => choice !== 'custom' || daysToShow > 1 || fit === 'custom',
+  );
+  return [select(language, 'narrow_fit', choices), blockScope(blockKey, block)];
 }
 
 /**
- * The time axis — everything the `time_grid:` block owns that has no top-level counterpart.
+ * The time axis and what the grid draws on it — everything the `time_grid:` block owns that has
+ * no top-level counterpart.
  *
- * These are **top-level captioned runs, not a collapsible**, and that is the whole point.
- * As a collapsed `Time Axis` group beside a collapsed `Grid Density` group, the Layout
- * panel opened on exactly two visible options — `additional_card_spacing` and the card
- * height — while first hour, last hour, height per hour, the now line and every axis
- * control sat behind a disclosure. That inverts the panel: the two options almost nobody
- * touches were the only ones on show, and the ones that decide what a grid card looks
- * like had to be hunted for. A collapsible is for the rare and the advanced; the axis is
- * neither in this view, it *is* the layout.
- *
- * Ordered coarse to fine by what each option decides, the same rule the panels themselves
- * follow: which slice of the day the card draws and how tall that slice is, then the
- * gutter that labels it, then what is laid on top of it and how much of it may stack.
- *
- * `start_time` and `end_time` share a row because they are a pair — a bad half resets
- * both, so reading them apart misleads.
- *
- * 🚨 Each run is wrapped in `blockScope`, never a bare `scope`: storage nesting and label
- * nesting are separate mechanisms, and a bare `scope` would keep the values in
- * `time_grid:` while silently dropping the `time_grid.` prefix their translations are
- * filed under, in all nine languages at once. The three sibling scopes share a name on
- * purpose — `workspaceFields` walks paths rather than keying by name, so they contribute
- * to one `time_grid:` block.
+ * 🚨 Wrapped in `blockScope`, never a bare `scope`: storage nesting and label nesting are
+ * separate mechanisms, and a bare `scope` would keep the values in `time_grid:` while silently
+ * dropping the `time_grid.` prefix their translations are filed under, in all nine languages at
+ * once.
  *
  * @param blockKey - Config key holding this view's override block
  * @param language - Effective language code
- * @returns The captioned runs
+ * @returns The fields, in the view's own block
  */
 function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
   return [
-    // This heading sits *inside* the scope while the two below sit outside it, and that is
-    // deliberate rather than sloppy. `blockScope` stamps `time_grid.` onto its children,
-    // so this one resolves `time_grid.axis` — the title the collapsible used to carry,
-    // already translated into nine languages. "Time Axis" is the right caption for this
-    // run on its own merits (it is literally the axis: which hours, how often ruled, how
-    // tall), so nothing is bent to keep the strings; they simply come along. The other two
-    // runs have no such key and use ordinary shared `heading_*` names.
     blockScope(blockKey, [
-      heading('axis'),
-      row(text('start_time'), text('end_time')),
-      row(
-        {
-          name: 'slot_minutes',
-          selector: {
-            select: {
-              mode: 'dropdown',
-              options: ([15, 20, 30, 60] as const).map((value) => ({
-                value,
-                label:
-                  lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ??
-                  String(value),
-              })),
-            },
-          },
-        },
-        text('hour_height'),
-      ),
-    ]),
-
-    // The gutter, and the two options qualifying it. `axis_label_minutes` follows
-    // `show_axis_labels` because it is moot without it — a cadence read before the switch
-    // that turns labeling off is half an answer — and it sits with `axis_width` because
-    // the two move together: below the hour every label carries minutes, which is what
-    // makes a content-sized gutter wider.
-    heading('heading_hour_labels'),
-    blockScope(blockKey, [
-      row(text('axis_width'), bool('show_axis_labels'), {
-        name: 'axis_label_minutes',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: ([30, 60, 120, 180] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.axis_label_minutes.option.${value}.label`) ??
-                String(value),
-            })),
-          },
-        },
-      }),
-    ]),
-
-    // What is drawn onto the grid rather than what rules it, and then the two caps on how
-    // much may stack there. The `hour_line_*` and `allday_band_line_*` rows that used to
-    // sit with these are in Separators now, with every other rule the grid draws: a user
-    // restyling "the grid's lines" was being sent to two panels. The shading stays here
-    // because it fills a column rather than ruling one, and nothing in Separators would
-    // caption it. Today's tint follows the weekend's: the same kind of fill, narrowed from a
-    // class of days to one day, which is the coarse-to-fine order a section reads in.
-    //
-    // `overlap_layout` sits directly above `max_simultaneous_events` because it decides
-    // what that cap counts: how many events may share the width side by side. Read the
-    // other way round, the cap would describe a layout the reader has not been shown yet.
-    heading('heading_on_the_grid'),
-    blockScope(blockKey, [
+      text('start_time'),
+      text('end_time'),
+      select(language, 'slot_minutes', [15, 20, 30, 60], `${blockKey}.slot_minutes`),
+      text('hour_height'),
+      text('axis_width'),
+      bool('show_axis_labels'),
+      select(language, 'axis_label_minutes', [30, 60, 120, 180], `${blockKey}.axis_label_minutes`),
       color('weekend_background_color'),
       color('today_background_color'),
       bool('show_now_line'),
@@ -224,20 +151,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
         name: 'allday_band_max_rows',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
       },
-      {
-        name: 'overlap_layout',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: (['cascade', 'columns'] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.overlap_layout.option.${value}.label`) ??
-                humanize(value),
-            })),
-          },
-        },
-      },
+      select(language, 'overlap_layout', ['cascade', 'columns'], `${blockKey}.overlap_layout`),
       {
         name: 'max_simultaneous_events',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
@@ -247,10 +161,40 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 }
 
 /**
+ * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
+ * its cap in the narrow form, the day width below which the narrow form draws, the weekend's and
+ * today's shading, and the font sizes of the wide month's days. The wide form's pair is the card's
+ * own Card Height, which the panel builds for every layout.
+ *
+ * @param blockKey - Config key holding this view's override block
+ * @returns The fields, in the view's own block
+ */
+function monthFields(blockKey: string): HaFormSchema[] {
+  // No ceiling on the width, for the reason `densityFields` gives. Its floor is `1`, the smallest
+  // integer the runtime's `parsed > 0` admits.
+  return [
+    blockScope(blockKey, [
+      text('narrow_card_height'),
+      text('narrow_card_max_height'),
+      {
+        name: 'min_day_width',
+        selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+      },
+      color('weekend_background_color'),
+      color('today_background_color'),
+      text('cell_event_font_size'),
+      text('cell_time_font_size'),
+    ]),
+  ];
+}
+
+/**
  * Builds the Layout panel schema.
  *
  * @param view - View the card is configured to render
- * @param heightMode - Derived height mode
+ * @param heightMode - Card Height's mode
+ * @param eventsArea - Whether the layout reads the events area's own `height` and `max_height`
+ * @param fit - When Too Narrow as the configuration reads, for Columns and Grid
  * @param daysToShow - Configured day count
  * @param language - Effective language code
  * @returns The panel's schema
@@ -259,86 +203,60 @@ const layoutSchema = Helpers.memoizeLast(
   (
     view: Types.EffectiveView,
     heightMode: string,
+    eventsArea: boolean,
+    fit: string,
     daysToShow: number,
     language: string,
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
-    // between days, so it is in Separators beside the rules drawn inside it. Building the row
-    // conditionally rather than letting the filter empty it keeps the panel's shape a
-    // decision made here, where it can be read.
-    //
-    // Ordered from the outside in: the space between days, the space between a day's
-    // events, then the space inside each event.
+    // between days, so Separators builds it beside the rules drawn inside it.
     const spacing: HaFormSchema[] =
-      view === 'grid'
-        ? []
-        : [
-            {
-              type: 'grid',
-              name: '',
-              schema: [
-                { name: 'day_spacing', selector: { text: { type: 'text' } } },
-                { name: 'event_gap', selector: { text: { type: 'text' } } },
-                { name: 'event_spacing', selector: { text: { type: 'text' } } },
-              ],
-            },
-          ];
+      view === 'grid' ? [] : [text('day_spacing'), text('event_gap'), text('event_spacing')];
 
+    // Month's `auto` is its own default height rather than its content's, so its choice says so.
     const cardBox: HaFormSchema[] = [
-      {
-        name: 'additional_card_spacing',
-        selector: { text: { type: 'text' } },
-      },
-      {
-        name: 'height_mode',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: (['auto', 'fixed', 'maximum'] as const).map((value) => ({
-              value,
-              label: lookup(language, `height_mode.option.${value}.label`) ?? humanize(value),
-            })),
-          },
-        },
-      },
+      text('additional_card_spacing'),
+      select(
+        language,
+        'height_mode',
+        ['auto', 'fixed', 'maximum'],
+        view === 'month' ? 'month.height_mode' : undefined,
+      ),
     ];
 
     if (heightMode === 'fixed') {
-      cardBox.push({ name: 'card_height', selector: { text: { type: 'text' } } });
+      cardBox.push(text('fixed_height'));
     } else if (heightMode === 'maximum') {
-      cardBox.push({ name: 'card_max_height', selector: { text: { type: 'text' } } });
+      // A wide Month keeps its weeks inside the cap rather than growing to it.
+      cardBox.push(
+        view === 'month'
+          ? { ...text('maximum_height'), titleKey: 'month.maximum_height' }
+          : text('maximum_height'),
+      );
     }
+
+    // The events area's own pair, which Card Height has replaced. Its page draws it only where a
+    // card still holds one, so it can be read and cleared, and never offers it (`pages.ts`, kept).
+    if (eventsArea) cardBox.push(text('height'), text('max_height'));
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
 
-    // Grid leads with the axis and ends with the card box; the other two views keep the
-    // order they always had, spacing first and the card box after it. Both put the
-    // card-level options last, so this is one convention rather than two — the grid simply
-    // has a great deal more to say before it gets there, and captions what it says.
-    //
-    // Only grid is captioned. List and column have four or five plain fields here, and a
-    // heading over a run that short labels the obvious; grid has thirteen, where the
-    // captions are what makes the panel scannable at all.
     const schema: HaFormSchema[] =
       view === 'grid' && blockKey !== undefined
-        ? [...timeAxisFields(blockKey, language), heading('heading_card_size'), ...cardBox]
+        ? [...timeAxisFields(blockKey, language), ...cardBox]
         : [...spacing, ...cardBox];
 
-    // Gated on the view owning these keys, not merely on it owning a block. The group is
-    // the density story — `min_day_width`, `min_days_to_show`, `min_days_fallback` — and
-    // emitting it for any view with a block offered a list card three controls its config
-    // does not accept, each of which would have been stored and then ignored.
-    // `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below is already
-    // gated on. `day_header_gap` was a fourth member until it moved to the Day Header
-    // panel, where it sits with the rule drawn inside it.
-    //
-    // Last in every view that has it, which is now the panel's only collapsible. That is
-    // the convention this editor keeps: a panel's plain options first, its collapsed
-    // subsections after them. It also earns the disclosure honestly — how narrow the card
-    // may get before columns drop is a genuinely advanced question, unlike the axis.
+    // Gated on the view owning these keys, not merely on it owning a block: emitting the
+    // density fields for any view with a block offered a list card three controls its config
+    // does not accept. `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below
+    // is gated on.
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-      schema.push(densityGroup(blockKey, daysToShow, language));
+      schema.push(...densityFields(blockKey, fit, daysToShow, language));
+    }
+
+    if (view === 'month' && blockKey !== undefined) {
+      schema.push(...monthFields(blockKey));
     }
 
     return schema;
@@ -352,10 +270,16 @@ const layoutSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const view = ctx.view;
+  const fit = ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)
+    ? ViewConfig.narrowFit(ctx.config, view)
+    : '';
   return layoutSchema(
-    ctx.view,
+    view,
     Synthetic.heightMode(ctx.config),
-    ctx.config.days_to_show,
+    ViewConfig.appliesToView('height', view),
+    fit,
+    ViewConfig.layoutDays(ctx.config, view),
     ctx.language,
   );
 }
@@ -414,27 +338,143 @@ export function widthTableRows(ctx: SchemaCtx): WidthTableRow[] {
 }
 
 /**
- * Extra content rendered below the Layout panel's fields.
+ * The card widths the fit summary reads at, with the string naming each: a phone, a Sections
+ * dashboard's column on a desktop, a portrait tablet and a wide screen.
+ */
+export const FIT_SUMMARY_WIDTHS: ReadonlyArray<readonly [number, string]> = [
+  [390, 'fit_summary.width_phone'],
+  [480, 'fit_summary.width_sections'],
+  [768, 'fit_summary.width'],
+  [1280, 'fit_summary.width'],
+];
+
+/**
+ * The configuration as the card reads it, every layout's block in place: the one each layout is
+ * resolved from, whatever layout the page edits.
  *
  * @param ctx - Schema context
- * @returns The width table, for views whose layout depends on how wide the card is
+ * @returns The merged configuration
  */
-export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
-  if (!ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(ctx.view)) {
-    return [];
-  }
+function cardConfig(ctx: SchemaCtx): Types.Config {
+  if (ctx.workspace === 'shared' || ctx.rawConfig === undefined) return ctx.config;
+  return Config.normalizeLengthOptions(
+    Config.normalizeNumericOptions({ ...Config.DEFAULT_CONFIG, ...ctx.rawConfig }),
+  );
+}
 
+/**
+ * The layouts the card can show: those the switcher offers, or the one it opens in.
+ *
+ * @param config - Merged configuration
+ * @returns The layouts, in `VIEWS` order where the switcher offers several
+ */
+export function cardLayouts(config: Types.Config): ReadonlyArray<Types.EffectiveView> {
+  const offered = Config.switcherOffers(config);
+  if (offered.length > 0) return offered;
+  return [ViewConfig.VIEWS.includes(config.view) ? config.view : 'list'];
+}
+
+/**
+ * What a layout draws at one width, as a cell of the fit summary.
+ *
+ * @param ctx - Schema context, for the language
+ * @param fit - What it draws (`ViewConfig.fitAtWidth`)
+ * @returns The cell's text
+ */
+function fitCell(ctx: SchemaCtx, fit: ViewConfig.LayoutFit): string {
   const t = (key: string, values: Record<string, string | number> = {}): string =>
     translate(ctx, key, values);
+  if (fit.kind === 'month') return t(`fit_summary.month_${fit.form}`);
+  const base = {
+    days: 'fit_summary.days',
+    narrower: 'fit_summary.narrower',
+    list: 'fit_summary.list',
+  }[fit.kind];
+  return fit.days === 1 ? t(`${base}_one`) : t(base, { count: fit.days });
+}
 
-  return [
-    {
+/**
+ * The fit summary: what each layout the card can show draws at a few common card widths, on a
+ * fresh load (`ViewConfig.fitAtWidth`). `undefined` for a card that draws the same at every one of
+ * them, such as one that shows List alone.
+ *
+ * @param ctx - Schema context
+ * @returns The summary, or `undefined`
+ */
+export function fitSummary(
+  ctx: SchemaCtx,
+): Extract<PanelExtra, { kind: 'fit-summary' }> | undefined {
+  const config = cardConfig(ctx);
+  const layouts = cardLayouts(config);
+  const format = new Intl.NumberFormat(intlLocales(ctx.language));
+  const rows: FitSummaryRow[] = FIT_SUMMARY_WIDTHS.map(([width, key]) => ({
+    width: translate(ctx, key, { width: format.format(width) }),
+    cells: layouts.map((view) => fitCell(ctx, ViewConfig.fitAtWidth(config, view, width))),
+  }));
+  // A card that draws the same at every width, a List card above all, has nothing to summarize.
+  if (rows.every((row) => row.cells.join('\u0000') === rows[0].cells.join('\u0000'))) {
+    return undefined;
+  }
+  return {
+    kind: 'fit-summary',
+    title: translate(ctx, 'fit_summary.title'),
+    layouts: layouts.map((view) => translate(ctx, `view.option.${view}.label`)),
+    rows,
+  };
+}
+
+/**
+ * Month's width table: the card widths below which it draws its narrow form, and the one-way margin
+ * it keeps once narrow (`ViewConfig.describeMonthWidths`).
+ *
+ * @param ctx - Schema context
+ * @returns The table
+ */
+export function monthWidthTable(ctx: SchemaCtx): Extract<PanelExtra, { kind: 'width-table' }> {
+  const { wideFromPx, wideAgainFromPx } = ViewConfig.describeMonthWidths(ctx.config);
+  return {
+    kind: 'width-table',
+    title: translate(ctx, 'width_table.title'),
+    rows: [
+      {
+        width: translate(ctx, 'width_table.at_least', { width: wideFromPx }),
+        layout: translate(ctx, 'width_table.month_wide'),
+      },
+      {
+        width: translate(ctx, 'width_table.below', { width: wideFromPx }),
+        layout: translate(ctx, 'width_table.month_narrow'),
+      },
+    ],
+    note: translate(ctx, 'width_table.month_hysteresis', { width: wideAgainFromPx }),
+  };
+}
+
+/**
+ * Extra content rendered below the Layout panel's fields: the fit summary, then the width table of
+ * the layout being edited where its form depends on the card's width.
+ *
+ * @param ctx - Schema context
+ * @returns The summary and the table, each where it applies
+ */
+export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
+  const extras: PanelExtra[] = [];
+  const summary = fitSummary(ctx);
+  if (summary !== undefined) extras.push(summary);
+
+  if (ctx.view === 'month') {
+    extras.push(monthWidthTable(ctx));
+  }
+
+  if (ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(ctx.view)) {
+    extras.push({
       kind: 'width-table',
-      title: t('width_table.title'),
+      title: translate(ctx, 'width_table.title'),
       rows: widthTableRows(ctx),
-      note: t('width_table.hysteresis', {
+      note: translate(ctx, 'width_table.hysteresis', {
         band: ViewConfig.describeColumnLayoutBands(ctx.config, ctx.view).hysteresisPx,
       }),
-    },
-  ];
+    });
+  }
+
+  return extras;
 }

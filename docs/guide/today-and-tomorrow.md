@@ -14,24 +14,18 @@ Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Today & Tomorrow
 view: grid
 days_to_show: 2
 filter_duplicates: true
 duplicate_accent_color: '#ffb74d'
 show_progress_bar: true
-weather:
-  entity: weather.home
-  position: both
-  event:
-    show_conditions: false
+weather_entity: weather.home
 toolbar:
   show: true
   view_switcher: false
   legend: false
-event_tap_action:
-  action: details
 day_tap_action:
   action: add-event
 entities:
@@ -50,12 +44,21 @@ entities:
     show_weather: false
   - entity: calendar.family
     accent_color: '#ffb74d'
+list:
+  weather:
+    position: both
+    event:
+      show_conditions: false
 time_grid:
   start_time: '07:00'
   end_time: '21:00'
   hour_height: 56px
   slot_minutes: 30
   event_font_size: 13px
+  weather:
+    position: both
+    event:
+      show_conditions: false
 ```
 
 Grid leaves locations off its blocks by default; the popover a tap opens shows them.
@@ -66,18 +69,20 @@ Grid leaves locations off its blocks by default; the popover a tap opens shows t
 
 ## 🧭 What It Adds
 
-| Editor                                        | YAML                                                                                                             | What it adds                                                                                                                                                                                |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Layout › Card Displays · Time Range & Content | `view: grid`, `days_to_show: 2`                                                                                  | Two days on one hour axis                                                                                                                                                                   |
-| Layout › Time Axis · Events                   | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar` | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event                                                                                                |
-| Time Range & Content · Calendars              | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                 | A face and color per person; shared plans once, in gold                                                                                                                                     |
-| Weather                                       | `position: both`, `event.show_conditions: false`, `show_weather: false` on Work                                  | The day's forecast over each column; the hour's icon and temperature in each timed event with room, but not beside Ben's meetings                                                           |
-| Card & Header › Toolbar                       | `legend: false`, `view_switcher: false`                                                                          | Add, refresh, paging by arrow or swipe, the date picker and search; no filter or layout switch                                                                                              |
-| Actions & Refresh                             | `event_tap_action: details`, `day_tap_action: add-event`                                                         | The whole event on tap, editable and with Delete where the calendar allows, but not on a shared plan; a tap on a free hour adds an event there, and a hold dragged down draws it to its end |
+| Editor                                                   | YAML                                                                                                                     | What it adds                                                                                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layouts · Grid › Which Events › Date Range               | `view: grid`, `days_to_show: 2`                                                                                          | Two days on one hour axis                                                                                                                                                              |
+| Which Events › Hours · Size & Spacing · Event Appearance | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar`         | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event                                                                                           |
+| Which Events · Calendars                                 | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                         | A face and color per person; shared plans once, in gold                                                                                                                                |
+| Weather                                                  | `weather_entity`, `time_grid → weather`: `position: both`, `event.show_conditions: false`; `show_weather: false` on Work | The day's forecast over each column; the hour's icon and temperature in each timed event with room, but not beside Ben's meetings                                                      |
+| Card & Header › Toolbar                                  | `legend: false`, `view_switcher: false`                                                                                  | Add, refresh, paging by arrow or swipe, the date picker and search; no filter or layout switch                                                                                         |
+| Taps & Refresh                                           | `day_tap_action: add-event`                                                                                              | A tap on a free hour adds an event, and a hold dragged down draws it to its end; an event opens on a tap, editable and with Delete where the calendar allows, but not on a shared plan |
 
 ## 🔀 Adapt It
 
 - **Other hours.** A longer window between `start_time` and `end_time` makes the card taller at the same `hour_height`; lower it to keep the day on one screen.
+- **A fixed height.** `card_height: 600px` fits the hours into the card instead, and so does a row count set in a Sections dashboard's Layout tab; `hour_height` then stops applying, and below `24px` an hour the hours scroll. See [Height in Grid View](/features/layout-appearance#height-in-grid-view).
+- **Work kept private.** `private: true` on `calendar.work` shows Ben's meetings as Private behind a lock, on the card and in the popover, while their time and his face stay. See [Keeping a Calendar Private](/features/core-settings#keeping-a-calendar-private).
 - **Read only.** `allow_event_edit: false` and `allow_event_delete: false` make the popover read-only and take Delete out of it. To stop adding too, leave out `day_tap_action` and set `add_event: false` under `toolbar`.
 - **Moving by drag.** On a calendar that [allows changing events](/features/actions#what-each-integration-allows), such as a Local Calendar, an event moves to another time or day by a drag, after holding it for half a second on a touch screen. See [Moving Events by Drag](/features/grid-view#moving-events-by-drag).
 - **Lanes on a tablet.** `overlap_layout: columns` inside `time_grid:` puts overlaps side by side, which a phone cramps.

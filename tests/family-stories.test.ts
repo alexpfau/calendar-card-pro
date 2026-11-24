@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
 import {
   AGENDA_GUIDE,
   type GuideBlock,
@@ -37,6 +38,7 @@ import {
   readGuideCalendarTable,
   readGuideCard,
 } from './guide-config';
+import type * as Types from '../src/config/types';
 
 const PAGES = { hub: HUB_GUIDE, agenda: AGENDA_GUIDE } as const;
 const CARDS = { hub: readGuideCard(HUB_GUIDE), agenda: readGuideCard(AGENDA_GUIDE) };
@@ -124,9 +126,14 @@ describe('the two family stories describe one family', () => {
 
   it('open the details dialog on a tap on both displays', () => {
     // Both pages explain what the dialog shows and how to take Edit and Delete out of it. A card
-    // that dropped it would leave that prose describing nothing.
+    // that turned it off would leave that prose describing nothing. Since v6 it is the default,
+    // which the pages rely on rather than writing it out, so it is read through the card's own
+    // merge: a page that set it to anything else fails here as one that wrote nothing passes.
     for (const card of Object.values(CARDS)) {
-      expect(card.config.event_tap_action).toEqual({ action: 'details' });
+      expect(card.config).not.toHaveProperty('event_tap_action');
+      expect(buildConfig(card.config as Partial<Types.Config>).event_tap_action).toEqual({
+        action: 'details',
+      });
     }
   });
 

@@ -13,10 +13,14 @@ import { humanize, lookup } from '../localize';
  * @param values - Option values, in the order they should appear
  * @returns Labeled options
  */
-function options(language: string, name: string, values: ReadonlyArray<string>): SelectOption[] {
+function options(
+  language: string,
+  name: string,
+  values: ReadonlyArray<string | number>,
+): SelectOption[] {
   return values.map((value) => ({
     value,
-    label: lookup(language, `${name}.option.${value}.label`) ?? humanize(value),
+    label: lookup(language, `${name}.option.${value}.label`) ?? humanize(String(value)),
   }));
 }
 
@@ -33,7 +37,7 @@ function options(language: string, name: string, values: ReadonlyArray<string>):
 export function select(
   language: string,
   name: string,
-  values: ReadonlyArray<string>,
+  values: ReadonlyArray<string | number>,
   labelKey: string = name,
 ): SelectorSchema {
   return {
@@ -43,21 +47,27 @@ export function select(
 }
 
 /**
- * A sub-heading inside a panel or group.
+ * A list of some of a fixed set of values, which the editor draws as toggle chips of its own
+ * (`chips.ts`), one per value, rather than as Home Assistant's checkbox list.
  *
- * `constant` is Home Assistant's static-text node, and with **no `value`** it renders as a
- * bare bold label — verified against a live editor. Passing a `value` turns it into a
- * `Label: value` data row instead, so this helper deliberately does not accept one.
- *
- * A heading is only worth adding where the fields under it are contiguous; one placed over
- * a scattered category is worse than none, because it silently claims the fields that
- * happen to follow it.
- *
- * @param name - String key for the heading text
- * @returns The node
+ * @param language - Effective language code
+ * @param name - Config key
+ * @param values - Option values, in the order they should appear
+ * @param labelKey - Key the option labels are named under, when not the field's own name
+ * @returns The field
  */
-export function heading(name: string): HaFormSchema {
-  return { name, type: 'constant' };
+export function multiSelect(
+  language: string,
+  name: string,
+  values: ReadonlyArray<string | number>,
+  labelKey: string = name,
+): SelectorSchema {
+  return {
+    name,
+    selector: {
+      select: { mode: 'list', multiple: true, options: options(language, labelKey, values) },
+    },
+  };
 }
 
 /**
@@ -80,14 +90,32 @@ export function text(name: string): SelectorSchema {
   return { name, selector: { text: { type: 'text' } } };
 }
 
+/** Marks a node `color()` built, on its selector, which every copy of the node shares. */
+const COLOR_MARK = 'colorControl';
+
 /**
- * A color, as text.
+ * A color, as text, marked for the composed color control (`colors.ts`), which draws it in place
+ * of a text field. The mark is a non-enumerable property of the selector, which `ha-form` never
+ * reads and a node spread for a block or a lifted form keeps by reference.
  *
  * @param name - Config key
  * @returns The field
  */
 export function color(name: string): SelectorSchema {
-  return { name, selector: { text: { type: 'text' } } };
+  const selector = { text: { type: 'text' as const } };
+  Object.defineProperty(selector, COLOR_MARK, { value: true, enumerable: false });
+  return { name, selector };
+}
+
+/**
+ * Whether `color()` built a node.
+ *
+ * @param node - A schema node
+ * @returns True for a color
+ */
+export function isColorNode(node: unknown): boolean {
+  const selector = (node as { selector?: object } | undefined)?.selector;
+  return selector !== undefined && (selector as Record<string, unknown>)[COLOR_MARK] === true;
 }
 
 /**
@@ -107,16 +135,6 @@ export function number(name: string, min: number, max?: number, unit?: string): 
 }
 
 /**
- * A responsive row, which Home Assistant collapses to one column as the pane narrows.
- *
- * @param children - Fields to place side by side
- * @returns The row
- */
-export function row(...children: HaFormSchema[]): GridSchema {
-  return { type: 'grid', name: '', schema: children };
-}
-
-/**
  * A nesting level with no chrome.
  *
  * @param name - Config key holding the nested object
@@ -133,89 +151,26 @@ export function scope(name: string, children: HaFormSchema[]): GridSchema {
  * Storage nesting and label nesting are separate mechanisms here, and this exists because
  * assuming the first implies the second is the trap. A named `grid` nests **data** — that
  * is the rule `filter.ts` walks, and the only reason `weather.entity` reaches config — but
- * Home Assistant qualifies a **label** only under `ha-form-expandable`. So fields moved out
- * of a collapsible and into a bare `scope` keep their values where they were and lose the
- * key prefix their translations are filed under, silently, in every language at once.
+ * Home Assistant qualifies a **label** only under `ha-form-expandable`. So fields in a bare
+ * `scope` keep their values where they belong and lose the key prefix their translations are
+ * filed under, silently, in every language at once.
  *
  * Stamping `titleKey` restores it. Nine languages' worth of `time_grid.*` prose stays
  * addressable, and two views keep separate descriptions of the same option instead of
- * collapsing onto one bare key.
- *
- * Unnamed containers are recursed into, since a `row` is chrome rather than a level. A
- * named one is another scope and prefixes its own children, so it is left alone. An
- * explicit `titleKey` always wins.
+ * collapsing onto one bare key. A named child is another scope and prefixes its own children,
+ * so it is left alone, and an explicit `titleKey` always wins.
  *
  * @param name - Config key holding the nested object
  * @param children - Fields stored inside it
  * @returns The scope
  */
 export function blockScope(name: string, children: HaFormSchema[]): GridSchema {
-  const isGrid = (node: HaFormSchema): node is GridSchema => 'type' in node && node.type === 'grid';
-
-  const stamp = (node: HaFormSchema): HaFormSchema => {
-    if (isGrid(node)) {
-      return node.name === '' ? { ...node, schema: node.schema.map(stamp) } : node;
-    }
-
-    if (node.name === '' || node.titleKey !== undefined) {
-      return node;
-    }
-
-    return { ...node, titleKey: `${name}.${node.name}` };
-  };
-
-  return scope(name, children.map(stamp));
-}
-
-/**
- * A collapsible sub-group whose children stay at the top level of the configuration.
- *
- * @param language - Effective language code
- * @param name - Group key, used for its title and helper
- * @param iconPath - Material Design icon path
- * @param children - Fields in the group
- * @returns The group
- */
-export function group(
-  language: string,
-  name: string,
-  iconPath: string,
-  children: HaFormSchema[],
-): HaFormSchema {
-  return {
-    type: 'expandable',
+  return scope(
     name,
-    flatten: true,
-    title: lookup(language, name) ?? humanize(name),
-    titleKey: name,
-    iconPath,
-    schema: children,
-  };
-}
-
-/**
- * A collapsible group whose children are stored inside an object of their own.
- *
- * @param language - Effective language code
- * @param name - Config key holding the nested object
- * @param titleKey - String key for the group's title
- * @param iconPath - Material Design icon path
- * @param children - Fields in the group
- * @returns The group
- */
-export function nested(
-  language: string,
-  name: string,
-  titleKey: string,
-  iconPath: string,
-  children: HaFormSchema[],
-): HaFormSchema {
-  return {
-    type: 'expandable',
-    name,
-    title: lookup(language, titleKey) ?? humanize(titleKey),
-    titleKey,
-    iconPath,
-    schema: children,
-  };
+    children.map((node) =>
+      'schema' in node || node.titleKey !== undefined
+        ? node
+        : { ...node, titleKey: `${name}.${node.name}` },
+    ),
+  );
 }

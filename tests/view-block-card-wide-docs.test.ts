@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../src/config/config';
-import { FETCH_TIME_KEYS, VIEW_BLOCKS } from '../src/config/view';
+import { FETCH_TIME_KEYS, RESOLVED_BLOCK_KEYS, VIEW_BLOCKS } from '../src/config/view';
 
 const PAGE = 'docs/features/column-view.md';
 const HEADING = '## 🚫 Options That Cannot Be Overridden';
@@ -33,15 +33,21 @@ const NOT_OPTIONS_OF_A_VIEW = new Set(['config_version', 'view']);
 /**
  * Every option a view block ignores, from the code.
  *
- * @returns The card-wide `DEFAULT_CONFIG` keys
+ * @returns The card-wide `DEFAULT_CONFIG` keys, and the fetch-time keys, which are card-wide by
+ *   definition whether or not they ship a default (`weather_entity` ships none). A key a block
+ *   resolves for itself (`RESOLVED_BLOCK_KEYS`, a layout's own `weather:`) is not card-wide.
  */
 function cardWideOptions(): Set<string> {
   const blocks = Object.values(VIEW_BLOCKS);
   const hoisted = new Set(blocks.flatMap((block) => [...(block?.overrideKeys ?? [])]));
   const blockKeys = new Set<string>(blocks.map((block) => String(block?.blockKey)));
   return new Set(
-    Object.keys(DEFAULT_CONFIG).filter(
-      (key) => !hoisted.has(key) && !blockKeys.has(key) && !NOT_OPTIONS_OF_A_VIEW.has(key),
+    [...Object.keys(DEFAULT_CONFIG), ...FETCH_TIME_KEYS].filter(
+      (key) =>
+        !hoisted.has(key) &&
+        !blockKeys.has(key) &&
+        !NOT_OPTIONS_OF_A_VIEW.has(key) &&
+        !(RESOLVED_BLOCK_KEYS as readonly string[]).includes(key),
     ),
   );
 }
@@ -76,7 +82,10 @@ describe('Options That Cannot Be Overridden', () => {
   });
 
   it('opens with exactly the options that decide which events are loaded', () => {
-    expect(new Set(lists[0])).toEqual(new Set(FETCH_TIME_KEYS));
+    const resolved: readonly string[] = RESOLVED_BLOCK_KEYS;
+    expect(new Set(lists[0])).toEqual(
+      new Set([...FETCH_TIME_KEYS].filter((key) => !resolved.includes(key))),
+    );
   });
 
   it('names every option a view block ignores', () => {

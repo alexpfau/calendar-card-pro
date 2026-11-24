@@ -78,7 +78,8 @@ interface CardUnderTest extends HTMLElement {
 function columnConfig() {
   const config = buildConfig();
   config.view = 'column';
-  config.column = { day_spacing: '4px' };
+  // Every day kept, so the decision edge is the one between three columns and the list.
+  config.column = { day_spacing: '4px', min_days_to_show: 3 };
   return config;
 }
 

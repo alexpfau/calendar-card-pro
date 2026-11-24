@@ -30,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import { AGENDA_GUIDE, HUB_GUIDE, readGuideCard } from './guide-config';
 import type * as Types from '../src/config/types';
+import { migrateWeatherFormat } from '../src/config/weather-migration';
 import { fetchEventData, groupEventsByDay } from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
@@ -220,7 +221,7 @@ describe('the Family Agenda card behaves as the page describes', () => {
       blocklist: '#family',
       replace_with: 'Busy',
       label: 'person.ben',
-      show_location: false,
+      private: true,
     });
     expect(blocksOf('calendar.family')[0]).toMatchObject({
       allowlist: 'birthday',
@@ -248,9 +249,33 @@ describe('the Family Agenda card behaves as the page describes', () => {
       show_single_allday_time: false,
       show_location_allday: false,
       toolbar: { show: true, view_switcher: false },
-      event_tap_action: { action: 'details' },
-      list: { date_vertical_alignment: 'top', day_separator_width: '1px' },
+      weather_entity: 'weather.home',
+      list: {
+        date_vertical_alignment: 'top',
+        day_separator_width: '1px',
+        weather: { position: 'date' },
+      },
     });
+    // A tap opens an event by default, which the page relies on rather than writing it out.
+    expect(GUIDE_CONFIG).not.toHaveProperty('event_tap_action');
+
+    // 🚨 The forecast is written per layout, as v6 writes it. A top-level `weather:` naming the
+    // entity still draws, but the editor converts it the moment the card is opened, with an
+    // upgrade receipt, on a card the reader has only just pasted. List's block must be exactly
+    // what that conversion makes of the card's pre-v6 form, so the forecast is the one it was.
+    expect(GUIDE_CONFIG).not.toHaveProperty('weather');
+    const { weather_entity: entity, list, ...rest } = GUIDE_CONFIG as Record<string, unknown>;
+    const listRest = { ...(list as Record<string, unknown>) };
+    delete listRest.weather;
+    const converted = migrateWeatherFormat({
+      ...rest,
+      weather: { entity },
+      list: listRest,
+    }).config;
+    expect(converted.weather_entity).toBe('weather.home');
+    expect((converted.list as Record<string, unknown>).weather).toEqual(
+      (GUIDE_CONFIG.list as Record<string, unknown>).weather,
+    );
 
     // 🚨 The page's legend is the COLOR, not the shape: a gold capsule is the family's only
     // because each pill takes its own calendar's accent. `allday_badge_color` decides that,

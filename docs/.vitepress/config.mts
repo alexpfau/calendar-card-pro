@@ -114,6 +114,24 @@ const EXAMPLE_STORIES = [
 ];
 const EXAMPLE_STORIES_MATCH = `^(${EXAMPLE_STORIES.map((story) => story.link).join('|')})$`;
 
+/** The Layouts group, in sidebar order: the chooser, then each layout's page. */
+const LAYOUTS = [
+  { text: 'Choose a Layout', link: '/features/layouts' },
+  { text: 'List', link: '/features/list-view' },
+  { text: 'Columns', link: '/features/column-view' },
+  { text: 'Grid', link: '/features/grid-view' },
+  { text: 'Month', link: '/features/month-view' },
+];
+const LAYOUTS_MATCH = `^(${LAYOUTS.map((page) => page.link).join('|')})$`;
+
+/**
+ * Pages local search leaves out: the architecture pages and the release archive. They are for
+ * contributors and history, and ranked first for everyday words such as "month" and "language",
+ * above the pages a reader was looking for. What's New stays searchable. Matched on the page's
+ * source path, as VitePress hands it to `_render`.
+ */
+const UNSEARCHED = /^(architecture(-[a-z]+)?|RELEASE_NOTES)\.md$/;
+
 export default defineConfig({
   ...PREVIEW_PAGE_DATA,
   title: PREVIEW ? 'Calendar Card Pro (Preview)' : 'Calendar Card Pro',
@@ -175,15 +193,33 @@ export default defineConfig({
   ],
 
   themeConfig: {
-    search: { provider: 'local' },
+    search: {
+      provider: 'local',
+      options: {
+        _render(src, env, md) {
+          const html = md.render(src, env);
+          return UNSEARCHED.test(env.relativePath) ? '' : html;
+        },
+      },
+    },
 
-    // One entry per sidebar section, in the sidebar's order: Guide, Example Stories, the three
-    // feature groups as Features, Reference and Project. What's New sits in the Guide group and
-    // has an entry of its own as well, so Guide lights only for the two pages it leads to.
+    // One entry per sidebar group that leads somewhere of its own: Guide, Example Stories, Layouts,
+    // Features (the index of every feature page), Reference and Project. What's New sits in the
+    // Guide group and has an entry of its own as well, so Guide lights only for the pages it leads
+    // to. Layouts lights for its five pages; Features for every other feature page.
     nav: [
-      { text: 'Guide', link: '/guide/installation', activeMatch: '^/guide/(installation|usage)$' },
+      {
+        text: 'Guide',
+        link: '/guide/installation',
+        activeMatch: '^/guide/(installation|usage|upgrading)$',
+      },
       { text: 'Example Stories', link: '/reference/examples', activeMatch: EXAMPLE_STORIES_MATCH },
-      { text: 'Features', link: '/features/editor', activeMatch: '^/features/' },
+      { text: 'Layouts', link: '/features/layouts', activeMatch: LAYOUTS_MATCH },
+      {
+        text: 'Features',
+        link: '/features/',
+        activeMatch: `^/features/(?!(${LAYOUTS.map((page) => page.link.slice('/features/'.length)).join('|')})$)`,
+      },
       {
         text: 'Reference',
         link: '/reference/configuration',
@@ -197,6 +233,8 @@ export default defineConfig({
       { text: "What's New", link: '/guide/whats-new' },
     ],
 
+    // The groups follow the visual editor's overview, so a reader finds a setting under the word
+    // the editor puts it under: Calendars, Whole Card and Layouts.
     sidebar: [
       {
         text: 'Guide',
@@ -204,30 +242,32 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Usage', link: '/guide/usage' },
+          { text: 'Upgrading & Going Back', link: '/guide/upgrading' },
           { text: "What's New", link: '/guide/whats-new' },
         ],
       },
-      { text: 'Example Stories', collapsed: false, items: EXAMPLE_STORIES },
+      { text: 'Example Stories', collapsed: true, items: EXAMPLE_STORIES },
+      { text: 'Layouts', collapsed: false, items: LAYOUTS },
       {
-        text: 'Essentials',
+        text: 'Calendars & Events',
         collapsed: false,
         items: [
-          { text: 'Visual Configuration Editor', link: '/features/editor' },
-          { text: 'Core Settings', link: '/features/core-settings' },
-          { text: 'Column View', link: '/features/column-view' },
-          { text: 'Grid View', link: '/features/grid-view' },
+          { text: 'Calendars', link: '/features/core-settings' },
+          { text: 'Filtering & Text Replacement', link: '/features/filtering' },
           { text: 'Event Content & Display', link: '/features/event-content' },
-          { text: 'Layout & Appearance', link: '/features/layout-appearance' },
-        ],
-      },
-      {
-        text: 'Going Further',
-        collapsed: false,
-        items: [
-          { text: 'Dynamic Titles with Templates', link: '/features/title-templates' },
           { text: 'Split Multi-Day Events', link: '/features/multi-day-events' },
           { text: 'Dynamic Start Date', link: '/features/start-date-offset' },
           { text: 'Weather Integration', link: '/features/weather' },
+        ],
+      },
+      {
+        text: 'Whole Card',
+        collapsed: false,
+        items: [
+          { text: 'Visual Configuration Editor', link: '/features/editor' },
+          { text: 'Layout & Appearance', link: '/features/layout-appearance' },
+          { text: 'Header Toolbar', link: '/features/header-toolbar' },
+          { text: 'Dynamic Titles with Templates', link: '/features/title-templates' },
           { text: 'Actions & Interactions', link: '/features/actions' },
         ],
       },
@@ -246,7 +286,7 @@ export default defineConfig({
       },
       {
         text: 'Project',
-        collapsed: false,
+        collapsed: true,
         items: [
           { text: 'Contributing & Roadmap', link: '/contributing' },
           {

@@ -14,9 +14,16 @@ Every load runs one pipeline in `utils/events.ts`; the load modes below differ o
 they draw what is stored first and when they ask Home Assistant.
 
 1. **Request.** `resolveRequest` fixes the cache key, the first weekday and the window, half-open
-   from local midnight on the first day to local midnight after the last. The window spans the
-   longest `days_to_show` among the views the card can show (`loadedDaysToShow`), so switching
-   views never fetches.
+   from local midnight on the first day to local midnight after the last. The window spans every
+   view the card can show (`ViewConfig.loadConfig`): the longest `days_to_show` from the shared
+   start (`loadedDaysToShow`), and where Month is reachable its six weeks: the month holding
+   `start_date`, or today's for Tomorrow and Start of Week (`ViewConfig.monthHomeDay`), as one
+   span with the other views' days. So
+   switching views at home never fetches. A page's load holds the weeks of the month its first day
+   falls in, the month Month draws for it, so a switch that carries a page's day draws from the
+   same load wherever the next view's days lie in those weeks. The key names the window as configured
+   (`ViewConfig.loadIdentity`), so home's stays put while Month's weeks move with the months; an
+   entry stored for a window that has since moved is refetched into the same key (`isEntryDue`).
 2. **Stored window.** `readEventSnapshot` reads and processes the stored payload synchronously, so
    an entry up to 24 hours old is on the first frame.
 3. **Fetch.** Calendars are asked in parallel, each with a timeout, from a live subscription where
@@ -88,11 +95,20 @@ Each store has one owner and one scope. Only the `localStorage` stores outlive a
 | Device choice | `localStorage`, `utils/view-choice.ts`     | the switcher's view, the hidden calendars   | until the configuration changes; pruned past `MAX_VIEW_CHOICES` |
 | Place lookups | `localStorage`, `interaction/event-map.ts` | a location's coordinates                    | 30 days, a miss 7 days, a failure an hour; 300 names            |
 
+No Home Assistant calendar searches text, or limits how many days it is asked for, so the search
+load asks for its whole window, one request per calendar, and the card searches the events itself.
+That is why its cost is the integration's: CalDAV asks its server and expands recurring events over
+the two years, while Google Calendar answers from its own copy, which keeps about 90 days of past
+one-off events.
+
 ### Event Cache
 
 - **Key.** `getBaseCacheKey` covers only what shapes the request: the calendars, the loaded span,
   the raw `start_date`, the card version and, for a week-relative start, the first day of the week.
-  Render-side options are applied again on every read, so toggling one re-renders from the cache.
+  Where Month is reachable, home's key names the span as configured rather than the six weeks'
+  dates, with that Month is reachable, alone or beside other views, and the first day of the week
+  (`ViewConfig.loadIdentity`), so one entry serves as the months pass. Render-side options are
+  applied again on every read, so toggling one re-renders from the cache.
   The key begins with the card's query identity (`_instanceIdForPage`), which counts the first day
   of the week by the same rule (`firstDayKeyPart`), resolved from the profile as it is now, so cards
   asking for one window share one entry and a profile that moves the week starts a new query.
@@ -147,7 +163,14 @@ On Home Assistant 2026.5 and later every calendar shown is subscribed to over
   loading.
 - **Change counts.** A push saying the same as the last (`fingerprintEvents`) notifies nobody.
   `changeCount` counts every change, first pushes included; `eventChanges` counts real changes only,
-  and is what search reads.
+  and is what search reads. Such pushes are common: Home Assistant sends a calendar's events again
+  when one of them starts or ends, and some integrations at every sync, every minute for some.
+- **Cost.** Each subscription reads its calendar's events once when it starts and again at every
+  change Home Assistant sends, so a calendar that changes often is read as often. A card appearing
+  costs one read of each calendar, as a REST refresh on appearing did, unless another card on the
+  connection already holds that calendar and window: `load` then answers from the live
+  subscription at once. A card that leaves the page releases its subscriptions after
+  `DISCONNECT_LINGER`.
 - **Times.** A push carries times in the event's own zone, so `inZone` rewrites them into Home
   Assistant's zone, as REST writes them, and `{start}` and the popover see the same strings from
   either source.

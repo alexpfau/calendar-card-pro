@@ -20,8 +20,10 @@ vi.mock('../src/utils/logger', () => ({
  * Links in event rows (`open_links`): which rows draw them, what they are, and that a press on
  * one is the link's, under the gesture model in docs/architecture.md.
  *
- * The option defaults off, so the suite built from default config never draws a link; every
- * case here turns it on, and the states that must draw none are cases of their own.
+ * The option defaults off, and links need events that run nothing of their own, where a tap on
+ * one opens it by default. So the suite built from default config never draws a link; every case
+ * here turns it on with `event_tap_action: none`, and the states that must draw none are cases of
+ * their own.
  */
 
 interface Card extends HTMLElement {
@@ -64,7 +66,12 @@ const EVENTS = [
   },
 ];
 
-const LINKS = { open_links: true, show_location: true, show_description: true } as const;
+const LINKS = {
+  open_links: true,
+  show_location: true,
+  show_description: true,
+  event_tap_action: { action: 'none' },
+} as const;
 
 async function mount(config: Record<string, unknown>) {
   const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
@@ -190,6 +197,10 @@ describe('open_links: what a row draws', () => {
 
   it.each([
     ['the option is off', { show_location: true, show_description: true }],
+    [
+      'the event tap is left at its default, which opens details',
+      { open_links: true, show_location: true, show_description: true },
+    ],
     ['events open their details', { ...LINKS, event_tap_action: { action: 'details' } }],
     ['events have a hold', { ...LINKS, event_hold_action: { action: 'details' } }],
     [

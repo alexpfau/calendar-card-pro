@@ -18,7 +18,7 @@ The wall in grid view. Anna is pink, Ben is blue and Leo is green, each face in 
 
 Switched to Columns on the toolbar: a column of tinted boxes per day, the morning's finished events faded, and Reset ready to undo the switch.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
 
 A phone switched to List, and a dashboard section where Grid shows three days and the calendar chips fold into the filter button.
 
@@ -32,21 +32,18 @@ Replace the `calendar.*` ids with your own calendars, each `name` with what its 
 
 ```yaml
 type: custom:calendar-card-pro
-config_version: 5
+config_version: 6
 title: Family
 view: grid
 days_to_show: 7
 event_gap: 4px
 filter_duplicates: true
 duplicate_accent_color: '#ffb74d'
-weather:
-  entity: weather.home
+weather_entity: weather.home
 toolbar:
   show: true
   legend: chips
   reset: true
-event_tap_action:
-  action: details
 day_tap_action:
   action: add-event
 entities:
@@ -70,15 +67,23 @@ entities:
     accent_color: '#b388ff'
 list:
   days_to_show: 3
+  weather:
+    position: date
 column:
   min_days_to_show: 3
   show_past_events: true
   past_event_opacity: 40
   event_background_opacity: 15
+  weather:
+    position: date
 time_grid:
   start_time: '07:00'
   end_time: '22:00'
   hour_height: 36px
+  weather:
+    position: date
+month:
+  event_gap: 4px
 ```
 
 ::: tip Build It in the Editor
@@ -87,7 +92,7 @@ time_grid:
 
 ## 🧭 Across Different Screens
 
-`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns and Grid, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
+`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/header-toolbar#switching-between-layouts).
 
 <video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
@@ -97,13 +102,13 @@ On Home Assistant 2026.5 or later, every screen shows a change as soon as Home A
 
 ### Grid, Columns & List
 
-`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 Grid sheds days one at a time as the card narrows, always keeping today, so the same card fits a narrow dashboard section. See [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
-The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `min_days_to_show: 3` lets Columns drop days on a narrower screen, down to three, before it turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-instead).
+The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
-`event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns. Grid ignores it.
+`event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 
 ### The Toolbar
 
@@ -111,10 +116,10 @@ With `show: true`, `toolbar` adds two rows of controls:
 
 - **Add** opens a new event in the card's popover, on the first calendar in `entities` that accepts new events and is not hidden on this device: Anna's while hers is shown, not the Family calendar. With every such calendar hidden, it starts on the first of them anyway. Where more than one calendar accepts new events, the popover lets you pick another before saving. Add appears only while some calendar [accepts new events](/features/actions#what-each-integration-allows). See [Add Event Button](/features/actions#add-event-button).
 - **Refresh** loads the events now.
-- **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/layout-appearance#searching-the-card).
-- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
-- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
-- **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
+- **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/header-toolbar#searching-the-card).
+- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/header-toolbar#paging-through-dates).
+- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar under Show all and Hide all. See [Showing & Hiding Calendars](/features/header-toolbar#showing-hiding-calendars).
+- **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/header-toolbar#resetting-the-card).
 
 ### Adding & Moving on the Wall
 
@@ -148,9 +153,9 @@ Home Assistant stores a person's photo square, and the card draws it as stored, 
 
 ### Gold Means the Whole Family
 
-Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan only when their title, start, end and location all match, as they do when the same event is added to each calendar.
+Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan only when their title, start, end and location all match, as they do when the same event is added to each calendar.
 
-[`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold.
+[`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold.
 
 ### A Birthday That Counts Itself
 
@@ -170,7 +175,7 @@ The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-it
 
 `view: grid` gives each day a column and puts every timed event at the time it starts, as tall as it is long, unless it lasts a full day or longer and runs into a second date, which makes it a banner in the all-day band. With no `start_date`, the seven days start today and move on at midnight; a wall that shows Monday to Sunday is the [first variation](#a-fixed-week-on-a-dedicated-wall). See [Grid View](/features/grid-view).
 
-Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather` puts each day's forecast in its date header, as far ahead as the forecast reaches. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
+Grid view keeps today's finished events on screen, and an emerald line marks the current time. `weather_entity` with `position: date` in the List, Columns and Grid blocks puts each day's forecast in its date header, as far ahead as the forecast reaches; Month shows none. See [The Now Line](/features/grid-view#the-now-line) and [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout).
 
 The axis runs from 07:00 to 22:00, the hours a family is awake. See [Choosing the Hours the Card Shows](/features/grid-view#choosing-the-hours-the-card-shows).
 
@@ -182,7 +187,7 @@ The wall is a 1280 × 800 tablet. A [panel view](https://www.home-assistant.io/d
 
 ## 🔒 Shared-Screen Safety
 
-`event_tap_action: details` opens a tapped event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
+A tap opens an event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
 
 Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the event can also be changed right there, and **Delete** removes it: a Local Calendar allows both, a Google calendar only Delete. Neither is offered on a merged shared plan. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card. Adding still works; to keep new events off it too, leave `day_tap_action` out and set `add_event: false` under `toolbar`.
 
@@ -190,7 +195,7 @@ Where the calendar's [integration allows it](/features/actions#what-each-integra
 
 ### A Fixed Week on a Dedicated Wall
 
-A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by all three layouts, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
+A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday. Give it a card of its own: `start_date` is shared by every layout, so on the card above `start_of_week` would make a phone's List show Monday to Wednesday, even on a Friday.
 
 Add these lines to the card, replace its `time_grid:` block with this one, and delete its `toolbar:`, `list:` and `column:` blocks:
 
@@ -224,24 +229,19 @@ entities:
     name: Work
     label: person.ben
     accent_color: '#90a4ae'
-    replace_with: Work # says Ben is at work, not what the meeting is
-    show_location: false # and not where it is
-    show_description: false
+    private: true # when Ben is at work, not what the meeting is or where
+    replace_with: Work # and Work in place of Private
   # calendar.family and calendar.trash_pickup as above
 ```
 
-::: warning Editing Shows the Real Title
-A tap opens a work event in the [event popover](/features/actions#event-details), which says _Work_ too. Where the calendar [allows editing](/features/actions#what-each-integration-allows), though, the real title appears as soon as someone starts editing it. Where that matters, add `allow_event_edit: false` to the card.
-:::
-
-[`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) replaces every title with _Work_, and Ben's face says whose it is. Grid hides locations already, but List and Columns show them, so `show_location: false` keeps a meeting room off the phone, and `show_description: false` keeps an agenda off even if descriptions are turned on for the whole card. Set on the calendar itself, both also keep their field out of the popover.
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/filtering#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
 
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 
 ## 📚 Next Steps
 
 - [Family Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
-- [Header Toolbar](/features/layout-appearance#header-toolbar) — the switcher, the chips, paging and Reset in full
+- [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens
 - [Actions](/features/actions) — the event popover, editing, deleting and the add button

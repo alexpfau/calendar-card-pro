@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeHelper, computeLabel, lookup } from '../src/rendering/editor/localize';
-import { PANELS } from '../src/rendering/editor/panels';
+import { CALENDARS_BLOCK, PAGES } from '../src/rendering/editor/pages';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import deEditor from '../src/rendering/editor/translations/de.json';
 import enGbEditor from '../src/rendering/editor/translations/en-GB.json';
@@ -50,13 +50,13 @@ describe('editor strings resolve in the requested language', () => {
   it('translates the first-screen German editor chrome', () => {
     const chromeKeys = [
       'search',
-      'customized_only',
-      'customized_only.helper',
-      ...PANELS.flatMap((panel) => [panel.titleKey, `${panel.titleKey}.helper`]),
-      'calendars',
-      'calendars.helper',
-      'entity.customised',
-      'entity.unconfigured',
+      // The overview's titles that carry today's panel titles over; the `page.*` ones are new
+      // English until the editor's translation pass.
+      CALENDARS_BLOCK.titleKey,
+      ...PAGES.map((page) => page.titleKey).filter((key) => key.startsWith('panel.')),
+      'entity.occurrence',
+      'entity.duplicate',
+      'entity.remove',
       'entity.copy',
       'entity.paste',
     ];
@@ -96,18 +96,19 @@ describe('editor strings resolve in the requested language', () => {
     // carry these keys, or that German must resolve to English, would fail a correct
     // translation. That is the gate lying rather than the translation being wrong. The
     // per-key fallback those deletions rely on is already pinned above.
-    expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
+    // It names the Narrow Month beside the List fallback: the three layouts that change with the
+    // width, and none of them alone.
+    expect(EDITOR_STRINGS['view.helper']).toContain('Columns and Grid');
+    expect(EDITOR_STRINGS['view.helper']).toContain('Month draws the Narrow Month');
     expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).toContain('side-by-side layouts');
-    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).not.toContain('column view');
   });
 
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
-    // `height` applies to `.content-container`; the header and card padding sit outside it.
-    // Grid compresses that content area's axis while the other views scroll it.
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('grid view compresses the time axis');
-    expect(EDITOR_STRINGS['card_height.helper']).toContain('calendar content area');
-    expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
+    // Card Height sizes the whole card, and the events area takes what the header leaves. Grid
+    // fits its hours into it down to a readable size while List scrolls.
+    expect(EDITOR_STRINGS['fixed_height.helper']).toContain('Grid fits its hours');
+    expect(EDITOR_STRINGS['fixed_height.helper']).toContain('title and toolbar included');
+    expect(EDITOR_STRINGS['fixed_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
     // There were three sites; there are two. `time_grid.axis.helper` was the Time Axis
@@ -117,7 +118,7 @@ describe('editor strings resolve in the requested language', () => {
     // and it is still told on both fields they actually manipulate.
     expect(EDITOR_STRINGS['time_grid.axis.helper']).toBeUndefined();
     expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
-      "calendar content area's natural height",
+      'Ignored when a fixed Height is set',
     );
   });
 
@@ -166,24 +167,6 @@ describe('editor strings resolve in the requested language', () => {
     expect(lookup('en-GB', 'weekend_colors.helper')).toBe(EDITOR_STRINGS['weekend_colors.helper']);
   });
 
-  it('states compact-mode scope only when the active view needs it', () => {
-    const compactGroup = {
-      type: 'expandable' as const,
-      name: 'compact_mode',
-      titleKey: 'compact_mode',
-      schema: [],
-    };
-
-    expect(computeHelper('en', 'list', compactGroup)).toBe(EDITOR_STRINGS['compact_mode.helper']);
-    expect(computeHelper('en', 'column', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'grid', compactGroup)).toBe(
-      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
-    );
-    expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');
-  });
-
   it('returns undefined for a key nothing defines', () => {
     // `computeLabel` humanizes on undefined, so this is what keeps a missing string a
     // cosmetic shortfall rather than a rendered `undefined`.
@@ -202,13 +185,12 @@ describe('the mined translations carry meaning, not just key names', () => {
     expect(lookup('de', 'entity')).toBe('Wetter-Entität');
   });
 
-  it('does not swap the two language options', () => {
-    // The pair that proves name-matching is unsafe rather than merely imprecise. Across
-    // the namespaces these two keys exchanged meanings: old `language` is new
-    // `language_mode`, and old `language_code` is new `language`. Mined by name, both
-    // labels would be wrong, and wrong in a way that reads as plausible.
+  it('does not swap the language options', () => {
+    // The pair that proved name-matching unsafe rather than merely imprecise: old `language`
+    // was new `language_mode`, and old `language_code` new `language`. Language is now one
+    // dropdown, and its label is still the mode's.
     expect(lookup('de', 'language_mode')).toBe('Sprache');
-    expect(lookup('de', 'language')).toBe('Sprachcode');
+    expect(lookup('de', 'language')).toBeUndefined();
   });
 
   it('translates no key the editor cannot look up', () => {
@@ -237,5 +219,33 @@ describe('the mined translations carry meaning, not just key names', () => {
     // English lives in `strings.ts` alone. The namespace this replaced kept an `en.json`
     // beside it and the two drifted apart on 41 of the 94 keys they shared.
     expect(EDITOR_LANGUAGE_STRINGS.en).toBeUndefined();
+  });
+});
+
+describe('one English phrase, one decision per language', () => {
+  it('translates every option worded Follow Home Assistant where a language translates one', () => {
+    // An option left out reads in English among its translated siblings: Japanese once offered
+    // Home Assistantに従う for colors and Follow Home Assistant for the language.
+    const keys = Object.keys(EDITOR_STRINGS).filter(
+      (key) => EDITOR_STRINGS[key] === 'Follow Home Assistant',
+    );
+    expect(keys.length).toBeGreaterThan(3);
+    const gaps = Object.entries(EDITOR_LANGUAGE_STRINGS).flatMap(([language, table]) =>
+      keys.some((key) => key in table)
+        ? keys.filter((key) => !(key in table)).map((key) => `${language}: ${key}`)
+        : [],
+    );
+    expect(gaps).toEqual([]);
+  });
+});
+
+describe('Event Type’s helper on a calendar’s page', () => {
+  it('points to Split This Calendar by the name its row shows, in every language', () => {
+    // It once taught listing a calendar twice by hand, which Split does in one step.
+    for (const language of ['en', ...Object.keys(EDITOR_LANGUAGE_STRINGS)]) {
+      const helper = lookup(language, 'entity.event_type.helper') ?? '';
+      expect(helper, language).toContain(lookup(language, 'split.title'));
+      expect(helper, language).toContain(lookup(language, 'page.which_events'));
+    }
   });
 });

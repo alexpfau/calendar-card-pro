@@ -1,16 +1,34 @@
 # Installation
 
-Calendar Card Pro installs the standard way for a custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
+Calendar Card Pro is in the catalog Home Assistant installs custom cards from, so it installs and
+updates like any other. On Home Assistant 2026.11 or later that catalog is **Settings →
+Marketplace**; on older versions it is HACS. Manual installation is available too. Coming from
+v5? Read [Upgrading & Going Back](/guide/upgrading) first.
 
-## 📦 HACS Installation (Recommended)
+## 🛒 Marketplace Installation (Recommended)
 
-The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**. It is listed in the HACS default repositories, so there is no custom repository to add.
+From Home Assistant 2026.11, HACS ships with Home Assistant as the **Marketplace**, so there is
+nothing else to install first.
+
+1. Open **Settings → Marketplace** and search for **Calendar Card Pro**.
+2. Open it and select **Install**.
+3. **Reload** Home Assistant in your browser, and clear the browser cache if an older version
+   still shows.
+
+The card's **⋮** menu there offers **Install another version**, to pick a release, and
+**Include pre-releases**, to be offered betas as updates.
+
+## 📦 HACS Installation
+
+On Home Assistant 2026.10 or earlier, install the card through
+**[HACS (Home Assistant Community Store)](https://hacs.xyz/)**. It is listed in the HACS default
+repositories, so there is no custom repository to add.
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexpfau&repository=calendar-card-pro&category=plugin)
 
 ### Steps
 
-1. Ensure **[HACS](https://hacs.xyz/docs/setup/download)** is installed in Home Assistant.
+1. Ensure **[HACS](https://hacs.xyz/docs/use/download/download/)** is installed in Home Assistant.
 2. Open **HACS** and search for **Calendar Card Pro**, or use the button above.
 3. Open it and select **Download**.
 4. **Reload** Home Assistant in your browser, and clear the browser cache if an older version still shows.
@@ -26,20 +44,27 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
    👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/calendar-card-pro.js) and
    [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/editor.js)
 
-2. **Put both files** into a folder of their own under `www`:  
-   /config/www/calendar-card-pro/
+   If you use the visual editor in German, Estonian, Italian, Japanese, Korean, Latvian,
+   Lithuanian, Norwegian, Polish, Slovak or Swedish, also download that language's file from the
+   [latest release](https://github.com/alexpfau/calendar-card-pro/releases/latest), such as
+   `editor-de.js` for German, or all of them.
 
-3. **Navigate to:**
-   Home Assistant → Settings → Dashboards → Resources → Add Resource
+2. **Put the files** into a folder of their own: in the folder that holds `configuration.yaml`,
+   create `www/calendar-card-pro/` and copy them there. If you just created `www`, restart Home
+   Assistant once; it serves that folder only if it was there at startup.
 
-4. **Add the resource** to your Lovelace Dashboard:
+3. **Add the resource:** open **Settings → Dashboards**, choose **Resources** in the ⋮ menu at
+   the top right, then **Add resource**. Enter the URL
+   `/local/calendar-card-pro/calendar-card-pro.js` and choose **JavaScript module**.
 
-```yaml
-url: /local/calendar-card-pro/calendar-card-pro.js
-type: module
-```
+   If your resources are in YAML (`resource_mode: yaml`), list it there instead:
 
-5. **Refresh** your browser. After a later update, clear its cache as well, or the old version can stay loaded.
+   ```yaml
+   url: /local/calendar-card-pro/calendar-card-pro.js
+   type: module
+   ```
+
+4. **Refresh** your browser. After a later update, clear its cache as well, or the old version can stay loaded.
 
 ::: warning Both Files, In Their Own Folder
 Keep `calendar-card-pro.js` and `editor.js` together, in a folder of their own, and add only
@@ -47,20 +72,23 @@ Keep `calendar-card-pro.js` and `editor.js` together, in a folder of their own, 
 but cannot be configured: opening the visual editor reports that a file is missing. Use a
 subfolder rather than `/config/www/` itself, where another file called `editor.js` can take
 its place and stop the editor from opening.
+
+A language file goes beside them too. Without it, the visual editor opens in English.
 :::
 
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-644 KB and the editor at 592 KB, once per version before the browser caches both.
+773 KB, the editor at 533 KB and a language file at up to 60 KB, once per version before the
+browser caches them.
 
 For a smaller transfer, create the `.gz` files beside the originals:
 
 ```bash
-gzip -9 -k calendar-card-pro.js editor.js
+gzip -9 -k *.js
 ```
 
-That brings the card to 179 KB and the editor to 181 KB. Delete or regenerate the `.gz`
+That brings the card to 212 KB, the editor to 155 KB and a language file to at most 15 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 

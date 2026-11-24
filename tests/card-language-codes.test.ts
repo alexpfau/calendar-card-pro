@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { getRelativeTimeString } from '../src/translations/dayjs';
 import * as LanguageCodes from '../src/translations/language-codes';
 import * as Localize from '../src/translations/localize';
 
@@ -63,12 +64,35 @@ describe('getEffectiveLanguage', () => {
     ['zh-CN', undefined, 'zh-cn'],
     [undefined, 'de-DE', 'de'],
     [undefined, 'pt_BR', 'pt'],
-    [undefined, 'zh-Hant', 'en'],
+    [undefined, 'zh-Hans', 'zh-cn'],
+    [undefined, 'zh-Hant', 'zh-tw'],
+    [undefined, 'zh-HK', 'zh-tw'],
+    [undefined, 'zh-MO', 'zh-tw'],
+    [undefined, 'zh-SG', 'zh-cn'],
+    [undefined, 'zh', 'zh-cn'],
+    [undefined, 'zh-Hant-HK', 'zh-tw'],
+    [undefined, 'zh_TW', 'zh-tw'],
+    [undefined, 'sr-Latn-RS', 'sr-latn'],
+    ['zh-Hant', 'de', 'zh-tw'],
+    ['zh-hans', undefined, 'zh-cn'],
     ['klingon', 'fr', 'fr'],
     ['  ', 'nl', 'nl'],
   ])('resolves config %j with Home Assistant in %j to %j', (config, hass, expected) => {
     expect(LanguageCodes.getEffectiveLanguage(config, hass ? { language: hass } : undefined)).toBe(
       expected,
+    );
+  });
+
+  it.each([
+    ['zh-Hans', '2 天内'],
+    ['zh-Hant', '2 天內'],
+  ])('writes the card in Chinese for Home Assistant in %j', (hass, inTwoDays) => {
+    // Home Assistant names its Chinese by script, the card by region; these read in English
+    // until both were resolved to the card's own Chinese.
+    const language = LanguageCodes.getEffectiveLanguage(undefined, { language: hass });
+    expect(Localize.getTranslations(language).fullDaysOfWeek[2]).toBe('星期二');
+    expect(getRelativeTimeString(new Date(2026, 10, 12), language, new Date(2026, 10, 10))).toBe(
+      inTwoDays,
     );
   });
 

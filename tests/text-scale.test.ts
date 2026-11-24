@@ -8,11 +8,14 @@ import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Entities from '../src/rendering/editor/entities';
 import * as Grid from '../src/rendering/grid';
+import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as TextScale from '../src/rendering/text-scale';
 import * as EventUtils from '../src/utils/events';
 import * as CascadeThreshold from '../src/utils/grid-cascade-threshold';
+import * as MonthDay from '../src/utils/month-day';
+import * as Paging from '../src/utils/paging';
 
 /**
  * A calendar's `text_scale`: its events draw their text and icons that many times the card's
@@ -192,12 +195,22 @@ describe('the sizes a scale multiplies', () => {
   const LEFT_ALONE: Readonly<Record<string, string>> = {
     title_font_size: 'the card title',
     week_number_font_size: 'the week number, beside the days rather than in an event',
+    month_separator_label_font_size: 'the month rule, between the days rather than in an event',
     weekday_font_size: 'the day header',
     day_font_size: 'the day header',
     month_font_size: 'the day header',
     today_indicator_size: 'the today marker, beside the date',
     'weather.date.font_size': "the day header's weather",
     'weather.date.icon_size': "the day header's weather",
+  };
+
+  /**
+   * The month's cell sizes, each scaled as the option it stands in for: the wide month draws its
+   * lines and bars from a configuration holding them in that option's place (`cellConfig`).
+   */
+  const SCALED_IN_ITS_PLACE: Readonly<Record<string, string>> = {
+    cell_event_font_size: 'event_font_size',
+    cell_time_font_size: 'time_font_size',
   };
 
   it('accounts for every size option, either scaled or left alone with a reason', () => {
@@ -207,8 +220,25 @@ describe('the sizes a scale multiplies', () => {
     ];
 
     expect(
-      [...TextScale.SCALED_SIZES.map(({ option }) => option), ...Object.keys(LEFT_ALONE)].sort(),
+      [
+        ...TextScale.SCALED_SIZES.map(({ option }) => option),
+        ...Object.keys(LEFT_ALONE),
+        ...Object.keys(SCALED_IN_ITS_PLACE),
+      ].sort(),
     ).toEqual([...new Set(sizeOptions)].sort());
+    // Each stands in for a size the scale multiplies.
+    const scaled = TextScale.SCALED_SIZES.map(({ option }) => option);
+    expect(Object.values(SCALED_IN_ITS_PLACE).every((option) => scaled.includes(option))).toBe(
+      true,
+    );
+    const cells = MonthRender.cellConfig(
+      buildConfig({ month: { cell_event_font_size: '15px', cell_time_font_size: '9px' } }),
+    );
+    for (const [cell, option] of Object.entries(SCALED_IN_ITS_PLACE)) {
+      expect(cells[option as keyof Types.Config], cell).toBe(
+        cell === 'cell_event_font_size' ? '15px' : '9px',
+      );
+    }
   });
 
   it('is pinned by value', () => {
@@ -342,6 +372,69 @@ describe('a scaled calendar on the card', () => {
       expect(unscaled.classList.contains(TextScale.TEXT_SCALED_CLASS)).toBe(false);
     },
   );
+
+  it('draws its month lines and bars at its scale of the cell sizes, and its list rows of the list’s', () => {
+    const scaled = buildConfig({
+      view: 'month',
+      entities: [{ entity: WORK, text_scale: 1.5 }, { entity: HOME }],
+    } as Partial<Types.Config>);
+    const rowsStart = ViewConfig.monthHomeRowsStart(FROZEN_NOW, 1);
+    const drawn = {
+      ...scaled,
+      start_date: Paging.pageKey(rowsStart),
+      days_to_show: ViewConfig.MONTH_DAYS,
+    };
+    const effective = ViewConfig.resolveEffectiveConfig(drawn, 'month');
+    const events = stamped(
+      [
+        timed(17, '09:00', '10:00', 'Standup', WORK),
+        timed(17, '14:00', '15:00', 'Dentist', HOME),
+        { ...allDay(18, 'Offsite', WORK), end: { date: '2026-06-20' } },
+      ],
+      scaled,
+    );
+    const days = EventUtils.groupEventsByDay(events, drawn, false, 'en', 'month');
+    const wide = document.createElement('div');
+    litRender(
+      MonthRender.renderMonthGroupedEvents(days, rowsStart, effective, 'en', 4, null),
+      wide,
+    );
+    const event = '--calendar-card-font-size-event';
+    const time = '--calendar-card-font-size-time';
+
+    // The month writes its cells' 12px and 10px on itself; a line at 1.5 is 18px and 15px.
+    const month = wide.querySelector('.month-container')!;
+    expect([ownProperty(month, event), ownProperty(month, time)]).toEqual(['12px', '10px']);
+    const line = eventNamed(wide, '.month-line', 'Standup');
+    expect([ownProperty(line, event), ownProperty(line, time)]).toEqual(['18px', '15px']);
+    expect(ownProperty(eventNamed(wide, '.month-line', 'Dentist'), event)).toBeUndefined();
+    expect(ownProperty(eventNamed(wide, '.month-bar', 'Offsite'), event)).toBe('18px');
+
+    // A day's list keeps the list's 14px, so its row at 1.5 is 21px.
+    const list = document.createElement('div');
+    const dayLists = MonthDay.monthDayLists(
+      events,
+      effective,
+      rowsStart,
+      ViewConfig.MONTH_DAYS,
+      'en',
+    );
+    litRender(
+      MonthRender.renderMonthDayList(
+        Paging.addDays(rowsStart, 16),
+        dayLists[16],
+        effective,
+        'en',
+        null,
+        false,
+        undefined,
+        undefined,
+        dayLists[16].length,
+      ),
+      list,
+    );
+    expect(ownProperty(eventNamed(list, 'td.event', 'Standup'), event)).toBe('21px');
+  });
 
   it('draws its all-day banners in grid view at its scale', () => {
     const container = renderView('grid', config(), EVENTS);

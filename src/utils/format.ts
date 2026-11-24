@@ -5,6 +5,7 @@
 
 import * as Helpers from './helpers';
 import * as Logger from './logger';
+import { localDateKey } from './start-date';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
@@ -246,6 +247,33 @@ function timeTextParts(
 
   const use24h = resolveTimeFormat24h(config, hass);
 
+  // A day of a timed event List or Column split across its days. Neither the moment the split
+  // falls (23:59) nor the midnight the last day starts at is the event's, and a row is often
+  // read without the others: Month's day list shows one day. So the first day reads as the
+  // event does unsplit, from its start to its own end, and the last names only its end, as a
+  // wide month's later day does: "until 1:35".
+  const splitRow = splitTimedRow(event);
+  if (splitRow?.row === 'first') {
+    if (!config.show_end_time) {
+      return { text: formatTime(startDate, use24h, config.time_two_digit_hours, language) };
+    }
+    return {
+      text: formatMultiDayTime(
+        startDate,
+        splitRow.end,
+        language,
+        translations,
+        use24h,
+        config.time_two_digit_hours,
+        true,
+      ),
+    };
+  }
+  if (splitRow?.row === 'last') {
+    const end = formatTime(endDate, use24h, config.time_two_digit_hours, language);
+    return { text: translations.untilTime.replace('{time}', () => end) };
+  }
+
   if (startDate.toDateString() !== endDate.toDateString()) {
     return {
       text: formatMultiDayTime(
@@ -266,6 +294,7 @@ function timeTextParts(
       config.show_end_time,
       use24h,
       config.time_two_digit_hours,
+      language,
     ),
   };
 }
@@ -315,7 +344,8 @@ export function formatEventDuration(
 
 /**
  * The whole event a row stands for, and whether the row shows only part of it: a day of a
- * split list or column event, or a grid block other than the one that starts its event.
+ * split list or column event other than its first, which shows the whole event's times, or a
+ * grid block other than the one that starts its event.
  *
  * @param event Calendar event, or a row of one
  * @returns The event's start and end, and whether the row shows part of it
@@ -330,9 +360,34 @@ function shownInterval(
     };
   }
   if (event._isMultiDaySegment && event._sourceStart && event._sourceEnd) {
-    return { start: event._sourceStart, end: event._sourceEnd, part: true };
+    const part = splitTimedRow(event)?.row !== 'first';
+    return { start: event._sourceStart, end: event._sourceEnd, part };
   }
   return { start: event.start, end: event.end, part: false };
+}
+
+/**
+ * Which day of its event a row of a timed event List or Column split is, where it is the first
+ * or the last, and the event's own end. A middle day is all-day and is neither, nor is anything
+ * Grid's splitter drew, nor a row whose times were put back to the whole event's, as a search
+ * result's are.
+ *
+ * @param event A row
+ * @returns The row's place and the event's end, or null
+ */
+function splitTimedRow(
+  event: Types.CalendarEventData,
+): { row: 'first' | 'last'; end: Date } | null {
+  if (!event._splitFromTimedEvent || !event.start.dateTime || !event.end.dateTime) return null;
+  const sourceStart = event._sourceStart?.dateTime;
+  const sourceEnd = event._sourceEnd?.dateTime;
+  if (!sourceStart || !sourceEnd) return null;
+
+  const startsEvent = new Date(event.start.dateTime).getTime() === new Date(sourceStart).getTime();
+  const end = new Date(sourceEnd);
+  const endsEvent = new Date(event.end.dateTime).getTime() === end.getTime();
+  if (startsEvent === endsEvent) return null;
+  return { row: startsEvent ? 'first' : 'last', end };
 }
 
 /**
@@ -342,8 +397,9 @@ function shownInterval(
  * is an hour shorter than its clock readings say, and it says so. From a full day, the wall
  * clock: whole calendar days, then the clock time between the start's time of day and the
  * end's, so noon to noon is "1 day" whether the clocks changed in between or not. A full day is
- * the day counter's (`fullDaySpan`): an end on a later date at or after the start's time of
- * day. All-day events count their dates, one included.
+ * the day counter's (`reachesFullDay`, which `fullDaySpan` asks too): an end on a later date at
+ * or after the start's time of day, so midnight to midnight is "1 day" though it takes up one
+ * date, which is too few for the day counter. All-day events count their dates, one included.
  *
  * @param start Start, as Home Assistant sent it
  * @param end End, as Home Assistant sent it
@@ -359,15 +415,14 @@ function durationParts(
   }
 
   if (!start.dateTime || !end.dateTime) return null;
-  const span = fullDaySpan(start, end);
   const from = new Date(start.dateTime);
   const to = new Date(end.dateTime);
   // Written positively: an unreadable date compares false both ways, and must not pass.
   if (!(to.getTime() > from.getTime()) || isSameMinute(from, to)) return null;
 
-  if (span) {
+  if (reachesFullDay(from, to)) {
     let days = getCalendarDayDiff(from, to);
-    let clock = timeOfDay(to) - timeOfDay(from);
+    let clock = wallClock(to) - wallClock(from);
     if (clock < 0) {
       days -= 1;
       clock += 86400000;
@@ -1014,7 +1069,7 @@ export function parseAllDayDate(dateString: string): Date {
  * @returns Date key string in YYYY-MM-DD format
  */
 export function getLocalDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return localDateKey(date);
 }
 
 /**
@@ -1236,11 +1291,7 @@ export function fullDaySpan(
   } else if (start?.dateTime && end?.dateTime) {
     first = new Date(start.dateTime);
     const endInstant = new Date(end.dateTime);
-    const datesLater = getCalendarDayDiff(first, endInstant);
-    // Written positively: an unparseable date compares false both ways, and must not pass.
-    if (!(datesLater >= 2 || (datesLater === 1 && timeOfDay(endInstant) >= timeOfDay(first)))) {
-      return null;
-    }
+    if (!reachesFullDay(first, endInstant)) return null;
     last = new Date(endInstant.getTime() - 1);
   } else {
     return null;
@@ -1249,6 +1300,34 @@ export function fullDaySpan(
   const days = getCalendarDayDiff(first, last) + 1;
 
   return days >= 2 ? { first, days } : null;
+}
+
+/**
+ * Whether a timed interval is a full day or longer on the wall clock: it ends on a later date,
+ * at or after its start's time of day there. The card's one answer to that question, for the
+ * day counter and banners (`fullDaySpan`) and for a duration (`durationParts`).
+ *
+ * @param from Start
+ * @param to End
+ * @returns True from a full day on; false for anything shorter, or an unreadable date
+ */
+function reachesFullDay(from: Date, to: Date): boolean {
+  const datesLater = getCalendarDayDiff(from, to);
+  // Written positively: an unparseable date compares false both ways, and must not pass.
+  return datesLater >= 2 || (datesLater === 1 && wallClock(to) >= wallClock(from));
+}
+
+/**
+ * A wall-clock reading as the full-day rule reads it: `timeOfDay`, except that a date's first
+ * moment reads 0:00. Where the clocks go forward at midnight that moment reads 1:00, and an
+ * event from it to the next midnight is still that whole date, as midnight to midnight is.
+ *
+ * @param date An instant
+ * @returns Its local time of day, in milliseconds
+ */
+function wallClock(date: Date): number {
+  const firstMoment = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return date.getTime() === firstMoment.getTime() ? 0 : timeOfDay(date);
 }
 
 /**
@@ -1266,21 +1345,112 @@ function timeOfDay(date: Date): number {
 }
 
 /**
+ * Languages whose 12-hour clock is written with their own day period rather than AM and PM.
+ *
+ * Japanese, Korean and Chinese put it before the time, in their own script: `午前11:00`,
+ * `오전 11:00`, `上午11:00`. AM and PM after the time read as a foreign word in the wrong place
+ * there. Every other language keeps the card's AM and PM, and so does Grid's hour axis in every
+ * language: two or three letters of these scripts are wider than the room `view.ts` reserves for
+ * the axis before it knows the language (`GRID_MAX_CONTENT_AXIS_PX`).
+ */
+const NATIVE_DAY_PERIOD_LANGUAGES: ReadonlySet<string> = new Set(['ja', 'ko', 'zh-cn', 'zh-tw']);
+
+/** A language's 12-hour day period, and where it goes. */
+interface DayPeriods {
+  am: string;
+  pm: string;
+  /** Whether it is written before the hour. */
+  before: boolean;
+  /** What stands between it and the time: a space, or nothing. */
+  gap: string;
+}
+
+const dayPeriodCache = intlCache<string, DayPeriods | null>();
+
+/**
+ * The day period a language writes a 12-hour time with, taken from `Intl`, or null where the
+ * card writes AM and PM (`NATIVE_DAY_PERIOD_LANGUAGES`). Only the words and their side come
+ * from `Intl`; the digits, their padding and the colon stay the card's own.
+ *
+ * @param language Card language code
+ * @returns Its day periods, or null
+ */
+function nativeDayPeriods(language: string | undefined): DayPeriods | null {
+  const code = language?.toLowerCase();
+  if (!code || !NATIVE_DAY_PERIOD_LANGUAGES.has(code)) return null;
+
+  const cached = dayPeriodCache.get(code);
+  if (cached !== undefined) return cached;
+
+  const format = new Intl.DateTimeFormat(intlLocales(code), {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const partsAt = (hour: number) => format.formatToParts(new Date(2000, 0, 1, hour, 5));
+  const period = (parts: Intl.DateTimeFormatPart[]) =>
+    parts.find((part) => part.type === 'dayPeriod')?.value;
+  const morning = partsAt(9);
+  const am = period(morning);
+  const pm = period(partsAt(21));
+  const periodAt = morning.findIndex((part) => part.type === 'dayPeriod');
+  const hourAt = morning.findIndex((part) => part.type === 'hour');
+
+  let periods: DayPeriods | null = null;
+  if (am && pm && periodAt !== -1 && hourAt !== -1) {
+    const before = periodAt < hourAt;
+    const between = morning.slice(Math.min(periodAt, hourAt) + 1, Math.max(periodAt, hourAt));
+    // A space of any width is the card's plain one, as after AM and PM.
+    const gap = between.some((part) => /\s/.test(part.value)) ? ' ' : '';
+    periods = { am, pm, before, gap };
+  }
+  dayPeriodCache.set(code, periods);
+  return periods;
+}
+
+/**
+ * Put a 12-hour time and its day period together the way a language writes them: `11:00 AM`,
+ * or `午前11:00` in Japanese.
+ *
+ * @param time The digits, as the card writes them
+ * @param afternoon Whether the time is noon or later
+ * @param language Card language code; AM and PM without one
+ * @returns The reading
+ */
+function withDayPeriod(time: string, afternoon: boolean, language?: string): string {
+  const periods = nativeDayPeriods(language);
+  if (!periods) return `${time} ${afternoon ? 'PM' : 'AM'}`;
+  const period = afternoon ? periods.pm : periods.am;
+  return periods.before ? `${period}${periods.gap}${time}` : `${time}${periods.gap}${period}`;
+}
+
+/**
  * Format a time with the configured hour style.
  *
  * @param date Date to format
  * @param use24h Whether to use 24-hour time
  * @param twoDigitHours Whether to pad hours to two digits
+ * @param language Card language code, for the day period of a 12-hour time
+ *   (`NATIVE_DAY_PERIOD_LANGUAGES`); AM and PM without one
  * @returns Formatted time string
  */
-export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
+export function formatTime(
+  date: Date,
+  use24h = true,
+  twoDigitHours = false,
+  language?: string,
+): string {
   let hours = date.getHours();
   const minutes = date.getMinutes();
 
   if (!use24h) {
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const afternoon = hours >= 12;
     hours = hours % 12 || 12;
-    return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)} ${ampm}`;
+    return withDayPeriod(
+      `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`,
+      afternoon,
+      language,
+    );
   }
 
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
@@ -1288,11 +1458,13 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
 
 /**
  * A 12-hour clock reading as the card writes one: "9:41 AM" and "09:41 PM" from `formatTime`,
- * and the grid axis's hour-only "9 AM". The 24-hour form has no letter in it and is
- * deliberately not matched. No translation writes AM or PM, so nothing else in a time row can
- * match.
+ * and the grid axis's hour-only "9 AM", or with a day period before it in Japanese, Korean and
+ * Chinese ("午前9:41", "오후 9:41", "上午9:41", `NATIVE_DAY_PERIOD_LANGUAGES`). The 24-hour form
+ * has no letter in it and is deliberately not matched. No translation writes AM or PM, or one of
+ * those day periods, so nothing else in a time row can match.
  */
-const CLOCK_READING_12H = /\d{1,2}(?::\d{2})? [AP]M/g;
+const CLOCK_READING_12H =
+  /(?:午前|午後|上午|下午|오전|오후) ?\d{1,2}:\d{2}|\d{1,2}(?::\d{2})? [AP]M/g;
 
 /** Letters the bidi algorithm reads right to left: Hebrew through NKo, and the presentation forms. */
 const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
@@ -1617,6 +1789,7 @@ function isSameMinute(a: Date, b: Date): boolean {
  * @param showEndTime Whether the end time is drawn at all
  * @param use24h Whether to format on a 24-hour clock
  * @param twoDigitHours Whether to pad the hour
+ * @param language Card language code, for a 12-hour day period
  * @returns The time text, and its droppable end where it has one
  */
 function formatSingleDayTime(
@@ -1625,14 +1798,15 @@ function formatSingleDayTime(
   showEndTime: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
+  language?: string,
 ): Pick<EventTimeParts, 'text' | 'end'> {
-  const start = formatTime(startDate, use24h, twoDigitHours);
+  const start = formatTime(startDate, use24h, twoDigitHours, language);
 
   if (!showEndTime || isSameMinute(startDate, endDate)) {
     return { text: start };
   }
 
-  const end = ` - ${formatTime(endDate, use24h, twoDigitHours)}`;
+  const end = ` - ${formatTime(endDate, use24h, twoDigitHours, language)}`;
 
   return { text: `${start}${end}`, end };
 }
@@ -1695,6 +1869,21 @@ function endsWithoutTime(phrase: string): string {
   return `${before}${gap}${after}`.trim();
 }
 
+/**
+ * A timed event's time text where it runs past the day it starts on: its start and its end,
+ * named from today ("22:05, ends tomorrow at 1:35", "22:05 until Thursday, Nov 26 at 1:35"),
+ * or only its end where it began before today and its start is not on screen.
+ *
+ * @param startDate Event start
+ * @param endDate Event end
+ * @param language Language code
+ * @param translations Resolved translations for that language
+ * @param use24h Whether to format on a 24-hour clock
+ * @param twoDigitHours Whether to pad the hour
+ * @param withStart Whether to write the start whenever the event began: on the first day of a
+ *   split event, the row stands on the start's own day
+ * @returns The time text
+ */
 function formatMultiDayTime(
   startDate: Date,
   endDate: Date,
@@ -1702,13 +1891,14 @@ function formatMultiDayTime(
   translations: Types.Translations,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
+  withStart: boolean = false,
 ): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours);
+  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours, language);
 
   let endPart: string;
 
@@ -1721,7 +1911,7 @@ function formatMultiDayTime(
     endPart = `${sentenceDate(endDate, language, translations)} ${endTime}`;
   }
 
-  if (today.getTime() <= startDate.getTime()) {
+  if (withStart || today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
     // "Ends tomorrow at 0:30" is a sentence of its own, so joining it after `multiDay`
     // ("until") read "22:30 until ends tomorrow at 0:30". It takes the language's `separator`

@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { SelectorSchema } from '../src/rendering/editor/ha-form';
 import { buildDisplayViewSchema } from '../src/rendering/editor/schemas/layout';
-import { VIEW_PICTOGRAMS } from '../src/rendering/view-pictograms';
+import { VIEW_PICTOGRAMS, pictogramMarkup } from '../src/rendering/view-pictograms';
 
 const ORIGINAL_ARTWORK = {
   list:
@@ -53,19 +53,24 @@ describe('the view pictograms', () => {
       node.selector as unknown as { select: { options: Array<{ value: string; image?: string }> } }
     ).select.options;
 
-    expect(options.map((option) => option.value)).toEqual(['list', 'column', 'grid']);
+    // Month is new, so it has no original to keep; its tile is drawn from the same table.
+    expect(options.map((option) => option.value)).toEqual(['list', 'column', 'grid', 'month']);
     for (const option of options) {
+      if (option.value === 'month') {
+        expect(decodeURIComponent(option.image!)).toContain(pictogramMarkup('month'));
+        continue;
+      }
       const original = ORIGINAL_ARTWORK[option.value as keyof typeof ORIGINAL_ARTWORK];
       expect(option.image, option.value).toBe(`data:image/svg+xml,${encodeURIComponent(original)}`);
     }
   });
 
   it('draw one picture per view, and nothing else', () => {
-    expect(Object.keys(VIEW_PICTOGRAMS)).toEqual(['list', 'column', 'grid']);
+    expect(Object.keys(VIEW_PICTOGRAMS)).toEqual(['list', 'column', 'grid', 'month']);
     expect(
       Object.fromEntries(
         Object.entries(VIEW_PICTOGRAMS).map(([view, rects]) => [view, rects.length]),
       ),
-    ).toEqual({ list: 6, column: 6, grid: 11 });
+    ).toEqual({ list: 6, column: 6, grid: 11, month: 27 });
   });
 });

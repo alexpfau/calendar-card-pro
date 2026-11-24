@@ -2,10 +2,11 @@
  * Editor-local workspaces, independent of the card's displayed view.
  */
 
-import type { HaFormSchema } from './ha-form';
-import { select } from './schemas/common';
+import { isSet as holdsValue } from './synthetic';
+import { DEFAULT_CONFIG } from '../../config/config';
 import type * as Types from '../../config/types';
-import { VIEWS, resolveViewOption } from '../../config/view';
+import { OVERRIDE_BLOCK_BY_VIEW, VIEWS, resolveViewOption } from '../../config/view';
+import { hasOwn, isConfigBlock } from '../../utils/helpers';
 
 /**
  * A workspace is a place values are written, which is not the same thing as a view.
@@ -17,8 +18,6 @@ import { VIEWS, resolveViewOption } from '../../config/view';
  * list's keys lived at the top level. `list:` is what gives it a job.
  */
 export type EditorWorkspace = Types.EffectiveView | 'shared';
-
-export const WORKSPACE_FIELD = 'editing_workspace';
 
 export const WORKSPACES: ReadonlyArray<EditorWorkspace> = ['shared', ...VIEWS];
 
@@ -76,9 +75,9 @@ export function baseViewForWorkspace(workspace: EditorWorkspace): Types.Effectiv
 }
 
 /**
- * Whether a form value names an editor workspace.
+ * Whether a value names an editor workspace.
  *
- * @param value - Value returned by the workspace form
+ * @param value - Value to test
  * @returns Whether the value is a supported workspace
  */
 export function isWorkspace(value: unknown): value is EditorWorkspace {
@@ -86,21 +85,77 @@ export function isWorkspace(value: unknown): value is EditorWorkspace {
 }
 
 /**
- * Names the storage-destination note shown for a workspace.
- *
- * @param workspace - Editing workspace
- * @returns A note key when its values can also be used by other layouts
+ * Top-level keys the scope control does not count for All Layouts: what the card is, its
+ * calendars and its layout each have a control of their own above the settings.
  */
-export function workspaceNote(workspace: EditorWorkspace): string | undefined {
-  return workspace === 'shared' ? 'editing_workspace.shared_note' : undefined;
+const UNCOUNTED_ROOT_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'entities',
+  'view',
+  'config_version',
+]);
+
+/** The keys of the view blocks. */
+export const BLOCK_KEYS: ReadonlySet<string> = new Set(Object.values(OVERRIDE_BLOCK_BY_VIEW));
+
+/**
+ * Nested groups a layout's page edits in that layout's own block: `weather:` is drawn per layout,
+ * so its fields keep their path (`weather.position`) and are stored under the block of the layout
+ * being edited (`time_grid.weather.position`). All Layouts offers none of them.
+ */
+export const LAYOUT_GROUPS: ReadonlySet<string> = new Set(['weather']);
+
+/**
+ * Whether a nested field has a copy per layout: inside a view block, or in a layout group.
+ *
+ * @param dataPath - The field's enclosing data keys
+ * @returns `true` when its value can differ between layouts
+ */
+export function isLayoutCopyPath(dataPath: ReadonlyArray<string>): boolean {
+  return dataPath.length > 0 && (BLOCK_KEYS.has(dataPath[0]) || LAYOUT_GROUPS.has(dataPath[0]));
 }
 
 /**
- * Builds the editor-only workspace selector.
+ * Where a nested field is stored in a scope: at its own path, or for a layout group under the
+ * block of the layout being edited.
  *
- * @param language - Editor language
- * @returns A required selector, separate from every configuration-writing form
+ * @param dataPath - The field's enclosing data keys
+ * @param workspace - The scope
+ * @returns The stored path, or `undefined` for a layout group in All Layouts, which stores none
  */
-export function buildWorkspaceSchema(language: string): HaFormSchema[] {
-  return [{ ...select(language, WORKSPACE_FIELD, WORKSPACES), required: true }];
+export function storedPath(
+  dataPath: ReadonlyArray<string>,
+  workspace: EditorWorkspace,
+): ReadonlyArray<string> | undefined {
+  if (dataPath.length === 0 || !LAYOUT_GROUPS.has(dataPath[0])) return dataPath;
+  const view = viewForWorkspace(workspace);
+  return view === undefined ? undefined : [OVERRIDE_BLOCK_BY_VIEW[view] as string, ...dataPath];
+}
+
+/**
+ * How many values the YAML stores in a scope: a layout's own block, or for All Layouts the
+ * card's own top-level settings. Read from the YAML as stored, never from the merged
+ * configuration, which carries every default.
+ *
+ * @param raw - Configuration as the YAML holds it
+ * @param workspace - The scope
+ * @returns The count, shown as "Set: N"
+ */
+export function storedCount(
+  raw: Readonly<Record<string, unknown>>,
+  workspace: EditorWorkspace,
+): number {
+  const view = viewForWorkspace(workspace);
+  if (view !== undefined) {
+    const blockKey = OVERRIDE_BLOCK_BY_VIEW[view];
+    const block = blockKey === undefined ? undefined : raw[blockKey];
+    return isConfigBlock(block) ? Object.values(block).filter(holdsValue).length : 0;
+  }
+  return Object.entries(raw).filter(
+    ([key, value]) =>
+      !UNCOUNTED_ROOT_KEYS.has(key) &&
+      !BLOCK_KEYS.has(key) &&
+      hasOwn(DEFAULT_CONFIG, key) &&
+      holdsValue(value),
+  ).length;
 }

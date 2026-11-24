@@ -114,7 +114,7 @@ describe('host pointer handling', () => {
   it('arms a hold when a hold action is configured', async () => {
     // The positive control for the case above: without it, a handler that never armed
     // anything at all would satisfy that assertion.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -123,7 +123,7 @@ describe('host pointer handling', () => {
   });
 
   it('ignores a non-primary mouse button so right-click does not arm hold', async () => {
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1, 0, 0, { button: 2 }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -136,7 +136,7 @@ describe('host pointer handling', () => {
   it('still arms hold for an explicit primary button 0', async () => {
     // Without this, a handler that rejected every numeric `button` would pass the
     // right-click case while breaking every real mouse and touch contact.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -148,7 +148,7 @@ describe('host pointer handling', () => {
     // Before the button guard, a context-menu click restarted the hold timer mid-press.
     // Advance just shy of the threshold, inject a right-click, then finish the remainder:
     // if the timer was reset the remaining window is too short and hold never fires.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
     const threshold = Constants.TIMING.HOLD_THRESHOLD;
 
     card._handlePointerDown(pointer(7, 0, 0, { button: 0 }));
@@ -167,6 +167,7 @@ describe('host pointer handling', () => {
     // state while the left button was still down.
     const card = await mount({
       hold_action: { action: 'expand' },
+      compact_events_to_show: 9,
       tap_action: { action: 'none' },
     });
 
@@ -184,7 +185,7 @@ describe('host pointer handling', () => {
   });
 
   it('does not fire a tap when a secondary button releases before the hold threshold', async () => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
     vi.advanceTimersByTime(50);
@@ -197,7 +198,7 @@ describe('host pointer handling', () => {
   });
 
   it('does not let a second touch steal the active gesture', async () => {
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
     card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
@@ -216,7 +217,7 @@ describe('host pointer handling', () => {
     // Only the primary touch owns the gesture. Transferring ownership to a second
     // finger used to require replacing the first body-level indicator and made the
     // second contact capable of firing an action the user began with the first.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(11, 0, 0, { isPrimary: true }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -239,7 +240,7 @@ describe('host pointer handling', () => {
   });
 
   it('does not cancel the active pointer when a different finger is canceled', async () => {
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
     card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
@@ -252,7 +253,7 @@ describe('host pointer handling', () => {
   });
 
   it('runs the hold action when the active pointer is released after a hold', async () => {
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(3));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -263,7 +264,7 @@ describe('host pointer handling', () => {
   });
 
   it('runs the tap action when the pointer is released before the hold threshold', async () => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(4));
     vi.advanceTimersByTime(50);
@@ -307,7 +308,7 @@ describe('host pointer handling', () => {
   });
 
   it('keeps a small pointer wobble as a tap', async () => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(5, 100, 100));
     card._handlePointerMove(pointer(5, 104, 103));
@@ -318,7 +319,7 @@ describe('host pointer handling', () => {
   });
 
   it('does not turn a scroll or drag into a tap action', async () => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(6, 100, 100));
     card._handlePointerMove(pointer(6, 109, 100));
@@ -328,7 +329,7 @@ describe('host pointer handling', () => {
   });
 
   it('listens for pointer movement on the rendered card host', async () => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
     const haCard = card.shadowRoot?.querySelector('ha-card');
     expect(haCard).toBeTruthy();
 
@@ -340,7 +341,7 @@ describe('host pointer handling', () => {
   });
 
   it('does not turn a moved long press into a hold action', async () => {
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(8, 100, 100));
     card._handlePointerMove(pointer(8, 100, 109));
@@ -356,7 +357,7 @@ describe('host pointer handling', () => {
     // indicator appears used to set _pointerMoved and clear _holdTriggered,
     // so a normal touch lift after a successful long-press ran neither hold
     // nor tap — the user saw the disc and got nothing.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(9, 100, 100));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -375,7 +376,7 @@ describe('host pointer handling', () => {
     // still down. Treating it like cancel after the hold indicator appeared used
     // to wipe the gesture, and without capture the matching outside pointerup
     // never arrived — same "saw the disc, got nothing" failure as a lift-slip.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
     const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
       setPointerCapture(id: number): void;
       hasPointerCapture(id: number): boolean;
@@ -409,7 +410,7 @@ describe('host pointer handling', () => {
   it('still cancels on leave when the pointer was never captured', async () => {
     // Positive control for the capture path above: without capture, leave is the
     // only cleanup when contact leaves the card, and must still abort the gesture.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handlePointerDown(pointer(13, 100, 100));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
@@ -428,7 +429,7 @@ describe('host pointer handling', () => {
     // capture without up/cancel — and leave already fired while capture held —
     // nothing else cleaned the gesture: the hold disc stuck on document.body and
     // _activePointerId stayed set until an unrelated later down.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
     const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
       setPointerCapture(id: number): void;
       hasPointerCapture(id: number): boolean;
@@ -472,7 +473,7 @@ describe('host pointer handling', () => {
     // action currently runs before release, so a blind cancel-on-lost would not
     // eat the hold today — but the path must stay green as a regression control
     // for the external-loss case above. The next test pins the self-release guard.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
     const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
       setPointerCapture(id: number): void;
       hasPointerCapture(id: number): boolean;
@@ -507,7 +508,7 @@ describe('host pointer handling', () => {
     // our releasePointerCapture is indistinguishable from an external strip and
     // would cancel mid-cleanup. Pin the flag window directly: external lost is
     // the sibling case above.
-    const card = await mount({ hold_action: { action: 'expand' } });
+    const card = await mount({ hold_action: { action: 'expand' }, compact_events_to_show: 9 });
     const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
       setPointerCapture(id: number): void;
       hasPointerCapture(id: number): boolean;
@@ -547,7 +548,7 @@ describe('host keyboard handling', () => {
   });
 
   it.each(['Enter', ' '])('activates the card on %j', async (key) => {
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handleKeyDown({ key, preventDefault: vi.fn() } as unknown as KeyboardEvent);
 
@@ -568,7 +569,7 @@ describe('host keyboard handling', () => {
   it('ignores other keys', async () => {
     // The negative control. Without it, a handler that fired on every keystroke would
     // pass both cases above.
-    const card = await mount({ tap_action: { action: 'expand' } });
+    const card = await mount({ tap_action: { action: 'expand' }, compact_events_to_show: 9 });
 
     card._handleKeyDown({ key: 'a', preventDefault: vi.fn() } as unknown as KeyboardEvent);
 
@@ -586,7 +587,7 @@ describe('host keyboard handling', () => {
     const card = await mount({
       view: 'grid',
       days_to_show: 7,
-      tap_action: { action: 'expand' },
+      tap_action: { action: 'more-info' },
       time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
     });
 
@@ -605,7 +606,7 @@ describe('host keyboard handling', () => {
     const card = await mount({
       view: 'grid',
       days_to_show: 7,
-      tap_action: { action: 'expand' },
+      tap_action: { action: 'more-info' },
       time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
     });
 

@@ -20,14 +20,21 @@
  *
  * Adding a language needs no `TRANSLATIONS` entry of its own — the language must
  * already be registered by `src/translations/localize.ts`, and `npm run check:i18n`
- * fails on a file that is not, or that exists but is never imported below.
+ * fails on a file that is not, or that exists but is never imported below. It does need its
+ * code in `EDITOR_LANGUAGE_FILES` (`./files.ts`), which `check:i18n` also asks for.
+ *
+ * **This is the registry of every language, and the editor does not import it.** The editor
+ * holds British English (`./held.ts`) and loads any other language from a file of its own the
+ * build writes (`./loader.ts`), so this module is read by the tests, the gates and the build
+ * alone. Importing it from the editor would put every translation back into every editor open;
+ * `check:bundle` fails when a translated string turns up inside `editor.js`.
  */
 
-// Imports (sorted alphabetically by language code, mirroring localize.ts)
 import deEditor from './de.json';
 import enGBEditor from './en-GB.json';
 import etEditor from './et.json';
 import itEditor from './it.json';
+import jaEditor from './ja.json';
 import koEditor from './ko.json';
 import ltEditor from './lt.json';
 import lvEditor from './lv.json';
@@ -45,15 +52,16 @@ import svEditor from './sv.json';
  * end, so it would be a poor way to reintroduce it.
  */
 export const EDITOR_LANGUAGE_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  de: deEditor,
   'en-gb': enGBEditor,
-  et: etEditor,
-  it: itEditor,
   ko: koEditor,
+  ja: jaEditor,
+  sk: skEditor,
+  pl: plEditor,
   lt: ltEditor,
   lv: lvEditor,
-  nb: nbEditor,
-  pl: plEditor,
-  sk: skEditor,
+  et: etEditor,
+  de: deEditor,
   sv: svEditor,
+  nb: nbEditor,
+  it: itEditor,
 };

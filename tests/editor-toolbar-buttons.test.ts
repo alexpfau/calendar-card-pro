@@ -1,7 +1,7 @@
 /**
- * The toolbar's own buttons in the editor: under the Card & Header panel's toolbar switches, a
- * panel per button with Move Up, Move Down and Remove above a form of four fields, and Add Button
- * after the last.
+ * The toolbar's own buttons in the editor: under Card & Header's toolbar controls, a row per
+ * button that opens in place to Move Up, Move Down and Remove above a form per field, and Add
+ * Button after the last (D09 A).
  *
  * Three things are pinned, and each fails where the others cannot see.
  *
@@ -10,22 +10,37 @@
  * takes the key with it. A list written raw would store defaults, and one rebuilt from the list
  * the card resolves would drop the entry somebody is still filling in.
  *
- * The **panels**. One per entry as written, headed by its name, its icon or its place, opened as
- * Add Button creates it, and keyed by its button rather than its place, so a moved button takes
- * its open panel and the keyboard's focus with it.
+ * The **rows**. One per entry as written, named by its name, its icon or its place, with what a
+ * press does under it, opened as Add Button creates it with focus on its Icon field's wrapper,
+ * and keyed by its button rather than its place, so a moved button takes its open row and the
+ * keyboard's focus with it.
  *
  * The **form**. Four fields, pinned by value, and an action dropdown offering every card action,
  * `back` among them, ahead of Home Assistant's, each named through the editor's wrapped `hass`.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  type FormElement,
+  button,
+  changeField,
+  chooseResult,
+  fakeHass,
+  formOf,
+  formsOf,
+  helperOf,
+  keysOf,
+  labelOf,
+  mountEditor,
+  openPageOf,
+  resultRows,
+  valueOf,
+} from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as Buttons from '../src/rendering/editor/buttons';
-import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import { CUSTOMIZED_ONLY_FIELD, SEARCH_FIELD } from '../src/rendering/editor/filter';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { SEARCH_FIELD } from '../src/rendering/editor/filter';
 import { HA_ACTION_LABEL_PREFIX } from '../src/rendering/editor/hass-localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { ACTION_OPTIONS } from '../src/rendering/editor/schemas/actions';
@@ -34,27 +49,6 @@ import {
   TOOLBAR_BUTTON_ICON,
   TOOLBAR_BUTTON_PATH,
 } from '../src/rendering/editor/schemas/card';
-
-customElements.define('editor-toolbar-buttons-probe', CalendarCardProEditor);
-
-type EditorHost = HTMLElement & {
-  hass: unknown;
-  setConfig(config: unknown): void;
-  readonly updateComplete: Promise<unknown>;
-};
-
-interface Panel extends HTMLElement {
-  header?: string;
-  expanded?: boolean;
-}
-
-interface Form extends HTMLElement {
-  data: Record<string, unknown>;
-  schema: HaFormSchema[];
-  hass?: Types.Hass;
-  computeLabel: (schema: HaFormSchema) => string;
-  computeHelper: (schema: HaFormSchema) => string | undefined;
-}
 
 /** The exact list a button's action dropdown offers: the card's own actions, then HA's. */
 const EXPECTED_ACTIONS = [
@@ -99,20 +93,18 @@ async function mount(
   toolbar: Record<string, unknown> | undefined,
   extra: Record<string, unknown> = {},
 ) {
-  const element = document.createElement('editor-toolbar-buttons-probe') as EditorHost;
-  element.hass = {
-    states: {},
-    locale: { language: 'en' },
-    localize: (key: string) => `HA:${key}`,
-  };
-  document.body.appendChild(element);
-  element.setConfig({
-    config_version: Config.CURRENT_CONFIG_VERSION,
-    entities: ['calendar.anna'],
-    ...(toolbar === undefined ? {} : { toolbar }),
-    ...extra,
-  });
-  await element.updateComplete;
+  const element = await mountEditor(
+    {
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...(toolbar === undefined ? {} : { toolbar }),
+      ...extra,
+    },
+    { hass: fakeHass({ localize: (key: string) => `HA:${key}` }) },
+  );
+  // The Card & Header panel holds the buttons, opened as a user would to reach them: a closed
+  // panel mounts no form. Each button's own panel stays as it was, closed until a test opens it.
+  await openPageOf(element, 'card:title');
 
   const reported: Array<Record<string, unknown>> = [];
   element.addEventListener('config-changed', (event) => {
@@ -122,18 +114,12 @@ async function mount(
   });
 
   const root = element.shadowRoot!;
-  const panels = () => Array.from(root.querySelectorAll<Panel>('ha-expansion-panel.button-panel'));
-  const forms = () => panels().map((panel) => panel.querySelector('ha-form.button-form') as Form);
-  const fieldNames = (form: Form) => [...walkSchema(form.schema)].map(({ node }) => node.name);
-
-  /** One panel's button, by the text on it. */
-  const control = (panel: number, label: string) => {
-    const found = Array.from(
-      panels()[panel].querySelectorAll<HTMLButtonElement>('.button-actions button'),
-    ).find((button) => button.textContent?.trim() === label);
-    if (!found) throw new Error(`no ${label} button on panel ${panel}`);
-    return found;
-  };
+  const rows = () => Array.from(root.querySelectorAll<HTMLElement>('.button-row'));
+  const toggle = (row: number) =>
+    rows()[row].querySelector<HTMLButtonElement>(':scope > .cal-row [aria-expanded]')!;
+  const forms = () => formsOf(element, button());
+  const fieldNames = (form: FormElement) =>
+    [...walkSchema(form.schema)].map(({ node }) => node.name);
 
   const press = async (button: HTMLButtonElement | null) => {
     if (!button) throw new Error('no such button');
@@ -141,39 +127,14 @@ async function mount(
     await element.updateComplete;
   };
 
-  /** Fires the whole-object change `ha-form` emits, from one button's form. */
-  const change = async (index: number, patch: Record<string, unknown>) => {
-    const form = forms()[index];
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, ...patch } } }),
-    );
-    await element.updateComplete;
-  };
-
-  /** The panel form that owns `option`, among the card's own fields. */
-  const mainForm = (option: string) => {
-    const form = Array.from(root.querySelectorAll<Form>('ha-form.panel-form')).find((candidate) =>
-      [...walkSchema(candidate.schema)].some(({ node }) => node.name === option),
-    );
-    if (!form) throw new Error(`no panel form offers ${option}`);
-    return form;
-  };
-
-  /** Fires a change from the panel form that owns `option`, as the card's own fields do. */
-  const changeMain = async (option: string, value: unknown) => {
-    const form = mainForm(option);
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, [option]: value } } }),
-    );
-    await element.updateComplete;
-  };
-
-  const filterBy = async (patch: Record<string, unknown>) => {
-    const form = root.querySelector<Form>('ha-form.filter-form')!;
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...form.data, ...patch } } }),
-    );
-    await element.updateComplete;
+  /** One row's action, by the text on it, the row opened first as a user opens it. */
+  const control = async (row: number, label: string) => {
+    if (toggle(row).getAttribute('aria-expanded') !== 'true') await press(toggle(row));
+    const found = Array.from(
+      rows()[row].querySelectorAll<HTMLButtonElement>('.button-actions button'),
+    ).find((button) => button.textContent?.trim() === label);
+    if (!found) throw new Error(`no ${label} button on row ${row}`);
+    return found;
   };
 
   const last = () => reported[reported.length - 1];
@@ -185,17 +146,20 @@ async function mount(
     reported,
     last,
     storedButtons,
-    panels,
-    headers: () => panels().map((panel) => panel.header),
+    rows,
+    toggle,
+    headers: () => rows().map((row) => row.querySelector('.cal-title')?.textContent?.trim()),
+    summaries: () => rows().map((row) => row.querySelector('.cal-summary')?.textContent?.trim()),
+    opened: () => rows().map((_, at) => toggle(at).getAttribute('aria-expanded') === 'true'),
     forms,
     fieldNames,
     control,
     press,
-    change,
-    changeMain,
-    mainValue: (option: string) => mainForm(option).data[option],
-    filterBy,
-    heading: () => root.querySelectorAll<Form>('ha-form.buttons-heading'),
+    // The card-owned heading Card & Header draws above the buttons; search results draw the
+    // buttons under the page's title instead.
+    heading: () =>
+      root.querySelector<HTMLElement>('[data-heading="toolbar.buttons.heading"] > .heading') ??
+      undefined,
     add: () => root.querySelector<HTMLButtonElement>('.add-button'),
   };
 }
@@ -205,12 +169,12 @@ describe('the toolbar buttons in the editor', () => {
     document.body.innerHTML = '';
   });
 
-  it('draws no button panels, heading or Add Button while the toolbar is hidden', async () => {
+  it('draws no button rows, heading or Add Button while the toolbar is hidden', async () => {
     for (const toolbar of [undefined, { show: false, buttons: [BACK] }]) {
       const editor = await mount(toolbar);
 
-      expect(editor.panels()).toHaveLength(0);
-      expect(editor.heading()).toHaveLength(0);
+      expect(editor.rows()).toHaveLength(0);
+      expect(editor.heading()).toBeUndefined();
       expect(editor.add()).toBeNull();
     }
   });
@@ -218,13 +182,13 @@ describe('the toolbar buttons in the editor', () => {
   it('keeps a hidden toolbar’s buttons through an edit elsewhere', async () => {
     const editor = await mount({ show: false, buttons: [BACK] });
 
-    await editor.changeMain('title', 'Family');
+    await changeField(editor.element, 'card:title', 'Family');
 
     expect(editor.last().title).toBe('Family');
     expect(editor.last().toolbar).toEqual({ show: false, buttons: [BACK] });
   });
 
-  it('heads each panel by its name, else its icon as words, else its place', async () => {
+  it('names each row by its name, else its icon as words, else its place', async () => {
     const editor = await mount({
       show: true,
       buttons: [
@@ -238,54 +202,72 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.headers()).toEqual(['Back', 'View dashboard outline', 'Button 3', 'Button 4']);
   });
 
-  it('leads every panel with the same fixed icon, not the button’s own', async () => {
+  it('leads every row with the same fixed icon, not the button’s own', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     const icons = editor
-      .panels()
-      .map(
-        (panel) =>
-          (panel.querySelector('ha-svg-icon[slot="leading-icon"]') as { path?: string } | null)
-            ?.path,
-      );
+      .rows()
+      .map((row) => row.querySelector('.cal-body > svg path')?.getAttribute('d'));
     expect(icons).toEqual([TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_ICON]);
+  });
+
+  it('says under each name what a press does, by Home Assistant’s action names', async () => {
+    const editor = await mount({
+      show: true,
+      buttons: [LIGHTS, HOME, BACK, { icon: 'mdi:home' }],
+    });
+
+    // The fake localize answers `HA:<key>` for Home Assistant's actions; the card's own are named
+    // through the editor's wrapped hass. A button with no action runs nothing.
+    const name = (action: string) => `HA:${HA_ACTION_LABEL_PREFIX}${action}`;
+    expect(editor.summaries()).toEqual([
+      `${name('toggle')} · light.kitchen`,
+      `${name('navigate')} · /lovelace/home`,
+      'Go Back',
+      name('none'),
+    ]);
   });
 
   it('captions the buttons with one sub-heading, and offers Add Button with none yet', async () => {
     const editor = await mount({ show: true });
 
-    expect(editor.panels()).toHaveLength(0);
+    expect(editor.rows()).toHaveLength(0);
     const heading = editor.heading();
-    expect(heading).toHaveLength(1);
-    expect(heading[0].schema).toEqual([{ name: 'heading', type: 'constant' }]);
-    expect(heading[0].computeLabel(heading[0].schema[0])).toBe('Your Own Buttons');
+    expect(heading).toBeDefined();
+    expect(heading!.localName).toBe('h3');
+    expect(heading!.textContent!.trim()).toBe('Your Own Buttons');
     expect(editor.add()?.textContent?.trim()).toBe('Add Button');
   });
 
-  it('adds a button the card can draw after the last, and opens its panel', async () => {
+  it('adds a button the card can draw after the last, opens its row and focuses its Icon', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
     await editor.press(editor.add());
+    await editor.element.updateComplete;
 
     expect(editor.last().toolbar).toEqual({ show: true, buttons: [BACK, NEW_TOOLBAR_BUTTON] });
     const added = { buttons: [NEW_TOOLBAR_BUTTON as Types.ToolbarButtonConfig] };
     expect(Config.undrawableToolbarButtons({ toolbar: added })).toEqual([]);
     expect(editor.headers()).toEqual(['Back', 'Gesture tap button']);
-    expect(editor.panels().map((panel) => panel.expanded === true)).toEqual([false, true]);
+    expect(editor.opened()).toEqual([false, true]);
+    // The Icon field's wrapper, never anything inside its form (R15).
+    const icon = editor.rows()[1].querySelector('[data-field="button:icon"]');
+    expect(icon?.classList.contains('field')).toBe(true);
+    expect(editor.root.activeElement).toBe(icon);
 
     // A second one opens too, and the first stays as it was.
     await editor.press(editor.add());
-    expect(editor.panels().map((panel) => panel.expanded === true)).toEqual([false, true, true]);
+    expect(editor.opened()).toEqual([false, true, true]);
   });
 
-  it('moves a button past its neighbor, and its panel, still open, with it', async () => {
+  it('moves a button past its neighbor, and its row, still open, with it', async () => {
     const editor = await mount({ show: true, refresh: false, buttons: [BACK, LIGHTS, HOME] });
 
-    const lights = editor.panels()[1];
-    // Opened by hand, as its chevron does.
-    lights.expanded = true;
+    const lights = editor.rows()[1];
+    // Opened by hand, as its toggle does.
+    await openPageOf(editor.element, 'button:icon', button(1));
 
-    await editor.press(editor.control(1, 'Move Up'));
+    await editor.press(await editor.control(1, 'Move Up'));
 
     expect(editor.last().toolbar).toEqual({
       show: true,
@@ -293,21 +275,26 @@ describe('the toolbar buttons in the editor', () => {
       buttons: [LIGHTS, BACK, HOME],
     });
     expect(editor.headers()).toEqual(['Lights', 'Back', 'Home']);
-    expect(editor.panels()[0]).toBe(lights);
-    expect(editor.panels().map((panel) => panel.expanded === true)).toEqual([true, false, false]);
+    expect(editor.rows()[0]).toBe(lights);
+    expect(editor.opened()).toEqual([true, false, false]);
 
-    await editor.press(editor.control(0, 'Move Down'));
-    await editor.press(editor.control(1, 'Move Down'));
+    await editor.press(await editor.control(0, 'Move Down'));
+    await editor.press(await editor.control(1, 'Move Down'));
     expect(editor.storedButtons()).toEqual([BACK, HOME, LIGHTS]);
-    expect(editor.panels()[2]).toBe(lights);
+    expect(editor.rows()[2]).toBe(lights);
   });
 
   it('offers no move past either end', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    const disabled = (panel: number) =>
-      ['Move Up', 'Move Down'].map((label) => editor.control(panel, label).disabled);
-    expect([0, 1, 2].map(disabled)).toEqual([
+    const disabled: boolean[][] = [];
+    for (const row of [0, 1, 2]) {
+      disabled.push([
+        (await editor.control(row, 'Move Up')).disabled,
+        (await editor.control(row, 'Move Down')).disabled,
+      ]);
+    }
+    expect(disabled).toEqual([
       [true, false],
       [false, false],
       [false, true],
@@ -317,37 +304,45 @@ describe('the toolbar buttons in the editor', () => {
   it('keeps the keyboard on a moved button’s controls', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
-    await editor.press(editor.control(0, 'Move Down'));
+    // On the button, as a keyboard is.
+    const down = await editor.control(0, 'Move Down');
+    down.focus();
+    await editor.press(down);
     await editor.element.updateComplete;
 
     // Back is now last, so its Move Down is spent and focus takes its Move Up.
     expect(editor.headers()).toEqual(['Lights', 'Back']);
-    expect(editor.root.activeElement).toBe(editor.control(1, 'Move Up'));
+    expect(editor.root.activeElement).toBe(await editor.control(1, 'Move Up'));
   });
 
   it('removes one button, and the key with the last of them', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    await editor.press(editor.control(1, 'Remove'));
+    await editor.press(await editor.control(1, 'Remove'));
     expect(editor.storedButtons()).toEqual([BACK, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Home']);
     await editor.element.updateComplete;
-    expect(editor.root.activeElement).toBe(editor.add());
+    // The line the removal leaves holds focus on its Undo (editor-history.test.ts).
+    const line = editor.root.querySelector('[data-status-bar]');
+    expect(line?.querySelector('.status-text')?.textContent?.trim()).toBe('Removed Lights');
+    expect(editor.root.activeElement).toBe(line?.querySelector('[data-focus="status-undo"]'));
 
-    await editor.press(editor.control(1, 'Remove'));
-    await editor.press(editor.control(0, 'Remove'));
+    await editor.press(await editor.control(1, 'Remove'));
+    await editor.press(await editor.control(0, 'Remove'));
     expect(editor.last().toolbar).toEqual({ show: true });
-    expect(editor.panels()).toHaveLength(0);
+    expect(editor.rows()).toHaveLength(0);
   });
 
   it('writes a field into its own button, and drops a field emptied', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    await editor.change(1, { name: 'Kitchen lights' });
+    await openPageOf(editor.element, 'button:name', button(1));
+    await changeField(editor.element, 'button:name', 'Kitchen lights', button(1));
     expect(editor.storedButtons()).toEqual([BACK, { ...LIGHTS, name: 'Kitchen lights' }, HOME]);
     expect(editor.headers()).toEqual(['Back', 'Kitchen lights', 'Home']);
 
-    await editor.change(1, { name: '', entity: undefined });
+    await changeField(editor.element, 'button:name', '', button(1));
+    await changeField(editor.element, 'button:entity', undefined, button(1));
     expect(editor.storedButtons()).toEqual([
       BACK,
       { icon: 'mdi:lightbulb', tap_action: { action: 'toggle' } },
@@ -360,7 +355,8 @@ describe('the toolbar buttons in the editor', () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // Home Assistant's action editor writes Nothing as { action: 'none' }.
-    await editor.change(1, { tap_action: { action: 'none' } });
+    await openPageOf(editor.element, 'button:tap_action', button(1));
+    await changeField(editor.element, 'button:tap_action', { action: 'none' }, button(1));
 
     expect(editor.storedButtons()).toEqual([
       BACK,
@@ -372,7 +368,8 @@ describe('the toolbar buttons in the editor', () => {
     const quiet = { icon: 'mdi:bell-off', name: 'Quiet', tap_action: { action: 'none' } };
     const editor = await mount({ show: true, buttons: [quiet] });
 
-    await editor.change(0, { name: 'Silent' });
+    await openPageOf(editor.element, 'button:name', button(0));
+    await changeField(editor.element, 'button:name', 'Silent', button(0));
 
     expect(editor.storedButtons()).toEqual([{ ...quiet, name: 'Silent' }]);
   });
@@ -383,7 +380,8 @@ describe('the toolbar buttons in the editor', () => {
       buttons: [{ ...HOME, hold_action: { action: 'none' } }],
     });
 
-    await editor.change(0, { name: 'House' });
+    await openPageOf(editor.element, 'button:name', button(0));
+    await changeField(editor.element, 'button:name', 'House', button(0));
 
     expect(editor.storedButtons()).toEqual([
       { ...HOME, name: 'House', hold_action: { action: 'none' } },
@@ -395,7 +393,8 @@ describe('the toolbar buttons in the editor', () => {
 
     expect(editor.headers()).toEqual(['Draft', 'Home']);
 
-    await editor.change(1, { icon: '' });
+    await openPageOf(editor.element, 'button:icon', button(1));
+    await changeField(editor.element, 'button:icon', '', button(1));
     expect(editor.storedButtons()).toEqual([
       { name: 'Draft' },
       { name: 'Home', tap_action: HOME.tap_action },
@@ -407,18 +406,16 @@ describe('the toolbar buttons in the editor', () => {
     const toolbar = { show: true, refresh: false, buttons: [BACK, LIGHTS] };
     const editor = await mount(structuredClone(toolbar));
 
-    await editor.changeMain('title', 'Family');
+    await changeField(editor.element, 'card:title', 'Family');
     expect(editor.last().toolbar).toEqual(toolbar);
 
     // A toolbar switch is written beside the list, which stays as it was.
-    await editor.changeMain('toolbar', {
-      ...(editor.mainValue('toolbar') as Record<string, unknown>),
-      reset: true,
-    });
+    await changeField(editor.element, 'card:toolbar.reset', true);
     expect(editor.last().toolbar).toEqual({ ...toolbar, reset: true });
 
     const before = editor.last();
-    await editor.change(0, { name: 'Go back' });
+    await openPageOf(editor.element, 'button:name', button(0));
+    await changeField(editor.element, 'button:name', 'Go back', button(0));
     const after = editor.last();
     expect({ ...after, toolbar: undefined }).toEqual({ ...before, toolbar: undefined });
     expect(after.toolbar).toEqual({
@@ -431,8 +428,14 @@ describe('the toolbar buttons in the editor', () => {
   it('reports nothing for a form change that leaves the button as it was', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    await editor.change(0, { name: 'Back ' });
-    await editor.change(0, {});
+    await openPageOf(editor.element, 'button:name', button(0));
+    await changeField(editor.element, 'button:name', 'Back ', button(0));
+    await changeField(
+      editor.element,
+      'button:name',
+      valueOf(editor.element, 'button:name', button(0)),
+      button(0),
+    );
 
     expect(editor.reported).toHaveLength(0);
   });
@@ -446,22 +449,39 @@ describe('a toolbar button’s form', () => {
   it('edits icon, name, entity and tap action, each labeled and explained', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const form = editor.forms()[0];
-    expect(editor.fieldNames(form)).toEqual(['icon', 'name', 'entity', 'tap_action']);
-    expect(form.schema.map((node) => form.computeLabel(node))).toEqual([
+    await openPageOf(editor.element, 'button:icon', button(0));
+    // A form per field, each named after its field; the selectors that read states or name the
+    // card's actions on the live hass, the name on the steady one (`hass-key.ts`).
+    expect(editor.forms().map(editor.fieldNames)).toEqual([
+      ['icon'],
+      ['name'],
+      ['entity'],
+      ['tap_action'],
+    ]);
+    expect(editor.forms().map((form) => form.dataset.hass)).toEqual([
+      'live',
+      'steady',
+      'live',
+      'live',
+    ]);
+    const fields = ['button:icon', 'button:name', 'button:entity', 'button:tap_action'];
+    expect(fields.map((id) => labelOf(editor.element, id, button(0)))).toEqual([
       'Icon',
       'Name',
       'Entity',
       'Tap Action',
     ]);
-    for (const node of form.schema) expect(form.computeHelper(node)).toBeTruthy();
-    expect(form.data).toEqual(BACK);
+    for (const id of fields) expect(helperOf(editor.element, id, button(0))).toBeTruthy();
+    expect(Object.assign({}, ...editor.forms().map((form) => form.data))).toEqual(BACK);
   });
 
   it('offers every card action, back included, ahead of Home Assistant’s', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const node = editor.forms()[0].schema.find((candidate) => candidate.name === 'tap_action');
+    await openPageOf(editor.element, 'button:tap_action', button(0));
+    const node = formOf(editor.element, 'button:tap_action', button(0))!.schema.find(
+      (candidate) => candidate.name === 'tap_action',
+    );
     expect(node).toEqual({
       name: 'tap_action',
       selector: { ui_action: { actions: EXPECTED_ACTIONS } },
@@ -471,7 +491,8 @@ describe('a toolbar button’s form', () => {
   it('names the card’s own actions through the editor’s hass, back among them', async () => {
     const editor = await mount({ show: true, buttons: [BACK] });
 
-    const hass = editor.forms()[0].hass;
+    await openPageOf(editor.element, 'button:tap_action', button(0));
+    const hass = formOf(editor.element, 'button:tap_action', button(0))!.hass;
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}back`)).toBe('Go Back');
     expect(hass?.localize?.(`${HA_ACTION_LABEL_PREFIX}refresh`)).toBe('Refresh Events');
     // Still Home Assistant's own table for everything else.
@@ -484,12 +505,11 @@ describe('a toolbar button’s form', () => {
     const card = PANELS.find((panel) => panel.id === 'card')!;
     const config = Config.DEFAULT_CONFIG;
 
-    expect(card.strings).toEqual(['toolbar.buttons']);
+    expect(card.strings).toEqual(['toolbar.buttons', 'toolbar.controls']);
     expect(card.subforms?.({ view: 'list', config, language: 'en' })).toEqual([
       {
         path: TOOLBAR_BUTTON_PATH,
         schema: [
-          { name: 'heading', type: 'constant' },
           { name: 'icon', required: true, selector: { icon: {} } },
           { name: 'name', selector: { text: { type: 'text' } } },
           { name: 'entity', selector: { entity: {} } },
@@ -505,47 +525,57 @@ describe('searching the toolbar buttons', () => {
     document.body.innerHTML = '';
   });
 
-  it('shows a button whose name answers, whole, and withholds Add Button', async () => {
+  it('lists a button whose entity answers, whole, and opens it alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
 
-    await editor.filterBy({ [SEARCH_FIELD]: 'kitchen' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'kitchen');
 
-    expect(editor.headers()).toEqual(['Lights']);
-    expect(editor.fieldNames(editor.forms()[0])).toEqual(['icon', 'name', 'entity', 'tap_action']);
-    expect(editor.panels()[0].expanded).toBe(true);
-    expect(editor.heading()).toHaveLength(1);
-    expect(editor.add()).toBeNull();
+    const keys = keysOf(editor.element, 'button');
+    expect(
+      resultRows(editor.element).map(({ id, ownerKey, crumbs }) => [id, ownerKey, crumbs]),
+    ).toEqual(
+      ['button:icon', 'button:name', 'button:entity', 'button:tap_action'].map((id) => [
+        id,
+        keys[1],
+        'Card & Header › Your Own Buttons › Lights',
+      ]),
+    );
+
+    await chooseResult(editor.element, `result:button:entity:${keys[1]}`);
+    expect(editor.opened()).toEqual([false, true, false]);
+    // Each field in a form of its own, in the button's order, the entity lit where it is.
+    const forms = formsOf(editor.element, button(1));
+    expect(forms.map(editor.fieldNames)).toEqual([['icon'], ['name'], ['entity'], ['tap_action']]);
+    expect(forms.map((form) => form.closest('.jump') !== null)).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ]);
   });
 
-  it('shows only the field a search names, on every button', async () => {
+  it('lists only the field a search names, on every button', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
-    await editor.filterBy({ [SEARCH_FIELD]: 'tap action' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'tap action');
 
-    expect(editor.headers()).toEqual(['Back', 'Lights']);
-    expect(editor.forms().map(editor.fieldNames)).toEqual([['tap_action'], ['tap_action']]);
+    expect(
+      resultRows(editor.element)
+        .filter((row) => row.ownerKey !== undefined)
+        .map(({ id, crumbs }) => [id, crumbs.split(' › ').pop()]),
+    ).toEqual([
+      ['button:tap_action', 'Back'],
+      ['button:tap_action', 'Lights'],
+    ]);
   });
 
-  it('drops the heading with the last panel a search hides', async () => {
+  it('lists no button for the words of its heading alone', async () => {
     const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
 
     // The heading's own words are no match: a heading is never a hit of its own.
-    await editor.filterBy({ [SEARCH_FIELD]: 'your own buttons' });
+    await changeField(editor.element, `filter:${SEARCH_FIELD}`, 'your own buttons');
 
-    expect(editor.panels()).toHaveLength(0);
-    expect(editor.heading()).toHaveLength(0);
-    expect(editor.add()).toBeNull();
-  });
-
-  it('shows each button’s own fields under customized only', async () => {
-    const editor = await mount({ show: true, buttons: [{ icon: 'mdi:home' }, LIGHTS] });
-
-    await editor.filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
-
-    expect(editor.forms().map(editor.fieldNames)).toEqual([
-      ['icon'],
-      ['icon', 'name', 'entity', 'tap_action'],
-    ]);
+    expect(resultRows(editor.element).filter((row) => row.ownerKey !== undefined)).toEqual([]);
   });
 });
 
@@ -599,11 +629,12 @@ describe('the toolbar buttons’ write helpers', () => {
     const list = [BACK, LIGHTS, HOME];
     const frozen = structuredClone(list);
 
-    expect(Buttons.moveButton(list, 1, -1)).toEqual([LIGHTS, BACK, HOME]);
-    expect(Buttons.moveButton(list, 1, 1)).toEqual([BACK, HOME, LIGHTS]);
-    expect(Buttons.moveButton(list, 0, -1)).toEqual(list);
-    expect(Buttons.moveButton(list, 2, 1)).toEqual(list);
-    expect(Buttons.moveButton(list, 5, -1)).toEqual(list);
+    expect(Buttons.moveButtonTo(list, 1, 0)).toEqual([LIGHTS, BACK, HOME]);
+    expect(Buttons.moveButtonTo(list, 1, 2)).toEqual([BACK, HOME, LIGHTS]);
+    expect(Buttons.moveButtonTo(list, 2, 0)).toEqual([HOME, BACK, LIGHTS]);
+    expect(Buttons.moveButtonTo(list, 0, -1)).toEqual(list);
+    expect(Buttons.moveButtonTo(list, 2, 3)).toEqual(list);
+    expect(Buttons.moveButtonTo(list, 5, 0)).toEqual(list);
     expect(Buttons.removeButton(list, 0)).toEqual([LIGHTS, HOME]);
     expect(Buttons.writeButton(list, 2, { icon: 'mdi:home' })).toEqual([
       BACK,
@@ -625,5 +656,173 @@ describe('the toolbar buttons’ write helpers', () => {
     );
     expect(Buttons.buttonTitle({ icon: 'mdi:' }, 2, 'Button {number}')).toBe('Button 3');
     expect(Buttons.buttonTitle('mdi:home', 0, 'Knopf {number}')).toBe('Knopf 1');
+  });
+});
+
+describe('reordering the toolbar’s own buttons', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  /**
+   * A button's drag handle, by its place.
+   *
+   * @param editor - The mounted editor
+   * @param at - The button's place
+   * @returns The handle
+   */
+  const handle = (editor: Awaited<ReturnType<typeof mount>>, at: number) =>
+    editor.root.querySelector<HTMLButtonElement>(
+      `[data-focus="handle:button:${keysOf(editor.element, 'button')[at]}"]`,
+    )!;
+
+  /**
+   * Presses a key on an element, as the browser dispatches it, and waits for the render.
+   *
+   * @param editor - The mounted editor
+   * @param target - Where the key lands
+   * @param key - `KeyboardEvent.key`
+   * @param init - Modifiers
+   */
+  const key = async (
+    editor: Awaited<ReturnType<typeof mount>>,
+    target: Element,
+    key: string,
+    init: KeyboardEventInit = {},
+  ) => {
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        ...init,
+      }),
+    );
+    await editor.element.updateComplete;
+    await editor.element.updateComplete;
+  };
+
+  const said = (editor: Awaited<ReturnType<typeof mount>>) =>
+    editor.root.querySelector('.live-region')?.textContent?.trim();
+
+  it('picks up with Space, moves with the arrows, and drops with Space as one write and one undo step', async () => {
+    const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
+    const back = handle(editor, 0);
+    expect(back.getAttribute('aria-label')).toBe('Move Back');
+    back.focus();
+
+    await key(editor, back, ' ');
+    expect(back.getAttribute('aria-pressed')).toBe('true');
+    expect(editor.root.querySelector('.grab-status')?.textContent).toContain(
+      'Back, position 1 of 3.',
+    );
+    await key(editor, back, 'ArrowDown');
+    await key(editor, back, 'ArrowDown');
+    // The preview moves nothing in the DOM and writes nothing.
+    expect(editor.reported).toHaveLength(0);
+    expect(said(editor)).toBe('Back, position 3 of 3.');
+
+    await key(editor, back, ' ');
+    expect(editor.reported).toHaveLength(1);
+    expect(editor.storedButtons()).toEqual([LIGHTS, HOME, BACK]);
+    expect(said(editor)).toBe('Moved Back to position 3 of 3.');
+    expect(editor.root.activeElement).toBe(handle(editor, 2));
+    expect(editor.root.querySelector('[data-focus="undo"]')?.getAttribute('aria-label')).toBe(
+      'Undo: Move Back',
+    );
+  });
+
+  it('puts the button back on Escape, writing nothing, focus kept on its handle', async () => {
+    const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
+    const back = handle(editor, 0);
+    back.focus();
+    await key(editor, back, ' ');
+    await key(editor, back, 'ArrowDown');
+    await key(editor, back, 'Escape');
+
+    expect(editor.reported).toHaveLength(0);
+    expect(back.getAttribute('aria-pressed')).toBe('false');
+    expect(editor.root.querySelector('.grab-status')).toBeNull();
+    expect(said(editor)).toBe('Put Back back at position 1 of 2.');
+    expect(editor.root.activeElement).toBe(handle(editor, 0));
+  });
+
+  it('moves a button at once with Alt+Arrow on its row, one write each', async () => {
+    const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
+    const home = handle(editor, 2);
+    home.focus();
+
+    await key(editor, home, 'ArrowUp', { altKey: true });
+    expect(editor.storedButtons()).toEqual([BACK, HOME, LIGHTS]);
+    await key(editor, editor.toggle(1), 'ArrowUp', { altKey: true });
+    expect(editor.storedButtons()).toEqual([HOME, BACK, LIGHTS]);
+    expect(editor.reported).toHaveLength(2);
+    expect(said(editor)).toBe('Moved Home to position 1 of 3.');
+    expect(editor.root.activeElement).toBe(handle(editor, 0));
+  });
+
+  it('keeps focus on the handle of a button moved past an identical one', async () => {
+    // The configuration does not move, so nothing is written, but the rows do.
+    const editor = await mount({ show: true, buttons: [BACK, { ...BACK }, LIGHTS] });
+    const [first] = keysOf(editor.element, 'button');
+    const held = handle(editor, 0);
+    held.focus();
+
+    await key(editor, held, ' ');
+    await key(editor, held, 'ArrowDown');
+    await key(editor, held, ' ');
+
+    expect(keysOf(editor.element, 'button')[1]).toBe(first);
+    expect(editor.root.activeElement).toBe(handle(editor, 1));
+    expect(said(editor)).toBe('Moved Back to position 2 of 3.');
+    // Still under the keyboard: it picks up again.
+    await key(editor, handle(editor, 1), ' ');
+    expect(handle(editor, 1).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('drops a dragged button where its middle passed another’s, as one write', async () => {
+    const ROW = 56;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const rows = [...(this.parentElement?.children ?? [])].filter(
+        (each) => each instanceof HTMLElement && each.dataset.reorder !== undefined,
+      );
+      const at = this.dataset.reorder === undefined ? -1 : rows.indexOf(this);
+      const top = at < 0 ? 0 : 200 + at * (ROW + 8);
+      const height = at < 0 ? 0 : ROW;
+      return { top, bottom: top + height, height, left: 0, right: 300, width: 300 } as DOMRect;
+    });
+    const editor = await mount({ show: true, buttons: [BACK, LIGHTS, HOME] });
+    const back = handle(editor, 0);
+    const pointer = (type: string, clientY: number) =>
+      back.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 3,
+          pointerType: 'mouse',
+          isPrimary: true,
+          button: 0,
+          clientY,
+          bubbles: true,
+          composed: true,
+          cancelable: true,
+        }),
+      );
+    const start = 200 + ROW / 2;
+
+    pointer('pointerdown', start);
+    // Past Lights' middle, short of Home's.
+    pointer('pointermove', start + ROW + 8 + 10);
+    expect(editor.rows()[0].classList.contains('lifted')).toBe(true);
+    expect(editor.reported).toHaveLength(0);
+    pointer('pointerup', start + ROW + 8 + 10);
+    await editor.element.updateComplete;
+    await editor.element.updateComplete;
+
+    expect(editor.reported).toHaveLength(1);
+    expect(editor.storedButtons()).toEqual([LIGHTS, BACK, HOME]);
+    expect(said(editor)).toBe('Moved Back to position 2 of 3.');
   });
 });

@@ -6,6 +6,8 @@
  * so the card also needs a repaint at each event boundary; the timer that provides it is
  * pinned at the bottom of this file.
  */
+import { readFileSync } from 'node:fs';
+
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +17,7 @@ import '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import * as Grid from '../src/rendering/grid';
 import * as Presentation from '../src/rendering/presentation';
 import * as Render from '../src/rendering/render';
@@ -47,6 +50,22 @@ describe('the word', () => {
 
   it('maps a regional code through the same reduction as relative times', () => {
     expect(getNowString('en-GB')).toBe('Now');
+  });
+});
+
+describe('what the editor and the reference say it marks', () => {
+  /**
+   * A three-week vacation would read "Now" on every day of it, so an event a full day or longer is
+   * never marked (`tests/day-counter.test.ts`). The helper under the switch says so, as the
+   * option's reference row does, so nobody reads a long event left unmarked as a bug.
+   */
+  it('says events shorter than a full day, in the helper and in the reference row', () => {
+    const row = readFileSync('docs/reference/configuration.md', 'utf8')
+      .split('\n')
+      .find((line) => line.startsWith('| `show_now_indicator` '));
+
+    expect(row).toContain('shorter than a full day');
+    expect(EDITOR_STRINGS['show_now_indicator.helper']).toContain('shorter than a full day');
   });
 });
 
@@ -407,10 +426,10 @@ describe('the card repaints at each boundary', () => {
   });
 
   it("hands a split event's label over at midnight, with nothing else changing", async () => {
-    // Column view splits by default: 23:00-23:59 today, then 0:00-10:00 tomorrow. Without the
-    // midnight boundary the timer waited for the event's own end, and today's segment kept
-    // "Now" after midnight had passed it. Shorter than a full day, so it is marked at all: an
-    // event a full day or longer never is (tests/day-counter.test.ts).
+    // Column view splits by default: a row today from 23:00, then one tomorrow until 10:00.
+    // Without the midnight boundary the timer waited for the event's own end, and today's
+    // segment kept "Now" after midnight had passed it. Shorter than a full day, so it is marked
+    // at all: an event a full day or longer never is (tests/day-counter.test.ts).
     vi.setSystemTime(new Date('2026-06-17T23:30:00Z'));
     const card = await mounted('column', [
       {
@@ -423,13 +442,13 @@ describe('the card repaints at each boundary', () => {
       [...card.shadowRoot!.querySelectorAll('.now-time')].map((el) =>
         (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
       );
-    expect(marked()).toEqual([expect.stringContaining('23:59')]);
+    expect(marked()).toEqual([expect.stringContaining('23:00, ends tomorrow at 10:00')]);
     expect(card._nowBoundaryAt).toBe(new Date('2026-06-18T00:00:00Z').getTime());
 
     await vi.advanceTimersByTimeAsync(30 * 60 * 1000 + 1000);
     await card.updateComplete;
 
-    expect(marked()).toEqual([expect.stringContaining('10:00')]);
+    expect(marked()).toEqual([expect.stringContaining('Until 10:00')]);
   });
 
   it('releases the timer when the card is disconnected', async () => {

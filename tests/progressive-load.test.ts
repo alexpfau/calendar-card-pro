@@ -621,7 +621,9 @@ describe('days drawn, against days loaded', () => {
 
     expect(card._pageShown).toBe('2026-06-18');
     expect(card.shadowRoot!.textContent).toContain('Anna swim 2026-06-18');
-  });
+    // Over a second in a full local run; the limit is set for CI's slower runner under load
+    // rather than for a hang.
+  }, 30_000);
 
   it('keeps the day on screen at midnight when a week was loaded behind one column', async () => {
     // The 18th was loaded the day before and is the day drawn after midnight; the midnight
@@ -636,6 +638,61 @@ describe('days drawn, against days loaded', () => {
     await settleFor(card, 2 * 60_000 - 3110 + 1300);
 
     expect(card.shadowRoot!.textContent).toContain('Ben piano 2026-06-18');
+  });
+
+  it('draws the next month as it answers while a calendar is still out', async () => {
+    // November's load spans its six weeks from 26 October. December's rows start on 30 November,
+    // so a partial draw measured against November's window would leave December a week of room
+    // and hide Anna's 10 December until Ben timed out.
+    vi.setSystemTime(new Date('2026-11-21T07:30:00Z'));
+    const callApi = vi.fn((_method: string, path: string) => {
+      const id = path.slice('calendars/'.length).split('?')[0];
+      const start = new URLSearchParams(path.split('?')[1]).get('start')!;
+      const home = start < '2026-11-01';
+      if (id === 'calendar.ben') {
+        return home ? Promise.resolve([]) : new Promise(() => undefined);
+      }
+      return Promise.resolve(
+        home
+          ? [
+              {
+                summary: 'Anna November',
+                start: { dateTime: '2026-11-25T09:00:00Z' },
+                end: { dateTime: '2026-11-25T10:00:00Z' },
+              },
+            ]
+          : [
+              {
+                summary: 'Anna December',
+                start: { dateTime: '2026-12-10T09:00:00Z' },
+                end: { dateTime: '2026-12-10T10:00:00Z' },
+              },
+            ],
+      );
+    });
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig({
+      view: 'month',
+      entities: ['calendar.anna', 'calendar.ben'],
+      toolbar: { show: true, navigation: true, view_switcher: false, add_event: false },
+    });
+    card.hass = {
+      states: {},
+      locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
+      callApi,
+      callService: vi.fn(),
+    } as unknown as Types.Hass;
+    document.body.appendChild(card);
+    await settleFor(card, 100);
+    expect(card.shadowRoot!.textContent).toContain('Anna November');
+
+    [...card.shadowRoot!.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => /next/i.test(button.getAttribute('aria-label') ?? ''))!
+      .click();
+    await settleFor(card, 200);
+
+    expect(card.isLoading).toBe(true);
+    expect(card.shadowRoot!.textContent).toContain('Anna December');
   });
 
   it("draws today as it answers over yesterday's saved events", async () => {
