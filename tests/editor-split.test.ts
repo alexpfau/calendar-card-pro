@@ -403,7 +403,7 @@ describe('Split This Calendar on an entry’s page', () => {
     );
     expect(preview[1].accent_color).toBe(free);
     expect(keysOf(editor, 'entry')).toEqual([benKey, annaKey]);
-    expect(text(task(editor))).toContain("Ben's color now.".replace("'", '’'));
+    expect(text(task(editor))).toContain("Ben's color now.".replace(/'/g, '’'));
     expect(text(task(editor))).toContain('Not used by another calendar on this card.');
 
     // An echo of the preview changes nothing in the editor.
