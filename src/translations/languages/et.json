@@ -25,6 +25,7 @@
   ],
   "allDay": "kogu päev",
   "multiDay": "kuni",
+  "untilTime": "kuni {time}",
   "at": "kell",
   "separator": ", ",
   "viewList": "Loetelu",

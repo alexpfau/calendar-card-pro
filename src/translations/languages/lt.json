@@ -12,6 +12,7 @@
   "months": ["Sau", "Vas", "Kov", "Bal", "Geg", "Bir", "Lie", "Rgp", "Rgs", "Spa", "Lap", "Grd"],
   "allDay": "visą dieną",
   "multiDay": "iki",
+  "untilTime": "iki {time}",
   "at": "{time}",
   "separator": ", ",
   "viewList": "Sąrašas",
