@@ -959,13 +959,14 @@ describe('the universe', () => {
     // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
     // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
     // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
-    // gained Open Full Size's Days To Show and Show Toolbar.
+    // gained Open Full Size's Days To Show and Show Toolbar. Then a calendar gained Image Size, in
+    // every workspace.
     expect(sizes).toEqual({
-      shared: { card: 141, calendar: 30 },
-      list: { card: 171, calendar: 31 },
-      column: { card: 165, calendar: 30 },
-      grid: { card: 164, calendar: 30 },
-      month: { card: 111, calendar: 29 },
+      shared: { card: 141, calendar: 31 },
+      list: { card: 171, calendar: 32 },
+      column: { card: 165, calendar: 31 },
+      grid: { card: 164, calendar: 31 },
+      month: { card: 111, calendar: 30 },
     });
   });
 
@@ -1401,7 +1402,12 @@ describe('the gate table', () => {
       label_icon_color: {
         kind: 'gate',
         fields: ['calendar:label_icon_color'],
-        requires: [p('calendar:label_type', 'icon', ['icon'])],
+        requires: [p('calendar:label_type', 'icon', ['icon', 'parts'])],
+      },
+      label_image_size: {
+        kind: 'gate',
+        fields: ['calendar:label_image_size'],
+        requires: [p('calendar:label_type', 'image', ['image', 'parts'])],
       },
       label_image_source: {
         kind: 'mode-value',
@@ -1419,6 +1425,7 @@ describe('the gate table', () => {
             p('calendar:label_icon_source', 'custom', ['custom']),
           ],
           [p('calendar:label_type', 'image', ['image'])],
+          [p('calendar:label_type', 'parts', ['parts'])],
         ],
       },
       location_icon: {

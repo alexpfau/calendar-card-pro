@@ -3859,17 +3859,15 @@ export class CalendarCardProEditor extends LitElement {
         this._added = new Set([...this._added, key]);
       },
     }));
-    // A calendar's setting whose helper explains one of its values shows it only for that value.
-    const helpedValue =
-      owner.kind === 'entry' ? Entities.HELPER_FOR_VALUE[parseFieldId(field.id).name] : undefined;
-    const entryValue =
-      owner.kind === 'entry'
-        ? Entities.toEntityFormData(this._entryOf(owner.key) ?? '', this._config!.entities ?? [])[
-            parseFieldId(field.id).name
-          ]
-        : undefined;
+    // A calendar's setting whose helper explains one value of a setting shows it only for that value.
     const helper =
-      helpedValue === undefined || entryValue === helpedValue ? fieldHelper(field, ctx) : undefined;
+      owner.kind !== 'entry' ||
+      Entities.showsHelper(
+        parseFieldId(field.id).name,
+        Entities.toEntityFormData(this._entryOf(owner.key) ?? '', this._config!.entities ?? []),
+      )
+        ? fieldHelper(field, ctx)
+        : undefined;
     const helpId = `help-${key.replace(/[^\w-]/g, '_')}`;
     const helpOpen = this._helpOpen.has(key);
     const isSwitch = isSwitchRow(field);
@@ -8899,14 +8897,13 @@ export class CalendarCardProEditor extends LitElement {
     );
     if (words !== undefined) return this._jumpedEntryField(ctx, key, field, words);
     const name = parseFieldId(field.id).name;
-    const helpedValue = Entities.HELPER_FOR_VALUE[name];
     const text = this._fieldText(
       slot,
       field,
       ctx,
       show?.words,
       // Behind the setting's ⓘ where its head draws one; else only for the value it explains.
-      show?.describedBy === undefined && (helpedValue === undefined || data[name] === helpedValue),
+      show?.describedBy === undefined && Entities.showsHelper(name, data),
     );
     const schema = this._intern(slot, this._yamlSchema(field, data, ctx));
     // The field's own projection of the entry's data, as a card field gets, so a write to one
@@ -9423,8 +9420,10 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The field
    */
   private _renderSplitLabel(session: SplitSession, part: number, ctx: SchemaCtx): TemplateResult {
-    const schema = this._intern('split.label.schema', [
-      { name: 'label', selector: { text: {} } },
+    // A label of several parts keeps a line for each, as its page does.
+    const parts = Array.isArray(session.parts[part].label);
+    const schema = this._intern(`split.label.schema.${parts ? 'parts' : 'one'}`, [
+      { name: 'label', selector: { text: parts ? { multiple: true } : {} } },
     ] as unknown as HaFormSchema[]);
     const label = this._string(ctx, 'entity.label');
     return html`<ha-form
@@ -9440,9 +9439,16 @@ export class CalendarCardProEditor extends LitElement {
         // A form a canceled run left behind may still send a change; it is not this run's.
         const current = this._split;
         if (current?.newKey !== session.newKey) return;
-        const parts = [...current.parts] as [Split.SplitPart, Split.SplitPart];
-        parts[part] = { ...parts[part], label: typeof value === 'string' ? value : '' };
-        this._splitChange({ parts });
+        const given = [...current.parts] as [Split.SplitPart, Split.SplitPart];
+        given[part] = {
+          ...given[part],
+          label: Array.isArray(value)
+            ? value.filter((entry): entry is string => typeof entry === 'string')
+            : typeof value === 'string'
+              ? value
+              : '',
+        };
+        this._splitChange({ parts: given });
       }}
     ></ha-form>`;
   }
@@ -9602,8 +9608,8 @@ export class CalendarCardProEditor extends LitElement {
           sub,
           color: this._rowColor({ entity: entityId, accent_color: given.color }),
           badge:
-            Entities.labelTypeOf(session.original) === 'text' && given.label
-              ? given.label
+            Entities.labelTypeOf(session.original) === 'text' && typeof given.label === 'string'
+              ? given.label || undefined
               : undefined,
         };
       };

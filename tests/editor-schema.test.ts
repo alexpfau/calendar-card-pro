@@ -3820,6 +3820,7 @@ describe('editor: per-calendar settings', () => {
         'label',
         'label_icon_color',
         'label_icon_source',
+        'label_image_size',
         'label_image_source',
         'label_type',
         'location_icon',

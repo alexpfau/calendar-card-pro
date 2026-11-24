@@ -243,6 +243,8 @@ export const MONTH_DAY_LIST_OPTIONS: ReadonlySet<string> = new Set([
 
 /** A calendar's options Month reads only in a day's list and the panel ({@link MONTH_DAY_LIST_OPTIONS}). */
 export const MONTH_DAY_LIST_ENTRY_OPTIONS: ReadonlySet<string> = new Set([
+  // A Wide Month's line is one line of text high, so its picture keeps the text's height.
+  'label_image_size',
   'show_location',
   'location_icon',
   'show_weather',

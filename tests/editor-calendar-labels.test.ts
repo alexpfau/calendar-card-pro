@@ -14,7 +14,8 @@ import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { resolvedLabel } from '../src/rendering/editor/entities';
 import styles from '../src/rendering/editor/styles';
-import { resolveEntityLabel } from '../src/utils/events';
+import { wordValue } from '../src/rendering/editor/summary';
+import { resolveEntityLabel, resolveLabelParts } from '../src/utils/events';
 import { resolveLabelType } from '../src/utils/helpers';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;
@@ -163,6 +164,164 @@ describe('the editor’s label resolution', () => {
       const expected = !card || type === 'none' ? undefined : { value: card, type };
       expect(resolvedLabel(entry, hass), JSON.stringify(entry)).toEqual(expected);
     }
+  });
+});
+
+describe('a label of several parts', () => {
+  it('shows its first part the card draws in the row’s one slot', async () => {
+    const editor = await mount([
+      { entity: 'calendar.ben', label: ['person.anna', 'mdi:soccer'] },
+      { entity: 'calendar.leo', label: ['person.nobody', '⚽', 'W'] },
+    ]);
+
+    expect(slots(editor)).toEqual(['img /api/image/serve/anna/512x512 alt=""', '⚽']);
+  });
+
+  it('answers as the card’s first drawn part does', () => {
+    const hass = fakeHass({ states: STATES });
+    const entries: Types.EntityConfig[] = [
+      { entity: 'calendar.ben', label: ['person.anna', 'mdi:soccer'] },
+      { entity: 'calendar.anna', label: ['person.nobody', 'home-assistant', 'W'] },
+      { entity: 'calendar.ben', label: ['home-assistant', 'W'] },
+      { entity: 'calendar.work', label: ['mdi:soccer', 'W'], label_type: 'text' },
+      { entity: 'calendar.work', label: ['W'], label_type: 'none' },
+      { entity: 'calendar.work', label: [] },
+    ];
+    for (const entry of entries) {
+      const [card] = resolveLabelParts(
+        entry.entity,
+        { ...Config.DEFAULT_CONFIG, entities: [entry] } as Types.Config,
+        { _matchedConfig: entry } as Types.CalendarEventData,
+        hass,
+      );
+      const type = card ? resolveLabelType(card.value, entry.label_type) : 'none';
+      const expected = !card || type === 'none' ? undefined : { value: card.value, type };
+      expect(resolvedLabel(entry, hass), JSON.stringify(entry)).toEqual(expected);
+    }
+  });
+
+  /**
+   * The calendar as stored after one edit to its page.
+   *
+   * @param fields - The calendar's options before the edit
+   * @param id - The field edited
+   * @param value - Its new value
+   * @returns The calendar as stored
+   */
+  const after = async (fields: Record<string, unknown>, id: string, value: unknown) => {
+    const editor = await mountEditor(
+      {
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        entities: [{ entity: 'calendar.anna', ...fields }],
+      },
+      { hass: fakeHass({ states: STATES }) },
+    );
+    await changeField(editor, id, value, entry(0));
+    const stored = (lastConfig(editor)!.entities as unknown[])[0];
+    editor.remove();
+    return stored;
+  };
+
+  it('is chosen from Label Type, starting from the label as it stood', async () => {
+    expect(await after({ label: 'W' }, 'calendar:label_type', 'parts')).toEqual({
+      entity: 'calendar.anna',
+      label: ['W'],
+    });
+    // A literal that needed label_type keeps its words and leaves the type behind.
+    expect(
+      await after({ label: '/dev', label_type: 'text' }, 'calendar:label_type', 'parts'),
+    ).toEqual({ entity: 'calendar.anna', label: ['/dev'] });
+    // With nothing to start from, an empty list, which reads back as several parts.
+    expect(await after({}, 'calendar:label_type', 'parts')).toEqual({
+      entity: 'calendar.anna',
+      label: [],
+    });
+  });
+
+  it('stores its lines as written, an emptied one included', async () => {
+    expect(
+      await after({ label: ['person.anna'] }, 'calendar:label', ['person.anna', 'mdi:soccer', '']),
+    ).toEqual({ entity: 'calendar.anna', label: ['person.anna', 'mdi:soccer', ''] });
+  });
+
+  it('keeps the first part of the shape chosen when it leaves for one', async () => {
+    const parts = { label: ['⚽', 'person.anna', 'mdi:soccer', '/local/a.png'] };
+    expect(await after(parts, 'calendar:label_type', 'icon')).toEqual({
+      entity: 'calendar.anna',
+      label: 'mdi:soccer',
+    });
+    expect(await after(parts, 'calendar:label_type', 'image')).toEqual({
+      entity: 'calendar.anna',
+      label: 'person.anna',
+    });
+    expect(await after(parts, 'calendar:label_type', 'text')).toEqual({
+      entity: 'calendar.anna',
+      label: '⚽',
+    });
+  });
+
+  it('keeps a list hidden under label_type: none through an edit to another field', async () => {
+    expect(
+      await after(
+        { label: ['person.anna', 'mdi:soccer'], label_type: 'none' },
+        'calendar:name',
+        'Anna',
+      ),
+    ).toEqual({
+      entity: 'calendar.anna',
+      name: 'Anna',
+      label: ['person.anna', 'mdi:soccer'],
+      label_type: 'none',
+    });
+  });
+
+  it('keeps a shape the YAML gave the list through an edit to another field', async () => {
+    expect(
+      await after({ label: ['mdi:soccer', 'W'], label_type: 'text' }, 'calendar:name', 'Anna'),
+    ).toEqual({
+      entity: 'calendar.anna',
+      name: 'Anna',
+      label: ['mdi:soccer', 'W'],
+      label_type: 'text',
+    });
+  });
+
+  it('keeps Image Size and Label Icon Color while it holds them, and drops them for text', async () => {
+    const image = { label: '/local/a.png', label_image_size: '2em' };
+    expect(await after(image, 'calendar:label_type', 'parts')).toEqual({
+      entity: 'calendar.anna',
+      label: ['/local/a.png'],
+      label_image_size: '2em',
+    });
+    // The path stays, as words, which is how leaving An Image for text has always read it.
+    expect(await after(image, 'calendar:label_type', 'text')).toEqual({
+      entity: 'calendar.anna',
+      label: '/local/a.png',
+      label_type: 'text',
+    });
+    expect(
+      await after(
+        { label: 'mdi:soccer', label_icon_color: '#ff0000' },
+        'calendar:label_type',
+        'parts',
+      ),
+    ).toEqual({ entity: 'calendar.anna', label: ['mdi:soccer'], label_icon_color: '#ff0000' });
+  });
+
+  it('reads its lines in turn where the editor words the value', () => {
+    const lines = { node: { name: 'label', selector: { text: { multiple: true } } } };
+    expect(wordValue(lines as never, ['person.anna', '', 'mdi:soccer'], 'en')).toBe(
+      'person.anna, mdi:soccer',
+    );
+    expect(wordValue(lines as never, [''], 'en')).toBeUndefined();
+  });
+
+  it('stores Image Size as typed', async () => {
+    expect(await after({ label: 'person.anna' }, 'calendar:label_image_size', '2.5em')).toEqual({
+      entity: 'calendar.anna',
+      label: 'person.anna',
+      label_image_size: '2.5em',
+    });
   });
 });
 

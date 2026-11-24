@@ -504,6 +504,7 @@ describe('editor: the order of the two panels', () => {
       'label_image_source',
       'label',
       'label_icon_color',
+      'label_image_size',
       'color',
       'text_scale',
       '# heading.who_sees_it',

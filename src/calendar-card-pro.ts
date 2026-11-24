@@ -5436,10 +5436,13 @@ class CalendarCardPro extends LitElement {
     }
     return this.config.entities.some((entry) => {
       const entity = typeof entry === 'string' ? entry : entry.entity;
-      const label = typeof entry === 'string' ? undefined : entry.label;
+      const labels = typeof entry === 'string' ? [] : Helpers.labelParts(entry.label);
       return (
         previous.states[entity] !== this.hass?.states[entity] ||
-        (label?.startsWith('person.') && previous.states[label] !== this.hass?.states[label])
+        labels.some(
+          (label) =>
+            label.startsWith('person.') && previous.states[label] !== this.hass?.states[label],
+        )
       );
     });
   }

@@ -366,6 +366,20 @@ export function resolveLabelType(label: unknown, labelType?: unknown): LabelType
 }
 
 /**
+ * The parts of a calendar's label, in the order they are drawn: a single value is one part, and
+ * a list is each of its entries that is a word to read. Anything else, an empty string or a
+ * number included, draws nothing, as it does as a single value.
+ *
+ * @param label - `label` as a calendar's entry holds it
+ * @returns The parts, empty where there is nothing to draw
+ */
+export function labelParts(label: unknown): string[] {
+  if (typeof label === 'string') return label === '' ? [] : [label];
+  if (!Array.isArray(label)) return [];
+  return label.filter((part): part is string => typeof part === 'string' && part !== '');
+}
+
+/**
  * What the first day of the week adds to a query's identity: the resolved weekday, and only
  * where it moves the window, which is a week-relative `start_date`.
  *

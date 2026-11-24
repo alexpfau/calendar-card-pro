@@ -10,9 +10,11 @@
 
 import { type ListState, duplicateEntry } from './calendar-list';
 import { asEntityConfig } from './entities';
+import { deepEqual } from './value';
 import { compiles, orPatterns, toPattern } from './word-lists';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
+import { labelParts } from '../../utils/helpers';
 
 /** How to split: by event type, or by words in one field. */
 export type SplitHow =
@@ -20,8 +22,9 @@ export type SplitHow =
 
 /** What one part is given besides its rule. */
 export interface SplitPart {
-  /** Its label; empty or absent keeps none. */
-  readonly label?: string;
+  /** Its label, one value or a list of parts as `label` takes; absent keeps the entry's own, and
+   * empty keeps none. */
+  readonly label?: Types.EntityConfig['label'];
   /** Its accent color as stored; absent follows the card. */
   readonly color?: string;
 }
@@ -138,12 +141,12 @@ export function splitEntry(
     const result = { ...part };
     if (given.label === undefined) {
       // Kept as the entry has it.
-    } else if (given.label === '') delete result.label;
+    } else if (labelParts(given.label).length === 0) delete result.label;
     else {
       result.label = given.label;
       // A label typed here is read as written: the entry's type was for its own label, and
       // `none` or `image` would draw a typed word as nothing or as a broken picture.
-      if (given.label !== base.label) delete result.label_type;
+      if (!deepEqual(given.label, base.label)) delete result.label_type;
     }
     if (given.color === undefined || given.color === '') delete result.accent_color;
     else result.accent_color = given.color;

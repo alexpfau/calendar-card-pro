@@ -923,11 +923,24 @@ export interface EntityConfig {
    * `config/config.ts`), and the editor writes a change to every block of the calendar.
    */
   show_in_legend?: boolean;
-  label?: string;
+  /**
+   * What is drawn before each event's title: text or an emoji, an icon, a picture's address,
+   * a person's entity id or `home-assistant`, read by its shape (`Helpers.getLabelType`). A list
+   * draws each of its parts in order, each read the same way, so a person's picture can carry an
+   * icon beside it (`Helpers.labelParts`).
+   */
+  label?: string | string[];
+  /** Forces how `label` is read, every part of a list alike. */
   label_type?: LabelType;
   color?: string;
   accent_color?: string;
   label_icon_color?: string;
+  /**
+   * Height of a picture label, as a CSS length; a bare number is pixels. Unset, a picture is as
+   * tall as the text beside it (`1em`). Icons, text and emoji keep the text's size. The wide
+   * month's one-line entries keep their pictures at the size of their line.
+   */
+  label_image_size?: string;
   /**
    * How large this block's events draw their text, as a multiple of the card's: `0.75` draws
    * them at three quarters of every size the card would, `1.25` at a quarter more. Unset, or
@@ -1292,7 +1305,7 @@ export interface CalendarEventData {
   /** `confirmed` or `tentative` where the calendar says; Home Assistant's dialog marks the latter. */
   status?: string | null;
   _entityId?: string;
-  _entityLabel?: string;
+  _entityLabel?: string | string[];
   /**
    * The event as Home Assistant returned it, stamped before any repair, splitting or text
    * replacement and carried through to the rendered row.
@@ -1490,6 +1503,10 @@ export interface ResolvedLabel {
   type?: LabelType;
   /** Text alternative when the label draws as a picture; see `resolveLabelAlt`. */
   alt?: string;
+  /** The calendar whose entry wrote this label, which grid view names an icon or picture by. */
+  entityId?: string;
+  /** The person's entity id where this label is that person's picture. */
+  person?: string;
 }
 
 /**
