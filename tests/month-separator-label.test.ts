@@ -238,7 +238,8 @@ describe('the month rule names its month', () => {
       ['first week', { ...WEEKS, ...start, show_current_week_number: false }],
       ['week row', { ...WEEKS, ...start, show_current_week_number: true }],
     ];
-    const strip = (html: string) => html.replace(/<!--[^>]*-->/g, '');
+    const strip = (html: string) =>
+      html.replace(/<!--\?lit\$[0-9]+\$-->/g, '').replace(/<!---->/g, '');
     const firstDay = (container: HTMLElement) =>
       strip(container.innerHTML.split(/<table class="\s*day-table/)[0]);
 
@@ -315,10 +316,14 @@ describe('the month rule names its month', () => {
 
     expect(plain.map(([week]) => week)).toEqual(['6']);
     for (const [week, row] of plain) {
-      expect(row.outerHTML.replace(/<!--[^>]*-->/g, ''), week!).toBe(
+      expect(
+        row.outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '').replace(/<!---->/g, ''),
+        week!,
+      ).toBe(
         rows(off)
           .get(week)!
-          .outerHTML.replace(/<!--[^>]*-->/g, ''),
+          .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+          .replace(/<!---->/g, ''),
       );
     }
   });
@@ -606,7 +611,9 @@ describe('column and grid ignore the month label', () => {
           },
           MID_WEEK,
           view,
-        ).innerHTML.replace(/<!--[^>]*-->/g, '');
+        )
+          .innerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+          .replace(/<!---->/g, '');
 
       // The control: the month boundary is in view, so a month rule is drawn there.
       expect(markup(false)).toContain(`${view}-separator-month`);

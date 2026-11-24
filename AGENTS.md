@@ -74,7 +74,9 @@ must survive into the output** (below), **both bundles stamp the same version** 
 can warn when a stale editor is paired with a fresh card, and **each language file carries
 the version and a fingerprint of the English keys**, so the editor refuses a stale one and
 shows English instead. `npm run check:bundle` enforces all five, and also that no
-translation is left inside `editor.js`.
+translation is left inside `editor.js`, and no Day.js locale inside it or a language file:
+any editor import that leads to `utils/format.ts` brings Day.js and every locale with it,
+about 29 KB, which is why `entities.ts` › `resolvedLabel` mirrors the card's resolver by hand.
 
 **Why a language is a file of its own.** The translations were half the editor: 539 KB of
 1,040 KB raw, measured on a production build of cd58d4ac, and every editor open downloaded
@@ -855,7 +857,11 @@ videos there: name any whose frames or steps a change alters.
   in, and the total is **13**: US English in code, British English as a delta, and eleven
   translated in full. Do not write "eleven editor languages" — that is the count of the
   files that happen to be complete, not the count of languages a user can get.
-  `docs/contributing.md` states the breakdown correctly; check against it.
+  `docs/contributing.md` states the breakdown correctly; check against it. `check:docs`
+  reconciles that breakdown too, there and on the editor page, the languages named in full
+  included. "In full" is `check:i18n`'s call (`FULL_TRANSLATION_SHARE`, 90% of the strings,
+  because no complete file carries the punctuation formats and language names that read the
+  same in every language); its coverage lines mark each file in full or in part.
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
 internal link to a heading you renamed fails the build instead of shipping broken.

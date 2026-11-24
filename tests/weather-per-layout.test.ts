@@ -358,7 +358,9 @@ describe('List’s event forecast on a line of its own', () => {
       view === 'month' ? 375 : 1200,
     );
     expect(card.effectiveView).toBe(view);
-    const html = card.shadowRoot!.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
+    const html = card
+      .shadowRoot!.innerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+      .replace(/<!---->/g, '');
     document.body.replaceChildren();
     return html;
   }
