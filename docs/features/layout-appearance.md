@@ -542,8 +542,10 @@ offers only **None** and **Date Tile**.
 
 ::: info Month Draws the Tile Only
 In [month view](/features/month-view#the-six-weeks) today is marked by the tile or not at all:
-any other style leaves today's number without a mark of its own, and `today_indicator_size` does
-nothing there. The wide month [fills its tile](#the-date-tile) rather than washing it.
+any other style is read as `false`, and today's number is drawn as any other day's, as the other
+layouts draw it beside a dot. `today_day_color` and `today_date_font_weight` still apply, and
+`today_indicator_size` does nothing there. The wide month [fills its tile](#the-date-tile) rather
+than washing it.
 :::
 
 ::: warning Changed In v5
@@ -587,8 +589,8 @@ so today stands out among the colored events: `today_indicator_color` itself, or
 it where the color is too light for white digits to read, with the digits in white. A browser too
 old for that fills the color as it is, with the digits in your theme's `--text-primary-color`,
 white by default. A narrow month draws today the same way while it is the selected day. A color
-you name for the digits still wins, and a see-through `today_indicator_color` makes white digits
-harder to read there.
+you name for the digits wins on both, and a see-through `today_indicator_color` makes white
+digits harder to read there.
 
 In column and grid view every day's number keeps the tile's height, so the dates stay on one
 line across the columns and each column's first event starts at the same height.
