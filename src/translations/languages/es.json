@@ -4,6 +4,7 @@
   "months": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
   "allDay": "todo el día",
   "multiDay": "hasta el",
+  "untilTime": "hasta las {time}",
   "at": "a las",
   "separator": ", ",
   "viewList": "Lista",

@@ -427,6 +427,28 @@ describe('events in the cells', () => {
     ]);
   });
 
+  it.each([
+    ['es', 'hasta las 1:30'],
+    ['fr', "jusqu'à 1:30"],
+    ['ca', 'fins a les 1:30'],
+    ['ro', 'până la 1:30'],
+    ['de', 'bis 1:30'],
+  ])(
+    'writes the later day’s end as a time reads, not as a date does, in %s',
+    async (language, until) => {
+      // "Until" before a date and before a time differ in these: "hasta el viernes" but "hasta las
+      // 1:30". German, whose two are one word, is the control.
+      const card = await mount({ language });
+      const week = month(card).querySelectorAll('.month-week')[2];
+      const later = [...week.querySelectorAll<HTMLElement>('.month-line')]
+        .filter((line) => text(line.querySelector('.month-line-title')) === 'Late show')
+        .map((line) =>
+          text(line.querySelector('.month-line-time')).replace(/[\u2066-\u2069]/g, ''),
+        );
+      expect(later[1]).toBe(until);
+    },
+  );
+
   it('shows a day whole while it fits, and "+N more" in its last line once it does not', async () => {
     const card = await mount();
     const week = () => month(card).querySelectorAll('.month-week')[2];

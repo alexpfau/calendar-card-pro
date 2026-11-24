@@ -25,6 +25,7 @@
   ],
   "allDay": "koko päivä",
   "multiDay": "päättyy",
+  "untilTime": "päättyy {time}",
   "at": "klo",
   "separator": ", ",
   "viewList": "Lista",

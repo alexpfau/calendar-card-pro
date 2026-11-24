@@ -4,6 +4,7 @@
   "months": ["Ian", "Feb", "Mart", "Apr", "Mai", "Iun", "Iul", "Aug", "Sept", "Oct", "Nov", "Dec"],
   "allDay": "toată ziua",
   "multiDay": "până",
+  "untilTime": "până la {time}",
   "at": "la",
   "separator": ", ",
   "viewList": "Listă",

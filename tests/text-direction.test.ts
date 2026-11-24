@@ -382,10 +382,11 @@ describe.each(['list', 'column', 'grid'] as const)('a %s card', (view) => {
       expect(texts).toContain(`${LRM} - 2:00\u00a0\u2066(+1)\u2069${LRM}`);
       expect(texts).toContain(`${LRM}+2${LRM}`);
     } else if (view === 'column') {
-      // Column draws a timed event into the next day once on each day.
+      // Column draws a timed event into the next day once on each day: the first as List draws
+      // it unsplit, the second with its end alone.
       expect(texts).toContain(`${LRM}16:00 - 17:00${LRM}`);
-      expect(texts).toContain(`${LRM}22:00 - 2:00\u00a0\u2066(+1)\u2069${LRM}`);
-      expect(texts).toContain(`${LRM}Until Friday, Jun 19 at 2:00${LRM}`);
+      expect(texts).toContain(`${LRM}22:00 until Friday, Jun 19 at 2:00${LRM}`);
+      expect(texts).toContain(`${LRM}Until 2:00${LRM}`);
     } else {
       expect(texts).toContain(`${LRM}16:00 - 17:00${LRM}`);
       expect(texts).toContain(`${LRM}22:00 until Friday, Jun 19 at 2:00${LRM}`);

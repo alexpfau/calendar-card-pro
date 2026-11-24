@@ -253,6 +253,13 @@ tomorrow at 0:30", and after a date, as in "until Friday, Oct 23 at 17:00". The 
   with it between two Chinese characters: `明天 {at} 结束` reads "明天 0:30 结束", and
   "明天结束" all day.
 
+`untilTime` writes a time alone after "until", with `{time}` where it goes: "until 1:35", the last
+day of a timed event a card draws a day at a time, and a month's later day of an overnight event.
+It is a string of its own, apart from `multiDay`, because a time often takes a different word
+than a date does: Spanish writes "hasta el viernes" but "hasta las 1:35", French "jusqu'au
+vendredi" but "jusqu'à 1:35". Where yours takes the same word, write `multiDay` and `{time}`, as
+German does with "bis {time}".
+
 No other string takes a placeholder. `npm test` fails if one is left in an event's time.
 
 `separator` joins two parts of an event's time where English writes ", ": the all-day label and
