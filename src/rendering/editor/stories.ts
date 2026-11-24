@@ -95,7 +95,7 @@ export const STORIES: ReadonlyArray<Story> = [
         hour_height: '36px',
         weather: { position: 'date' },
       },
-      month: { event_gap: '4px' },
+      month: { event_gap: '4px', start: 'week', weeks: 4 },
     },
   ),
   story('now_and_next', '/guide/now-and-next', [], {
