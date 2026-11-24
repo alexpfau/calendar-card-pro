@@ -4032,9 +4032,15 @@ export const cardStyles = css`
     margin-inline-end: 0;
   }
 
+  /* Placed over the room by the end of the title's last line. A picture label taller than the
+     title's line, as label_image_size draws one, makes the line it leads taller, with the title in
+     its middle: there the time sat 5.6px below the title beside a 2em picture, so where the time
+     shares that line the card lifts it by as much, through its top margin (liftOf in
+     src/utils/title-fit.ts). Elsewhere the lift is unset and the margin nothing. */
   .time-beside-title > .summary-row.title-wrap[data-title-fit] > .title-aside {
     position: absolute;
     top: calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height));
+    margin-top: calc(-1 * var(--calendar-card-title-room-lift, 0px));
   }
 
   .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside {

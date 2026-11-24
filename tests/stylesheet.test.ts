@@ -4265,9 +4265,13 @@ describe('the time beside the title', () => {
     // with nothing after it ends where every other time does, beside either kind of title.
     [`${WRAP} > .title-aside > .time`]: one({ 'margin-inline-end': '0' }),
     [`${TIME} > .time-actual > .allday-badge:last-child`]: one({ 'margin-inline-end': '0' }),
+    // Over the room, by the end of its line, and lifted by its top margin where the card measures
+    // that line is a taller picture's, with the title in its middle (title-fit.test.ts). Unset,
+    // the margin is nothing.
     [`${WRAP}[data-title-fit] > .title-aside`]: one({
       position: 'absolute',
       top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
+      'margin-top': 'calc(-1 * var(--calendar-card-title-room-lift, 0px))',
     }),
     // Against the row's padding edge, inside the room a cut row keeps there.
     [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({

@@ -190,6 +190,32 @@ describe('scrolling labels and titles share one vertical center', () => {
     },
   );
 
+  it('reaches a one-line title beside the time only, and the card lifts a wrapping one’s time', () => {
+    // The nudge above moves a title kept to one line. A title that wraps beside the time, the
+    // default, has no scrolling summary for it to reach, and sat in the middle of a taller
+    // picture's line while its time sat 5.6px lower, at the line's end. That time is lifted by a
+    // top margin the card measures instead (title-fit.test.ts), so no rule here moves the title.
+    const NUDGE =
+      '.time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title';
+    const picture: Types.EntityConfig = {
+      entity: 'calendar.anna',
+      label: LABELS.image,
+      label_type: 'image',
+      label_image_size: '2em',
+    };
+    for (const view of ['list', 'column'] as const) {
+      const beside = { time_position: 'title', scroll_long_titles: false } as const;
+      const [wrapping] = titles(render(view, [picture], beside));
+      expect(wrapping.closest('.summary-row')!.matches('.title-wrap'), view).toBe(true);
+      expect(wrapping.matches(NUDGE), view).toBe(false);
+      const [oneLine] = titles(render(view, [picture], { ...beside, title_max_lines: 1 }));
+      expect(oneLine.matches(NUDGE), view).toBe(true);
+    }
+    expect(CSS).toMatch(
+      /\.summary-row\.title-wrap\[data-title-fit\] > \.title-aside \{[^}]*margin-top: calc\(-1 \* var\(--calendar-card-title-room-lift, 0px\)\);/,
+    );
+  });
+
   it('keeps the wrapping row’s own middle alignment and hanging indent', () => {
     // Both belong to the non-scrolling path and are untouched by this correction.
     expect(CSS).toMatch(
