@@ -38,9 +38,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
-  // The page under Full Size on the overview, named as the toolbar chip and the action are.
-  'page.full_size': 'Open Full Size',
-  'page.full_size.aliases': 'overlay, fullscreen, full screen, expand, enlarge, maximize, popup',
+  // The page of what the card opens full size with. Its aliases carry the name of the toolbar
+  // chip and the action that open it, which its title no longer holds.
+  'page.full_size': 'Full-Size Settings',
+  'page.full_size.aliases':
+    'overlay, open full size, fullscreen, full screen, expand, enlarge, maximize, popup',
   'page.full_size.note':
     'What the card opens with when Open Full Size opens it over the dashboard. Everything else comes from the card.',
   // Month's Event Appearance page: where its marks say a setting acts, in the four names Month's
@@ -56,7 +58,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.description': 'Title, colors and toolbar controls',
   'page.events_weather_language.description': 'Start date, week start and time format',
   'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
-  'page.full_size.description': 'The layout, days and toolbar the card opens full size with',
+  'page.full_size.description': 'Layout, days and toolbar for the full-size view',
   'page.which_events.description': 'Date range, filters and empty days',
   'panel.day_header.description': 'Dates, week numbers, today and weekends',
   'panel.events.description': 'Event details, text styles and colors',
@@ -81,7 +83,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
-  // The Open Full Size page: its own settings, then what else `overlay:` holds.
+  // The Full-Size Settings page: its own settings, then what else `overlay:` holds.
   'heading.full_size_opens': 'Opens With',
   'heading.full_size_more': 'Also Set for Full Size',
   'heading.full_size_more.helper':
@@ -162,14 +164,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.whole_card': 'Whole Card',
   'overview.whole_card.hint': 'The same in every layout.',
   'overview.layouts': 'Layouts',
-  // The section between Layouts and More, and its row's line: what the card opens full size with.
+  // The section between Layouts and More, holding the Full-Size Settings row.
   'overview.full_size': 'Full Size',
+  // The line leading to the Full-Size Settings page, from Taps and from the toolbar's chips: what
+  // the card opens full size with.
   'full_size.days': '{count} days',
   'full_size.days_one': '1 day',
-  'full_size.toolbar_off': 'Toolbar off',
-  'full_size.more_set': '{count} more set',
-  'full_size.more_set_one': '1 more set',
-  // The line leading to the Open Full Size page, from Taps and from the toolbar's chips.
   'full_size.link': 'Opens full size in {layout}, {days}:',
   'full_size.link_month': 'Opens full size in {layout}:',
   'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
@@ -237,7 +237,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.shared_entries': 'Also Applies to Entries {entries}',
   // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
-  // On the Open Full Size page: a value set under `overlay:`, and the full-size card's own.
+  // On the Full-Size Settings page: a value set under `overlay:`, and the full-size card's own.
   'state.set_full_size': 'Set for Full Size',
   'state.full_size_default': 'Full-Size Default',
   // Under a field in Layout Defaults, for each layout its value does not reach: one that
@@ -1459,7 +1459,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.search.helper':
     'Finds events by title, location or description, a year either way. Needs Date Navigation.',
   'toolbar.overlay': 'Open Full Size Button',
-  'toolbar.overlay.helper': 'Opens the card as set under Full Size.',
+  'toolbar.overlay.helper': 'Opens the card as set in Full-Size Settings.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper': 'Shown only when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
@@ -1838,7 +1838,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // Its fifth: the card opened full size over the dashboard, as the Open Full Size page sets it.
+  // Its fifth: the card opened full size over the dashboard, as the Full-Size Settings page sets it.
   'card_action.option.overlay.label': 'Open Full Size',
   // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.

@@ -5732,9 +5732,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Full Size, a section of its own between Layouts and More: one row opening the Open Full Size
-   * page. Unlike every other row it names values, the layout, the days and what else is set,
-   * since what the card opens full size with is the one thing people open it to check.
+   * Full Size, a section of its own between Layouts and More: one row opening the Full-Size
+   * Settings page, its line saying what the page holds, as every other row's does.
    *
    * @param ctx - Schema context
    * @returns The section
@@ -5747,7 +5746,7 @@ export class CalendarCardProEditor extends LitElement {
           key: `nav:${page.id}`,
           iconPath: page.iconPath,
           title: this._pageTitle(page, ctx),
-          summary: this._fullSizeSummary(ctx),
+          summary: this._string(ctx, page.descriptionKey),
         },
         () => this._open({ kind: 'page', page: page.id }, `nav:${page.id}`),
       ),
@@ -5755,37 +5754,8 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What the card opens full size with, for Full Size's row: "Grid · 7 days", Month alone since it
-   * draws its weeks, then "Toolbar Off" and "2 More Set" where they apply.
-   *
-   * @param ctx - Schema context
-   * @returns The line
-   */
-  private _fullSizeSummary(ctx: SchemaCtx): string {
-    const { view, days, toolbar } = FullSize.fullSizeSummary(this._rawConfig);
-    const more = Audit.fullSizeLines(this._rawConfig.overlay, this._config!).length;
-    const parts = [this._layoutTitle(view, ctx)];
-    if (view !== 'month') {
-      parts.push(
-        days === 1
-          ? this._string(ctx, 'full_size.days_one')
-          : this._string(ctx, 'full_size.days', { count: days }),
-      );
-    }
-    if (!toolbar) parts.push(this._string(ctx, 'full_size.toolbar_off'));
-    if (more > 0) {
-      parts.push(
-        more === 1
-          ? this._string(ctx, 'full_size.more_set_one')
-          : this._string(ctx, 'full_size.more_set', { count: more }),
-      );
-    }
-    return parts.join(' · ');
-  }
-
-  /**
-   * A line leading to the Open Full Size page, saying what the card opens with: "Opens full size
-   * in Grid, 7 days: Full Size › Open Full Size".
+   * A line leading to the Full-Size Settings page, saying what the card opens with: "Opens full
+   * size in Grid, 7 days: Full-Size Settings".
    *
    * @param key - Its `data-focus` key, which Back returns focus to
    * @param ctx - Schema context
@@ -5804,17 +5774,16 @@ export class CalendarCardProEditor extends LitElement {
         view === 'month'
           ? this._string(ctx, 'full_size.link_month', { layout })
           : this._string(ctx, 'full_size.link', { layout, days: count }),
-      label: this._string(ctx, 'nav.crumb', {
-        page: this._string(ctx, 'overview.full_size'),
-        heading: this._pageTitle(page, ctx),
-      }),
+      // The page's title alone, which names full size itself, so the link reads the same wherever
+      // the overview puts its row.
+      label: this._pageTitle(page, ctx),
       key,
       onOpen: () => this._open({ kind: 'page', page: page.id }, key, 'cross-link'),
     };
   }
 
   /**
-   * Taps' line leading to the Open Full Size page, while the card's tap or hold opens it.
+   * Taps' line leading to the Full-Size Settings page, while the card's tap or hold opens it.
    *
    * @param heading - The heading
    * @param ctx - Schema context
@@ -5830,7 +5799,7 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * What `overlay:` holds beyond the Open Full Size page's own settings (`audit.ts` ›
+   * What `overlay:` holds beyond the Full-Size Settings page's own settings (`audit.ts` ›
    * `fullSizeLines`), a row each: the setting and its value, "Days To Show in Grid" for a layout's
    * own, the YAML path where no setting writes it, and Remove, one undo step. Nothing where the
    * block holds nothing else, so its heading is not drawn.
