@@ -2,6 +2,65 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v6.1.0
+
+**A small card can now open itself full size, and Month can show the coming weeks instead of a calendar month.** A list on a wall tablet opens onto the whole week in Grid with one tap, Month a press away, and closes back to where it was. A month on a household tablet no longer spends half its days on weeks already gone. A list card can fold to a height of its own, a face can be drawn larger and joined by an icon, List can give an event's forecast a line of its own, a tap on a day can run your own script for that day, and a theme can color the date.
+
+Most of it is yours to turn on. Two things change on cards you already have, listed under ⚠️ Changes to Existing Cards: a `day_tap_action` written with one of Home Assistant's own actions now runs it, and a theme or card-mod rule that sets the date's colors now reaches the date.
+
+## 🎉 New Features
+
+### 🖥️ The Card, Full Size
+
+A small card often has a larger form worth opening, such as a list on a tablet whose week someone wants to see at a glance, and that used to mean a second card configured to match. `tap_action` or `hold_action` set to `{ action: overlay }`, or the toolbar's new Open Full Size button, `toolbar: { overlay: true }`, now opens the same card full size over the dashboard: in Grid on seven days, with the toolbar's date navigation and a switcher offering every layout, so Month is one press away. It opens on the dates the card shows, with the calendars its filter hides still hidden, and every option comes along but the card's height, day count and compact limits. A tap on a free day or hour adds an event there, unless the card's own `day_tap_action` does something else. Close, Back, Escape or a tap outside it closes it, and nothing chosen inside is kept. On a phone it takes the whole screen, Grid draws as many of the seven days as fit and pages by those, and a narrow month lists the whole day under its weeks. The `overlay:` block sets anything it should open with differently, such as `view: month`. See [Opening the Card Full Size](https://calendar-card-pro.alexpfau.com/features/actions#opening-the-card-full-size)
+
+- **Full-Size Settings in the Editor** - A Full Size section on the editor's overview opens Full-Size Settings: the layout, the days and the toolbar the card opens with, each saying whether it is the full-size default or set for full size, and below them whatever else `overlay:` holds, each with Remove. The toolbar's button is Open Full Size among its controls. See [Full-Size Settings](https://calendar-card-pro.alexpfau.com/features/editor#full-size-settings)
+
+### ⏩ Month Shows the Coming Weeks
+
+A month on a household tablet spends half of it showing weeks already gone. `month: { start: week }` starts Month on the current week instead of the week of the 1st, or on the week holding `start_date` where one is set, Tomorrow and Start of Week aside, and `weeks` sets how many weeks it shows, 1 to 6. Fewer weeks are taller in the wide month, so each of four holds more events than each of six, and in the narrow month they leave the Day List more room. The arrows, a swipe, and Page Up and Page Down move a whole page, no day is dimmed as another month's, and the heading names the month of the first day shown. In the visual editor they are First Week and Weeks Shown, under Date Range on Month's Which Events. See [The Coming Weeks](https://calendar-card-pro.alexpfau.com/features/month-view#the-coming-weeks) (Thanks @1Cedric1, #239)
+
+### 📏 A Height for a Compact List
+
+A list card that folds to a few events kept one height in both states, so a fixed `card_height` held the folded card at the expanded height. `compact_card_height` and `compact_card_max_height` in `list:` size the whole card while it is compact, so it can sit at a fixed size above other cards and fill the screen once `expand` opens it. Unset, each follows `card_height` and `card_max_height`, and a compact height on its own is enough for `expand` to fold the card, without an event or day limit. In the visual editor they are Compact Height and Compact Maximum Height, under Compact Mode on List's Size & Spacing. See [Compact & Expanded Heights](https://calendar-card-pro.alexpfau.com/features/list-view#compact-expanded-heights) (Thanks @rpring01, #182)
+
+### 🏷️ Larger Pictures & Labels of Several Parts
+
+A face at the size of the text is small on a wall tablet, and a calendar had room for one label.
+
+- **Sizing a Picture** - `label_image_size` on a calendar draws its picture label larger, such as `2em`, in List, Columns, Grid's timed blocks and Month's Day List and Day Panel. A title that wraps keeps its later lines clear of the picture, and with `time_position: title` the time stays level with the title. In the visual editor it is Image Size, below the label. See [Sizing a Picture Label](https://calendar-card-pro.alexpfau.com/features/core-settings#sizing-a-picture-label) (Thanks @jose1711, #321)
+- **Several Parts** - `label` also takes a list, such as `[person.anna, mdi:soccer]`, drawn in order before the title, so a calendar listed twice can show a person's face with an icon that says what kind of event it is. In the visual editor, Label Type offers Several Parts, a line per part. See [Combining a Picture, an Icon & Text](https://calendar-card-pro.alexpfau.com/features/core-settings#combining-a-picture-an-icon-text) (Thanks @jose1711, #322)
+
+### 🌦️ An Event's Forecast on Its Own Line in List
+
+List puts an event's forecast at the end of its title's line, where a larger forecast crowds a long title. `own_line: true` under `weather → event` in `list:` gives it the line under the time instead, as Columns and Grid draw it, where `show_conditions` writes the condition out in words and `max_lines` limits how many lines they take. In the visual editor it is On a Line of Its Own, on List's Weather page. See [Weather In The List Layout](https://calendar-card-pro.alexpfau.com/features/weather#weather-in-the-list-layout) (Thanks @kahancock, #242)
+
+### 👆 A Tap on a Day Runs Your Own Action
+
+`day_tap_action` could add an event and nothing else. It now also takes Home Assistant's own actions, such as `perform-action` or `navigate`, so a tap on a day on a wall-mounted month can run your own script or open your own popup for that day. `{date}` in the action is the day you tapped, and `{start}`, `{end}` and `{all_day}` the span Add Event would open there, which in Grid's time area is the quarter hour you tapped. It runs from every place Add Event does, the keyboard included. In the visual editor, Day Tap Action is now Home Assistant's own action picker, with Add Event first. See [Running Another Action From a Day](https://calendar-card-pro.alexpfau.com/features/actions#running-another-action-from-a-day) (Thanks @Fjellrevenn, #981)
+
+### 🎨 Date Colors From Your Theme
+
+`--calendar-card-color-weekday`, `--calendar-card-color-day` and `--calendar-card-color-month` can now be set by a theme, for every card that leaves `weekday_color`, `day_color` and `month_color` unset. A card's own option still wins, and so do a weekend's and today's colors. A card-mod rule on the date's parts, or on an event's title, now needs `!important` only where the card still writes that value on the part itself, such as today's color or a calendar's own. See [Date Colors From Your Theme](https://calendar-card-pro.alexpfau.com/features/theming#date-colors-from-your-theme)
+
+## ⚠️ Changes to Existing Cards
+
+- **A Day Runs the Action Written for It** - A `day_tap_action` holding one of Home Assistant's own actions, such as `navigate`, was read as `none`, so a tap on a day ran the card's `tap_action`. It now runs the action written there, with the day filled in. Delete the line, or set it to `none`, to keep a card as it was. See [Running Another Action From a Day](https://calendar-card-pro.alexpfau.com/features/actions#running-another-action-from-a-day)
+- **A Theme's Date Colors Now Reach the Date** - The date's weekday, day and month were colored on the parts themselves, so `calendar-card-color-weekday`, `calendar-card-color-day` and `calendar-card-color-month` set by a theme, or a card-mod rule on the parts without `!important`, did nothing there. A theme or rule written for them before now colors the date; the card's own options still win. See [Date Colors From Your Theme](https://calendar-card-pro.alexpfau.com/features/theming#date-colors-from-your-theme)
+
+## Related Issues
+
+- [#239](https://github.com/alexpfau/calendar-card-pro/issues/239) - A month grid view by @chtardif, which v6.0 answered with `view: month`. @1Cedric1 asked there for the coming weeks instead of a calendar month, which `month: { start: week }` answers
+- [#182](https://github.com/alexpfau/calendar-card-pro/issues/182) - Set the card's height in its compact and expanded states by @rpring01, answered by `compact_card_height` and `compact_card_max_height`
+- [#321](https://github.com/alexpfau/calendar-card-pro/issues/321) - Control the size of a label image by @jose1711, answered by `label_image_size`
+- [#322](https://github.com/alexpfau/calendar-card-pro/issues/322) - Combine an image, an icon and text as labels on one event by @jose1711, answered by `label` as a list
+- [#981](https://github.com/alexpfau/calendar-card-pro/issues/981) - Let `day_tap_action` run any Home Assistant action, with the tapped date as `{date}`, by @Fjellrevenn
+- [#242](https://github.com/alexpfau/calendar-card-pro/issues/242) - Give the weather badge its own line, with a color icon set, by @kahancock. List can now give an event's forecast a line of its own with `own_line`; the day's forecast beside the date and a colored icon set did not ship, so it **stays open**
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v6.0.0...v6.1.0
+
+---
+
 # Calendar Card Pro v6.0.0
 
 **v6.0 brings Month view, a rebuilt visual editor and private calendars.** `view: month` lays the card out as a wall calendar, six weeks at a glance with every event on its day, and on a phone draws a narrow month with the chosen day's events listed underneath. The visual editor now opens on an overview of the card, gives each layout pages of its own and says in words what every setting is set to, with search across all of them, Undo and Redo, and Pick From Preview, which opens a setting when you point at the part of the card it changes. And `private: true` keeps a calendar's events on a shared screen without what they say.
