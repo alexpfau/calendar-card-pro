@@ -822,6 +822,8 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:label_image_source', withMode('calendar:label_type')],
       ['calendar:label', withMode('calendar:label_type')],
       ['calendar:label_icon_color', A],
+      // After the label's color, as the other setting of what the label draws: how tall its picture.
+      ['calendar:label_image_size', A],
       ['calendar:color', A],
       ['calendar:text_scale', A],
     ],

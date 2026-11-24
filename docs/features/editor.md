@@ -700,7 +700,8 @@ calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-c
 **Show in Calendar Filter** while the toolbar shows a
 [calendar filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter), and the
 control after them is **Label Type**. **Event Color** and **Text Scale** close the heading. A label is the mark shown before every event from
-that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
+that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image — or
+several of them together.
 
 The editor reads the type from the value: `mdi:home` is an icon, `/local/work.png` is an
 image, and anything else is text. So a calendar configured in YAML opens with the right
@@ -711,8 +712,14 @@ alongside `label`, and then it takes precedence over the value.
 
 Choosing **An Icon** or **An Image** first shows an **Icon Source** or **Image Source**
 dropdown, which says where the label comes from. With **Custom icon** as the source you get
-Home Assistant's icon picker. **Label Icon Color** appears only for **An Icon**, the only type
-it affects.
+Home Assistant's icon picker. **Label Icon Color** appears for **An Icon**, and **Image Size**
+for **An Image**, the types they affect.
+
+**Several Parts** takes a line per part, each read as a label of its own: text or an emoji,
+`mdi:` and an icon's name, an image path, `person.` and a person's name, or `home-assistant`.
+Choosing it starts from the label the calendar has; leaving it keeps the first part of the type
+you choose. **Label Icon Color** and **Image Size** both appear for it; see
+[Combining a Picture, an Icon & Text](/features/core-settings#combining-a-picture-an-icon-text).
 
 ::: tip Your Choice Wins Over the Value
 Type `mdi:calendar` into the text box and the card renders it as the literal text

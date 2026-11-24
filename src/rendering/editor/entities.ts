@@ -9,7 +9,9 @@ import {
   ENTITY_TRISTATE_VALUES,
   INHERIT,
   LABEL_ICON_SOURCE,
+  LABEL_IMAGE_SIZE,
   LABEL_IMAGE_SOURCE,
+  LABEL_PARTS,
   LABEL_TYPE,
   SHOW_IN_LEGEND,
   VISIBILITY,
@@ -360,26 +362,53 @@ export function showsLocation(
  */
 export function labelTypeOf(entry: string | Types.EntityConfig): string {
   const config = asEntityConfig(entry);
+  // A list is several parts whatever they are, until `label_type: none` hides it.
+  if (Array.isArray(config.label) && config.label_type !== 'none') return LABEL_PARTS;
   return Helpers.resolveLabelType(config.label, config.label_type);
 }
 
 /**
- * The fields whose helper speaks of one of their values, by that value: the helper shows only
- * while the field holds it, so Label Type's note on image paths never sits under "Text or Emoji".
+ * Whether a value is one of Label Type's entries: a shape `label_type` stores, or several parts.
+ *
+ * @param value - The dropdown's value
+ * @returns `true` for an entry the dropdown offers
  */
-export const HELPER_FOR_VALUE: Readonly<Record<string, string>> = {
-  label_type: 'image',
-  label_icon_source: 'home_assistant',
-  label_image_source: 'person',
+function isLabelTypeChoice(value: unknown): value is string {
+  return Helpers.isLabelType(value) || value === LABEL_PARTS;
+}
+
+/**
+ * The fields whose helper speaks of one value of a calendar's setting, by that setting and value:
+ * the helper shows only while the setting holds it, so Label Type's note on image paths never
+ * sits under "Text or Emoji". Most speak of their own value; Label's speaks of Label Type's.
+ */
+export const HELPER_FOR_VALUE: Readonly<Record<string, readonly [field: string, value: string]>> = {
+  label_type: ['label_type', 'image'],
+  label_icon_source: ['label_icon_source', 'home_assistant'],
+  label_image_source: ['label_image_source', 'person'],
+  label: [LABEL_TYPE, LABEL_PARTS],
 };
+
+/**
+ * Whether a calendar's field shows its helper, as {@link HELPER_FOR_VALUE} decides.
+ *
+ * @param name - The field's option name
+ * @param data - The calendar's form data, as {@link toEntityFormData} builds it
+ * @returns `true` when the helper shows
+ */
+export function showsHelper(name: string, data: Readonly<Record<string, unknown>>): boolean {
+  const when = HELPER_FOR_VALUE[name];
+  return when === undefined || data[when[0]] === when[1];
+}
 
 /**
  * The label the card draws for one entry, with what Home Assistant holds substituted for the
  * value that stands in for it: its icon for the `home-assistant` sentinel, a person's picture
- * for a `person.…` id. A mirror of `utils/events.ts` › `resolveEntityLabel`, read from the entry
- * itself rather than from the first entry of its calendar; importing that module would put the
- * card's event pipeline into the editor. `tests/editor-calendar-labels.test.ts` holds the two
- * to the same answers.
+ * for a `person.…` id. A label of several parts gives the first part the card draws, which is
+ * what a row's one label slot has room for. A mirror of `utils/events.ts` ›
+ * `resolveLabelParts`, read from the entry itself rather than from the first entry of its
+ * calendar; importing that module would put the card's event pipeline into the editor.
+ * `tests/editor-calendar-labels.test.ts` holds the two to the same answers.
  *
  * @param entry - Entry as stored
  * @param hass - Home Assistant, which holds the icon and the picture
@@ -390,31 +419,38 @@ export function resolvedLabel(
   hass?: Types.Hass | null,
 ): { readonly value: string; readonly type: 'text' | 'icon' | 'image' } | undefined {
   const config = asEntityConfig(entry);
-  const label = config.label;
-  const followsIcon = isEntityIconSentinel(label);
-  const followsPerson = isPersonEntityId(label);
   const declared = config.label_type;
-  const value =
-    (!followsIcon && !followsPerson) ||
-    (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image'))
-      ? label
-      : followsPerson
-        ? personPicture(label, hass)
-        : entityIcon(config.entity, hass);
-  if (!value) return undefined;
-  const type = Helpers.resolveLabelType(value, declared);
-  return type === 'none' ? undefined : { value, type };
+  for (const label of Helpers.labelParts(config.label)) {
+    const followsIcon = isEntityIconSentinel(label);
+    const followsPerson = isPersonEntityId(label);
+    const value =
+      (!followsIcon && !followsPerson) ||
+      (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image'))
+        ? label
+        : followsPerson
+          ? personPicture(label, hass)
+          : entityIcon(config.entity, hass);
+    if (!value) continue;
+    const type = Helpers.resolveLabelType(value, declared);
+    return type === 'none' ? undefined : { value, type };
+  }
+  return undefined;
 }
 
 /**
  * Whether the shape has to be written down, or can be read back off the value.
+ *
+ * A list reads back as several parts whatever it holds, so any shape stored beside one has to
+ * be written: `none` above all, which is how a list kept under None stays hidden.
  *
  * @param type - Shape the dropdown names
  * @param label - Label value as it will be stored
  * @returns `true` when the shape must be stored alongside the value
  */
 function needsExplicitType(type: string, label: unknown): boolean {
-  return Helpers.isLabelType(type) && Helpers.getLabelType(label) !== type;
+  return (
+    Helpers.isLabelType(type) && (Array.isArray(label) || Helpers.getLabelType(label) !== type)
+  );
 }
 
 /**
@@ -508,9 +544,7 @@ export function fromEntityFormData(
 ): string | Types.EntityConfig {
   const entry: Record<string, unknown> = { entity: entityId };
 
-  const chosenType = Helpers.isLabelType(data[LABEL_TYPE])
-    ? data[LABEL_TYPE]
-    : labelTypeOf(previous);
+  const chosenType = isLabelTypeChoice(data[LABEL_TYPE]) ? data[LABEL_TYPE] : labelTypeOf(previous);
 
   const moved = chosenType !== labelTypeOf(previous);
 
@@ -553,12 +587,38 @@ export function fromEntityFormData(
 
     if (key === LABEL_ICON_SOURCE || key === LABEL_IMAGE_SOURCE) continue;
 
+    if (key === 'label' && chosenType === LABEL_PARTS) {
+      // Choosing it starts from the label as it stood, as its first part; a list stays as the
+      // lines hold it, an emptied line included, which is the line the user is about to fill.
+      entry.label =
+        moved || !Array.isArray(value)
+          ? Helpers.labelParts(value)
+          : value.filter((part): part is string => typeof part === 'string');
+      continue;
+    }
+
     if (key === 'label') {
       if (chosenType === 'none') continue;
 
       // Written below instead, as the sentinel. Carrying the form's value through would
       // store whatever icon the picker last held under a mode that does not use it.
       if (followsHomeAssistant) continue;
+
+      // Leaving several parts keeps the first part of the shape chosen, which is also the part
+      // the sources read their mode from (`labelIconSourceOf`, `labelImageSourceOf`).
+      if (Array.isArray(value)) {
+        const part = Helpers.labelParts(value).find(
+          (candidate) => Helpers.getLabelType(candidate) === chosenType,
+        );
+        if (
+          part === undefined ||
+          (chosenType === 'image' && isPersonEntityId(part) !== namesPerson)
+        ) {
+          continue;
+        }
+        entry.label = part;
+        continue;
+      }
 
       if (moved && !fitsShape(chosenType, value)) continue;
 
@@ -580,7 +640,18 @@ export function fromEntityFormData(
       if (chosenType === 'image' && isPersonEntityId(value) !== namesPerson) continue;
     }
 
-    if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
+    if (
+      key === 'label_icon_color' &&
+      moved &&
+      chosenType !== 'icon' &&
+      chosenType !== LABEL_PARTS
+    ) {
+      continue;
+    }
+
+    if (key === LABEL_IMAGE_SIZE && moved && chosenType !== 'image' && chosenType !== LABEL_PARTS) {
+      continue;
+    }
 
     if (key === 'accent_color') {
       // Only the custom mode has a color to store. The other two are the sentinel and
@@ -670,8 +741,18 @@ export function fromEntityFormData(
     if (isSet(kept)) entry.label = kept;
   }
 
+  if (chosenType === LABEL_PARTS && entry.label === undefined) {
+    // Chosen with no label to start from: an empty list, which is what reads back as this entry
+    // and leaves the lines to add.
+    entry.label = [];
+  }
+
   if (needsExplicitType(chosenType, entry.label)) {
     entry.label_type = chosenType;
+  } else if (chosenType === LABEL_PARTS && !moved) {
+    // A shape a list was given in YAML applies to every part, and an edit to another field keeps it.
+    const held = asEntityConfig(previous).label_type;
+    if (held !== undefined) entry.label_type = held;
   }
 
   return Object.keys(entry).length === 1 ? entityId : (entry as unknown as Types.EntityConfig);

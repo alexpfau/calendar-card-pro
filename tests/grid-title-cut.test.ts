@@ -715,8 +715,10 @@ describe('the stylesheet half', () => {
     expect(grid.body).toContain('padding-inline-start: var(--calendar-card-summary-inline-room);');
     expect(grid.body).toMatch(/text-indent: 0;/);
     for (const hanging of [
-      '.summary:has(> .label-icon), .summary:has(> .label-image)',
+      '.summary:has(> .label-icon)',
+      '.summary:has(> .label-image)',
       '.summary:has(> .label-emoji)',
+      '.summary:has(> .label-emoji):where(:has(> .label-image))',
     ]) {
       expect(rule(hanging).body).toMatch(/text-indent: calc\(-1/);
       expect(rule(hanging).index).toBeLessThan(grid.index);

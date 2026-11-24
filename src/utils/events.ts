@@ -3056,13 +3056,13 @@ function resolveAccentColor(
  * @param entityId - The entity ID to find label for
  * @param config - Current card configuration
  * @param event - Optional event data containing matched configuration
- * @returns Label string or undefined if not set
+ * @returns The label as written, a single value or a list of parts, or undefined if not set
  */
 export function getEntityLabel(
   entityId: string | undefined,
   config: Types.Config,
   event?: Types.CalendarEventData,
-): string | undefined {
+): Types.EntityConfig['label'] {
   if (!entityId) return undefined;
 
   if (event && event._matchedConfig) {
@@ -3099,6 +3099,10 @@ export function getEntityLabel(
  * calendar the registry has no color for renders the color it would have had anyway. A
  * person with no picture, or a `person.…` id naming nobody, falls the same way.
  *
+ * Answers for a label that draws one part: a single value, or a list of which one part draws. A
+ * list drawing two or more goes through {@link resolveMergedLabels}, which resolves each part as
+ * this resolves one, so this returns `undefined` for it, as for no label at all.
+ *
  * @param entityId - Calendar the event came from
  * @param config - Current card configuration
  * @param event - Event data carrying the matched per-calendar configuration
@@ -3111,8 +3115,29 @@ export function resolveEntityLabel(
   event?: Types.CalendarEventData,
   hass?: Types.Hass | null,
 ): string | undefined {
-  const label = getEntityLabel(entityId, config, event);
+  const parts = Helpers.labelParts(getEntityLabel(entityId, config, event));
+  if (parts.length === 1) return resolveLabelPart(parts[0], entityId, config, event, hass);
+  const drawn = resolveLabelParts(entityId, config, event, hass);
+  return drawn.length === 1 ? drawn[0].value : undefined;
+}
 
+/**
+ * One part of a calendar's label, resolved as {@link resolveEntityLabel} describes.
+ *
+ * @param label - The part as written
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance
+ * @returns The part to draw, or `undefined` when Home Assistant holds nothing for it
+ */
+function resolveLabelPart(
+  label: string,
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string | undefined {
   const followsIcon = EntityIcons.isEntityIconSentinel(label);
   const followsPerson = PersonPictures.isPersonEntityId(label);
 
@@ -3149,7 +3174,8 @@ export function resolveEntityLabel(
  * finding on the card.
  *
  * Render time, like `resolveEntityLabel`, so renaming the person in Home Assistant renames
- * the picture with it.
+ * the picture with it. For a label that draws one part, as `resolveEntityLabel` answers; each part
+ * of a longer list carries its own in {@link resolveLabelParts}.
  *
  * @param entityId - Calendar the event came from
  * @param config - Current card configuration
@@ -3163,24 +3189,78 @@ export function resolveLabelAlt(
   event?: Types.CalendarEventData,
   hass?: Types.Hass | null,
 ): string {
-  const label = getEntityLabel(entityId, config, event);
-  if (!label || !PersonPictures.isPersonEntityId(label)) return '';
+  const parts = Helpers.labelParts(getEntityLabel(entityId, config, event));
+  if (parts.length === 1) return labelPartAlt(parts[0], hass);
+  const drawn = resolveLabelParts(entityId, config, event, hass);
+  return drawn.length === 1 ? (drawn[0].alt ?? '') : '';
+}
+
+/**
+ * The text alternative for one part of a label, as {@link resolveLabelAlt} describes.
+ *
+ * @param label - The part as written
+ * @param hass - Home Assistant instance, which holds the person's name
+ * @returns The person's name, or `''`
+ */
+function labelPartAlt(label: string, hass?: Types.Hass | null): string {
+  if (!PersonPictures.isPersonEntityId(label)) return '';
   const name = hass?.states?.[label]?.attributes?.friendly_name;
   return typeof name === 'string' ? name.trim() : '';
 }
 
 /**
- * Resolve one label per calendar that contributed a copy of a merged duplicate.
+ * Every part of one calendar's label, each resolved as {@link resolveEntityLabel} resolves a
+ * single value and carrying what drawing it needs. A part Home Assistant holds nothing for is
+ * left out, as a single value is.
  *
- * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
- * labels to draw. That second case is deliberate: with one label the row renders through
- * the single-label path it always did, so a merge involving an unlabeled calendar looks
- * exactly as it looks today rather than showing the label of a calendar that did not win.
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance
+ * @returns The parts, in the order they are written
+ */
+export function resolveLabelParts(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): Types.ResolvedLabel[] {
+  const parts = Helpers.labelParts(getEntityLabel(entityId, config, event));
+  if (parts.length === 0) return [];
+
+  const iconColor = getEntitySetting(entityId, 'label_icon_color', config, event);
+  const type = getEntitySetting(entityId, 'label_type', config, event);
+
+  return parts.flatMap((part) => {
+    const value = resolveLabelPart(part, entityId, config, event, hass);
+    if (!value) return [];
+    return [
+      {
+        value,
+        iconColor,
+        type,
+        alt: labelPartAlt(part, hass),
+        entityId,
+        person: PersonPictures.isPersonEntityId(part) ? part : undefined,
+      },
+    ];
+  });
+}
+
+/**
+ * The labels an event's row draws when there are two or more of them: one run of every part of
+ * every calendar that contributed a copy of a merged duplicate, or, on any other row, each part
+ * of a label written as a list.
+ *
+ * Returns `undefined` for a row with one label or none, which draws through `resolveEntityLabel`
+ * as it always has. That includes a merged row with fewer than two labels to draw, deliberately:
+ * a merge involving an unlabeled calendar looks exactly as it would unmerged rather than showing
+ * the label of a calendar that did not win.
  *
  * @param event Event to describe, carrying `_mergedFrom` if it is a merged row
  * @param config Card configuration
  * @param hass Home Assistant instance, needed for person pictures and entity icons
- * @returns One resolved label per contributing calendar, or `undefined` for an ordinary row
+ * @returns The labels in drawing order, or `undefined` for a row with fewer than two
  */
 export function resolveMergedLabels(
   event: Types.CalendarEventData,
@@ -3188,41 +3268,37 @@ export function resolveMergedLabels(
   hass?: Types.Hass | null,
 ): Types.ResolvedLabel[] | undefined {
   const mergedFrom = event._mergedFrom;
-  if (!mergedFrom || mergedFrom.length < 2) return undefined;
+  if (mergedFrom && mergedFrom.length >= 2) {
+    const labels: Types.ResolvedLabel[] = [];
+    const drawn = new Set<string>();
 
-  const labels: Types.ResolvedLabel[] = [];
-  const drawn = new Set<string>();
+    for (const calendar of mergedFrom) {
+      // Every reader below prefers `_matchedConfig` to walking `entities`, so each calendar is
+      // asked through a shim carrying the block that produced *its* copy. Handing them the
+      // merged event itself would answer every question with the winning block's values and
+      // draw one calendar's label as many times as there are calendars.
+      const asContributor: Types.CalendarEventData = {
+        ...event,
+        _entityId: calendar.entityId,
+        _matchedConfig: calendar.config,
+      };
 
-  for (const calendar of mergedFrom) {
-    // Both readers below prefer `_matchedConfig` to walking `entities`, so each calendar is
-    // asked through a shim carrying the block that produced *its* copy. Handing them the
-    // merged event itself would answer every question with the winning block's values and
-    // draw one calendar's label as many times as there are calendars.
-    const asContributor: Types.CalendarEventData = {
-      ...event,
-      _entityId: calendar.entityId,
-      _matchedConfig: calendar.config,
-    };
+      for (const label of resolveLabelParts(calendar.entityId, config, asContributor, hass)) {
+        // Deduplicated on the **resolved** value rather than the configured one. Two calendars
+        // both set to `home-assistant` are the same config string and may still resolve to two
+        // different icons, or to `mdi:calendar` twice — and what the reader sees is the only
+        // comparison that answers whether it is the same label.
+        if (drawn.has(label.value)) continue;
+        drawn.add(label.value);
+        labels.push(label);
+      }
+    }
 
-    const value = resolveEntityLabel(calendar.entityId, config, asContributor, hass);
-    if (!value) continue;
-
-    // Deduplicated on the **resolved** value rather than the configured one. Two calendars
-    // both set to `home-assistant` are the same config string and may still resolve to two
-    // different icons, or to `mdi:calendar` twice — and what the reader sees is the only
-    // comparison that answers whether it is the same label.
-    if (drawn.has(value)) continue;
-    drawn.add(value);
-
-    labels.push({
-      value,
-      iconColor: getEntitySetting(calendar.entityId, 'label_icon_color', config, asContributor),
-      type: getEntitySetting(calendar.entityId, 'label_type', config, asContributor),
-      alt: resolveLabelAlt(calendar.entityId, config, asContributor, hass),
-    });
+    if (labels.length > 1) return labels;
   }
 
-  return labels.length > 1 ? labels : undefined;
+  const own = resolveLabelParts(event._entityId, config, event, hass);
+  return own.length > 1 ? own : undefined;
 }
 
 /**

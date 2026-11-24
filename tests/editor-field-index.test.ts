@@ -25,7 +25,7 @@ import {
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import { HELPER_FOR_VALUE } from '../src/rendering/editor/entities';
+import { showsHelper, toEntityFormData } from '../src/rendering/editor/entities';
 import {
   type FieldId,
   type IndexedField,
@@ -284,8 +284,8 @@ describe('field ids', () => {
     // After and Starts Before. Then the events area's own height pair and When Too Narrow,
     // Full-Size Overlay's Layout, and the toolbar's Open Full Size. Then Month's First Week and
     // Weeks Shown. Then List's On a Line of Its Own, and its Compact Height and Compact Maximum
-    // Height. Then Open Full Size's Days To Show and Show Toolbar.
-    expect(EVERY_FIELD.size).toBe(248);
+    // Height. Then Open Full Size's Days To Show and Show Toolbar. Then a calendar's Image Size.
+    expect(EVERY_FIELD.size).toBe(249);
   });
 
   it('do not depend on the editor language', () => {
@@ -831,19 +831,16 @@ describe('the index builds what the editor draws today', () => {
           if (computeLabel(ctx.language, node, []) !== answer.label) labels.nestedDiffer += 1;
         }
       }
-      // A calendar's field whose helper speaks of one value shows it only while it holds it.
-      const indexed = fresh.map(({ form, field }) => {
-        const helped = field.id.startsWith('calendar:')
-          ? HELPER_FOR_VALUE[field.node.name]
-          : undefined;
-        return {
-          label: fieldLabel(field, ctx.language),
-          helper:
-            helped === undefined || form.data[field.node.name] === helped
-              ? fieldHelper(field, onWholeCardPage(field.id) ? sharedCtx : ctx)
-              : undefined,
-        };
-      });
+      // A calendar's field whose helper speaks of one value shows it only while the setting it
+      // speaks of holds it, read from the calendar's whole form data: the corpus has one.
+      const calendarData = toEntityFormData(config.entities?.[0] ?? '', config.entities ?? []);
+      const indexed = fresh.map(({ field }) => ({
+        label: fieldLabel(field, ctx.language),
+        helper:
+          !field.id.startsWith('calendar:') || showsHelper(field.node.name, calendarData)
+            ? fieldHelper(field, onWholeCardPage(field.id) ? sharedCtx : ctx)
+            : undefined,
+      }));
       fresh.forEach(({ field, reads }, at) => {
         const today = resolved.get(reads)!;
         labels.compared += 1;
