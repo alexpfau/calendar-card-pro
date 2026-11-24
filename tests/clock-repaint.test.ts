@@ -145,6 +145,47 @@ describe('nothing on screen that moves by the minute', () => {
     expect(card._clockTimerAt).toBe(nextMidnight(NOW.getTime()));
   });
 
+  /**
+   * A compact limit keeps only the first rows, so a countdown or a bar below them is not drawn and
+   * has nothing to move. Today's all-day event comes first and moves only at midnight.
+   */
+  describe('a row the compact limit hides', () => {
+    const ALL_DAY: Types.CalendarEventData = {
+      summary: 'Field trip',
+      start: { date: '2026-06-17' },
+      end: { date: '2026-06-18' },
+    };
+
+    it.each([
+      ['countdown', { show_countdown: true }, LATER_TODAY],
+      ['progress bar', { show_progress_bar: true }, RUNNING],
+    ] as const)('asks for no minute tick for its %s', async (_name, option, hidden) => {
+      const card = await mount({ view: 'list', compact_events_to_show: 1, ...option }, [
+        ALL_DAY,
+        hidden,
+      ]);
+      expect(text(card, '.event-title')).toEqual(['Field trip']);
+
+      expect(card._clockTimerAt).toBe(nextMidnight(NOW.getTime()));
+    });
+
+    it.each([
+      ['countdown', { show_countdown: true }, LATER_TODAY],
+      ['progress bar', { show_progress_bar: true }, RUNNING],
+    ] as const)(
+      'control: ticks by the minute once the %s is drawn',
+      async (_name, option, hidden) => {
+        const card = await mount({ view: 'list', compact_events_to_show: 2, ...option }, [
+          ALL_DAY,
+          hidden,
+        ]);
+        expect(text(card, '.event-title')).toEqual(['Field trip', hidden.summary]);
+
+        expect(card._clockTimerAt).toBe(NOW.getTime() + 60_000);
+      },
+    );
+  });
+
   it('holds none in a grid with its now line, whose own tick repaints every minute', async () => {
     const card = await mount({ view: 'grid', show_countdown: true }, [LATER_TODAY]);
 

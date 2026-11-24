@@ -1255,6 +1255,8 @@ describe('every piece of text is sized by its own option', () => {
       'toolbar-month-name in toolbar-month-text': ['title_font_size'],
       'time-countdown in time': ['time_font_size'],
       'time-countdown in time-text': ['time_font_size'],
+      // Beside the title, a folded countdown's words, which move to the next line whole.
+      'time-countdown-words in time-countdown': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
       'time-end in time-text': ['time_font_size'],
       // An end with a duration (show_duration) holds its time and the duration as spans of their
@@ -1399,6 +1401,7 @@ describe('the check can fail', () => {
     expect(changed(planted('.time .time-countdown', '12px'))).toEqual({
       'time-countdown in time': ['fixed 12px'],
       'time-countdown in time-text': ['fixed 12px'],
+      'time-countdown-words in time-countdown': ['fixed 12px'],
     });
     // Over a second in a full local run; the limit is set for CI's slower runner under load
     // rather than for a hang.

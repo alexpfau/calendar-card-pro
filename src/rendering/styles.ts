@@ -3726,6 +3726,24 @@ export const cardStyles = css`
     overflow-wrap: normal;
   }
 
+  /* A countdown or day counter folded into the time is one phrase here: an atomic box, so where
+     the line has no room for it after the dot it moves to the next line whole, "16:00 - 17:30 ·" /
+     "in 6 hours", rather than break inside itself, "Day 12 of" / "45". The dot's zero-width space
+     is the break. A phrase wider than a whole line still wraps, inside its box: shrink-to-fit
+     never makes it wider than the line, and its floor stays its longest word, so the box beside
+     the title is no wider than before. On the baseline, not in the middle the .time span rule
+     sets, which sat the words a pixel below the time before them. Below the title the
+     countdown wraps as it always has. */
+  .time-beside-title
+    .summary-row
+    .title-aside
+    .time-text
+    > .time-countdown
+    > .time-countdown-words {
+    display: inline-block;
+    vertical-align: baseline;
+  }
+
   /* With times off, the countdown alone takes the time's place. It wraps like the time, against
      the end, and brings neither the end margin the time already has nor column view's
      leading dot: beside the title nothing comes before it but the badge's bullet. */
@@ -4646,13 +4664,20 @@ export const cardStyles = css`
    * Clamped, it is a box that cuts its text, and keeps the room event text keeps at its inline
    * edges, through the emitted --calendar-card-weather-condition-inline-room. Inline it cuts
    * nothing, and takes none: padding on an inline box moved where Chromium put its glyphs. No room
-   * above its first line; see "Marks above and below the line". */
+   * above its first line; see "Marks above and below the line".
+   *
+   * At the top of its line, not on the baseline. A clamped box hides its overflow, and Chromium
+   * takes the baseline of an inline box that hides its overflow from its bottom edge, so the
+   * words sat 3.4px above the temperature beside them, and on a line of their own the row grew by
+   * as much. The chips share one font, so the top of the line is where every chip's text starts;
+   * inline, the words lay out exactly as on the baseline. */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
     hyphens: manual;
+    vertical-align: top;
     padding-inline: var(--calendar-card-weather-condition-inline-room, 0px);
     margin-inline: calc(-1 * var(--calendar-card-weather-condition-inline-room, 0px));
   }
