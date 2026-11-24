@@ -1,8 +1,9 @@
 /**
- * Full Size: the overview's section between Layouts and More, and its Open Full Size page. The
- * page holds what the card opens full size with, its Layout, Days To Show and Show Toolbar, each
- * saying where its value comes from, then whatever else `overlay:` holds, each line with Remove.
- * Opening it writes nothing; Taps and the toolbar's chips lead to it. Names are invented.
+ * Full Size: the overview's section between Layouts and More, and its Full-Size Settings page,
+ * whose row says what the page holds and never its values. The page holds what the card opens
+ * full size with, its Layout, Days To Show and Show Toolbar, each saying where its value comes
+ * from, then whatever else `overlay:` holds, each line with Remove. Opening it writes nothing;
+ * Taps and the toolbar's chips lead to it. Names are invented.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -56,16 +57,16 @@ afterEach(() => {
 });
 
 describe('Full Size on the overview', () => {
-  it('names what the card opens with: Grid on seven days, then what differs', async () => {
-    const summary = async (overlay?: Record<string, unknown>): Promise<string> => {
+  it('says what the page holds, never the values it holds', async () => {
+    const row = async (overlay?: Record<string, unknown>): Promise<string[]> => {
       const editor = await mountEditor({ ...CARD, ...(overlay && { overlay }) });
-      return text($(editor, '[data-focus="nav:full_size"] .nav-summary'));
+      const at = $(editor, '[data-focus="nav:full_size"]');
+      return [text(at?.querySelector('.nav-title')), text(at?.querySelector('.nav-summary'))];
     };
-    expect(await summary()).toBe('Grid · 7 days');
-    expect(await summary({ view: 'month', days_to_show: 3 })).toBe('Month');
-    expect(await summary({ days_to_show: 1, toolbar: { show: false }, title: 'Big' })).toBe(
-      'Grid · 1 day · Toolbar off · 1 more set',
-    );
+    const line = ['Full-Size Settings', 'Layout, days and toolbar for the full-size view'];
+    expect(await row()).toEqual(line);
+    expect(await row({ view: 'month', days_to_show: 3 })).toEqual(line);
+    expect(await row({ days_to_show: 1, toolbar: { show: false }, title: 'Big' })).toEqual(line);
   });
 
   it('opens the page, and writes nothing', async () => {
@@ -76,7 +77,7 @@ describe('Full Size on the overview', () => {
     const before = reportsOf(editor).length;
     await goPage(editor, 'full_size');
     expect($(editor, '.page[data-page="full_size"]')).not.toBeNull();
-    expect(text($(editor, '.page-title'))).toBe('Open Full Size');
+    expect(text($(editor, '.page-title'))).toBe('Full-Size Settings');
     expect([labelOf(editor, VIEW), labelOf(editor, DAYS), labelOf(editor, TOOLBAR)]).toEqual([
       'Layout',
       'Days To Show',
@@ -91,7 +92,7 @@ describe('Full Size on the overview', () => {
   });
 });
 
-describe('Open Full Size’s settings', () => {
+describe('the page’s settings', () => {
   it('say whether each is the full-size default or set for full size', async () => {
     const editor = await mountEditor({ ...CARD, days_to_show: 3, overlay: { days_to_show: 14 } });
     await goPage(editor, 'full_size');
@@ -181,7 +182,7 @@ describe('Also Set for Full Size', () => {
   });
 });
 
-describe('the lines leading to Open Full Size', () => {
+describe('the lines leading to Full-Size Settings', () => {
   it('lead there from Taps while a tap or a hold opens the card full size', async () => {
     const none = await mountEditor(CARD);
     await goPage(none, 'taps_refresh');
@@ -195,7 +196,7 @@ describe('the lines leading to Open Full Size', () => {
     await goPage(hold, 'taps_refresh');
     const link = $(hold, '[data-focus="xlink:full_size"]');
     expect(text(link?.closest('.page-line'))).toBe(
-      'Opens full size in Grid, 5 days: Full Size › Open Full Size',
+      'Opens full size in Grid, 5 days: Full-Size Settings',
     );
     link!.click();
     await hold.updateComplete;
@@ -214,9 +215,7 @@ describe('the lines leading to Open Full Size', () => {
     });
     await goPage(on, 'card_header');
     const link = $(on, '[data-focus="xlink:full_size:toolbar"]');
-    expect(text(link?.closest('.page-line'))).toBe(
-      'Opens full size in Month: Full Size › Open Full Size',
-    );
+    expect(text(link?.closest('.page-line'))).toBe('Opens full size in Month: Full-Size Settings');
     link!.click();
     await on.updateComplete;
     expect($(on, '.page[data-page="full_size"]')).not.toBeNull();

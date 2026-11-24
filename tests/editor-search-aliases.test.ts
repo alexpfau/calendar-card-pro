@@ -135,11 +135,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     scope: 'page',
     queries: ['Actions & Refresh'],
   },
-  // The YAML's own word for what the editor calls Full Size, and what people call it elsewhere.
+  // The YAML's own word for what the editor calls Full Size, the name of the toolbar chip and the
+  // action that open it, and what people call it elsewhere.
   'page.full_size.aliases': {
     field: 'full_size',
     scope: 'page',
-    queries: ['overlay', 'fullscreen', 'expand'],
+    queries: ['overlay', 'Open Full Size', 'fullscreen', 'expand'],
   },
   // Starting Layout's name before v6.
   'view.aliases': { field: 'starting_layout', scope: 'overview', queries: ['card displays'] },

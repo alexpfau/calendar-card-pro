@@ -2918,7 +2918,7 @@ describe('editor: the Actions & Refresh panel', () => {
   /**
    * Pinned by value, both states. The event tap follows the hold rather than the tap it is
    * named after, the dialog's two switches sit directly under the dropdown that reveals
-   * them, then what the overlay opens with (drawn on the Open Full Size page), and the refresh
+   * them, then what the overlay opens with (drawn on the Full-Size Settings page), and the refresh
    * pair closes the panel. No
    * headings: a split between card and event taps would misfile the hold, which runs on events
    * too.

@@ -615,7 +615,7 @@ const APPROVED_MAP: ReadonlyArray<
     ['actions:refresh_interval A', 'actions:refresh_on_navigate A'],
   ],
   [
-    'Open Full Size',
+    'Full-Size Settings',
     'Opens With',
     '',
     ['actions:overlay.view E', 'actions:overlay.days_to_show E', 'actions:overlay.toolbar.show E'],
@@ -693,8 +693,8 @@ describe('the page registry places every built field exactly once', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
     // map places 249 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
-    // own height pair, Open Full Size's three settings and its toolbar chip, List's forecast on a
-    // line of its own and its two compact heights, and a calendar's Image Size among them, and
+    // own height pair, Full-Size Settings' three settings and its toolbar chip, List's forecast
+    // on a line of its own and its two compact heights, and a calendar's Image Size among them, and
     // every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
@@ -980,7 +980,7 @@ describe('the page registry is consistent with itself', () => {
     expect(own?.fields.map(([id]) => id)).toEqual(
       PLACED.filter(({ appearance }) => appearance === 'button-rows').map(({ id }) => id),
     );
-    // What `overlay:` holds beyond Open Full Size's own settings, a heading with no field of its
+    // What `overlay:` holds beyond Full-Size Settings' own settings, a heading with no field of its
     // own, so the approved map, which pins fields, cannot see it; and the line leading there
     // from Taps.
     const lines = HEADINGS.find((heading) => heading.extras?.includes('full-size-lines'));
@@ -1004,8 +1004,8 @@ describe('the page registry is consistent with itself', () => {
   });
 
   it('derives which pages apply to the whole card', () => {
-    // Weather is each layout's own, with the entity they share copied onto it. Open Full Size's
-    // settings have one value for the whole card, written under `overlay:`.
+    // Weather is each layout's own, with the entity they share copied onto it. Full-Size
+    // Settings' settings have one value for the whole card, written under `overlay:`.
     expect(PAGES.filter((page) => isWholeCard(page)).map((page) => page.id)).toEqual([
       'card_header',
       'events_weather_language',

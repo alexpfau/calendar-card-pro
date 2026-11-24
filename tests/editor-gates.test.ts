@@ -959,8 +959,8 @@ describe('the universe', () => {
     // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
     // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
     // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
-    // gained Open Full Size's Days To Show and Show Toolbar. Then a calendar gained Image Size, in
-    // every workspace.
+    // gained Full-Size Settings' Days To Show and Show Toolbar. Then a calendar gained Image Size,
+    // in every workspace.
     expect(sizes).toEqual({
       shared: { card: 141, calendar: 31 },
       list: { card: 171, calendar: 32 },

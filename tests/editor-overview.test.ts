@@ -703,16 +703,15 @@ describe('section row descriptions', () => {
       show_time: false,
       event_tap_action: { action: 'none' },
       list: { show_past_events: true },
+      overlay: { view: 'month', toolbar: { show: false }, title: 'Big' },
     });
     expect(rows(busy)).toEqual(rows(plain));
-    // Full Size's row is the one exception: it names what the card opens full size with
-    // (`tests/editor-full-size.test.ts`), here what a card with no `overlay:` opens with.
     expect(rows(plain)).toEqual([
       ['nav:card_header', 'Title, colors and toolbar controls'],
       ['nav:events_weather_language', 'Start date, week start and time format'],
       ['nav:taps_refresh', 'Tap and hold actions, editing and refresh'],
       ['layout:shared', 'What a layout uses where it has no value of its own'],
-      ['nav:full_size', 'Grid · 7 days'],
+      ['nav:full_size', 'Layout, days and toolbar for the full-size view'],
       ['more:audit', 'What is set, grouped by where it lives'],
       ['more:example', 'Quick Setup: an example card and a few questions'],
     ]);

@@ -1,7 +1,7 @@
 /**
- * The Full Size page's model (`pages.ts` › `full_size`): where each value the card opens full size
- * with comes from, the layouts whose own count the `overlay:` block holds, and what the overview's
- * row says. DOM-free, so the tests call it directly.
+ * The Full-Size Settings page's model (`pages.ts` › `full_size`): where each value the card opens
+ * full size with comes from, the layouts whose own count the `overlay:` block holds, and what the
+ * lines leading to the page say. DOM-free, so the tests call it directly.
  *
  * Every answer is read through `config/overlay.ts` › `overlayConfig`, which builds the configuration
  * the full-size card is given, so nothing here restates a default: Grid, seven days and the toolbar
@@ -137,16 +137,14 @@ export function fullSizeLayoutsOwn(
   });
 }
 
-/** What the full-size card opens with, as the overview's row names it. */
+/** What the full-size card opens with, as the lines leading to its page name it. */
 export interface FullSizeSummary {
   readonly view: Types.EffectiveView;
   readonly days: number;
-  readonly toolbar: boolean;
 }
 
 /**
- * What the full-size card opens with: its layout, the days its List, Columns and Grid show, and
- * whether it draws its toolbar.
+ * What the full-size card opens with: its layout, and the days its List, Columns and Grid show.
  *
  * @param raw - The configuration as stored
  * @returns The summary
@@ -155,10 +153,8 @@ export function fullSizeSummary(raw: Readonly<Record<string, unknown>>): FullSiz
   const config = overlayConfig(raw);
   // Read as the card reads it: a count below one, or none, is the card's default.
   const days = toValidNumber(config.days_to_show, 1) ?? DEFAULT_CONFIG.days_to_show;
-  const toolbar = config.toolbar;
   return {
     view: overlayView(raw as Pick<Types.Config, 'overlay'>),
     days: Math.floor(days),
-    toolbar: !isConfigBlock(toolbar) || toolbar.show !== false,
   };
 }
