@@ -4,6 +4,7 @@
   "months": ["Jan", "Feb", "Már", "Ápr", "Máj", "Jún", "Júl", "Aug", "Szep", "Okt", "Nov", "Dec"],
   "allDay": "egész napos",
   "multiDay": "eddig:",
+  "untilTime": "eddig: {time}",
   "endsToday": "ma {at} ér véget",
   "endsTomorrow": "holnap {at} ér véget",
   "dayOfEvent": "{day}/{days}. nap",

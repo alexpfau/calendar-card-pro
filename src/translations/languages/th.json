@@ -25,6 +25,7 @@
   ],
   "allDay": "ตลอดวัน",
   "multiDay": "ถึง",
+  "untilTime": "ถึง {time}",
   "at": "เวลา",
   "separator": " ",
   "viewList": "รายการ",

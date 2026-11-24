@@ -1043,7 +1043,7 @@ function renderTimedEvent(
  * event that runs until the midnight after it starts, 22:00 to 0:00: one block, reading
  * "22:00 - 0:00" as any calendar writes it. Which ends count as that midnight, where the
  * clocks change at midnight, is `FormatUtils.endsAtNextMidnight`'s; the count is
- * `FormatUtils.endDayCount`, which List's and Column's first row of a split event write too.
+ * `FormatUtils.endDayCount`'s.
  *
  * The end and its count are a single droppable end (`eventTimeEnd`). The fit ladder wraps
  * them onto a second line together and drops them together, so a narrow block falls back

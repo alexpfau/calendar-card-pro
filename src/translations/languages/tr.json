@@ -4,6 +4,7 @@
   "months": ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
   "allDay": "tüm gün",
   "multiDay": "bitiş:",
+  "untilTime": "bitiş: {time}",
   "at": "saat",
   "separator": ", ",
   "viewList": "Liste",

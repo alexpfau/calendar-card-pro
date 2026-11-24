@@ -109,7 +109,7 @@ exports[`a narrow day > matches its snapshot 1`] = `
 <span class="month-date"><span class="day">17</span></span>
 <span class="month-narrow-marks" aria-hidden="true"></span>
 </div><div role="gridcell" class=" month-day today month-selected " tabindex="0" aria-label="Wednesday, November 18, 2026, 4 events" aria-selected="true" aria-current="date">
-<span class="month-date"><span class="day today-tile">18</span></span>
+<span class="month-date"><span class="day today-tile" style="color: var(--calendar-card-today-indicator-ink); opacity: null;">18</span></span>
 <span class="month-narrow-marks" aria-hidden="true"><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span><span class="month-narrow-mark" style="background-color: #16a34a;"></span><span class="month-narrow-mark" style="background-color: #3b82f6;"></span></span>
 </div><div role="gridcell" class=" month-day tomorrow " tabindex="-1" aria-label="Thursday, November 19, 2026, No events" aria-selected="false">
 <span class="month-date"><span class="day">19</span></span>

@@ -56,8 +56,9 @@ today, and `start_date: 2027-01-15` opens January 2027.
   `today_indicator_color`, a deeper shade of it where the color is too light, and its number in
   white, so it stands out among the events,
   as a [narrow month](#the-narrow-month) draws it while today is the selected day.
-  `today_indicator: false` turns it off; Month draws no other indicator, so its editor offers the
-  tile and none.
+  `today_indicator: false` turns it off, and today's number is then drawn as any other day's;
+  Month draws no other indicator and reads every other style as `false`, so its editor offers
+  the tile and none. `today_day_color` and `today_date_font_weight` apply either way.
 - **Finished events are shown, dimmed**, by default in month view; see
   [Options That Start From a Different Default](#options-that-start-from-a-different-default).
   Past dates keep their full strength; to dim them too, set
@@ -301,6 +302,9 @@ set up; see [Narrow Cards](/features/editor#narrow-cards).
   heading's month holds it, and otherwise the 1st, and the home and
   [reset](/features/header-toolbar#resetting-the-card) buttons go back to the day the month
   opens with.
+- **The selected day's mark:** its number sits on a mark in your theme's text color, and today's
+  on the filled date tile. Without the tile, a selected today takes the same mark as any other
+  day.
 - **Adding an event:** the toolbar's [add button](/features/actions#add-event-button) dates a new
   event on the selected day, and with `day_tap_action: add-event`, so does a press on the day's
   name over its list. A tap on a day only selects it.

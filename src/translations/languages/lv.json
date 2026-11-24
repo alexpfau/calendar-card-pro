@@ -12,6 +12,7 @@
   "months": ["Jan", "Feb", "Mar", "Apr", "Mai", "Jūn", "Jūl", "Aug", "Sep", "Okt", "Nov", "Dec"],
   "allDay": "visu dienu",
   "multiDay": "līdz",
+  "untilTime": "līdz {time}",
   "at": "plkst.",
   "separator": ", ",
   "viewList": "Saraksts",

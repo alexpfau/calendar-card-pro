@@ -4,6 +4,7 @@
   "months": ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"],
   "allDay": "celý den",
   "multiDay": "do",
+  "untilTime": "do {time}",
   "at": "v",
   "separator": ", ",
   "viewList": "Seznam",

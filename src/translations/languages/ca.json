@@ -12,6 +12,7 @@
   "months": ["Gen", "Febr", "Març", "Abr", "Maig", "Juny", "Jul", "Ag", "Set", "Oct", "Nov", "Des"],
   "allDay": "tot el dia",
   "multiDay": "fins",
+  "untilTime": "fins a les {time}",
   "at": "a les",
   "separator": ", ",
   "viewList": "Llista",

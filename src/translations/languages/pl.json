@@ -12,6 +12,7 @@
   "months": ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
   "allDay": "cały dzień",
   "multiDay": "do",
+  "untilTime": "do {time}",
   "at": "o",
   "separator": ", ",
   "viewList": "Lista",

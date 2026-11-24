@@ -609,8 +609,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   today_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
   past_date_scale: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
-  // A month marks today with the tile, or with its number in the indicator's color; it draws
-  // none of the indicators this sizes.
+  // A month marks today with the tile or not at all; it draws none of the indicators this sizes.
   today_indicator_size: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 
   // A month names its weekdays once, over their columns, and no day by its weekday, so there is
