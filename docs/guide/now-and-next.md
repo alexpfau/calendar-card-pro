@@ -66,6 +66,7 @@ By default a tap on an event opens it, and wins over the card's tap. Events cove
 ## 🔀 Adapt It
 
 - **More or fewer at a glance.** Change `compact_events_to_show` inside `list:`. A tap always shows everything in `days_to_show`.
+- **A tile that holds still.** `compact_card_height: 240px` inside `list:` keeps the folded tile one height whatever its events, so the cards under it stay where they are. Choose a height that holds your four events, or they scroll inside it; a tap still opens it to every event. See [Compact & Expanded Heights](/features/list-view#compact-expanded-heights).
 - **A color per person.** Add `accent_color` to each calendar, as the [Family Hub](/guide/family-calendar) does.
 - **Icons instead of faces.** A `label` can also be an emoji or an `mdi:` icon.
 

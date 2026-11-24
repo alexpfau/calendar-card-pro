@@ -239,6 +239,40 @@ list:
 
 The position is a share of the day's height, so on a day with one event the word can still touch the date.
 
+### The Week, Full Size
+
+The hallway list keeps to three days and stays a list. One more line under `toolbar:` adds a button that opens the same card full size, over the dashboard, on the whole week:
+
+```yaml
+toolbar:
+  show: true
+  view_switcher: false
+  overlay: true # a button at the end of the top row, for the week in Grid
+```
+
+It opens in Grid on seven days, with a switcher offering every layout, and every block comes along, _Busy_ included. A tap on a free hour adds an event there. Close, Back or a tap outside it puts the hallway list back as it was. See [Opening the Card Full Size](/features/header-toolbar#opening-the-card-full-size).
+
+### Larger Faces & a Mark for Work
+
+A face read from across the hall can be larger than the text, and Ben's work can say it is work before anyone reads _Busy_. Add `label_image_size` to each person's blocks, and give both work blocks a label of two parts:
+
+```yaml
+entities:
+  - entity: calendar.anna
+    label: person.anna
+    label_image_size: 1.5em # one and a half times the text's size
+    accent_color: '#ff6c92'
+  # calendar.ben and calendar.leo the same way
+  - entity: calendar.work
+    # filter_field, allowlist and the rest as above
+    label: [person.ben, mdi:briefcase] # Ben, at work
+    label_image_size: 1.5em
+    accent_color: '#90a4ae'
+  # and the Busy block the same way
+```
+
+[`label_image_size`](/features/core-settings#sizing-a-picture-label) draws each face larger, and a title that wraps keeps its later lines clear of it. A [`label` written as a list](/features/core-settings#combining-a-picture-an-icon-text) draws its parts in order, so both work blocks show Ben's face and a briefcase, while his own plans keep his face alone. The 🎂, 👨‍👩‍👦 and 🗑️ labels keep the size of the text.
+
 ### Read Only on a Shared Screen
 
 A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. The _Busy_ block's events never can, being private; on a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out for the rest.
