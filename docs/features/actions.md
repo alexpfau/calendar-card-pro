@@ -61,9 +61,12 @@ day_tap_action:
   action: add-event
 ```
 
-Left at `none`, the default, a tap on a day is a tap on the card and runs `tap_action`. Any other
-value reads as `none`. The visual editor's Day Tap Action dropdown offers Nothing and Add Event.
-Like the add button, it needs a calendar that [accepts new events](#what-each-integration-allows).
+Left at `none`, the default, a tap on a day is a tap on the card and runs `tap_action`. A day can
+also [run one of Home Assistant's own actions](#running-another-action-from-a-day), such as your
+own script, with the day you tapped filled in. The card's other own actions read as `none`. The
+visual editor's Day Tap Action dropdown, on the **Taps & Refresh** page, offers Add Event, Nothing
+and Home Assistant's actions. Like the add button, adding needs a calendar that
+[accepts new events](#what-each-integration-allows).
 
 ### Where You Can Tap a Day
 
@@ -79,15 +82,15 @@ Wherever a day shows no event, in every layout:
   list; and on a wide month, the day's name at the top of the panel a day opens in, which is
   where the keyboard adds, as [Enter and Space open the day](#from-the-keyboard).
 
-A tap on an event never adds: the tap is the event's unless its `event_tap_action` is `none`, and
-the card's then. Nor do a grid's `+N` block, which stands for several events, the week numbers,
+A tap on an event is never the day's: the tap is the event's unless its `event_tap_action` is
+`none`, and the card's then. Nor do a grid's `+N` block, which stands for several events, the week numbers,
 the separators between days, the grid's time axis, the title or the
 [header toolbar](/features/header-toolbar): a tap on the title still runs
 `tap_action`, and the toolbar's controls keep their own.
 
 A tap has to stay put. A press that moves is a scroll, or a
-[swipe](/features/header-toolbar#paging-through-dates), and adds nothing; a hold on a day runs
-`hold_action`, except in a grid's time area and all-day band, where it
+[swipe](/features/header-toolbar#paging-through-dates), and runs nothing; a hold on a day runs
+`hold_action`, except in a grid's time area and all-day band, where Add Event
 [draws a new event](#drawing-an-event-in-grid-view).
 
 ### Which Day, Hour & Calendar
@@ -151,6 +154,47 @@ and grid view, is a button named with Home Assistant's own "Add event" and descr
 date. Tab to it and press Enter or Space to add on that day, at the hour it is now. A month is
 one stop whose arrow keys move between days: Enter or Space opens a day, and the day's name over
 it, in a narrow month's list or at the top of a wide month's panel, is the button that adds.
+While `day_tap_action` runs another action, the same buttons are named by their date and run it.
+
+### Running Another Action From a Day
+
+`day_tap_action` also takes Home Assistant's own actions, such as `perform-action`, `navigate` and
+`url`, so a tap on a day can run your own script or open your own popup for that day. Write a
+field's name in braces, and the card fills in the day you tapped before Home Assistant runs the
+action:
+
+```yaml
+day_tap_action:
+  action: perform-action
+  perform_action: script.add_shift
+  data:
+    date: '{date}'
+```
+
+| Placeholder | What it holds                                                                                                                                   |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{date}`    | The day you tapped, such as `2026-12-01`                                                                                                        |
+| `{start}`   | In grid view's time grid, the quarter hour you tapped, with its offset, such as `2026-12-01T10:00:00+01:00`. Anywhere else the day, as `{date}` |
+| `{end}`     | An hour after `{start}` in the time grid. Anywhere else the day after, as calendars store an all-day event's end                                |
+| `{all_day}` | `false` for a tap in the time grid, `true` anywhere else                                                                                        |
+
+It runs from [the same places](#where-you-can-tap-a-day) Add Event does, the keyboard included,
+and the times are the ones Add Event would start a new event with there. They can only ever be
+dates and times, so they fill anywhere in the action, percent-encoded in `url_path` and
+`navigation_path`. A name in braces that is not one of these, such as `{title}`, stays as you wrote
+it. YAML reads a value that starts with a brace as something else, so quote it. `more-info` opens
+the first calendar on the card, unless the action names an `entity` of its own.
+
+::: details More About Running Another Action
+
+- A hold on a day runs `hold_action`, in grid view too: only Add Event draws a new event.
+- It needs no calendar that accepts new events; only adding does.
+- The [full-size overlay](#opening-the-card-full-size) runs the same action on its days, unless
+  its `overlay:` block sets a `day_tap_action` of its own.
+- A `url` action runs only where its address names no scheme, or names `http` or `https`.
+- Nothing runs while the card is being edited, and the days are not buttons there.
+
+:::
 
 ## 🗒️ Tapping an Event
 
@@ -694,7 +738,7 @@ tap_action:
 - **A tap on a day adds an event there,** as
   [`day_tap_action: add-event`](#tapping-a-day-to-add-an-event) does, and so does
   [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card sets a
-  `day_tap_action` of its own.
+  `day_tap_action` of its own, which runs there instead.
 - **A narrow month lists the whole day.** Where the full-size card draws Month's
   [narrow form](/features/month-view#the-narrow-month), as on a phone, the day's list shows every
   event and scrolls them, while the weeks stay put. A "+N more" with an arrow floats at its foot

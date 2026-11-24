@@ -753,7 +753,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
         fields: [
           ['actions:tap_action', E],
           ['actions:hold_action', A],
-          ['actions:day_tap_action_mode', E],
+          ['actions:day_tap_action', E],
           ['actions:event_tap_action', E],
           ['actions:event_hold_action', A],
           ['actions:open_links', A],

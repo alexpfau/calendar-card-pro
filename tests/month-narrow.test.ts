@@ -840,6 +840,41 @@ describe('the selected day', () => {
       .map(({ dialogParams }) => (dialogParams as PopoverParams).times?.start);
     expect(starts).toEqual([new Date(2026, 10, 19, 10), new Date(2026, 10, 19, 10)]);
   });
+
+  it('runs day_tap_action on its day from the list, named by the day, where it runs another', async () => {
+    const card = await mount(
+      {
+        day_tap_action: {
+          action: 'perform-action',
+          perform_action: 'script.add_shift',
+          data: { date: '{date}' },
+        },
+      },
+      375,
+    );
+    await tap(card, day(card, 19));
+
+    const header = root(card).querySelector<HTMLElement>('.month-day-list-header')!;
+    expect(header.getAttribute('role')).toBe('button');
+    expect(header.hasAttribute('aria-label')).toBe(false);
+    expect(header.hasAttribute('aria-describedby')).toBe(false);
+    await tap(card, header);
+    await tap(card, root(card).querySelector('.month-day-list-empty')!);
+
+    expect(dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG)).toEqual([]);
+    expect(hassActions.map(({ config }) => config.tap_action)).toEqual([
+      {
+        action: 'perform-action',
+        perform_action: 'script.add_shift',
+        data: { date: '2026-11-19' },
+      },
+      {
+        action: 'perform-action',
+        perform_action: 'script.add_shift',
+        data: { date: '2026-11-19' },
+      },
+    ]);
+  });
 });
 
 describe('the time beside the title', () => {
@@ -1763,6 +1798,24 @@ describe('the day panel', () => {
     expect(params.entry).toBeUndefined();
     expect(params.times?.start).toEqual(new Date(2026, 10, 10, 10));
     expect(params.anchor?.rect).toEqual(anchor.rect);
+  });
+
+  it('runs day_tap_action on its day from its title, named by the day, where it runs another', async () => {
+    const { card, panel } = await open({
+      day_tap_action: { action: 'navigate', navigation_path: '/lovelace/shifts?day={date}' },
+    });
+    const title = panel!.shadowRoot!.querySelector<HTMLButtonElement>('.day-panel-title button')!;
+    expect(title.hasAttribute('aria-label')).toBe(false);
+    expect(title.hasAttribute('aria-describedby')).toBe(false);
+    expect(text(title)).toBe('Tuesday, November 10, 2026');
+
+    title.click();
+    await afterClose(card);
+    expect(isOpen(panel)).toBe(false);
+    expect(dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG)).toEqual([]);
+    expect(hassActions.map(({ action, config }) => [action, config.tap_action])).toEqual([
+      ['tap', { action: 'navigate', navigation_path: '/lovelace/shifts?day=2026-11-10' }],
+    ]);
   });
 
   it('keeps its title plain where a tap on a day adds nothing', async () => {

@@ -48,6 +48,7 @@ import { walkSchema } from '../src/rendering/editor/panels';
 import {
   ACTION_OPTIONS,
   CARD_ACTIONS,
+  DAY_ACTION_OPTIONS,
   EVENT_ACTIONS,
   EVENT_ACTION_OPTIONS,
   buildActionsSchema,
@@ -80,6 +81,21 @@ const EXPECTED_ACTIONS = [
  */
 const EXPECTED_EVENT_ACTIONS = [
   'details',
+  'more-info',
+  'navigate',
+  'url',
+  'perform-action',
+  'assist',
+  'none',
+];
+
+/**
+ * The exact list the day tap dropdown offers: adding an event on the day first, then Home
+ * Assistant's actions without `toggle`, as for an event. The card's other own actions are nothing
+ * on a day, so they are not offered.
+ */
+const EXPECTED_DAY_ACTIONS = [
+  'add-event',
   'more-info',
   'navigate',
   'url',
@@ -133,7 +149,7 @@ describe('card action options', () => {
     expect(ACTION_OPTIONS.indexOf('back')).toBe(5);
   });
 
-  it('gives the card and event dropdowns their lists, through a ui_action selector', () => {
+  it('gives the card, day and event dropdowns their lists, through a ui_action selector', () => {
     const schema = buildActionsSchema({
       view: 'list',
       config: { ...Config.DEFAULT_CONFIG },
@@ -148,6 +164,7 @@ describe('card action options', () => {
     expect(actionRows.map((node) => node.name)).toEqual([
       'tap_action',
       'hold_action',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
     ]);
@@ -158,6 +175,8 @@ describe('card action options', () => {
     };
     expect(offered('tap_action')).toEqual(EXPECTED_ACTIONS);
     expect(offered('hold_action')).toEqual(EXPECTED_ACTIONS);
+    expect(offered('day_tap_action')).toEqual(EXPECTED_DAY_ACTIONS);
+    expect([...DAY_ACTION_OPTIONS]).toEqual(EXPECTED_DAY_ACTIONS);
     expect(offered('event_tap_action')).toEqual(EXPECTED_EVENT_ACTIONS);
     expect(offered('event_hold_action')).toEqual(EXPECTED_EVENT_ACTIONS);
     expect([...EVENT_ACTION_OPTIONS]).toEqual(EXPECTED_EVENT_ACTIONS);
@@ -606,5 +625,59 @@ describe('the event tap action in the editor', () => {
     expect(last(reported)).toMatchObject({
       toolbar: { show: true, refresh: false, view_switcher_layouts: ['list', 'grid', 'month'] },
     });
+  });
+});
+
+/**
+ * The day tap action, through the rendered editor: Home Assistant's action selector on
+ * `day_tap_action` itself, which stores what it is handed whole and its default as no key.
+ */
+describe('the day tap action in the editor', () => {
+  async function mount(config: Record<string, unknown>) {
+    document.body.innerHTML = '';
+    const element = await mountEditor({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...config,
+    });
+    await openPanels(element);
+    const reported: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const next = { ...((event as CustomEvent).detail.config as Record<string, unknown>) };
+      delete next.config_version;
+      reported.push(next);
+    });
+    return { element, reported };
+  }
+
+  const last = (reported: ReadonlyArray<Record<string, unknown>>) => reported[reported.length - 1];
+
+  it('stores Add Event and Home Assistant’s actions whole, and Nothing as no key', async () => {
+    const script = {
+      action: 'perform-action',
+      perform_action: 'script.add_shift',
+      data: { date: '{date}' },
+    };
+    const { element, reported } = await mount({});
+    expect(valueOf(element, 'actions:day_tap_action')).toEqual({ action: 'none' });
+
+    await changeField(element, 'actions:day_tap_action', { action: 'add-event' });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      day_tap_action: { action: 'add-event' },
+    });
+
+    // A field name in braces is the user's text and is stored as written.
+    await changeField(element, 'actions:day_tap_action', script);
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], day_tap_action: script });
+
+    await changeField(element, 'actions:day_tap_action', { action: 'none' });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
+  });
+
+  it('shows a stored action of Home Assistant’s as stored', async () => {
+    const navigate = { action: 'navigate', navigation_path: '/lovelace/shifts?day={date}' };
+    const { element } = await mount({ day_tap_action: navigate });
+    expect(valueOf(element, 'actions:day_tap_action')).toEqual(navigate);
   });
 });

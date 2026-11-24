@@ -48,6 +48,25 @@ describe('the overlay card’s configuration', () => {
     ).toEqual({ action: 'none' });
   });
 
+  it('keeps a day tap that runs one of Home Assistant’s actions, whole', () => {
+    const script = (name: string, data: Record<string, string>) => ({
+      action: 'perform-action',
+      perform_action: name,
+      data,
+    });
+    const card = { ...BASE, day_tap_action: script('script.add_shift', { date: '{date}' }) };
+    expect(overlayConfig(card).day_tap_action).toEqual(
+      script('script.add_shift', { date: '{date}' }),
+    );
+    // The overlay's own replaces the card's rather than adding its data to it.
+    expect(
+      overlayConfig({
+        ...card,
+        overlay: { day_tap_action: script('script.plan_day', { day: '{date}' }) },
+      }).day_tap_action,
+    ).toEqual(script('script.plan_day', { day: '{date}' }));
+  });
+
   it('keeps the rest of the card’s toolbar, its own buttons but the one opening the overlay', () => {
     const config = overlayConfig({
       ...BASE,

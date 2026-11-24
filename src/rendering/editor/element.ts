@@ -5998,7 +5998,7 @@ export class CalendarCardProEditor extends LitElement {
         const words = this.hass?.localize?.(key);
         return typeof words === 'string' && words !== '' && words !== key
           ? words
-          : this._string(ctx, 'day_tap_action_mode.option.none.label');
+          : this._string(ctx, 'value.nothing');
       }
       const action = Helpers.isConfigBlock(value) ? value.action : undefined;
       if (typeof action !== 'string') return undefined;

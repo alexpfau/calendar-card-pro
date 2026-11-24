@@ -429,13 +429,18 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
 };
 
 /**
- * Options a configuration states whole: an event's tap and hold actions. The user's object
- * replaces the default instead of merging into it, so one that names no `action`, `{}` among them,
- * is nothing on an event (`eventActionKind`), as the editor reads it, rather than taking the
- * default's `details`. The card's own three actions still merge: `_cardActionRuns` reads an
- * object without `action` as one that runs.
+ * Options a configuration states whole: an event's tap and hold actions, and a day's tap. The
+ * user's object replaces the default instead of merging into it, so one that names no `action`,
+ * `{}` among them, is nothing on an event (`eventActionKind`), as the editor reads it, rather
+ * than taking the default's `details`. A day's tap takes Home Assistant's actions too, whose
+ * `data` an `overlay:` block must replace rather than add to. The card's own two actions still
+ * merge: `_cardActionRuns` reads an object without `action` as one that runs.
  */
-const WHOLE_OPTIONS: ReadonlySet<string> = new Set(['event_tap_action', 'event_hold_action']);
+const WHOLE_OPTIONS: ReadonlySet<string> = new Set([
+  'event_tap_action',
+  'event_hold_action',
+  'day_tap_action',
+]);
 
 /**
  * Merges a user configuration over the defaults, filling nested blocks key by key.

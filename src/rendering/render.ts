@@ -938,14 +938,14 @@ function renderEventButton(
 }
 
 /**
- * A list day's date, inside the button that adds an event on the day while a tap on a day
- * does.
+ * A list day's date, inside the button that runs `day_tap_action` on the day while a tap on a
+ * day runs something.
  *
- * Not the cell, for the reason `renderEventButton` gives. The button is named by Home
- * Assistant's own "Add event" and described by the date, which carries the day's id while the
- * button is drawn: an id on the cell would describe each of the day's events by the button's
- * name instead of by its date. Drawn only while day taps are on, which leaves the default
- * markup exactly as it was.
+ * Not the cell, for the reason `renderEventButton` gives. Where the button adds an event, it is
+ * named by Home Assistant's own "Add event" and described by the date; where it runs another
+ * action, the date names it. The date carries the day's id while the button is drawn: an id on
+ * the cell would describe each of the day's events by the button's name instead of by its date.
+ * Drawn only while day taps are on, which leaves the default markup exactly as it was.
  *
  * @param content - The day's rendered date
  * @param timestamp - The day's local midnight
@@ -964,8 +964,8 @@ function renderDayAddButton(
     class="day-add-button"
     role="button"
     tabindex="0"
-    aria-label=${dayAdd.label}
-    aria-describedby=${dayLabelId ?? nothing}
+    aria-label=${dayAdd.label ?? nothing}
+    aria-describedby=${dayAdd.label ? (dayLabelId ?? nothing) : nothing}
     .calendarCardDayAdd=${timestamp}
   >
     <div class="day-add-date" id=${dayLabelId ?? nothing}>${content}</div>

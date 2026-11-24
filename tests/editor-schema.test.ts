@@ -814,7 +814,6 @@ describe('editor: change detection', () => {
       'allday_badge_color_mode',
       'allday_badge_position',
       'countdown_once_per_day',
-      'day_tap_action_mode',
       'filter_duplicates_mode',
       'fixed_height',
       'height_mode',
@@ -2007,7 +2006,6 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       card_height: 'height_mode',
       card_max_height: 'height_mode',
-      day_tap_action: 'day_tap_action_mode',
       filter_duplicates: 'filter_duplicates_mode',
     };
 
@@ -2927,7 +2925,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(buildConfig())).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
@@ -2946,7 +2944,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(withEventTap('none'))).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'open_links',
@@ -2992,7 +2990,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(withEventTap('details'))).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
@@ -3015,7 +3013,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(config)).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
@@ -5283,7 +5281,6 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
-      'day_tap_action_mode',
       'filter_duplicates_mode',
       'height_mode',
       'language_mode',

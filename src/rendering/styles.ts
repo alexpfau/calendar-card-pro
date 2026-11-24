@@ -5397,7 +5397,8 @@ export const cardStyles = css`
   /* ===== DAYS THAT ADD AN EVENT =====
    * With day_tap_action set to add-event, a tap on a day where it shows no event opens Home
    * Assistant's new-event dialog there, and each day's date (list) or header (column, grid) is
-   * a button that does the same from the keyboard. The washes match an untinted event's: the
+   * a button that does the same from the keyboard. Set to one of Home Assistant's actions, a tap
+   * there runs it instead, with the same washes and buttons. The washes match an untinted event's: the
    * card's own hover color at 8% under a real pointer, its pressed color at 16% while pressed.
    *
    * The pressed wash is set by the recognizer rather than by :active, because most of a day's
@@ -5512,7 +5513,7 @@ export const cardStyles = css`
 
   /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
      event, so the browser's own long press, selecting a word or a link's callout, is turned
-     off there. */
+     off there. While it runs another action, the slot is a target all the same. */
   ha-card:has(.day-add-button) .grid-day-body,
   ha-card:has(.day-add-button) .grid-allday-band {
     -webkit-touch-callout: none;
@@ -8977,8 +8978,8 @@ export const cardStyles = css`
    *
    * The selected day's events under a narrow month's weeks: its name in full, then List's rows
    * without their date column, drawn as a list row is in every respect (td.event), or the card's
-   * "no events". Its own space is the day's, for day_tap_action; where that adds, its name is a
-   * button.
+   * "no events". Its own space is the day's, for day_tap_action; where that runs something, its
+   * name is a button.
    *
    * The list takes what the weeks leave of the card, and its rows' box what the header leaves of
    * the list, by flex with a basis of 0, so neither is ever sized by the day's events and a tap

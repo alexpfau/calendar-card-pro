@@ -1791,8 +1791,8 @@ function renderDayTitleFit(
  * The selected day's list, under a narrow month's weeks: the day named on one line, in full
  * where that fits and in a shorter form where it does not, then its rows, or the card's "no
  * events" where it has none. Its own space is the day's: a press there, on its name or under its
- * rows, runs `day_tap_action`, and where that adds an event its name is a button that adds on the
- * day, as List's dates are.
+ * rows, runs `day_tap_action`, and where that runs something its name is a button that runs it on
+ * the day, as List's dates are.
  *
  * The rows sit in a box that takes the room the card leaves the list (`.month-day-list-rows`), on
  * every day alike, so a tap from day to day never moves the card. The card fits the day's rows to
@@ -1816,7 +1816,8 @@ function renderDayTitleFit(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather
- * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
+ * @param dayAdd - The name as a button that runs `day_tap_action` on the day, while a tap on a
+ *   day runs something
  * @param shown - How many rows fit its room, as the card measured them, or undefined until it has
  * @param more - Opens the day's panel from "+N more"
  * @param scroll - Where it lists every row and scrolls them, what it is handed for that
@@ -1881,8 +1882,8 @@ export function renderMonthDayList(
         class="month-day-list-header day-add-button"
         role="button"
         tabindex="0"
-        aria-label=${dayAdd.label}
-        aria-describedby=${labelId ?? nothing}
+        aria-label=${dayAdd.label ?? nothing}
+        aria-describedby=${dayAdd.label ? (labelId ?? nothing) : nothing}
         .calendarCardDayAdd=${timestamp}
       >
         ${name}

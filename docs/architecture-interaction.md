@@ -114,10 +114,19 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the
   event's own calendar.
-- **Day taps.** `_addEventAt` opens the popover on a new event, as the add button does.
+- **Day taps.** `dayActionKind` reads `day_tap_action` as `add`, a Home Assistant action, or
+  nothing, as `eventActionKind` reads an event's. `_runDayTap` runs both through one path, from a
+  press, a day's button or the day panel's title: `_addEventAt` opens the popover on a new event,
+  as the add button does, and a Home Assistant action is forwarded filled under the first calendar
+  the card shows (`handleDayAction`). Only `add` draws in a grid (`_dayTapsAdd`) and names a day's
+  button "Add event"; another action leaves the button named by its date.
 
 `eventFields` reads the event from `_source`, not the row, with the calendar's text replacement
 applied, and `fillEventAction` fills `{title}`, `{start}` and the rest into the action's strings.
+`dayFields` takes the span `add-event` would open with where the press landed
+(`newEventTimesOn`), and `fillDayAction` fills `{date}`, `{start}`, `{end}` and `{all_day}`. Both
+fill through `actionFiller` (`action-fill.ts`), which holds the rules below; a day has no free
+text, so its fields fill anywhere.
 
 ::: warning Event Text Is Untrusted
 Whoever wrote the event chose its title, location and description, so they fill only the payload
