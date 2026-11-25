@@ -529,8 +529,17 @@ export const cardStyles = css`
       calc(var(--calendar-card-spacing-additional) + 16px) 16px;
   }
 
+  /* Everything in the card inherits the pointer, and a touch browser paints its tap highlight
+     over the largest element under the finger that still shows one, in that element's highlight
+     color. From any control inside, a toolbar button as much as a day, that element is ha-card,
+     so each tap on a control on a touch screen washed the whole card in the browser's gray, as
+     though the card had been tapped, and a tap on the card drew the gray under its ripple. The
+     controls' own transparent highlight never applied, because the color is the highlighted
+     element's. The ripple is the card's answer to a press and each control answers for itself,
+     so the card takes no highlight at all. */
   ha-card.card-interactive {
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* A card a swipe pages hands the browser only vertical panning where a swipe can start, which

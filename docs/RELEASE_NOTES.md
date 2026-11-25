@@ -48,6 +48,12 @@ List puts an event's forecast at the end of its title's line, where a larger for
 - **A Day Runs the Action Written for It** - A `day_tap_action` holding one of Home Assistant's own actions, such as `navigate`, was read as `none`, so a tap on a day ran the card's `tap_action`. It now runs the action written there, with the day filled in. Delete the line, or set it to `none`, to keep a card as it was. See [Running Another Action From a Day](https://calendar-card-pro.alexpfau.com/features/actions#running-another-action-from-a-day)
 - **A Theme's Date Colors Now Reach the Date** - The date's weekday, day and month were colored on the parts themselves, so `calendar-card-color-weekday`, `calendar-card-color-day` and `calendar-card-color-month` set by a theme, or a card-mod rule on the parts without `!important`, did nothing there. A theme or rule written for them before now colors the date; the card's own options still win. See [Date Colors From Your Theme](https://calendar-card-pro.alexpfau.com/features/theming#date-colors-from-your-theme)
 
+## 🐛 Bug Fixes
+
+### Touch Screens
+
+- **A Press on the Toolbar Flashed the Whole Card** - On a card whose `tap_action` runs something, a tap on any toolbar control on a touch screen washed the whole card gray for a moment, as though the card itself had been tapped, and so did a tap in the calendar filter's menu, on a day in the narrow Month or on "+N more". It was the browser's own tap highlight, which settled on the whole card because everything on it shows a pointer; the card's tap and its ripple never ran. The card now takes no highlight, so a control answers a press by itself, and a tap on the card shows its ripple without the gray under it, as with a mouse.
+
 ## Related Issues
 
 - [#239](https://github.com/alexpfau/calendar-card-pro/issues/239) - A month grid view by @chtardif, which v6.0 answered with `view: month`. @1Cedric1 asked there for the coming weeks instead of a calendar month, which `month: { start: week }` answers
