@@ -181,6 +181,67 @@ describe('the overlay card’s configuration', () => {
   });
 });
 
+describe('a press on an event in the overlay', () => {
+  /**
+   * A wall tablet's small card: a tap anywhere opens the overlay, events included, a hold expands
+   * it, the toolbar is lean, and nothing is set for full size.
+   */
+  const TABLET = {
+    ...BASE,
+    hold_action: { action: 'expand' },
+    event_tap_action: { action: 'none' },
+    toolbar: {
+      show: true,
+      refresh: false,
+      legend: false,
+      view_switcher: false,
+      add_event: false,
+      search: false,
+    },
+  };
+
+  /** What a tap and a hold on an event run in the overlay's card, its defaults merged in. */
+  const actions = (raw: Record<string, unknown>) => {
+    const config = buildConfig(overlayConfig(raw) as Partial<Types.Config>);
+    return { tap: config.event_tap_action, hold: config.event_hold_action };
+  };
+
+  it('opens the event where the card leaves a tap on one to its own tap', () => {
+    expect(actions(TABLET)).toEqual({ tap: { action: 'details' }, hold: { action: 'none' } });
+    expect(overlayConfig(TABLET)).not.toHaveProperty('event_tap_action');
+    expect(overlayConfig(TABLET).tap_action).toEqual({ action: 'none' });
+  });
+
+  it.each([
+    ['a bare action', null],
+    ['an action naming none', {}],
+    ['one of the card’s own', { action: 'expand' }],
+    ['the overlay’s', { action: 'overlay' }],
+  ])('reads %s on the card as no tap of its own', (_name, action) => {
+    expect(actions({ ...TABLET, event_tap_action: action }).tap).toEqual({ action: 'details' });
+  });
+
+  it('runs what the card runs on an event, whole', () => {
+    const navigate = { action: 'navigate', navigation_path: '/lovelace/family' };
+    expect(actions({ ...TABLET, event_tap_action: navigate }).tap).toEqual(navigate);
+    expect(actions({ ...TABLET, event_hold_action: { action: 'details' } }).hold).toEqual({
+      action: 'details',
+    });
+  });
+
+  it('runs nothing where the overlay block says so', () => {
+    const none = { action: 'none' };
+    expect(actions({ ...TABLET, overlay: { event_tap_action: none } }).tap).toEqual(none);
+    expect(
+      actions({
+        ...TABLET,
+        event_hold_action: { action: 'details' },
+        overlay: { event_hold_action: none },
+      }).hold,
+    ).toEqual(none);
+  });
+});
+
 describe('the days the overlay shows', () => {
   /** What List, Columns and Grid each draw in the overlay a configuration opens. */
   const days = (raw: Record<string, unknown>) => {

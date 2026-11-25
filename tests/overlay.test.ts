@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { memoryStorage } from './memory-storage';
+import { spyOnPopovers } from './popover-spy';
 import type * as Types from '../src/config/types';
 import { resolveColumnFit } from '../src/config/view';
 import {
@@ -337,7 +338,7 @@ describe('opening the overlay', () => {
     await overlay!.closeDialog();
     await vi.advanceTimersByTimeAsync(400);
     const still = rowsOf(
-      await open(await mount({ overlay: { view: 'month' }, event_tap_action: { action: 'none' } })),
+      await open(await mount({ overlay: { view: 'month', event_tap_action: { action: 'none' } } })),
     );
     expect(still.getAttribute('tabindex')).toBe('0');
     expect(still.getAttribute('role')).toBe('group');
@@ -499,6 +500,47 @@ describe('the toolbar’s Open Full Size button', () => {
 });
 
 describe('what comes in and what stays out', () => {
+  it('opens an event inside where the card leaves a tap on one to its own, which opened it', async () => {
+    const card = await mount({ event_tap_action: { action: 'none' } });
+    const tapOn = (root: ShadowRoot, summary: string) => {
+      const event = Array.from(root.querySelectorAll<HTMLElement>('.event, .grid-event')).find(
+        (el) => el.textContent?.includes(summary),
+      )!;
+      const leaves = Array.from(event.querySelectorAll('*')).filter((el) =>
+        el.textContent?.includes(summary),
+      );
+      const target = leaves[leaves.length - 1] ?? event;
+      for (const type of ['pointerdown', 'pointerup']) {
+        target.dispatchEvent(
+          Object.assign(new Event(type, { bubbles: true, composed: true }), {
+            pointerId: 1,
+            button: 0,
+            isPrimary: true,
+            clientX: 0,
+            clientY: 0,
+          }),
+        );
+      }
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    };
+    const popovers = spyOnPopovers();
+    onTestFinished(popovers.stop);
+
+    // On the card, a tap on an event is a tap on the card, which opens it full size.
+    expect(card.shadowRoot!.querySelectorAll('.event-interactive')).toHaveLength(0);
+    tapOn(card.shadowRoot!, 'Football');
+    await settle();
+    const opened = inner()!;
+    expect(opened).not.toBe(null);
+    expect(popovers.opened).not.toHaveBeenCalled();
+
+    // Inside, the same tap opens the event.
+    tapOn(opened.shadowRoot!, 'Football');
+    await settle();
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
+    expect(popovers.opened.mock.calls[0][0].entry?.summary).toBe('Football');
+  });
+
   it('starts with the calendars the card’s legend hides, and stores nothing on the device', async () => {
     const config = { ...BASE, toolbar: { ...BASE.toolbar, view_switcher: true } };
     ViewChoice.writeHiddenCalendars(ViewChoice.configFingerprint(config), [BEN]);

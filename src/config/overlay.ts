@@ -12,6 +12,7 @@ import * as Constants from './constants';
 import type * as Types from './types';
 import * as ViewConfig from './view';
 import { VIEWS } from './views';
+import { eventActionKind } from '../interaction/event-action-kind';
 import * as Helpers from '../utils/helpers';
 
 /**
@@ -76,6 +77,18 @@ const COMPACT_OPTIONS: ReadonlyArray<string> = [
  * again.
  */
 const DAY_COUNT_OPTIONS: ReadonlyArray<string> = ['days_to_show'];
+
+/**
+ * The card's event actions, which the overlay's card takes only where they run something on an
+ * event. One that leaves a press on an event to the card's own `tap_action` or `hold_action`
+ * (`eventActionKind`: `none`, or one of the card's own actions) is left out, so the overlay's
+ * card takes its default: a tap on an event opens it, as on a card that never set one, and a
+ * hold runs nothing either way. A card whose every tap opens the overlay sets
+ * `event_tap_action: none` for the small card, and that tap becomes `none` inside the overlay
+ * (`withoutOverlayAction`), which would leave its events doing nothing there. The `overlay:` block
+ * may set either again, `none` included.
+ */
+const EVENT_ACTION_OPTIONS: ReadonlyArray<string> = ['event_tap_action', 'event_hold_action'];
 
 /** Every layout's block key: `list`, `column`, `time_grid`, `month`. */
 const LAYOUT_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
@@ -143,7 +156,8 @@ function withoutOverlayAction(config: Record<string, unknown>): void {
 /**
  * The configuration the overlay's card is given: what it assumes where the card says nothing
  * (`OVERLAY_ASSUMES`); the card's own, without its `overlay:` block, Home Assistant's own keys
- * (`HA_CARD_KEYS`), its size, its compact limits and its day count; then the overlay's defaults
+ * (`HA_CARD_KEYS`), its size, its compact limits, its day count and the event actions that leave
+ * an event's press to the card (`EVENT_ACTION_OPTIONS`); then the overlay's defaults
  * (`OVERLAY_DEFAULTS`); then its `overlay:` block, which may set any option, size aside.
  * Blocks merge option by option, as `setConfig` merges a card's over the defaults, so
  * `overlay: { toolbar: { search: false } }` keeps the rest of the toolbar. The overlay action is
@@ -160,6 +174,11 @@ export function overlayConfig(raw: Readonly<Record<string, unknown>>): Record<st
   ]);
   delete base.overlay;
   for (const key of Constants.HA_CARD_KEYS) delete base[key];
+  for (const key of EVENT_ACTION_OPTIONS) {
+    if (eventActionKind(base[key] as Types.ActionConfig | null | undefined) === 'none') {
+      delete base[key];
+    }
+  }
 
   const own = Helpers.isConfigBlock(raw.overlay) ? withoutOptions(raw.overlay, SIZE_OPTIONS) : {};
   const merged = Config.mergeConfig(

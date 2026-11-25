@@ -722,8 +722,10 @@ tap_action:
   `overlay → time_grid` for Grid alone.
 - **It is the same card.** Its calendars, title, colors and every other option come along; its
   height, its day count and its [compact limits](/features/list-view#compact-mode-event-limits)
-  do not, since it fills the overlay. Set any option for it under `overlay`, which it takes over
-  the card's own:
+  do not, since it fills the overlay. Nor does an [`event_tap_action`](#tapping-an-event) that
+  leaves a tap on an event to the card's own tap, such as `none` on a card whose every tap opens
+  it full size: a tap on an event opens the event there. Set any option for it under `overlay`,
+  `event_tap_action: none` included, which it takes over the card's own:
 
   ```yaml
   overlay:
