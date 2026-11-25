@@ -42,9 +42,12 @@ time_position: title
 show_single_allday_time: false
 show_location_allday: false
 weather_entity: weather.home
+tap_action:
+  action: overlay
 toolbar:
   show: true
   view_switcher: false
+  overlay: true
 list:
   date_vertical_alignment: top
   day_separator_width: 1px
@@ -184,6 +187,7 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
 - **The toolbar.** [`toolbar: show: true`](/features/header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. `view_switcher: false` drops the layout switch, so the card stays a list.
+- **The week, full size.** `overlay: true` in the toolbar adds Open Full Size at the end of the top row, and [`tap_action: overlay`](/features/actions#opening-the-card-full-size) does the same for a tap anywhere but on an event. Either opens the same card over the dashboard, in Grid on seven days, every block included, _Busy_ too; Close, Back or a tap outside it puts the hallway list back as it was.
 - **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, and `day_separator_width: 1px` draws a rule between the days. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, and [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it.
 - **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it, so the three days take less height and the times line up at the right, where a glance can run down them.
 - **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color.
@@ -238,19 +242,6 @@ list:
 ```
 
 The position is a share of the day's height, so on a day with one event the word can still touch the date.
-
-### The Week, Full Size
-
-The hallway list keeps to three days and stays a list. One more line under `toolbar:` adds a button that opens the same card full size, over the dashboard, on the whole week:
-
-```yaml
-toolbar:
-  show: true
-  view_switcher: false
-  overlay: true # a button at the end of the top row, for the week in Grid
-```
-
-It opens in Grid on seven days, with a switcher offering every layout, and every block comes along, _Busy_ included. A tap on a free hour adds an event there. Close, Back or a tap outside it puts the hallway list back as it was. See [Opening the Card Full Size](/features/header-toolbar#opening-the-card-full-size).
 
 ### Larger Faces & a Mark for Work
 

@@ -83,10 +83,11 @@ function documentedShell(documented: Record<string, unknown>): Record<string, un
   return shell;
 }
 
-it('offers Simple Agenda, then the five stories that work without per-calendar filters', () => {
+it('offers Simple Agenda, then the six stories that work without per-calendar filters', () => {
   expect(STORIES.map((story) => story.id)).toEqual([
     'simple_agenda',
     'family_hub',
+    'small_card_big_picture',
     'now_and_next',
     'today_and_tomorrow',
     'birthdays_and_holidays',

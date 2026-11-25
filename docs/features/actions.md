@@ -756,7 +756,8 @@ tap_action:
   the bottom of the screen, and a month's list scrolls under it.
 
 The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-card-full-size)
-opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
+opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons). The
+Example Story [Small Card, Big Picture](/guide/small-card-big-picture) is a card built around both.
 The visual editor offers it as Open Full Size, and what it opens with on the
 [**Full-Size Settings**](/features/editor#full-size-settings) page of its overview: the layout, the
 days and the toolbar with each of its controls, and whatever else `overlay` holds, each line with

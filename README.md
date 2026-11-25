@@ -215,6 +215,8 @@ entities:
 days_to_show: 3
 show_location: false
 show_month: false
+tap_action:
+  action: overlay
 ```
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
