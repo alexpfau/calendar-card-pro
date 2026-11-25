@@ -78,10 +78,14 @@ jobs:
       # which never exists as origin/feature/*.
       #
       # Two version checks follow, both against facts the Marketplace acts on. The beta must
-      # be newer than the version package.json ships, or it would read as a downgrade and be
-      # offered to nobody. And its stable version must not have shipped yet: it offers the
-      # newest prerelease only when it was published after the latest stable release, so a
-      # beta of a version already out is dead on arrival.
+      # not be older than the version package.json ships, or it would read as a downgrade and
+      # be offered to nobody. It may be a beta of that very version: release prep bumps
+      # package.json on the integration branch days before the release, and a beta of the
+      # version being prepared is exactly what testers want in that window. And its stable
+      # version must not have shipped yet: the Marketplace offers the newest prerelease only
+      # when it was published after the latest stable release, so a beta of a version
+      # already out is dead on arrival. That second check is what keeps the first one safe
+      # when the two versions are equal.
       - name: Verify beta tag is on an integration branch
         if: steps.tag.outputs.kind == 'beta'
         env:
@@ -100,15 +104,15 @@ jobs:
           echo "Ancestry check passed: ${GITHUB_SHA} is reachable from ${FOUND}."
 
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$(printf '%s\n%s\n' "${PKG_VERSION}" "${BETA_BASE}" | sort -V | tail -n 1)" != "${BETA_BASE}" ] || [ "${PKG_VERSION}" = "${BETA_BASE}" ]; then
-            echo "::error::Beta ${BETA_VERSION} is not newer than ${PKG_VERSION}, the version package.json ships on this commit."
+          if [ "$(printf '%s\n%s\n' "${PKG_VERSION}" "${BETA_BASE}" | sort -V | tail -n 1)" != "${BETA_BASE}" ]; then
+            echo "::error::Beta ${BETA_VERSION} is older than ${PKG_VERSION}, the version package.json ships on this commit."
             exit 1
           fi
           if git rev-parse -q --verify "refs/tags/v${BETA_BASE}" > /dev/null; then
             echo "::error::v${BETA_BASE} is already tagged, so a beta of it would never be offered. Tag a beta of the next version instead."
             exit 1
           fi
-          echo "Version check passed: ${BETA_VERSION} is newer than ${PKG_VERSION}, and v${BETA_BASE} has not shipped."
+          echo "Version check passed: ${BETA_VERSION} is not older than ${PKG_VERSION}, and v${BETA_BASE} has not shipped."
 
       # Read the Node version from .nvmrc, exactly as ci.yml does. This job is the one
       # that runs `npm ci` against the lockfile and publishes what every user downloads,

@@ -1247,12 +1247,13 @@ does, invited or not:
   disabled until enabled. That path is read from the HACS source and was not tried in a running
   Home Assistant.
 
-1. Leave `package.json` at the last stable version. Nothing is bumped or committed for a beta.
+1. Bump nothing and commit nothing for a beta. `package.json` holds the last stable version, or
+   the version the beta is of once release prep has bumped it on the integration branch.
 2. Tag a commit on `dev` or a `feature/*` branch `vX.Y.Z-beta.N`, N counting from 1, and push
    the tag. A tag runs the `release.yml` of its own commit, so the beta path exists only on
    commits that carry it. The workflow checks the commit is reachable from `origin/dev` or an
-   `origin/feature/*` branch, that `X.Y.Z` is newer than `package.json`'s version and not yet
-   tagged, stamps the beta version into `package.json` and both lockfile fields of its
+   `origin/feature/*` branch, that `X.Y.Z` is not older than `package.json`'s version and not
+   yet tagged, stamps the beta version into `package.json` and both lockfile fields of its
    throwaway checkout, runs lint, `tsc`, the build and `check:bundle`, checks every file carries
    the version, and creates a **draft** prerelease with the `.js` files and a placeholder
    body.
