@@ -623,7 +623,8 @@ export class CalendarCardProEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // Back from the code editor with the warm-up still drawn: it is searched again, afresh.
+    // Back from the code editor with the warm-up still drawn, or drawn while it was away: it is
+    // searched again, afresh.
     if (this._warmKey) void this._finishWarmUp(this._endWarmUp());
     if (typeof ResizeObserver === 'undefined') return;
     this._widthObserver ??= new ResizeObserver(() => {
@@ -783,8 +784,8 @@ export class CalendarCardProEditor extends LitElement {
    * warm-up held through to its end is not held again, unless what it read has moved since
    * (`_finishWarmUp`). It is drawn away once nothing below it waits on a definition, or after ten
    * searches or ten seconds. A later render warms whatever a switched layout, an opened gate, a
-   * cleared filter or a new value newly needs. Its search ends as the editor is removed, and starts
-   * again should the editor come back from the code editor.
+   * cleared filter or a new value newly needs. Its search ends as the editor is removed, none starts
+   * while it is away, and one starts again should it come back from the code editor.
    *
    * It is a child of the editor's own element, which its shadow root never slots, so it is never
    * laid out, painted or exposed; it is inert and `aria-hidden` besides, and no `value-changed` or
@@ -897,7 +898,9 @@ export class CalendarCardProEditor extends LitElement {
         : nothing,
       this,
     );
-    if (key) void this._finishWarmUp(run);
+    // Searched only while attached: a form drawn while the editor is removed draws nothing, so a
+    // search would find nothing missing. One drawn meanwhile is searched once it is back.
+    if (key && this.isConnected) void this._finishWarmUp(run);
   }
 
   /**

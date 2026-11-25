@@ -21,8 +21,8 @@
  * that draw as Home Assistant's do, it stays until the last element below it is defined, including
  * what an event's action, a button's action and a calendar's condition pick, holds nothing further
  * for plain ones, is drawn away by its time bound regardless, and a later render warms what it
- * newly draws. As its editor is removed, its search ends at once and touches nothing more, and an
- * editor put back is searched again. `VALUE_SELECTORS` is pinned.
+ * newly draws. As its editor is removed, its search ends and touches nothing more, none starts while
+ * it is away, and an editor put back is searched again. `VALUE_SELECTORS` is pinned.
  *
  * Elements stay defined for the rest of a file, so the order of the blocks below matters: the first
  * two run before any of Home Assistant's elements is defined, under timers held still, so that the
@@ -1244,7 +1244,7 @@ describe('once Home Assistant draws what it holds', () => {
     }
 
     it.each(['before', 'after'] as const)(
-      'lets go of it at once, with no timer left to hold it, removed %s its first search',
+      'lets go of it within a tick, with no timer left to hold it, removed %s its first search',
       async (when) => {
         const editor = await waiting(when);
         editor.remove();
@@ -1271,6 +1271,55 @@ describe('once Home Assistant draws what it holds', () => {
         expect(search).not.toHaveBeenCalled();
       },
     );
+
+    it('starts no search for a change drawn after it is removed, and searches it once it is back', async () => {
+      const editor = await waiting('after');
+      const parent = editor.parentElement!;
+      // Lit still renders an update asked for before the removal.
+      plant.extra = 'planted_b';
+      editor.setConfig({ ...ANNA, title: 'B' });
+      editor.remove();
+      await editor.updateComplete;
+      expect(warmed(editor)).toContain('ha-selector-planted_b');
+      // A form drawn while removed draws nothing, so a search would find nothing missing and draw
+      // the warm-up away for elements never loaded.
+      await vi.advanceTimersByTimeAsync(10_100);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(warmUp(editor)).not.toBeNull();
+
+      parent.append(editor);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(undefinedIn(warmUp(editor)!)).toEqual(['ha-selector-planted_b']);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+    });
+
+    it('keeps what it drew, and holds nothing as done, where it is removed during its last wait', async () => {
+      // Each element of the chain, once defined, draws the next, which nothing defines yet.
+      const drawsNext = (at: number): CustomElementConstructor =>
+        class extends HTMLElement {
+          connectedCallback(): void {
+            this.appendChild(document.createElement(`planted-chain-${at + 1}`));
+          }
+        };
+      plant.extra = 'planted_many11';
+      const editor = await mountEditor(ANNA);
+      const searches = vi.spyOn(editor, 'querySelectorAll');
+      await vi.advanceTimersByTimeAsync(0);
+      for (let at = 0; searches.mock.calls.length < 10; at++) {
+        const [tag] = undefinedIn(warmUp(editor)!);
+        customElements.define(tag!, drawsNext(at));
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      // Its tenth search, the last, found one more to wait on.
+      expect(searches).toHaveBeenCalledTimes(10);
+      expect(undefinedIn(warmUp(editor)!)).toEqual(['planted-chain-9']);
+
+      editor.remove();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(warmUp(editor)).not.toBeNull();
+      const held = (editor as unknown as { _warmed: Map<string, unknown> })._warmed;
+      expect(held.has('ha-selector-planted_many11')).toBe(false);
+    });
   });
 
   it('is searched again once its editor is back, and drawn away when nothing waits', async () => {
