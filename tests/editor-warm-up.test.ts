@@ -21,7 +21,8 @@
  * that draw as Home Assistant's do, it stays until the last element below it is defined, including
  * what an event's action, a button's action and a calendar's condition pick, holds nothing further
  * for plain ones, is drawn away by its time bound regardless, and a later render warms what it
- * newly draws. `VALUE_SELECTORS` is pinned.
+ * newly draws. As its editor is removed, its search ends at once and touches nothing more, and an
+ * editor put back is searched again. `VALUE_SELECTORS` is pinned.
  *
  * Elements stay defined for the rest of a file, so the order of the blocks below matters: the first
  * two run before any of Home Assistant's elements is defined, under timers held still, so that the
@@ -1206,6 +1207,87 @@ describe('once Home Assistant draws what it holds', () => {
     } finally {
       plant.extra = '';
       vi.useRealTimers();
+    }
+  });
+
+  describe('as its editor is removed', () => {
+    // Earlier tests leave editors attached, still warming what is never defined: each would add a
+    // timer of its own to the count below.
+    beforeEach(async () => {
+      document.body.replaceChildren();
+      await new Promise((resolve) => nodeTimeout(resolve, 0));
+      // `clearTimeout` too, so that the timer the search clears is the one held still here.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      plant.extra = 'planted_a';
+    });
+    afterEach(() => {
+      plant.extra = '';
+      vi.useRealTimers();
+    });
+
+    /**
+     * An editor whose warm-up waits on an element nothing defines, before its first search or
+     * after it.
+     *
+     * @param when - Whether the warm-up has searched yet
+     * @returns The editor, attached
+     */
+    async function waiting(when: 'before' | 'after'): Promise<Editor> {
+      const editor = await mountEditor(ANNA);
+      expect(warmed(editor)).toContain('ha-selector-planted_a');
+      if (when === 'after') {
+        await vi.advanceTimersByTimeAsync(0);
+        expect(undefinedIn(warmUp(editor)!)).toContain('ha-selector-planted_a');
+      }
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      return editor;
+    }
+
+    it.each(['before', 'after'] as const)(
+      'lets go of it at once, with no timer left to hold it, removed %s its first search',
+      async (when) => {
+        const editor = await waiting(when);
+        editor.remove();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(vi.getTimerCount()).toBe(0);
+      },
+    );
+
+    it.each(['before', 'after'] as const)(
+      'touches nothing of it once its page is gone, removed %s its first search',
+      async (when) => {
+        const editor = await waiting(when);
+        const search = vi.spyOn(editor, 'querySelectorAll');
+        // As the end of a test file leaves it: the DOM's globals deleted, Node's timers running.
+        const globals = ['HTMLElement', 'customElements'];
+        const saved = globals.map((name) => Object.getOwnPropertyDescriptor(globalThis, name)!);
+        editor.remove();
+        for (const name of globals) delete (globalThis as Record<string, unknown>)[name];
+        try {
+          await vi.advanceTimersByTimeAsync(10_100);
+        } finally {
+          globals.forEach((name, at) => Object.defineProperty(globalThis, name, saved[at]!));
+        }
+        expect(search).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  it('is searched again once its editor is back, and drawn away when nothing waits', async () => {
+    plant.extra = 'planted_b';
+    try {
+      const editor = await mountEditor(ANNA);
+      await vi.waitFor(() =>
+        expect(undefinedIn(warmUp(editor)!)).toEqual(['ha-selector-planted_b']),
+      );
+      // Home Assistant's code editor and back.
+      const parent = editor.parentElement!;
+      editor.remove();
+      parent.append(editor);
+      define('ha-selector-planted_b');
+      await gone(editor);
+    } finally {
+      plant.extra = '';
     }
   });
 });

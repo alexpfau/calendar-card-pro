@@ -2107,6 +2107,14 @@ the card's rule above, with four consequences for new code and tests:
   Assistant shows them: the test suite cannot see a control fill in late, and its stand-ins draw
   only what they are written to draw.
 
+  Its search ends the moment the editor is removed (`_endWarmUp`), and starts again should it come
+  back. Most test files define no `ha-form`, so every warm-up there waits out its ten seconds, and
+  Node's timers outlive the DOM globals happy-dom removes at a file's end. Before this, each removed
+  editor stayed in memory for those ten seconds with every page drawn for it, about 60 MB, which
+  ran `tests/editor-config-migration.test.ts` out of heap when run alone; and a search that woke
+  after the file ended failed CI on `HTMLElement is not defined` with every test green.
+  `tests/editor-warm-up.test.ts` pins both, so keep the run check before each search.
+
 ### The calendar list shows entries, grouped by calendar
 
 The overview's Calendars block is the editor's own list (`views/calendars.ts`), drawn from

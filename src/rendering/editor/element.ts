@@ -623,6 +623,8 @@ export class CalendarCardProEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    // Back from the code editor with the warm-up still drawn: it is searched again, afresh.
+    if (this._warmKey) void this._finishWarmUp(this._endWarmUp());
     if (typeof ResizeObserver === 'undefined') return;
     this._widthObserver ??= new ResizeObserver(() => {
       const root = this.renderRoot.querySelector('.card-config');
@@ -658,6 +660,8 @@ export class CalendarCardProEditor extends LitElement {
     // that has not been made, so the preview is never what is kept.
     this._cancelSplit(false);
     awaitingConditionsEditor.delete(this);
+    // The warm-up's search ends here, and starts again should the editor come back.
+    this._endWarmUp();
     this._drag?.cancel();
     this._endPick(false);
     clearTimeout(this._pickRetry);
@@ -779,7 +783,8 @@ export class CalendarCardProEditor extends LitElement {
    * warm-up held through to its end is not held again, unless what it read has moved since
    * (`_finishWarmUp`). It is drawn away once nothing below it waits on a definition, or after ten
    * searches or ten seconds. A later render warms whatever a switched layout, an opened gate, a
-   * cleared filter or a new value newly needs.
+   * cleared filter or a new value newly needs. Its search ends as the editor is removed, and starts
+   * again should the editor come back from the code editor.
    *
    * It is a child of the editor's own element, which its shadow root never slots, so it is never
    * laid out, painted or exposed; it is inert and `aria-hidden` besides, and no `value-changed` or
@@ -860,8 +865,8 @@ export class CalendarCardProEditor extends LitElement {
     }
     this._warmKey = key;
     this._warmData = data;
-    // Each warm-up a run of its own, so that an earlier one's search cannot end it.
-    const run = ++this._warmRun;
+    // Each warm-up a run of its own, which ends an earlier one's search so it cannot end this one.
+    const run = this._endWarmUp();
     // Asked for only by a condition's editor, so only while a condition is held.
     const calendar = this._drawnConditions.get(held[0]!)!;
     renderInto(
@@ -903,7 +908,8 @@ export class CalendarCardProEditor extends LitElement {
    * after each render it is searched, through every shadow root, for elements not defined yet
    * (`undefinedBelow`), and their definitions awaited, until a search finds none. After
    * `WARM_UP_ROUNDS` searches or `WARM_UP_MS` it is drawn away regardless. A run a later warm-up
-   * has replaced stops there, whatever it held.
+   * has replaced, or the editor's removal has ended (`_endWarmUp`), stops there, whatever it held,
+   * and searches nothing more; an editor put back is searched again (`connectedCallback`).
    *
    * What it held is then not held again while what it read stays as it was: for a value, Home
    * Assistant's services and the attributes of each entity the value names, which its service
@@ -916,14 +922,21 @@ export class CalendarCardProEditor extends LitElement {
     const deadline = Date.now() + WARM_UP_MS;
     for (let round = 0; round < WARM_UP_ROUNDS; round++) {
       await new Promise((resolve) => setTimeout(resolve));
+      // Ended before it searches: a removed editor's page may be gone by now.
+      if (run !== this._warmRun) return;
       const missing = undefinedBelow(this);
-      if (run !== this._warmRun || missing.size === 0 || Date.now() >= deadline) break;
+      if (missing.size === 0 || Date.now() >= deadline) break;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let wake: (() => void) | undefined;
       await Promise.race([
         Promise.all([...missing].map((tag) => customElements.whenDefined(tag))),
-        new Promise((resolve) => setTimeout(resolve, deadline - Date.now())),
+        new Promise((resolve) => (timer = setTimeout(resolve, deadline - Date.now()))),
+        new Promise<void>((resolve) => (this._warmWake = wake = resolve)),
       ]);
+      clearTimeout(timer);
+      if (this._warmWake === wake) this._warmWake = undefined;
+      if (run !== this._warmRun) return;
     }
-    if (run !== this._warmRun) return;
     const values = this._warmData;
     for (const held of this._warmKey.split('\n')) {
       // Every string the value holds, as JSON visits it, read as an entity id.
@@ -941,6 +954,20 @@ export class CalendarCardProEditor extends LitElement {
     }
     this._warmKey = '';
     renderInto(nothing, this);
+  }
+
+  /**
+   * Ends the warm-up's search, waking it where it waits, and counts a new run: a later warm-up's,
+   * or none while the editor is removed. Nothing else cancels the search's timer, which can outlive
+   * the page it searches, as a test file's page does: a search left waiting would hold the editor
+   * for up to `WARM_UP_MS`, then search a page that may be gone (`_finishWarmUp`).
+   *
+   * @returns The new run
+   */
+  private _endWarmUp(): number {
+    this._warmWake?.();
+    this._warmWake = undefined;
+    return ++this._warmRun;
   }
 
   @property({ attribute: false }) hass?: Types.Hass;
@@ -1228,8 +1255,11 @@ export class CalendarCardProEditor extends LitElement {
   /** The values the warm-up holds, by key (`warmSchema`). */
   private _warmData: Record<string, unknown> = {};
 
-  /** Which warm-up was drawn last, counted (`_finishWarmUp`). */
+  /** Which warm-up search is current, counted: a later one, or the editor's removal, ends it. */
   private _warmRun = 0;
+
+  /** Wakes the warm-up search waiting on definitions, should it be ended (`_endWarmUp`). */
+  private _warmWake?: () => void;
 
   /**
    * What a warm-up held through to its end, which is not held again, each with whether what it
