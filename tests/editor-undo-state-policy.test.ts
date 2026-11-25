@@ -115,6 +115,7 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_warmKey',
     '_warmData',
     '_warmRun',
+    '_warmWake',
     '_warmed',
     // Each field's Reset or Remove, recomputed once the configuration moves.
     '_actions',

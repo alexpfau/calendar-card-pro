@@ -2383,7 +2383,8 @@ function nextRender(): Promise<void> {
 const reports = new WeakMap<EditorElement, Array<Record<string, unknown>>>();
 
 // An editor left open can still be waiting to look for its preview (`_syncPick`), and Node's timers
-// outlive the DOM globals happy-dom removes once a file ends; closing it first cancels the wait.
+// outlive the DOM globals happy-dom removes once a file ends; closing it first cancels the wait, as
+// it ends the warm-up's search (`_endWarmUp`).
 // Found in the page rather than held, so an editor a test removed is never kept from collection.
 afterAll(() => {
   for (const editor of document.querySelectorAll(HOST_TAG)) editor.remove();
