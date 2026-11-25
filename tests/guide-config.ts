@@ -1,5 +1,5 @@
 /**
- * Reads the cards out of the Family Hub and Family Agenda story pages, so a test can run
+ * Reads the cards out of the Example Stories pages, so a test can run
  * the card a page publishes rather than a copy of it.
  *
  * 🚨 **The pages are the fixtures.** A second copy of a card in a test file is one more thing
@@ -18,10 +18,12 @@ import { expect } from 'vitest';
 
 export const HUB_GUIDE = join(__dirname, '..', 'docs', 'guide', 'family-calendar.md');
 export const AGENDA_GUIDE = join(__dirname, '..', 'docs', 'guide', 'one-calendar-many-purposes.md');
+export const SMALL_CARD_GUIDE = join(__dirname, '..', 'docs', 'guide', 'small-card-big-picture.md');
 
 /** Every page in the docs' Example Stories group that prints a card, in sidebar order. */
 export const STORY_GUIDES = [
   HUB_GUIDE,
+  SMALL_CARD_GUIDE,
   AGENDA_GUIDE,
   ...['now-and-next', 'today-and-tomorrow', 'birthdays-and-holidays', 'bin-day', 'house-log'].map(
     (page) => join(__dirname, '..', 'docs', 'guide', `${page}.md`),

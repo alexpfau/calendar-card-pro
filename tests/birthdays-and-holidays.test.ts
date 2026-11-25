@@ -285,10 +285,12 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
   it('carries a toolbar for its search, with only the arrows search comes with', async () => {
     // "The toolbar is there for its magnifier … the arrows and a swipe page through the days
     // too … Every other toolbar control is turned off." Every button outside the events, by
-    // its name.
+    // its name. The card's own tap, which opens it full size, is a control of the card's rather
+    // than the toolbar's, and is checked on its own below.
     const controls = (card: Awaited<ReturnType<typeof mountStory>>) =>
       [...shadow(card).querySelectorAll('button, [role="button"]')]
         .filter((el) => !el.closest('.event, .grid-event, .event-tappable'))
+        .filter((el) => !el.matches('.card-tap-control, ha-card'))
         .map((el) => el.getAttribute('aria-label') || el.className);
     // The birthdays calendar accepts new events, so the toolbar's defaults would draw Add and
     // the page's `add_event: false` is what keeps it off.
@@ -335,5 +337,12 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       'Next',
     ]);
     expect(controls(await mountStory(dropOption(CARD, 'toolbar'), writable))).toEqual([]);
+
+    // The tap that opens it full size, first in the card's Tab order; without `tap_action` there
+    // is none, so it is the page's line.
+    const tapControl = (card: Awaited<ReturnType<typeof mountStory>>) =>
+      shadow(card).querySelector('.card-tap-control')?.getAttribute('aria-label') ?? null;
+    expect(tapControl(await mountStory(CARD, writable))).toBe('Open full size');
+    expect(tapControl(await mountStory(dropOption(CARD, 'tap_action'), writable))).toBeNull();
   });
 });

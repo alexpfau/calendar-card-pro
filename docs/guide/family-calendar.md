@@ -245,6 +245,7 @@ To let some work events keep their real title, such as a late finish the family 
 ## 📚 Next Steps
 
 - [Family Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
+- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the month
 - [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens

@@ -105,6 +105,7 @@ function slugify(str: string): string {
 const EXAMPLE_STORIES = [
   { text: 'Overview', link: '/reference/examples' },
   { text: 'Family Hub', link: '/guide/family-calendar' },
+  { text: 'Small Card, Big Picture', link: '/guide/small-card-big-picture' },
   { text: 'Family Agenda', link: '/guide/one-calendar-many-purposes' },
   { text: 'Now & Next', link: '/guide/now-and-next' },
   { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },

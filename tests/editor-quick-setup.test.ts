@@ -171,16 +171,18 @@ describe('Quick Setup', () => {
     ).toEqual([
       'simple_agenda',
       'family_hub',
+      'small_card_big_picture',
       'now_and_next',
       'today_and_tomorrow',
       'birthdays_and_holidays',
       'house_log',
     ]);
-    // Each link is named for its example, so a list of links reads as six different ones.
+    // Each link is named for its example, so a list of links reads as seven different ones.
     const links = [...root(editor).querySelectorAll<HTMLAnchorElement>('.story-link')];
     expect(links.map((link) => link.textContent!.trim())).toEqual([
       'Read about Simple Agenda',
       'Read about Family Hub',
+      'Read about Small Card, Big Picture',
       'Read about Now & Next',
       'Read about Today & Tomorrow',
       'Read about Birthdays & Holidays',
@@ -366,7 +368,7 @@ describe('Quick Setup', () => {
     const { editor } = await mount();
     await click(editor, '[data-quick-setup-open]');
     const rows = [...root(editor).querySelectorAll<HTMLElement>('.story-option')];
-    expect(rows).toHaveLength(6);
+    expect(rows).toHaveLength(7);
     for (const row of rows) expect(getComputedStyle(row).flexDirection).toBe('row');
   });
 

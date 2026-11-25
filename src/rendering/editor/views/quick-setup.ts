@@ -8,6 +8,7 @@ import {
   mdiCakeVariant,
   mdiCalendarToday,
   mdiFormatListBulleted,
+  mdiFullscreen,
   mdiHomeHeart,
   mdiOpenInNew,
   mdiTimelineClockOutline,
@@ -23,6 +24,7 @@ import { icon } from './icon';
 const STORY_ICONS: Readonly<Record<StoryId, string>> = {
   simple_agenda: mdiFormatListBulleted,
   family_hub: mdiHomeHeart,
+  small_card_big_picture: mdiFullscreen,
   now_and_next: mdiTimelineClockOutline,
   today_and_tomorrow: mdiCalendarToday,
   birthdays_and_holidays: mdiCakeVariant,

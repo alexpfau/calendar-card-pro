@@ -145,7 +145,12 @@ describe('buildQuickSetupConfig', () => {
         event: { show_conditions: false },
       });
     }
-    expect(built.toolbar).toEqual({ show: true, view_switcher: false, legend: false });
+    expect(built.toolbar).toEqual({
+      show: true,
+      view_switcher: false,
+      legend: false,
+      overlay: true,
+    });
   });
 
   it('keeps the story’s own actions that Quick Setup does not ask about', () => {

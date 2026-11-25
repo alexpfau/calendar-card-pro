@@ -524,6 +524,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.family_hub.best_for':
     'The whole family’s week, with every control on the card',
   'quick_setup.story.family_hub.space': 'A wall tablet, and the same card on a phone',
+  'quick_setup.story.small_card_big_picture': 'Small Card, Big Picture',
+  'quick_setup.story.small_card_big_picture.best_for':
+    'The next few days in a dashboard column, and the whole month a tap away',
+  'quick_setup.story.small_card_big_picture.space':
+    'A column of a dashboard you have, and full size on any screen',
   'quick_setup.story.now_and_next': 'Now & Next',
   'quick_setup.story.now_and_next.best_for': 'What is on now and what comes next',
   'quick_setup.story.now_and_next.space': 'A small tile on a phone',

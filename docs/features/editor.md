@@ -152,7 +152,7 @@ the top, Back and the title share the first row, and **Search Settings**, **Undo
 
 ## 🪄 Quick Setup
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on Starting Point, Family Hub picked among a Simple Agenda and five Example Stories, and the preview already drawing the Family Hub's grid of the family's week with its toolbar" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on Starting Point, Family Hub picked among a Simple Agenda and six Example Stories, and the preview already drawing the Family Hub's grid of the family's week with its toolbar" width="600"><br>
 
 **Quick Setup** starts a card from a [Simple Agenda](/guide/usage#your-first-card) or one of the
 [Example Stories](/reference/examples) and asks only
@@ -160,7 +160,7 @@ what a story cannot know about your home: the title, your calendars, your weathe
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
 
-Quick Setup offers six starting points: a Simple Agenda and five of the stories. Pick one and the
+Quick Setup offers seven starting points: a Simple Agenda and six of the stories. Pick one and the
 preview draws it at once, on your own calendars as soon as you name them.
 
 A fresh card offers Quick Setup in a banner at the top of the overview. A card that already holds
@@ -181,12 +181,16 @@ month_separator_width: 1px
 day_spacing: 4px
 event_gap: 4px
 vertical_line_width: 4px
+tap_action:
+  action: overlay
 toolbar:
   show: true
   legend: false
   add_event: false
   refresh: false
   view_switcher: false
+overlay:
+  view: month
 entities:
   - entity: calendar.birthdays
     accent_color: '#f06292'
@@ -221,7 +225,7 @@ list:
 
 ::: details When Quick Setup Behaves Differently
 
-- Two of the seven stories are not offered. [Bin Day](/guide/bin-day) and
+- Two of the eight stories are not offered. [Bin Day](/guide/bin-day) and
   [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the
