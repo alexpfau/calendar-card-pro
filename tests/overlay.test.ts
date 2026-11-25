@@ -436,10 +436,12 @@ describe('opening the overlay', () => {
     expect((opened as unknown as { _pageRequested: string | null })._pageRequested).toBe(null);
   });
 
-  it('adds an event from a day inside, so Grid draws one, where the card sets no day tap', async () => {
+  it('adds an event from a day inside, so Grid draws one, where the card leaves a day’s tap to its own', async () => {
     const opened = await open(await mount());
     expect(opened.config.day_tap_action).toEqual({ action: 'add-event' });
-    const kept = await open(await mount({ day_tap_action: { action: 'none' } }));
+    const adds = await open(await mount({ day_tap_action: { action: 'none' } }));
+    expect(adds.config.day_tap_action).toEqual({ action: 'add-event' });
+    const kept = await open(await mount({ overlay: { day_tap_action: { action: 'none' } } }));
     expect(kept.config.day_tap_action).toEqual({ action: 'none' });
   });
 

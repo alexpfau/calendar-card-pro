@@ -10,7 +10,7 @@
  */
 
 import { DEFAULT_CONFIG, toValidNumber } from '../../config/config';
-import { overlayConfig, overlayView } from '../../config/overlay';
+import { overlayConfig, overlayView, pressActionReaches } from '../../config/overlay';
 import type * as Types from '../../config/types';
 import { routeForKey, viewBlockFor } from '../../config/view';
 import { VIEWS } from '../../config/views';
@@ -178,7 +178,8 @@ const reaching = new Map<string, boolean>();
  * Whether a value the card holds at a path reaches the full-size card, which a probe value set in
  * its place tells. The path alone decides: the card holds a block at every step of it, and what
  * `overlayConfig` leaves out or puts in its place is named by path (`OVERLAY_DEFAULTS`, the sizes,
- * the compact limits, the day count, the overlay action), so the answer is kept by path.
+ * the compact limits, the day count, the overlay action), so the answer is kept by path. The press
+ * actions are the exception, decided by their value (`pressActionReaches`), and are not asked here.
  *
  * @param path - The path inside the card
  * @returns `true` where the card's value comes through
@@ -196,7 +197,8 @@ function reaches(path: ReadonlyArray<string>): boolean {
 /**
  * Where the value the full-size card uses at a path comes from. Set where `overlay:` holds one.
  * Otherwise the full-size card's own where the card holds none and the full-size card has one
- * anyway, or where the card's own would not reach it (`reaches`); else the card's.
+ * anyway, or where the card's own would not reach it (`reaches`, or for a press action its value,
+ * `pressActionReaches`); else the card's.
  *
  * @param raw - The configuration as stored
  * @param path - The path inside `overlay:`
@@ -212,7 +214,8 @@ export function fullSizeSource(
   if (held === undefined || path[0] === FULL_SIZE_KEY) {
     return atPath(cardOnly(raw), path) === undefined ? 'card' : 'default';
   }
-  return reaches(path) ? 'card' : 'default';
+  const press = path.length === 1 ? pressActionReaches(path[0], held) : undefined;
+  return (press ?? reaches(path)) ? 'card' : 'default';
 }
 
 /**

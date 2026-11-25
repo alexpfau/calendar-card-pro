@@ -38,11 +38,19 @@ describe('the overlay card’s configuration', () => {
     expect(OVERLAY_DEFAULTS.view).toBe('grid');
   });
 
-  it('adds an event from a day where the card sets no day tap, and keeps one it sets', () => {
+  it('adds an event from a day where the card leaves a day’s tap to its own, and keeps one it runs', () => {
     expect(overlayConfig(BASE).day_tap_action).toEqual({ action: 'add-event' });
-    expect(overlayConfig({ ...BASE, day_tap_action: { action: 'none' } }).day_tap_action).toEqual({
-      action: 'none',
-    });
+    for (const action of [
+      { action: 'none' },
+      null,
+      {},
+      { action: 'expand' },
+      { action: 'details' },
+    ]) {
+      expect(overlayConfig({ ...BASE, day_tap_action: action }).day_tap_action).toEqual({
+        action: 'add-event',
+      });
+    }
     expect(
       overlayConfig({ ...BASE, overlay: { day_tap_action: { action: 'none' } } }).day_tap_action,
     ).toEqual({ action: 'none' });
@@ -181,7 +189,7 @@ describe('the overlay card’s configuration', () => {
   });
 });
 
-describe('a press on an event in the overlay', () => {
+describe('a press on an event or a day in the overlay', () => {
   /**
    * A wall tablet's small card: a tap anywhere opens the overlay, events included, a hold expands
    * it, the toolbar is lean, and nothing is set for full size.
@@ -200,16 +208,39 @@ describe('a press on an event in the overlay', () => {
     },
   };
 
-  /** What a tap and a hold on an event run in the overlay's card, its defaults merged in. */
+  /** What a tap and a hold on an event, and a tap on a day, run in the overlay's card. */
   const actions = (raw: Record<string, unknown>) => {
     const config = buildConfig(overlayConfig(raw) as Partial<Types.Config>);
-    return { tap: config.event_tap_action, hold: config.event_hold_action };
+    return {
+      tap: config.event_tap_action,
+      hold: config.event_hold_action,
+      day: config.day_tap_action,
+    };
   };
 
   it('opens the event where the card leaves a tap on one to its own tap', () => {
-    expect(actions(TABLET)).toEqual({ tap: { action: 'details' }, hold: { action: 'none' } });
+    expect(actions(TABLET)).toEqual({
+      tap: { action: 'details' },
+      hold: { action: 'none' },
+      day: { action: 'add-event' },
+    });
     expect(overlayConfig(TABLET)).not.toHaveProperty('event_tap_action');
     expect(overlayConfig(TABLET).tap_action).toEqual({ action: 'none' });
+  });
+
+  it('adds an event on a day where the card leaves a tap on one to its own tap', () => {
+    expect(actions({ ...TABLET, day_tap_action: { action: 'none' } }).day).toEqual({
+      action: 'add-event',
+    });
+    const script = { action: 'perform-action', perform_action: 'script.plan_day' };
+    expect(actions({ ...TABLET, day_tap_action: script }).day).toEqual(script);
+    expect(
+      actions({
+        ...TABLET,
+        day_tap_action: { action: 'none' },
+        overlay: { day_tap_action: { action: 'none' } },
+      }).day,
+    ).toEqual({ action: 'none' });
   });
 
   it.each([
