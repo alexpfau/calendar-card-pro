@@ -722,8 +722,11 @@ tap_action:
   `overlay → time_grid` for Grid alone.
 - **It is the same card.** Its calendars, title, colors and every other option come along; its
   height, its day count and its [compact limits](/features/list-view#compact-mode-event-limits)
-  do not, since it fills the overlay. Set any option for it under `overlay`, which it takes over
-  the card's own:
+  do not, since it fills the overlay. Nor does an [`event_tap_action`](#tapping-an-event) or a
+  [`day_tap_action`](#tapping-a-day-to-add-an-event) that leaves the tap to the card's own tap,
+  such as `none` on a card whose every tap opens it full size: there a tap on an event opens it,
+  and a tap on a day adds one. Set any option for it under `overlay`, `none` included, which it
+  takes over the card's own:
 
   ```yaml
   overlay:
@@ -739,8 +742,9 @@ tap_action:
   `overlay` does nothing there.
 - **A tap on a day adds an event there,** as
   [`day_tap_action: add-event`](#tapping-a-day-to-add-an-event) does, and so does
-  [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card sets a
-  `day_tap_action` of its own, which runs there instead.
+  [drawing one across Grid's hours](#drawing-an-event-in-grid-view), unless the card's own
+  `day_tap_action` runs one of [Home Assistant's actions](#running-another-action-from-a-day),
+  which runs there instead. To add nothing there, set `day_tap_action: none` under `overlay`.
 - **A narrow month lists the whole day.** Where the full-size card draws Month's
   [narrow form](/features/month-view#the-narrow-month), as on a phone, the day's list shows every
   event and scrolls them, while the weeks stay put. A "+N more" with an arrow floats at its foot

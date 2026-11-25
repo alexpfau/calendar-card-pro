@@ -496,10 +496,19 @@ describe('where a full-size value comes from', () => {
     // The card's title reaches the full-size card; its compact limit is left out.
     expect(fullSizeSource(card, ['title'])).toBe('card');
     expect(fullSizeSource(card, ['compact_events_to_show'])).toBe('default');
-    // Adding an event from a day is assumed where the card says nothing, and the card's own else.
+    // Adding an event from a day is assumed where the card says nothing, or leaves a day's tap to
+    // its own; a day action of its own reaches the full-size card. So with an event's.
     expect(fullSizeSource(card, ['day_tap_action'])).toBe('default');
     expect(
       fullSizeSource({ ...card, day_tap_action: { action: 'none' } }, ['day_tap_action']),
+    ).toBe('default');
+    const script = { action: 'perform-action', perform_action: 'script.plan_day' };
+    expect(fullSizeSource({ ...card, day_tap_action: script }, ['day_tap_action'])).toBe('card');
+    expect(
+      fullSizeSource({ ...card, event_tap_action: { action: 'none' } }, ['event_tap_action']),
+    ).toBe('default');
+    expect(
+      fullSizeSource({ ...card, event_tap_action: { action: 'navigate' } }, ['event_tap_action']),
     ).toBe('card');
   });
 

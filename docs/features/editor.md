@@ -117,7 +117,8 @@ draw as many days as fit there, and it leaves out Close. Leaving the page shows 
 opens again.
 
 Below them, **Also Set for Full Size** lists whatever else `overlay` holds, set in YAML, each line
-with its value and **Remove**, after which the full-size card takes the card's own again. A count
+with its value and **Remove**, after which the full-size card takes what it would without it, for
+most options the card's own. A count
 of days `overlay` holds for one layout, as in `overlay: { time_grid: { days_to_show: 3 } }`, is
 listed there and named under Days To Show too, as **Grid Has Its Own: 3**.
 

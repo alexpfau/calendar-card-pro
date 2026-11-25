@@ -38,11 +38,19 @@ describe('the overlay card’s configuration', () => {
     expect(OVERLAY_DEFAULTS.view).toBe('grid');
   });
 
-  it('adds an event from a day where the card sets no day tap, and keeps one it sets', () => {
+  it('adds an event from a day where the card leaves a day’s tap to its own, and keeps one it runs', () => {
     expect(overlayConfig(BASE).day_tap_action).toEqual({ action: 'add-event' });
-    expect(overlayConfig({ ...BASE, day_tap_action: { action: 'none' } }).day_tap_action).toEqual({
-      action: 'none',
-    });
+    for (const action of [
+      { action: 'none' },
+      null,
+      {},
+      { action: 'expand' },
+      { action: 'details' },
+    ]) {
+      expect(overlayConfig({ ...BASE, day_tap_action: action }).day_tap_action).toEqual({
+        action: 'add-event',
+      });
+    }
     expect(
       overlayConfig({ ...BASE, overlay: { day_tap_action: { action: 'none' } } }).day_tap_action,
     ).toEqual({ action: 'none' });
@@ -178,6 +186,90 @@ describe('the overlay card’s configuration', () => {
     const before = structuredClone(raw);
     overlayConfig(raw);
     expect(raw).toEqual(before);
+  });
+});
+
+describe('a press on an event or a day in the overlay', () => {
+  /**
+   * A wall tablet's small card: a tap anywhere opens the overlay, events included, a hold expands
+   * it, the toolbar is lean, and nothing is set for full size.
+   */
+  const TABLET = {
+    ...BASE,
+    hold_action: { action: 'expand' },
+    event_tap_action: { action: 'none' },
+    toolbar: {
+      show: true,
+      refresh: false,
+      legend: false,
+      view_switcher: false,
+      add_event: false,
+      search: false,
+    },
+  };
+
+  /** What a tap and a hold on an event, and a tap on a day, run in the overlay's card. */
+  const actions = (raw: Record<string, unknown>) => {
+    const config = buildConfig(overlayConfig(raw) as Partial<Types.Config>);
+    return {
+      tap: config.event_tap_action,
+      hold: config.event_hold_action,
+      day: config.day_tap_action,
+    };
+  };
+
+  it('opens the event where the card leaves a tap on one to its own tap', () => {
+    expect(actions(TABLET)).toEqual({
+      tap: { action: 'details' },
+      hold: { action: 'none' },
+      day: { action: 'add-event' },
+    });
+    expect(overlayConfig(TABLET)).not.toHaveProperty('event_tap_action');
+    expect(overlayConfig(TABLET).tap_action).toEqual({ action: 'none' });
+  });
+
+  it('adds an event on a day where the card leaves a tap on one to its own tap', () => {
+    expect(actions({ ...TABLET, day_tap_action: { action: 'none' } }).day).toEqual({
+      action: 'add-event',
+    });
+    const script = { action: 'perform-action', perform_action: 'script.plan_day' };
+    expect(actions({ ...TABLET, day_tap_action: script }).day).toEqual(script);
+    expect(
+      actions({
+        ...TABLET,
+        day_tap_action: { action: 'none' },
+        overlay: { day_tap_action: { action: 'none' } },
+      }).day,
+    ).toEqual({ action: 'none' });
+  });
+
+  it.each([
+    ['a bare action', null],
+    ['an action naming none', {}],
+    ['one of the card’s own', { action: 'expand' }],
+    ['the overlay’s', { action: 'overlay' }],
+  ])('reads %s on the card as no tap of its own', (_name, action) => {
+    expect(actions({ ...TABLET, event_tap_action: action }).tap).toEqual({ action: 'details' });
+  });
+
+  it('runs what the card runs on an event, whole', () => {
+    const navigate = { action: 'navigate', navigation_path: '/lovelace/family' };
+    expect(actions({ ...TABLET, event_tap_action: navigate }).tap).toEqual(navigate);
+    expect(actions({ ...TABLET, event_hold_action: { action: 'details' } }).hold).toEqual({
+      action: 'details',
+    });
+  });
+
+  it('runs nothing where the overlay block says so', () => {
+    const none = { action: 'none' };
+    expect(actions({ ...TABLET, overlay: { event_tap_action: none } }).tap).toEqual(none);
+    expect(
+      actions({
+        ...TABLET,
+        event_hold_action: { action: 'details' },
+        overlay: { event_hold_action: none },
+      }).hold,
+    ).toEqual(none);
   });
 });
 

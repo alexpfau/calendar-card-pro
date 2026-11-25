@@ -12,12 +12,15 @@ import * as Constants from './constants';
 import type * as Types from './types';
 import * as ViewConfig from './view';
 import { VIEWS } from './views';
+import { dayActionKind } from '../interaction/day-actions';
+import { eventActionKind } from '../interaction/event-action-kind';
 import * as Helpers from '../utils/helpers';
 
 /**
  * What the overlay assumes where the card says nothing: a tap or a drag on a day adds an event
- * there, so its Grid draws one, as `day_tap_action: add-event` does. A card that sets a
- * `day_tap_action` of its own keeps it, and so does the `overlay:` block.
+ * there, so its Grid draws one, as `day_tap_action: add-event` does. A card's own `day_tap_action`
+ * replaces it only where it runs something on a day (`PRESS_ACTIONS`), and the `overlay:` block's
+ * always does, `none` included.
  */
 export const OVERLAY_ASSUMES: Readonly<Record<string, unknown>> = {
   day_tap_action: { action: Constants.ADD_EVENT_ACTION },
@@ -76,6 +79,37 @@ const COMPACT_OPTIONS: ReadonlyArray<string> = [
  * again.
  */
 const DAY_COUNT_OPTIONS: ReadonlyArray<string> = ['days_to_show'];
+
+/**
+ * The card's actions for a press on an event or a day, each with whether a value runs something
+ * there. The overlay's card takes the card's own only where it does; one that leaves the press to
+ * the card's `tap_action` or `hold_action` (`eventActionKind`, `dayActionKind`: `none`, a bare
+ * action, or one the card runs itself) is left out, so the overlay's card takes its default, as a
+ * card that never set one does: a tap on an event opens it, a tap on a day adds an event there
+ * (`OVERLAY_ASSUMES`), and a hold on an event runs nothing. A card whose every tap opens the
+ * overlay sets such a value for the small card, and inside the overlay that tap becomes `none`
+ * (`withoutOverlayAction`), which would leave its events and days doing nothing there. The
+ * `overlay:` block may set any of them again, `none` included.
+ */
+const PRESS_ACTIONS: Readonly<Record<string, (action: Types.ActionConfig | null) => boolean>> = {
+  event_tap_action: (action) => eventActionKind(action) !== 'none',
+  event_hold_action: (action) => eventActionKind(action) !== 'none',
+  day_tap_action: (action) => dayActionKind(action) !== 'none',
+};
+
+/**
+ * Whether the overlay's card takes the card's own value of a press action (`PRESS_ACTIONS`): only
+ * where it runs something on an event or a day.
+ *
+ * @param option - A top-level option of the card
+ * @param value - The card's value of it, as written
+ * @returns Whether that value reaches the overlay's card, or `undefined` for an option that is no
+ *   press action, which reaches it or not by its name alone
+ */
+export function pressActionReaches(option: string, value: unknown): boolean | undefined {
+  if (!Helpers.hasOwn(PRESS_ACTIONS, option)) return undefined;
+  return PRESS_ACTIONS[option]((value ?? null) as Types.ActionConfig | null);
+}
 
 /** Every layout's block key: `list`, `column`, `time_grid`, `month`. */
 const LAYOUT_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
@@ -143,7 +177,8 @@ function withoutOverlayAction(config: Record<string, unknown>): void {
 /**
  * The configuration the overlay's card is given: what it assumes where the card says nothing
  * (`OVERLAY_ASSUMES`); the card's own, without its `overlay:` block, Home Assistant's own keys
- * (`HA_CARD_KEYS`), its size, its compact limits and its day count; then the overlay's defaults
+ * (`HA_CARD_KEYS`), its size, its compact limits, its day count and the press actions that leave
+ * the press to the card (`PRESS_ACTIONS`); then the overlay's defaults
  * (`OVERLAY_DEFAULTS`); then its `overlay:` block, which may set any option, size aside.
  * Blocks merge option by option, as `setConfig` merges a card's over the defaults, so
  * `overlay: { toolbar: { search: false } }` keeps the rest of the toolbar. The overlay action is
@@ -160,6 +195,9 @@ export function overlayConfig(raw: Readonly<Record<string, unknown>>): Record<st
   ]);
   delete base.overlay;
   for (const key of Constants.HA_CARD_KEYS) delete base[key];
+  for (const key of Object.keys(PRESS_ACTIONS)) {
+    if (pressActionReaches(key, base[key]) === false) delete base[key];
+  }
 
   const own = Helpers.isConfigBlock(raw.overlay) ? withoutOptions(raw.overlay, SIZE_OPTIONS) : {};
   const merged = Config.mergeConfig(
