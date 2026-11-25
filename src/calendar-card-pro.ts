@@ -49,6 +49,7 @@ import * as Feedback from './interaction/feedback';
 import * as GridDraft from './interaction/grid-draft';
 import * as GridMove from './interaction/grid-move';
 import type * as PopoverModel from './interaction/popover-model';
+import { RippleRelease } from './interaction/ripple-release';
 import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
 import * as CardSize from './rendering/card-size';
@@ -957,6 +958,8 @@ class CalendarCardPro extends LitElement {
    * the mouse events and click a browser derives from it off the popover (`_swallowTouchEnd`).
    */
   private _swallowTouchEndUntil = 0;
+  /** Ends the ripple's press where the event that would end it never reaches `ha-card`. */
+  private readonly _rippleRelease = new RippleRelease();
   /** Whether a finger is lifting, while its pointer-up runs what the press does. */
   private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
@@ -6637,6 +6640,8 @@ class CalendarCardPro extends LitElement {
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    // The ripple follows every press that reaches `ha-card`, whatever the card makes of it.
+    this._rippleRelease.pressed(ev);
     // A second contact while a new event is drawn has thrown it away already
     // (`_draftSecondContact`), and is no new gesture of its own.
     if (this._draft && ev.pointerId !== this._activePointerId) return;
@@ -7202,6 +7207,15 @@ class CalendarCardPro extends LitElement {
     shown.arrived = true;
     if (!shown.inPopover) this._dropNew();
   }
+
+  /**
+   * A `touchend` reaching `ha-card`, which ends the ripple's press (`_rippleRelease` notes it),
+   * and the lifting finger's is refused while it opens the popover (`_swallowTouchEnd`).
+   */
+  private readonly _handleTouchEnd = (ev: TouchEvent): void => {
+    this._rippleRelease.heard();
+    this._swallowTouchEnd(ev);
+  };
 
   /**
    * Refuses the `touchend` of a finger that just opened the popover, for a moment: the mouse
@@ -7935,6 +7949,7 @@ class CalendarCardPro extends LitElement {
    * card when it went far enough and mostly sideways (`_swipeEnded`).
    */
   private _handlePointerUp(ev: PointerEvent) {
+    this._rippleRelease.lifted(ev);
     if (ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) return;
     this._liftingTouch = ev.pointerType === 'touch';
@@ -8067,6 +8082,7 @@ class CalendarCardPro extends LitElement {
    * Handle pointer cancel events to clean up an aborted gesture
    */
   private _handlePointerCancel(ev: PointerEvent) {
+    this._rippleRelease.lifted(ev);
     if (ev.pointerId !== this._activePointerId) {
       return;
     }
@@ -8524,6 +8540,7 @@ class CalendarCardPro extends LitElement {
    * @param ev - A click bubbling to `ha-card`
    */
   private _handleClick(ev: MouseEvent) {
+    this._rippleRelease.heard();
     const eventHit = this._eventTapAt(ev);
     const dayHit = eventHit ? undefined : this._dayAddAt(ev);
     const pickHit = eventHit || dayHit ? undefined : this._monthPickAt(ev, this._pathOf(ev));
@@ -9525,7 +9542,7 @@ class CalendarCardPro extends LitElement {
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
       lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
       touchMove: this._drawsNewEvents || this._movesEvents ? this._draftTouchMove : undefined,
-      touchEnd: this._swallowTouchEnd,
+      touchEnd: this._handleTouchEnd,
       nativeDrag: this._movesEvents ? this._refuseNativeDrag : undefined,
     };
 
