@@ -4,6 +4,12 @@ Anna, Ben and their baby son Leo, the invented family of [the Family Hub](/guide
 
 ## 🖼️ See It
 
+The card in use on a tablet's dashboard, then three stills: the card in its column, full size on a tablet, and full size on a phone.
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_small_card.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_small_card_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A tablet dashboard with the small card in a narrow column, listing the next three days: a finger switches it to Month, where each day has a colored capsule under its number and Monday's events are listed under the weeks, and taps Family lunch, whose popover shows its time, that it repeats every 4 weeks and Anna's, Ben's and Leo's calendars; then it presses Open Full Size, and the card opens over the dashboard on the whole of October, with a chip for each calendar; it taps +2 more on Saturday, October 17, and the whole day opens in a panel; it taps Birthday lunch there, whose popover opens in its place; it taps Thursday's zoo trip, whose popover shows London on a small map; it switches to Grid, the week on the hours; and it closes full size and switches the small card back to List"></video><br>
+
+Switch to Month and tap an event, open the whole month full size, open a busy Saturday and an event in it, see the zoo trip on a map, switch to Grid, and close it again.
+
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_small_card.png" alt="The same narrow card twice in a dashboard column: as a list of the next three days with the family's faces and colors under a lean toolbar of a layout switcher, an Open Full Size button and arrows, and switched to Month, where each day has a colored capsule under its number and Monday's events are listed under the weeks" width="800"><br>
 
 In a dashboard column: the next three days as a list, and the same card switched to Month, with the chosen day's events under the weeks.
