@@ -138,8 +138,11 @@ too.
 :::
 
 The ripple is an `<ha-ripple>` in the card; a press on an event or a day marks `ha-card`
-(`data-own-press`) to mute it. `feedback.ts` draws the hold indicator and records where a press was
-(`PressOrigin`), for the popover to open at.
+(`data-own-press`) to mute it. The ripple ends a press on the `touchend` or `click` that follows the
+lift, and a render under the press, such as a swipe paging to days already loaded, can take away the
+node those events are sent to; `ripple-release.ts` then sends `ha-card` the `touchend` itself.
+`feedback.ts` draws the hold indicator and records where a press was (`PressOrigin`), for the
+popover to open at.
 
 ## 🪟 The Event Popover
 

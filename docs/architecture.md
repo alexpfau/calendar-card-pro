@@ -59,6 +59,7 @@ src/
 │   ├── grid-draft.ts             # A new event drawn by drag in a grid
 │   ├── grid-move.ts              # Moving an event by drag in a grid
 │   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
+│   ├── ripple-release.ts         # Ends the ripple's press where its own end never arrives
 │   ├── rrule.ts                  # Home Assistant's repeat rules: read, written, worded
 │   └── search-session.ts         # A search's year-wide load and its rows
 ├── rendering/                    # UI rendering code

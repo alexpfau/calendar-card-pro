@@ -175,7 +175,10 @@ export function renderMainCardStructure(
      * a new event; anywhere else the card binds none, so a touch never waits on it.
      */
     touchMove?: EventListenerObject;
-    /** Refuses the `touchend` of a finger that just opened the popover; see the card. */
+    /**
+     * Hears every `touchend` on the card, which ends the ripple's press, and refuses the lifting
+     * finger's while it opens the popover; see the card.
+     */
     touchEnd?: (ev: TouchEvent) => void;
     /**
      * Refuses the browser's own text selection and drag while a press may move an event,

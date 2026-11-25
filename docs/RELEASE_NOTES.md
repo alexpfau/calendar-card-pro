@@ -53,6 +53,7 @@ List puts an event's forecast at the end of its title's line, where a larger for
 ### Touch Screens
 
 - **A Press on the Toolbar Flashed the Whole Card** - On a card whose `tap_action` runs something, a tap on any toolbar control on a touch screen washed the whole card gray for a moment, as though the card itself had been tapped, and so did a tap in the calendar filter's menu, on a day in the narrow Month or on "+N more". It was the browser's own tap highlight, which settled on the whole card because everything on it shows a pointer; the card's tap and its ripple never ran. The card now takes no highlight, so a control answers a press by itself, and a tap on the card shows its ripple without the gray under it, as with a mouse.
+- **The Card Stayed Tinted After a Swipe** - On a card whose `tap_action` or `hold_action` runs something, a swipe with a finger or a pen back to days the card had already shown left the whole card tinted in its ripple color, as though it were still pressed, until the next touch on the card ended. The swipe drew those days at once, taking away the day the press began on before the browser could tell the ripple the press was over. The card now tells the ripple itself whenever the browser's word does not reach it, so a swipe leaves the card as it found it, and a tap still ripples.
 
 ## Related Issues
 
