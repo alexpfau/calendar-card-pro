@@ -57,6 +57,7 @@ List puts an event's forecast at the end of its title's line, where a larger for
 ## Related Issues
 
 - [#239](https://github.com/alexpfau/calendar-card-pro/issues/239) - A month grid view by @chtardif, which v6.0 answered with `view: month`. @1Cedric1 asked there for the coming weeks instead of a calendar month, which `month: { start: week }` answers
+- [#1002](https://github.com/alexpfau/calendar-card-pro/issues/1002) - A rolling six-week month by @emptymouse, answered by `month: { start: week }`, whose `weeks` defaults to six
 - [#182](https://github.com/alexpfau/calendar-card-pro/issues/182) - Set the card's height in its compact and expanded states by @rpring01, answered by `compact_card_height` and `compact_card_max_height`
 - [#321](https://github.com/alexpfau/calendar-card-pro/issues/321) - Control the size of a label image by @jose1711, answered by `label_image_size`
 - [#322](https://github.com/alexpfau/calendar-card-pro/issues/322) - Combine an image, an icon and text as labels on one event by @jose1711, answered by `label` as a list
