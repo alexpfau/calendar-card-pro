@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 diena",
   "full_size.link": "Atveras pilnā izmērā izkārtojumā „{layout}“ ({days}):",
   "full_size.link_month": "Atveras pilnā izmērā izkārtojumā „{layout}“:",
+  "full_size.preview": "Priekšskatījums rāda pilna izmēra skatu šī loga platumā. Pilnā izmērā tiek pievienota poga „Aizvērt“.",
   "state.set_full_size": "Iestatīts pilna izmēra skatam",
   "state.full_size_default": "Pilna izmēra skata noklusējums",
   "overlay.days_to_show": "Rādāmo dienu skaits",

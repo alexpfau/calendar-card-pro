@@ -18,10 +18,12 @@ import {
   openPageOf,
   pressReset,
   reportsOf,
+  searchFor,
   stateWordOf,
   valueOf,
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
+import { overlayConfig } from '../src/config/overlay';
 import type * as Types from '../src/config/types';
 import { VIEWS } from '../src/config/views';
 import { fullSizeLayoutsOwn, fullSizeSource } from '../src/rendering/editor/full-size';
@@ -435,6 +437,51 @@ describe('the lines leading to Full-Size Settings', () => {
     expect($(on, '.page[data-page="full_size"]')).not.toBeNull();
     await goOverview(on);
     expect($(on, '.page')).toBeNull();
+  });
+});
+
+describe('the preview on Full-Size Settings', () => {
+  type Previewing = {
+    _previewedScope(): { view: string; config: object; fullSize?: true } | undefined;
+  };
+  const previewed = (editor: Editor) => (editor as unknown as Previewing)._previewedScope();
+  const line = (editor: Editor) => text($(editor, '.scope-preview-text'));
+  const SAYS = 'Preview shows the full-size view, as wide as this dialog. Full size adds Close.';
+
+  it('draws the card as full size opens it, and says so, while the page is open', async () => {
+    const editor = await mountEditor(LEAN);
+    expect(previewed(editor)).toBeUndefined();
+    await goPage(editor, 'full_size');
+    // Grid, with the toolbar's own defaults over the card's, and no Open Full Size.
+    expect(previewed(editor)).toEqual({
+      view: 'grid',
+      config: overlayConfig(LEAN),
+      authored: LEAN,
+      fullSize: true,
+    });
+    expect(line(editor)).toBe(SAYS);
+
+    // An edit there reaches the preview at once.
+    await changeField(editor, control('search'), true);
+    expect(previewed(editor)?.config).toMatchObject({ toolbar: { search: true } });
+
+    // Back to the card as it opens, on the overview and in a search begun on the page.
+    await goOverview(editor);
+    expect(previewed(editor)).toBeUndefined();
+    expect($(editor, '.scope-preview-text')).toBeNull();
+    await goPage(editor, 'full_size');
+    await searchFor(editor, 'refresh');
+    expect(previewed(editor)).toBeUndefined();
+  });
+
+  it('draws full size in the layout it opens in, the card’s own layout included', async () => {
+    const editor = await mountEditor({ ...LEAN, overlay: { view: 'list', days_to_show: 14 } });
+    await goPage(editor, 'full_size');
+    expect(previewed(editor)).toMatchObject({
+      view: 'list',
+      config: { view: 'list', days_to_show: 14 },
+      fullSize: true,
+    });
   });
 });
 

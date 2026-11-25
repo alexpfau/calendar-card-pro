@@ -131,6 +131,25 @@ export function fullSizePath(field: {
     : undefined;
 }
 
+/**
+ * What the preview draws on Full-Size Settings: the card as full size opens it (`overlayConfig`),
+ * in the layout it opens in, at the height it takes there with nothing to fill. Close is not
+ * drawn: that takes the overlay's frame, which makes the card fill a height the editor's preview
+ * never gives it, and measured in Home Assistant's dialog it drew the card 141 px tall. Kept for
+ * the configuration last asked about, so the preview is configured once per change.
+ *
+ * @param raw - The configuration as stored
+ * @returns The layout, and the configuration the preview's card is handed
+ */
+export const fullSizePreview = memoizeLast(
+  (
+    raw: Readonly<Record<string, unknown>>,
+  ): { readonly view: Types.EffectiveView; readonly config: Record<string, unknown> } => ({
+    view: overlayView(raw as Pick<Types.Config, 'overlay'>),
+    config: overlayConfig(raw),
+  }),
+);
+
 /** The full-size card's configuration without `overlay:`, by the configuration it is built from. */
 const withoutOwn = new WeakMap<object, Record<string, unknown>>();
 

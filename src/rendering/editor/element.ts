@@ -90,6 +90,7 @@ import {
   topicsFor,
 } from './pages';
 import { PANELS, type PanelExtra, type SchemaCtx, type SubformDef } from './panels';
+import * as Pick from './pick';
 import * as Plan from './plan';
 import * as Prefs from './prefs';
 import * as Preview from './preview';
@@ -1309,13 +1310,17 @@ export class CalendarCardProEditor extends LitElement {
    * The layout the preview draws where the editor is: the one being edited, or, on Whole Card's
    * pages, which edit in the shared scope, the layout the card opens in, as the preview shows it.
    * On Stored Settings, the scope of the line being changed in place, as `_previewedScope` draws
-   * it. A topic opened from there opens under it.
+   * it; on Full-Size Settings, the layout the card opens full size in. A topic opened from there
+   * opens under it.
    */
   private get _layoutInView(): Workspace.EditorWorkspace {
     const route = this._nav.route;
     const edited = this._auditEdit?.group.workspace;
     if ((route.kind === 'audit' || route.kind === 'notices') && edited !== undefined) {
       return edited;
+    }
+    if (route.kind === 'page' && FULL_SIZE_PAGES.has(route.page)) {
+      return FullSize.fullSizePreview(this._rawConfig).view;
     }
     const whole = route.kind === 'page' && isUnscopedPage(route.page);
     return whole ? this._viewForConfig(this._config!) : this._workspace;
@@ -1347,14 +1352,21 @@ export class CalendarCardProEditor extends LitElement {
    * That is the scope, on the overview and on every page; on Stored Settings, the layout of
    * the line being edited in place, and the card as it opens while none is. Quick Setup and Split
    * preview their own answers, and All Layouts is no layout of its own, so it previews the card as
-   * it opens, with every layout's own values.
+   * it opens, with every layout's own values. Full-Size Settings previews the card as full size
+   * opens it, while that page is open and only then: a search's results, a page reached from them
+   * and every other place show the card as it opens.
    *
    * @returns The layout and the configuration it is laid over, or `undefined`
    */
   private _previewedScope(): ScopePreviewWant | undefined {
     if (!this._config) return undefined;
     if (this._quickSetup !== undefined || this._split !== undefined) return undefined;
-    const kind = this._nav.route.kind;
+    const route = this._nav.route;
+    if (route.kind === 'page' && FULL_SIZE_PAGES.has(route.page)) {
+      const { view, config } = FullSize.fullSizePreview(this._rawConfig);
+      return { view, config, authored: this._rawConfig, fullSize: true };
+    }
+    const kind = route.kind;
     const edited =
       kind === 'audit' || kind === 'notices'
         ? (this._auditEdit?.group.workspace ?? 'shared')
@@ -1393,7 +1405,9 @@ export class CalendarCardProEditor extends LitElement {
    * @returns The sentence, or `undefined` where the preview shows the card as it opens
    */
   private _previewSentence(ctx: SchemaCtx): string | undefined {
-    const previewed = this._previewedScope()?.view;
+    const scope = this._previewedScope();
+    if (scope?.fullSize) return this._string(ctx, 'full_size.preview');
+    const previewed = scope?.view;
     if (previewed === undefined) return undefined;
     return this._string(ctx, 'settings_for.preview', {
       layout: this._layoutTitle(previewed, ctx),
@@ -2338,6 +2352,18 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Where a part opens: where the part map says, or, while the preview draws the card as full size
+   * opens it, the full-size card's own Toolbar for a part of its toolbar (`pick.ts` ›
+   * `fullSizeTarget`).
+   *
+   * @param part - The part
+   * @returns Where it opens
+   */
+  private _pickTarget(part: PickView.PickedPart): Pick.PickTarget {
+    return this._previewedScope()?.fullSize ? Pick.fullSizeTarget(part.target) : part.target;
+  }
+
+  /**
    * What a part opens, in words: "Events › Location", or the calendar a legend chip names.
    *
    * @param part - The part
@@ -2345,7 +2371,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _pickName(part: PickView.PickedPart): string {
     const ctx = this._ctx;
-    const target = part.target;
+    const target = this._pickTarget(part);
     if ('calendar' in target) {
       return this._calendarName(part.element.getAttribute('data-calendar') ?? '');
     }
@@ -2367,7 +2393,7 @@ export class CalendarCardProEditor extends LitElement {
   private _pickPart(part: PickView.PickedPart): void {
     const ctx = this._ctx;
     const label = this._pickName(part);
-    const target = part.target;
+    const target = this._pickTarget(part);
     this._endPick(false);
     let route: Navigation.Route;
     let heading: string | undefined;

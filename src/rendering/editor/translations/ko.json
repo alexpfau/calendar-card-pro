@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1일",
   "full_size.link": "크게 보기는 {layout}, {days}로 열립니다:",
   "full_size.link_month": "크게 보기는 {layout}로 열립니다:",
+  "full_size.preview": "미리보기는 크게 보기를 이 대화 상자 너비로 보여 줍니다. 크게 보기에는 닫기 버튼이 추가됩니다.",
   "state.set_full_size": "크게 보기용으로 설정됨",
   "state.full_size_default": "크게 보기 기본값",
   "overlay.days_to_show": "표시할 일수",

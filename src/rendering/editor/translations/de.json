@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 Tag",
   "full_size.link": "Öffnet in voller Größe in „{layout}“, {days}:",
   "full_size.link_month": "Öffnet in voller Größe in „{layout}“:",
+  "full_size.preview": "Die Vorschau zeigt die Großansicht, so breit wie dieser Dialog. In der Großansicht kommt „Schließen“ hinzu.",
   "state.set_full_size": "Für die Großansicht festgelegt",
   "state.full_size_default": "Standard der Großansicht",
   "overlay.days_to_show": "Angezeigte Tage",

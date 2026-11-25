@@ -110,6 +110,12 @@ card's toolbar turns off; or **Set for Full Size**, with Reset. A control presse
 would be anyway is taken out of `overlay`. Opening the page writes nothing. Show Toolbar off
 leaves the full-size card its Close button alone.
 
+While the page is open, the preview shows the card as full size opens it, in its layout, with its
+days and its toolbar, and changes as you do. A line says **Preview shows the full-size view, as
+wide as this dialog. Full size adds Close.** It is as wide as the dialog, so Columns and Grid
+draw as many days as fit there, and it leaves out Close. Leaving the page shows the card as it
+opens again.
+
 Below them, **Also Set for Full Size** lists whatever else `overlay` holds, set in YAML, each line
 with its value and **Remove**, after which the full-size card takes the card's own again. A count
 of days `overlay` holds for one layout, as in `overlay: { time_grid: { days_to_show: 3 } }`, is
@@ -877,7 +883,8 @@ a search result opens one.
   **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
   under the chips. A part only one layout has, such as
   the Grid's hour labels, opens on that layout's page; any other opens under the layout the
-  preview shows.
+  preview shows. On Full-Size Settings, where the preview shows the full-size card, a part of its
+  toolbar opens that page's **Toolbar**.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
   to open it; the editor scrolls back up to the setting.

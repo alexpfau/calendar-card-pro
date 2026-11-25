@@ -1191,6 +1191,7 @@
   "full_size.days_one": "1 giorno",
   "full_size.link": "Si apre a dimensione intera in {layout}, {days}:",
   "full_size.link_month": "Si apre a dimensione intera in {layout}:",
+  "full_size.preview": "L’anteprima mostra la dimensione intera, larga quanto questa finestra. A dimensione intera si aggiunge Chiudi.",
   "state.set_full_size": "Impostato per la dimensione intera",
   "state.full_size_default": "Predefinito della dimensione intera",
   "overlay.days_to_show": "Giorni da mostrare",

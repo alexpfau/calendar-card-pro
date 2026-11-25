@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 dag",
   "full_size.link": "Öppnas i full storlek i {layout}, {days}:",
   "full_size.link_month": "Öppnas i full storlek i {layout}:",
+  "full_size.preview": "Förhandsvisningen visar fullstorleksvyn, lika bred som den här dialogrutan. I full storlek tillkommer Stäng.",
   "state.set_full_size": "Inställt för full storlek",
   "state.full_size_default": "Standard för full storlek",
   "overlay.days_to_show": "Dagar att visa",
