@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 deň",
   "full_size.link": "Otvára sa v plnej veľkosti v rozložení „{layout}“ ({days}):",
   "full_size.link_month": "Otvára sa v plnej veľkosti v rozložení „{layout}“:",
+  "full_size.preview": "Náhľad zobrazuje plnú veľkosť v šírke tohto okna. V plnej veľkosti pribudne tlačidlo „Zavrieť“.",
   "state.set_full_size": "Nastavené pre plnú veľkosť",
   "state.full_size_default": "Predvolené pre plnú veľkosť",
   "overlay.days_to_show": "Zobrazované dni",

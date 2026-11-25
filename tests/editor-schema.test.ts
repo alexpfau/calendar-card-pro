@@ -2899,6 +2899,19 @@ describe('editor: the Card & Header panel', () => {
   });
 });
 
+/** The full-size card's toolbar controls, built under `overlay.toolbar` while it is shown. */
+const FULL_SIZE_CONTROLS = [
+  'legend',
+  'add_event',
+  'view_switcher',
+  'reset',
+  'refresh',
+  'search',
+  'navigation',
+  'view_switcher_layouts',
+  'size',
+];
+
 describe('editor: the Actions & Refresh panel', () => {
   function namesIn(config: Types.Config): string[] {
     const panel = PANELS.find((entry) => entry.id === 'actions')!;
@@ -2935,6 +2948,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'days_to_show',
       'toolbar',
       'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2953,6 +2967,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'days_to_show',
       'toolbar',
       'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -3000,6 +3015,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'days_to_show',
       'toolbar',
       'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -3023,6 +3039,7 @@ describe('editor: the Actions & Refresh panel', () => {
       'days_to_show',
       'toolbar',
       'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);

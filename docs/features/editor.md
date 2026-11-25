@@ -96,11 +96,25 @@ menu, Down Arrow opens it from the button, and Escape closes it.
 with when the [`overlay` action](/features/actions#opening-the-card-full-size) or the toolbar's
 Open Full Size button opens it over the dashboard.
 
-The page holds **Layout**, **Days To Show** and **Show Toolbar**, which write `view`,
-`days_to_show` and `toolbar → show` under `overlay`. Each says where its value comes from:
-**Full-Size Default** for what the card opens with on its own, Grid, seven days and the toolbar,
-or **Set for Full Size**, with Reset. Opening the page writes nothing. Show Toolbar off leaves the
-full-size card its Close button alone.
+The page holds **Layout** and **Days To Show**, which write `view` and `days_to_show` under
+`overlay`, then **Toolbar**: Show Toolbar, the toolbar's controls as chips, with their lines and
+Arrow & Chip Size, as Card & Header draws the card's own, which write `toolbar` under `overlay`.
+Open Full Size is not among them, since the full-size card draws Close in its place. So a small
+card with a lean toolbar can open a full-size view with search, the calendar filter and adding
+events, and its own toolbar stays as it is.
+
+Each setting says where its value comes from: **Full-Size Default** for what the card opens with
+on its own, Grid, seven days, and a toolbar with date navigation and a view switcher offering
+every layout; **From the Card** for what the card's own settings give it, such as a control the
+card's toolbar turns off; or **Set for Full Size**, with Reset. A control pressed back to what it
+would be anyway is taken out of `overlay`. Opening the page writes nothing. Show Toolbar off
+leaves the full-size card its Close button alone.
+
+While the page is open, the preview shows the card as full size opens it, in its layout, with its
+days and its toolbar, and changes as you do. A line says **Preview shows the full-size view, as
+wide as this dialog. Full size adds Close.** It is as wide as the dialog, so Columns and Grid
+draw as many days as fit there, and it leaves out Close. Leaving the page shows the card as it
+opens again.
 
 Below them, **Also Set for Full Size** lists whatever else `overlay` holds, set in YAML, each line
 with its value and **Remove**, after which the full-size card takes the card's own again. A count
@@ -354,7 +368,7 @@ on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open 
 it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
 setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
 Parts** for an event's parts and **Reset Controls** for the toolbar's and the lines under them,
-after a line saying where each chip's state comes from: **Chosen Here**, **From Layout Defaults** or a layout's **Default**. A dropdown may also
+after a line saying where each chip's state comes from: **Chosen Here**, **From Layout Defaults** or a layout's **Default**, and on Full-Size Settings **Set for Full Size**, **Full-Size Default** or **From the Card**. A dropdown may also
 show Home Assistant's own ✕, which empties it, the same as its Reset.
 
 A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
@@ -869,7 +883,8 @@ a search result opens one.
   **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
   under the chips. A part only one layout has, such as
   the Grid's hour labels, opens on that layout's page; any other opens under the layout the
-  preview shows.
+  preview shows. On Full-Size Settings, where the preview shows the full-size card, a part of its
+  toolbar opens that page's **Toolbar**.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
   to open it; the editor scrolls back up to the setting.

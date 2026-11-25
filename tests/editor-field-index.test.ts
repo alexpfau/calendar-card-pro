@@ -285,7 +285,9 @@ describe('field ids', () => {
     // Full-Size Overlay's Layout, and the toolbar's Open Full Size. Then Month's First Week and
     // Weeks Shown. Then List's On a Line of Its Own, and its Compact Height and Compact Maximum
     // Height. Then Full-Size Settings' Days To Show and Show Toolbar. Then a calendar's Image Size.
-    expect(EVERY_FIELD.size).toBe(249);
+    // Then the full-size card's toolbar: its seven controls, its Layouts in Switcher and its Arrow &
+    // Chip Size.
+    expect(EVERY_FIELD.size).toBe(258);
   });
 
   it('do not depend on the editor language', () => {

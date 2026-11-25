@@ -1194,6 +1194,7 @@
   "full_size.days_one": "1 dag",
   "full_size.link": "Åpnes i full størrelse i «{layout}», {days}:",
   "full_size.link_month": "Åpnes i full størrelse i «{layout}»:",
+  "full_size.preview": "Forhåndsvisningen viser fullstørrelsesvisningen, så bred som denne dialogen. I full størrelse kommer «Lukk» i tillegg.",
   "state.set_full_size": "Angitt for full størrelse",
   "state.full_size_default": "Standard for full størrelse",
   "overlay.days_to_show": "Dager å vise",

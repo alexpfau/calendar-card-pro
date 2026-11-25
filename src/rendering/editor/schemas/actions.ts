@@ -2,6 +2,7 @@
  * Action schema rows.
  */
 
+import * as Config from '../../../config/config';
 import {
   ADD_EVENT_ACTION,
   CARD_ACTION_VALUES,
@@ -9,10 +10,12 @@ import {
 } from '../../../config/constants';
 import { VIEWS } from '../../../config/views';
 import * as Helpers from '../../../utils/helpers';
+import { fullSizeToolbarConfig } from '../full-size';
 import type { HaFormSchema } from '../ha-form';
+import { LEGEND_EDITOR_VALUES } from '../normalize';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { blockScope, bool, number, select } from './common';
+import { blockScope, bool, multiSelect, number, select } from './common';
 
 /**
  * Actions this card implements itself, which Home Assistant cannot know about.
@@ -107,6 +110,31 @@ export function cardActionLabelKey(action: string): string {
 }
 
 /**
+ * The full-size card's toolbar controls, under `overlay.toolbar`, while its toolbar is shown: the
+ * card's own controls in the card's order, each named as the card's is, but Open Full Size, which
+ * the full-size card never draws (`config/overlay.ts` › `withoutOverlayAction`), and its own
+ * buttons, which stay YAML's.
+ *
+ * @param language - Effective language code
+ * @param switcher - Whether the full-size toolbar draws its view switcher
+ * @returns The controls
+ */
+function fullSizeToolbarControls(language: string, switcher: boolean): HaFormSchema[] {
+  return [
+    select(language, 'legend', LEGEND_EDITOR_VALUES, 'toolbar.legend'),
+    bool('add_event'),
+    bool('view_switcher'),
+    bool('reset'),
+    bool('refresh'),
+    bool('search'),
+    bool('navigation'),
+    // Which layouts the switcher offers matters only while it is on.
+    ...(switcher ? [multiSelect(language, 'view_switcher_layouts', VIEWS, 'view')] : []),
+    select(language, 'size', Config.TOOLBAR_SIZE_VALUES, 'toolbar.size'),
+  ];
+}
+
+/**
  * Builds the Actions & Refresh panel schema.
  *
  * Coarse to fine, by what a press lands on: the card's two gestures lead, as they always
@@ -119,10 +147,20 @@ export function cardActionLabelKey(action: string): string {
  *   the two `allow_event_*` switches depend on
  * @param eventActs - Whether a tap or a hold on an event runs something of its own, which
  *   keeps `open_links` out
+ * @param fullSizeToolbar - Whether the card opened full size shows its toolbar, which its
+ *   controls depend on
+ * @param fullSizeSwitcher - Whether that toolbar draws its view switcher, which the layouts it
+ *   offers depend on
  * @returns The panel's schema
  */
 const actionsSchema = Helpers.memoizeLast(
-  (language: string, opensDetails: boolean, eventActs: boolean): HaFormSchema[] => [
+  (
+    language: string,
+    opensDetails: boolean,
+    eventActs: boolean,
+    fullSizeToolbar: boolean,
+    fullSizeSwitcher: boolean,
+  ): HaFormSchema[] => [
     // Named as the card's, on keys of their own: `tap_action` and `hold_action` stay the terms
     // other labels are built on (Day Tap Action, a toolbar button's Tap Action).
     {
@@ -154,8 +192,12 @@ const actionsSchema = Helpers.memoizeLast(
     blockScope('overlay', [
       select(language, 'view', VIEWS, 'view'),
       number('days_to_show', 1),
-      // Its own key: the card's Show Toolbar names the card's toolbar.
-      blockScope('toolbar', [{ ...bool('show'), titleKey: 'overlay.toolbar.show' }]),
+      // Its own key: the card's Show Toolbar names the card's toolbar. The controls are named as
+      // the card's are (`toolbar.*`), since they are the same controls.
+      blockScope('toolbar', [
+        { ...bool('show'), titleKey: 'overlay.toolbar.show' },
+        ...(fullSizeToolbar ? fullSizeToolbarControls(language, fullSizeSwitcher) : []),
+      ]),
     ]),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
@@ -169,9 +211,14 @@ const actionsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const fullSize = Config.resolveToolbar(
+    fullSizeToolbarConfig(ctx.config.toolbar, ctx.config.overlay),
+  );
   return actionsSchema(
     ctx.language,
     Synthetic.eventOpensDetails(ctx.config),
     Synthetic.eventHasOwnAction(ctx.config),
+    fullSize.show,
+    fullSize.show && fullSize.viewSwitcher,
   );
 }

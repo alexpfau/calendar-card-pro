@@ -18,6 +18,17 @@ export const LEGEND_OFF = 'off';
 /** The legend's dropdown, in the order it lists them: off, then the two forms. */
 export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 'chips'];
 
+/**
+ * Whether a field's enclosing data keys are a toolbar's: the card's own, or the full-size card's
+ * under `overlay:`.
+ *
+ * @param path - Enclosing data keys
+ * @returns `true` for `toolbar` and `overlay.toolbar`
+ */
+function isToolbarPath(path: ReadonlyArray<string>): boolean {
+  return path.join('.') === 'toolbar' || path.join('.') === 'overlay.toolbar';
+}
+
 /** Whether a value is a string holding nothing but whitespace. */
 function isBlank(value: unknown): boolean {
   return typeof value === 'string' && value.trim() === '';
@@ -79,7 +90,7 @@ export function normalizeFieldValue(
   if (key === 'past_event_opacity') return normalizeRootValue(key, value);
   if (value === undefined || value === null) return value;
   if (path.length === 0) return normalizeRootValue(key, value);
-  if (path.length === 1 && path[0] === 'toolbar' && key === 'legend') {
+  if (key === 'legend' && isToolbarPath(path)) {
     return value === LEGEND_OFF ? false : value;
   }
 

@@ -247,16 +247,22 @@ describe('aliases in each editor language', () => {
   it('find Layouts in Switcher by the View Switcher’s own name where the label does not', () => {
     // Swedish names the control "Layoutväljare" and the setting "Layouter i väljaren", so the
     // control's name finds the setting only through the Swedish words. English, German and a few
-    // others find it through the label or the key, so carry no words of their own.
+    // others find it through the label or the key, so carry no words of their own. Each is found
+    // twice: the card's own, and the full-size card's on Full-Size Settings, named the same.
     const strings = EDITOR_LANGUAGE_STRINGS.sv as Record<string, string>;
     const words = strings['toolbar.view_switcher_layouts.aliases'];
     try {
       delete strings['toolbar.view_switcher_layouts.aliases'];
-      expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher']);
+      expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher', 'view_switcher']);
     } finally {
       strings['toolbar.view_switcher_layouts.aliases'] = words;
     }
-    expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher', 'view_switcher_layouts']);
+    expect([...hits('sv', 'Layoutväljare', 'card')].sort()).toEqual([
+      'view_switcher',
+      'view_switcher',
+      'view_switcher_layouts',
+      'view_switcher_layouts',
+    ]);
     expect(EDITOR_LANGUAGE_STRINGS.de['toolbar.view_switcher_layouts.aliases']).toBeUndefined();
     expect(hits('de', 'Layout-Umschalter', 'card')).toContain('view_switcher_layouts');
   });

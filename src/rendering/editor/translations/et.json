@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 päev",
   "full_size.link": "Avaneb täissuuruses paigutuses „{layout}“, {days}:",
   "full_size.link_month": "Avaneb täissuuruses paigutuses „{layout}“:",
+  "full_size.preview": "Eelvaade näitab täissuuruses vaadet selle dialoogi laiuses. Täissuuruses lisandub nupp „Sulge“.",
   "state.set_full_size": "Määratud täissuuruses vaatele",
   "state.full_size_default": "Täissuuruses vaate vaikimisi",
   "overlay.days_to_show": "Kuvatavate päevade arv",

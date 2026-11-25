@@ -92,6 +92,10 @@ describe('the gate lines’ clauses', () => {
       // Layouts in Switcher waits on the bar, then on its View Switcher chip.
       'switcher_layouts card:toolbar.show': 'gate.when.on',
       'switcher_layouts card:toolbar.view_switcher': 'gate.when.pressed',
+      // The full-size card's toolbar on Full-Size Settings, as the card's own.
+      'full_size_toolbar actions:overlay.toolbar.show': 'gate.when.on',
+      'full_size_switcher_layouts actions:overlay.toolbar.show': 'gate.when.on',
+      'full_size_switcher_layouts actions:overlay.toolbar.view_switcher': 'gate.when.pressed',
       'forecast weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.position': 'gate.when.forecast_by_day',
@@ -153,10 +157,11 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Five: three since the event parts became chips, Show Month, Show Toolbar and Show
+    // Seven: three since the event parts became chips, Show Month, Show Toolbar and Show
     // Conditions Beside Events, then Show Toolbar again for Layouts in Switcher, and Month Name on
-    // Rule for the name's color and size on List's month separator.
-    expect(switches.length).toBe(5);
+    // Rule for the name's color and size on List's month separator, then the full-size card's
+    // Show Toolbar for its controls and for its Layouts in Switcher.
+    expect(switches.length).toBe(7);
     expect(unclaused(ALL)).toEqual([]);
   });
 

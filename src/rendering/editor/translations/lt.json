@@ -1193,6 +1193,7 @@
   "full_size.days_one": "1 diena",
   "full_size.link": "Atidaroma visu dydžiu išdėstymu „{layout}“ ({days}):",
   "full_size.link_month": "Atidaroma visu dydžiu išdėstymu „{layout}“:",
+  "full_size.preview": "Peržiūroje rodomas rodinys visu dydžiu, tokio pločio kaip šis langas. Visu dydžiu pridedamas mygtukas „Uždaryti“.",
   "state.set_full_size": "Nustatyta rodiniui visu dydžiu",
   "state.full_size_default": "Numatytoji visu dydžiu",
   "overlay.days_to_show": "Rodomų dienų skaičius",

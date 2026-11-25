@@ -376,6 +376,8 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'toolbar.show': [true, false],
   'toolbar.view_switcher': [true, false],
   'toolbar.legend': [false, 'menu', 'chips'],
+  'overlay.toolbar.show': [true, false],
+  'overlay.toolbar.view_switcher': [true, false],
   weather_entity: [undefined, '', 'weather.home'],
   'weather.position': [undefined, 'none', 'date', 'event', 'both'],
   'weather.date.show_uv_index': [undefined, true, false],
@@ -960,13 +962,14 @@ describe('the universe', () => {
     // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
     // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
     // gained Full-Size Settings' Days To Show and Show Toolbar. Then a calendar gained Image Size,
-    // in every workspace.
+    // in every workspace. Then every workspace gained the full-size card's toolbar: its seven
+    // controls, its Layouts in Switcher and its Arrow & Chip Size.
     expect(sizes).toEqual({
-      shared: { card: 141, calendar: 31 },
-      list: { card: 171, calendar: 32 },
-      column: { card: 165, calendar: 31 },
-      grid: { card: 164, calendar: 31 },
-      month: { card: 111, calendar: 30 },
+      shared: { card: 150, calendar: 31 },
+      list: { card: 180, calendar: 32 },
+      column: { card: 174, calendar: 31 },
+      grid: { card: 173, calendar: 31 },
+      month: { card: 120, calendar: 30 },
     });
   });
 
@@ -1255,6 +1258,28 @@ describe('the gate table', () => {
         kind: 'gate',
         fields: ['card:toolbar.view_switcher_layouts'],
         requires: [p('card:toolbar.show', true, ON), p('card:toolbar.view_switcher', true, ON)],
+      },
+      full_size_toolbar: {
+        kind: 'gate',
+        fields: [
+          'actions:overlay.toolbar.legend',
+          'actions:overlay.toolbar.add_event',
+          'actions:overlay.toolbar.view_switcher',
+          'actions:overlay.toolbar.reset',
+          'actions:overlay.toolbar.refresh',
+          'actions:overlay.toolbar.search',
+          'actions:overlay.toolbar.navigation',
+          'actions:overlay.toolbar.size',
+        ],
+        requires: [p('actions:overlay.toolbar.show', true, ON)],
+      },
+      full_size_switcher_layouts: {
+        kind: 'gate',
+        fields: ['actions:overlay.toolbar.view_switcher_layouts'],
+        requires: [
+          p('actions:overlay.toolbar.show', true, ON),
+          p('actions:overlay.toolbar.view_switcher', true, ON),
+        ],
       },
       forecast: { kind: 'gate', fields: [`${W}position`], requires: [ENTITY] },
       forecast_by_day: {

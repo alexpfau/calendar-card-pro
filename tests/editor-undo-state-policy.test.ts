@@ -96,6 +96,9 @@ const POLICY: Readonly<Record<string, ReadonlyArray<string>>> = {
     '_reviewAll',
     // The upgrade on opening, made once the editor is attached; Undo takes back what it wrote.
     '_pendingUpgrade',
+    // Calendar Filter's form last named this session, for its chip pressed on again, the card's
+    // and the full-size card's: what pressing on writes, not what is stored.
+    '_legendForms',
   ],
   // Keys never go back, so a restored entry's key is never handed to another.
   counters: ['_nextEntryKey', '_nextButtonKey', '_reads'],

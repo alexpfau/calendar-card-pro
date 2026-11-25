@@ -755,7 +755,8 @@ The toolbar's own [Open Full Size button](/features/header-toolbar#opening-the-c
 opens it too, as can a [button of your own](/features/header-toolbar#your-own-buttons).
 The visual editor offers it as Open Full Size, and what it opens with on the
 [**Full-Size Settings**](/features/editor#full-size-settings) page of its overview: the layout, the
-days and the toolbar, and whatever else `overlay` holds, each line with Remove. While the card is being edited, it opens
+days and the toolbar with each of its controls, and whatever else `overlay` holds, each line with
+Remove. While the card is being edited, it opens
 nothing.
 
 ::: details If the Overlay Looks Different From the Card

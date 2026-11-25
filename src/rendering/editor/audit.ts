@@ -21,6 +21,7 @@ import {
   schemaCtx,
   universeIndex,
 } from './field-index';
+import { FULL_SIZE_PATHS } from './full-size';
 import type { Gate, Prereq } from './gates';
 import type { SelectOption, SelectorSchema } from './ha-form';
 import type { PageId } from './pages';
@@ -359,7 +360,7 @@ export interface FullSizeLine extends AuditLine {
 }
 
 /** The Full Size page's own settings, by their path inside `overlay:`, which it draws itself. */
-const FULL_SIZE_OWN: ReadonlySet<string> = new Set(['view', 'days_to_show', 'toolbar.show']);
+const FULL_SIZE_OWN: ReadonlySet<string> = new Set(FULL_SIZE_PATHS.map((path) => path.join('.')));
 
 /**
  * Every line `overlay:` holds but the Full Size page's own settings: the block walked as Stored

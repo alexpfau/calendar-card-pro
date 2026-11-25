@@ -176,6 +176,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'full_size.days_one': '1 day',
   'full_size.link': 'Opens full size in {layout}, {days}:',
   'full_size.link_month': 'Opens full size in {layout}:',
+  // The preview line on Full-Size Settings, where the preview draws the card as full size opens it
+  // (`full-size.ts` › `fullSizePreview`), as wide as the dialog, and without its Close button.
+  'full_size.preview':
+    'Preview shows the full-size view, as wide as this dialog. Full size adds Close.',
   'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
   'layouts.help_pick': 'The circle picks the layout the card opens in.',

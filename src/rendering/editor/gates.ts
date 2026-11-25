@@ -384,6 +384,26 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [on('card:toolbar.show'), on('card:toolbar.view_switcher')],
     kind: 'gate',
   },
+  // The full-size card's toolbar, as the card's own: its controls while it is shown.
+  full_size_toolbar: {
+    fields: [
+      'actions:overlay.toolbar.legend',
+      'actions:overlay.toolbar.add_event',
+      'actions:overlay.toolbar.view_switcher',
+      'actions:overlay.toolbar.reset',
+      'actions:overlay.toolbar.refresh',
+      'actions:overlay.toolbar.search',
+      'actions:overlay.toolbar.navigation',
+      'actions:overlay.toolbar.size',
+    ],
+    requires: [on('actions:overlay.toolbar.show')],
+    kind: 'gate',
+  },
+  full_size_switcher_layouts: {
+    fields: ['actions:overlay.toolbar.view_switcher_layouts'],
+    requires: [on('actions:overlay.toolbar.show'), on('actions:overlay.toolbar.view_switcher')],
+    kind: 'gate',
+  },
   forecast: {
     fields: [`${W}position`],
     requires: [HAS_WEATHER],

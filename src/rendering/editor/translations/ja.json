@@ -1197,6 +1197,7 @@
   "full_size.days_one": "1日",
   "full_size.link": "拡大表示は{layout}・{days}で開きます:",
   "full_size.link_month": "拡大表示は{layout}で開きます:",
+  "full_size.preview": "プレビューは拡大表示を、このダイアログの幅で表示します。拡大表示では「閉じる」が加わります。",
   "state.set_full_size": "拡大表示用に設定済み",
   "state.full_size_default": "拡大表示のデフォルト",
   "overlay.days_to_show": "表示日数",

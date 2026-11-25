@@ -1192,6 +1192,7 @@
   "full_size.days_one": "1 dzień",
   "full_size.link": "Otwiera się w pełnym rozmiarze w układzie „{layout}” ({days}):",
   "full_size.link_month": "Otwiera się w pełnym rozmiarze w układzie „{layout}”:",
+  "full_size.preview": "Podgląd pokazuje widok w pełnym rozmiarze, tak szeroki jak to okno. W pełnym rozmiarze dochodzi przycisk „Zamknij”.",
   "state.set_full_size": "Ustawione dla pełnego rozmiaru",
   "state.full_size_default": "Domyślne dla pełnego rozmiaru",
   "overlay.days_to_show": "Dni do wyświetlenia",
