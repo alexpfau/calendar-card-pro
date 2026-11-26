@@ -20,7 +20,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
 import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
-import * as LaneRender from './lanes';
+import type * as LaneRender from './lanes';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as PrivateLock from './private-lock';
@@ -1670,7 +1670,7 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  *   `card_height` or a Sections slot (`CardSize.fillsCard`), which compresses the hours as a
  *   fixed `height` does
  * @param lanes - The lanes each day is divided among (`lanes`), in order, or none: each takes
- *   an even slice of every day's hours, headed under the date
+ *   an even slice of every day's hours
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1899,7 +1899,6 @@ export function renderGridGroupedEvents(
             hass,
             dayLabelIds[index],
             dayAdd,
-            lanes,
           ),
         )}
       </div>
@@ -2016,7 +2015,6 @@ function renderWeekNumbers(
  * @param dayLabelId - The day's id, given only while the day's events are tap targets or the
  *   header is the day's add button
  * @param dayAdd - How to draw the header as the day's add button, or undefined for none
- * @param lanes - The lanes the day is divided among, headed under its date, or none
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -2028,7 +2026,6 @@ function renderDayHeader(
   hass?: Types.Hass | null,
   dayLabelId?: string,
   dayAdd?: Activation.DayAddButtons,
-  lanes: ReadonlyArray<LaneRender.LaneHead> = [],
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
@@ -2057,7 +2054,7 @@ function renderDayHeader(
         hass,
         dayLabelId,
         dayAdd && { label: dayAdd.label, timestamp: day.timestamp },
-      )}${lanes.length > 0 ? LaneRender.renderLaneStrip(lanes) : nothing}
+      )}
     </div>
   `;
 }

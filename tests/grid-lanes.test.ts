@@ -132,29 +132,19 @@ describe('a grid drawing lanes', () => {
     const names = blocks.map((block) =>
       block.querySelector('.grid-event-accessible')!.getAttribute('aria-label')!,
     );
-    // The lane's name leads, then the block's own label and title, as the strip shows them to
-    // the eye.
+    // The lane's name leads, then the block's own label and title.
     expect(names[0].startsWith('\u2068Anna\u2069, \u2068Swimming\u2069')).toBe(true);
     expect(names[1].startsWith('\u2068Ben\u2069, \u2068B\u2069, \u2068Piano\u2069')).toBe(true);
   });
 
-  it('heads each day with its lanes, a label or an initial and the name, once', () => {
-    const container = renderGrid(cardConfig({ lanes: true }));
-    const strips = [...container.querySelectorAll('.grid-day-header .lane-strip')];
-    expect(strips).toHaveLength(2);
-    expect(strips[0].getAttribute('aria-hidden')).toBe('true');
-    const heads = [...strips[0].querySelectorAll<HTMLElement>('.lane-header')].map((head) => [
-      head.dataset.lane,
-      head.querySelector('.lane-label')!.textContent!.trim(),
-      head.querySelector('.lane-name')?.textContent ?? null,
-    ]);
-    // Anna has no label: her initial. Ben's label is his own. Clara's label says her name, so it
-    // is drawn once.
-    expect(heads).toEqual([
-      [ANNA, 'A', 'Anna'],
-      [BEN, 'B', 'Ben'],
-      [CLARA, 'Clara', null],
-    ]);
+  it('heads each day as a grid without lanes does: each block says whose it is', () => {
+    // Each block's label already says whose it is, so a strip of lane headers under every date
+    // would only repeat it: the dates are headed exactly as they always were.
+    const heads = (config: Types.Config) =>
+      renderGrid(config)
+        .querySelector('.grid-head')!
+        .innerHTML.replace(/<!--[^]*?-->/g, '');
+    expect(heads(cardConfig({ lanes: true }))).toBe(heads(cardConfig()));
   });
 
   it('gives each lane two root units of a crammed day, so none narrows to nothing', () => {
@@ -165,12 +155,12 @@ describe('a grid drawing lanes', () => {
 
   it('reads `lanes` from the grid’s own block over the card’s', () => {
     const container = renderGrid(cardConfig({ lanes: true, time_grid: { lanes: false } }));
-    expect(container.querySelector('.lane-strip')).toBeNull();
+    expect(container.querySelector('[data-lane]')).toBeNull();
   });
 });
 
 describe('a grid without lanes', () => {
-  it('draws exactly what it always has: whole days, no strip, no lane on any block', () => {
+  it('draws exactly what it always has: whole days, no lane on any block', () => {
     const container = renderGrid(cardConfig());
     // The cascade's own arrangement of two events starting together, whatever calendar each is.
     expect(placed(container, 0)).toEqual([
@@ -178,7 +168,7 @@ describe('a grid without lanes', () => {
       ['Piano', ...slice(50, 50)],
     ]);
     expect(placed(container, 1)).toEqual([['Dentist', ...slice(0, 100)]]);
-    expect(container.querySelector('.lane-strip, [data-lane]')).toBeNull();
+    expect(container.querySelector('[data-lane]')).toBeNull();
     expect(
       container.querySelector<HTMLElement>('.grid-container')!.style.gridTemplateColumns,
     ).not.toContain('calc(');

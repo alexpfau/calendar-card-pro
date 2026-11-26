@@ -175,6 +175,6 @@ describe('adding in a grid’s lanes', () => {
     await settle();
 
     expect(startedIn(dialogs)).toEqual([ANNA]);
-    expect(card.shadowRoot!.querySelector('.lane-strip')).toBeNull();
+    expect(card.shadowRoot!.querySelector('[data-lane]')).toBeNull();
   });
 });

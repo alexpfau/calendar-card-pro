@@ -9,11 +9,9 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
-import * as LaneRender from '../src/rendering/lanes';
 import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
-import * as Lanes from '../src/utils/lanes';
 import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
@@ -510,42 +508,6 @@ describe('theming.md card-mod selectors', () => {
           undefined,
           undefined,
           true,
-        ),
-        container,
-      );
-      collect(container);
-    }
-    // Lanes are off by default, and grid view draws their header strip only while they are on. Two
-    // calendars, one labeled and one not, so a header draws a label and its name, and one its
-    // initial.
-    {
-      const config = buildConfig({
-        ...base,
-        view: 'grid',
-        lanes: true,
-        entities: [
-          { entity: 'calendar.personal', name: 'Anna', label: 'A' },
-          { entity: 'calendar.ben', name: 'Ben' },
-        ],
-      } as Partial<Types.Config>);
-      const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
-      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'grid');
-      const container = document.createElement('div');
-      litRender(
-        Grid.renderGridGroupedEvents(
-          days,
-          effective,
-          'en',
-          undefined,
-          null,
-          FROZEN_NOW,
-          undefined,
-          undefined,
-          true,
-          undefined,
-          false,
-          false,
-          LaneRender.laneHeads(Lanes.laneUniverse(effective, 'grid'), effective, null),
         ),
         container,
       );

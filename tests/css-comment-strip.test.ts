@@ -279,15 +279,8 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(272_000);
-    // Grid's calendar lanes moved the ceiling last, from 270,000 to 272,000 (backlog item 334): the
-    // notes on the strip of lane headers under each date and how a header gives up its name and
-    // then its label as its slice narrows, on a picture drawn round in its lane's ring, on the
-    // header's padding holding that ring against its clip, and on the header and the name cutting
-    // along the inline axis alone. The reading went to 270,870, taken with stripComments after the
-    // last comment was written.
-    //
-    // Picture labels at a size of their own moved the ceiling before that, from 268,000 to 270,000
+    expect(saved).toBeLessThan(270_000);
+    // Picture labels at a size of their own moved the ceiling last, from 268,000 to 270,000
     // (backlog items 285 and 286): the notes on a picture's hanging indent following its height,
     // on an emoji beside a picture taking the wider of the two, on the wide month's lines keeping
     // their pictures at the text's height, and on a one-line title beside the time moving down to

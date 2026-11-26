@@ -160,9 +160,6 @@ describe('a box that hides its overflow only as a backstop for a long word', () 
       // The month, which hides only a month too long for its row (backlog item 268). Not a chip's
       // name: the card reads its scrollWidth, which Chromium counts differently in a box that clips.
       '.toolbar-month-text': { ...INLINE_AXIS, 'min-width': '0' },
-      // A lane's header, which hides only a label too wide for its slice, and its name.
-      '.lane-header': INLINE_AXIS,
-      '.lane-name': INLINE_AXIS,
     });
   });
 
@@ -375,8 +372,7 @@ const TIME_SPAN = '.time .time-actual > span:not(.time-text):not(.allday-badge):
 const CUT_ROW = ".time-beside-title > .summary-row.title-wrap[data-title-cut='']";
 // Text outside the event fields that is cut at its inline edges (backlog item 266).
 const OUTSIDE_TEXT =
-  '.toolbar-month-text, .legend-chip-label, .column-date-content .weather, .month-day-list-fit, ' +
-  '.lane-name';
+  '.toolbar-month-text, .legend-chip-label, .column-date-content .weather, .month-day-list-fit';
 const CONDITION = '.time-location .event-weather .weather-condition';
 const CONDITION_ROOM = 'var(--calendar-card-weather-condition-inline-room, 0px)';
 
@@ -422,8 +418,6 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
     'the overlay’s scrolling day list, whose rows keep their own padding',
   '.month-day-list-name': 'the day named in full, read out, never drawn',
   '.month-day-list-fit': [OUTSIDE_TEXT],
-  '.lane-header': "a lane's header, whose own padding holds its picture's ring",
-  '.lane-name': [OUTSIDE_TEXT],
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
   '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
   '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],

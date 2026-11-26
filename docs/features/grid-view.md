@@ -495,8 +495,8 @@ entities:
 
 ## 🏊 A Lane per Calendar
 
-`lanes: true` gives each calendar a fixed slice of every day, headed under the date by its
-picture and name, so a calendar's events stay in one place whatever the others hold:
+`lanes: true` gives each calendar a fixed slice of every day, so a calendar's events stay in one
+place whatever the others hold:
 
 ```yaml
 view: grid
@@ -504,8 +504,8 @@ lanes: true
 ```
 
 Events that overlap within one calendar share its slice, as the next section describes. See
-[Calendar Lanes](/features/lanes) for grouping calendars into one person's lane, the headers and
-how narrow a lane may be.
+[Calendar Lanes](/features/lanes) for grouping calendars into one person's lane, telling lanes
+apart and how narrow a lane may be.
 
 ## 🔀 Overlapping Events
 

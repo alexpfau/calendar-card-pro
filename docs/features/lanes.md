@@ -7,8 +7,8 @@ stay in that slice on every day, even when it has nothing on and the others are 
 ## 🏊 A Lane per Calendar
 
 Turn lanes on with `lanes`. Each calendar under `entities` gets its own lane, in the order of
-the list. A lane is headed under every date by the calendar's label, such as a person's
-picture, and its name:
+the list. Give each calendar a label, such as a person's picture, and every event in its lane
+shows whose it is:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -54,8 +54,7 @@ entities:
 ## 👥 One Lane for Several Calendars
 
 An entry's `lane` names the lane its events go into. Entries with the same `lane` share one,
-so a person with two calendars gets one lane, headed by the first label among them and by the
-lane's name:
+so a person with two calendars gets one lane:
 
 ```yaml
 lanes: true
@@ -88,20 +87,18 @@ In the visual editor, `lane` is **Lane** on a calendar's page, under **Name & Lo
 **Calendar Lanes** is on. **Split This Calendar** copies it to the new entry, so give one of the
 two a lane of its own to draw them apart.
 
-## 🖼️ Lane Headers
+## 🖼️ Telling Lanes Apart
 
-Under each date, a header names every lane: the label of its first entry that has one, as the
-calendar draws it before its events, then the lane's name.
+Grid view draws no header over a lane. Each event in it shows its calendar's
+[label](/features/core-settings#choosing-how-a-label-is-read), such as a person's
+[picture](/features/core-settings#showing-a-persons-picture), and its accent color, so give each
+calendar both, and a lane is recognized by what it holds.
 
-- A picture, such as `label: person.anna`, is drawn round, ringed in the lane's accent color.
-- A lane with no label gets a circle in its accent color holding the first letter of its name.
-- The name is the lane's `lane`, else the calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card),
-  else its name in Home Assistant. A text label that says the name already draws it once.
-- As the lanes narrow, the name goes first and then the label, so a narrow week still tells the
-  lanes apart for as long as anything fits.
-
-Each event keeps its own label inside its lane as well, so an icon still tells Anna's work events
-from her own. A screen reader hears each event's lane named before its title.
+- Each entry keeps its own label, so in a shared lane an icon still tells Anna's work events from
+  her own.
+- A screen reader hears each event's lane named before its title: the lane's `lane`, else the
+  calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), else its name in
+  Home Assistant.
 
 ## 📏 How Narrow a Lane May Be
 

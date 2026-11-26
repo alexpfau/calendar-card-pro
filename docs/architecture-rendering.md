@@ -124,7 +124,7 @@ layout engine.
 - **Calendar lanes** (`lanes`) divide each day evenly among `utils/lanes.ts`'s lanes, which say
   which entry draws where and import nothing that formats. `renderDayBody` lays each lane out
   alone, as though it were the day, and maps it into its slice (`intoLane`); `rendering/lanes.ts`
-  resolves each lane's name, label and color for the strip under the date. With lanes on,
+  resolves each lane's name, which every block in it says to assistive technology. With lanes on,
   `groupEventsByDay` merges duplicates only within a lane (`drawsInLane`), and the fit counts a
   day as wide as its lanes (`ViewConfig.laneFit`).
 - **`grid-cascade-threshold.ts` and `grid-overflow-strip.ts`** turn post-render measurements into

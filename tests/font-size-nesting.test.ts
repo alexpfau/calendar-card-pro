@@ -40,13 +40,11 @@ import { FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import * as LaneRender from '../src/rendering/lanes';
 import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
-import * as Lanes from '../src/utils/lanes';
 import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
@@ -660,22 +658,6 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // Each event's length after its time, and after the title of a grid banner, which then takes
   // the event size itself, as a timed banner does, so its length and title inherit it.
   ['durations', { show_duration: true }],
-  // A strip of lane headers under each of grid's dates, in the weekday size, with the calendars
-  // labeled so a header draws a picture, an icon, an emoji and a text label beside its name, and
-  // one not, which draws its initial. Grid only; the other views repeat the calendar drawn larger.
-  [
-    'lanes',
-    {
-      lanes: true,
-      entities: [
-        { entity: 'calendar.icon', label: 'mdi:star' },
-        { entity: 'calendar.image', label: '/local/picture.png' },
-        { entity: 'calendar.emoji', label: '🎉' },
-        { entity: 'calendar.text', label: 'Work' },
-        { entity: 'calendar.plain' },
-      ],
-    },
-  ],
   // The header toolbar: the title shrinks to a label over the month, which takes the title's
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
@@ -815,21 +797,7 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
   const days = EventUtils.groupEventsByDay(EVENTS, drawn, false, 'en', view);
   const content =
     view === 'grid'
-      ? Render.renderGridGroupedEvents(
-          days,
-          effective,
-          'en',
-          WEATHER,
-          null,
-          FROZEN_NOW,
-          undefined,
-          undefined,
-          false,
-          undefined,
-          false,
-          false,
-          LaneRender.laneHeads(Lanes.laneUniverse(effective, 'grid'), effective, null),
-        )
+      ? Render.renderGridGroupedEvents(days, effective, 'en', WEATHER, null, FROZEN_NOW)
       : view === 'column'
         ? Render.renderColumnGroupedEvents(days, effective, 'en', WEATHER, null)
         : view === 'month'
@@ -1228,11 +1196,6 @@ describe('every piece of text is sized by its own option', () => {
     expect(sizedText(analyzeAll().runs)).toEqual({
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
-      // A lane's header under each of grid's dates: its label, its initial where it has none, and
-      // its name, all in the weekday names' size, from the strip they sit in.
-      'calendar-label in lane-label': ['weekday_font_size'],
-      'lane-initial in lane-label': ['weekday_font_size'],
-      'lane-name in lane-header': ['weekday_font_size'],
       'calendar-label in summary': ['event_font_size'],
       // A row of the menu the configuration's own buttons fold into, its name in words: a
       // control, at Home Assistant's control size, which the menu sets for itself as the filter's
