@@ -124,9 +124,14 @@ layout engine.
 - **Calendar lanes** (`lanes`) divide each day evenly among `utils/lanes.ts`'s lanes, which say
   which entry draws where and import nothing that formats. `renderDayBody` lays each lane out
   alone, as though it were the day, and maps it into its slice (`intoLane`); `rendering/lanes.ts`
-  resolves each lane's name, which every block in it says to assistive technology. With lanes on,
-  `groupEventsByDay` merges duplicates only within a lane (`drawsInLane`), and the fit counts a
-  day as wide as its lanes (`ViewConfig.laneFit`).
+  resolves each lane's name, label and accent, and which of a day's events go into it
+  (`eventsByLane`). With lanes on, `groupEventsByDay` merges duplicates only within a lane
+  (`drawsInLane`), and the fit counts a grid day as wide as its lanes (`ViewConfig.laneFit`).
+  List view draws them as a grid of a date column and a column per lane, its days subgrids across
+  it (`renderLaneMatrix`), fitted to the width side by side, scrolling, or not at all
+  (`ViewConfig.resolveListLaneMode`, held against the mode drawn last); column view as a lane track
+  and a subgrid row per lane in each day column, the track reserved by the fit
+  (`dayColumnViewOverheadPx`).
 - **`grid-cascade-threshold.ts` and `grid-overflow-strip.ts`** turn post-render measurements into
   the two inputs it needs: the cascade threshold in minutes, and the `+N` strip's width as a share
   of the column.
