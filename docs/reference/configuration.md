@@ -42,6 +42,8 @@ cards.
 | `duplicate_accent_color`       | string            | -                             | Accent color for an event kept from two or more different calendars, in place of the first-listed calendar's own; unset keeps that calendar's color. Needs `filter_duplicates` set to `true`, `ignore_location` or `merge_locations`; see [Labeling & Coloring Shared Events](/features/filtering#labeling-coloring-shared-events)                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `split_multiday_events`        | boolean           | `false`                       | Show a multi-day event on each day it covers. Column view defaults this to `true` and does not take the top-level value; see [Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default). A per-calendar value wins in list and column view, and grid and month view ignore it                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `multiday_banners`             | boolean           | `true`                        | In grid and month view, draw a timed event a full day or longer as one banner across its days, its times at its ends, instead of an event on every day. Grid and month view only, so it belongs in `time_grid:` or `month:`; a per-calendar value wins. See [Long Timed Events as Banners](/features/grid-view#long-timed-events-as-banners) and [Bars & Lines](/features/month-view#bars-lines)                                                                                                                                                                                                                                                                                                                                    |
+| `lanes`                        | boolean           | `false`                       | In grid view, give each calendar a fixed slice of every day, so its events keep their place whatever the others hold; entries sharing a `lane` share one slice. Grid view only, so it belongs at the top level or in `time_grid:`; see [Calendar Lanes](/features/lanes)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `min_lane_width`               | number            | `40`                          | Narrowest a lane may be, in pixels, before the grid shows fewer days: a day needs this much for each lane, or `time_grid → min_day_width` where that is wider. Grid view only; see [How Narrow a Lane May Be](/features/lanes#how-narrow-a-lane-may-be)                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `event_type`                   | string            | `all`                         | Which kind of event the card keeps, whatever its length: `all`, `timed` (with a clock time) or `all_day`; see [Separating All-Day From Timed Events](/features/filtering#separating-all-day-from-timed-events)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `language`                     | string            | `System`, fallback `en`       | Language of everything the card writes, weather conditions included; it follows Home Assistant unless set. On a dashboard that runs the other way, such as an English card on a Hebrew dashboard, the layout follows the dashboard and the card's times, countdowns and dates read in their own language's order. The weekday and month names in a day's date, and Month's column names, are the card's own translations; relative times, the toolbar's date, durations and other dates come from the browser, and where it has no data for the language, Nynorsk reads in Bokmål and any other language in English. See [Language](/features/event-content#language) and [Weather](/features/weather#weather-in-the-column-layout) |
 | `list`                         | object            | Inherits the top-level values | Values that differ in list view, plus the ten options only list view reads. Only options a view can override, and `days_to_show`, belong here; see [Per-View Options](/features/layouts#per-view-options)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -158,12 +160,13 @@ into `list:` automatically.
 `compact_days_to_show` · `compact_events_complete_days` · `compact_card_height` ·
 `compact_card_max_height` · `event_order` · `skip_first_events` ·
 `month_separator_label` · `month_separator_label_color` · `month_separator_label_font_size` ·
-`multiday_banners` (card-wide and per-entity)
+`multiday_banners` (card-wide and per-entity) · `lanes` · `min_lane_width`
 
 These describe a date cell, a compact budget or height, a list's order and continuation, words on a
-horizontal month rule, or a grid's all-day band, which the column layout does not have. The first twelve
+horizontal month rule, or a grid's all-day band or lanes, which the column layout does not have. The first twelve
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard, and `multiday_banners` in grid and month view. The editor hides their controls on Columns' pages, without
+narrow dashboard, `multiday_banners` in grid and month view, and the two lane options, with a calendar's
+`lane`, in grid view. The editor hides their controls on Columns' pages, without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
@@ -204,12 +207,14 @@ pages, without deleting stored values.
 `description_max_lines` · `show_countdown` · `show_countdown_allday` · `countdown_max_days` ·
 `countdown_exact_days` · `show_progress_bar` · `progress_bar_color` · `progress_bar_height` ·
 `progress_bar_width` · `allday_badge` · `allday_badge_style` · `allday_badge_color` ·
-`title_max_lines` · `time_max_lines` · `location_max_lines` · `event_icon_vertical_alignment`
+`title_max_lines` · `time_max_lines` · `location_max_lines` · `event_icon_vertical_alignment` ·
+`lanes` · `min_lane_width`
 
 A month sizes its whole card with `card_height` and `card_max_height`, always draws six whole weeks, splits
 every multi-day event across the days of its day list, rules its days itself, with no month
 separator to carry a month's name, sets its dates at one size on every day and puts each time beside its
-title in a day's list, with no clock beside it, so these have nothing to act on there. A day's
+title in a day's list, with no clock beside it, and divides no day among lanes, so these have
+nothing to act on there. A day's
 list and its panel draw an event's title, time, location and forecast, one line each in the list
 and in full in the panel, and leave the description, the countdown, the progress bar and the
 all-day badge to the [event details](/features/actions#event-details), so those options keep
@@ -223,7 +228,7 @@ the editor hides their controls on Month's pages, without deleting stored values
 Each item in `entities` may be a plain entity ID string, or an object that overrides
 the card-wide options for that one calendar:
 
-`entity` · `name` · `show_in_legend` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
+`entity` · `name` · `show_in_legend` · `lane` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `label_image_size` · `text_scale` ·
 `show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
@@ -235,6 +240,7 @@ the card-wide options for that one calendar:
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
 **→ [Scaling one calendar's text](/features/core-settings#scaling-one-calendars-text)** — `text_scale`, what it makes larger or smaller, and where.
 **→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and why the day header keeps its forecast.
+**→ [One lane for several calendars](/features/lanes#one-lane-for-several-calendars)** — `lane`, which entries share a lane in grid view, and splitting one calendar into two.
 **→ [Leaving a calendar out of the filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
 **→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, place, state, screen, time or template.
 **→ [Showing events that start at certain hours](/features/filtering#showing-events-that-start-at-certain-hours)** — `starts_after` and `starts_before`, for one calendar's events from some hours of the day.

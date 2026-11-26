@@ -65,7 +65,11 @@ export function gridBannerAccessibleName(
     .join(', ');
 }
 
-/** Name a timed block using configured presentation and original, never clipped, source times. */
+/**
+ * Name a timed block using configured presentation and original, never clipped, source times.
+ * In a grid drawing lanes it begins with the lane's name, which the strip under the date shows
+ * to the eye only, unless its label already says it.
+ */
 export function gridEventAccessibleName(
   event: Types.CalendarEventData,
   parts: EventContentParts,
@@ -73,6 +77,7 @@ export function gridEventAccessibleName(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  laneName?: string,
 ): string {
   const source = event._gridSource
     ? { ...event, start: event._gridSource.start, end: event._gridSource.end }
@@ -90,8 +95,12 @@ export function gridEventAccessibleName(
     EventUtils.isEventCurrentlyRunning(event)
       ? getNowString(language)
       : '';
+  const labels = labelNames(event, parts, config, hass);
+  const lane =
+    laneName && !labels.some((label) => label.trim() === laneName.trim()) ? [laneName] : [];
   const words = [
-    ...labelNames(event, parts, config, hass),
+    ...lane,
+    ...labels,
     event.summary,
     now,
     original.shouldShowTime ? original.eventTime : '',

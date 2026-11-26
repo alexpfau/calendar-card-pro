@@ -498,6 +498,12 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:narrow_fit', 'custom')],
     kind: 'mode-value',
   },
+  // How narrow a lane may be, while the layout draws lanes.
+  min_lane_width: {
+    fields: ['layout:min_lane_width'],
+    requires: [on('layout:lanes')],
+    kind: 'gate',
+  },
   accent: {
     fields: ['events:accent_color'],
     requires: [oneOf('events:accent_color_mode', 'custom')],
@@ -611,6 +617,13 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     kind: 'gate',
     needsKey: 'gate.needs.calendar_filter',
     whenKey: 'gate.when.calendar_filter',
+  },
+  // Read in the scope the calendar's page is open in, as the weather switch below is: the lane
+  // this entry's events are drawn in, while that layout draws lanes.
+  lane: {
+    fields: ['calendar:lane'],
+    requires: [on('layout:lanes')],
+    kind: 'gate',
   },
   // Read in the scope the calendar's page is open in: the layout's own forecast beside events.
   show_weather: {

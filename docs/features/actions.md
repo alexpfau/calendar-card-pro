@@ -103,7 +103,9 @@ all-day event on that day. A timed one lasts an hour. That is only a starting po
 lets you change the start, the end and All day before you add it.
 
 The calendar is the one [the add button](#add-event-button) would preselect: the first in
-`entities` that accepts new events and that the calendar filter shows.
+`entities` that accepts new events and that the calendar filter shows. With
+[calendar lanes](/features/lanes#adding-moving-events) on, a tap in a lane preselects that
+lane's calendar instead.
 
 ### Drawing an Event in Grid View
 

@@ -373,6 +373,8 @@ const APPROVED_MAP: ReadonlyArray<
     '',
     ['layout:time_grid.show_now_line A G', 'events:now_color A'],
   ],
+  // Where each calendar's events sit in a day, before how events sharing a time sit together.
+  ['Event Appearance', 'Calendars Side by Side', '', ['layout:lanes E G']],
   [
     'Event Appearance',
     'Overlapping Events',
@@ -527,6 +529,7 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:time_grid.min_days_fallback W G',
       'layout:column.min_day_width A C',
       'layout:time_grid.min_day_width A G',
+      'layout:min_lane_width A G',
       'layout:month.min_day_width A M',
     ],
   ],
@@ -646,6 +649,7 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:accent_color W',
       'calendar:name E',
       'calendar:show_in_legend A',
+      'calendar:lane A G',
       'calendar:label_type E',
       'calendar:label_icon_source W',
       'calendar:label_image_source W',
@@ -708,19 +712,19 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 258 ids, Month's own nine, Layouts in Switcher, the three of the month's name
+    // map places 261 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
     // own height pair, Full-Size Settings' three settings and its toolbar chip, List's forecast
-    // on a line of its own and its two compact heights, a calendar's Image Size, and the
-    // full-size card's nine toolbar settings among them, and every one of them is built under some
-    // workspace and state.
+    // on a line of its own and its two compact heights, a calendar's Image Size, the full-size
+    // card's nine toolbar settings, and Grid's Calendar Lanes, Minimum Lane Width and a calendar's
+    // Lane among them, and every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(258);
-    expect(PLACED).toHaveLength(258);
+    expect(BUILT.size).toBe(261);
+    expect(PLACED).toHaveLength(261);
   });
 
   it('has no field built but unplaced', () => {

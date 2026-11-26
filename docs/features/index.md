@@ -11,6 +11,7 @@ The editor's **Calendars** rows, a page for each calendar entry.
 | Page                                                | What it covers                                                                                |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [Calendars](/features/core-settings)                | Names, colors, labels and pictures, visibility conditions, private calendars, text size       |
+| [Calendar Lanes](/features/lanes)                   | A fixed place in every grid day for each calendar or person                                   |
 | [Filtering & Text Replacement](/features/filtering) | Which of a calendar's events show, by text, type, weekday or hour; duplicates; rewriting text |
 
 ## 🧩 Whole Card

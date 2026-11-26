@@ -79,7 +79,7 @@ A language file goes beside them too. Without it, the visual editor opens in Eng
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-798 KB, the editor at 552 KB and a language file at up to 63 KB, once per version before the
+803 KB, the editor at 554 KB and a language file at up to 64 KB, once per version before the
 browser caches them.
 
 For a smaller transfer, create the `.gz` files beside the originals:
@@ -88,7 +88,7 @@ For a smaller transfer, create the `.gz` files beside the originals:
 gzip -9 -k *.js
 ```
 
-That brings the card to 220 KB, the editor to 160 KB and a language file to at most 15 KB. Delete or regenerate the `.gz`
+That brings the card to 222 KB, the editor to 160 KB and a language file to at most 15 KB. Delete or regenerate the `.gz`
 files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 

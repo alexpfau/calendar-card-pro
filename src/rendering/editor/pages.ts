@@ -486,6 +486,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // Where each calendar's events sit in a day, before how events that share a time sit
+        // beside each other: lanes divide the day first, and overlaps share a lane.
+        key: 'heading_lanes',
+        fields: [['layout:lanes', E]],
+      },
+      {
         // How Grid places events that share a time: how an event sits beside the others, before
         // how its parts look.
         key: 'heading_overlapping_events',
@@ -652,6 +658,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:time_grid.min_days_fallback', withMode('layout:narrow_fit')],
           ['layout:column.min_day_width', A],
           ['layout:time_grid.min_day_width', A],
+          // A day's lanes, once it has them: no narrower than this each, or the day goes.
+          ['layout:min_lane_width', A],
           ['layout:month.min_day_width', A],
         ],
       },
@@ -836,6 +844,8 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:accent_color', withMode('calendar:accent_color_mode')],
       ['calendar:name', E],
       ['calendar:show_in_legend', A],
+      // Where the entry's events go while a layout draws lanes, before how they look.
+      ['calendar:lane', A],
       ['calendar:label_type', E],
       ['calendar:label_icon_source', withMode('calendar:label_type')],
       ['calendar:label_image_source', withMode('calendar:label_type')],

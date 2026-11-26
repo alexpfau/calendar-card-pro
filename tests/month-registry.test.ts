@@ -170,7 +170,10 @@ describe('the options month reads', () => {
         'empty_day_text',
         'event_order',
         'height',
+        // A month's day is a few lines tall, with no room to divide among lanes.
+        'lanes',
         'max_height',
+        'min_lane_width',
         'month_separator_color',
         // List's month separator, which the Month layout does not draw, so it has no month's name
         // to set.

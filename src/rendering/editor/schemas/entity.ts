@@ -379,6 +379,9 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // are about the calendar filter's entry for it: what it says, and whether there is one.
     // Everything after them says how this calendar's events look.
     bool(SHOW_IN_LEGEND),
+    // Where this entry's events go while a layout draws lanes, before how they look: an entry's
+    // own, unlike the two above, so two entries of one calendar can take a lane each.
+    text('lane'),
     labelType(ctx.language),
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),
@@ -523,6 +526,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param imageSource - Where this calendar's image label comes from
  * @param hasLegend - Whether the card's toolbar shows a calendar filter at all
  * @param showsEventWeather - Whether the card draws weather beside its events at all
+ * @param drawsLanes - Whether the layout draws lanes, which this entry's lane is drawn in
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -534,6 +538,7 @@ export function entitySchemaFor(
   imageSource: string = 'custom',
   hasLegend: boolean = true,
   showsEventWeather: boolean = true,
+  drawsLanes: boolean = false,
 ): HaFormSchema[] {
   const replaced = new Set([
     LABEL_ICON_SOURCE,
@@ -571,6 +576,9 @@ export function entitySchemaFor(
     // none for this calendar to leave out. A stored `false` stays in the YAML meanwhile, as
     // the form data still carries it.
     if (node.name === 'show_weather') return showsEventWeather ? [node] : [];
+
+    // Nor does the lane, on a layout that draws none: there is no lane to put the events in.
+    if (node.name === 'lane') return drawsLanes ? [node] : [];
 
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];

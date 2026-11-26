@@ -156,15 +156,25 @@ export function newEventTimesOn(
  * popover's calendar picker offers all of the card's writable calendars, so this is only where
  * the choice starts, and adding must not stop working because of a filter.
  *
+ * Pressed in a lane, the lane's own calendars come first: the first of them that is writable and
+ * shown. A lane holding none starts the event where any other press would, and the popover names
+ * the calendar it starts in.
+ *
  * @param writable - The card's writable calendars, in configuration order
  * @param hidden - The calendars the legend hides now
+ * @param prefer - The calendars of the lane the press was in, in its order, if any
  * @returns The calendar to preselect, or undefined when there is none
  */
 export function preselectedCalendarId(
   writable: ReadonlyArray<string>,
   hidden: ReadonlySet<string>,
+  prefer: ReadonlyArray<string> = [],
 ): string | undefined {
-  return writable.find((id) => !hidden.has(id)) ?? writable[0];
+  return (
+    prefer.find((id) => writable.includes(id) && !hidden.has(id)) ??
+    writable.find((id) => !hidden.has(id)) ??
+    writable[0]
+  );
 }
 
 /**

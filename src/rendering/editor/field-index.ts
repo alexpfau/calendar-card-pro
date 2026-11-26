@@ -43,9 +43,11 @@ import {
   appliesToView,
   entityScopeFor,
   reachableViews,
+  resolveEffectiveConfig,
   showsEventWeatherIn,
 } from '../../config/view';
 import * as Helpers from '../../utils/helpers';
+import * as Lanes from '../../utils/lanes';
 
 /**
  * A field's id: `<scope>:<data path>.<name>`.
@@ -483,6 +485,9 @@ export function entrySchema(entry: string | Types.EntityConfig, ctx: SchemaCtx):
     labelImageSourceOf(own.label),
     toolbar.show && toolbar.legend !== false,
     showsEventWeatherIn(ctx.config, destination),
+    destination === undefined
+      ? ctx.config.lanes === true
+      : Lanes.lanesOn(resolveEffectiveConfig(ctx.config, destination), destination),
   );
   return Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
 }

@@ -79,6 +79,9 @@ export function unsetWord(
       case 'replace_pattern':
       case 'replace_with':
         return t('value.none');
+      // The entry's calendar's own lane.
+      case 'lane':
+        return t('value.own_lane');
       default:
         return undefined;
     }

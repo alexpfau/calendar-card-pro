@@ -9,6 +9,7 @@ import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Grid from './grid';
 import * as Helpers from './helpers';
+import * as Lanes from './lanes';
 import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
@@ -1630,6 +1631,22 @@ export function resolveGridBanners(
 }
 
 /**
+ * Whether a layout drawing lanes draws an occurrence in its lane rather than in a place every
+ * lane shares. In Grid, a timed block is drawn in its lane, and an all-day event or a banner in
+ * the all-day band above them all.
+ *
+ * @param occurrence One day's occurrence, as grouping splits it
+ * @param view The layout drawn
+ * @returns True where it is drawn in its lane
+ */
+export function drawsInLane(
+  occurrence: Types.CalendarEventData,
+  view: Types.EffectiveView,
+): boolean {
+  return view !== 'grid' || (occurrence.start.dateTime !== undefined && !occurrence._gridBanner);
+}
+
+/**
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
@@ -1713,6 +1730,10 @@ export function groupEventsByDay(
   const displayDays = new Map<Types.CalendarEventData, string>();
   const ignoreLocation = ignoresLocation(config.filter_duplicates);
   const gridBanners = splitsForGrid ? resolveGridBanners(events, config) : undefined;
+  // While the view draws lanes, a copy of an event merges only with copies in its own lane, so a
+  // dinner on Anna's and Ben's calendars is drawn in both of their lanes, each from its own
+  // calendar. What every lane shares, Grid's all-day band, merges as it always has.
+  const lanesOn = Lanes.lanesOn(config, effectiveView);
   const splitEvents = events.flatMap((event) => {
     const split = splitsForGrid
       ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
@@ -1722,7 +1743,14 @@ export function groupEventsByDay(
       : split;
     if (config.filter_duplicates) {
       const signature = generateEventSignature(event, ignoreLocation);
-      occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
+      occurrences.forEach((occurrence) =>
+        sourceSignatures.set(
+          occurrence,
+          lanesOn && drawsInLane(occurrence, effectiveView)
+            ? `${signature}\u0000${Lanes.eventLaneKey(occurrence)}`
+            : signature,
+        ),
+      );
     }
     return occurrences;
   });

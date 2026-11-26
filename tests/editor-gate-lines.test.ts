@@ -111,12 +111,15 @@ describe('the gate lines’ clauses', () => {
       'open_links actions:event_hold_action': 'gate.when.no_event_actions',
       'empty_days content:show_empty_days': 'gate.when.empty_or_today',
       'empty_days content:show_empty_today': 'gate.when.empty_or_today',
+      // A lane's width and a calendar's Lane wait on Calendar Lanes.
+      'min_lane_width layout:lanes': 'gate.when.on',
       'label_icon_color calendar:label_type': 'gate.when.label_icon',
       'label_image_size calendar:label_type': 'gate.when.label_image',
       'location_icon events:show_location': 'gate.when.location_shown',
       'location_icon calendar:show_location': 'gate.when.location_shown',
       'show_in_legend card:toolbar.show': 'gate.when.calendar_filter',
       'show_in_legend card:toolbar.legend': 'gate.when.calendar_filter',
+      'lane layout:lanes': 'gate.when.on',
       'show_weather weather:weather_entity': 'gate.when.weather_entity',
       'show_weather weather:weather.position': 'gate.when.forecast_by_event',
     });
@@ -160,8 +163,9 @@ describe('the gate lines’ clauses', () => {
     // Seven: three since the event parts became chips, Show Month, Show Toolbar and Show
     // Conditions Beside Events, then Show Toolbar again for Layouts in Switcher, and Month Name on
     // Rule for the name's color and size on List's month separator, then the full-size card's
-    // Show Toolbar for its controls and for its Layouts in Switcher.
-    expect(switches.length).toBe(7);
+    // Show Toolbar for its controls and for its Layouts in Switcher. Then Calendar Lanes, for its
+    // Minimum Lane Width and a calendar's Lane.
+    expect(switches.length).toBe(9);
     expect(unclaused(ALL)).toEqual([]);
   });
 

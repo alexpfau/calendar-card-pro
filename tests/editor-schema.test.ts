@@ -972,6 +972,9 @@ describe('editor: applicability', () => {
       // Only grid has an all-day band above an hour axis for a timed event to move into, and
       // month draws such an event as a bar across its days in the same way.
       multiday_banners: ['grid', 'month'],
+      // Only the time grid divides its days among lanes; a month's day is a few lines tall.
+      lanes: ['grid'],
+      min_lane_width: ['grid'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
       // label whatever the option resolves to. Month's day list draws List's rows, which
       // carry it.
@@ -1036,12 +1039,15 @@ describe('editor: applicability', () => {
       Object.fromEntries(
         Object.entries(ENTITY_VIEW_SCOPE).map(([key, views]) => [key, [...views].sort()]),
       ),
-    ).toEqual({});
+    ).toEqual({
+      // A calendar's lane has no card-level namesake: only a layout drawing lanes reads it.
+      lane: ['grid'],
+    });
 
-    // Empty is a statement, not a hole, so it needs the fallback proved beside it. With
-    // no entry of its own a per-calendar option must resolve to the card-level scope —
-    // and `toBe` rather than `toEqual`, because `entityScopeFor` promises the table wins
-    // outright rather than the two being merged into an equal-looking third set.
+    // The table wins outright where it has an entry, and with none a per-calendar option must
+    // resolve to the card-level scope — `toBe` rather than `toEqual` both times, because
+    // `entityScopeFor` promises one table or the other rather than an equal-looking third set.
+    expect(entityScopeFor('lane')).toBe(ENTITY_VIEW_SCOPE.lane);
     expect(entityScopeFor('split_multiday_events')).toBe(VIEW_SCOPE.split_multiday_events);
   });
 
@@ -1976,6 +1982,8 @@ describe('editor: the panel set', () => {
       buildConfig({ filter_duplicates: true }),
       // Links in rows are held back while an event tap opens the event, as it does by default.
       buildConfig({ event_tap_action: { action: 'none' } }),
+      // How narrow a lane may be is held back until there are lanes to size.
+      buildConfig({ lanes: true }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -3838,6 +3846,7 @@ describe('editor: per-calendar settings', () => {
         'label_image_size',
         'label_image_source',
         'label_type',
+        'lane',
         'location_icon',
         'name',
         'private',

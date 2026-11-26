@@ -138,6 +138,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.follow_card': 'Follow the card',
   'value.end_of_day': 'End of Day',
   'value.none': 'None',
+  'value.own_lane': 'Its Own',
   // An action set to `null`, worded before Home Assistant has named its `none`. "Nothing" is the
   // word Home Assistant's action editor uses for it, and each translation takes Home Assistant's
   // own word, so the editor says it one way in every language.
@@ -971,6 +972,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.name': 'Name',
   'entity.name.helper':
     'Every entry for this calendar shares it. Left empty, the card uses Home Assistant’s name.',
+  'entity.lane': 'Lane',
+  'entity.lane.helper':
+    'Entries with the same lane share one. Left empty, this calendar keeps a lane of its own.',
   'entity.show_in_legend': 'Show in Calendar Filter',
   'entity.show_in_legend.helper':
     'Off leaves this calendar out of the calendar filter, so its events always show. Every entry for it shares this.',
@@ -1078,6 +1082,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Grid's First and Last Hour, on Which Events after the dates.
   heading_hours: 'Hours',
   // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
+  heading_lanes: 'Calendars Side by Side',
   heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
   // A List card's height while it is compact, which follows Card Height while unset.
@@ -1389,6 +1394,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   multiday_banners: 'Long Timed Events as Banners',
   'multiday_banners.helper':
     'Draws an event with a time that lasts a day or longer as one banner across its days.',
+  lanes: 'Calendar Lanes',
+  'lanes.helper':
+    'Each calendar keeps its own slice of every day; calendars given the same Lane share one.',
+  'lanes.aliases':
+    'people, person, column per person, side by side, family, swimlanes, fixed position',
+  min_lane_width: 'Minimum Lane Width',
+  'min_lane_width.helper': 'The default, 40px, fits seven days of four lanes at 1,207px.',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
@@ -1908,6 +1920,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.column_grid_list_only.show_empty_days':
     'Applies to every layout but the month, which always draws every day of its weeks.',
   'scope.grid_month_only': 'Applies to the time grid and month layouts.',
+  'scope.grid_only': 'Applies to the time grid layout.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',

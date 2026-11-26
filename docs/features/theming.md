@@ -320,7 +320,9 @@ events, its now line and its tints with classes of their own:
 | `.grid-today`          | today's tint behind today's column, once [`today_background_color`](/features/grid-view#shading-today) is set to a color                                 | —                                                                                                                                                              |
 
 The `+N` block is a `.grid-event` too, so `.grid-event:not(.grid-event-overflow)` selects real
-events only. A banner can span several days, so it sits in the all-day band, in `.grid-allday-row`, rather than in any
+events only. While the grid draws lanes, each event's block carries `data-lane` with its lane's
+key, the `lane` its entry names or its calendar's entity ID, so `.grid-event[data-lane="Anna"]`
+selects one lane's events. A banner can span several days, so it sits in the all-day band, in `.grid-allday-row`, rather than in any
 day's `.grid-day-body`, and a day selector does not reach it; select it as `.grid-banner`.
 
 `.grid-now-line` is only the part of the now line between events. Inside the event under way,

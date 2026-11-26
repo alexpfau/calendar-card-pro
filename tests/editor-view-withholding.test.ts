@@ -296,7 +296,7 @@ describe('view withholding reconciles both directions', () => {
     // A second state per view opens the three conditions the fixture's own leaves shut, scoped
     // since Month: Show Today When Empty is built only with Show Empty Days off, Week Number
     // Background only while week numbers are shown, and Open Links only while events open
-    // nothing, which by default they do.
+    // nothing, which by default they do. Minimum Lane Width is built only while lanes are on.
     const states = (view: Types.EffectiveView): Types.Config[] => [
       configFor(view),
       buildConfig({
@@ -305,6 +305,7 @@ describe('view withholding reconciles both directions', () => {
         show_empty_today: true,
         show_week_numbers: 'iso',
         event_tap_action: { action: 'none' },
+        lanes: true,
       }),
     ];
     const encountered = new Set(
