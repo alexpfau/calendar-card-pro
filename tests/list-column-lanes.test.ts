@@ -325,6 +325,32 @@ describe('a list drawing lanes', () => {
     expect($(card, 'ha-card')!.classList.contains('lanes-scroll')).toBe(true);
   });
 
+  it('stops watching its date column once removed, an update still queued or not', async () => {
+    const watching = new Set<object>();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(element: Element) {
+          if (element.classList.contains('date-column')) watching.add(this);
+        }
+        unobserve() {}
+        disconnect() {
+          watching.delete(this);
+        }
+      },
+    );
+    try {
+      const { card } = await mount();
+      expect(watching.size).toBe(1);
+      (card as unknown as { requestUpdate(): void }).requestUpdate();
+      card.remove();
+      await card.updateComplete;
+      expect(watching.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('groups each lane’s events on a day under its header’s name', async () => {
     const { card } = await mount();
     const [anna, ben] = $$(card, '.lane-day.today > .lane-cell');

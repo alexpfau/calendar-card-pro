@@ -2593,8 +2593,10 @@ class CalendarCardPro extends LitElement {
    * nothing and leaves the estimate.
    */
   private _measureListDateColumn(): void {
+    // Not once the card has left the page: an update queued before it left still runs, and
+    // would watch a column `disconnectedCallback` has already stopped watching.
     const date =
-      this._listLaneMode === null
+      !this.isConnected || this._listLaneMode === null
         ? null
         : this.renderRoot.querySelector<HTMLElement>('.content-container .date-column');
     if (date !== this._dateColumnWatched) {
