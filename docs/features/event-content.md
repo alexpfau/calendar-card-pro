@@ -1202,6 +1202,11 @@ language: de
   language in English, as the card's own words do. Chrome, as tested, has none for Icelandic or
   Nynorsk. The date a multi-day event ends on and a month's first day are written from the
   card's own month names instead, so they stay in the card's language.
+- The card is laid out in your dashboard's direction, which your Home Assistant profile's
+  language decides, not in the direction of `language`. A card set to `language: he` on an
+  English dashboard writes Hebrew in a left-to-right layout, and an English card on a Hebrew
+  dashboard is mirrored. Either way, its times, countdowns and dates read in their own
+  language's order.
 - The event popover follows your Home Assistant profile's language instead, since its words are
   Home Assistant's own; see [Words & Language](/features/actions#words-language). So do the
   other words the card borrows from Home Assistant, whatever `language` says: the names of
