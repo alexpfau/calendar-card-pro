@@ -957,6 +957,16 @@ export interface EntityConfig {
    */
   show_in_legend?: boolean;
   /**
+   * Whether the calendar filter hides this calendar's events on a device that has chosen nothing
+   * for the card yet: the filter's starting state, which anyone can change there. Unset is
+   * `false`. It does nothing where the filter does not list the calendar (`show_in_legend:
+   * false`, or no filter at all), since nothing could show its events again there.
+   *
+   * 🚨 It belongs to the calendar, not to this block, as `show_in_legend` does: the first block
+   * that sets it decides (`configuredHiddenByDefault` in `config/config.ts`).
+   */
+  hidden_by_default?: boolean;
+  /**
    * The lane this entry's events draw into while a layout draws lanes (`lanes`): entries with
    * the same value share one, so a person's calendars can keep one place, and two entries of one
    * calendar can take a lane each. Unset, the entry draws into its calendar's lane, named by the

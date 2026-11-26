@@ -595,6 +595,8 @@
   "entity.lane.helper": "Einträge mit derselben Spur teilen sich eine. Bleibt das Feld leer, behält dieser Kalender eine eigene Spur.",
   "entity.show_in_legend": "Im Kalenderfilter anzeigen",
   "entity.show_in_legend.helper": "Ist dies ausgeschaltet, erscheint dieser Kalender nicht im Kalenderfilter, sodass seine Termine immer angezeigt werden. Alle Einträge dieses Kalenders teilen diese Einstellung.",
+  "entity.hidden_by_default": "Standardmäßig ausgeblendet",
+  "entity.hidden_by_default.helper": "Ist dies eingeschaltet, sind seine Termine ausgeblendet, bis jemand sie im Kalenderfilter einblendet. Alle Einträge dieses Kalenders teilen diese Einstellung.",
   "entity.label_type": "Label-Typ",
   "entity.label_type.helper": "Ein Bild-Label ist ein Pfad, den der Browser erreichen kann, etwa /local/work.png.",
   "entity.label_type.option.none.label": "Ohne",

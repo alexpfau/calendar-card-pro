@@ -488,6 +488,8 @@ export function entrySchema(entry: string | Types.EntityConfig, ctx: SchemaCtx):
     destination === undefined
       ? ctx.config.lanes === true
       : Lanes.lanesOn(resolveEffectiveConfig(ctx.config, destination), destination),
+    // The calendar's, read across the list: the first entry for it that sets one decides.
+    Config.configuredShowInLegend([...(ctx.config.entities ?? []), own], own.entity) !== false,
   );
   return Filter.withholdInertFields(declared, ctx.workspace ?? ctx.view, 'entity');
 }

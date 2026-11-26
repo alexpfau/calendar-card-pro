@@ -980,6 +980,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_in_legend': 'Show in Calendar Filter',
   'entity.show_in_legend.helper':
     'Off leaves this calendar out of the calendar filter, so its events always show. Every entry for it shares this.',
+  'entity.hidden_by_default': 'Hidden by Default',
+  'entity.hidden_by_default.helper':
+    'On hides its events until someone shows them in the calendar filter. Every entry for it shares this.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
     'An image label is a path the browser can reach, such as /local/work.png.',

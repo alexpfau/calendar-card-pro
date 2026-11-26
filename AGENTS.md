@@ -2171,10 +2171,11 @@ and one begun on another layout's page adds that layout. A calendar option left 
 takes each layout's value, so its Reset names one only where those agree (`resetOutcome`'s
 `differs`). `tests/editor-entry-layouts.test.ts` and `tests/editor-search-jump.test.ts` pin it.
 
-**Two options belong to the calendar, not the entry**: `name` and `show_in_legend`
-(`entities.ts` › `CALENDAR_OPTIONS`), which the card reads from a calendar's first entry. So
-Remove leaves them on the entries that remain, Copy Settings does not carry them, and a re-pointed
-entry takes the new calendar's where that calendar already has entries, saying so on its page.
+**Three options belong to the calendar, not the entry**: `name`, `show_in_legend` and
+`hidden_by_default` (`entities.ts` › `CALENDAR_OPTIONS`), which the card reads from a calendar's
+first entry that sets them. So Remove leaves them on the entries that remain, Copy Settings does
+not carry them, and a re-pointed entry takes the new calendar's where that calendar already has
+entries, saying so on its page.
 
 **Removal splits along the same seam.** **Remove** on an entry, from its strip or its page's foot,
 drops that entry alone; **Remove** on a calendar row drops every entry the calendar has. Neither

@@ -591,6 +591,8 @@
   "entity.lane.helper": "Le voci con la stessa corsia ne condividono una. Se lasciato vuoto, questo calendario ha una corsia propria.",
   "entity.show_in_legend": "Mostra nel filtro calendari",
   "entity.show_in_legend.helper": "Se disattivato, questo calendario non compare nel filtro calendari, quindi i suoi eventi sono sempre visibili. Tutte le voci di questo calendario condividono questa impostazione.",
+  "entity.hidden_by_default": "Inizialmente nascosto",
+  "entity.hidden_by_default.helper": "Se attivato, i suoi eventi restano nascosti finché qualcuno non li mostra nel filtro calendari. Tutte le voci di questo calendario condividono questa impostazione.",
   "entity.label_type": "Tipo di etichetta",
   "entity.label_type.helper": "Un’etichetta immagine è un percorso raggiungibile dal browser, ad esempio /local/work.png.",
   "entity.label_type.option.none.label": "Nessuno",

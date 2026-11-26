@@ -3848,6 +3848,7 @@ describe('editor: per-calendar settings', () => {
         'label_icon_source',
         'label_image_size',
         'label_image_source',
+        'hidden_by_default',
         'label_type',
         'lane',
         'location_icon',

@@ -846,6 +846,8 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:accent_color', withMode('calendar:accent_color_mode')],
       ['calendar:name', E],
       ['calendar:show_in_legend', A],
+      // Beside it: both say how the calendar filter treats this calendar.
+      ['calendar:hidden_by_default', A],
       // Where the entry's events go while a layout draws lanes, before how they look.
       ['calendar:lane', A],
       ['calendar:label_type', E],

@@ -583,6 +583,8 @@
   "entity.lane.helper": "같은 레인의 항목은 하나를 공유합니다. 비워 두면 이 캘린더는 자체 레인을 사용합니다.",
   "entity.show_in_legend": "캘린더 필터에 표시",
   "entity.show_in_legend.helper": "끄면 이 캘린더가 캘린더 필터에 나타나지 않으므로 이 캘린더의 이벤트는 항상 표시됩니다. 이 캘린더의 모든 항목이 이 설정을 공유합니다.",
+  "entity.hidden_by_default": "기본적으로 숨김",
+  "entity.hidden_by_default.helper": "켜면 누군가 캘린더 필터에서 표시할 때까지 이 캘린더의 이벤트가 숨겨집니다. 이 캘린더의 모든 항목이 이 설정을 공유합니다.",
   "entity.label_type": "레이블 유형",
   "entity.label_type.helper": "이미지 레이블은 /local/work.png와 같이 브라우저가 접근할 수 있는 경로입니다.",
   "entity.label_type.option.none.label": "없음",

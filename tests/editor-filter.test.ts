@@ -500,6 +500,7 @@ describe('editor: the order of the two panels', () => {
       'accent_color',
       'name',
       'show_in_legend',
+      'hidden_by_default',
       'lane',
       'label_type',
       'label_icon_source',

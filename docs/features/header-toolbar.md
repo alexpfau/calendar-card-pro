@@ -319,7 +319,8 @@ while the editor is open, else as a menu.
 
 Each device remembers which calendars it hides, as it remembers its
 [layout](#switching-between-layouts). A change to the card's configuration shows every calendar
-again on every device, and the [reset button](#resetting-the-card) shows them all again on one.
+again on every device, except one that [starts hidden](#starting-a-calendar-hidden), and the
+[reset button](#resetting-the-card) does the same on one.
 
 ::: details More About the Filter
 
@@ -337,7 +338,8 @@ again on every device, and the [reset button](#resetting-the-card) shows them al
 - A calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
   first entry.
 - A calendar can be left out of the filter altogether; see
-  [Leaving a Calendar Out of the Filter](#leaving-a-calendar-out-of-the-filter).
+  [Leaving a Calendar Out of the Filter](#leaving-a-calendar-out-of-the-filter). One can also
+  start hidden; see [Starting a Calendar Hidden](#starting-a-calendar-hidden).
 - A calendar its [visibility conditions](/features/core-settings#showing-a-calendar-under-conditions)
   hide has no chip or row while they hide it, and the filter cannot bring it back.
 - A long name is cut short on its chip with an ellipsis, and shows in full as the chip's tooltip.
@@ -393,6 +395,55 @@ YAML the first entry that sets it wins.
 
 :::
 
+## 💤 Starting a Calendar Hidden
+
+`hidden_by_default: true` starts one calendar hidden in the calendar filter, for a calendar you
+want on the card but rarely need to see, such as one whose events drive automations. Anyone can
+show it with its chip or its row in the menu, and the device remembers that, as it remembers any
+other choice in the filter.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - entity: calendar.anna
+    accent_color: '#e53935'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+  - entity: calendar.sprinkler
+    hidden_by_default: true
+toolbar:
+  show: true
+  legend: chips
+```
+
+| Option              | Type    | Default | Description                                                                                                                                                                           |
+| ------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hidden_by_default` | boolean | `false` | Set on one calendar in `entities`. `true` starts that calendar hidden in the calendar filter, on every device that has not chosen otherwise; its chip or its row in the menu shows it |
+
+Here the sprinkler schedule's chip starts gray, and its events stay off the card until someone
+presses it.
+
+- **It is where the filter starts, not a lock.** **Show all** shows it too. Each device keeps
+  what was chosen until the card's configuration changes or someone presses the
+  [reset button](#resetting-the-card), and then the calendar starts hidden again.
+- **The filter has to list the calendar.** With `show_in_legend: false`, `legend: false` or no
+  toolbar, it does nothing, since nothing could show the calendar again.
+- **In the visual editor** it is the **Hidden by Default** switch on each calendar's page, under
+  **Name & Look**, after **Show in Calendar Filter** and offered while that is on.
+
+::: details More About Starting Hidden
+
+- The filter button carries its dot while the calendar is hidden, as for any hidden calendar. The
+  reset button appears only once a device shows it, or hides another.
+- A card with `hide_when_empty` stays while it starts a calendar hidden, so the filter that shows
+  the calendar stays in reach.
+- While the card is being edited, it shows like every other calendar.
+- It belongs to the calendar, not to one entry in `entities`: the visual editor writes it to every
+  entry for the calendar, and in YAML the first entry that sets it wins.
+
+:::
+
 ## ↩️ Resetting the Card
 
 The reset button undoes, in one press, every choice made on this device. It is for a card
@@ -419,7 +470,8 @@ One press brings back all of these at once:
   home button does.
 - **The configured `view`,** from a layout the [view switcher](#switching-between-layouts)
   picked. Where the card is too narrow for it, List stands in for it, as it always does.
-- **Every calendar,** from any the [calendar filter](#showing-hiding-calendars) hid.
+- **Every calendar,** from any the [calendar filter](#showing-hiding-calendars) hid, except one
+  that [starts hidden](#starting-a-calendar-hidden), which is hidden again.
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
@@ -447,8 +499,8 @@ English. Nothing else in the toolbar changes.
 - A layout picked on the switcher counts even where the card is too narrow for it and draws the
   same list the configured layout would: the switcher marks the pick, and a press moves the mark
   back to the configured layout.
-- Another card with the same configuration shows every calendar again at once, as it does after a
-  press on the filter, including one open in another tab of the same browser. Its layout stays
+- Another card with the same configuration shows its calendars as configured again at once, as
+  it does after a press on the filter, including one open in another tab of the same browser. Its layout stays
   until that card is reset, reloaded or edited.
 
 :::

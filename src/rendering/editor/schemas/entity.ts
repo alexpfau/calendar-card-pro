@@ -126,6 +126,9 @@ export const LABEL_IMAGE_SIZE = 'label_image_size';
 /** The switch that lists a calendar in the calendar filter, or leaves it out. */
 export const SHOW_IN_LEGEND = 'show_in_legend';
 
+/** Whether the calendar filter starts with this calendar hidden. */
+export const HIDDEN_BY_DEFAULT = 'hidden_by_default';
+
 /** A calendar's visibility conditions, in Home Assistant's own shapes. */
 export const VISIBILITY = 'visibility';
 
@@ -379,6 +382,9 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // are about the calendar filter's entry for it: what it says, and whether there is one.
     // Everything after them says how this calendar's events look.
     bool(SHOW_IN_LEGEND),
+    // Right after it: the other half of how the filter treats this calendar, whether it starts
+    // hidden there.
+    bool(HIDDEN_BY_DEFAULT),
     // Where this entry's events go while a layout draws lanes, before how they look: an entry's
     // own, unlike the two above, so two entries of one calendar can take a lane each.
     text('lane'),
@@ -527,6 +533,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param hasLegend - Whether the card's toolbar shows a calendar filter at all
  * @param showsEventWeather - Whether the card draws weather beside its events at all
  * @param drawsLanes - Whether the layout draws lanes, which this entry's lane is drawn in
+ * @param listedInFilter - Whether this calendar's filter setting lists it
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -539,6 +546,7 @@ export function entitySchemaFor(
   hasLegend: boolean = true,
   showsEventWeather: boolean = true,
   drawsLanes: boolean = false,
+  listedInFilter: boolean = true,
 ): HaFormSchema[] {
   const replaced = new Set([
     LABEL_ICON_SOURCE,
@@ -571,6 +579,10 @@ export function entitySchemaFor(
     // nothing to list the calendar in. Whether the filter is a menu or chips does not matter,
     // since it leaves the calendar out of both.
     if (node.name === SHOW_IN_LEGEND) return hasLegend ? [node] : [];
+
+    // Nor does starting hidden there, and not for a calendar the filter leaves out either: nothing
+    // could show its events again.
+    if (node.name === HIDDEN_BY_DEFAULT) return hasLegend && listedInFilter ? [node] : [];
 
     // Nor does the weather switch, on a card that draws no weather beside events: there is
     // none for this calendar to leave out. A stored `false` stays in the YAML meanwhile, as

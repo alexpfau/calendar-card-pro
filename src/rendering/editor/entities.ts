@@ -7,6 +7,7 @@ import {
   ENTITY_TRISTATE_DEFAULT,
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
+  HIDDEN_BY_DEFAULT,
   INHERIT,
   LABEL_ICON_SOURCE,
   LABEL_IMAGE_SIZE,
@@ -73,6 +74,13 @@ const CALENDAR_OPTIONS: Readonly<Record<string, CalendarOption>> = {
     shown: (configured) => configured !== false,
     answered: (value, shown) => (typeof value === 'boolean' ? value : shown),
     stored: (shown) => (shown === false ? false : undefined),
+  },
+  // The same, the other way round: off unless set.
+  [HIDDEN_BY_DEFAULT]: {
+    configured: Config.configuredHiddenByDefault,
+    shown: (configured) => configured === true,
+    answered: (value, shown) => (typeof value === 'boolean' ? value : shown),
+    stored: (shown) => (shown === true ? true : undefined),
   },
 };
 
@@ -817,6 +825,27 @@ function accentColorFor(mode: string, value: unknown, inherited: unknown): strin
  */
 function nameOf(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+}
+
+/**
+ * An entry joining a calendar the list already holds, taking the options that calendar has once
+ * ({@link CALENDAR_OPTIONS}) from it: whatever it held for them is replaced by what the calendar
+ * says, so it says what every other block of the calendar says.
+ *
+ * @param entry - The entry, already naming the calendar
+ * @param entities - The list it joins, without it
+ * @returns The entry, as a bare id where it holds nothing else
+ */
+export function adoptCalendarOptions(
+  entry: string | Types.EntityConfig,
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+): string | Types.EntityConfig {
+  const id = entityIdOf(entry);
+  let next = entry;
+  for (const [key, option] of Object.entries(CALENDAR_OPTIONS)) {
+    next = withOption(next, key, option.stored(option.shown(option.configured(entities, id))));
+  }
+  return next;
 }
 
 /**

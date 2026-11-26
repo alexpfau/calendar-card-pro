@@ -1672,6 +1672,9 @@ export function normalizeEntities(
           // wins (`configuredShowInLegend`).
           show_in_legend:
             typeof item.show_in_legend === 'boolean' ? item.show_in_legend : undefined,
+          // The same: only a boolean decides (`configuredHiddenByDefault`).
+          hidden_by_default:
+            typeof item.hidden_by_default === 'boolean' ? item.hidden_by_default : undefined,
           // Trimmed, and blank or not a string is no lane: the entry draws into its calendar's.
           lane:
             typeof item.lane === 'string' && item.lane.trim() !== '' ? item.lane.trim() : undefined,
@@ -1736,13 +1739,47 @@ export function configuredShowInLegend(
   entities: ReadonlyArray<unknown> | undefined,
   entityId: string,
 ): boolean | undefined {
+  return configuredCalendarFlag(entities, entityId, 'show_in_legend');
+}
+
+/**
+ * Whether the configuration starts a calendar hidden in the calendar filter, as far as it says.
+ * Read across the whole list, the first block of the calendar that sets a boolean deciding, as
+ * {@link configuredShowInLegend} reads its option.
+ *
+ * @param entities - The card's `entities` list
+ * @param entityId - The calendar
+ * @returns The first boolean any block of that calendar sets, or `undefined` where none does
+ */
+export function configuredHiddenByDefault(
+  entities: ReadonlyArray<unknown> | undefined,
+  entityId: string,
+): boolean | undefined {
+  return configuredCalendarFlag(entities, entityId, 'hidden_by_default');
+}
+
+/**
+ * The first boolean any block of a calendar sets for one of the switches that belong to the
+ * calendar rather than to a block.
+ *
+ * @param entities - The card's `entities` list
+ * @param entityId - The calendar
+ * @param key - The switch
+ * @returns The first boolean, or `undefined` where no block sets one
+ */
+function configuredCalendarFlag(
+  entities: ReadonlyArray<unknown> | undefined,
+  entityId: string,
+  key: 'show_in_legend' | 'hidden_by_default',
+): boolean | undefined {
   if (!Array.isArray(entities)) return undefined;
 
   for (const entry of entities) {
     if (entry === null || typeof entry !== 'object') continue;
 
-    const { entity, show_in_legend } = entry as { entity?: unknown; show_in_legend?: unknown };
-    if (entity === entityId && typeof show_in_legend === 'boolean') return show_in_legend;
+    const block = entry as { entity?: unknown } & Partial<Record<typeof key, unknown>>;
+    const value = block[key];
+    if (block.entity === entityId && typeof value === 'boolean') return value;
   }
 
   return undefined;

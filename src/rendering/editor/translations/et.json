@@ -593,6 +593,8 @@
   "entity.lane.helper": "Sama rajaga kirjed jagavad ühte. Kui väli on tühi, saab see kalender oma raja.",
   "entity.show_in_legend": "Näita kalendrite filtris",
   "entity.show_in_legend.helper": "Kui seade on väljas, jääb see kalender kalendrite filtrist välja, nii et selle sündmused on alati nähtavad. Kõik selle kalendri kirjed jagavad seda seadet.",
+  "entity.hidden_by_default": "Vaikimisi peidetud",
+  "entity.hidden_by_default.helper": "Kui seade on sees, on selle sündmused peidetud, kuni keegi need kalendrite filtris nähtavaks teeb. Kõik selle kalendri kirjed jagavad seda seadet.",
   "entity.label_type": "Sildi tüüp",
   "entity.label_type.helper": "Pildisilt on brauserile kättesaadav rada, näiteks /local/work.png.",
   "entity.label_type.option.none.label": "Puudub",

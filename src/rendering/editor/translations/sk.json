@@ -594,6 +594,8 @@
   "entity.lane.helper": "Položky s rovnakým pruhom zdieľajú jeden. Ak pole ostane prázdne, tento kalendár má vlastný pruh.",
   "entity.show_in_legend": "Zobraziť vo filtri kalendárov",
   "entity.show_in_legend.helper": "Po vypnutí sa tento kalendár vo filtri kalendárov nezobrazí, takže jeho udalosti sú vždy viditeľné. Všetky položky tohto kalendára toto nastavenie zdieľajú.",
+  "entity.hidden_by_default": "Predvolene skrytý",
+  "entity.hidden_by_default.helper": "Po zapnutí sú jeho udalosti skryté, kým ich niekto nezobrazí vo filtri kalendárov. Všetky položky tohto kalendára toto nastavenie zdieľajú.",
   "entity.label_type": "Typ štítka",
   "entity.label_type.helper": "Obrázkový štítok je cesta, ktorú vie prehliadač načítať, napríklad /local/work.png.",
   "entity.label_type.option.none.label": "Žiadny",

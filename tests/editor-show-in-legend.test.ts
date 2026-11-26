@@ -58,10 +58,15 @@ describe('the filter switch', () => {
     const schema = entitySchema();
     const names = fieldNames(schema);
 
-    // After the accent color, which leads the page, and before the lane, the last thing said
-    // about the calendar rather than about how its events look.
+    // After the accent color, which leads the page, and before Hidden by Default and the lane,
+    // the last things said about the calendar rather than about how its events look.
     const at = names.indexOf('name');
-    expect(names.slice(at, at + 3)).toEqual(['name', 'show_in_legend', 'lane']);
+    expect(names.slice(at, at + 4)).toEqual([
+      'name',
+      'show_in_legend',
+      'hidden_by_default',
+      'lane',
+    ]);
     expect(schema.find((node) => node.name === 'show_in_legend')).toEqual({
       name: 'show_in_legend',
       selector: { boolean: {} },
@@ -74,10 +79,12 @@ describe('the filter switch', () => {
         entitySchemaFor(entitySchema(), 'text', 'custom', 'custom', true, 'custom', hasLegend),
       );
 
+    const filterOnly = new Set(['show_in_legend', 'hidden_by_default']);
     expect(offered(true)).toContain('show_in_legend');
     expect(offered(false)).not.toContain('show_in_legend');
-    // The control: nothing else on the panel comes or goes with it.
-    expect(offered(true).filter((name) => name !== 'show_in_legend')).toEqual(offered(false));
+    // The control: nothing else on the panel comes or goes with it but Hidden by Default, which
+    // needs the filter too.
+    expect(offered(true).filter((name) => !filterOnly.has(name))).toEqual(offered(false));
   });
 
   it('is labeled and explained', () => {

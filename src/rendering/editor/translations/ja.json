@@ -599,6 +599,8 @@
   "entity.lane.helper": "同じレーンのエントリは1つを共有します。空欄の場合、このカレンダー専用のレーンになります。",
   "entity.show_in_legend": "カレンダーフィルターに表示",
   "entity.show_in_legend.helper": "オフにすると、このカレンダーはカレンダーフィルターに表示されず、その予定は常に表示されます。この設定はこのカレンダーのすべてのエントリに適用されます。",
+  "entity.hidden_by_default": "既定で非表示",
+  "entity.hidden_by_default.helper": "オンにすると、カレンダーフィルターで表示されるまで、その予定は非表示になります。この設定はこのカレンダーのすべてのエントリに適用されます。",
   "entity.label_type": "ラベルの種類",
   "entity.label_type.helper": "画像のラベルには、/local/work.pngのようにブラウザから開けるパスを指定します。",
   "entity.label_type.option.none.label": "なし",

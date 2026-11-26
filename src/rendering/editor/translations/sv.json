@@ -594,6 +594,8 @@
   "entity.lane.helper": "Poster med samma bana delar en. Lämnas fältet tomt får den här kalendern en egen bana.",
   "entity.show_in_legend": "Visa i kalenderfiltret",
   "entity.show_in_legend.helper": "När den är avslagen utelämnas den här kalendern ur kalenderfiltret, så dess händelser visas alltid. Alla poster för den delar inställningen.",
+  "entity.hidden_by_default": "Dold som standard",
+  "entity.hidden_by_default.helper": "När den är påslagen är dess händelser dolda tills någon visar dem i kalenderfiltret. Alla poster för den delar inställningen.",
   "entity.label_type": "Etikettyp",
   "entity.label_type.helper": "En bildetikett är en sökväg som webbläsaren kommer åt, till exempel /local/work.png.",
   "entity.label_type.option.none.label": "Ingen",

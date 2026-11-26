@@ -592,6 +592,8 @@
   "entity.lane.helper": "Wpisy z tym samym pasem dzielą jeden. Gdy pole jest puste, ten kalendarz ma własny pas.",
   "entity.show_in_legend": "Pokaż w filtrze kalendarzy",
   "entity.show_in_legend.helper": "Po wyłączeniu ten kalendarz nie pojawia się w filtrze kalendarzy, więc jego wydarzenia są zawsze widoczne. Wszystkie wpisy tego kalendarza mają to ustawienie wspólne.",
+  "entity.hidden_by_default": "Domyślnie ukryty",
+  "entity.hidden_by_default.helper": "Po włączeniu jego wydarzenia są ukryte, dopóki ktoś nie pokaże ich w filtrze kalendarzy. Wszystkie wpisy tego kalendarza mają to ustawienie wspólne.",
   "entity.label_type": "Typ etykiety",
   "entity.label_type.helper": "Etykieta obrazkowa to ścieżka dostępna dla przeglądarki, na przykład /local/work.png.",
   "entity.label_type.option.none.label": "Brak",

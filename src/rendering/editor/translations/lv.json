@@ -593,6 +593,8 @@
   "entity.lane.helper": "Ieraksti ar vienu joslu to izmanto kopīgi. Ja lauks ir tukšs, šim kalendāram ir sava josla.",
   "entity.show_in_legend": "Rādīt kalendāru filtrā",
   "entity.show_in_legend.helper": "Ja izslēgts, šis kalendārs kalendāru filtrā netiek rādīts, tāpēc tā notikumi vienmēr ir redzami. Visi šī kalendāra ieraksti šo iestatījumu izmanto kopīgi.",
+  "entity.hidden_by_default": "Pēc noklusējuma paslēpts",
+  "entity.hidden_by_default.helper": "Ja ieslēgts, tā notikumi ir paslēpti, līdz kāds tos parāda kalendāru filtrā. Visi šī kalendāra ieraksti šo iestatījumu izmanto kopīgi.",
   "entity.label_type": "Etiķetes tips",
   "entity.label_type.helper": "Attēla etiķete ir pārlūkam pieejams ceļš, piemēram, /local/work.png.",
   "entity.label_type.option.none.label": "Nav",
