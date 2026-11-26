@@ -121,6 +121,12 @@ layout engine.
 
 - **`utils/grid.ts`** places events on the hour axis, lays out overlaps (cascaded or in lanes) and
   spans banners. It knows no pixels and takes the current instant as an input.
+- **Calendar lanes** (`lanes`) divide each day evenly among `utils/lanes.ts`'s lanes, which say
+  which entry draws where and import nothing that formats. `renderDayBody` lays each lane out
+  alone, as though it were the day, and maps it into its slice (`intoLane`); `rendering/lanes.ts`
+  resolves each lane's name, label and color for the strip under the date. With lanes on,
+  `groupEventsByDay` merges duplicates only within a lane (`drawsInLane`), and the fit counts a
+  day as wide as its lanes (`ViewConfig.laneFit`).
 - **`grid-cascade-threshold.ts` and `grid-overflow-strip.ts`** turn post-render measurements into
   the two inputs it needs: the cascade threshold in minutes, and the `+N` strip's width as a share
   of the column.

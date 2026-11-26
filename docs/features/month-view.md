@@ -598,6 +598,7 @@ of Month's pages. Stored values are kept for the layouts they apply to.
 | `show_progress_bar`, `progress_bar_color`, `progress_bar_height`, `progress_bar_width`                                                                                 | A row shows no progress bar and no "Day 2 of 3"                                                            |
 | `allday_badge`, `allday_badge_style`, `allday_badge_color`                                                                                                             | An all-day event says "All day" in its time and comes first, so it carries no badge                        |
 | `title_max_lines`, `time_max_lines`, `location_max_lines`, `event_icon_vertical_alignment`                                                                             | Each part keeps to one line in [the day's list](#the-day-list) and runs in full in the panel               |
+| `lanes`, `min_lane_width`, and a calendar's `lane`                                                                                                                     | A day is a few lines tall, with no room to divide among [lanes](/features/lanes)                           |
 
 To edit any of these, open a layout they apply to under **Layouts**, which leaves the card's
 layout as it is; see [Options for the Selected View](/features/editor#options-for-the-selected-view).

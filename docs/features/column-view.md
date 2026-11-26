@@ -281,9 +281,14 @@ rule is a vertical line in the gap between two days, with no room for words.
 bar in month view. A column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
+**`lanes` and `min_lane_width`**, and a calendar's **`lane`**, give each calendar a fixed slice of
+a grid's days; see [Calendar Lanes](/features/lanes). A column already lists every calendar's
+events of its day, one under another.
+
 ::: tip Hidden When Editing Column View
 Columns' pages leave these controls out. Stored values are preserved and still apply where they
-are read: in List, which the card falls back to, and the banner option in Grid and Month. To
+are read: in List, which the card falls back to, the banner option in Grid and Month, and the
+lane options in Grid. To
 change them, open that layout under **Layouts**; the card keeps opening in its own layout.
 A calendar's own compact limit and banner option are on its page under **Calendars**, which
 holds the options of every layout the card can show and says which layouts each applies to.

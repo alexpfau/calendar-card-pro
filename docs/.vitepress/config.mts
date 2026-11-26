@@ -254,6 +254,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Calendars', link: '/features/core-settings' },
+          { text: 'Calendar Lanes', link: '/features/lanes' },
           { text: 'Filtering & Text Replacement', link: '/features/filtering' },
           { text: 'Event Content & Display', link: '/features/event-content' },
           { text: 'Split Multi-Day Events', link: '/features/multi-day-events' },
