@@ -272,13 +272,16 @@ describe('fitting a list that draws lanes', () => {
     expect(ViewConfig.resolveListLaneMode(lanes, null, null)).toBe('matrix');
   });
 
-  it('reads the date column the card measured in place of its estimate', () => {
-    // A day number in `em` reads at the shipped 26px; the card measures what it drew.
+  it('reads the date column’s width the card measured in place of its estimate', () => {
+    // A day number in `em` reads at the shipped 26px, 45.5px wide; the card measures what it drew.
     const em = buildConfig({ entities: people, lanes: true, day_font_size: '3em' });
     expect(ViewConfig.listLaneThresholdPx(em, { count: 4, width: 96 })).toBe(491.5);
-    expect(ViewConfig.listLaneThresholdPx(em, { count: 4, width: 96 }, 168)).toBe(594);
+    // The plain list's 20px of padding stands beside it, as the lanes' gap does after the date.
+    expect(ViewConfig.listLaneThresholdPx(em, { count: 4, width: 96 }, 148)).toBe(594);
+    // A measurement of the shipped size gives the estimate's own threshold.
+    expect(ViewConfig.listLaneThresholdPx(lanes, { count: 4, width: 96 }, 45.5)).toBe(491.5);
     expect(ViewConfig.resolveListLaneMode(em, 560, null)).toBe('matrix');
-    expect(ViewConfig.resolveListLaneMode(em, 560, null, 168)).toBe('scroll');
+    expect(ViewConfig.resolveListLaneMode(em, 560, null, 148)).toBe('scroll');
     // Nothing measured, as in a DOM that lays nothing out, leaves the estimate.
     expect(ViewConfig.resolveListLaneMode(em, 560, null, 0)).toBe('matrix');
   });

@@ -310,6 +310,21 @@ describe('a list drawing lanes', () => {
     expect($(card, 'ha-card')!.classList.contains('lanes-scroll')).toBe(true);
   });
 
+  it('fits its lanes against the date column as drawn, not as estimated', async () => {
+    // A date column drawn 148px wide needs 24 + 168 + 2 × 96 + 6 = 390px, entered at 406px; the
+    // estimate's 287.5px would have drawn the lanes side by side at 350px.
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = real(element, pseudo);
+      if (!element.classList.contains('date-column')) return style;
+      return new Proxy(style, {
+        get: (target, key) => (key === 'width' ? '148px' : Reflect.get(target, key)),
+      });
+    });
+    const { card } = await mount({}, 350);
+    expect($(card, 'ha-card')!.classList.contains('lanes-scroll')).toBe(true);
+  });
+
   it('groups each lane’s events on a day under its header’s name', async () => {
     const { card } = await mount();
     const [anna, ben] = $$(card, '.lane-day.today > .lane-cell');
