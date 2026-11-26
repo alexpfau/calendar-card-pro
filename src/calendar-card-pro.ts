@@ -1698,11 +1698,15 @@ class CalendarCardPro extends LitElement {
   } | null = null;
 
   /**
-   * The list's date column as drawn beside its lanes, and the configuration it was drawn under:
-   * what the lanes' fit reads in place of its estimate, which cannot size a day number given in
-   * `em` or `calc()` (`_measureListDateColumn`).
+   * The list's date column's width as drawn, padding aside, and the configuration it was drawn
+   * under: what the lanes' fit reads in place of its estimate, which cannot size a day number
+   * given in `em` or `calc()` (`_measureListDateColumn`).
    */
   private _listDateColumn: { config: Types.Config; px: number } | null = null;
+
+  /** The date column `_measureListDateColumn` watches for a change of size, and its observer. */
+  private _dateColumnWatched: HTMLElement | null = null;
+  private _dateColumnObserver: ResizeObserver | null = null;
 
   /** The events area whose sideways scroll the card watches while a list's lanes scroll. */
   private _laneScrollArea: HTMLElement | null = null;
@@ -2581,16 +2585,35 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
-   * Measures the list's date column where it is drawn beside lanes, and redraws when that moves
-   * the lanes' fit. The column is as wide as its widest date whatever the lanes do, so a
-   * measurement holds across side by side and scrolling, and through the plain list, which keeps
-   * the last one until the lanes are drawn again. Nothing laid out, as in a test DOM, measures 0
-   * and leaves the estimate.
+   * Measures the list's date column, padding aside, and redraws when that moves the lanes' fit.
+   * Every day's date column is as wide as the largest date, beside lanes or in the plain list
+   * alike, so one measurement holds in every mode, and the plain list a narrow card falls back to
+   * measures it too. The column is watched as well, so a size the configuration does not change,
+   * such as an inherited font, refits the lanes. Nothing laid out, as in a test DOM, measures
+   * nothing and leaves the estimate.
    */
   private _measureListDateColumn(): void {
-    const matrix = this.renderRoot.querySelector<HTMLElement>('.lane-matrix');
-    if (!matrix) return;
-    const px = Number.parseFloat(getComputedStyle(matrix).gridTemplateColumns);
+    const date =
+      this._listLaneMode === null
+        ? null
+        : this.renderRoot.querySelector<HTMLElement>('.content-container .date-column');
+    if (date !== this._dateColumnWatched) {
+      this._dateColumnObserver?.disconnect();
+      this._dateColumnObserver = null;
+      this._dateColumnWatched = date;
+      if (date && typeof ResizeObserver !== 'undefined') {
+        this._dateColumnObserver = new ResizeObserver(() => this._readListDateColumn());
+        this._dateColumnObserver.observe(date);
+      }
+    }
+    this._readListDateColumn();
+  }
+
+  /** Reads the watched date column's width (`_measureListDateColumn`). */
+  private _readListDateColumn(): void {
+    const date = this._dateColumnWatched;
+    if (!date?.isConnected) return;
+    const px = Number.parseFloat(getComputedStyle(date).width);
     if (!(px > 0)) return;
     const config = this._fitConfig;
     const last = this._listDateColumn;
@@ -3313,6 +3336,9 @@ class CalendarCardPro extends LitElement {
     this._stopHeadPinObserver();
     this._laneScrollArea?.removeEventListener('scroll', this._markLanesBeyond);
     this._laneScrollArea = null;
+    this._dateColumnObserver?.disconnect();
+    this._dateColumnObserver = null;
+    this._dateColumnWatched = null;
     this._stopTitleScrollObserver();
     this._stopTitleFits();
     this._stopMonthList();
