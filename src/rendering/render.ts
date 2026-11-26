@@ -880,10 +880,14 @@ function renderListLaneCell(
   const lane = LaneRender.laneOfEvent(head, laneIndex);
 
   // Placed outright, in the day's row and the lane's column, so a notice laid across the lanes
-  // over it cannot move it out of its place.
+  // over it cannot move it out of its place. Holding events, it is a group named by its lane's
+  // header, which tells assistive technology whose they are when the events are no buttons to
+  // describe.
   return html`<div
     class="lane-cell"
     data-lane=${head.key}
+    role=${events.length > 0 ? 'group' : nothing}
+    aria-labelledby=${events.length > 0 ? lane.id : nothing}
     style=${styleMap({ gridArea: `1 / ${laneIndex + 2}` })}
     .calendarCardDaySlot=${Activation.daySlot(day.timestamp, head.key)}
   >
@@ -1339,7 +1343,9 @@ function renderEvent(
   lane?: LaneRender.LaneOfEvent,
 ): TemplateResult {
   const built = Presentation.buildEventPresentation(event, config, language, hass);
-  const presented = lane ? Presentation.withoutLaneLabel(built, lane.label) : built;
+  const presented = lane
+    ? Presentation.withoutLaneLabel(built, lane.label, event._matchedConfig?.label_type)
+    : built;
   const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const drawsDate = lane === undefined;

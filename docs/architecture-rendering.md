@@ -129,9 +129,11 @@ layout engine.
   (`drawsInLane`), and the fit counts a grid day as wide as its lanes (`ViewConfig.laneFit`).
   List view draws them as a grid of a date column and a column per lane, its days subgrids across
   it (`renderLaneMatrix`), fitted to the width side by side, scrolling, or not at all
-  (`ViewConfig.resolveListLaneMode`, held against the mode drawn last); column view as a lane track
+  (`ViewConfig.resolveListLaneMode`, held against the mode drawn last and reading the date column
+  as the card measured it, `_measureListDateColumn`); column view as a lane track
   and a subgrid row per lane in each day column, the track reserved by the fit
-  (`dayColumnViewOverheadPx`).
+  (`dayColumnViewOverheadPx`). A browser without subgrid draws neither with lanes
+  (`Lanes.lanesOn`).
 - **`grid-cascade-threshold.ts` and `grid-overflow-strip.ts`** turn post-render measurements into
   the two inputs it needs: the cascade threshold in minutes, and the `+N` strip's width as a share
   of the column.

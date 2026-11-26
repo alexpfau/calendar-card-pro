@@ -291,6 +291,74 @@ describe('a list drawing lanes', () => {
     expect($(card, '.lane-matrix')).not.toBeNull();
   });
 
+  it('merges as the plain list when that fallback’s lanes are on in `list:` alone', async () => {
+    // Grouping resolves the `list:` block again, which must not turn the lanes back on there.
+    const { card } = await mount(
+      { lanes: false, list: { lanes: true, lanes_fallback: 'list' } },
+      260,
+    );
+
+    expect($(card, '.lane-matrix')).toBeNull();
+    expect(
+      $$(card, '.day-table.today .event-title').filter((each) => text(each) === 'Dinner'),
+    ).toHaveLength(1);
+  });
+
+  it('fits a card first measured inside the hysteresis band as a fresh one', async () => {
+    // Drawn side by side before any width, a card first measured at 280px enters at 303.5px.
+    const { card } = await mount({}, 280);
+    expect($(card, 'ha-card')!.classList.contains('lanes-scroll')).toBe(true);
+  });
+
+  it('groups each lane’s events on a day under its header’s name', async () => {
+    const { card } = await mount();
+    const [anna, ben] = $$(card, '.lane-day.today > .lane-cell');
+    for (const [cell, name] of [
+      [anna, 'Anna'],
+      [ben, 'Ben'],
+    ] as const) {
+      expect(cell.getAttribute('role')).toBe('group');
+      expect(text(card.shadowRoot!.getElementById(cell.getAttribute('aria-labelledby')!))).toBe(
+        name,
+      );
+    }
+    // An empty lane holds nothing to group.
+    const empty = $$(card, '.lane-matrix > .lane-day')[1].querySelector('.lane-cell[data-lane]')!;
+    expect(empty.hasAttribute('role')).toBe(false);
+    expect(empty.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
+  it('heads a lane with the first label it can draw, and leaves out only that, drawn alike', async () => {
+    const icon = 'mdi:briefcase';
+    // The first entry draws no label, so the header takes the second's icon.
+    const skipped = await mount({
+      entities: [
+        { entity: ANNA, lane: 'Anna', label: icon, label_type: 'none' },
+        { entity: ANNA_WORK, lane: 'Anna', label: icon },
+        BEN,
+      ],
+    });
+    const head = $$(skipped.card, '.lane-heads > .lane-header')[0];
+    expect(head.querySelector('ha-icon')?.getAttribute('icon')).toBe(icon);
+    expect(head.querySelector('.lane-initial')).toBeNull();
+
+    // The header draws the value as text; the work calendar's icon is another label, and stays.
+    const text_ = await mount({
+      entities: [
+        { entity: ANNA, lane: 'Anna', label: icon, label_type: 'text' },
+        { entity: ANNA_WORK, lane: 'Anna', label: icon },
+        BEN,
+      ],
+    });
+    const anna = $$(text_.card, '.lane-day.today > .lane-cell')[0];
+    const eventOf = (title: string) =>
+      Array.from(anna.querySelectorAll('.event')).find(
+        (event) => text(event.querySelector('.event-title')) === title,
+      )!;
+    expect(eventOf('Standup').querySelector('ha-icon')?.getAttribute('icon')).toBe(icon);
+    expect(eventOf('Dentist').querySelector('.calendar-label')).toBeNull();
+  });
+
   it('is each layout’s own: lanes in List alone, none in Columns or Month', async () => {
     const only = { lanes: false, list: { lanes: true } };
     const list = await mount(only);
@@ -331,6 +399,16 @@ describe('columns drawing lanes', () => {
     ]);
     expect(titles(cells[0])).toEqual(['Standup', 'Dentist', 'Dinner']);
     expect(titles(cells[1])).toEqual(['Football', 'Dinner']);
+    // Each a group named by its lane's header, as a list's lane is.
+    expect(
+      cells.map((cell) => [
+        cell.getAttribute('role'),
+        text(card.shadowRoot!.getElementById(cell.getAttribute('aria-labelledby')!)),
+      ]),
+    ).toEqual([
+      ['group', 'Anna'],
+      ['group', 'Ben'],
+    ]);
     // A day with nothing on keeps its lanes, its notice down them all.
     expect(text(tomorrow.querySelector('.lane-across'))).toContain('No events');
     expect(tomorrow.querySelectorAll('.lane-cell[data-lane]')).toHaveLength(2);

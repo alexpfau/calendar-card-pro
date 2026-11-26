@@ -164,14 +164,16 @@ shows its calendar's [label](/features/core-settings#choosing-how-a-label-is-rea
 person's [picture](/features/core-settings#showing-a-persons-picture), and its accent color, so
 give each calendar both, and a slice is recognized by what it holds.
 
-- A lane's header shows the label of its first calendar that has one, and its name: the lane's
+- A lane's header shows the label of its first calendar with one to draw, and its name: the lane's
   `lane`, else the calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card),
   else its name in Home Assistant.
-- Under a header, an event leaves out the label the header already shows. An entry with a label
-  of its own keeps it, so in a shared lane an icon still tells Anna's work events from her own.
+- Under a header, an event leaves out the label the header already shows, drawn the same way. An
+  entry with a label of its own keeps it, so in a shared lane an icon still tells Anna's work
+  events from her own.
   Grid view keeps every label, since it draws no header.
 - A screen reader hears each event's lane named with it: in list and column view after its day,
-  in grid view before its title.
+  in grid view before its title. In list and column view, a lane's events on a day are also a
+  group named by the lane.
 
 ## 📏 How Narrow a Lane May Be
 
@@ -211,6 +213,8 @@ time_grid:
   at least `2rem` for each lane, and scrolls sideways below that.
 - A column or grid card too narrow for its days falls back to list view, which draws lanes there
   if `lanes` is on for list view, and the plain list if `list: { lanes: false }`.
+- List and column view draw their lanes with CSS subgrid, which needs Chrome 117 or Safari 16. An
+  older browser draws those two layouts without lanes.
 
 :::
 

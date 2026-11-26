@@ -106,6 +106,8 @@ minimum versions are:
   confirmed on a Shelly Wall Display, an Android 7 panel whose WebView stops at Chrome 119, and
   in the headless Chromium 119 of a screenshot add-on.
 - **The visual editor** needs Chrome 98 or later.
+- **Calendar lanes** in list and column view need Chrome 117 or Safari 16. An older browser
+  draws those layouts without lanes.
 
 ::: details Colors in Older Browsers
 Older versions draw some colors more simply. Before Chrome 125 and Safari 18 the today tile and

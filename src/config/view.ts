@@ -1979,9 +1979,10 @@ function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOv
  * block would otherwise resolve to the shipped default rather than to the card's value: a
  * view's blank `past_event_opacity` would read 60 under a card-wide 100, a blank
  * `countdown_max_days` would lift a card-wide limit for that view alone, and a blank
- * `today_date_scale` would draw today at its usual size under a card-wide 1.25. The resolver
- * and the editor's stored blocks both ask this, so a value the card ignores is never shown as
- * the view's own.
+ * `today_date_scale` would draw today at its usual size under a card-wide 1.25, and a blank
+ * `min_lane_width` would give Grid List's 96px in place of its own 40px. The resolver and the
+ * editor's stored blocks both ask this, so a value the card ignores is never shown as the view's
+ * own.
  *
  * @param key - Option name inside the view block
  * @param value - The block's value for it
@@ -1992,7 +1993,7 @@ export function inheritsInView(key: string, value: unknown): boolean {
   if (key === 'past_event_opacity' || key === 'past_date_opacity') {
     return toValidPercentage(value) === undefined;
   }
-  if (key === 'today_date_scale' || key === 'past_date_scale') {
+  if (key === 'today_date_scale' || key === 'past_date_scale' || key === 'min_lane_width') {
     return toValidNumber(value, Number.MIN_VALUE) === undefined;
   }
   if (key === 'today_date_font_weight' || key === 'past_date_font_weight') {
@@ -3599,22 +3600,28 @@ const LIST_DAY_FONT_PX = parsePixelLength(DEFAULT_CONFIG.day_font_size, 26);
  * padding, the date column as the stylesheet sizes it, from the day number at the largest scale a
  * date is drawn at, and each lane with the gap between two.
  *
- * A day number given in anything but pixels is read at the shipped size, as the grid's axis
- * reads a time size it cannot resolve; the hysteresis band absorbs the difference.
+ * The card passes the date column it measured once it has drawn the lanes, which holds for any
+ * size. Without one, as in the editor's width table, a day number given in anything but pixels
+ * is read at the shipped size, as the grid's axis reads a time size it cannot resolve.
  *
  * @param config - Merged configuration, defaults already applied
  * @param lanes - The list's lanes ({@link laneFit})
+ * @param dateColumnPx - The date column as drawn, in CSS pixels, where the card has measured it
  * @returns The width, in CSS pixels
  */
 export function listLaneThresholdPx(
   config: Types.Config,
   lanes: { count: number; width: number },
+  dateColumnPx?: number | null,
 ): number {
   const list = resolveEffectiveConfig(config, 'list');
   const scale = (value: unknown) => (typeof value === 'number' && value > 0 ? value : 1);
   const dateScale = Math.max(1, scale(list.today_date_scale), scale(list.past_date_scale));
   const dayFontPx = parsePixelLength(String(list.day_font_size), LIST_DAY_FONT_PX);
-  const dateColumn = dayFontPx * 1.75 * dateScale + LIST_DATE_COLUMN_PADDING_PX;
+  const dateColumn =
+    dateColumnPx && dateColumnPx > 0
+      ? dateColumnPx
+      : dayFontPx * 1.75 * dateScale + LIST_DATE_COLUMN_PADDING_PX;
 
   return (
     LIST_CARD_PADDING_PX + dateColumn + lanes.count * lanes.width + (lanes.count - 1) * UI.LANE_GAP
@@ -3633,18 +3640,21 @@ export function listLaneThresholdPx(
  *   the viewer
  * @param measuredWidthPx - Card width, `null` before the first measurement
  * @param previous - How the list's lanes are drawn now, `null` where they are not
+ * @param dateColumnPx - The date column as drawn, where the card has measured it
+ *   ({@link listLaneThresholdPx})
  * @returns The mode, or `null` where the list draws no lanes
  */
 export function resolveListLaneMode(
   config: Types.Config,
   measuredWidthPx: number | null,
   previous: ListLaneMode | null,
+  dateColumnPx?: number | null,
 ): ListLaneMode | null {
   const lanes = laneFit(config, 'list');
   if (!lanes) return null;
   if (measuredWidthPx === null || measuredWidthPx <= 0) return 'matrix';
 
-  const threshold = listLaneThresholdPx(config, lanes);
+  const threshold = listLaneThresholdPx(config, lanes, dateColumnPx);
   const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
   const fits =
     previous === 'matrix'
