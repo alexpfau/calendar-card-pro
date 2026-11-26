@@ -236,18 +236,27 @@ export function withoutCountdown(presentation: EventPresentation): EventPresenta
 
 /**
  * A presentation without its calendar's label, for an event drawn under a lane header that
- * already shows that label (`lanes`). A merged row's labels stay: they say which calendars hold
- * it.
+ * already shows that label, drawn the same way (`lanes`). A merged row's labels stay: they say
+ * which calendars hold it.
  *
  * @param presentation - The event's presentation
- * @param label - The label its lane's header shows, if it shows one alone
+ * @param label - The label its lane's header shows, if it shows one alone, and how it draws it
+ * @param labelType - The event's calendar's `label_type`
  * @returns The presentation, without its label where that is the header's
  */
 export function withoutLaneLabel(
   presentation: EventPresentation,
-  label: string | undefined,
+  label: { readonly value: string; readonly type: Helpers.LabelType } | undefined,
+  labelType: unknown,
 ): EventPresentation {
-  if (label === undefined || presentation.contentParts.entityLabel !== label) return presentation;
+  const own = presentation.contentParts.entityLabel;
+  if (
+    label === undefined ||
+    own !== label.value ||
+    Helpers.resolveLabelType(own, labelType) !== label.type
+  ) {
+    return presentation;
+  }
   return {
     ...presentation,
     contentParts: { ...presentation.contentParts, entityLabel: undefined, entityLabelAlt: '' },

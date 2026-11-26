@@ -166,7 +166,8 @@ function renderColumnSeparator(
  * @param dayLabelId - The id of the day's header, which describes a tappable event; in a lane,
  *   the lane's name's id too
  * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
- * @param laneLabel - In a lane, the label its header shows alone, which the event leaves out
+ * @param laneLabel - In a lane, the label its header shows alone, and how, which the event
+ *   leaves out where it would draw the same
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -180,10 +181,14 @@ function renderColumnEvent(
   eventsTappable = false,
   dayLabelId?: string,
   countdownRepeated = false,
-  laneLabel?: string,
+  laneLabel?: LaneRender.LaneOfEvent['label'],
 ): TemplateResult {
   const built = Presentation.buildEventPresentation(event, config, language, hass);
-  const presented = Presentation.withoutLaneLabel(built, laneLabel);
+  const presented = Presentation.withoutLaneLabel(
+    built,
+    laneLabel,
+    event._matchedConfig?.label_type,
+  );
   const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
@@ -277,9 +282,13 @@ function renderColumnLaneCells(
     const repeated = Presentation.repeatedCountdowns(laneDay.events, config, language);
     const ofEvent = lane ? LaneRender.laneOfEvent(lane.head, lane.index) : undefined;
     const describedBy = [dayLabelId, ofEvent?.id].filter(Boolean).join(' ') || undefined;
+    // A lane's cell holding events is a group named by its header, as a list's is.
+    const grouped = ofEvent !== undefined && events.length > 0;
     return html`<div
       class=${lane ? 'lane-cell' : 'lane-cell lane-across'}
       data-lane=${lane?.head.key ?? nothing}
+      role=${grouped ? 'group' : nothing}
+      aria-labelledby=${grouped ? ofEvent.id : nothing}
       style=${styleMap({ gridArea: lane ? `${lane.index + 2} / 1` : undefined })}
       .calendarCardDaySlot=${lane ? Activation.daySlot(day.timestamp, lane.head.key) : undefined}
     >

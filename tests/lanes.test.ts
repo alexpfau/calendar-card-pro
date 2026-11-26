@@ -93,6 +93,22 @@ describe('the lanes a layout draws', () => {
     expect(keys(monthBlock, 'month')).toEqual([]);
   });
 
+  it('are none in List or Columns in a browser without subgrids, which those lanes are drawn with', async () => {
+    vi.resetModules();
+    vi.stubGlobal('CSS', { supports: () => false });
+    try {
+      const Fresh = await import('../src/utils/lanes');
+      expect(Fresh.lanesOn({ lanes: true }, 'list')).toBe(false);
+      expect(Fresh.lanesOn({ lanes: true }, 'column')).toBe(false);
+      // Grid's days need subgrids whatever `lanes` says, so its lanes are not the ones to drop.
+      expect(Fresh.lanesOn({ lanes: true }, 'grid')).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+    expect(Lanes.lanesOn({ lanes: true }, 'list')).toBe(true);
+  });
+
   it('are each layout’s own: lanes in List, none in Columns, Grid’s own, Month untouched', () => {
     const keys = (config: Types.Config, view: Types.EffectiveView) =>
       Lanes.laneUniverse(ViewConfig.resolveEffectiveConfig(config, view), view).length;
@@ -211,6 +227,23 @@ describe('fitting a grid that draws lanes', () => {
       width: 96,
     });
   });
+
+  it('takes a layout’s blank `min_lane_width`, as the editor leaves one cleared, as unset', () => {
+    // Grid keeps its own 40px rather than List's 96px, and List takes the card's.
+    for (const blank of [null, '']) {
+      const card = buildConfig({
+        view: 'grid',
+        entities: people,
+        lanes: true,
+        min_lane_width: 120,
+        time_grid: { min_lane_width: blank },
+        list: { min_lane_width: blank },
+      } as unknown as Partial<Types.Config>);
+      expect(ViewConfig.laneFit(card, 'grid')).toEqual({ count: 4, width: 40 });
+      expect(ViewConfig.resolveEffectiveConfig(card, 'grid').min_lane_width).toBe(40);
+      expect(ViewConfig.laneFit(card, 'list')).toEqual({ count: 4, width: 120 });
+    }
+  });
 });
 
 describe('fitting a list that draws lanes', () => {
@@ -237,6 +270,17 @@ describe('fitting a list that draws lanes', () => {
     expect(ViewConfig.resolveListLaneMode(lanes, 508, 'scroll')).toBe('matrix');
     // Before the first measurement, side by side, as a day-column view draws every day.
     expect(ViewConfig.resolveListLaneMode(lanes, null, null)).toBe('matrix');
+  });
+
+  it('reads the date column the card measured in place of its estimate', () => {
+    // A day number in `em` reads at the shipped 26px; the card measures what it drew.
+    const em = buildConfig({ entities: people, lanes: true, day_font_size: '3em' });
+    expect(ViewConfig.listLaneThresholdPx(em, { count: 4, width: 96 })).toBe(491.5);
+    expect(ViewConfig.listLaneThresholdPx(em, { count: 4, width: 96 }, 168)).toBe(594);
+    expect(ViewConfig.resolveListLaneMode(em, 560, null)).toBe('matrix');
+    expect(ViewConfig.resolveListLaneMode(em, 560, null, 168)).toBe('scroll');
+    // Nothing measured, as in a DOM that lays nothing out, leaves the estimate.
+    expect(ViewConfig.resolveListLaneMode(em, 560, null, 0)).toBe('matrix');
   });
 
   it('gives way to the plain list under `lanes_fallback: list`, and to nothing without lanes', () => {

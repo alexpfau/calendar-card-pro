@@ -79,7 +79,7 @@ A language file goes beside them too. Without it, the visual editor opens in Eng
 ::: details Compressing the Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
 for every file it installs; a manual install has none, so the card transfers at its full
-816 KB, the editor at 556 KB and a language file at up to 64 KB, once per version before the
+817 KB, the editor at 556 KB and a language file at up to 64 KB, once per version before the
 browser caches them.
 
 For a smaller transfer, create the `.gz` files beside the originals:
@@ -106,6 +106,8 @@ minimum versions are:
   confirmed on a Shelly Wall Display, an Android 7 panel whose WebView stops at Chrome 119, and
   in the headless Chromium 119 of a screenshot add-on.
 - **The visual editor** needs Chrome 98 or later.
+- **Calendar lanes** in list and column view need Chrome 117 or Safari 16. An older browser
+  draws those layouts without lanes.
 
 ::: details Colors in Older Browsers
 Older versions draw some colors more simply. Before Chrome 125 and Safari 18 the today tile and

@@ -1712,8 +1712,16 @@ class CalendarCardPro extends LitElement {
     config: Types.Config;
     width: number | null;
     drawn: ViewConfig.ListLaneMode | null;
+    dateColumn: number | null;
     mode: ViewConfig.ListLaneMode | null;
   } | null = null;
+
+  /**
+   * The list's date column as drawn beside its lanes, and the configuration it was drawn under:
+   * what the lanes' fit reads in place of its estimate, which cannot size a day number given in
+   * `em` or `calc()` (`_measureListDateColumn`).
+   */
+  private _listDateColumn: { config: Types.Config; px: number } | null = null;
 
   /** The events area whose sideways scroll the card watches while a list's lanes scroll. */
   private _laneScrollArea: HTMLElement | null = null;
@@ -2527,12 +2535,20 @@ class CalendarCardPro extends LitElement {
     const config = this._fitConfig;
     const width = this._measuredWidthPx;
     const drawn = this._listLaneModeDrawn;
+    const measured = this._listDateColumn;
+    const dateColumn = measured && measured.config === config ? measured.px : null;
     const cache = this._listLaneModeCache;
-    if (cache && cache.config === config && cache.width === width && cache.drawn === drawn) {
+    if (
+      cache &&
+      cache.config === config &&
+      cache.width === width &&
+      cache.drawn === drawn &&
+      cache.dateColumn === dateColumn
+    ) {
       return cache.mode;
     }
-    const mode = ViewConfig.resolveListLaneMode(config, width, drawn);
-    this._listLaneModeCache = { config, width, drawn, mode };
+    const mode = ViewConfig.resolveListLaneMode(config, width, drawn, dateColumn);
+    this._listLaneModeCache = { config, width, drawn, dateColumn, mode };
     return mode;
   }
 
@@ -2582,6 +2598,26 @@ class CalendarCardPro extends LitElement {
     const beyond = Math.abs(area.scrollLeft) + area.clientWidth < area.scrollWidth - 1;
     area.toggleAttribute('data-lanes-beyond', beyond);
   };
+
+  /**
+   * Measures the list's date column where it is drawn beside lanes, and redraws when that moves
+   * the lanes' fit. The column is as wide as its widest date whatever the lanes do, so a
+   * measurement holds across side by side and scrolling, and through the plain list, which keeps
+   * the last one until the lanes are drawn again. Nothing laid out, as in a test DOM, measures 0
+   * and leaves the estimate.
+   */
+  private _measureListDateColumn(): void {
+    const matrix = this.renderRoot.querySelector<HTMLElement>('.lane-matrix');
+    if (!matrix) return;
+    const px = Number.parseFloat(getComputedStyle(matrix).gridTemplateColumns);
+    if (!(px > 0)) return;
+    const config = this._fitConfig;
+    const last = this._listDateColumn;
+    if (last && last.config === config && Math.abs(last.px - px) < 0.5) return;
+    const before = this._listLaneMode;
+    this._listDateColumn = { config, px };
+    if (this._listLaneMode !== before) this.requestUpdate();
+  }
 
   /**
    * The calendars that could not be loaded and that the card shows: the failures a viewer is
@@ -2778,9 +2814,10 @@ class CalendarCardPro extends LitElement {
     const config = this._configForPage(page);
     const resolved = ViewConfig.resolveEffectiveConfig(config, view);
     // A list too narrow for its lanes under `lanes_fallback: list` is drawn, grouped and
-    // deduplicated as one without them.
+    // deduplicated as one without them. Grouping resolves the `list:` block again, so the lanes
+    // go off there too, or a `list: { lanes: true }` would bring them back for deduplication.
     if (view === 'list' && resolved.lanes && this._listLaneMode === 'list') {
-      return { ...resolved, lanes: false };
+      return { ...resolved, lanes: false, list: { ...resolved.list, lanes: false } };
     }
     if (view !== 'month') return resolved;
     return {
@@ -5769,12 +5806,17 @@ class CalendarCardPro extends LitElement {
     this._measuredWidthPx = widthPx;
 
     if (next.view === this._effectiveView && next.columns === this._columnCount) {
+      const lanesNow = this._listLaneMode;
       if (
         this._shownColumnCount !== shownBefore ||
         this._swipeAvailable !== swipeBefore ||
-        this._listLaneMode !== lanesBefore
+        lanesNow !== lanesBefore
       ) {
         this.requestUpdate();
+      } else if (lanesNow !== null && this._listLaneModeDrawn === null) {
+        // The first width to confirm the lanes as drawn renders nothing, so the update that
+        // records what they were drawn as (`updated`) never comes: it is recorded here.
+        this._listLaneModeDrawn = lanesNow;
       }
       return;
     }
@@ -5919,8 +5961,11 @@ class CalendarCardPro extends LitElement {
     this._bareUpdateRequestsSeen = this._bareUpdateRequests;
     this._syncGridDisclosureSafety(gridChanged);
     this._syncHeadPin();
-    // What the list's lanes were drawn as, which the next fit holds against.
-    this._listLaneModeDrawn = this._listLaneMode;
+    // What the list's lanes were drawn as, which the next fit holds against. Not before the card
+    // is measured: lanes drawn side by side for want of a width are no history to hold to.
+    this._listLaneModeDrawn =
+      this._measuredWidthPx !== null && this._measuredWidthPx > 0 ? this._listLaneMode : null;
+    this._measureListDateColumn();
     this._syncLaneScroll();
     if (gridChanged) {
       this._syncCascadeThreshold();

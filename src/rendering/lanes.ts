@@ -29,7 +29,10 @@ export interface LaneHead {
   /** The lane's `lane` value, else its calendar's name on this card. */
   readonly name: string;
 
-  /** Each part of the label of the lane's first entry that has one, as an event row draws it. */
+  /**
+   * Each part of the label of the lane's first entry with one to draw, as an event row draws it:
+   * an entry whose label draws nothing, under `label_type: none`, leaves the header to the next.
+   */
   readonly labels: ReadonlyArray<Types.ResolvedLabel>;
 
   /** The accent color of the lane's first entry, which rings its label. */
@@ -65,15 +68,20 @@ export function laneHeads(
 
   return lanes.map((lane) => {
     const first = lane.entries[0];
-    const labeled =
-      lane.entries.find((entry) => Helpers.labelParts(entry.label).length > 0) ?? first;
     const named = typeof first.lane === 'string' && first.lane.trim() !== '';
+    let labels: Types.ResolvedLabel[] = [];
+    for (const entry of lane.entries) {
+      labels = EventUtils.resolveLabelParts(entry.entity, config, admittedBy(entry), hass).filter(
+        (label) => Helpers.resolveLabelType(label.value, label.type) !== 'none',
+      );
+      if (labels.length > 0) break;
+    }
 
     return {
       key: lane.key,
       entityIds: lane.entityIds,
       name: named ? lane.key : calendarName(first.entity, config, hass),
-      labels: EventUtils.resolveLabelParts(labeled.entity, config, admittedBy(labeled), hass),
+      labels,
       accent: EventUtils.getEntityAccentColorWithOpacity(
         first.entity,
         config,
@@ -102,11 +110,12 @@ export interface LaneOfEvent {
   readonly id: string;
 
   /**
-   * The label the header shows where it shows one alone, which an event in the lane then leaves
-   * out rather than draw again under it. An event whose calendar has a label of its own, such as
-   * a work calendar's icon in a person's lane, keeps it.
+   * The label the header shows where it shows one alone, and how it draws it, which an event in
+   * the lane then leaves out rather than draw again under it. An event whose calendar has a label
+   * of its own, such as a work calendar's icon in a person's lane, keeps it, and so does one
+   * drawing the same value another way, as text where the header draws an icon.
    */
-  readonly label?: string;
+  readonly label?: { readonly value: string; readonly type: Helpers.LabelType };
 }
 
 /**
@@ -117,9 +126,13 @@ export interface LaneOfEvent {
  * @returns The lane, as its events read it
  */
 export function laneOfEvent(head: LaneHead, index: number): LaneOfEvent {
+  const [only] = head.labels;
   return {
     id: laneHeaderId(index),
-    label: head.labels.length === 1 ? head.labels[0].value : undefined,
+    label:
+      head.labels.length === 1
+        ? { value: only.value, type: Helpers.resolveLabelType(only.value, only.type) }
+        : undefined,
   };
 }
 
