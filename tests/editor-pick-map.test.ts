@@ -238,6 +238,9 @@ describe('Pick From Preview part map', () => {
     }> = [
       { view: 'list' },
       { view: 'list', overrides: { show_week_numbers: null } },
+      // Each with Calendar Lanes on, which List draws as a column and Columns as a row per lane.
+      { view: 'list', overrides: { lanes: true } },
+      { view: 'column', overrides: { lanes: true } },
       { view: 'column' },
       // Columns again with Calendar Filter as its menu, which draws the filter's button.
       {
@@ -269,7 +272,7 @@ describe('Pick From Preview part map', () => {
       }
       card.remove();
     }
-    // The denominator: seven renders of four layouts drew a card worth checking.
+    // The denominator: nine renders of four layouts drew a card worth checking.
     expect(elements).toBeGreaterThan(300);
     // Each selector of a group on its own, so one gone stale beside a live one still fails.
     expect(
@@ -313,6 +316,8 @@ describe('Pick From Preview part map', () => {
       '.grid-day-body ⊃ div.grid-day-plane',
       '.grid-day-body ⊃ div.grid-event-backdrop-rules',
       '.grid-event-overflow ⊃ div.grid-event-overflow-label',
+      // A lane with nothing on that day in Columns: its empty stack of events.
+      '.lane-cell ⊃ div.column-events.with-event-gap',
       '.legend-button ⊃ svg.toolbar-button-icon',
       '.legend-chip ⊃ span.legend-chip-label',
       // The filter's menu: its two buttons, each calendar's row, and its frame.
@@ -380,7 +385,8 @@ describe('Pick From Preview part map', () => {
         ).toContain(target.field);
       }
     }
-    // The parts that name their setting: the switcher, Layouts in Switcher; a title and a time,
+    // The parts that name their setting: the switcher, Layouts in Switcher; a lane's header and
+    // its empty part of a day, Calendar Lanes; a title and a time,
     // each at the size it is drawn at, the Wide Month's days at theirs; Grid's own parts, each at
     // the setting it is, where its topic keeps it; and the Narrow Month's dots and Day List.
     expect(
@@ -390,6 +396,7 @@ describe('Pick From Preview part map', () => {
     ).toEqual([
       '.view-switcher, .view-switcher-collapsed card:toolbar.view_switcher_layouts',
       '.legend-button, .legend-menu, .legend-chips card:toolbar.legend',
+      '.lane-header, .lane-header *, .lane-corner, .lane-cell layout:lanes',
       '.month-line-title, .month-bar .grid-banner-title layout:month.cell_event_font_size',
       '.event-title, .grid-banner-title events:event_font_size',
       '.month-line-time, .month-bar .grid-banner-time, .month-bar .grid-banner-duration layout:month.cell_time_font_size',

@@ -141,6 +141,20 @@ columns needs; see [Narrow Cards](/features/editor#narrow-cards).
 
 **→ [Column-Only Options in the configuration reference](/reference/configuration#column-only-options)** — full option table.
 
+## 🏊 A Row per Calendar
+
+`lanes: true` gives each calendar a row across the days, named at its start, so a calendar's
+events stay in one row whatever the others hold:
+
+```yaml
+view: column
+lanes: true
+```
+
+The row's names take a narrow track before the first day, so a narrow card shows one column fewer
+a little sooner. See [Calendar Lanes](/features/lanes) for grouping calendars into one person's
+row, and for turning lanes on in some layouts only.
+
 ## 🎛️ Overriding Options in Column View
 
 A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value, with two exceptions covered in [Options That Start From a Different Default](#options-that-start-from-a-different-default).
@@ -281,14 +295,15 @@ rule is a vertical line in the gap between two days, with no room for words.
 bar in month view. A column has no such band: each day of the event is a row in its column, as
 `split_multiday_events` decides. It does nothing in list view either.
 
-**`lanes` and `min_lane_width`**, and a calendar's **`lane`**, give each calendar a fixed slice of
-a grid's days; see [Calendar Lanes](/features/lanes). A column already lists every calendar's
-events of its day, one under another.
+**`min_lane_width`** is how narrow a list's lane or a grid's slice may be, and
+**`lanes_fallback`** what a list does once its lanes no longer fit. Column view draws each lane as
+a row across its days, as tall as its events, so no width decides it; see
+[A Row per Lane in Column View](/features/lanes#a-row-per-lane-in-column-view).
 
 ::: tip Hidden When Editing Column View
 Columns' pages leave these controls out. Stored values are preserved and still apply where they
-are read: in List, which the card falls back to, the banner option in Grid and Month, and the
-lane options in Grid. To
+are read: in List, which the card falls back to, the banner option in Grid and Month, and
+`min_lane_width` in Grid. To
 change them, open that layout under **Layouts**; the card keeps opening in its own layout.
 A calendar's own compact limit and banner option are on its page under **Calendars**, which
 holds the options of every layout the card can show and says which layouts each applies to.

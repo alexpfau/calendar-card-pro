@@ -11,9 +11,9 @@ import * as GridUtils from '../src/utils/grid';
 import * as Lanes from '../src/utils/lanes';
 
 /**
- * Calendar lanes (backlog item 334): which lane an entry draws into, in what order, which a
- * layout draws, and how they reach the fit, the duplicates and a new event's calendar. The
- * renderer's geometry is `grid-lanes.test.ts`.
+ * Calendar lanes (backlog items 334 and 25): which lane an entry draws into, in what order, which
+ * a layout draws, and how they reach the fit, the duplicates and a new event's calendar. Grid's
+ * geometry is `grid-lanes.test.ts`; List's and Columns' markup is `list-column-lanes.test.ts`.
  */
 
 const ANNA = 'calendar.anna';
@@ -74,13 +74,42 @@ describe('a lane', () => {
 
 describe('the lanes a layout draws', () => {
   it('are none unless the layout can draw them and `lanes` is on for it', () => {
+    const keys = (config: Types.Config, view: Types.EffectiveView) =>
+      Lanes.laneUniverse(ViewConfig.resolveEffectiveConfig(config, view), view).map(
+        (lane) => lane.key,
+      );
     const config = buildConfig({ entities: [ANNA, BEN] });
-    expect(Lanes.laneUniverse(config, 'grid')).toEqual([]);
+    for (const view of ViewConfig.VIEWS) expect(keys(config, view), view).toEqual([]);
     const on = buildConfig({ entities: [ANNA, BEN], lanes: true });
-    expect(Lanes.laneUniverse(on, 'grid').map((lane) => lane.key)).toEqual([ANNA, BEN]);
-    for (const view of ['list', 'column', 'month'] as const) {
-      expect(Lanes.laneUniverse(on, view)).toEqual([]);
+    for (const view of ['list', 'column', 'grid'] as const) {
+      expect(keys(on, view), view).toEqual([ANNA, BEN]);
     }
+    // A month's day has no room to divide, whatever the card or its block says.
+    expect(keys(on, 'month')).toEqual([]);
+    const monthBlock = buildConfig({
+      entities: [ANNA, BEN],
+      month: { lanes: true },
+    } as Partial<Types.Config>);
+    expect(keys(monthBlock, 'month')).toEqual([]);
+  });
+
+  it('are each layout’s own: lanes in List, none in Columns, Grid’s own, Month untouched', () => {
+    const keys = (config: Types.Config, view: Types.EffectiveView) =>
+      Lanes.laneUniverse(ViewConfig.resolveEffectiveConfig(config, view), view).length;
+    const mixed = buildConfig({
+      entities: [ANNA, BEN],
+      list: { lanes: true },
+      column: { lanes: false },
+      time_grid: { lanes: true },
+    } as Partial<Types.Config>);
+    expect(ViewConfig.VIEWS.map((view) => keys(mixed, view))).toEqual([2, 0, 2, 0]);
+    // And the other way round: on for the card, off in one layout's block.
+    const most = buildConfig({
+      entities: [ANNA, BEN],
+      lanes: true,
+      list: { lanes: false },
+    } as Partial<Types.Config>);
+    expect(ViewConfig.VIEWS.map((view) => keys(most, view))).toEqual([0, 2, 2, 0]);
   });
 
   it('leave out in Grid a calendar that keeps only all-day events, which the band shows', () => {
@@ -92,6 +121,14 @@ describe('the lanes a layout draws', () => {
     // Every entry keeps only all-day events: no lane at all, so the grid draws as without lanes.
     const allDay = buildConfig({ lanes: true, event_type: 'all_day', entities: [ANNA, BEN] });
     expect(Lanes.laneUniverse(allDay, 'grid')).toEqual([]);
+    // List and Columns draw all-day events in their lanes, so such a calendar keeps its own.
+    for (const view of ['list', 'column'] as const) {
+      expect(Lanes.laneUniverse(config, view).map((lane) => lane.key)).toEqual([
+        ANNA,
+        'calendar.holidays',
+        BEN,
+      ]);
+    }
   });
 
   it('drop a lane only once the calendar filter hides every calendar in it', () => {
@@ -108,9 +145,13 @@ describe('the lanes a layout draws', () => {
   });
 
   it('are scoped in the editor’s tables exactly where the card draws them', () => {
+    expect([...Lanes.LANE_VIEWS].sort()).toEqual(['column', 'grid', 'list']);
     expect([...ViewConfig.VIEW_SCOPE.lanes].sort()).toEqual([...Lanes.LANE_VIEWS].sort());
-    expect([...ViewConfig.VIEW_SCOPE.min_lane_width].sort()).toEqual([...Lanes.LANE_VIEWS].sort());
     expect([...ViewConfig.ENTITY_VIEW_SCOPE.lane].sort()).toEqual([...Lanes.LANE_VIEWS].sort());
+    // A width decides List's lanes and Grid's days; Columns' lanes are rows. Only List falls
+    // back from its lanes.
+    expect([...ViewConfig.VIEW_SCOPE.min_lane_width].sort()).toEqual(['grid', 'list']);
+    expect([...ViewConfig.VIEW_SCOPE.lanes_fallback]).toEqual(['list']);
   });
 });
 
@@ -159,6 +200,102 @@ describe('fitting a grid that draws lanes', () => {
     const config = buildConfig({ view: 'grid', entities: people, lanes: true });
     const shownToBen = { ...config, entities: config.entities.slice(0, 3) };
     expect(ViewConfig.laneFit(shownToBen, 'grid')).toEqual({ count: 3, width: 40 });
+  });
+
+  it('keeps Grid’s own 40px whatever the card says, which sizes List’s lanes', () => {
+    const card = buildConfig({ view: 'grid', entities: people, lanes: true, min_lane_width: 60 });
+    expect(ViewConfig.laneFit(card, 'grid')).toEqual({ count: 4, width: 40 });
+    expect(ViewConfig.laneFit(card, 'list')).toEqual({ count: 4, width: 60 });
+    expect(ViewConfig.laneFit(buildConfig({ entities: people, lanes: true }), 'list')).toEqual({
+      count: 4,
+      width: 96,
+    });
+  });
+});
+
+describe('fitting a list that draws lanes', () => {
+  const people = [ANNA, BEN, 'calendar.clara', 'calendar.david'];
+  const lanes = buildConfig({ entities: people, lanes: true, days_to_show: 5 });
+
+  it('needs the dates and each lane at its width, with the gaps between them', () => {
+    // The card's 24px, the dates at 26px × 1.75 + 20px, four lanes of 96px and three 6px gaps.
+    expect(ViewConfig.listLaneThresholdPx(lanes, { count: 4, width: 96 })).toBe(491.5);
+    // A larger today widens the date column for every day, and so the threshold.
+    const today = buildConfig({ entities: people, lanes: true, today_date_scale: 2 });
+    expect(ViewConfig.listLaneThresholdPx(today, { count: 4, width: 96 })).toBe(537);
+  });
+
+  it('draws them side by side, else scrolling, with the hysteresis every fit has', () => {
+    // A fresh card pays half the band to enter.
+    expect(ViewConfig.resolveListLaneMode(lanes, 508, null)).toBe('matrix');
+    expect(ViewConfig.resolveListLaneMode(lanes, 507, null)).toBe('scroll');
+    // One drawing them side by side keeps them down to half the band below.
+    expect(ViewConfig.resolveListLaneMode(lanes, 476, 'matrix')).toBe('matrix');
+    expect(ViewConfig.resolveListLaneMode(lanes, 475, 'matrix')).toBe('scroll');
+    // One scrolling regains them only at the entering width.
+    expect(ViewConfig.resolveListLaneMode(lanes, 507, 'scroll')).toBe('scroll');
+    expect(ViewConfig.resolveListLaneMode(lanes, 508, 'scroll')).toBe('matrix');
+    // Before the first measurement, side by side, as a day-column view draws every day.
+    expect(ViewConfig.resolveListLaneMode(lanes, null, null)).toBe('matrix');
+  });
+
+  it('gives way to the plain list under `lanes_fallback: list`, and to nothing without lanes', () => {
+    const plain = buildConfig({
+      entities: people,
+      list: { lanes: true, lanes_fallback: 'list' },
+    } as Partial<Types.Config>);
+    expect(ViewConfig.resolveListLaneMode(plain, 390, null)).toBe('list');
+    expect(ViewConfig.resolveListLaneMode(plain, 1280, null)).toBe('matrix');
+    expect(ViewConfig.resolveListLaneMode(buildConfig({ entities: people }), 390, null)).toBeNull();
+    // Columns' lanes off leaves List's on: each layout's own.
+    const columnsOff = buildConfig({
+      entities: people,
+      lanes: true,
+      column: { lanes: false },
+    } as Partial<Types.Config>);
+    expect(ViewConfig.resolveListLaneMode(columnsOff, 390, null)).toBe('scroll');
+  });
+
+  it('says how in the fit summary, for List and for a layout falling back to it', () => {
+    expect(ViewConfig.fitAtWidth(lanes, 'list', 390)).toEqual({
+      kind: 'days',
+      days: 5,
+      lanes: 'scroll',
+    });
+    expect(ViewConfig.fitAtWidth(lanes, 'list', 1280)).toEqual({
+      kind: 'days',
+      days: 5,
+      lanes: 'matrix',
+    });
+    // Columns too narrow for two days falls back to the list, which scrolls its lanes there.
+    expect(ViewConfig.fitAtWidth(lanes, 'column', 300)).toEqual({
+      kind: 'list',
+      days: 5,
+      lanes: 'scroll',
+    });
+    expect(ViewConfig.fitAtWidth(buildConfig({ entities: people }), 'list', 390)).toEqual({
+      kind: 'days',
+      days: 3,
+    });
+  });
+});
+
+describe('fitting columns that draw lanes', () => {
+  const people = [ANNA, BEN, 'calendar.clara'];
+
+  it('reserves the track naming the lanes and its gutter, and nothing per lane', () => {
+    const plain = buildConfig({ view: 'column', days_to_show: 7, entities: people });
+    const lanes = buildConfig({ view: 'column', days_to_show: 7, entities: people, lanes: true });
+    expect(ViewConfig.laneFit(lanes, 'column')).toEqual({ count: 3, width: 96 });
+    for (const days of [2, 5, 7]) {
+      expect(
+        ViewConfig.computeColumnThresholdPxFor(lanes, days, 'column') -
+          ViewConfig.computeColumnThresholdPxFor(plain, days, 'column'),
+      ).toBe(72 + 10);
+    }
+    // Three columns at the default 140px: 554px with the track, 472px without.
+    expect(ViewConfig.computeColumnThresholdPxFor(plain, 3, 'column')).toBe(472);
+    expect(ViewConfig.computeColumnThresholdPxFor(lanes, 3, 'column')).toBe(554);
   });
 });
 

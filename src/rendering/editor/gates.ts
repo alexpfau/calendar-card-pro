@@ -498,9 +498,10 @@ export const GATES: Readonly<Record<string, Gate>> = {
     requires: [oneOf('layout:narrow_fit', 'custom')],
     kind: 'mode-value',
   },
-  // How narrow a lane may be, while the layout draws lanes.
+  // How narrow a lane may be, and what List does once its lanes no longer fit, while the layout
+  // draws lanes.
   min_lane_width: {
-    fields: ['layout:min_lane_width'],
+    fields: ['layout:min_lane_width', 'layout:lanes_fallback'],
     requires: [on('layout:lanes')],
     kind: 'gate',
   },

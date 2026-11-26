@@ -17,6 +17,7 @@ import {
   TIME_GRID_DEFAULTS,
   TIME_GRID_DEFAULT_OVERRIDES,
   TIME_GRID_ONLY_KEYS,
+  TIME_GRID_OVERRIDE_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   columnFitCrams,
   computeColumnThresholdPxFor,
@@ -419,7 +420,7 @@ describe('resolveEffectiveConfig', () => {
 
     it('keeps every divergent default reachable through the block', () => {
       Object.keys(TIME_GRID_DEFAULT_OVERRIDES).forEach((key) => {
-        expect(COLUMN_OVERRIDE_KEYS).toContain(key);
+        expect(TIME_GRID_OVERRIDE_KEYS).toContain(key);
       });
     });
 
@@ -461,6 +462,7 @@ describe('resolveEffectiveConfig', () => {
         show_empty_days: true,
         show_location: false,
         show_past_events: true,
+        min_lane_width: 40,
       });
     });
 

@@ -1609,14 +1609,15 @@ export const cardStyles = css`
     margin-block: -0.5em;
   }
 
-  /* The month, a chip's name, a day's weather in column and grid view, and a month day list's name
-     cut their text at their inline edges too, and keep the room event text keeps there, so a mark
-     or a letter leaning past the first or last letter is drawn whole; see "Marks above and below
-     the line". */
+  /* The month, a chip's name, a day's weather in column and grid view, a month day list's name and
+     a lane's name cut their text at their inline edges too, and keep the room event text keeps
+     there, so a mark or a letter leaning past the first or last letter is drawn whole; see "Marks
+     above and below the line". */
   .toolbar-month-text,
   .legend-chip-label,
   .column-date-content .weather,
-  .month-day-list-fit {
+  .month-day-list-fit,
+  .lane-name {
     padding-inline: var(--calendar-card-inline-room);
     margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
@@ -6067,6 +6068,297 @@ export const cardStyles = css`
   .column-separator {
     align-self: stretch;
     justify-self: start;
+    pointer-events: none;
+  }
+
+  /* ===== LANES IN LIST AND COLUMN VIEW =====
+
+     With lanes on, each calendar, or each lane an entry's lane names, keeps a fixed place in
+     every day: a column beside the dates in list view, a row across the days in column view.
+     Grid view divides its hours instead and draws no header (see Grid view).
+
+     A lane's header is its label, the picture, icon or text its events carry, or its initial in
+     a circle of its color where it has none, then its name. The name is what a screen reader
+     reads, and each event in the lane is described by it; the label is for the eye. Where a
+     header narrows the name goes first and then the label, by container queries on the header
+     itself, so lanes are told apart for as long as anything fits. */
+  .lane-header {
+    container-type: inline-size;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 2px 2px;
+    overflow: hidden;
+    font-size: var(--calendar-card-font-size-weekday);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--primary-text-color);
+  }
+
+  .lane-label {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    max-width: 100%;
+  }
+
+  /* A picture is drawn round, as a face over a lane reads, ringed in the lane's color. The
+     header's padding holds the ring, which its clip would otherwise cut. */
+  .lane-label > .label-image,
+  .lane-initial {
+    width: 2.25em;
+    height: 2.25em;
+    margin: 0;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--calendar-card-lane-accent);
+  }
+
+  .lane-label > .label-image {
+    object-fit: cover;
+  }
+
+  .lane-label > .label-icon {
+    --mdc-icon-size: 1.75em;
+    margin: 0;
+    color: var(--calendar-card-lane-accent);
+  }
+
+  .lane-label > .calendar-label {
+    margin: 0;
+    font-size: 1.25em;
+  }
+
+  .lane-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--calendar-card-lane-accent);
+    color: var(--text-primary-color, #fff);
+    font-weight: 600;
+  }
+
+  .lane-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A header hides only a label too wide for it, and a name only a name too long for it, so
+     both cut along the inline axis alone, and the marks Thai sets above and below a name are
+     drawn whole; see "Marks above and below the line". */
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
+    .lane-header {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+
+    .lane-name {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
+  @container (max-width: 56px) {
+    .lane-name {
+      display: none;
+    }
+  }
+
+  @container (max-width: 20px) {
+    .lane-label {
+      display: none;
+    }
+  }
+
+  /* A press on a lane's part of a day, where it adds an event in the lane's calendar or runs the
+     day's tap, washes that part, as a press on a day washes its date. Laid as an image, so a date
+     pinned on its own ground while the lanes scroll keeps that ground under the wash. */
+  .lane-cell[data-add-pressed],
+  .lane-day[data-add-pressed] > .date-column {
+    --calendar-card-lane-wash: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    background-image: linear-gradient(
+      var(--calendar-card-lane-wash),
+      var(--calendar-card-lane-wash)
+    );
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .lane-cell[data-add-pressed],
+    .lane-day[data-add-pressed] > .date-column {
+      --calendar-card-lane-wash: rgba(128, 128, 128, 0.16);
+    }
+  }
+
+  /* ----- List view: a column per lane -----
+
+     One grid: the date column, then a column per lane, its tracks written inline. The row naming
+     the lanes and each day are subgrids across it, so every day's lanes stand under their headers
+     and a day's row is as tall as its fullest lane. The rules between days, weeks and months
+     span the whole row, as in the plain list.
+
+     Side by side the lanes share the width. Where they scroll (lane-matrix-scrolls), each keeps
+     min_lane_width and the events area scrolls sideways under the dates, which stay at its
+     start, and under the row naming the lanes, which stays at its top while the area scrolls
+     down; the card carries lanes-scroll then. */
+  .lane-matrix {
+    display: grid;
+    column-gap: var(--calendar-card-lane-gap);
+    align-items: stretch;
+  }
+
+  .lane-matrix-scrolls {
+    min-width: min-content;
+  }
+
+  .lane-matrix > .lane-heads,
+  .lane-matrix > .lane-day {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+
+  .lane-matrix > .separator,
+  .lane-matrix > .week-separator,
+  .lane-matrix > .month-separator,
+  .lane-matrix > .week-row-table {
+    grid-column: 1 / -1;
+  }
+
+  .lane-matrix > .lane-heads {
+    align-items: end;
+    padding-bottom: 8px;
+  }
+
+  /* As tall as the headers, so where the lanes scroll it covers them as they pass the dates. */
+  .lane-matrix > .lane-heads > .lane-corner {
+    align-self: stretch;
+  }
+
+  /* Each day keeps the space after it a day table keeps, the last none. */
+  .lane-matrix > .lane-day {
+    margin-bottom: var(--calendar-card-day-spacing);
+  }
+
+  .lane-matrix > .lane-day:last-child {
+    margin-bottom: 0;
+  }
+
+  /* The date stays as tall as its row, as a list's date cell does, and its content moves inside
+     it for date_vertical_alignment (see the date column's comment). Its own end padding gives
+     way to the lanes' gap, so the first lane starts where a plain list's events do. */
+  .lane-matrix > .lane-day > .date-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: var(--calendar-card-lane-date-justify, center);
+    padding-inline-end: calc(12px - var(--calendar-card-lane-gap));
+  }
+
+  .lane-matrix > .lane-day > .lane-cell {
+    min-width: 0;
+  }
+
+  /* What belongs to no lane, the "No events" notice, runs across them all; on a day whose lanes
+     are all empty it lies over them and lets a press through to the lane under it. */
+  .lane-matrix > .lane-day > .date-column {
+    grid-area: 1 / 1;
+  }
+
+  .lane-matrix > .lane-day > .lane-across {
+    grid-row: 2;
+    grid-column: 2 / -1;
+  }
+
+  .lane-matrix > .lane-day > .lane-over {
+    grid-row: 1;
+    pointer-events: none;
+  }
+
+  /* While the lanes scroll, the dates stay at the area's start on their own ground, and the
+     events area takes the sideways scroll: one scroller for both directions, so the dates stay
+     put across it and the header row up it. The area fades at the edge more lanes lie past,
+     which the card marks as the area scrolls. */
+  ha-card.lanes-scroll .content-container {
+    overflow-x: auto;
+  }
+
+  .lane-matrix-scrolls > .lane-day > .date-column,
+  .lane-matrix-scrolls > .lane-heads > .lane-corner {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 2;
+    background-color: var(--calendar-card-background-color, var(--card-background-color));
+  }
+
+  .lane-matrix-scrolls > .week-row-table .week-number-cell,
+  .lane-matrix-scrolls > .month-separator-labeled > .month-separator-label {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+  }
+
+  ha-card.lanes-scroll .content-container[data-lanes-beyond] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+
+  ha-card.lanes-scroll .content-container[data-lanes-beyond]:dir(rtl) {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 24px), transparent);
+  }
+
+  /* The row naming the lanes stays at the top of a scrolling events area (head-pin.ts). */
+  .lane-matrix > .lane-heads[data-pinned] {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background-color: var(--calendar-card-background-color, var(--card-background-color));
+  }
+
+  .lane-matrix:has(> .lane-heads[data-pinned]) .lane-cell * {
+    scroll-margin-top: var(--calendar-card-pinned-head-height, 0px);
+  }
+
+  /* ----- Column view: a row per lane -----
+
+     A track at the start names each lane's row, its width written inline. Each day column spans
+     the day header's row and every lane's as a subgrid, so a lane's cells line up across the
+     days, and a rule over each lane's row sets the lanes apart. */
+  .column-grid.with-lanes > .day-column {
+    display: grid;
+    grid-template-rows: subgrid;
+    align-content: start;
+  }
+
+  .column-grid.with-lanes .column-lanes {
+    display: contents;
+  }
+
+  .column-grid.with-lanes > .lane-header,
+  .column-grid.with-lanes .column-lanes > .lane-cell {
+    border-top: 1px solid var(--divider-color);
+    padding-block: 6px;
+  }
+
+  .column-grid.with-lanes > .lane-header {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+
+  .column-grid.with-lanes .column-lanes > .lane-cell {
+    min-width: 0;
+  }
+
+  /* A day's "No events" notice runs down every lane's row, over the empty cells, and lets a
+     press through to the lane under it. */
+  .column-grid.with-lanes .column-lanes > .lane-across {
+    grid-row: 2 / -1;
+    grid-column: 1;
+    border-top-color: transparent;
     pointer-events: none;
   }
 

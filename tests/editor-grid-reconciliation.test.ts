@@ -116,7 +116,14 @@ const CASES = Object.entries(View.TIME_GRID_DEFAULT_OVERRIDES).map(([key, gridDe
 }));
 
 /** The divergent options a fresh Grid card draws only once a gate opens, pinned by value. */
-const GATED = ['description_color', 'location_color', 'progress_bar_color', 'progress_bar_width'];
+const GATED = [
+  'description_color',
+  'location_color',
+  'progress_bar_color',
+  'progress_bar_width',
+  // How narrow a day's slice may be, drawn once the grid draws lanes.
+  'min_lane_width',
+];
 
 /**
  * Every top-level value the editor's forms hold, each from the first form drawing it.
@@ -539,7 +546,7 @@ describe('implicit defaults and first-switch boundaries', () => {
     await changeField(editor, 'display:view', 'grid');
     expect(reports).toEqual([{ entities: ['calendar.anna'], view: 'grid' }]);
     // A form holds only the data its own fields read, so each default is read from the one form
-    // that draws it. The four a gate withholds are read by the test below, which shows that the
+    // that draws it. The five a gate withholds are read by the test below, which shows that the
     // edit opening a gate cannot move the value it reveals.
     const shown = shownValues(editor);
     expect(CASES.filter(({ key }) => !shown.has(key)).map(({ key }) => key)).toEqual(GATED);

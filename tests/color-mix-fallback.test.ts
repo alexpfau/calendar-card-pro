@@ -125,7 +125,8 @@ describe('color-mix() where Safari before 16.2 has none', () => {
   // so it washes over a tinted day, "+N more" under the pointer, the narrow day list's name under
   // the pointer and pressed, its own "+N more" under the pointer, and the month's two rules, the
   // theme's divider at 75% and the stronger one under the weekday names. The overlay's Close, at
-  // rest, under the pointer and pressed.
+  // rest, under the pointer and pressed. And the wash a press lays on a lane's part of a day, or
+  // on a list day's date beside lanes.
   it('gives each a fallback', () => {
     expect(covered).toEqual([
       '.allday-badge { --badge-ink }',
@@ -155,6 +156,8 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.grid-day-body[data-add-pressed]::before { background-color }',
       '.grid-day-header[data-add-pressed] > .column-day-header { --calendar-card-day-add-wash }',
       '.grid-event-raised > .grid-event-accessible::before { border }',
+      '.lane-cell[data-add-pressed] { --calendar-card-lane-wash }',
+      '.lane-day[data-add-pressed] > .date-column { --calendar-card-lane-wash }',
       '.legend-chip { background }',
       '.legend-chip:active { background }',
       '.legend-chip:hover { background }',

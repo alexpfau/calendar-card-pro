@@ -9,9 +9,11 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
+import * as LaneRender from '../src/rendering/lanes';
 import * as MonthRender from '../src/rendering/month';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as Lanes from '../src/utils/lanes';
 import * as MonthDay from '../src/utils/month-day';
 import * as Paging from '../src/utils/paging';
 
@@ -507,6 +509,84 @@ describe('theming.md card-mod selectors', () => {
           FROZEN_NOW,
           undefined,
           undefined,
+          true,
+        ),
+        container,
+      );
+      collect(container);
+    }
+    // Lanes are off by default. List draws them as a column each, side by side and scrolling, and
+    // Columns as a row each; two calendars, one labeled and one not, so a header draws a label and
+    // its name, and one its initial, and a day with nothing on draws its notice across the lanes.
+    // The card says its lanes scroll on itself.
+    for (const view of ['list', 'column'] as const) {
+      const config = buildConfig({
+        ...base,
+        view,
+        lanes: true,
+        show_empty_days: true,
+        entities: [
+          { entity: 'calendar.personal', name: 'Anna', label: 'A' },
+          { entity: 'calendar.ben', name: 'Ben' },
+        ],
+      } as Partial<Types.Config>);
+      const effective = ViewConfig.resolveEffectiveConfig(config, view);
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
+      const heads = LaneRender.laneHeads(Lanes.laneUniverse(effective, view), effective, null);
+      for (const scrolls of view === 'list' ? [false, true] : [false]) {
+        const container = document.createElement('div');
+        litRender(
+          view === 'list'
+            ? Render.renderGroupedEvents(
+                days,
+                effective,
+                'en',
+                undefined,
+                null,
+                true,
+                undefined,
+                undefined,
+                {
+                  heads,
+                  scrolls,
+                },
+              )
+            : Column.renderColumnGroupedEvents(
+                days,
+                effective,
+                'en',
+                undefined,
+                null,
+                true,
+                undefined,
+                heads,
+              ),
+          container,
+        );
+        collect(container);
+      }
+    }
+    {
+      const container = document.createElement('div');
+      litRender(
+        Render.renderMainCardStructure(
+          {},
+          'Family',
+          html`<div></div>`,
+          HANDLERS,
+          false,
+          false,
+          'list',
+          false,
+          false,
+          undefined,
+          {},
+          false,
+          false,
+          'idle',
+          false,
+          undefined,
+          false,
           true,
         ),
         container,

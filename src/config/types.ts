@@ -61,15 +61,19 @@ export interface Config {
   multiday_banners: boolean;
   /**
    * Whether each calendar, or each lane an entry's `lane` names, keeps a fixed place in every
-   * day: in grid view a slice of each day's hours (`utils/lanes.ts`). Grid view only; off by
-   * default, which draws every layout as it was before the option existed.
+   * day (`utils/lanes.ts`): a column of its own in list view, a row in column view, a slice of
+   * each day's hours in grid view. Month view ignores it. Off by default, which draws every
+   * layout as it was before the option existed.
    */
   lanes: boolean;
   /**
-   * The narrowest a lane may be, in pixels, before a layout drawing lanes sheds a day: a grid day
-   * needs this much for each of its lanes, or `min_day_width` where that is wider.
+   * The narrowest a lane may be, in pixels: in list view the width below which its lanes scroll
+   * sideways or give way to the plain list (`lanes_fallback`); in grid view, which has a default
+   * of its own, the width a day needs for each of its lanes before the card sheds a day.
    */
   min_lane_width: number;
+  /** What list view does once its lanes no longer fit at `min_lane_width`. */
+  lanes_fallback: LanesFallback;
   event_type: EventType;
   language?: string;
 
@@ -404,6 +408,12 @@ export type ReplaceField = 'title' | 'location' | 'description';
 export type ColumnMinDaysFallback = 'list' | 'cramp';
 
 /**
+ * What list view does once its lanes no longer fit side by side at `min_lane_width`: scroll them
+ * sideways under the pinned dates, or draw the plain list without lanes.
+ */
+export type LanesFallback = 'scroll' | 'list';
+
+/**
  * Per-view configuration overrides applied when the card renders in column view.
  *
  * Overrides are presence-based. Fetch-time options are excluded because switching views
@@ -440,6 +450,10 @@ export interface SharedViewOverrides {
   show_past_events?: boolean;
   filter_duplicates?: boolean | 'ignore_location' | 'merge_locations';
   duplicate_accent_color?: string;
+
+  // A fixed place in every day for each lane: a column in list view, a row in column view, a
+  // slice of the hours in grid view. Month view ignores it.
+  lanes?: boolean;
 
   // Layout and spacing
   vertical_line_width?: string;
@@ -564,6 +578,10 @@ export interface ListOverrides extends SharedViewOverrides {
   month_separator_label?: boolean;
   month_separator_label_color?: string;
   month_separator_label_font_size?: string;
+
+  // Lanes side by side: how narrow one may be, and what the list does once they no longer fit.
+  min_lane_width?: number;
+  lanes_fallback?: LanesFallback;
 }
 
 /**
@@ -731,10 +749,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    */
   multiday_banners?: boolean;
 
-  /** Grid's `lanes`, over the card's: a slice of every day for each lane. */
-  lanes?: boolean;
-
-  /** Grid's `min_lane_width`, over the card's. */
+  /** Grid's `min_lane_width`: Grid has a default of its own, 40px, and ignores the card's. */
   min_lane_width?: number;
 
   /**
@@ -785,9 +800,9 @@ export interface TimeGridOverrides extends SharedViewOverrides {
  * events, never cuts a list short and splits every multi-day event across its days; it rules its
  * days itself and lists one day at a time, so it has no space or rule between days, weeks or
  * months; it sets its dates at one scale on every day, with today's indicator only as the tile,
- * and its week numbers as plain text; its day list puts each row's time beside its title; and it
- * draws no clock beside a time. With them, the ones it keeps at their shipped values
- * ({@link MonthPinnedKeys}).
+ * and its week numbers as plain text; its day list puts each row's time beside its title; it
+ * draws no clock beside a time; and a day a few lines tall has no room to divide among lanes.
+ * With them, the ones it keeps at their shipped values ({@link MonthPinnedKeys}).
  */
 export type MonthIgnoredSharedKeys =
   | 'height'
@@ -812,6 +827,7 @@ export type MonthIgnoredSharedKeys =
   | 'today_indicator_size'
   | 'time_position'
   | 'time_icon_size'
+  | 'lanes'
   | MonthPinnedKeys;
 
 /**

@@ -254,13 +254,12 @@ describe('editor filter: the per-calendar settings', () => {
     const config = buildConfig({ entities: ['calendar.birthdays'] });
     const schema = entitySchema(config);
 
-    // Whole as a list card's editor draws it, which withholds the time grid's own controls. The
+    // Whole as a list card's editor draws it, which withholds the time grid's own controls and
+    // keeps the lane, which List draws too. The
     // accent color is one control with the mode choosing its source, so one row, the mode's.
     expect(calendarHits(config, 'birthdays', schema)).toEqual(
       essentialFirst(
-        fieldNames(schema).filter(
-          (name) => name !== 'multiday_banners' && name !== 'lane' && name !== 'accent_color',
-        ),
+        fieldNames(schema).filter((name) => name !== 'multiday_banners' && name !== 'accent_color'),
       ),
     );
   });
@@ -355,14 +354,12 @@ describe('editor filter: the chassis', () => {
     const { element, panels } = await mount({ entities: ['calendar.a'] });
 
     // A minimum day width is a Layout option of Columns, Grid and Month, and the card is a list
-    // here: it is found as theirs, not as nothing. So is Grid's Minimum Lane Width, whose label
-    // and helper hold all three words, after them.
+    // here: it is found as theirs, not as nothing.
     await changeField(element, `filter:${SEARCH_FIELD}`, 'min_day_width');
     expect(panels().map(({ id }) => id)).toEqual([
       'layout:column.min_day_width',
       'layout:time_grid.min_day_width',
       'layout:month.min_day_width',
-      'layout:min_lane_width',
     ]);
     await changeField(element, `filter:${SEARCH_FIELD}`, 'zzzznotathing');
 

@@ -9,6 +9,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
 import { gridDrawsEvent } from './grid';
+import * as LaneRender from './lanes';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as TextScale from './text-scale';
@@ -154,6 +155,8 @@ export interface TapControl {
  * panning on the card, its toolbar's rows and its body (`swipe-paging`)
  * @param tapControl The control standing in for the card's tap while it hosts controls
  * @param weatherStale Whether the forecast drawn is out of date (`weather-stale`), which dims it
+ * @param lanesScroll Whether a list's lanes scroll sideways (`lanes-scroll`), which the events
+ * area then does under its pinned dates
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -199,6 +202,7 @@ export function renderMainCardStructure(
   swipePaging: boolean = false,
   tapControl?: TapControl,
   weatherStale: boolean = false,
+  lanesScroll: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -252,6 +256,7 @@ export function renderMainCardStructure(
     isPointerInteractive ? 'card-interactive' : '',
     swipePaging ? 'swipe-paging' : '',
     weatherStale ? 'weather-stale' : '',
+    lanesScroll ? 'lanes-scroll' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -721,38 +726,11 @@ export function renderDay(
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
   const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass);
 
-  let daySeparator: TemplateResult | typeof nothing = nothing;
-
-  const isMonthBoundary = boundaryInfo?.isNewMonth || false;
-  const isWeekBoundary = boundaryInfo?.isNewWeek || false;
-  const hasMonthSeparator =
-    isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width);
-  const hasWeekSeparator =
-    isWeekBoundary &&
-    (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
+  const daySeparator = renderDaySeparator(config, prevDay, boundaryInfo);
 
   const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
   const eventGap = ViewConfig.hasEventGap(config);
   const repeatedCountdowns = Presentation.repeatedCountdowns(day.events, config, language);
-
-  const daySeparatorWidth = config.day_separator_width;
-  const daySeparatorColor = config.day_separator_color;
-
-  if (
-    prevDay &&
-    !ViewConfig.isZeroLength(daySeparatorWidth) &&
-    !hasMonthSeparator &&
-    !hasWeekSeparator
-  ) {
-    const separatorStyle = createSeparatorStyle(
-      daySeparatorWidth,
-      daySeparatorColor,
-      config,
-      'day',
-    );
-
-    daySeparator = html`<div class="separator" style=${styleMap(separatorStyle)}></div>`;
-  }
 
   return html`
     ${daySeparator}
@@ -795,6 +773,337 @@ export function renderDay(
 }
 
 /**
+ * The rule between a list day and the one before it, where neither a week nor a month rule is
+ * drawn there instead.
+ *
+ * @param config - Card configuration
+ * @param prevDay - The day before, or undefined for the first
+ * @param boundaryInfo - Whether the day opens a week or a month
+ * @returns The rule, or nothing
+ */
+function renderDaySeparator(
+  config: Types.Config,
+  prevDay?: Types.EventsByDay,
+  boundaryInfo?: { isNewWeek: boolean; isNewMonth: boolean },
+): TemplateResult | typeof nothing {
+  const isMonthBoundary = boundaryInfo?.isNewMonth || false;
+  const isWeekBoundary = boundaryInfo?.isNewWeek || false;
+  const hasMonthSeparator =
+    isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width);
+  const hasWeekSeparator =
+    isWeekBoundary &&
+    (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
+
+  const daySeparatorWidth = config.day_separator_width;
+  const daySeparatorColor = config.day_separator_color;
+
+  if (
+    !prevDay ||
+    ViewConfig.isZeroLength(daySeparatorWidth) ||
+    hasMonthSeparator ||
+    hasWeekSeparator
+  ) {
+    return nothing;
+  }
+
+  const separatorStyle = createSeparatorStyle(daySeparatorWidth, daySeparatorColor, config, 'day');
+  return html`<div class="separator" style=${styleMap(separatorStyle)}></div>`;
+}
+
+//-----------------------------------------------------------------------------
+// LANES
+//-----------------------------------------------------------------------------
+
+/** A list drawing lanes (`lanes`): the lanes, in order, and whether they scroll sideways. */
+export interface ListLanes {
+  readonly heads: ReadonlyArray<LaneRender.LaneHead>;
+  /** Whether each lane keeps `min_lane_width` and the lanes scroll under the dates. */
+  readonly scrolls: boolean;
+}
+
+/**
+ * Where `date_vertical_alignment` puts a list day's date in its cell, as a flex column's
+ * `justify-content`: a lane matrix is a grid, where `vertical-align` reaches nothing, so the cell
+ * stays stretched across its row and its content moves inside it (see `.date-column`).
+ *
+ * @param config - Card configuration
+ * @returns The value
+ */
+function laneDateJustify(config: Types.Config): string {
+  switch (config.date_vertical_alignment) {
+    case 'top':
+      return 'flex-start';
+    case 'bottom':
+      return 'flex-end';
+    default:
+      return 'center';
+  }
+}
+
+/**
+ * One lane's events on one day, as list rows in a table of their own: the lane's part of the day.
+ * Each row is drawn as a list row is, without a date, its first and last decided within the lane,
+ * and described by the day's date and the lane's name.
+ *
+ * Empty for a lane with nothing on, which keeps its place in the day, and where a press adds an
+ * event in the lane's calendar.
+ *
+ * @param events - The lane's events on the day
+ * @param laneIndex - The lane's place among the lanes drawn
+ * @param head - The lane
+ * @param day - The day
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param isToday - Whether the day is today
+ * @param weatherForecasts - Fetched forecasts, if any
+ * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayLabelId - The id of the day's date, which describes each event
+ * @returns The lane's cell
+ */
+function renderListLaneCell(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  laneIndex: number,
+  head: LaneRender.LaneHead,
+  day: Types.EventsByDay,
+  config: Types.Config,
+  language: string,
+  isToday: boolean,
+  weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
+): TemplateResult {
+  const laneDay: Types.EventsByDay = { ...day, events: [...events] };
+  const eventGap = ViewConfig.hasEventGap(config);
+  const repeatedCountdowns = Presentation.repeatedCountdowns(laneDay.events, config, language);
+  const lane = LaneRender.laneOfEvent(head, laneIndex);
+
+  // Placed outright, in the day's row and the lane's column, so a notice laid across the lanes
+  // over it cannot move it out of its place.
+  return html`<div
+    class="lane-cell"
+    data-lane=${head.key}
+    style=${styleMap({ gridArea: `1 / ${laneIndex + 2}` })}
+    .calendarCardDaySlot=${Activation.daySlot(day.timestamp, head.key)}
+  >
+    ${
+      events.length === 0
+        ? nothing
+        : html`<table class=${eventGap ? 'day-table with-event-gap' : 'day-table'}>
+            ${repeat(
+              laneDay.events,
+              (event, index) => `${event._entityId}-${event.summary}-${index}`,
+              (event, index) => {
+                const row = renderEvent(
+                  event,
+                  laneDay,
+                  index,
+                  config,
+                  language,
+                  isToday,
+                  weatherForecasts,
+                  hass,
+                  eventsTappable,
+                  dayLabelId,
+                  undefined,
+                  repeatedCountdowns.has(index),
+                  lane,
+                );
+                return eventGap && index > 0 ? html`${Leaves.renderEventGapRow()}${row}` : row;
+              },
+            )}
+          </table>`
+    }
+  </div>`;
+}
+
+/**
+ * What belongs to no lane on a day, drawn across every lane: its "No events" notice, as the list
+ * draws it. On a day with nothing in any lane it lies over the empty lanes and lets a press through
+ * to the lane under it; beside lanes holding events it takes a row of its own under them.
+ *
+ * @param events - What belongs to no lane
+ * @param over - Whether every lane is empty that day
+ * @param day - The day
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param isToday - Whether the day is today
+ * @param weatherForecasts - Fetched forecasts, if any
+ * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayLabelId - The id of the day's date
+ * @returns The cell, or nothing
+ */
+function renderListLaneAcross(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  over: boolean,
+  day: Types.EventsByDay,
+  config: Types.Config,
+  language: string,
+  isToday: boolean,
+  weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
+): TemplateResult | typeof nothing {
+  if (events.length === 0) return nothing;
+  const acrossDay: Types.EventsByDay = { ...day, events: [...events] };
+
+  return html`<div class=${over ? 'lane-cell lane-across lane-over' : 'lane-cell lane-across'}>
+    <table class="day-table">
+      ${acrossDay.events.map((event, index) =>
+        renderEvent(
+          event,
+          acrossDay,
+          index,
+          config,
+          language,
+          isToday,
+          weatherForecasts,
+          hass,
+          eventsTappable,
+          dayLabelId,
+          undefined,
+          false,
+          { id: '' },
+        ),
+      )}
+    </table>
+  </div>`;
+}
+
+/**
+ * One day of a list drawing lanes: its date, then a cell for each lane, in a row of the lane
+ * matrix (`renderGroupedEvents`), with the rule above it a plain list day has.
+ *
+ * The row carries the classes a list's day table carries, and is the day a press on its date adds
+ * on; each lane's cell is that lane's part of the day.
+ *
+ * @param day - Day data containing events
+ * @param heads - The lanes drawn, in order
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param prevDay - Previous day, for the rule above
+ * @param boundaryInfo - Whether the day opens a week or a month
+ * @param weatherForecasts - Fetched forecasts, if any
+ * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw the day's add button, or undefined for none
+ * @returns The day's row
+ */
+function renderLaneDay(
+  day: Types.EventsByDay,
+  heads: ReadonlyArray<LaneRender.LaneHead>,
+  config: Types.Config,
+  language: string,
+  prevDay?: Types.EventsByDay,
+  boundaryInfo?: { isNewWeek: boolean; isNewMonth: boolean },
+  weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
+): TemplateResult {
+  const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
+  const dayDate = new Date(day.timestamp);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
+  const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
+  const { lanes, rest } = LaneRender.eventsByLane(day.events, heads);
+  const over = lanes.every((events) => events.length === 0);
+
+  return html`
+    ${renderDaySeparator(config, prevDay, boundaryInfo)}
+    <div
+      class=${classMap({
+        'lane-day': true,
+        today: isToday,
+        tomorrow: isTomorrow,
+        'future-day': !isToday,
+        'past-day': isPast,
+        weekend: isWeekendDay,
+      })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
+    >
+      <div
+        class=${isWeekendDay ? 'date-column weekend' : 'date-column'}
+        id=${dayAdd ? nothing : (dayLabelId ?? nothing)}
+      >
+        ${renderDayAddButton(
+          renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass),
+          day.timestamp,
+          dayAdd,
+          dayLabelId,
+        )}
+        ${Leaves.renderTodayIndicator(config, isToday)}
+      </div>
+      ${heads.map((head, index) =>
+        renderListLaneCell(
+          lanes[index],
+          index,
+          head,
+          day,
+          config,
+          language,
+          isToday,
+          weatherForecasts,
+          hass,
+          eventsTappable,
+          dayLabelId,
+        ),
+      )}
+      ${renderListLaneAcross(
+        rest,
+        over,
+        day,
+        config,
+        language,
+        isToday,
+        weatherForecasts,
+        hass,
+        eventsTappable,
+        dayLabelId,
+      )}
+    </div>
+  `;
+}
+
+/**
+ * A list drawing lanes: a grid of a date column and a column per lane, under a row naming each
+ * lane, holding the days and the rules between them as the plain list draws them.
+ *
+ * Side by side the lanes share the card's width. Where they scroll, each keeps `min_lane_width`,
+ * and the card scrolls them sideways while the dates, and the row naming the lanes, stay where
+ * they are (`lanes-scroll` on the card).
+ *
+ * @param body - The days and the rules between them
+ * @param lanes - The lanes, and whether they scroll
+ * @param config - Card configuration
+ * @returns The matrix
+ */
+function renderLaneMatrix(
+  body: TemplateResult,
+  lanes: ListLanes,
+  config: Types.Config,
+): TemplateResult {
+  const narrowest = lanes.scrolls ? `${config.min_lane_width}px` : '0';
+
+  return html`<div
+    class=${lanes.scrolls ? 'lane-matrix lane-matrix-scrolls' : 'lane-matrix'}
+    style=${styleMap({
+      gridTemplateColumns: `max-content repeat(${lanes.heads.length}, minmax(${narrowest}, 1fr))`,
+      '--calendar-card-lane-gap': `${Constants.UI.LANE_GAP}px`,
+      '--calendar-card-lane-date-justify': laneDateJustify(config),
+    })}
+  >
+    <div class="lane-heads">
+      <div class="lane-corner"></div>
+      ${lanes.heads.map((head, index) => LaneRender.renderLaneHeader(head, index))}
+    </div>
+    ${body}
+  </div>`;
+}
+
+/**
  * Whether a heading names the month a day falls in.
  *
  * @param heading - A day in the month the heading names, or undefined for no heading
@@ -815,6 +1124,8 @@ function namesMonthOf(heading: Date | undefined, timestamp: number): boolean {
  *   nothing
  * @param headingMonth - A day in the month the toolbar's heading names right above the list, or
  *   undefined while no heading is drawn there
+ * @param lanes - The lanes the list draws a column for each of (`lanes`), or undefined for the
+ *   plain list
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -825,8 +1136,10 @@ export function renderGroupedEvents(
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
   headingMonth?: Date,
+  lanes?: ListLanes,
 ): TemplateResult {
-  return html`
+  const laneHeads = lanes && lanes.heads.length > 0 ? lanes.heads : undefined;
+  const body = html`
     ${days.map((day, index) => {
       const prevDay = index > 0 ? days[index - 1] : undefined;
       const weekNumber = day.weekNumber ?? null;
@@ -893,20 +1206,37 @@ export function renderGroupedEvents(
 
       return html`
         ${separator}
-        ${renderDay(
-          day,
-          config,
-          language,
-          prevDay,
-          boundaryInfo,
-          weatherForecasts,
-          hass,
-          eventsTappable,
-          dayAdd,
-        )}
+        ${
+          laneHeads
+            ? renderLaneDay(
+                day,
+                laneHeads,
+                config,
+                language,
+                prevDay,
+                boundaryInfo,
+                weatherForecasts,
+                hass,
+                eventsTappable,
+                dayAdd,
+              )
+            : renderDay(
+                day,
+                config,
+                language,
+                prevDay,
+                boundaryInfo,
+                weatherForecasts,
+                hass,
+                eventsTappable,
+                dayAdd,
+              )
+        }
       `;
     })}
   `;
+
+  return lanes && laneHeads ? renderLaneMatrix(body, lanes, config) : body;
 }
 
 /**
@@ -988,6 +1318,9 @@ function renderDayAddButton(
  *   is a button, by which each event and the button name the day
  * @param dayAdd - How to draw the day's add button, or undefined for none
  * @param countdownRepeated - Whether the countdown repeats the one above it and is left out
+ * @param lane - Where the row is drawn in a lane's column (`lanes`), that lane: the row then
+ *   draws no date of its own, its button is described by the day's date and the lane's name, and
+ *   it leaves out the label the lane's header already shows
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -1003,10 +1336,14 @@ function renderEvent(
   dayLabelId?: string,
   dayAdd?: Activation.DayAddButtons,
   countdownRepeated = false,
+  lane?: LaneRender.LaneOfEvent,
 ): TemplateResult {
-  const presented = Presentation.buildEventPresentation(event, config, language, hass);
+  const built = Presentation.buildEventPresentation(event, config, language, hass);
+  const presented = lane ? Presentation.withoutLaneLabel(built, lane.label) : built;
   const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
+  const drawsDate = lane === undefined;
+  const describedBy = drawsDate ? dayLabelId : [dayLabelId, lane.id].filter(Boolean).join(' ');
 
   const dayDate = new Date(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
@@ -1035,7 +1372,7 @@ function renderEvent(
   // prettier-ignore
   return html`
     <tr>
-      ${index === 0
+      ${index === 0 && drawsDate
         ? html`
             <td
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
@@ -1074,7 +1411,7 @@ function renderEvent(
             timePosition: Helpers.resolveTimePosition(config.time_position),
           }),
           tap,
-          dayLabelId,
+          describedBy,
         )}
       </td>
     </tr>

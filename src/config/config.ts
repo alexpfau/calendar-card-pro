@@ -43,8 +43,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   split_multiday_events: false,
   multiday_banners: true,
   lanes: false,
-  // Grid's, since only Grid draws lanes: a 4-person week keeps 7 days on a 1,207px card.
-  min_lane_width: 40,
+  // List's: a lane's column holds a full row of text. Grid has a default of its own, 40px
+  // (`TIME_GRID_DEFAULT_OVERRIDES`).
+  min_lane_width: 96,
+  lanes_fallback: 'scroll',
   event_type: 'all',
   language: undefined,
 

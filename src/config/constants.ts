@@ -368,6 +368,20 @@ export const UI = {
   TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34, month: 34 },
 
   /**
+   * The space between two lanes' columns in list view, in CSS pixels (`lanes`). The renderer
+   * writes it as the lanes' gap and the fit counts it (`listLaneThresholdPx`), so the room a fit
+   * reserves is the room drawn.
+   */
+  LANE_GAP: 6,
+
+  /**
+   * The width of the track at the start of column view's rows that names each lane, in CSS
+   * pixels (`lanes`): a picture over a short name. The renderer writes it as the track's width and
+   * the fit reserves it with a gap after it (`dayColumnViewOverheadPx`).
+   */
+  LANE_TRACK: 72,
+
+  /**
    * The gutter a narrow month keeps before its first day for the week numbers, in CSS pixels,
    * the stylesheet's (`--calendar-card-month-week-gutter`), which `stylesheet.test.ts`
    * reconciles. A wide month sets its numbers in the first day's corner and keeps none.

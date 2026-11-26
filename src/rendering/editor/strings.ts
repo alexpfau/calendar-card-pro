@@ -647,6 +647,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'fit_summary.list_one': 'List, 1 day',
   'fit_summary.month_wide': 'Wide',
   'fit_summary.month_narrow': 'Narrow',
+  // A list whose lanes no longer fit side by side: {layout} is one of the cells above.
+  'fit_summary.lanes_scroll': '{layout}, lanes scroll',
 
   // --- Spacing --------------------------------------------------------------
   day_spacing: 'Day Spacing',
@@ -1396,11 +1398,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Draws an event with a time that lasts a day or longer as one banner across its days.',
   lanes: 'Calendar Lanes',
   'lanes.helper':
-    'Each calendar keeps its own slice of every day; calendars given the same Lane share one.',
+    'Each calendar keeps its own place in every day; calendars given the same Lane share one.',
   'lanes.aliases':
     'people, person, column per person, side by side, family, swimlanes, fixed position',
   min_lane_width: 'Minimum Lane Width',
-  'min_lane_width.helper': 'The default, 40px, fits seven days of four lanes at 1,207px.',
+  'min_lane_width.helper': 'The default is 96px in List and 40px in Grid.',
+  lanes_fallback: 'When Lanes Don’t Fit',
+  'lanes_fallback.option.scroll.label': 'Scroll them sideways',
+  'lanes_fallback.option.list.label': 'Show the plain list',
   event_type: 'Event Type',
   'event_type.option.all.label': 'All events',
   'event_type.option.timed.label': 'Only events with a time',
@@ -1920,7 +1925,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.column_grid_list_only.show_empty_days':
     'Applies to every layout but the month, which always draws every day of its weeks.',
   'scope.grid_month_only': 'Applies to the time grid and month layouts.',
-  'scope.grid_only': 'Applies to the time grid layout.',
+  'scope.grid_list_only': 'Applies to the list and time grid layouts.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
