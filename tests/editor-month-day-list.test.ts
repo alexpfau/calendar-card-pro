@@ -36,7 +36,6 @@ import {
   entityFieldIndex,
   entrySchema,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import { corpus } from '../src/rendering/editor/gates';
 import { ENTRY_GROUPS, type HeadingDef, topicsFor } from '../src/rendering/editor/pages';
@@ -55,6 +54,7 @@ import { reset } from '../src/rendering/editor/reset';
 import { stateFacts } from '../src/rendering/editor/shown';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { deriveSyntheticData } from '../src/rendering/editor/synthetic';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 import * as EntityColors from '../src/utils/entity-colors';
 

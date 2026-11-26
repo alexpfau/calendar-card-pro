@@ -35,7 +35,6 @@ import {
   panelFieldIndex,
   parseFieldId,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import {
   ENTRY_GATES,
@@ -56,6 +55,7 @@ import { computeLabel } from '../src/rendering/editor/localize';
 import { ENTRY_GROUPS, PAGES } from '../src/rendering/editor/pages';
 import * as Routing from '../src/rendering/editor/routing';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { deepEqual } from '../src/rendering/editor/value';
 import { type EditorWorkspace, WORKSPACES, storedPath } from '../src/rendering/editor/workspace';
 import * as Helpers from '../src/utils/helpers';

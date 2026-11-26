@@ -5,7 +5,7 @@
  *
  * Which fields are chips is the page registry's, each chip's short label `chips.ts`'s, and which
  * chips a scope offers comes from the universe for it; the first two are pinned by value and
- * against each other, the third against `field-index.ts` › `universeIndex` itself. The rest is
+ * against each other, the third against `universe.ts` › `universeIndex` itself. The rest is
  * read off the mounted editor: what is drawn, pressed, unpressable and why, the line naming where
  * the stored parts live, and what each press, pick and Reset writes.
  */
@@ -22,8 +22,8 @@ import {
 } from './helpers/editor-host';
 import * as Config from '../src/config/config';
 import { CHIP_LABELS, chipFields, inScope } from '../src/rendering/editor/chips';
-import { universeIndex } from '../src/rendering/editor/field-index';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 type Editor = Awaited<ReturnType<typeof mountEditor>>;

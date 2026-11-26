@@ -20,11 +20,12 @@ import { hitIds, searchIndex } from './helpers/search-index';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { colorSpecs } from '../src/rendering/editor/colors';
-import { fieldId, universeIndex } from '../src/rendering/editor/field-index';
+import { fieldId } from '../src/rendering/editor/field-index';
 import { withholdInertFields } from '../src/rendering/editor/filter';
 import { type HaFormSchema, isGroupSchema } from '../src/rendering/editor/ha-form';
 import { computeLabel } from '../src/rendering/editor/localize';
 import { PANELS, type SchemaCtx, walkSchema } from '../src/rendering/editor/panels';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { type EditorWorkspace, WORKSPACES } from '../src/rendering/editor/workspace';
 
 interface Leaf {

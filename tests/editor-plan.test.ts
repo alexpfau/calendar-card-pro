@@ -17,7 +17,6 @@ import {
   entityFieldIndex,
   entrySchemaAcross,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import { GATES } from '../src/rendering/editor/gates';
 import { type Appearance, ENTRY_GROUPS, PAGES } from '../src/rendering/editor/pages';
@@ -35,6 +34,7 @@ import {
 } from '../src/rendering/editor/plan';
 import { reset } from '../src/rendering/editor/reset';
 import { workspaceFormData } from '../src/rendering/editor/routing';
+import { universeIndex } from '../src/rendering/editor/universe';
 import type { EditorWorkspace } from '../src/rendering/editor/workspace';
 import type { WriteState } from '../src/rendering/editor/write-frames';
 

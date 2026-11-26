@@ -19,7 +19,6 @@ import {
   entrySchemaAcross,
   parseFieldId,
   schemaCtx,
-  universeIndex,
 } from './field-index';
 import { FULL_SIZE_PATHS } from './full-size';
 import type { Gate, Prereq } from './gates';
@@ -28,6 +27,7 @@ import type { PageId } from './pages';
 import { type PlanCtx, appearanceOf, fieldState, hasLayoutCopy } from './plan';
 import { destination, startingView } from './routing';
 import { isSet as holdsValue, isSyntheticKey } from './synthetic';
+import { universeIndex } from './universe';
 import { type EditorWorkspace, WORKSPACES, storedPath } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';

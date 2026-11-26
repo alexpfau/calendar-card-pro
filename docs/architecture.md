@@ -71,6 +71,7 @@ src/
 │   │   ├── panels.ts             # Builder registry and schema walking
 │   │   ├── schemas/              # One field builder per section, plus their shared vocabulary
 │   │   ├── field-index.ts        # Every built field, by a stable id
+│   │   ├── universe.ts           # Every field a workspace can build, gated or not
 │   │   ├── plan.ts               # The shown set: live fields, folded settings and gate lines
 │   │   ├── shown.ts              # The shown set in words: value sources, what Reset leaves
 │   │   ├── gates.ts              # Why a field is withheld, and the setting that opens it

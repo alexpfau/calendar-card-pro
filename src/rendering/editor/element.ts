@@ -57,7 +57,6 @@ import {
   fieldHelper,
   fieldLabel,
   parseFieldId,
-  universeIndex,
 } from './field-index';
 import * as Filter from './filter';
 import * as FullSize from './full-size';
@@ -118,6 +117,7 @@ import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as EditorLanguages from './translations/loader';
+import { universeIndex } from './universe';
 import * as Unset from './unset';
 import * as Value from './value';
 import * as AuditView from './views/audit';

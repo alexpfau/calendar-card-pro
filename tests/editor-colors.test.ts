@@ -42,11 +42,11 @@ import {
   buildFieldIndex,
   entityFieldIndex,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import type { SchemaCtx } from '../src/rendering/editor/panels';
 import { isColorNode } from '../src/rendering/editor/schemas/common';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 import * as EntityColors from '../src/utils/entity-colors';
 
