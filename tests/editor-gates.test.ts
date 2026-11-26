@@ -132,6 +132,10 @@ const GRID_ONLY = [
   'layout:time_grid.allday_band_max_rows',
   'layout:time_grid.overlap_layout',
   'layout:time_grid.max_simultaneous_events',
+  // Calendar Lanes, its width and a calendar's Lane: only Grid draws lanes.
+  'layout:lanes',
+  'layout:min_lane_width',
+  'calendar:lane',
 ];
 
 /**
@@ -399,6 +403,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   // Zero in three spellings, a length and a keyword; the card draws a rule for the last two.
   month_separator_width: ['0px', '0', '0em', '1px', 'thin'],
   month_separator_label: [true, false],
+  lanes: [true, false],
   // Anything but `week` reads as a calendar month, which draws no Weeks Shown.
   'month.start': [undefined, 'month', 'week', 'Week'],
   'entity.accent_color': [undefined, '#ff0000', 'home-assistant'],
@@ -963,12 +968,13 @@ describe('the universe', () => {
     // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
     // gained Full-Size Settings' Days To Show and Show Toolbar. Then a calendar gained Image Size,
     // in every workspace. Then every workspace gained the full-size card's toolbar: its seven
-    // controls, its Layouts in Switcher and its Arrow & Chip Size.
+    // controls, its Layouts in Switcher and its Arrow & Chip Size. Then Grid gained Calendar
+    // Lanes, its Minimum Lane Width and a calendar's Lane.
     expect(sizes).toEqual({
       shared: { card: 150, calendar: 31 },
       list: { card: 180, calendar: 32 },
       column: { card: 174, calendar: 31 },
-      grid: { card: 173, calendar: 31 },
+      grid: { card: 175, calendar: 32 },
       month: { card: 120, calendar: 30 },
     });
   });
@@ -1369,6 +1375,11 @@ describe('the gate table', () => {
         fields: ['layout:column.min_days_fallback', 'layout:time_grid.min_days_fallback'],
         requires: [p('layout:narrow_fit', 'custom', ['custom'])],
       },
+      min_lane_width: {
+        kind: 'gate',
+        fields: ['layout:min_lane_width'],
+        requires: [p('layout:lanes', true, ON)],
+      },
       accent: {
         kind: 'mode-value',
         fields: ['events:accent_color'],
@@ -1473,6 +1484,11 @@ describe('the gate table', () => {
           p('card:toolbar.legend', 'menu', ['menu', 'chips']),
         ],
         needsKey: 'gate.needs.calendar_filter',
+      },
+      lane: {
+        kind: 'gate',
+        fields: ['calendar:lane'],
+        requires: [p('layout:lanes', true, ON)],
       },
       show_weather: {
         kind: 'gate',

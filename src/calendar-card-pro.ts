@@ -57,6 +57,7 @@ import * as DayPanel from './rendering/day-panel';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
 import * as GridRender from './rendering/grid';
+import * as LaneRender from './rendering/lanes';
 import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
 import * as MonthRender from './rendering/month';
@@ -83,6 +84,7 @@ import * as GridTitleFit from './utils/grid-title-fit';
 import * as HassRelevance from './utils/hass-relevance';
 import * as HeadPin from './utils/head-pin';
 import * as Helpers from './utils/helpers';
+import * as Lanes from './utils/lanes';
 import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
 import * as MonthDay from './utils/month-day';
@@ -428,6 +430,9 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
+
+/** No lanes: the layout on screen draws none (`_shownLanes`). */
+const NO_LANES: ReadonlyArray<Lanes.Lane> = Object.freeze([]);
 
 /** The window a load drawn was asked for (`_loadedWindowShown`), as its load config names it. */
 interface LoadedWindow {
@@ -943,6 +948,12 @@ class CalendarCardPro extends LitElement {
      * Assistant returned it, which the block is drawn from at its new times.
      */
     moving?: { key: GridMove.MoveKey; source: Types.SourceEvent };
+    /**
+     * The lane it belongs to where the grid draws lanes: the one the press drew it in, or the
+     * lane of the event it moves. Its block is drawn in that lane's slice while the lane holds
+     * its calendar (`_newLane`).
+     */
+    lane?: string;
   } | null = null;
   /**
    * What the new event is drawn into, by the element holding each: a day's plane for a timed
@@ -1651,6 +1662,22 @@ class CalendarCardPro extends LitElement {
    * that load to end before it shows how it went (`_requestRefresh`).
    */
   private _refreshAwaitsLoad: { ticket: number; startedAt: number } | null = null;
+
+  /** The configuration widths are fitted against (`_fitConfig`), and what it was made from. */
+  private _fitConfigCache: {
+    config: Types.Config;
+    visibility: Visibility.EntryVerdicts;
+    fitted: Types.Config;
+  } | null = null;
+
+  /** The lanes the layout on screen draws (`_shownLanes`), and what they were found from. */
+  private _shownLanesCache: {
+    config: Types.Config;
+    view: Types.EffectiveView;
+    visibility: Visibility.EntryVerdicts;
+    hidden: ReadonlySet<string>;
+    lanes: ReadonlyArray<Lanes.Lane>;
+  } | null = null;
 
   /** `events` without the hidden calendars' and hidden entries', and what it was filtered from. */
   private _shownEventsCache: {
@@ -2367,6 +2394,91 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The configuration a layout's width is fitted against: the card's, with only the entries its
+   * visibility conditions show this viewer, so a lane hidden from someone takes no room on their
+   * card (`ViewConfig.laneFit`). The card's own configuration wherever no layout asks for lanes
+   * or no condition hides an entry, so the fit of such a card reads exactly what it always did.
+   */
+  private get _fitConfig(): Types.Config {
+    const config = this.config;
+    const visibility = this._visibility;
+    if (visibility.hidden.size === 0 || !ViewConfig.asksForLanes(config)) return config;
+
+    const cache = this._fitConfigCache;
+    if (cache && cache.config === config && cache.visibility === visibility) return cache.fitted;
+
+    const fitted = {
+      ...config,
+      entities: config.entities.filter((entry) => !Visibility.configEntryHidden(entry, visibility)),
+    };
+    this._fitConfigCache = { config, visibility, fitted };
+    return fitted;
+  }
+
+  /**
+   * The lanes the layout on screen draws, in order (`lanes`): those of the entries shown to this
+   * viewer, less those whose every calendar the calendar filter hides. None where the layout
+   * draws none.
+   */
+  private get _shownLanes(): ReadonlyArray<Lanes.Lane> {
+    const config = this.effectiveConfig;
+    const view = this.effectiveView;
+    if (!Lanes.lanesOn(config, view)) return NO_LANES;
+
+    const visibility = this._visibility;
+    const hidden = this._activeHiddenCalendars;
+    const cache = this._shownLanesCache;
+    if (
+      cache &&
+      cache.config === config &&
+      cache.view === view &&
+      cache.visibility === visibility &&
+      cache.hidden === hidden
+    ) {
+      return cache.lanes;
+    }
+
+    const entities =
+      visibility.hidden.size === 0
+        ? config.entities
+        : config.entities.filter((entry) => !Visibility.configEntryHidden(entry, visibility));
+    const lanes = Lanes.shownLanes(Lanes.laneUniverse({ ...config, entities }, view), hidden);
+    this._shownLanesCache = { config, view, visibility, hidden, lanes };
+    return lanes;
+  }
+
+  /**
+   * Which of the lanes drawn holds the new event, or the event a press moves: the lane the press
+   * was in while it holds the event's calendar, else the first lane that does.
+   *
+   * @param shown - The new event
+   * @returns The lane, its place and how many there are, or undefined where none holds it
+   */
+  private _newLane(
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): { key: string; index: number; count: number } | undefined {
+    const lanes = this._shownLanes;
+    if (lanes.length === 0) return undefined;
+
+    const holds = (lane: Lanes.Lane) =>
+      shown.calendarId === undefined || lane.entityIds.includes(shown.calendarId);
+    let index = lanes.findIndex((lane) => lane.key === shown.lane && holds(lane));
+    if (index < 0 && shown.calendarId !== undefined) index = lanes.findIndex(holds);
+    return index < 0 ? undefined : { key: lanes[index].key, index, count: lanes.length };
+  }
+
+  /**
+   * The calendars of a lane drawn, in order, for a new event pressed in it to start in.
+   *
+   * @param lane - The lane's key, if the press was in one
+   * @returns Its calendars, or none
+   */
+  private _laneCalendars(lane: string | undefined): ReadonlyArray<string> {
+    if (lane === undefined) return [];
+    return this._shownLanes.find((candidate) => candidate.key === lane)?.entityIds ?? [];
+  }
+
+  /**
    * The calendars that could not be loaded and that the card shows: the failures a viewer is
    * told about, and the only ones that keep the card from hiding or from drawing its empty days.
    * Fetching, the cache and the next attempt read every failure (`_failedEntities`).
@@ -2448,8 +2560,12 @@ class CalendarCardPro extends LitElement {
       return this._columnCount;
     }
 
-    return ViewConfig.resolveColumnFit(this.config.view, this.config, this._measuredWidthPx, null)
-      .columns;
+    return ViewConfig.resolveColumnFit(
+      this.config.view,
+      this._fitConfig,
+      this._measuredWidthPx,
+      null,
+    ).columns;
   }
 
   /**
@@ -2753,7 +2869,7 @@ class CalendarCardPro extends LitElement {
       !this._isBeingEdited &&
       !(
         this.effectiveView === 'grid' &&
-        ViewConfig.columnFitCrams('grid', this.config, this._measuredWidthPx, {
+        ViewConfig.columnFitCrams('grid', this._fitConfig, this._measuredWidthPx, {
           view: this._effectiveView,
           columns: this._columnCount,
         })
@@ -5475,10 +5591,10 @@ class CalendarCardPro extends LitElement {
     // granted: a reload at the width it was made at, or a press before the width settled.
     const next =
       this._measuredWidthPx === null && this._viewChoice !== null
-        ? ViewConfig.resolveColumnFitIfPicked(this.requestedView, this.config, widthPx)
+        ? ViewConfig.resolveColumnFitIfPicked(this.requestedView, this._fitConfig, widthPx)
         : ViewConfig.resolveColumnFitOnMeasurement(
             this.requestedView,
-            this.config,
+            this._fitConfig,
             this._measuredWidthPx,
             widthPx,
             { view: this._effectiveView, columns: this._columnCount },
@@ -5590,6 +5706,15 @@ class CalendarCardPro extends LitElement {
     this._syncNewShown();
     this._keepTapFocus();
     if (this._visibilityChanged) this._search?.visibilityChanged();
+    // A lane a condition now hides or shows changes how wide a day must be, without the card
+    // changing width: the same measurement is fitted again, inside its hysteresis band.
+    if (
+      this._visibilityChanged &&
+      this._measuredWidthPx !== null &&
+      ViewConfig.asksForLanes(this.config)
+    ) {
+      this._handleWidthMeasured(this._measuredWidthPx);
+    }
 
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
@@ -6812,7 +6937,8 @@ class CalendarCardPro extends LitElement {
         ? GridDraft.allDayDraft(anchor.timestamp, anchor.timestamp)
         : GridDraft.timedDraft(anchor.point, anchor.point, false),
       title: '',
-      calendarId: this._draftCalendarId(),
+      calendarId: this._draftCalendarId(this._pointerDayHit?.lane),
+      lane: this._pointerDayHit?.lane,
       context: this._draftContext(),
       inPopover: false,
       saved: false,
@@ -6834,7 +6960,9 @@ class CalendarCardPro extends LitElement {
       const slot = Activation.daySlotOn(body);
       return slot?.kind === 'time' ? GridDraft.dayOf(slot.timestamp) : '';
     });
-    return [this.effectiveView, this._pageShown, this._drawsNewEvents, ...days].join('|');
+    // The lanes too, so hiding or regrouping one ends a press drawing or moving in it.
+    const lanes = this._shownLanes.map((lane) => lane.key).join('\u0000');
+    return [this.effectiveView, this._pageShown, this._drawsNewEvents, lanes, ...days].join('|');
   }
 
   /**
@@ -6974,6 +7102,8 @@ class CalendarCardPro extends LitElement {
       const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
       const now = new Date();
       now.setSeconds(0, 0);
+      // Where the grid draws lanes, the block keeps to its calendar's slice of each day.
+      const lane = this._newLane(shown);
       for (const { element, slot, day } of bodies) {
         const plane = element.querySelector(':scope > .grid-day-plane');
         const event = byDay.get(day);
@@ -6987,7 +7117,7 @@ class CalendarCardPro extends LitElement {
           GridUtils.computeNowLinePct(now, band) !== null
             ? GridUtils.minutesFromMidnight(now)
             : null;
-        const raised = this._coversAnEvent(plane, extent.startMin, extent.endMin, band);
+        const raised = this._coversAnEvent(plane, extent.startMin, extent.endMin, band, lane?.key);
         wanted.set(
           plane,
           GridRender.renderNewTimedEvent(
@@ -6999,6 +7129,7 @@ class CalendarCardPro extends LitElement {
             language,
             this.weatherForecasts,
             hass,
+            lane,
           ),
         );
       }
@@ -7033,6 +7164,8 @@ class CalendarCardPro extends LitElement {
    * @param fromMin - Where the piece starts, in minutes of the day
    * @param untilMin - Where it ends
    * @param band - The day's visible band
+   * @param lane - The lane it is drawn in, where the grid draws lanes: only that lane's blocks
+   *   lie under it
    * @returns True where it covers part of one
    */
   private _coversAnEvent(
@@ -7040,9 +7173,13 @@ class CalendarCardPro extends LitElement {
     fromMin: number,
     untilMin: number,
     band: { startMin: number; endMin: number },
+    lane?: string,
   ): boolean {
     const { topPct, heightPct } = Activation.spanPct(fromMin, untilMin, band);
-    return [...plane.querySelectorAll<HTMLElement>(':scope > .grid-event')].some((block) => {
+    const blocks = [...plane.querySelectorAll<HTMLElement>(':scope > .grid-event')];
+    const under =
+      lane === undefined ? blocks : blocks.filter((block) => block.dataset.lane === lane);
+    return under.some((block) => {
       const top = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-top'));
       const height = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-height'));
       return top < topPct + heightPct && topPct < top + height;
@@ -7262,10 +7399,15 @@ class CalendarCardPro extends LitElement {
   /**
    * The calendar a new event would be added to, as the popover will preselect it.
    *
+   * @param lane - The lane the press was in, where the grid draws lanes
    * @returns Its entity id, or undefined where no calendar takes one
    */
-  private _draftCalendarId(): string | undefined {
-    return AddEvent.preselectedCalendarId(this._writableCalendars, this._activeHiddenCalendars);
+  private _draftCalendarId(lane?: string): string | undefined {
+    return AddEvent.preselectedCalendarId(
+      this._writableCalendars,
+      this._activeHiddenCalendars,
+      this._laneCalendars(lane),
+    );
   }
 
   /**
@@ -7496,6 +7638,7 @@ class CalendarCardPro extends LitElement {
       saved: false,
       arrived: false,
       moving: { key: move.key, source: event._source ?? event },
+      lane: Lanes.eventLaneKey(event),
     };
     window.addEventListener('keydown', this._draftKeyDown, true);
     window.addEventListener('pointerdown', this._draftSecondContact, true);
@@ -8009,6 +8152,7 @@ class CalendarCardPro extends LitElement {
         drawn.times,
         { x: ev.clientX, y: ev.clientY, pointerType: ev.pointerType, rect: box },
         true,
+        drawn.lane,
       );
       ranOffEvents = true;
     } else if (this._holdTriggered && !liftedForNothing) {
@@ -8691,7 +8835,7 @@ class CalendarCardPro extends LitElement {
     }
     const seededFit = ViewConfig.resolveColumnFit(
       this.requestedView,
-      this.config,
+      this._fitConfig,
       this._measuredWidthPx,
       this._measuredWidthPx === null
         ? null
@@ -9577,6 +9721,7 @@ class CalendarCardPro extends LitElement {
           dayAdd,
           this._bandOpenForNew,
           CardSize.fillsCard(this.config, 'grid', this._holdsSectionsSlot),
+          LaneRender.laneHeads(this._shownLanes, this.effectiveConfig, this.safeHass),
         );
       }
 
@@ -10133,7 +10278,7 @@ class CalendarCardPro extends LitElement {
         : AddEvent.newEventTimesOn(timestamp, hit?.allDay ? 'all-day' : hit?.minute);
     // A press in a grid's time area or all-day band shows the event being added there.
     const inGrid = hit !== undefined && (hit.minute !== undefined || hit.allDay === true);
-    this._openCreateEventDialog(times, origin, inGrid);
+    this._openCreateEventDialog(times, origin, inGrid, hit?.lane);
   }
 
   /**
@@ -10146,11 +10291,14 @@ class CalendarCardPro extends LitElement {
    * @param origin - Where the press was, for the popover to open beside
    * @param showNew - Whether a grid shows the new event as a block while the popover is open
    *   (`_newShown`): one a press drew, or a tap in the grid adds
+   * @param lane - The lane the press was in, where the grid draws lanes, whose calendars the
+   *   popover starts in
    */
   private _openCreateEventDialog(
     times: Times.EventTimes,
     origin?: Feedback.PressOrigin,
     showNew = false,
+    lane?: string,
   ): void {
     if (this._isBeingEdited) {
       Logger.debug('Not opening a new event while the card is being edited');
@@ -10159,7 +10307,11 @@ class CalendarCardPro extends LitElement {
     }
 
     const writable = this._writableCalendars;
-    const calendarId = AddEvent.preselectedCalendarId(writable, this._activeHiddenCalendars);
+    const calendarId = AddEvent.preselectedCalendarId(
+      writable,
+      this._activeHiddenCalendars,
+      this._laneCalendars(lane),
+    );
     if (!calendarId) {
       this._dropNew();
       return;
@@ -10180,6 +10332,7 @@ class CalendarCardPro extends LitElement {
       };
       shown.times = times;
       shown.calendarId = calendarId;
+      shown.lane ??= lane;
       shown.inPopover = true;
       this._newShown = shown;
       this._paintNew();
@@ -11860,7 +12013,7 @@ class CalendarCardPro extends LitElement {
     this._viewChoice = choice;
     const fit = ViewConfig.resolveColumnFitIfPicked(
       this.requestedView,
-      this.config,
+      this._fitConfig,
       this._measuredWidthPx,
     );
     Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
@@ -12082,7 +12235,7 @@ class CalendarCardPro extends LitElement {
       this._viewChoice = null;
       const fit = ViewConfig.resolveColumnFitIfPicked(
         this.requestedView,
-        this.config,
+        this._fitConfig,
         this._measuredWidthPx,
       );
       this._effectiveView = fit.view;

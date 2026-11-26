@@ -42,6 +42,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   duplicate_accent_color: undefined,
   split_multiday_events: false,
   multiday_banners: true,
+  lanes: false,
+  // Grid's, since only Grid draws lanes: a 4-person week keeps 7 days on a 1,207px card.
+  min_lane_width: 40,
   event_type: 'all',
   language: undefined,
 
@@ -760,6 +763,9 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
   config.today_date_scale = toValidNumber(config.today_date_scale, Number.MIN_VALUE) ?? 1;
   config.past_date_scale = toValidNumber(config.past_date_scale, Number.MIN_VALUE) ?? 1;
   config.past_date_opacity = toValidPercentage(config.past_date_opacity) ?? 100;
+  // Any number of pixels above 0; anything else is the shipped width, so a lane always has room.
+  config.min_lane_width =
+    toValidNumber(config.min_lane_width, Number.MIN_VALUE) ?? DEFAULT_CONFIG.min_lane_width;
   if (toFontWeightCss(config.today_date_font_weight) === undefined) {
     config.today_date_font_weight = 'default';
   }
@@ -1664,6 +1670,9 @@ export function normalizeEntities(
           // wins (`configuredShowInLegend`).
           show_in_legend:
             typeof item.show_in_legend === 'boolean' ? item.show_in_legend : undefined,
+          // Trimmed, and blank or not a string is no lane: the entry draws into its calendar's.
+          lane:
+            typeof item.lane === 'string' && item.lane.trim() !== '' ? item.lane.trim() : undefined,
           label: item.label,
           // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,

@@ -14,6 +14,7 @@ import { humanize, lookup } from '../localize';
 import type { FitSummaryRow, PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
 import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
+import { viewForWorkspace } from '../workspace';
 
 /**
  * Starting Layout's picture for a view: the card's shared pictogram in a fixed gray, which
@@ -213,6 +214,7 @@ function monthFields(blockKey: string, language: string, start: Types.MonthStart
  * @param daysToShow - Configured day count
  * @param language - Effective language code
  * @param monthStart - Month's First Week as the configuration reads it
+ * @param lanes - Whether the layout draws lanes (`lanes`), which Minimum Lane Width sizes
  * @returns The panel's schema
  */
 const layoutSchema = Helpers.memoizeLast(
@@ -224,6 +226,7 @@ const layoutSchema = Helpers.memoizeLast(
     daysToShow: number,
     language: string,
     monthStart: Types.MonthStart,
+    lanes: boolean,
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
@@ -280,6 +283,17 @@ const layoutSchema = Helpers.memoizeLast(
       schema.push(...monthFields(blockKey, language, monthStart));
     }
 
+    // A slice of every day per lane, built in every layout and withheld where it has no effect
+    // by `VIEW_SCOPE`. How narrow a lane may be only while there are lanes to size; no ceiling,
+    // for the reason `densityFields` gives.
+    schema.push(bool('lanes'));
+    if (lanes) {
+      schema.push({
+        name: 'min_lane_width',
+        selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+      });
+    }
+
     return schema;
   },
 );
@@ -303,7 +317,22 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
     ViewConfig.layoutDays(ctx.config, view),
     ctx.language,
     ViewConfig.resolveMonthOption(ctx.config, 'start'),
+    drawsLanes(ctx),
   );
+}
+
+/**
+ * Whether the layout a context edits draws lanes: its own value, else the card's, as the card
+ * resolves it. The shared workspace reads the top level.
+ *
+ * @param ctx - Schema context
+ * @returns True where `lanes` is on
+ */
+export function drawsLanes(ctx: SchemaCtx): boolean {
+  const view = ctx.workspace === undefined ? ctx.view : viewForWorkspace(ctx.workspace);
+  return view === undefined
+    ? ctx.config.lanes === true
+    : ViewConfig.resolveEffectiveConfig(ctx.config, view).lanes === true;
 }
 
 /**

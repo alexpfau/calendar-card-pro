@@ -124,8 +124,14 @@ const EVENTS_AREA = ['Events Area Height', 'Events Area Maximum Height'];
  */
 const COMPACT = ['Compact Height', 'Compact Maximum Height'];
 
-function layoutOutline(view: Types.EffectiveView): string[] {
-  const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
+/**
+ * Calendar Lanes: built in every layout, last, and withheld outside Grid by `VIEW_SCOPE`; Minimum
+ * Lane Width only while the layout draws lanes.
+ */
+const LANES = ['Calendar Lanes'];
+
+function layoutOutline(view: Types.EffectiveView, overrides: Partial<Types.Config> = {}): string[] {
+  const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }], ...overrides });
   const ctx: SchemaCtx = { config, view, language: 'en' };
   const panel = PANELS.find((candidate) => candidate.id === 'layout');
   if (panel === undefined) {
@@ -162,6 +168,11 @@ describe('Layout panel structure', () => {
       ...COMPACT,
       ...EVENTS_AREA,
       ...DENSITY,
+      ...LANES,
+    ]);
+    expect(layoutOutline('grid', { lanes: true }).slice(-2)).toEqual([
+      'Calendar Lanes',
+      'Minimum Lane Width',
     ]);
   });
 
@@ -184,8 +195,8 @@ describe('Layout panel structure', () => {
       ...COMPACT,
       ...EVENTS_AREA,
     ];
-    expect(layoutOutline('list')).toEqual(expected);
-    expect(layoutOutline('column')).toEqual([...expected, ...DENSITY]);
+    expect(layoutOutline('list')).toEqual([...expected, ...LANES]);
+    expect(layoutOutline('column')).toEqual([...expected, ...DENSITY, ...LANES]);
   });
 });
 

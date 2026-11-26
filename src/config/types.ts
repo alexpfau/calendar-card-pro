@@ -59,6 +59,17 @@ export interface Config {
    * sit at the banner's ends and in the popover. Grid view only; on by default.
    */
   multiday_banners: boolean;
+  /**
+   * Whether each calendar, or each lane an entry's `lane` names, keeps a fixed place in every
+   * day: in grid view a slice of each day's hours (`utils/lanes.ts`). Grid view only; off by
+   * default, which draws every layout as it was before the option existed.
+   */
+  lanes: boolean;
+  /**
+   * The narrowest a lane may be, in pixels, before a layout drawing lanes sheds a day: a grid day
+   * needs this much for each of its lanes, or `min_day_width` where that is wider.
+   */
+  min_lane_width: number;
   event_type: EventType;
   language?: string;
 
@@ -720,6 +731,12 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    */
   multiday_banners?: boolean;
 
+  /** Grid's `lanes`, over the card's: a slice of every day for each lane. */
+  lanes?: boolean;
+
+  /** Grid's `min_lane_width`, over the card's. */
+  min_lane_width?: number;
+
   /**
    * The horizontal rules across the time body, as a CSS length and a CSS color.
    *
@@ -923,6 +940,13 @@ export interface EntityConfig {
    * `config/config.ts`), and the editor writes a change to every block of the calendar.
    */
   show_in_legend?: boolean;
+  /**
+   * The lane this entry's events draw into while a layout draws lanes (`lanes`): entries with
+   * the same value share one, so a person's calendars can keep one place, and two entries of one
+   * calendar can take a lane each. Unset, the entry draws into its calendar's lane, named by the
+   * entity id. Unlike `name`, it belongs to this entry, not to the calendar.
+   */
+  lane?: string;
   /**
    * What is drawn before each event's title: text or an emoji, an icon, a picture's address,
    * a person's entity id or `home-assistant`, read by its shape (`Helpers.getLabelType`). A list

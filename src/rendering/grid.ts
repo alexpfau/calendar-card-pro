@@ -20,6 +20,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
 import { gridBannerAccessibleName, gridEventAccessibleName } from './grid-accessibility';
+import * as LaneRender from './lanes';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as PrivateLock from './private-lock';
@@ -31,6 +32,7 @@ import * as ColorMix from '../utils/color-mix';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 import * as CascadeThreshold from '../utils/grid-cascade-threshold';
+import * as Lanes from '../utils/lanes';
 import * as TextDirection from '../utils/text-direction';
 
 //-----------------------------------------------------------------------------
@@ -896,6 +898,8 @@ function cascadeHorizontal(
  * @param nowMin - The minute its column draws the now line at, or `null` where it draws
  *   none. A block whose own time span holds that minute repeats the line over its fill (see
  *   `.grid-event-now`)
+ * @param lane - The lane it is drawn in, where the grid draws lanes: its key, which the block
+ *   carries as `data-lane`, and its name, which its accessible name says
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -910,6 +914,7 @@ function renderTimedEvent(
   eventsTappable = false,
   dayLabelId?: string,
   nowMin: number | null = null,
+  lane?: { readonly key: string; readonly name: string },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -988,6 +993,7 @@ function renderTimedEvent(
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
+      data-lane=${lane?.key ?? nothing}
       .calendarCardEventTap=${tap}
       .calendarCardDaySlot=${Activation.COVERED}
     >
@@ -1003,6 +1009,7 @@ function renderTimedEvent(
           language,
           weatherForecasts,
           hass,
+          lane?.name,
         )}
       ></div>
       <div class="grid-event-disclosure" aria-hidden="true">
@@ -1479,6 +1486,8 @@ export const NEW_EVENT_HOST_CLASS = 'grid-new-event';
  * @param language - Language code for translations
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
+ * @param lane - Where the grid draws lanes, the slice of its calendar's lane, which it spans
+ *   in place of the whole day
  * @returns The block, or nothing where it lies outside the band
  */
 export function renderNewTimedEvent(
@@ -1490,15 +1499,18 @@ export function renderNewTimedEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  lane?: { readonly index: number; readonly count: number },
 ): TemplateResult | typeof nothing {
   const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
   if (!placement) return nothing;
+  const x0Pct = lane ? Grid.intoLane(0, lane.index, lane.count) : 0;
+  const x1Pct = lane ? Grid.intoLane(100, lane.index, lane.count) : 100;
   const [edges] = Grid.resolveBlockEdges(
-    [{ ...event, x0Pct: 0, x1Pct: 100 }],
+    [{ ...event, x0Pct, x1Pct }],
     band,
     ViewConfig.resolveTimeGridOption(config, 'slot_minutes'),
   );
-  const horizontal = { ...spanHorizontal(0, 100), raised };
+  const horizontal = { ...spanHorizontal(x0Pct, x1Pct), raised };
   return renderTimedEvent(
     event,
     placement,
@@ -1657,6 +1669,8 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  * @param fillsCard - Whether the card has a height of its own the events area fills, a
  *   `card_height` or a Sections slot (`CardSize.fillsCard`), which compresses the hours as a
  *   fixed `height` does
+ * @param lanes - The lanes each day is divided among (`lanes`), in order, or none: each takes
+ *   an even slice of every day's hours, headed under the date
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1673,6 +1687,7 @@ export function renderGridGroupedEvents(
   dayAdd?: Activation.DayAddButtons,
   bandOpenForNew = false,
   fillsCard = false,
+  lanes: ReadonlyArray<LaneRender.LaneHead> = [],
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1813,8 +1828,10 @@ export function renderGridGroupedEvents(
     fillsCard || (config.height != null && config.height !== '' && config.height !== 'auto');
   const bodyFloor = `calc(${bandHours} * min(${Constants.UI.GRID_MIN_HOUR_HEIGHT}, ${hourHeight}))`;
   // Cramp trades readability for keeping days, not for losing zero-width tracks.
-  // Below two root-font units per day, preserve the tracks and scroll horizontally.
+  // Below two root-font units per day, preserve the tracks and scroll horizontally. A day drawing
+  // lanes keeps two for each of them, so no lane is cramped to nothing either.
   const cramp = ViewConfig.resolveMinDaysFallback(config, 'grid') === 'cramp';
+  const crampFloor = lanes.length > 1 ? `calc(${lanes.length} * 2rem)` : '2rem';
 
   // The container is a scroll region while cramped, so it is focusable for a keyboard user. It
   // is deliberately left unnamed — naming it needs a new string in all 35 card languages, and
@@ -1828,7 +1845,7 @@ export function renderGridGroupedEvents(
       class="grid-container"
       tabindex=${cramp ? '0' : nothing}
       style=${styleMap({
-        gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(${cramp ? '2rem' : '0'}, 1fr))`,
+        gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(${cramp ? crampFloor : '0'}, 1fr))`,
         ...(cramp ? { overflowX: 'auto' } : {}),
         columnGap: gutter,
         // The time band's height is the one place a configured length becomes the scale.
@@ -1882,6 +1899,7 @@ export function renderGridGroupedEvents(
             hass,
             dayLabelIds[index],
             dayAdd,
+            lanes,
           ),
         )}
       </div>
@@ -1936,6 +1954,7 @@ export function renderGridGroupedEvents(
           hass,
           eventsTappable,
           dayLabelIds[index],
+          lanes,
         ),
       )}
       ${separators(bodyRows)}
@@ -1997,6 +2016,7 @@ function renderWeekNumbers(
  * @param dayLabelId - The day's id, given only while the day's events are tap targets or the
  *   header is the day's add button
  * @param dayAdd - How to draw the header as the day's add button, or undefined for none
+ * @param lanes - The lanes the day is divided among, headed under its date, or none
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -2008,6 +2028,7 @@ function renderDayHeader(
   hass?: Types.Hass | null,
   dayLabelId?: string,
   dayAdd?: Activation.DayAddButtons,
+  lanes: ReadonlyArray<LaneRender.LaneHead> = [],
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(day.timestamp);
@@ -2036,7 +2057,7 @@ function renderDayHeader(
         hass,
         dayLabelId,
         dayAdd && { label: dayAdd.label, timestamp: day.timestamp },
-      )}
+      )}${lanes.length > 0 ? LaneRender.renderLaneStrip(lanes) : nothing}
     </div>
   `;
 }
@@ -2059,6 +2080,7 @@ function renderDayHeader(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each timed block is a tap target of its own
  * @param dayLabelId - The id of the day's header, which describes each tappable block
+ * @param lanes - The lanes the day is divided among, in order, or none
  * @returns Rendered column
  */
 function renderDayBody(
@@ -2076,6 +2098,7 @@ function renderDayBody(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  lanes: ReadonlyArray<LaneRender.LaneHead> = [],
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isPast } = Leaves.classifyDay(day.timestamp);
@@ -2092,6 +2115,7 @@ function renderDayBody(
     event: Types.CalendarEventData & Grid.LaneInput;
     horizontal: BlockHorizontal;
     span: Grid.BlockSpan;
+    lane?: { key: string; name: string };
   }> = [];
   const overflowBlocks: Array<{
     overflow: { startMin: number; endMin: number; hidden: Types.CalendarEventData[] };
@@ -2099,46 +2123,84 @@ function renderDayBody(
     span: Grid.BlockSpan;
   }> = [];
 
-  if (cascade) {
-    const layout = Grid.layoutCascade(visible, band, {
-      thresholdMin: CascadeThreshold.thresholdForScale(cascadeThresholdMin, 1),
-      hostThresholdMin: (host) =>
-        CascadeThreshold.thresholdForScale(
-          cascadeThresholdMin,
-          TextScale.textScaleOf(host, config),
-        ),
-      indentPct: Grid.CASCADE_INDENT_PCT,
-      maxDepth: Grid.CASCADE_MAX_DEPTH,
-      maxLanes,
-      stripPct: overflowStripPct,
-    });
+  // With lanes, each lane is laid out alone, as though it were the whole day, and then moved
+  // into its slice (`Grid.intoLane`). So every lane keeps its place on every day whatever the
+  // others hold, and an overlap layout only ever shares a slice among its own lane's events.
+  // Without them the day is one group, laid out exactly as it always was.
+  const groups =
+    lanes.length > 0
+      ? lanes.map((lane) => visible.filter((event) => Lanes.eventLaneKey(event) === lane.key))
+      : [visible];
+  const count = groups.length;
 
-    for (const event of layout.placed) {
-      blocks.push({ event, horizontal: cascadeHorizontal(event, band), span: event });
-    }
+  groups.forEach((members, laneIndex) => {
+    const at = (pct: number) => (count === 1 ? pct : Grid.intoLane(pct, laneIndex, count));
+    const lane = lanes[laneIndex] && { key: lanes[laneIndex].key, name: lanes[laneIndex].name };
+    // The strip's preferred width is a share of the whole day, and the layouts below share out
+    // one lane as though it were the day.
+    const stripPct = overflowStripPct * count;
 
-    for (const overflow of layout.overflows) {
-      overflowBlocks.push({
-        overflow,
-        horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
-        span: overflow,
+    if (cascade) {
+      const layout = Grid.layoutCascade(members, band, {
+        thresholdMin: CascadeThreshold.thresholdForScale(cascadeThresholdMin, 1),
+        hostThresholdMin: (host) =>
+          CascadeThreshold.thresholdForScale(
+            cascadeThresholdMin,
+            TextScale.textScaleOf(host, config),
+          ),
+        indentPct: Grid.CASCADE_INDENT_PCT,
+        maxDepth: Grid.CASCADE_MAX_DEPTH,
+        maxLanes,
+        stripPct,
       });
-    }
-  } else {
-    const { placed, overflows } = Grid.layoutLanes(visible, maxLanes, overflowStripPct);
 
-    for (const event of placed) {
-      blocks.push({ event, horizontal: spanHorizontal(event.x0Pct, event.x1Pct), span: event });
-    }
+      for (const placed of layout.placed) {
+        const event =
+          count === 1
+            ? placed
+            : {
+                ...placed,
+                x0Pct: at(placed.x0Pct),
+                x1Pct: at(placed.x1Pct),
+                contentX1Pct: at(placed.contentX1Pct),
+              };
+        blocks.push({ event, horizontal: cascadeHorizontal(event, band), span: event, lane });
+      }
 
-    for (const overflow of overflows) {
-      overflowBlocks.push({
-        overflow,
-        horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
-        span: overflow,
-      });
+      for (const placed of layout.overflows) {
+        const overflow =
+          count === 1 ? placed : { ...placed, x0Pct: at(placed.x0Pct), x1Pct: at(placed.x1Pct) };
+        overflowBlocks.push({
+          overflow,
+          horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
+          span: overflow,
+        });
+      }
+    } else {
+      const { placed, overflows } = Grid.layoutLanes(members, maxLanes, stripPct);
+
+      for (const side of placed) {
+        const event =
+          count === 1 ? side : { ...side, x0Pct: at(side.x0Pct), x1Pct: at(side.x1Pct) };
+        blocks.push({
+          event,
+          horizontal: spanHorizontal(event.x0Pct, event.x1Pct),
+          span: event,
+          lane,
+        });
+      }
+
+      for (const placed of overflows) {
+        const overflow =
+          count === 1 ? placed : { ...placed, x0Pct: at(placed.x0Pct), x1Pct: at(placed.x1Pct) };
+        overflowBlocks.push({
+          overflow,
+          horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
+          span: overflow,
+        });
+      }
     }
-  }
+  });
 
   // Over every block the column draws, `+N` strips included, because a strip touching a
   // block in time sits against it exactly as another event would.
@@ -2178,7 +2240,12 @@ function renderDayBody(
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
-      .calendarCardDaySlot=${Activation.timeSlot(day.timestamp, band.startMin, band.endMin)}
+      .calendarCardDaySlot=${Activation.timeSlot(
+        day.timestamp,
+        band.startMin,
+        band.endMin,
+        lanes.length > 0 ? lanes.map((lane) => lane.key) : undefined,
+      )}
     >
       ${
         nowPct === null
@@ -2192,7 +2259,7 @@ function renderDayBody(
         ${repeat(
           blocks,
           ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
-          ({ event, horizontal }, index) => {
+          ({ event, horizontal, lane }, index) => {
             const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
 
             return placement
@@ -2208,6 +2275,7 @@ function renderDayBody(
                   eventsTappable,
                   dayLabelId,
                   nowMin,
+                  lane,
                 )
               : nothing;
           },

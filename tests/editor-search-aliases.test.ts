@@ -98,6 +98,7 @@ const FAMILIES: Readonly<Record<string, Family>> = {
   },
   'time_format.aliases': { field: 'time_format', scope: 'card', queries: ['12h', 'AM/PM'] },
   'event_type.aliases': { field: 'event_type', scope: 'card', queries: ['all-day events'] },
+  'lanes.aliases': { field: 'lanes', scope: 'card', queries: ['column per person', 'swimlanes'] },
   'event_tap_action.aliases': {
     field: 'event_tap_action',
     scope: 'card',

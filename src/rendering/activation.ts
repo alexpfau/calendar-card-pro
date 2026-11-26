@@ -209,6 +209,11 @@ export type DaySlot =
       readonly startMin: number;
       /** Minute the area ends at, from midnight, exclusive. */
       readonly endMin: number;
+      /**
+       * The lanes the area is divided among, each an even slice across it in this order, where
+       * the grid draws lanes (`lanes`); a press reads which one it fell in (`laneAt`).
+       */
+      readonly lanes?: ReadonlyArray<string>;
     }
   | {
       readonly kind: 'columns';
@@ -257,10 +262,18 @@ export function daySlot(timestamp: number): DaySlot {
  * @param timestamp - The day's local midnight
  * @param startMin - First minute the area shows, from midnight
  * @param endMin - Minute it ends at, exclusive
+ * @param lanes - The lanes it is divided among, in order, where the grid draws lanes
  * @returns The slot
  */
-export function timeSlot(timestamp: number, startMin: number, endMin: number): DaySlot {
-  return { kind: 'time', timestamp, startMin, endMin };
+export function timeSlot(
+  timestamp: number,
+  startMin: number,
+  endMin: number,
+  lanes?: ReadonlyArray<string>,
+): DaySlot {
+  return lanes
+    ? { kind: 'time', timestamp, startMin, endMin, lanes }
+    : { kind: 'time', timestamp, startMin, endMin };
 }
 
 /**
@@ -291,6 +304,8 @@ export interface DayHit {
   readonly band?: { readonly startMin: number; readonly endMin: number };
   /** Whether the press was in a grid's all-day band, which adds an all-day event. */
   readonly allDay?: boolean;
+  /** The lane under the pointer, for a press in a grid's time area divided among lanes. */
+  readonly lane?: string;
 }
 
 /** A pointer position in viewport coordinates, as a pointer event carries it. */
@@ -332,6 +347,28 @@ export function minuteAt(
           startMin + Math.min(1, Math.max(0, (y - rect.top) / rect.height)) * span,
         );
   return Math.min(24 * 60 - step, Math.max(0, Math.floor(minute / step) * step));
+}
+
+/**
+ * The lane a point in a time area divided among lanes falls in: the slice across the area that
+ * holds it, counted from the inline start, so from the right on a right-to-left page.
+ *
+ * @param rect - The area's client rect
+ * @param x - The pointer's viewport x
+ * @param lanes - The lanes, in order
+ * @param rtl - Whether the area runs right to left
+ * @returns The lane's key, or undefined with no lanes
+ */
+export function laneAt(
+  rect: { left: number; width: number },
+  x: number,
+  lanes: ReadonlyArray<string>,
+  rtl: boolean,
+): string | undefined {
+  if (lanes.length === 0) return undefined;
+  const across = rect.width > 0 ? Math.min(1, Math.max(0, (x - rect.left) / rect.width)) : 0;
+  const share = rtl ? 1 - across : across;
+  return lanes[Math.min(lanes.length - 1, Math.floor(share * lanes.length))];
 }
 
 /**
@@ -402,11 +439,15 @@ export function findDayHit(
 
     if (slot.kind === 'time') {
       const rect = element.getBoundingClientRect();
+      const lane = slot.lanes
+        ? laneAt(rect, point.x, slot.lanes, getComputedStyle(element).direction === 'rtl')
+        : undefined;
       return {
         element,
         timestamp: slot.timestamp,
         minute: minuteAt(rect, point.y, slot.startMin, slot.endMin),
         band: { startMin: slot.startMin, endMin: slot.endMin },
+        ...(lane === undefined ? {} : { lane }),
       };
     }
 

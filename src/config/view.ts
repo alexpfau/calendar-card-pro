@@ -31,6 +31,7 @@ import * as Types from './types';
 import { VIEWS } from './views';
 import * as EntityColors from '../utils/entity-colors';
 import * as Helpers from '../utils/helpers';
+import * as Lanes from '../utils/lanes';
 import * as Logger from '../utils/logger';
 import {
   addDays,
@@ -196,7 +197,13 @@ export const COLUMN_ONLY_KEYS = [
  * producing exactly the accepted-then-silently-ignored override the assertion exists to
  * prevent. The spread of a tuple is still a tuple.
  */
-export const TIME_GRID_OVERRIDE_KEYS = [...COLUMN_OVERRIDE_KEYS, 'multiday_banners'] as const;
+export const TIME_GRID_OVERRIDE_KEYS = [
+  ...COLUMN_OVERRIDE_KEYS,
+  'multiday_banners',
+  // A slice of every day per lane, and how narrow one may be. Only Grid draws lanes.
+  'lanes',
+  'min_lane_width',
+] as const;
 
 /** Grid-only options — the ones describing the time axis and responsive density. */
 export const TIME_GRID_ONLY_KEYS = [
@@ -626,6 +633,12 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // the same event already reads as one row per day.
   multiday_banners: new Set<Types.EffectiveView>(['grid', 'month']),
 
+  // The layouts that divide a day among lanes, as `Lanes.LANE_VIEWS` lists them; written out
+  // because `check:docs` reads this table as text. A month's day is a few lines tall, with no
+  // room to divide.
+  lanes: new Set<Types.EffectiveView>(['grid']),
+  min_lane_width: new Set<Types.EffectiveView>(['grid']),
+
   // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.
   empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
@@ -747,7 +760,11 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
  * on offering the per-calendar control to a column user, storing what they chose, and
  * dropping it.
  */
-export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {};
+export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  // A calendar's own, with no card-level namesake: the lane its events are drawn in, which only
+  // a layout drawing lanes has (`Lanes.LANE_VIEWS`).
+  lane: new Set<Types.EffectiveView>(['grid']),
+};
 
 /**
  * Whether an option has any effect in the given view.
@@ -3480,8 +3497,58 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
       ? overrides.min_day_width
       : defaultValue;
   const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+  const dayWidth = Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
 
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
+  // A day drawing lanes needs room for each of them, so the card sheds a day before a lane falls
+  // below its width. Every fit below reads the day's width through here, the hysteresis band
+  // and the editor's width table included, so they all count the lanes alike.
+  const lanes = laneFit(config, view);
+  return lanes ? Math.max(dayWidth, lanes.count * lanes.width) : dayWidth;
+}
+
+/**
+ * Whether the configuration turns lanes on anywhere a layout could draw them: at the top level,
+ * or in the block of a layout that can (`Lanes.LANE_VIEWS`). Read from the configuration as
+ * written, before any layout's options are resolved, so a card that never asks pays nothing.
+ *
+ * @param config - Merged configuration
+ * @param view - One layout to ask about, or every layout that can draw lanes
+ * @returns True where some layout may draw lanes
+ */
+export function asksForLanes(config: Types.Config, view?: Types.EffectiveView): boolean {
+  if (config.lanes === true) return true;
+  const views = view ? [view] : [...Lanes.LANE_VIEWS];
+  return views.some(
+    (candidate) =>
+      (blockValues(config, candidate) as Record<string, unknown> | undefined)?.lanes === true,
+  );
+}
+
+/**
+ * The lanes a layout lays its days out in, and the narrowest each may be: none where it draws
+ * none.
+ *
+ * Counted from the configuration's own `entities`, so the count is the lanes the card can draw
+ * rather than those the calendar filter shows now, and pressing a chip never refits the card. The
+ * card hands its fits a configuration whose `entities` are only those its visibility conditions
+ * show this viewer, so a lane hidden from someone takes no room on their card.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - The layout fitted
+ * @returns The number of lanes and the narrowest one, in pixels, or `null` for none
+ */
+export function laneFit(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): { count: number; width: number } | null {
+  if (!Lanes.LANE_VIEWS.has(view)) return null;
+  // Off unless the top level or the layout's own block turns it on: the fit of every card that
+  // never does stays the arithmetic it always was, without resolving the layout's options.
+  if (!asksForLanes(config, view)) return null;
+
+  const effective = resolveEffectiveConfig(config, view);
+  const count = Lanes.laneUniverse(effective, view).length;
+  return count > 0 ? { count, width: effective.min_lane_width } : null;
 }
 
 /**

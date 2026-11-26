@@ -190,6 +190,8 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     // And Open Links, `VIEW_SCOPE`d away from Grid, is built only while events open nothing,
     // where by default a tap on one opens it.
     event_tap_action: { action: 'none' },
+    // And Minimum Lane Width, built only while the layout draws lanes.
+    lanes: true,
     column: { event_font_size: '19px', show_location: true, show_empty_days: false },
     time_grid: { event_font_size: '23px', show_empty_days: false, show_location: true },
   };

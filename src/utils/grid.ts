@@ -465,6 +465,23 @@ export function resolveBlockEdges(
 }
 
 /**
+ * Moves an inline position laid out across a whole day into one lane's slice of it.
+ *
+ * With lanes, each lane's events are laid out as though the lane were the whole day, in
+ * percentages of its width, and then moved here into the lane's slice, the day divided evenly
+ * among the lanes. The map is linear, so whatever held between a lane's blocks still holds in
+ * its slice: which one is indented over which, and how much of each its text may use.
+ *
+ * @param pct - Inline position across the whole day, 0 to 100
+ * @param laneIndex - The lane's place among the lanes, from 0
+ * @param laneCount - How many lanes share the day
+ * @returns The position across the day, inside the lane's slice
+ */
+export function intoLane(pct: number, laneIndex: number, laneCount: number): number {
+  return (laneIndex * 100 + pct) / laneCount;
+}
+
+/**
  * Place the now-line within the band.
  *
  * Returns `null` rather than a clamped value when the current time is outside the

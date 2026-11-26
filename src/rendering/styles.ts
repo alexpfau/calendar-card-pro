@@ -1609,14 +1609,15 @@ export const cardStyles = css`
     margin-block: -0.5em;
   }
 
-  /* The month, a chip's name, a day's weather in column and grid view, and a month day list's name
-     cut their text at their inline edges too, and keep the room event text keeps there, so a mark
-     or a letter leaning past the first or last letter is drawn whole; see "Marks above and below
-     the line". */
+  /* The month, a chip's name, a day's weather in column and grid view, a month day list's name and
+     a lane's name cut their text at their inline edges too, and keep the room event text keeps
+     there, so a mark or a letter leaning past the first or last letter is drawn whole; see "Marks
+     above and below the line". */
   .toolbar-month-text,
   .legend-chip-label,
   .column-date-content .weather,
-  .month-day-list-fit {
+  .month-day-list-fit,
+  .lane-name {
     padding-inline: var(--calendar-card-inline-room);
     margin-inline: calc(-1 * var(--calendar-card-inline-room));
   }
@@ -6395,6 +6396,108 @@ export const cardStyles = css`
 
   .grid-day-header {
     min-width: 0;
+  }
+
+  /* ----- Lanes ----- */
+
+  /* The strip of lane headers under each date (lanes), one slice per lane in the order the
+     day's slices run, so each header stands over its own lane. A header is the lane's label,
+     or its initial in a circle of its color where it has none, then its name. As a slice
+     narrows the name goes first and then the label, each by a container query on its own
+     header, so a narrow week tells its lanes apart for as long as anything fits. The strip is
+     for the eye: each block names its lane to assistive technology itself. */
+  .lane-strip {
+    display: grid;
+    margin-top: 6px;
+    font-size: var(--calendar-card-font-size-weekday);
+    color: var(--secondary-text-color);
+  }
+
+  /* Its padding holds the ring around a picture, which its clip would otherwise cut. */
+  .lane-header {
+    container-type: inline-size;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 2px;
+    overflow: hidden;
+    line-height: 1.2;
+  }
+
+  .lane-label {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* A picture is drawn round, as a face over a lane reads, ringed in the lane's color. */
+  .lane-label > .label-image,
+  .lane-initial {
+    width: 1.75em;
+    height: 1.75em;
+    margin: 0;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px var(--calendar-card-lane-accent);
+  }
+
+  .lane-label > .label-image {
+    object-fit: cover;
+  }
+
+  .lane-label > .label-icon {
+    --mdc-icon-size: 1.5em;
+    margin: 0;
+    color: var(--calendar-card-lane-accent);
+  }
+
+  .lane-label > .calendar-label {
+    margin: 0;
+  }
+
+  .lane-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--calendar-card-lane-accent);
+    color: var(--text-primary-color, #fff);
+    font-weight: 600;
+  }
+
+  .lane-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A header hides only a label too wide for its slice, and a name only a name too long for it,
+     so both cut along the inline axis alone, and the marks Thai sets above and below a name are
+     drawn whole; see "Marks above and below the line". */
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
+    .lane-header {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+
+    .lane-name {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
+  @container (max-width: 56px) {
+    .lane-name {
+      display: none;
+    }
+  }
+
+  @container (max-width: 20px) {
+    .lane-label {
+      display: none;
+    }
   }
 
   .grid-head > .column-week-number {

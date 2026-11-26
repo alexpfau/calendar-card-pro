@@ -58,9 +58,10 @@ describe('the filter switch', () => {
     const schema = entitySchema();
     const names = fieldNames(schema);
 
-    // After the accent color, which leads the page.
+    // After the accent color, which leads the page, and before the lane, the last thing said
+    // about the calendar rather than about how its events look.
     const at = names.indexOf('name');
-    expect(names.slice(at, at + 3)).toEqual(['name', 'show_in_legend', 'label_type']);
+    expect(names.slice(at, at + 3)).toEqual(['name', 'show_in_legend', 'lane']);
     expect(schema.find((node) => node.name === 'show_in_legend')).toEqual({
       name: 'show_in_legend',
       selector: { boolean: {} },
