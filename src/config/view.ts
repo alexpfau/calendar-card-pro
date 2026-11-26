@@ -82,6 +82,9 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_past_events',
   'filter_duplicates',
   'duplicate_accent_color',
+  // Each layout may draw lanes or not: List as columns, Columns as rows, Grid as slices. Month
+  // draws none (`MONTH_IGNORED_SHARED_KEYS`).
+  'lanes',
   'vertical_line_width',
   'event_spacing',
   'event_gap',
@@ -200,8 +203,7 @@ export const COLUMN_ONLY_KEYS = [
 export const TIME_GRID_OVERRIDE_KEYS = [
   ...COLUMN_OVERRIDE_KEYS,
   'multiday_banners',
-  // A slice of every day per lane, and how narrow one may be. Only Grid draws lanes.
-  'lanes',
+  // How narrow a day's slice may be. Columns' lanes are rows, which no width decides.
   'min_lane_width',
 ] as const;
 
@@ -261,6 +263,9 @@ export const LIST_OVERRIDE_KEYS = [
   'month_separator_label',
   'month_separator_label_color',
   'month_separator_label_font_size',
+  // How narrow a lane's column may be, and what the list does once they no longer fit.
+  'min_lane_width',
+  'lanes_fallback',
 ] as const;
 
 /**
@@ -287,6 +292,7 @@ export const LIST_ONLY_KEYS = [] as const;
  *   and its week numbers as plain text without a background.
  * - Its day list always puts each row's time beside its title (`MonthDay.monthRowsConfig`), and
  *   draws no clock beside a time.
+ * - A day a few lines tall has no room to divide among lanes (`lanes`).
  * - It keeps the rest at their shipped values ({@link MONTH_PINNED}), whatever is written.
  */
 export const MONTH_IGNORED_SHARED_KEYS = [
@@ -312,6 +318,8 @@ export const MONTH_IGNORED_SHARED_KEYS = [
   'today_indicator_size',
   'time_position',
   'time_icon_size',
+  // A day a few lines tall, with no room to divide among lanes.
+  'lanes',
   // Pinned (`MONTH_PINNED`): the description, the countdown, the progress bar, the all-day
   // badge, the line limits and the icons' alignment.
   'show_description',
@@ -633,11 +641,13 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // the same event already reads as one row per day.
   multiday_banners: new Set<Types.EffectiveView>(['grid', 'month']),
 
-  // The layouts that divide a day among lanes, as `Lanes.LANE_VIEWS` lists them; written out
-  // because `check:docs` reads this table as text. A month's day is a few lines tall, with no
-  // room to divide.
-  lanes: new Set<Types.EffectiveView>(['grid']),
-  min_lane_width: new Set<Types.EffectiveView>(['grid']),
+  // The layouts that give each lane a fixed place in every day, as `Lanes.LANE_VIEWS` lists them;
+  // written out because `check:docs` reads this table as text. A month's day is a few lines
+  // tall, with no room to divide. How narrow a lane may be decides List's fit and Grid's days;
+  // Columns' lanes are rows, which no width decides. Only List falls back from its lanes.
+  lanes: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
+  min_lane_width: new Set<Types.EffectiveView>(['list', 'grid']),
+  lanes_fallback: new Set<Types.EffectiveView>(['list']),
 
   // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.
@@ -763,7 +773,7 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
   // A calendar's own, with no card-level namesake: the lane its events are drawn in, which only
   // a layout drawing lanes has (`Lanes.LANE_VIEWS`).
-  lane: new Set<Types.EffectiveView>(['grid']),
+  lane: new Set<Types.EffectiveView>(['list', 'column', 'grid']),
 };
 
 /**
@@ -2100,6 +2110,10 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * `event_tap_action: details` a tap opens the event's details, which show it, and
  * `time_grid: { show_location: true }` draws it in the block again.
  *
+ * `min_lane_width` is 40px against List's 96px. A list's lane holds a full row of text beside its
+ * neighbors, a grid's a positioned block a tap opens, whose lane its picture and color already
+ * say; at 40px four lanes keep a week of seven days on a 1,207px card.
+ *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
  * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
@@ -2123,6 +2137,9 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   show_empty_days: true,
   show_location: false,
   show_past_events: true,
+  // A day's slice of the hours carries positioned blocks rather than a full text list, so it can
+  // be far narrower than a list's lane: four lanes keep seven days on a 1,207px card.
+  min_lane_width: 40,
 };
 
 /**
@@ -3394,8 +3411,9 @@ export function computeColumnThresholdPxFor(
 /**
  * Width occupied before the repeating day tracks begin.
  *
- * Column view has no leading track. Grid view has a time axis followed by a gap, and
- * omitting either lets the fitted day tracks fall below `min_day_width`.
+ * Column view has no leading track unless it draws lanes, which add the track naming each lane's
+ * row (`UI.LANE_TRACK`) and a gap. Grid view has a time axis followed by a gap, and omitting
+ * either lets the fitted day tracks fall below `min_day_width`.
  *
  * The axis value arrives through {@link normalizeAxisWidth}, so it is either a pixel
  * length this reads exactly or `max-content`, and the two branches below are the whole
@@ -3408,6 +3426,11 @@ function dayColumnViewOverheadPx(
   view: Types.EffectiveView,
   gutter: number,
 ): number {
+  if (view === 'column') {
+    // The track at the start of Columns' rows that names each lane, and the gutter after it.
+    return laneFit(config, view) ? UI.LANE_TRACK + gutter : 0;
+  }
+
   if (view !== 'grid') {
     return 0;
   }
@@ -3499,10 +3522,11 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
   const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
   const dayWidth = Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
 
-  // A day drawing lanes needs room for each of them, so the card sheds a day before a lane falls
-  // below its width. Every fit below reads the day's width through here, the hysteresis band
-  // and the editor's width table included, so they all count the lanes alike.
-  const lanes = laneFit(config, view);
+  // A grid day drawing lanes needs room for each of its slices, so the card sheds a day before a
+  // lane falls below its width. Every fit below reads the day's width through here, the
+  // hysteresis band and the editor's width table included, so they all count the lanes alike.
+  // Columns' lanes are rows, which take none of a day's width (`dayColumnViewOverheadPx`).
+  const lanes = view === 'grid' ? laneFit(config, view) : null;
   return lanes ? Math.max(dayWidth, lanes.count * lanes.width) : dayWidth;
 }
 
@@ -3549,6 +3573,85 @@ export function laneFit(
   const effective = resolveEffectiveConfig(config, view);
   const count = Lanes.laneUniverse(effective, view).length;
   return count > 0 ? { count, width: effective.min_lane_width } : null;
+}
+
+/**
+ * How a list drawing lanes lays them out at a width:
+ *
+ * - `matrix`: a column per lane beside the dates, the lanes sharing the card's width;
+ * - `scroll`: the same, each lane at least `min_lane_width` wide, scrolling sideways under the
+ *   dates, which stay where they are;
+ * - `list`: the plain list without lanes, under `lanes_fallback: list`.
+ */
+export type ListLaneMode = 'matrix' | 'scroll' | 'list';
+
+/** Horizontal padding a list card reserves for itself: 8px at its start and 16px at its end. */
+const LIST_CARD_PADDING_PX = 24;
+
+/** The inline padding of a list's date column, start and end together (`.date-column`). */
+const LIST_DATE_COLUMN_PADDING_PX = 20;
+
+/** The day number a list's date column is sized from, when it is not given in pixels. */
+const LIST_DAY_FONT_PX = parsePixelLength(DEFAULT_CONFIG.day_font_size, 26);
+
+/**
+ * The narrowest card a list's lanes fit side by side in, each at `min_lane_width`: the card's
+ * padding, the date column as the stylesheet sizes it, from the day number at the largest scale a
+ * date is drawn at, and each lane with the gap between two.
+ *
+ * A day number given in anything but pixels is read at the shipped size, as the grid's axis
+ * reads a time size it cannot resolve; the hysteresis band absorbs the difference.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param lanes - The list's lanes ({@link laneFit})
+ * @returns The width, in CSS pixels
+ */
+export function listLaneThresholdPx(
+  config: Types.Config,
+  lanes: { count: number; width: number },
+): number {
+  const list = resolveEffectiveConfig(config, 'list');
+  const scale = (value: unknown) => (typeof value === 'number' && value > 0 ? value : 1);
+  const dateScale = Math.max(1, scale(list.today_date_scale), scale(list.past_date_scale));
+  const dayFontPx = parsePixelLength(String(list.day_font_size), LIST_DAY_FONT_PX);
+  const dateColumn = dayFontPx * 1.75 * dateScale + LIST_DATE_COLUMN_PADDING_PX;
+
+  return (
+    LIST_CARD_PADDING_PX + dateColumn + lanes.count * lanes.width + (lanes.count - 1) * UI.LANE_GAP
+  );
+}
+
+/**
+ * How a list draws its lanes at a measured width, or `null` where it draws none.
+ *
+ * Hysteresis as every fit has it: a list drawing its lanes side by side keeps them down to half
+ * the band below the width they need, and one that does not gains them only at half the band
+ * above, so a card resting at the threshold settles. Before the first measurement the lanes are
+ * drawn side by side, as a day-column view draws every day.
+ *
+ * @param config - Merged configuration, defaults already applied, its `entities` those shown to
+ *   the viewer
+ * @param measuredWidthPx - Card width, `null` before the first measurement
+ * @param previous - How the list's lanes are drawn now, `null` where they are not
+ * @returns The mode, or `null` where the list draws no lanes
+ */
+export function resolveListLaneMode(
+  config: Types.Config,
+  measuredWidthPx: number | null,
+  previous: ListLaneMode | null,
+): ListLaneMode | null {
+  const lanes = laneFit(config, 'list');
+  if (!lanes) return null;
+  if (measuredWidthPx === null || measuredWidthPx <= 0) return 'matrix';
+
+  const threshold = listLaneThresholdPx(config, lanes);
+  const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
+  const fits =
+    previous === 'matrix'
+      ? measuredWidthPx >= threshold - halfBand
+      : measuredWidthPx >= threshold + halfBand;
+  if (fits) return 'matrix';
+  return resolveEffectiveConfig(config, 'list').lanes_fallback === 'list' ? 'list' : 'scroll';
 }
 
 /**
@@ -4312,10 +4415,31 @@ export function describeMonthWidths(config: Types.Config): MonthWidths {
  * - `narrower`: that many days, narrower than `min_day_width` (`min_days_fallback: cramp`);
  * - `list`: List in its place, with List's own count of days;
  * - `month`: a month, in the form given.
+ *
+ * Where the list drawn, List itself or the one a layout falls back to, draws lanes, `lanes` says
+ * how: side by side, or scrolling sideways ({@link ListLaneMode}). Under `lanes_fallback: list` a
+ * list too narrow for its lanes draws none, and carries no `lanes`.
  */
 export type LayoutFit =
-  | { readonly kind: 'days' | 'narrower' | 'list'; readonly days: number }
+  | {
+      readonly kind: 'days' | 'narrower' | 'list';
+      readonly days: number;
+      readonly lanes?: 'matrix' | 'scroll';
+    }
   | { readonly kind: 'month'; readonly form: MonthCardForm };
+
+/**
+ * The list's lanes at a width on a fresh load, for a {@link LayoutFit}: how they are drawn, or
+ * nothing where the list draws none.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param widthPx - The card's width, in CSS pixels
+ * @returns The `lanes` member, or an empty object
+ */
+function listLanesAt(config: Types.Config, widthPx: number): { lanes?: 'matrix' | 'scroll' } {
+  const mode = resolveListLaneMode(config, widthPx, null);
+  return mode === 'matrix' || mode === 'scroll' ? { lanes: mode } : {};
+}
 
 /**
  * What one layout draws at a card width on a fresh load, from the same widths the editor's tables
@@ -4340,12 +4464,12 @@ export function fitAtWidth(
     };
   }
   if (!VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-    return { kind: 'days', days: configuredDays(config, view) };
+    return { kind: 'days', days: configuredDays(config, view), ...listLanesAt(config, widthPx) };
   }
   const { bands, fallback } = describeColumnLayoutBands(config, view);
   const band = bands.find((candidate) => widthPx >= candidate.minWidthPx);
   if (band !== undefined) return { kind: 'days', days: band.columns };
   return fallback === 'cramp'
     ? { kind: 'narrower', days: bands[bands.length - 1].columns }
-    : { kind: 'list', days: configuredDays(config, 'list') };
+    : { kind: 'list', days: configuredDays(config, 'list'), ...listLanesAt(config, widthPx) };
 }

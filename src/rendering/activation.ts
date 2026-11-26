@@ -188,7 +188,8 @@ export function startsOnRowLink(
  * What a press on one rendered element stands for, when a press there may add an event.
  *
  * - `day`: the element is one day's own, and its empty parts add on that day: a list day, a
- *   column-view day column, a grid day header.
+ *   column-view day column, a grid day header. Where it is one lane's part of a day in a list or
+ *   column view drawing lanes, `lane` names the lane, whose calendar a new event starts in.
  * - `time`: a grid day's time area, which adds at the quarter hour under the pointer.
  * - `columns`: space that belongs to no day element, under a short column-view column or in
  *   a grid's all-day band, whose day is the one whose column the pointer is in. `among`
@@ -201,7 +202,7 @@ export function startsOnRowLink(
  * Set through a Lit property binding like the tap target, so it leaves no trace in the markup.
  */
 export type DaySlot =
-  | { readonly kind: 'day'; readonly timestamp: number }
+  | { readonly kind: 'day'; readonly timestamp: number; readonly lane?: string }
   | {
       readonly kind: 'time';
       readonly timestamp: number;
@@ -247,13 +248,14 @@ export const COLUMNS_IN_HEAD: DaySlot = Object.freeze({
 });
 
 /**
- * One day's own slot.
+ * One day's own slot, or one lane's part of it.
  *
  * @param timestamp - The day's local midnight, as grouping stamps it
+ * @param lane - The lane's key, for one lane's part of a day in a layout drawing lanes
  * @returns The slot
  */
-export function daySlot(timestamp: number): DaySlot {
-  return { kind: 'day', timestamp };
+export function daySlot(timestamp: number, lane?: string): DaySlot {
+  return lane === undefined ? { kind: 'day', timestamp } : { kind: 'day', timestamp, lane };
 }
 
 /**
@@ -304,7 +306,10 @@ export interface DayHit {
   readonly band?: { readonly startMin: number; readonly endMin: number };
   /** Whether the press was in a grid's all-day band, which adds an all-day event. */
   readonly allDay?: boolean;
-  /** The lane under the pointer, for a press in a grid's time area divided among lanes. */
+  /**
+   * The lane under the pointer, for a press in a grid's time area divided among lanes, or in one
+   * lane's part of a day in a list or column view drawing lanes.
+   */
   readonly lane?: string;
 }
 
@@ -435,7 +440,11 @@ export function findDayHit(
     if (!slot || slot.kind === 'covered') continue;
 
     const element = node as Element;
-    if (slot.kind === 'day') return { element, timestamp: slot.timestamp };
+    if (slot.kind === 'day') {
+      return slot.lane === undefined
+        ? { element, timestamp: slot.timestamp }
+        : { element, timestamp: slot.timestamp, lane: slot.lane };
+    }
 
     if (slot.kind === 'time') {
       const rect = element.getBoundingClientRect();

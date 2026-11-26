@@ -94,6 +94,12 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     { page: 'size_spacing', heading: 'heading_between_days' },
   ],
   ['.empty-day-title', { page: 'which_events', heading: 'heading_nothing' }],
+  // A lane's header, the picture and name in it included, and a lane's part of a day around its
+  // events, open Calendar Lanes: before the labels, which a header holds too.
+  [
+    '.lane-header, .lane-header *, .lane-corner, .lane-cell',
+    { page: 'events', heading: 'heading_lanes', field: 'layout:lanes' },
+  ],
   [
     '.allday-badge, .allday-title-pill, .calendar-label, .label-icon',
     { page: 'events', heading: 'heading_icon_and_badge' },

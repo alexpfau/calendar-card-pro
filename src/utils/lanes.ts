@@ -29,11 +29,16 @@ export interface Lane {
 }
 
 /**
- * The layouts that can draw lanes. Grid draws a slice of each day per lane.
+ * The layouts that can draw lanes: List a column per lane beside its dates, Columns a row per
+ * lane across its days, Grid a slice of every day's hours per lane.
  *
  * Month never does: its days are a few lines tall, with no room to divide.
  */
-export const LANE_VIEWS: ReadonlySet<Types.EffectiveView> = new Set<Types.EffectiveView>(['grid']);
+export const LANE_VIEWS: ReadonlySet<Types.EffectiveView> = new Set<Types.EffectiveView>([
+  'list',
+  'column',
+  'grid',
+]);
 
 /**
  * The lane an entry draws into.

@@ -110,6 +110,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       verdict: 'inherits',
       why: 'Inherits the unset sentinel, which the stylesheet resolves per placement — 80% in column, where a row has no boundary of its own and a full width would read as an underline. Grid needs a concrete 100% because a block is a box with an edge.',
     },
+    min_lane_width: {
+      verdict: 'ignores',
+      why: 'Column gives each lane a row across its days, as tall as its events, so no width decides a lane there and VIEW_SCOPE keeps the option out. Grid diverges to 40px because its slices hold positioned blocks rather than a list lane of text rows.',
+    },
     show_location: {
       verdict: 'inherits',
       why: 'A column row is a full-height text row, as a list row is, so a location fits under the title and the card-wide answer stands. Grid hides it because a block is read by its position and height, and an address of several lines pushes the time out of a short meeting.',
@@ -216,6 +220,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
     progress_bar_width: {
       verdict: 'ignores',
       why: 'As progress_bar_color: a month draws no progress bar. Grid needs 100% because a block is a box with an edge.',
+    },
+    min_lane_width: {
+      verdict: 'ignores',
+      why: 'A month draws no lanes: a day a few lines tall has no room to divide, so VIEW_SCOPE keeps the option out. Grid diverges to 40px because its slices hold positioned blocks rather than a list lane of text rows.',
     },
     show_empty_days: {
       verdict: 'ignores',

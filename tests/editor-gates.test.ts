@@ -94,6 +94,8 @@ const LIST_ONLY = [
   // An event's forecast on a line of its own, which Columns and Grid always draw
   // (`ViewConfig.WEATHER_OPTION_SCOPE`).
   'weather:weather.event.own_line',
+  // What a list does once its lanes no longer fit: Columns and Grid shed days instead.
+  'layout:lanes_fallback',
 ];
 
 /** Offered only in Columns. */
@@ -132,11 +134,13 @@ const GRID_ONLY = [
   'layout:time_grid.allday_band_max_rows',
   'layout:time_grid.overlap_layout',
   'layout:time_grid.max_simultaneous_events',
-  // Calendar Lanes, its width and a calendar's Lane: only Grid draws lanes.
-  'layout:lanes',
-  'layout:min_lane_width',
-  'calendar:lane',
 ];
+
+/**
+ * How narrow a lane may be, which List's lanes and Grid's slices have and Columns' rows do not,
+ * and so All Layouts too.
+ */
+const LIST_AND_GRID = ['layout:min_lane_width'];
 
 /**
  * Offered in Grid and Month, which draw a long timed event as a bar, and so in All Layouts as
@@ -238,6 +242,9 @@ const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
  */
 const NOT_IN_MONTH = [
   ...NOT_IN_GRID_OR_MONTH,
+  // Calendar Lanes and a calendar's Lane: a month's day has no room to divide.
+  'layout:lanes',
+  'calendar:lane',
   'layout:height',
   'layout:max_height',
   'events:show_multiday_allday_time',
@@ -300,7 +307,7 @@ const LACKS: Readonly<Record<EditorWorkspace, ReadonlyArray<FieldId>>> = {
     ...LAYOUT_WEATHER,
   ],
   list: [...COLUMN_ONLY, ...GRID_ONLY, ...COLUMN_AND_GRID, ...GRID_AND_MONTH, ...MONTH_ONLY],
-  column: [...LIST_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY],
+  column: [...LIST_ONLY, ...GRID_ONLY, ...GRID_AND_MONTH, ...MONTH_ONLY, ...LIST_AND_GRID],
   grid: [...LIST_ONLY, ...COLUMN_ONLY, ...MONTH_ONLY, ...NOT_IN_GRID],
   month: [
     ...LIST_ONLY,
@@ -309,6 +316,7 @@ const LACKS: Readonly<Record<EditorWorkspace, ReadonlyArray<FieldId>>> = {
     ...COLUMN_AND_GRID,
     ...NOT_IN_MONTH,
     ...WEATHER_BY_DAY,
+    ...LIST_AND_GRID,
   ],
 };
 
@@ -969,11 +977,13 @@ describe('the universe', () => {
     // gained Full-Size Settings' Days To Show and Show Toolbar. Then a calendar gained Image Size,
     // in every workspace. Then every workspace gained the full-size card's toolbar: its seven
     // controls, its Layouts in Switcher and its Arrow & Chip Size. Then Grid gained Calendar
-    // Lanes, its Minimum Lane Width and a calendar's Lane.
+    // Lanes, its Minimum Lane Width and a calendar's Lane. Then List and Columns gained Calendar
+    // Lanes and a calendar's Lane, List Minimum Lane Width and When Lanes Don't Fit, and All
+    // Layouts the three that more than one layout reads.
     expect(sizes).toEqual({
-      shared: { card: 150, calendar: 31 },
-      list: { card: 180, calendar: 32 },
-      column: { card: 174, calendar: 31 },
+      shared: { card: 152, calendar: 32 },
+      list: { card: 183, calendar: 33 },
+      column: { card: 175, calendar: 32 },
       grid: { card: 175, calendar: 32 },
       month: { card: 120, calendar: 30 },
     });
@@ -1377,7 +1387,7 @@ describe('the gate table', () => {
       },
       min_lane_width: {
         kind: 'gate',
-        fields: ['layout:min_lane_width'],
+        fields: ['layout:min_lane_width', 'layout:lanes_fallback'],
         requires: [p('layout:lanes', true, ON)],
       },
       accent: {

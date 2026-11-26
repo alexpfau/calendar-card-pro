@@ -972,9 +972,12 @@ describe('editor: applicability', () => {
       // Only grid has an all-day band above an hour axis for a timed event to move into, and
       // month draws such an event as a bar across its days in the same way.
       multiday_banners: ['grid', 'month'],
-      // Only the time grid divides its days among lanes; a month's day is a few lines tall.
-      lanes: ['grid'],
-      min_lane_width: ['grid'],
+      // Every layout but the month gives each lane a fixed place; a month's day is a few lines
+      // tall. A width decides List's lanes and Grid's slices, and Columns' lanes are rows. Only
+      // List falls back from its lanes.
+      lanes: ['column', 'grid', 'list'],
+      min_lane_width: ['grid', 'list'],
+      lanes_fallback: ['list'],
       // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
       // label whatever the option resolves to. Month's day list draws List's rows, which
       // carry it.
@@ -1041,7 +1044,7 @@ describe('editor: applicability', () => {
       ),
     ).toEqual({
       // A calendar's lane has no card-level namesake: only a layout drawing lanes reads it.
-      lane: ['grid'],
+      lane: ['column', 'grid', 'list'],
     });
 
     // The table wins outright where it has an entry, and with none a per-calendar option must
@@ -5068,6 +5071,8 @@ function editorOptions(): Map<string, string[]> {
     buildConfig({ view: 'column', column: { min_days_fallback: 'cramp', min_days_to_show: 2 } }),
     buildConfig({ weather: { entity: 'weather.home' } }),
     buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
+    // Calendar Lanes on, the one state that builds When Lanes Don't Fit.
+    buildConfig({ lanes: true }),
   ] as Types.Config[];
 
   const found = new Map<string, string[]>();
@@ -5146,6 +5151,9 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // boolean members are the dropdown's `off` and `exact`, which a union of literals
     // cannot spell, the way `show_week_numbers` spells `null` as `none`.
     filter_duplicates: { field: 'filter_duplicates_mode', editorOnly: ['off', 'exact'] },
+    // A list option whose dropdown is exactly the union: `scroll` is the shipped fallback
+    // rather than an absent value.
+    lanes_fallback: { field: 'lanes_fallback' },
   };
 
   /**

@@ -170,9 +170,12 @@ describe('Layout panel structure', () => {
       ...DENSITY,
       ...LANES,
     ]);
-    expect(layoutOutline('grid', { lanes: true }).slice(-2)).toEqual([
+    // Lanes on: how narrow one may be, and what List does once they no longer fit, which the
+    // builder builds in every layout and only List's page keeps (`VIEW_SCOPE`).
+    expect(layoutOutline('grid', { lanes: true }).slice(-3)).toEqual([
       'Calendar Lanes',
       'Minimum Lane Width',
+      'When Lanes Don’t Fit',
     ]);
   });
 
