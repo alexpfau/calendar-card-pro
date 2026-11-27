@@ -98,7 +98,7 @@ describe('the month block', () => {
     );
   });
 
-  it('overrides column’s shared options but the forty-three it draws nothing for or pins, and the bars', () => {
+  it('overrides column’s shared options but the forty-four it draws nothing for or pins, and the bars', () => {
     const ignored = [
       'height',
       'max_height',
@@ -122,6 +122,8 @@ describe('the month block', () => {
       'today_indicator_size',
       'time_position',
       'time_icon_size',
+      // A day a few lines tall, with no room to divide among lanes.
+      'lanes',
       ...PINNED,
     ];
     expect(ViewConfig.MONTH_IGNORED_SHARED_KEYS).toEqual(ignored);
@@ -170,8 +172,10 @@ describe('the options month reads', () => {
         'empty_day_text',
         'event_order',
         'height',
-        // A month's day is a few lines tall, with no room to divide among lanes.
+        // A month's day is a few lines tall, with no room to divide among lanes; List alone falls
+        // back from its lanes.
         'lanes',
+        'lanes_fallback',
         'max_height',
         'min_lane_width',
         'month_separator_color',

@@ -29,11 +29,16 @@ export interface Lane {
 }
 
 /**
- * The layouts that can draw lanes. Grid draws a slice of each day per lane.
+ * The layouts that can draw lanes: List a column per lane beside its dates, Columns a row per
+ * lane across its days, Grid a slice of every day's hours per lane.
  *
  * Month never does: its days are a few lines tall, with no room to divide.
  */
-export const LANE_VIEWS: ReadonlySet<Types.EffectiveView> = new Set<Types.EffectiveView>(['grid']);
+export const LANE_VIEWS: ReadonlySet<Types.EffectiveView> = new Set<Types.EffectiveView>([
+  'list',
+  'column',
+  'grid',
+]);
 
 /**
  * The lane an entry draws into.
@@ -115,14 +120,33 @@ export function buildLanes(
 }
 
 /**
- * Whether a layout draws lanes: one that can, with `lanes` on for it.
+ * Whether a layout draws lanes: one that can, with `lanes` on for it. List and Columns draw theirs
+ * with subgrids (Chrome 117, Safari 16), so a browser without them draws those two as they are
+ * without lanes, rather than lanes whose headers no longer stand over their events. Grid needs
+ * subgrids for its days whatever `lanes` says.
  *
  * @param config - Configuration resolved for the layout (`resolveEffectiveConfig`)
  * @param view - The layout drawn
  * @returns True where the layout arranges its events by lane
  */
 export function lanesOn(config: Pick<Types.Config, 'lanes'>, view: Types.EffectiveView): boolean {
-  return LANE_VIEWS.has(view) && config.lanes === true;
+  return LANE_VIEWS.has(view) && config.lanes === true && (view === 'grid' || supportsSubgrid());
+}
+
+let subgrid: boolean | undefined;
+
+/**
+ * Whether the browser lays out subgrids, asked once. Without `CSS.supports` to ask, as on a
+ * server, it is taken to.
+ *
+ * @returns True where `grid-template-columns: subgrid` is supported
+ */
+function supportsSubgrid(): boolean {
+  subgrid ??=
+    typeof CSS === 'undefined' ||
+    typeof CSS.supports !== 'function' ||
+    CSS.supports('grid-template-columns', 'subgrid');
+  return subgrid;
 }
 
 /**

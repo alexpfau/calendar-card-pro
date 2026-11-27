@@ -337,6 +337,25 @@ between them, so it belongs to no single day; select one weekend day as `.grid-d
 While today's tint is on, the weekend stripe breaks around today's column, which `.grid-today`
 covers alone.
 
+### Lane Classes
+
+With [calendar lanes](/features/lanes) on, list view and column view draw a header for each lane
+and a cell for each lane's part of a day:
+
+| Class           | Element                                                                                                                         | Also carries                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `.lane-header`  | a lane's header: over its column in list view, at the start of its row in column view                                           | `data-lane` with the lane's key; `--calendar-card-lane-accent`, the lane's accent color, which rings its picture |
+| `.lane-label`   | the header's label, its calendar's picture, icon or text                                                                        | —                                                                                                                |
+| `.lane-initial` | the circle with the lane's initial, in the label's place where its calendars have no label                                      | —                                                                                                                |
+| `.lane-name`    | the header's name                                                                                                               | —                                                                                                                |
+| `.lane-cell`    | one lane's part of a day, holding that lane's events                                                                            | `data-lane` with the lane's key; `.lane-across` for a day's "No events" notice, drawn across every lane          |
+| `.lane-matrix`  | list view's grid of the date column and a column per lane, holding `.lane-heads`, the row of headers, and a `.lane-day` per day | `.lane-matrix-scrolls` while the lanes scroll sideways, when the card carries `.lanes-scroll`                    |
+
+A lane's key is the `lane` its entries name, or its calendar's entity ID, so
+`.lane-header[data-lane="Anna"]` and `.lane-cell[data-lane="Anna"]` select one person's lane. A
+`.lane-day` carries the same `today`, `past-day` and `weekend` classes a list's `.day-table` does.
+In column view the headers stand in the `.column-grid`, which carries `.with-lanes`.
+
 ### Month View Classes
 
 [Month view](/features/month-view) draws its weeks, its days and its events with classes of its

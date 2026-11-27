@@ -658,8 +658,10 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['layout:time_grid.min_days_fallback', withMode('layout:narrow_fit')],
           ['layout:column.min_day_width', A],
           ['layout:time_grid.min_day_width', A],
-          // A day's lanes, once it has them: no narrower than this each, or the day goes.
+          // Lanes, once a layout has them: no narrower than this each, or Grid's day goes and
+          // List's lanes scroll or give way to the plain list, as the next field says.
           ['layout:min_lane_width', A],
+          ['layout:lanes_fallback', A],
           ['layout:month.min_day_width', A],
         ],
       },

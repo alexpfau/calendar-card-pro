@@ -68,9 +68,10 @@ describe('the list block is a registered peer', () => {
     expect(listBlock().defaultOverrides).toEqual({});
   });
 
-  it('carries every key column can override, plus the twelve list-only ones', () => {
+  it('carries every key column can override, the thirteen list-only ones and a lane’s width', () => {
+    // `min_lane_width` is List's and Grid's, so neither list-only nor Columns' to override.
     expect(new Set(ViewConfig.LIST_OVERRIDE_KEYS)).toEqual(
-      new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY]),
+      new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY, 'min_lane_width']),
     );
     expect([...LIST_ONLY].sort()).toEqual([
       'compact_card_height',
@@ -80,6 +81,7 @@ describe('the list block is a registered peer', () => {
       'compact_events_to_show',
       'date_vertical_alignment',
       'event_order',
+      'lanes_fallback',
       'month_separator_label',
       'month_separator_label_color',
       'month_separator_label_font_size',

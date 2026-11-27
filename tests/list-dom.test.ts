@@ -924,7 +924,8 @@ describe('list view DOM', () => {
     expect(weatherEligibility.match(/return null;/g)).toHaveLength(3);
     expect(eventWeatherSource).toMatch(/if \(!content\) return html``;/);
 
-    // The list row's date cell renders `''`, not `nothing`, on every row but the first.
-    expect(renderSource).toMatch(/\$\{index === 0\s*\? html`[\s\S]*?`\s*: ''\}/);
+    // The list row's date cell renders `''`, not `nothing`, on every row but the first, and on
+    // every row of a lane's column, which draws no date of its own.
+    expect(renderSource).toMatch(/\$\{index === 0 && drawsDate\s*\? html`[\s\S]*?`\s*: ''\}/);
   });
 });

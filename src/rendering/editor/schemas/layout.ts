@@ -214,7 +214,8 @@ function monthFields(blockKey: string, language: string, start: Types.MonthStart
  * @param daysToShow - Configured day count
  * @param language - Effective language code
  * @param monthStart - Month's First Week as the configuration reads it
- * @param lanes - Whether the layout draws lanes (`lanes`), which Minimum Lane Width sizes
+ * @param lanes - Whether the layout draws lanes (`lanes`), which Minimum Lane Width sizes and,
+ *   in List, When Lanes Don't Fit follows
  * @returns The panel's schema
  */
 const layoutSchema = Helpers.memoizeLast(
@@ -283,15 +284,19 @@ const layoutSchema = Helpers.memoizeLast(
       schema.push(...monthFields(blockKey, language, monthStart));
     }
 
-    // A slice of every day per lane, built in every layout and withheld where it has no effect
-    // by `VIEW_SCOPE`. How narrow a lane may be only while there are lanes to size; no ceiling,
-    // for the reason `densityFields` gives.
+    // A fixed place in every day per lane, built in every layout and withheld where it has no
+    // effect by `VIEW_SCOPE`. How narrow a lane may be, and what List does once its lanes no
+    // longer fit, only while there are lanes to size; no ceiling, for the reason
+    // `densityFields` gives.
     schema.push(bool('lanes'));
     if (lanes) {
-      schema.push({
-        name: 'min_lane_width',
-        selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
-      });
+      schema.push(
+        {
+          name: 'min_lane_width',
+          selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+        },
+        select(language, 'lanes_fallback', ['scroll', 'list']),
+      );
     }
 
     return schema;
@@ -441,7 +446,9 @@ function fitCell(ctx: SchemaCtx, fit: ViewConfig.LayoutFit): string {
     narrower: 'fit_summary.narrower',
     list: 'fit_summary.list',
   }[fit.kind];
-  return fit.days === 1 ? t(`${base}_one`) : t(base, { count: fit.days });
+  const layout = fit.days === 1 ? t(`${base}_one`) : t(base, { count: fit.days });
+  // A list whose lanes no longer fit side by side scrolls them, which the cell says.
+  return fit.lanes === 'scroll' ? t('fit_summary.lanes_scroll', { layout }) : layout;
 }
 
 /**

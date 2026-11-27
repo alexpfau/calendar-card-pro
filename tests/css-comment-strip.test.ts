@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(270_000);
-    // Picture labels at a size of their own moved the ceiling last, from 268,000 to 270,000
+    expect(saved).toBeLessThan(276_000);
+    // Calendar lanes in list and column view moved the ceiling last, from 270,000 to 276,000
+    // (backlog item 25): the notes on a lane's header giving up its name and then its label as it
+    // narrows, on a picture drawn round in its lane's ring, on the list's grid of a date column and
+    // a column per lane with each day a subgrid across it, on the date keeping its row's height and
+    // the lanes' gap, on a day's notice lying over its empty lanes, on the dates and the header row
+    // staying put while the lanes scroll, and on column view's lane track and subgrid rows. The
+    // reading went to 273,585, taken with stripComments after the last comment was written.
+    //
+    // Picture labels at a size of their own moved the ceiling before that, from 268,000 to 270,000
     // (backlog items 285 and 286): the notes on a picture's hanging indent following its height,
     // on an emoji beside a picture taking the wider of the two, on the wide month's lines keeping
     // their pictures at the text's height, and on a one-line title beside the time moving down to

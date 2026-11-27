@@ -496,7 +496,7 @@ entities:
 ## 🏊 A Lane per Calendar
 
 `lanes: true` gives each calendar a fixed slice of every day, so a calendar's events stay in one
-place whatever the others hold:
+place whatever the others hold. Set in `time_grid:`, it draws lanes in grid view alone:
 
 ```yaml
 view: grid
@@ -939,7 +939,7 @@ switch.
 
 ## 🔀 Options That Start From a Different Default
 
-Fourteen shared options do not inherit their top-level value in grid view. **Default** is
+Fifteen shared options do not inherit their top-level value in grid view. **Default** is
 the top-level default, and **Grid Default** is what grid view uses instead:
 
 | Option                     | Type    | Default                       | Grid Default                  |
@@ -958,6 +958,7 @@ the top-level default, and **Grid Default** is what grid view uses instead:
 | `description_color`        | string  | `var(--secondary-text-color)` | `accent`                      |
 | `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                      |
 | `progress_bar_width`       | string  | _per placement_               | `100%`                        |
+| `min_lane_width`           | number  | `96`                          | `40`                          |
 
 These defaults take precedence even when you explicitly set a different top-level value.
 For example, `event_background_opacity: 5` at the top level does not change Grid's tint,
@@ -1020,6 +1021,7 @@ Grid** instead. Stored values are kept for the layouts they apply to.
 | `time_max_lines`                                                                                                                   | Grid fits each time row to its block, as [What a Block Shows](#what-a-block-shows) describes. Title, location and description line limits still apply                                 |
 | `event_spacing`, `event_gap`                                                                                                       | A grid block sets its own padding and is placed by its time. `day_spacing` still sets the gap between day columns                                                                     |
 | `open_links`                                                                                                                       | Location and description stay text in a block; [Links in Events](/features/actions#links-in-events) has the list and column behavior                                                  |
+| `lanes_fallback`                                                                                                                   | A grid too narrow for its lanes shows fewer days, as [How Narrow a Lane May Be](/features/lanes#how-narrow-a-lane-may-be) describes; the plain list is a list's fallback              |
 
 To edit any of these, open a layout they apply to under
 **Layouts**, which leaves the card's layout as it is (the all-day badge controls are in **Layout

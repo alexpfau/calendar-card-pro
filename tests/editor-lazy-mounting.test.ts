@@ -127,7 +127,12 @@ describe('a page', () => {
 
     await openPageOf(editor, 'events:show_time');
     expect(ids().length).toBeGreaterThan(1);
-    expect(ids().every((id) => id.startsWith('events:') || id.startsWith('content:'))).toBe(true);
+    // Event Appearance, which holds Calendar Lanes beside the events' own settings.
+    expect(
+      ids().every(
+        (id) => id.startsWith('events:') || id.startsWith('content:') || id === 'layout:lanes',
+      ),
+    ).toBe(true);
     expect(ids()).not.toContain('content:days_to_show');
 
     await openPageOf(editor, 'content:days_to_show');

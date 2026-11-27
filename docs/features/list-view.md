@@ -23,9 +23,31 @@ writes when someone picks List. The options only List reads go in its own `list:
 - [`skip_first_events`](#continuing-a-list-on-a-second-card), which continues one list on a second card;
 - [`date_vertical_alignment`](/features/layout-appearance#spacing-alignment),
   [`today_indicator_position`](/features/layout-appearance#today-indicator) and the
-  [month's name on its rule](/features/layout-appearance#naming-the-month-on-its-rule).
+  [month's name on its rule](/features/layout-appearance#naming-the-month-on-its-rule);
+- [`lanes_fallback`](#a-column-per-calendar), what a list drawing lanes does once they no
+  longer fit.
 
 Every other option is shared with the other layouts; see [Choose a Layout](/features/layouts).
+
+## 🏊 A Column per Calendar
+
+`lanes: true` gives each calendar a column beside the dates, under a header with its picture and
+name, so each day reads across and each person down:
+
+```yaml
+view: list
+lanes: true
+entities:
+  - entity: calendar.anna
+    label: person.anna
+  - entity: calendar.ben
+    label: person.ben
+```
+
+On a card too narrow for every column at `min_lane_width`, 96px by default, the columns scroll
+sideways under the dates; `list: { lanes_fallback: list }` draws the plain list there instead.
+See [Calendar Lanes](/features/lanes) for grouping calendars into one person's column, and for
+turning lanes on in some layouts only.
 
 ## 📊 Compact Mode & Event Limits
 
