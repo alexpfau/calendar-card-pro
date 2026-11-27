@@ -10,7 +10,7 @@ The hallway tablet in use, then as a still: three days of the Family Hub's week,
 
 Tap a _Busy_ row and the popover still calls the meeting _Busy_, page ahead and swipe back, hide and restore both halves of Ben's work from the filter menu, with Reset there whenever the card is not as it was set up, search for Grandma, pick _Grandma time_ and come back to today, and watch collection day leave the list at 11:00.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda under a toolbar: tinted boxes titled in calendar colors with faces in front and each time at the end of its title's line, a rule between the days, all-day events as filled pills, a shared plan drawn once in gold, and Ben's working hours reading Busy" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda under a toolbar: tinted boxes titled in calendar colors with faces in front and each time at the end of its title's line, a rule between the days, all-day events as filled pills with their labels inside, a shared plan drawn once in gold, and Ben's working hours reading Busy" width="600"><br>
 
 Each all-day event is a filled pill: Leo's daycare closure in his green, collection day in purple until it retires at 11:00, the grandparents' visit in the Family calendar's gold. Ben's work says _Busy_, except the offsite he marked for the family.
 
@@ -192,7 +192,7 @@ The lines above `entities:` apply to every block at once, so a box, a color or a
 - **The week, full size.** `overlay: true` in the toolbar adds Open Full Size at the end of the top row, and [`tap_action: overlay`](/features/actions#opening-the-card-full-size) does the same for a tap anywhere but on an event. Either opens the same card over the dashboard, in Grid on seven days, every block included, _Busy_ too; Close, Back or a tap outside it puts the hallway list back as it was.
 - **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, and `day_separator_width: 1px` draws a rule between the days. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, and [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it.
 - **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it, so the three days take less height and the times line up at the right, where a glance can run down them.
-- **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color.
+- **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, with its calendar's label inside, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color.
 
 ::: details The Filter, Paging & Search
 
@@ -250,7 +250,7 @@ entities:
   # and the Busy block the same way
 ```
 
-[`label_image_size`](/features/core-settings#sizing-a-picture-label) draws each face larger, and a title that wraps keeps its later lines clear of it. A [`label` written as a list](/features/core-settings#combining-a-picture-an-icon-text) draws its parts in order, so both work blocks show Ben's face and a briefcase, while his own plans keep his face alone. The 🎂, 👨‍👩‍👦 and 🗑️ labels keep the size of the text.
+[`label_image_size`](/features/core-settings#sizing-a-picture-label) draws each face larger, and a title that wraps keeps its later lines clear of it. A [`label` written as a list](/features/core-settings#combining-a-picture-an-icon-text) draws its parts in order, so both work blocks show Ben's face and a briefcase, while his own plans keep his face alone. The 🎂, 👨‍👩‍👦 and 🗑️ labels keep the size of the text, and a face inside an all-day pill keeps the pill's height.
 
 ### Read Only on a Shared Screen
 

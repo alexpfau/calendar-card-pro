@@ -1981,7 +1981,14 @@ describe('the day panel', () => {
     });
     const rows = panel!.shadowRoot!.querySelector('.day-panel-rows')!;
     expect(rows.querySelectorAll('td.event').length).toBeGreaterThan(5);
-    for (const part of ['.description', '.time-countdown', '.progress-bar', '.allday-badge']) {
+    for (const part of [
+      '.description',
+      '.time-countdown',
+      '.progress-bar',
+      '.allday-badge',
+      '.allday-title-pill',
+      '.pill-labels',
+    ]) {
       expect([part, rows.querySelectorAll(part).length]).toEqual([part, 0]);
     }
     // The control: the location is drawn, as Show Location's default says.

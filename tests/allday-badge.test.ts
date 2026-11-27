@@ -794,6 +794,205 @@ describe('allday_badge', () => {
     });
   });
 
+  describe('a calendar label at the title position goes inside the pill', () => {
+    /** The pill's leading parts, as what each stands for, in document order. */
+    function partsIn(row: Element): string[] {
+      const lead = row.querySelector('.allday-title-pill > .pill-labels');
+      return [...(lead?.children ?? [])].map((part) => {
+        if (part.matches('.pill-label-icon')) {
+          const [under, top] = [...part.querySelectorAll('ha-icon')];
+          expect(under?.matches('.pill-label-under[aria-hidden="true"]')).toBe(true);
+          expect(under?.getAttribute('icon')).toBe(top?.getAttribute('icon'));
+          return `circle ${top?.getAttribute('icon')}`;
+        }
+        if (part.matches('img.pill-label-picture')) return `picture ${part.getAttribute('src')}`;
+        if (part.matches('.calendar-label.label-emoji')) return `emoji ${part.textContent}`;
+        if (part.matches('.calendar-label')) return `words ${part.textContent}`;
+        return `unknown ${part.outerHTML}`;
+      });
+    }
+
+    /** What sits in `.summary` beside the title, outside it. */
+    function besideTitle(row: Element): string[] {
+      return [...(row.querySelector('.summary')?.children ?? [])]
+        .filter((child) => !child.matches('.event-title'))
+        .map((child) => child.getAttribute('icon') ?? child.className);
+    }
+
+    /**
+     * A card with one calendar, and its events as `processEvents` hands them on: each carrying
+     * the block it matched, which is where a label's color and `private` are read from.
+     */
+    function card(
+      overrides: Partial<Types.Config>,
+      entity: Partial<Types.EntityConfig>,
+      events: Types.CalendarEventData[] = [
+        allDayEvent('2026-06-18', '2026-06-19', 'Bin day') as Types.CalendarEventData,
+      ],
+    ): HTMLElement {
+      const config = buildConfig({
+        days_to_show: 5,
+        ...overrides,
+        entities: [{ entity: CALENDAR, ...entity }],
+      });
+      return renderList(
+        events.map((event) => ({
+          ...event,
+          _matchedConfig: config.entities[0] as Types.EntityConfig,
+        })),
+        config,
+      );
+    }
+
+    /** The row titled `title`, or the one row a card draws. */
+    function row(container: HTMLElement, title?: string): Element {
+      const rows = [...container.querySelectorAll('td.event')].filter(
+        (cell) => !title || cell.querySelector('.event-title')?.textContent?.trim() === title,
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0];
+    }
+
+    const ICON = { label: 'mdi:trash-can', label_icon_color: '#e53935' };
+    const LIST = { label: ['Leo:', 'mdi:school', '/local/leo.png', '🎂'], label_image_size: '2em' };
+
+    it('draws an icon in a circle at the pill start, in the pill ink, with nothing before the title', () => {
+      const pilled = row(card({ allday_badge: 'title' }, ICON));
+
+      expect(partsIn(pilled)).toEqual(['circle mdi:trash-can']);
+      expect(besideTitle(pilled)).toEqual([]);
+      // The circle is drawn in the pill's ink; label_icon_color does not reach it.
+      expect(pilled.querySelector('.pill-label-icon ha-icon')?.hasAttribute('style')).toBe(false);
+      const pill = pilled.querySelector('.allday-title-pill')!;
+      expect(pill.firstElementChild?.matches('.pill-labels')).toBe(true);
+      expect(pill.textContent?.trim()).toBe('Bin day');
+      // Only the top copy of the icon is a label; the one under it is drawing alone.
+      expect(pilled.querySelectorAll('.summary .label-icon')).toHaveLength(1);
+    });
+
+    it('keeps the label before the title, in its own color, wherever there is no title pill', () => {
+      // Controls for the case above: the same calendar at `off` and at `time`, and a timed
+      // event in a card whose all-day events are pilled.
+      for (const position of ['off', 'time'] as const) {
+        const plain = row(card({ allday_badge: position }, ICON));
+        expect(besideTitle(plain), position).toEqual(['mdi:trash-can']);
+        expect(plain.querySelector('.summary > .label-icon')?.getAttribute('style')).toContain(
+          '#e53935',
+        );
+        expect(plain.querySelector('.pill-labels'), position).toBeNull();
+      }
+
+      const mixed = card({ allday_badge: 'title' }, ICON, [
+        allDayEvent('2026-06-18', '2026-06-19', 'Bin day') as Types.CalendarEventData,
+        timedEvent(
+          '2026-06-18T09:00:00.000Z',
+          '2026-06-18T10:00:00.000Z',
+          'Dentist',
+        ) as Types.CalendarEventData,
+      ]);
+      expect(besideTitle(row(mixed, 'Dentist'))).toEqual(['mdi:trash-can']);
+      expect(partsIn(row(mixed, 'Bin day'))).toEqual(['circle mdi:trash-can']);
+    });
+
+    it('takes every part of a label list inside, in the order it is written', () => {
+      const pilled = row(card({ allday_badge: 'title' }, LIST));
+
+      expect(partsIn(pilled)).toEqual([
+        'words Leo:',
+        'circle mdi:school',
+        'picture /local/leo.png',
+        'emoji 🎂',
+      ]);
+      expect(besideTitle(pilled)).toEqual([]);
+      // A space between the label and the title, so the two are read as separate words.
+      expect(pilled.querySelector('.allday-title-pill')?.textContent?.trim()).toBe(
+        'Leo:🎂 Bin day',
+      );
+      // The picture is sized by the pill, so label_image_size is not published for it.
+      expect(pilled.querySelector('.summary')?.hasAttribute('style')).toBe(false);
+
+      // Control: without the pill the same list is drawn before the title, sized as set.
+      const plain = row(card({}, LIST));
+      expect(besideTitle(plain)).toHaveLength(4);
+      expect(plain.querySelector('.summary')?.getAttribute('style')).toContain('2em');
+    });
+
+    it("draws every calendar's label of a merged row inside, in entities order", () => {
+      const config = buildConfig({
+        days_to_show: 5,
+        allday_badge: 'title',
+        filter_duplicates: true,
+        entities: [
+          { entity: 'calendar.anna', label: 'mdi:flag' },
+          { entity: 'calendar.ben', label: 'mdi:earth' },
+        ],
+      });
+      const copies = config.entities.map((block) => ({
+        ...allDayEvent('2026-06-18', '2026-06-19', 'Bin day'),
+        _entityId: (block as Types.EntityConfig).entity,
+        _matchedConfig: block as Types.EntityConfig,
+      }));
+      const container = renderList(copies, config);
+
+      expect(partsIn(row(container))).toEqual(['circle mdi:flag', 'circle mdi:earth']);
+    });
+
+    it("puts a private event's lock inside the pill, after the label and before its title", () => {
+      const pilled = row(
+        card({ allday_badge: 'title' }, { label: 'mdi:stethoscope', private: true }),
+      );
+      const pill = pilled.querySelector('.allday-title-pill')!;
+
+      expect([...pill.children].map((child) => child.className)).toEqual([
+        'pill-labels',
+        'label-icon private-lock',
+      ]);
+      expect(besideTitle(pilled)).toEqual([]);
+
+      // Control: without the pill the lock follows the label before the title.
+      const plain = row(card({}, { label: 'mdi:stethoscope', private: true }));
+      expect(besideTitle(plain)).toEqual(['mdi:stethoscope', 'mdi:lock']);
+    });
+
+    it('cuts the icon out in the pill ground, which a filled pill takes from its own fill', () => {
+      // The circle is the pill's ink and the icon its ground, so a filled pill, whose ink is
+      // the card's background, has to name its own fill as the ground: with the card's
+      // background there, the icon would be drawn in the circle's own color and vanish.
+      const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+      const value = (selector: string, property: string) => {
+        const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const bodies = [
+          ...css.matchAll(new RegExp(`(?:^|[\\s,}])${escaped}\\s*\\{([^}]*)\\}`, 'g')),
+        ];
+        const values = bodies.flatMap(([, body]) =>
+          [...body.matchAll(new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`, 'g'))].map((m) =>
+            m[1].replace(/\s+/g, ' ').trim(),
+          ),
+        );
+        return values[values.length - 1];
+      };
+      expect(value('.pill-label-icon', 'background-color')).toBe('currentColor');
+      expect(value('.pill-label-icon > .label-icon', 'color')).toBe('var(--badge-ground)');
+      // Subtle and tinted cut it out in their wash, outline in the card it sits on.
+      expect(value('.allday-title-pill', '--badge-ground')).toBe('var(--badge-wash)');
+      expect(value('.allday-pill-outline', '--badge-ground')).toBe(
+        'var(--calendar-card-background-color, var(--card-background-color))',
+      );
+      // A ground that is not opaque would let the circle show through, so a copy of the icon in
+      // the page's color lies under it.
+      expect(value('.pill-label-icon > .pill-label-under', 'color')).toBe(
+        'var( --primary-background-color, var(--calendar-card-background-color, var(--card-background-color)) )',
+      );
+      const filled = css.match(/\.allday-pill-filled\s*\{[^}]*\}/g) ?? [];
+      // The base rule and the two @supports tiers each paint the fill through the ground.
+      expect(filled.length).toBe(3);
+      for (const rule of filled) {
+        expect(rule).toContain('--badge-ground:');
+        expect(rule).toMatch(/background-color:\s*var\(--badge-ground\)/);
+      }
+    });
+  });
+
   describe('the editor offers exactly the values the resolvers accept', () => {
     it('offers every treatment and no others', () => {
       expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS].sort()).toEqual(

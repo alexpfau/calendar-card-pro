@@ -287,6 +287,34 @@ _are_ whole days, and those rows get a pill while its first and last days keep t
 - Both pills size themselves from the text they wrap: the time pill from `time_font_size`, the
   title pill from `event_font_size`, whatever unit you write it in.
 
+### A Calendar's Label Inside The Pill
+
+At `title`, a calendar's [`label`](/features/core-settings#choosing-how-a-label-is-read) moves
+inside the pill, ahead of the title, so the pill carries the whole event:
+
+```yaml
+allday_badge: title
+entities:
+  - entity: calendar.trash_pickup
+    label: mdi:trash-can
+```
+
+- An icon sits in a circle at the start of the pill, drawn in the pill's own two colors, so it
+  reads as clearly as the title in every shape and color. `label_icon_color` does not apply
+  there.
+- A picture, a person's face included, is cropped to the same circle, at the pill's height
+  rather than [`label_image_size`](/features/core-settings#sizing-a-picture-label).
+- An emoji leads the title as its first character, and words are set a step bolder than the
+  title, so _Leo:_ reads as a name rather than as the title's first word.
+- A [label of several parts](/features/core-settings#combining-a-picture-an-icon-text) keeps the
+  order it is written in, and a
+  [merged row](/features/filtering#labeling-coloring-shared-events) draws every calendar's
+  label. A private event's lock follows the label.
+
+Every other row keeps its label before the title: timed events, and all-day events at `off` or
+`time`. The pill is one line, so in a narrow column a long text label leaves the title less room,
+and the title ends in "…" first.
+
 ::: tip Pair `title` With show_single_allday_time
 Setting `show_single_allday_time: false` hides the time row of single-day all-day events, which
 at `title` leaves the pilled title alone on its row. Multi-day all-day events keep their row,
