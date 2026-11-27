@@ -91,6 +91,8 @@ show_progress_bar: true
   a [count-up](/features/event-content#counting-up-from-past-events) would go.
 - **In place of the bar.** A bar barely moves over a long event, so these events draw the
   counter instead, all-day ones included, which never had a bar. Shorter events keep theirs.
+  [Time left](/features/event-content#time-left-on-a-running-event) gives way to the counter in
+  the same way while the bar is on.
 - **No Now mark.** These events are never marked
   [Now](/features/event-content#the-now-indicator), on any row and with the bar on or off, and
   their time is not drawn green: on a 45-day course "Now" would be true every day. A night shift

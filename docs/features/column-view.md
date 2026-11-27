@@ -314,7 +314,7 @@ See [Options for the Selected View](/features/editor#options-for-the-selected-vi
 
 ## 📊 Progress Bar & Countdown
 
-A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started or, [counting up](/features/event-content#counting-up-from-past-events), has ended, a bar means it is running now — so column view places each one differently.
+A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started or, [counting up](/features/event-content#counting-up-from-past-events), has ended, a bar means it is running now — so column view places each one differently. [Time left](/features/event-content#time-left-on-a-running-event), which a running event can show beside its bar, goes where the countdown goes.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
 

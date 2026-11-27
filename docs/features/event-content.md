@@ -793,7 +793,8 @@ It follows the same local calendar dates as the day headers:
 - The wording follows the card's language, and the date comparison stays correct across
   daylight-saving changes.
 - A countdown disappears once its event has started, so today's all-day events have none.
-  Once the event has ended it [counts up](#counting-up-from-past-events).
+  Once the event has ended it [counts up](#counting-up-from-past-events). While it runs,
+  [`show_time_left`](#time-left-on-a-running-event) can say how long it has left.
 
 In list view it ends the time row, or takes a line of its own where the time leaves it no room.
 In grid view it trails the time on a timed block tall enough to show one, and all-day banners
@@ -849,7 +850,8 @@ show_past_events: true # Keep finished events on the card
   ended within that many days, [`countdown_exact_days`](#counting-in-days) reads "1 day ago"
   for yesterday, and [`once_per_day`](#repeated-countdowns) leaves out one that repeats the one
   above it.
-- An event under way has neither a countdown nor a count-up, and a count-up dims with its event
+- An event under way has neither a countdown nor a count-up; its place is
+  [time left's](#time-left-on-a-running-event). A count-up dims with its event
   ([`past_event_opacity`](#past-events-display)).
 - With the [progress bar](#progress-bar-display) on, an event a day or longer keeps its
   [day counter](/features/multi-day-events#day-counter) after it ends, such as "Day 1 of 3",
@@ -956,6 +958,88 @@ dager". Where the browser has no wording for the card's language, the days read 
 "tomorrow" does there: Chromium has none for Icelandic.
 
 :::
+
+### Time Left on a Running Event
+
+`show_time_left` shows how long an event that has started has left, such as "47 min left", in
+the place a countdown takes, which an event under way never uses. With countdowns on as well, an
+event reads "in 2 hours" before it starts, "47 min left" while it runs and, where past events
+are shown, "5 minutes ago" once it has ended:
+
+```yaml
+show_time_left: true
+show_progress_bar: true # Optional: the bar follows the time left
+```
+
+| Option           | Type    | Default | Description                                                                                     |
+| ---------------- | ------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `show_time_left` | boolean | `false` | Show how long an event under way has left, such as "47 min left", in list, column and grid view |
+
+- It counts to the end of the whole event. At 23:00, a late shift until 2:00 reads "3 hr left" on
+  the row for its first day, though that row ends at midnight.
+- Under a day it counts the minutes still to pass, rounded up, so the last minute reads "1 min
+  left". A day or longer reads in days and hours, such as "2 days, 3 hr left".
+- In list view it ends the time row, and the progress bar follows it on the same line; on a
+  narrow card the two move to a line of their own together. In column and grid view, and with
+  [the time beside the title](#time-beside-the-title), it follows the time after a dot, and the
+  bar keeps its own row.
+- With the progress bar on, an event a day or longer names its
+  [day](/features/multi-day-events#day-counter) in that place instead, as it does in place of
+  the bar.
+- It needs no countdown, and [`once_per_day`](#repeated-countdowns) never leaves it out.
+- It changes every minute on its own. Grid shows it on the block that starts the event, the one
+  that shows its time; month view draws none.
+- The duration is in your browser's words, as for [Event Duration](#event-duration), inside a
+  short phrase in the card's language: "noch 47 Min." in German, "47 min kvar" in Swedish.
+- Each view can set its own, in `list:`, `column:` or `time_grid:`. In the visual editor it is
+  the **Time Left** part on the **Event Appearance** page.
+
+::: details Across a Clock Change
+
+Under a day, time left counts the time that will pass. On the night the clocks go forward it is
+an hour less than the clock readings suggest, and on the night they go back an hour more. From a
+full day on it counts on the clock, as [Event Duration](#event-duration) does, so an event ending
+at noon two days from now reads "2 days left" at noon today either way.
+
+:::
+
+### Countdowns for One Calendar
+
+A calendar can set its own countdown options, so a calendar of bin days counts down while the
+rest of the card does not, or a calendar of birthdays leaves countdowns out on a card that shows
+them. Each option set on a calendar replaces the card's, and its view block's, for that
+calendar's events:
+
+```yaml
+show_countdown: false # No countdowns on the card...
+entities:
+  - entity: calendar.bins
+    show_countdown: once_per_day # ...except to bin days, once a day
+    countdown_max_days: 7
+  - calendar.anna
+```
+
+| Option                  | Type              | Default    | Description                                                                            |
+| ----------------------- | ----------------- | ---------- | -------------------------------------------------------------------------------------- |
+| `show_countdown`        | boolean or string | the card's | This calendar's countdowns: `true`, `false` or `once_per_day`                          |
+| `countdown_max_days`    | number            | the card's | This calendar's [countdown range](#countdown-range), in calendar days                  |
+| `show_countdown_allday` | boolean           | the card's | Whether this calendar's all-day events count down too                                  |
+| `countdown_exact_days`  | boolean           | the card's | Whether this calendar's countdowns [count in days only](#counting-in-days)             |
+| `show_time_left`        | boolean           | the card's | Whether this calendar's running events show [time left](#time-left-on-a-running-event) |
+
+- A calendar's own value wins over its view block's, which wins over the card's. With
+  `column: { show_countdown: false }`, a calendar set to `true` still counts down in column view.
+- A calendar's `countdown_max_days` replaces the card's, in either direction. To count down to
+  everything on a card limited to a week, give the calendar a number larger than any wait it
+  will show, such as `3650`.
+- `once_per_day` on a calendar leaves out its own countdowns that repeat the one above them,
+  whichever calendar that one belongs to. A calendar set to `true` keeps every one of its own.
+- A calendar [listed twice](/features/filtering#separating-all-day-from-timed-events) can count down on one entry
+  and not the other, such as on its timed events and not its all-day ones.
+- Month view draws no countdown and no time left, whatever a calendar says.
+- In the visual editor they are under **Visible Event Parts** on the calendar's page:
+  **Event Countdowns**, then what a countdown does while the calendar shows them, then
+  **Time Left**.
 
 ## 🕒 Past Events Display
 
@@ -1231,7 +1315,8 @@ show_progress_bar: true
 
 A bar shows only while an event runs, and a [countdown](#countdown-display) only before it
 starts or, [counting up](#counting-up-from-past-events), after it ends, so no event ever shows
-both.
+both. [Time left](#time-left-on-a-running-event) does show while an event runs, and in list view
+the bar follows it on the time row.
 
 You can customize the appearance of the progress bars:
 
