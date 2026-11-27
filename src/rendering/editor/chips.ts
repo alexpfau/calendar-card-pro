@@ -51,7 +51,7 @@ export function chipFields(kind: ChipKind): FieldId[] {
 
 /**
  * Whether a chip's field is offered in a scope at all: in the universe for it
- * (`field-index.ts` › `universeIndex`), which for a chip comes down to whether every option it
+ * (`universe.ts` › `universeIndex`), which for a chip comes down to whether every option it
  * writes applies to the scope's layout. Now is not offered in Grid. Derived rather than read
  * off the universe, which replays the whole gate corpus; `tests/editor-chips.test.ts` holds the
  * two to the same answer in every scope.

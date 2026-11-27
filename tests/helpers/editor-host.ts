@@ -71,7 +71,6 @@ import {
   fieldId,
   fieldLabel,
   parseFieldId,
-  universeIndex,
 } from '../../src/rendering/editor/field-index';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
 import * as HassKey from '../../src/rendering/editor/hass-key';
@@ -99,6 +98,7 @@ import {
   QUICK_SETUP_WEATHER_SCHEMA,
 } from '../../src/rendering/editor/schemas/quick-setup';
 import { chassisSchemas } from '../../src/rendering/editor/subforms';
+import { universeIndex } from '../../src/rendering/editor/universe';
 import * as Value from '../../src/rendering/editor/value';
 import * as WordLists from '../../src/rendering/editor/word-lists';
 import {
@@ -1306,7 +1306,7 @@ let known: ReadonlySet<FieldId> | undefined;
 
 /**
  * Every id a form can draw: the fields the gate corpus opens in any workspace
- * (`field-index.ts` › `universeIndex`), the toolbar buttons' fields (`buttonFieldIndex`), the
+ * (`universe.ts` › `universeIndex`), the toolbar buttons' fields (`buttonFieldIndex`), the
  * nodes the chassis and the buttons' sub-form declare, and every block those sit in.
  *
  * @returns The ids

@@ -57,7 +57,6 @@ import {
   fieldHelper,
   fieldLabel,
   parseFieldId,
-  universeIndex,
 } from './field-index';
 import * as Filter from './filter';
 import * as FullSize from './full-size';
@@ -118,6 +117,7 @@ import * as Subforms from './subforms';
 import * as Summary from './summary';
 import * as Synthetic from './synthetic';
 import * as EditorLanguages from './translations/loader';
+import { universeIndex } from './universe';
 import * as Unset from './unset';
 import * as Value from './value';
 import * as AuditView from './views/audit';
@@ -626,6 +626,9 @@ export class CalendarCardProEditor extends LitElement {
     // Back from the code editor with the warm-up still drawn, or drawn while it was away: it is
     // searched again, afresh.
     if (this._warmKey) void this._finishWarmUp(this._endWarmUp());
+    // Back from the code editor, Home Assistant's calendar colors are watched again at once,
+    // where a control already asked for them.
+    this._holdRegistry();
     if (typeof ResizeObserver === 'undefined') return;
     this._widthObserver ??= new ResizeObserver(() => {
       const root = this.renderRoot.querySelector('.card-config');
@@ -669,10 +672,10 @@ export class CalendarCardProEditor extends LitElement {
     this._pickRetry = undefined;
     // The code editor keeps the preview, which goes back to the layout the card opens in.
     this._scopePreview.sync(undefined);
-    // The last editor or card out closes the registry subscription (`entity-colors.ts`).
+    // The last editor or card out closes the registry subscription (`entity-colors.ts`). What a
+    // control asked for is kept, for when the editor comes back (`_holdRegistry`).
     if (this._registryHeld) EntityColors.releaseEntityColors(this._registryChanged);
     this._registryHeld = false;
-    this._registryWanted = false;
   }
 
   /**
@@ -839,12 +842,7 @@ export class CalendarCardProEditor extends LitElement {
     this._syncPick();
     this._greet();
     this._scopePreview.sync(this._previewedScope());
-    // Home Assistant's calendar colors, read through the card's own module once an entry's color
-    // control describes one, and watched while this editor is open.
-    if (this._registryWanted && !this._registryHeld && this.hass) {
-      this._registryHeld = true;
-      EntityColors.ensureEntityColors(this.hass, this._registryChanged);
-    }
+    this._holdRegistry();
     if (!this._drawn) return;
     // Every key the drawn forms hold, held or not: `warmSchema` asks about each one it meets.
     const drawn = new Set<string>();
@@ -1148,7 +1146,11 @@ export class CalendarCardProEditor extends LitElement {
   /** The color control open, by owner and field (`_colorKey`). */
   @state() private _openColor?: string;
 
-  /** Whether an entry's color control has described Home Assistant's color for its calendar. */
+  /**
+   * Whether a control has described Home Assistant's color for a calendar: an entry's color
+   * control, or a calendar's dot on the overview. Kept while the editor is away, for when it
+   * comes back.
+   */
   private _registryWanted = false;
 
   /** Whether this editor is subscribed to Home Assistant's calendar colors. */
@@ -1156,6 +1158,19 @@ export class CalendarCardProEditor extends LitElement {
 
   /** Draws again once Home Assistant's calendar colors move. */
   private _registryChanged = (): void => this.requestUpdate();
+
+  /**
+   * Watches Home Assistant's calendar colors, read through the card's own module, once a control
+   * has described one, and only while the editor is attached. Home Assistant keeps the editor while
+   * its code editor is open and still hands it every `hass` and every valid edit, so it renders
+   * while away: subscribing then would hold the registry open for an editor nobody may bring back.
+   * It is taken again as the editor comes back (`connectedCallback`).
+   */
+  private _holdRegistry(): void {
+    if (!this._registryWanted || this._registryHeld || !this.hass || !this.isConnected) return;
+    this._registryHeld = true;
+    EntityColors.ensureEntityColors(this.hass, this._registryChanged);
+  }
 
   /**
    * The action strip open: a row's, `entry:<key>` or `calendar:<entity id>`, which travels with

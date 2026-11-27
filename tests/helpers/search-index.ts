@@ -9,7 +9,6 @@ import {
   buildFieldIndex,
   entrySchemaAcross,
   schemaCtx,
-  universeIndex,
 } from '../../src/rendering/editor/field-index';
 import { withholdInertFields } from '../../src/rendering/editor/filter';
 import type { HaFormSchema } from '../../src/rendering/editor/ha-form';
@@ -21,6 +20,7 @@ import {
   buildSearchIndex,
   search,
 } from '../../src/rendering/editor/search';
+import { universeIndex } from '../../src/rendering/editor/universe';
 import { deepEqual } from '../../src/rendering/editor/value';
 import type { EditorWorkspace } from '../../src/rendering/editor/workspace';
 

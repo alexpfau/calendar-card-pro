@@ -40,7 +40,6 @@ import {
   liftField,
   parseFieldId,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import * as Filter from '../src/rendering/editor/filter';
 import { corpus, freshConfig } from '../src/rendering/editor/gates';
@@ -51,6 +50,7 @@ import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { appearanceOf, leavesKeptOut } from '../src/rendering/editor/plan';
 import * as Routing from '../src/rendering/editor/routing';
 import { buildToolbarButtonSchema } from '../src/rendering/editor/schemas/card';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { deepEqual, toStoredConfig } from '../src/rendering/editor/value';
 import {
   type EditorWorkspace,

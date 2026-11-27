@@ -11,12 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { chipFields } from '../src/rendering/editor/chips';
-import {
-  type FieldId,
-  type IndexedField,
-  fieldLabel,
-  universeIndex,
-} from '../src/rendering/editor/field-index';
+import { type FieldId, type IndexedField, fieldLabel } from '../src/rendering/editor/field-index';
 import {
   ENTRY_GATES,
   GATES,
@@ -26,6 +21,7 @@ import {
   whenText,
 } from '../src/rendering/editor/gates';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
 /** Every field any scope can build, by id: the controls gates read are among them. */

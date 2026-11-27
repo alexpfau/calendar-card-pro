@@ -29,7 +29,6 @@ import {
   entryViews,
   parseFieldId,
   schemaCtx,
-  universeIndex,
 } from './field-index';
 import * as FullSize from './full-size';
 import {
@@ -65,6 +64,7 @@ import {
   isSyntheticKey,
   refinementHolds,
 } from './synthetic';
+import { universeIndex } from './universe';
 import { deepEqual, toStoredConfig } from './value';
 import { type EditorWorkspace, isLayoutCopyPath, storedPath, viewForWorkspace } from './workspace';
 import type { WriteState } from './write-frames';

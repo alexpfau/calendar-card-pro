@@ -42,11 +42,11 @@ import {
   buildFieldIndex,
   entityFieldIndex,
   schemaCtx,
-  universeIndex,
 } from '../src/rendering/editor/field-index';
 import type { SchemaCtx } from '../src/rendering/editor/panels';
 import { isColorNode } from '../src/rendering/editor/schemas/common';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { universeIndex } from '../src/rendering/editor/universe';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 import * as EntityColors from '../src/utils/entity-colors';
 
@@ -887,6 +887,90 @@ describe('Follow Home Assistant', () => {
 
     editor.remove();
     expect(off).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * A Home Assistant whose registry gives Anna teal, recording each subscription and its release.
+   *
+   * @returns The `hass`, and the two spies
+   */
+  function registryHass() {
+    const off = vi.fn();
+    const subscribeEvents = vi.fn(async () => off);
+    const hass = fakeHass({
+      callWS: vi.fn(async (message: { type: string }) =>
+        message.type === 'config/entity_registry/list'
+          ? [{ entity_id: 'calendar.anna', options: { calendar: { color: 'teal' } } }]
+          : [],
+      ),
+      connection: {
+        subscribeEvents,
+        subscribeMessage: (_callback: unknown, message: { type?: string }) =>
+          message?.type === 'calendar/event/subscribe'
+            ? Promise.reject({ code: 'unknown_command' })
+            : Promise.resolve(() => undefined),
+      },
+      states: { 'calendar.anna': { attributes: { friendly_name: 'Anna' } } },
+    });
+    return { hass, off, subscribeEvents };
+  }
+
+  /** Anna follows Home Assistant's color, so the overview's dot asks for the registry. */
+  const FOLLOWS = {
+    ...BASE,
+    entities: [{ entity: 'calendar.anna', accent_color: 'home-assistant' }],
+  };
+
+  /** Lets the subscription's promise and any update it asked for settle. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  // Home Assistant keeps the editor while its code editor is open, and still hands it every
+  // `hass` and every valid edit, so a removed editor renders. Each of those renders, and one
+  // already asked for as it was removed, must not take the subscription back.
+  it.each([
+    ['an update asked for as it was removed', (editor: MountedEditor) => editor.requestUpdate()],
+    [
+      'a hass that renames a calendar it draws',
+      (editor: MountedEditor) => {
+        editor.hass = {
+          ...editor.hass,
+          states: { 'calendar.anna': { attributes: { friendly_name: 'Anna Smith' } } },
+        } as unknown as typeof editor.hass;
+      },
+    ],
+    [
+      'a configuration from the code editor',
+      (editor: MountedEditor) => editor.setConfig({ ...FOLLOWS, title: 'Family' }),
+    ],
+  ])('holds no subscription once removed, after %s', async (_name, render) => {
+    const { hass, off, subscribeEvents } = registryHass();
+    const editor = await mountEditor(FOLLOWS, { hass });
+    await vi.waitFor(() => expect(subscribeEvents).toHaveBeenCalledTimes(1));
+    await settle();
+
+    editor.remove();
+    render(editor);
+    await editor.updateComplete;
+    await settle();
+
+    expect(subscribeEvents.mock.calls.length).toBeGreaterThan(0);
+    expect(off).toHaveBeenCalledTimes(subscribeEvents.mock.calls.length);
+  });
+
+  it('watches the colors again once the editor comes back from the code editor', async () => {
+    const { hass, off, subscribeEvents } = registryHass();
+    const editor = await mountEditor(FOLLOWS, { hass });
+    await vi.waitFor(() => expect(subscribeEvents).toHaveBeenCalledTimes(1));
+    await settle();
+
+    editor.remove();
+    expect(off).toHaveBeenCalledTimes(1);
+    // Nothing renders it on the way back: Lit draws a reattached element only when asked.
+    document.body.appendChild(editor);
+    await vi.waitFor(() => expect(subscribeEvents).toHaveBeenCalledTimes(2));
+
+    editor.remove();
+    expect(off).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -155,9 +155,10 @@ and borrows nothing from its frontend beyond the public dialog contract.
   Home Assistant's dialog manager creates it. `showDialog` arrives before the element is attached,
   so `showModal()` runs in `updated()`. `closeDialog()` must return a plain boolean, which the
   manager does not await; `false` keeps the popover open.
-- **Saving.** Changes are a draft (`popover-model.ts`) written once, on close. A press that starts
-  and ends on the backdrop saves, as Back does; Escape discards. A write in progress makes the
-  panel `inert` and refuses every close.
+- **Saving.** Changes are a draft (`popover-model.ts`) written only by Save, Add for a new event,
+  or Return in the title. Every other close throws the draft away: Cancel, Escape, Back
+  (`closeDialog()`), Close, and a press that starts and ends on the backdrop. A write in progress
+  makes the panel `inert` and refuses every close.
 - **Text.** Fields show the card's display text until edited, then the stored text, which is what a
   save writes.
 - **Placement.** Beside a pressed event's visible box (`eventBox`), at a pressed day's point, below

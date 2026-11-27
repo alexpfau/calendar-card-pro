@@ -5,7 +5,7 @@ import terser from '@rollup/plugin-terser';
 import esbuild from 'rollup-plugin-esbuild';
 import json from '@rollup/plugin-json';
 import { readdirSync, readFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, resolve as resolvePath, sep } from 'path';
 import ts from 'typescript';
 import {
   BUILT_IN_EDITOR_LANGUAGES,
@@ -422,6 +422,32 @@ function output(entryFileNames) {
   return { dir: 'dist', format: 'es', entryFileNames, sourcemap: false };
 }
 
+/** Where the card's own modules live, as Rollup names them: absolute paths. */
+const SOURCE_ROOT = resolvePath('src') + sep;
+
+/**
+ * Fails the build on an import cycle among the card's own modules, and passes every other
+ * warning on.
+ *
+ * A cycle evaluates only while neither module reads the other at the top level, and nothing says
+ * so but a comment in each. Rollup prints it as one warning among the build's output, so the one
+ * between `field-index.ts` and `gates.ts` shipped in every build until it was broken up into
+ * `universe.ts`. A cycle inside a dependency is not ours to fix and stays a warning.
+ *
+ * @param {import('rollup').RollupLog} warning - What Rollup reports
+ * @param {(warning: import('rollup').RollupLog) => void} warn - Rollup's own handling
+ */
+function failOnCycle(warning, warn) {
+  if (
+    warning.code === 'CIRCULAR_DEPENDENCY' &&
+    warning.ids?.every((id) => id.startsWith(SOURCE_ROOT))
+  ) {
+    const cycle = warning.ids.map((id) => id.slice(SOURCE_ROOT.length)).join(' -> ');
+    throw new Error(`Import cycle among the card's own modules: ${cycle}`);
+  }
+  warn(warning);
+}
+
 // Two builds rather than one build with code-splitting, and the difference is not
 // cosmetic.
 //
@@ -451,11 +477,13 @@ export default [
   {
     input: 'src/calendar-card-pro.ts',
     output: output(cardFile),
+    onwarn: failOnCycle,
     plugins: [cleanDist, ...createBuildPlugins()],
   },
   {
     input: 'src/rendering/editor/index.ts',
     output: output(editorFile),
+    onwarn: failOnCycle,
     plugins: [
       ...createBuildPlugins({ editor: true }),
       emitEditorLanguages({ version, prefix: languagePrefix }),

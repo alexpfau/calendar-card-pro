@@ -26,13 +26,7 @@
 import * as Buttons from './buttons';
 import * as Colors from './colors';
 import * as Entities from './entities';
-import {
-  type FieldId,
-  type IndexedField,
-  buttonFieldIndex,
-  entityFieldIndex,
-  universeIndex,
-} from './field-index';
+import { type FieldId, type IndexedField, buttonFieldIndex, entityFieldIndex } from './field-index';
 import { type GateData, needsText } from './gates';
 import * as EditorLocalize from './localize';
 import { CALENDARS_BLOCK, STARTING_LAYOUT_BLOCK } from './pages';
@@ -52,6 +46,7 @@ import * as Routing from './routing';
 import * as Shown from './shown';
 import { interpolate } from './strings';
 import { type Describe, wordValue } from './summary';
+import { universeIndex } from './universe';
 import { WORD_LIST_FIELDS, fromPattern } from './word-lists';
 import { type EditorWorkspace, storedPath } from './workspace';
 import * as Config from '../../config/config';

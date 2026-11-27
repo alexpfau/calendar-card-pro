@@ -6,8 +6,6 @@
  * table describes their branches, and `tests/editor-gates.test.ts` holds it to them in every
  * workspace and display, opened and closed. The probe corpus, the universe index, and later
  * the gate lines and search all read it.
- *
- * 🚨 This module and `field-index.ts` import each other; see the note at the top of that one.
  */
 
 import { CHIP_LABELS } from './chip-labels';

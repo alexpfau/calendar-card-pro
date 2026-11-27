@@ -19,8 +19,8 @@ it.
 
 - **One reader.** `resolveToolbar` in `config/config.ts` alone reads `toolbar:`, member by member,
   so a malformed value reads as that member's default. `show` defaults off; inside a shown bar every
-  control defaults on except `reset`. Each control needs a `toolbar → key` row in the reference,
-  which `check:docs` reconciles with the defaults.
+  control defaults on except `reset` and `overlay`. Each control needs a `toolbar → key` row in the
+  reference, which `check:docs` reconciles with the defaults.
 - **No control, no DOM.** Without an available control the header renders byte for byte as it does
   without a toolbar. Keep its single child binding: a second one, even rendering nothing, adds a Lit
   marker and moves the snapshots.

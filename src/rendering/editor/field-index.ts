@@ -6,20 +6,13 @@
  * page needs to draw it alone: the node, the two paths `walkSchema` tells apart, and the node
  * re-wrapped so that a one-field form nests its data exactly as the panel did.
  *
- * Two indexes come out of it. The **present** index is what exists for one configuration and
- * workspace. The **universe** is the same walk over the gate corpus (`gates.ts` › `corpus`),
- * every gate opened as a user would open it, so a field in the universe but not present is
- * gated, and a field outside the universe belongs to another layout.
- *
- * 🚨 This module and `gates.ts` import each other: `universeIndex` reads the corpus, and the
- * corpus opens its gates through the builders indexed here. Neither touches the other while it
- * is being evaluated, only inside functions, which is what keeps the cycle safe. A top-level
- * constant built from the other module's exports would read it before it exists.
+ * The index built here is the **present** one: what exists for one configuration and
+ * workspace. The **universe**, the same walk over the gate corpus, is built in `universe.ts`,
+ * which reads both this module and `gates.ts` so that neither imports the other.
  */
 
 import * as Entities from './entities';
 import * as Filter from './filter';
-import { corpus } from './gates';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import { computeHelper, computeLabel, computeSubformHelper } from './localize';
 import { PANELS, type PanelDef, type SchemaCtx, walkSchema } from './panels';
@@ -558,44 +551,4 @@ export function entrySchemaAcross(entry: string | Types.EntityConfig, ctx: Schem
     });
   }
   return { schema, views, layoutsOf };
-}
-
-/** Universes already built, by language and workspace. */
-const universes = new Map<string, FieldIndex>();
-
-/**
- * The universe for a workspace: every card and calendar field built over the gate corpus,
- * each display's fresh card and every gate opened by edits made in this workspace.
- *
- * Opened through routing rather than by raw patches, so a value Grid or Columns defaults
- * differently lands in that layout's own block, and Grid's location fields open there.
- * Toolbar buttons are not in it: each button is a row of four ungated fields.
- *
- * @param language - Language the nodes are labeled in
- * @param workspace - Editing workspace
- * @returns Fields by id; the first state to build a field supplies its node
- */
-export function universeIndex(language: string, workspace: Workspace.EditorWorkspace): FieldIndex {
-  const cacheKey = `${language}\u0000${workspace}`;
-  const known = universes.get(cacheKey);
-  if (known) return known;
-
-  const fields = new Map<FieldId, IndexedField>();
-  for (const state of corpus()) {
-    if (state.workspace !== workspace) continue;
-
-    const ctx = schemaCtx(state.config, workspace, language);
-    for (const [id, field] of buildFieldIndex(ctx).fields) {
-      if (!fields.has(id)) fields.set(id, field);
-    }
-    for (const entry of state.config.entities ?? []) {
-      for (const [id, field] of entityFieldIndex(entrySchema(entry, ctx)).fields) {
-        if (!fields.has(id)) fields.set(id, field);
-      }
-    }
-  }
-
-  const universe = { fields };
-  universes.set(cacheKey, universe);
-  return universe;
 }

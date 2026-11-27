@@ -223,12 +223,13 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_delete: true,
 
   // The toolbar ships hidden; shown, it draws what anyone looking at a calendar needs: every
-  // control on except `reset`, which is for a screen several people share. Elsewhere a layout
-  // picked on the switcher is a preference, which a lit reset button would keep presenting as
-  // something to undo. v5 is the first release with a toolbar, so these are its first defaults.
+  // control on except `reset`, which is for a screen several people share, and `overlay`. Elsewhere
+  // a layout picked on the switcher is a preference, which a lit reset button would keep presenting
+  // as something to undo. v5 is the first release with a toolbar, so these are its first defaults.
   // `search`, the first control added after it, is on as well, by the maintainer's choice: it
   // comes with date navigation, which it needs to open a match's day, so a toolbar that pages
-  // gains a magnifier on update, and `search: false` takes it off again.
+  // gains a magnifier on update, and `search: false` takes it off again. `overlay`, added in v6.1,
+  // ships off, so no toolbar gains its button on update.
   toolbar: {
     show: false,
     navigation: true,
