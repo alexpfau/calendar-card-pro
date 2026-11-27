@@ -1,7 +1,8 @@
 /**
  * Quick Setup's stories are copies of the docs (backlog item 188), so each is reconciled with
  * the first YAML block on its page: the shell against the YAML without `type`, `config_version`
- * and `entities`, and the palette against the documented calendars' accent colors, in order.
+ * and `entities`, and the palette against the documented calendars' accent colors, in order, with
+ * the shared-plan color moved last, behind at least four others (`stories.ts` says why).
  * Editing a story on one side alone fails here, in either direction.
  */
 import { readFileSync } from 'node:fs';
@@ -43,6 +44,22 @@ function documentedCard(page: string): Record<string, unknown> {
   return parse(block[1]) as Record<string, unknown>;
 }
 
+/**
+ * A documented card's calendar colors, each once, in the order its page lists them.
+ *
+ * @param card - The card as its page documents it
+ * @returns The colors
+ */
+function colorsOf(card: Record<string, unknown>): string[] {
+  const colors = (card.entities as Array<Record<string, unknown>>)
+    .map((entry) => entry.accent_color)
+    .filter((color): color is string => typeof color === 'string');
+  return [...new Set(colors)];
+}
+
+/** The Family Hub's colors, which a page with fewer than four of its own continues with. */
+const HUB_COLORS = colorsOf(documentedCard('/guide/family-calendar'));
+
 describe.each(STORIES.map((story) => [story.id, story] as const))('%s', (_id, story) => {
   const documented = documentedCard(story.page);
 
@@ -56,12 +73,22 @@ describe.each(STORIES.map((story) => [story.id, story] as const))('%s', (_id, st
     expect(story.shell()).toEqual(shell);
   });
 
-  it('carries its calendars’ colors, in the order its page lists them', () => {
-    const colors = (documented.entities as Array<Record<string, unknown>>)
-      .map((entry) => entry.accent_color)
-      .filter((color): color is string => typeof color === 'string');
+  it('carries its calendars’ colors, in the order its page lists them, the shared-plan color last', () => {
+    const shared = documented.duplicate_accent_color as string | undefined;
+    const listed = colorsOf(documented);
+    if (shared === undefined || !listed.includes(shared)) {
+      expect(story.palette).toEqual(listed);
+      return;
+    }
+    const others = listed.filter((color) => color !== shared);
+    for (const color of HUB_COLORS) {
+      if (others.length >= 4) break;
+      if (color !== shared && !others.includes(color)) others.push(color);
+    }
 
-    expect(story.palette).toEqual([...new Set(colors)]);
+    expect(story.palette).toEqual([...others, shared]);
+    // Never the color of one of the first four calendars Quick Setup colors.
+    expect(story.palette.indexOf(shared)).toBeGreaterThanOrEqual(4);
   });
 
   it('hands out a fresh shell every time', () => {

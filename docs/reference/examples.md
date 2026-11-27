@@ -1,18 +1,26 @@
 # Example Stories
 
-Each story is one complete card, built for a real place in a home and the question it answers there. Every page shows the card, gives you its YAML to copy, and says what each part adds, so you can start from the closest one and adapt it.
+Each story is one complete card, built for a real place in a home and the question it answers there. Every page shows the card, gives you its YAML to copy and says what each part adds, so start from the closest one and adapt it. The family in them is invented, and every card works for any household.
 
-| Story                                                    | Best for                                                                | Space                                                         | Layout                                 |
-| -------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------- |
-| [Family Hub](/guide/family-calendar)                     | The whole family's week, with every control on the card                 | A wall tablet, and the same card on a phone                   | Grid, with Columns and List a tap away |
-| [Small Card, Big Picture](/guide/small-card-big-picture) | The next few days in a dashboard column, and the whole month a tap away | A column of a dashboard you have, and full size on any screen | List, opens full size in Month         |
-| [Family Agenda](/guide/one-calendar-many-purposes)       | The next three days, from calendars that mix several kinds of event     | A hallway tablet or a dashboard section                       | List                                   |
-| [Now & Next](/guide/now-and-next)                        | What is on now and what comes next                                      | A small tile on a phone                                       | List, expands on tap                   |
-| [Today & Tomorrow](/guide/today-and-tomorrow)            | Where the day stands, hour by hour                                      | A phone, a section or a portrait tablet                       | Grid                                   |
-| [Birthdays & Holidays](/guide/birthdays-and-holidays)    | Birthdays with ages, and the next school break                          | A dashboard section or a pop-up                               | List                                   |
-| [Bin Day](/guide/bin-day)                                | Which bin goes out next                                                 | Half a dashboard section                                      | List                                   |
-| [House Log](/guide/house-log)                            | When each job was last done, newest first                               | A dashboard section, and the same card on a phone             | List                                   |
+## 🚀 Start Here
 
-Not sure which fits? Start with the [Family Hub](/guide/family-calendar) for a shared screen, [Small Card, Big Picture](/guide/small-card-big-picture) for a dashboard you already have, or [Now & Next](/guide/now-and-next) for a phone. The [feature pages](/features/core-settings) explain one option at a time, and the [configuration reference](/reference/configuration) lists every option.
+Three cards cover most homes. Pick the one for where yours will go:
 
-The visual editor's [Quick Setup](/features/editor#quick-setup) builds a card on your own calendars from seven starting points: a [Simple Agenda](/guide/usage#your-first-card) and every story here but two. A new card offers it in a banner at the top of its editor, and any card has it as **Start From an Example** under **More**. Family Agenda and Bin Day, the two it leaves out, sort events by the words in them, so copy those from their pages.
+- **[Small Card, Big Picture](/guide/small-card-big-picture)**, for a dashboard you already have: the next three days in one column, and the weeks ahead a tap away, full size. _A three-day list · Quick Setup_
+- **[Family Hub](/guide/family-calendar)**, for a shared screen such as a wall tablet: who is busy when this week, with every control on the card, and the same card on a phone. _A week on the hours, a lane per person in Columns and List · Quick Setup_
+- **[Now & Next](/guide/now-and-next)**, for a phone: what is on now, how long it has left, and what comes next. _A four-event tile that expands on a tap · Quick Setup_
+
+## 🔍 For a Closer Look
+
+- **[Today & Tomorrow](/guide/today-and-tomorrow)**: where the day stands, hour by hour, on a phone, a dashboard section or a portrait tablet. _Two days on the hours · Quick Setup_
+- **[Hallway Agenda](/guide/one-calendar-many-purposes)**: the next three days from calendars that mix several kinds of event, with most of Ben's work shown only as _Busy_. _A three-day list · copy it, then match your calendars' words_
+
+## 🎯 One Job Each
+
+- **[Birthdays & Holidays](/guide/birthdays-and-holidays)**: birthdays with ages, anniversaries and the next holidays. _Two months as a list · Quick Setup_
+- **[Bin Day](/guide/bin-day)**: which bin goes out next. _A small list for half a section · copy it, then match your feed's words_
+- **[House Log](/guide/house-log)**: every job as it was done, newest first, with how long ago. _The last month as a list · Quick Setup_
+
+## 🧰 Other Ways to Start
+
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds each story marked _Quick Setup_ on your own calendars. A new card offers it in a banner at the top of its editor, and any card has it as **Start From an Example** under **More**. It also offers a [Simple Agenda](/guide/usage#your-first-card): one calendar, the next three days, and nothing else. The [feature pages](/features/core-settings) explain one option at a time, and the [configuration reference](/reference/configuration) lists every option.

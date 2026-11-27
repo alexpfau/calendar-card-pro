@@ -200,13 +200,13 @@ list:
   month_separator_label: true
 ```
 
-| Step                  | What it asks                                                                                                                                                                                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Starting Point**    | [Simple Agenda](/guide/usage#your-first-card), [Family Hub](/guide/family-calendar), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
-| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                                                                             |
-| **Weather**           | A weather entity, or none                                                                                                                                                                                                                                     |
-| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                                                                       |
-| **Review**            | The example, calendars with their colors, every layout the card can show with its own days, the title, weather and the toolbar controls Apply turns on, each setting it replaces, then **Apply**                                                              |
+| Step                  | What it asks                                                                                                                                                                                                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting Point**    | [Simple Agenda](/guide/usage#your-first-card), [Family Hub](/guide/family-calendar), [Small Card, Big Picture](/guide/small-card-big-picture), [Now & Next](/guide/now-and-next), [Today & Tomorrow](/guide/today-and-tomorrow), [Birthdays & Holidays](/guide/birthdays-and-holidays) or [House Log](/guide/house-log) |
+| **Title & Calendars** | The card's title, and its calendars; at least one                                                                                                                                                                                                                                                                       |
+| **Weather**           | A weather entity, or none                                                                                                                                                                                                                                                                                               |
+| **Taps & Toolbar**    | Whether to show the toolbar, open an event on a tap, and add an event on a tap on a day                                                                                                                                                                                                                                 |
+| **Review**            | The example, calendars with their colors, every layout the card can show with its own days, the title, weather and the toolbar controls Apply turns on, each setting it replaces, then **Apply**                                                                                                                        |
 
 - **The preview follows every answer.** **Cancel** puts the card back exactly as it was, and
   after **Apply**, one **Undo** does.
@@ -226,7 +226,7 @@ list:
 ::: details When Quick Setup Behaves Differently
 
 - Two of the eight stories are not offered. [Bin Day](/guide/bin-day) and
-  [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
+  [Hallway Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the
   story's family.

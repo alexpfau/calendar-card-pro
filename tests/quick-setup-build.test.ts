@@ -60,12 +60,20 @@ describe('buildQuickSetupConfig', () => {
         { entity: 'calendar.ben', accent_color: '#123456' },
         { entity: 'calendar.leo', accent_color: '#03a9f4' },
       ],
-      list: { days_to_show: 3, weather: { position: 'date' } },
+      list: {
+        days_to_show: 3,
+        event_background_opacity: 15,
+        lanes: true,
+        lanes_fallback: 'list',
+        weather: { position: 'date' },
+      },
       column: {
         min_days_to_show: 3,
         show_past_events: true,
         past_event_opacity: 40,
         event_background_opacity: 15,
+        lanes: true,
+        show_location: false,
         weather: { position: 'date' },
       },
       time_grid: {
@@ -114,7 +122,12 @@ describe('buildQuickSetupConfig', () => {
 
     expect(built).not.toHaveProperty('weather_entity');
     // The story's weather per layout goes with it: nothing would draw it.
-    expect(built.list).toEqual({ days_to_show: 3 });
+    expect(built.list).toEqual({
+      days_to_show: 3,
+      event_background_opacity: 15,
+      lanes: true,
+      lanes_fallback: 'list',
+    });
     expect(built.time_grid).not.toHaveProperty('weather');
     // Events open by default, so "no" is the answer that has to be written.
     expect(built.event_tap_action).toEqual({ action: 'none' });
@@ -192,7 +205,8 @@ describe('buildQuickSetupConfig', () => {
   });
 
   it('brings a calendar’s blocks back when it is removed and added again', () => {
-    const answers = initialAnswers(OPENING, 'now_and_next', {});
+    // A story with no palette, so the only colors are the card's own.
+    const answers = initialAnswers(OPENING, 'simple_agenda', {});
     const without = buildQuickSetupConfig(OPENING, {
       ...answers,
       calendars: ['calendar.ben', 'calendar.leo'],
@@ -261,7 +275,7 @@ describe('storyColors', () => {
     expect(
       storyColors(opening, initialAnswers(opening, 'family_hub', {})).map(({ color }) => color),
     ).toEqual(['#ff6c92', '#03a9f4']);
-    expect(storyColors(opening, initialAnswers(opening, 'now_and_next', {}))).toEqual([]);
+    expect(storyColors(opening, initialAnswers(opening, 'simple_agenda', {}))).toEqual([]);
   });
 });
 

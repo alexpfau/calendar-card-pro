@@ -16,7 +16,10 @@
  * forecast hours are fixed by `FROZEN_NOW` alone. Grid geometry across zones is pinned in
  * `grid-geometry.dst.test.ts`.
  */
+import { readFileSync } from 'node:fs';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { parse } from 'yaml';
 
 import { FROZEN_NOW } from './fixtures';
 import { spyOnPopovers } from './popover-spy';
@@ -29,11 +32,13 @@ import {
   mountStory,
   readStoryCard,
   shadow,
+  storyGuide,
   styleValue,
   tap,
   text,
   withOptions,
 } from './story-card';
+import { overlayConfig } from '../src/config/overlay';
 
 vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
@@ -428,5 +433,50 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       canEdit: true,
       canDelete: true,
     });
+  });
+
+  it('keeps full size read only too, as the Read only line says', () => {
+    // "set `day_tap_action` to `action: none` under `overlay:`, since the card opened full size
+    // adds an event on a tap on a free hour unless told otherwise".
+    expect(readFileSync(storyGuide('today-and-tomorrow'), 'utf8')).toContain(
+      'set `day_tap_action` to `action: none` under `overlay:`',
+    );
+    const readOnly = withOptions(dropOption(CARD, 'day_tap_action'), {
+      allow_event_edit: false,
+      allow_event_delete: false,
+      toolbar: { ...(CARD.toolbar as Record<string, unknown>), add_event: false },
+      overlay: { day_tap_action: { action: 'none' } },
+    });
+    const full = overlayConfig(readOnly);
+    expect(full.day_tap_action).toEqual({ action: 'none' });
+    expect((full.toolbar as Record<string, unknown>).add_event).toBe(false);
+    expect(full).toMatchObject({ allow_event_edit: false, allow_event_delete: false });
+
+    // Control: without the `overlay:` line, full size adds an event on a tap on a free hour.
+    expect(overlayConfig(dropOption(readOnly, 'overlay')).day_tap_action).toEqual({
+      action: 'add-event',
+    });
+  });
+
+  it('gives each person a slice of the day in the tablet variation, Ben and his work in one', () => {
+    // "Add `lanes: true` to the card's `time_grid:` block, and give Ben's two calendars the same
+    // `lane`": a fragment laid over the card, Ben's two calendars in one slice.
+    const page = readFileSync(storyGuide('today-and-tomorrow'), 'utf8');
+    const section = page.split('## 👥 A Slice per Person on a Tablet')[1];
+    expect(section, 'the variation moved').toBeDefined();
+    const fragment = parse(/^```yaml\n([\s\S]*?)^```$/m.exec(section as string)![1]) as {
+      time_grid: Record<string, unknown>;
+      entities: Array<Record<string, unknown>>;
+    };
+    expect(fragment.time_grid).toEqual({ lanes: true });
+    const lanes = Object.fromEntries(fragment.entities.map((e) => [e.entity, e.lane]));
+    expect(lanes).toEqual({ 'calendar.ben': 'Ben', 'calendar.work': 'Ben' });
+    // Each block in the fragment is the card's own, with its lane added and nothing else changed.
+    for (const block of fragment.entities) {
+      const own = BLOCKS.find((b) => b.entity === block.entity);
+      const rest = { ...block };
+      delete rest.lane;
+      expect(rest).toEqual(own);
+    }
   });
 });

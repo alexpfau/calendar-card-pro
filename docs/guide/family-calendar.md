@@ -4,21 +4,21 @@ Anna, Ben and their baby son Leo are an invented family with a tablet on the kit
 
 ## 🖼️ See It
 
-The kitchen wall in use, then three stills: the wall in grid view, the same card switched to Columns, and the card on a phone and in a dashboard section.
+The kitchen wall in use, then three stills: the wall in grid view, the same card switched to Columns with a row per person, and the card on a phone and in a dashboard section.
 
-<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A wall tablet with the family's week in grid view: a finger taps Thursday's zoo trip, whose popover shows its time, that it repeats every 4 weeks, its location, London, on a small map, and Ben's calendar; then it draws Bike repair into Tuesday at 17:00, drags it to Wednesday at 10:00, moves it to Ben's calendar so it turns blue with his face, switches to Columns and back to Grid, pages to the next week and swipes back, searches for ducks and picks Feed the ducks on Tuesday, October 20, hides Anna's and Ben's calendars, presses Reset, and deletes Bike repair"></video><br>
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A wall tablet with the family's week in grid view: a finger taps Thursday's zoo trip, whose popover shows its time, that it repeats every 4 weeks, its location, London, on a small map, and Ben's and Leo's calendars; then it draws Bike repair into Tuesday at 17:00, drags it to Wednesday at 10:00, moves it to Ben's calendar so it turns blue with his face, switches to List, with a column for each of Anna, Ben, Leo and Home and each event tinted in its owner's color, then to Columns, with a row for each, and back to Grid, pages to the next week and swipes back, searches for ducks and picks Feed the ducks on Tuesday, October 20, hides Anna's and Ben's calendars, presses Reset, and deletes Bike repair"></video><br>
 
-Tap the zoo trip to see where it is on a map, draw an event into Tuesday afternoon, drag it to Wednesday, move it to Ben's calendar, switch to Columns and back, page a week ahead and swipe back, search for the ducks, hide two calendars, reset the card and delete the event.
+Tap the zoo trip to see where it is on a map, draw an event into Tuesday afternoon, drag it to Wednesday, move it to Ben's calendar, switch to List and Columns, a lane for each person in both, and back, page a week ahead and swipe back, search for the ducks, hide two calendars, reset the card and delete the event.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A wall tablet showing the family's next seven days in grid view under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours, and a forecast in each date header"><br>
 
 The wall in grid view. Anna is pink, Ben is blue and Leo is green, each face in front of its events, and anything on more than one of their calendars is gold.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_columns.png" alt="The same wall tablet switched to Columns: one column of tinted boxes per day under the toolbar, the switcher set to Columns, the morning's finished events faded and a Reset button beside refresh"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_lanes.png" alt="The same wall tablet switched to Columns: a row for each of Anna, Ben and Leo across the week under their faces, and a Home row for the grandparents' visit, Grandma's birthday and the collection days, tinted boxes in each person's color, the morning's finished events faded, the switcher set to Columns and a Reset button beside refresh"><br>
 
-Switched to Columns on the toolbar: a column of tinted boxes per day, the morning's finished events faded, and Reset ready to undo the switch.
+Switched to Columns on the toolbar: a row per person across the week, the household's own plans in the Home row, the morning's finished events faded, and Reset ready to undo the switch.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days of events tinted in each person's color, with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
 
 A phone switched to List, and a dashboard section where Grid shows three days and the calendar chips fold into the filter button.
 
@@ -61,12 +61,17 @@ entities:
     accent_color: '#66bb6a'
   - entity: calendar.family
     name: Family
+    lane: Home
     accent_color: '#ffb74d'
   - entity: calendar.trash_pickup
     name: Trash pickup
+    lane: Home
     accent_color: '#b388ff'
 list:
   days_to_show: 3
+  event_background_opacity: 15
+  lanes: true
+  lanes_fallback: list
   weather:
     position: date
 column:
@@ -74,6 +79,8 @@ column:
   show_past_events: true
   past_event_opacity: 40
   event_background_opacity: 15
+  lanes: true
+  show_location: false
   weather:
     position: date
 time_grid:
@@ -89,14 +96,14 @@ month:
 ```
 
 ::: tip Build It in the Editor
-[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its colors, in order. The names and faces above are this family's, so give your calendars their own.
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its colors, in order. The names and faces above are this family's: give your calendars their own with **Name** and **Label Type** on each calendar's page, under **Name & Look**. Each calendar gets a lane of its own; to share one, as Family and Trash pickup share Home, give them the same **Lane** there.
 :::
 
 ## 🧭 Across Different Screens
 
-`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/header-toolbar#switching-between-layouts).
+`view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. Each layout answers its own question: Grid when things happen, Columns and the wall's List whose plans they are, and Month the weeks ahead. See [Switching Between Layouts](/features/header-toolbar#switching-between-layouts).
 
-<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
+<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, its events tinted in each person's color, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
 On a phone: switch to List, swipe to the next three days, tap Friday to add a swim lesson and delete it, swipe back, hide Ben's calendar in the filter menu, search for the zoo, pick Thursday, October 15, and reset the card.
 
@@ -104,11 +111,13 @@ On Home Assistant 2026.5 or later, every screen shows a change as soon as Home A
 
 ### Grid, Columns & List
 
-`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
+`days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days, as it does the wall's. See [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 
 Grid sheds days one at a time as the card narrows, always keeping today, so the same card fits a narrow dashboard section. See [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
 
-The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
+[`lanes: true`](/features/lanes) in the `column:` and `list:` blocks gives each person a place of their own: a row across the week in Columns, and a column beside the dates in the wall's List. `lane: Home` on the Family and Trash pickup calendars puts the household's own plans in one lane of their own, under its initial. Where List's four lanes do not fit, as on a phone or in a dashboard section, `lanes_fallback: list` draws the plain list instead, which is what a phone wants. Grid keeps its days whole, since a slice per person in seven days leaves no room for a title. See [Calendar Lanes](/features/lanes).
+
+`event_background_opacity: 15` in the `list:` and `column:` blocks tints each event in its calendar's color, so List and Columns read in the same colors as Grid. The rest of the `column:` block styles Columns alone: `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `show_location: false` keeps the week inside the wall's 800px; a tap still shows where an event is. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
 `event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 
@@ -143,7 +152,7 @@ Five calendars go in, and each is listed once:
 | `calendar.family`       | what belongs to nobody in particular, a visit or a birthday | 1      |
 | `calendar.trash_pickup` | the recycling and trash collection days                     | 1      |
 
-Nothing is filtered, because each calendar means one thing. A plan two or three of them share sits on each of their calendars, which is what lets the card draw it once with every face on it. A calendar that mixes several kinds of event can still feed the card, split into blocks as the [Family Agenda](/guide/one-calendar-many-purposes#calendars-event-blocks) splits its own. Local, Google and CalDAV calendars all display the same way.
+Nothing is filtered, because each calendar means one thing. A plan two or three of them share sits on each of their calendars, which is what lets the card draw it once with every face on it. A calendar that mixes several kinds of event can still feed the card, split into blocks as the [Hallway Agenda](/guide/one-calendar-many-purposes#calendars-event-blocks) splits its own. Local, Google and CalDAV calendars all display the same way.
 
 ## 🧩 How It Works
 
@@ -159,7 +168,9 @@ Home Assistant stores a person's photo square, and the card draws it as stored, 
 
 Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan only when their title, start, end and location all match, as they do when the same event is added to each calendar.
 
-[`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold.
+[`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors those merged plans in the Family calendar's gold, so a plan on more than one person's calendar reads as a family plan, wherever it lives: the zoo trip on Ben's and Leo's calendars is gold, though nobody filed it anywhere special. The [Hallway Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-hallway-agenda) uses the same gold.
+
+That holds in Grid and in a phone's List. In Columns and the wall's List, where each person has a lane, a shared plan stands in each of their lanes in that person's color instead, so Family lunch is in Anna's, Ben's and Leo's rows at the same hour. See [Shared Events](/features/lanes#shared-events).
 
 ### A Birthday That Counts Itself
 
@@ -173,7 +184,7 @@ A trip entered with times goes there too once it lasts a full day or longer, suc
 
 Banners show no label, so the emoji in _🗑️ Recycling collection_ and _🏫 Daycare closed_ are written into the titles in the calendars themselves. They do the job a face does in the timed blocks.
 
-The [Family Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-itself) retires the trash pickup at 11:00 with `allday_expires_at`. That option acts only where past events are hidden, and the grid and the columns here keep them.
+The [Hallway Agenda](/guide/one-calendar-many-purposes#a-reminder-that-retires-itself) retires the trash pickup at 11:00 with `allday_expires_at`. That option acts only where past events are hidden, and the grid and the columns here keep them.
 
 ### The Next Seven Days on an Hour Axis
 
@@ -232,20 +243,21 @@ entities:
   - entity: calendar.work
     name: Work
     label: person.ben
+    lane: Ben # in Ben's row and column, beside his own plans
     accent_color: '#90a4ae'
     private: true # when Ben is at work, not what the meeting is or where
     replace_with: Work # and Work in place of Private
   # calendar.family and calendar.trash_pickup as above
 ```
 
-[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/filtering#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out.
+[`private: true`](/features/core-settings#keeping-a-calendar-private) keeps everything a work event says off the wall and the phones: its title, its location and its description, on the card and in the [event popover](/features/actions#event-details) a tap opens, where each reads Private behind a lock and nobody can edit or delete the event. Its time stays, and Ben's face says whose it is. [`replace_with: Work`](/features/filtering#hiding-what-an-event-is-about) puts _Work_ in place of Private in the title, which says why he is out. Give `calendar.ben` the same `lane: Ben`, and the work calendar joins Ben's own plans in his row in Columns and his column in the wall's List, rather than taking a lane of its own; see [One Lane for Several Calendars](/features/lanes#one-lane-for-several-calendars).
 
-To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
+To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Hallway Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 
 ## 📚 Next Steps
 
-- [Family Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
-- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the month
+- [Hallway Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
+- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the weeks ahead
 - [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens

@@ -2,7 +2,7 @@
  * The two family stories describe one family's week, and this suite holds them to it.
  *
  * `docs/guide/family-calendar.md` (the Family Hub) and
- * `docs/guide/one-calendar-many-purposes.md` (the Family Agenda) show Anna, Ben and Leo on
+ * `docs/guide/one-calendar-many-purposes.md` (the Hallway Agenda) show Anna, Ben and Leo on
  * two displays. Each page is pinned on its own elsewhere, and that was not enough: the pages
  * drifted apart while each stayed internally correct. Before this suite the agenda had five
  * calendars to the grid's six, put the trash pickup on the family calendar, and gave every
@@ -139,7 +139,8 @@ describe('the two family stories describe one family', () => {
 
   it('show the window and the hours each page describes', () => {
     // The Hub is seven days from today in grid view on a 07:00-22:00 axis, with a phone's List
-    // at three days, and the agenda three days from today. These are the numbers the prose and
+    // at three days and a lane per person in Columns and the wall's List, and the agenda three
+    // days from today. These are the numbers the prose and
     // the screenshots quote, so each is pinned beside the sentence that quotes it: a card that
     // changed one would leave its page describing a picture the card no longer draws.
     const hub = readFileSync(PAGES.hub, 'utf8');
@@ -148,8 +149,8 @@ describe('the two family stories describe one family', () => {
     expect(CARDS.hub.config).toMatchObject({
       view: 'grid',
       days_to_show: 7,
-      list: { days_to_show: 3 },
-      column: { min_days_to_show: 3 },
+      list: { days_to_show: 3, lanes: true, lanes_fallback: 'list' },
+      column: { min_days_to_show: 3, lanes: true, show_location: false },
       time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
     });
     expect(CARDS.hub.config.start_date).toBeUndefined();
@@ -158,6 +159,17 @@ describe('the two family stories describe one family', () => {
     expect(hub).toContain(
       "`list.days_to_show: 3` gives a phone's List today and the next two days",
     );
+    // A lane per person in Columns and the wall's List, and the plain list where they don't fit.
+    expect(hub).toContain('`lanes_fallback: list` draws the plain list instead');
+    expect(hub).toContain('`show_location: false` keeps the week inside the wall');
+    // "`lane: Home` on the Family and Trash pickup calendars": the household's own lane, and every
+    // other calendar in a lane of its own.
+    expect(
+      CARDS.hub.entities.filter((block) => block.lane !== undefined).map((b) => [b.entity, b.lane]),
+    ).toEqual([
+      ['calendar.family', 'Home'],
+      ['calendar.trash_pickup', 'Home'],
+    ]);
 
     expect(CARDS.agenda.config.view).toBeUndefined();
     expect(CARDS.agenda.config).toMatchObject({ days_to_show: 3 });

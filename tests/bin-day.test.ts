@@ -17,6 +17,8 @@
  * 10:00 expiry is 10:00 local. `allday_expires_at` at the local clock in other zones is pinned in
  * `local-day-filters.dst.test.ts`.
  */
+import { readFileSync } from 'node:fs';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { spyOnPopovers } from './popover-spy';
@@ -31,6 +33,7 @@ import {
   readStoryCard,
   rowTitled,
   settle,
+  storyGuide,
   tap,
   withOptions,
 } from './story-card';
@@ -125,7 +128,7 @@ describe('the Bin Day card behaves as its page describes', () => {
       });
     }
     expect(CARD).toMatchObject({
-      days_to_show: 31,
+      days_to_show: 42,
       show_countdown: 'once_per_day',
       show_single_allday_time: false,
       allday_badge: 'title',
@@ -134,7 +137,7 @@ describe('the Bin Day card behaves as its page describes', () => {
     });
   });
 
-  it("shows each bin's next pickup only, nearest first, a month ahead", async () => {
+  it("shows each bin's next pickup only, nearest first, six weeks ahead", async () => {
     const card = await mountStory(CARD, FEED);
     expect(drawn(card)).toEqual(NEXT_PICKUPS);
 
@@ -161,9 +164,30 @@ describe('the Bin Day card behaves as its page describes', () => {
     );
     expect(drawn(unsorted)).toContain('Jun 17 Trash mdi:leaf');
 
-    // "A month ahead, so a monthly bin still shows": two weeks would lose the paper.
+    // "Six weeks ahead, so a monthly bin still shows": two weeks would lose the paper.
     const fortnight = await mountStory(withOptions(CARD, { days_to_show: 14 }), FEED);
     expect(drawn(fortnight)).toEqual(NEXT_PICKUPS.slice(0, 3));
+  });
+
+  it("keeps a monthly bin on the card once today's pickup is retired", async () => {
+    // "Six weeks ahead, so a monthly bin still shows once today's is gone": a paper pickup on
+    // the first Wednesday of each month is 35 days from today's once the truck has been.
+    expect(readFileSync(storyGuide('bin-day'), 'utf8')).toContain(
+      "Six weeks ahead, so a monthly bin still shows once today's is gone",
+    );
+    vi.setSystemTime(new Date('2026-06-17T11:00:00.000Z'));
+    const monthly: StoryHass = {
+      payload: {
+        'calendar.trash_pickup': [pickup('Paper', '2026-06-17'), pickup('Paper', '2026-07-22')],
+      },
+    };
+
+    const card = await mountStory(CARD, monthly);
+    expect(drawn(card)).toEqual(['Jul 22 Paper mdi:newspaper-variant-outline']);
+
+    // Control: a month ahead, which the card once showed, has no paper pickup left after 10:00.
+    const month = await mountStory(withOptions(CARD, { days_to_show: 31 }), monthly);
+    expect(drawn(month).filter((row) => row.includes('Paper'))).toEqual([]);
   });
 
   it("strips the feed's prefix on the card and keeps it in the event the popover opens", async () => {
@@ -203,24 +227,30 @@ describe('the Bin Day card behaves as its page describes', () => {
       ['Organic', '#43a047', true],
       ['Paper', '#1e88e5', true],
     ]);
-    // Today's pickup has begun and has nothing to count down to, so it has no time line at
-    // all; the others carry their countdown alone.
-    expect(listRows(card).map((row) => [row.title, row.time, row.countdown])).toEqual([
-      ['Trash', null, null],
-      ['Recycling', '', 'tomorrow'],
-      ['Organic', '', 'in 2 days'],
-      ['Paper', '', 'in 23 days'],
+    // Today's pickup has begun and has nothing to count down to, so it has no time at all; the
+    // others carry their countdown alone, at the end of the pill's line (`time_position: title`).
+    const aside = (row: { element: HTMLElement }) =>
+      row.element.querySelector('.title-aside .time-countdown') !== null;
+    expect(listRows(card).map((row) => [row.title, row.time, row.countdown, aside(row)])).toEqual([
+      ['Trash', null, null, false],
+      ['Recycling', null, 'tomorrow', true],
+      ['Organic', null, 'in 2 days', true],
+      ['Paper', null, 'in 23 days', true],
     ]);
+    // Control: without `time_position: title` the countdown takes a line of its own.
+    const below = await mountStory(dropOption(CARD, 'time_position'), FEED);
+    expect([rowTitled(below, 'Recycling').countdown, aside(rowTitled(below, 'Recycling'))]).toEqual(
+      ['tomorrow', false],
+    );
 
     // Controls: without `allday_badge` there is no pill; without `show_single_allday_time:
     // false` "All day" is back beside "tomorrow".
     const plain = await mountStory(dropOption(CARD, 'allday_badge'), FEED);
     expect(listRows(plain).map((row) => row.pill)).toEqual([null, null, null, null]);
     const wordy = await mountStory(dropOption(CARD, 'show_single_allday_time'), FEED);
-    expect([rowTitled(wordy, 'Recycling').time, rowTitled(wordy, 'Recycling').countdown]).toEqual([
-      'All day',
-      'tomorrow',
-    ]);
+    const recycling = rowTitled(wordy, 'Recycling');
+    expect(recycling.time?.startsWith('All day')).toBe(true);
+    expect(recycling.countdown).toBe('tomorrow');
   });
 
   it('says "tomorrow" once on a day two bins go out together', async () => {

@@ -1169,7 +1169,7 @@ Write `accent` into any of the card's event-text color options and that text is 
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda whose timed events have titles in their calendars' colors, pink, green, gray and gold, each a readable shade of the accent bar beside it, and whose all-day titles sit in filled pills of those colors" width="600"><br>
 
-The [Family Agenda](/guide/one-calendar-many-purposes) sets `event_color: accent`, so each timed
+The [Hallway Agenda](/guide/one-calendar-many-purposes) sets `event_color: accent`, so each timed
 event's title takes its calendar's color; its all-day titles sit in filled pills of that color,
 drawn in a contrasting one. Here only the time follows the calendar; the title keeps
 `event_color`:

@@ -528,7 +528,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.family_hub.space': 'A wall tablet, and the same card on a phone',
   'quick_setup.story.small_card_big_picture': 'Small Card, Big Picture',
   'quick_setup.story.small_card_big_picture.best_for':
-    'The next few days in a dashboard column, and the whole month a tap away',
+    'The next few days in a dashboard column, and the weeks ahead a tap away',
   'quick_setup.story.small_card_big_picture.space':
     'A column of a dashboard you have, and full size on any screen',
   'quick_setup.story.now_and_next': 'Now & Next',
@@ -539,10 +539,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.today_and_tomorrow.space': 'A phone, a section or a portrait tablet',
   'quick_setup.story.birthdays_and_holidays': 'Birthdays & Holidays',
   'quick_setup.story.birthdays_and_holidays.best_for':
-    'Birthdays with ages, and the next school break',
+    'Birthdays with ages, anniversaries and the next holidays',
   'quick_setup.story.birthdays_and_holidays.space': 'A dashboard section or a pop-up',
   'quick_setup.story.house_log': 'House Log',
-  'quick_setup.story.house_log.best_for': 'When each job was last done, newest first',
+  'quick_setup.story.house_log.best_for':
+    'Every job as it was done, newest first, with how long ago',
   'quick_setup.story.house_log.space': 'A dashboard section, and the same card on a phone',
   'quick_setup.read_story': 'Read about {story}',
   'quick_setup.card_title': 'Title',

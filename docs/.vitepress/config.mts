@@ -96,7 +96,7 @@ function slugify(str: string): string {
 
 /**
  * The Example Stories, in sidebar order. One complete card per page, each for a place in a
- * home. Family Hub and Family Agenda keep the /guide/ URLs they were published under as
+ * home. Family Hub and Hallway Agenda keep the /guide/ URLs they were published under as
  * walkthroughs, because the release notes and the README link to them, and the newer stories
  * sit beside them; the overview keeps /reference/examples for the same reason. Because the
  * URLs share no prefix, the top nav's highlight for the group is built from this list rather
@@ -104,11 +104,11 @@ function slugify(str: string): string {
  */
 const EXAMPLE_STORIES = [
   { text: 'Overview', link: '/reference/examples' },
-  { text: 'Family Hub', link: '/guide/family-calendar' },
   { text: 'Small Card, Big Picture', link: '/guide/small-card-big-picture' },
-  { text: 'Family Agenda', link: '/guide/one-calendar-many-purposes' },
+  { text: 'Family Hub', link: '/guide/family-calendar' },
   { text: 'Now & Next', link: '/guide/now-and-next' },
   { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },
+  { text: 'Hallway Agenda', link: '/guide/one-calendar-many-purposes' },
   { text: 'Birthdays & Holidays', link: '/guide/birthdays-and-holidays' },
   { text: 'Bin Day', link: '/guide/bin-day' },
   { text: 'House Log', link: '/guide/house-log' },

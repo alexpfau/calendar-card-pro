@@ -22,11 +22,14 @@ export const SMALL_CARD_GUIDE = join(__dirname, '..', 'docs', 'guide', 'small-ca
 
 /** Every page in the docs' Example Stories group that prints a card, in sidebar order. */
 export const STORY_GUIDES = [
-  HUB_GUIDE,
   SMALL_CARD_GUIDE,
+  HUB_GUIDE,
+  ...['now-and-next', 'today-and-tomorrow'].map((page) =>
+    join(__dirname, '..', 'docs', 'guide', `${page}.md`),
+  ),
   AGENDA_GUIDE,
-  ...['now-and-next', 'today-and-tomorrow', 'birthdays-and-holidays', 'bin-day', 'house-log'].map(
-    (page) => join(__dirname, '..', 'docs', 'guide', `${page}.md`),
+  ...['birthdays-and-holidays', 'bin-day', 'house-log'].map((page) =>
+    join(__dirname, '..', 'docs', 'guide', `${page}.md`),
   ),
 ];
 

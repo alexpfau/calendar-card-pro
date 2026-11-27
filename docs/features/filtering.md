@@ -634,7 +634,7 @@ Three per-calendar options do it. `replace_field` names which field to rewrite a
 to the title; `replace_pattern` is what to find, as a regular expression; `replace_with` is
 what to put there.
 
-The [Family Agenda](/guide/one-calendar-many-purposes) story puts `replace_pattern` and
+The [Hallway Agenda](/guide/one-calendar-many-purposes) story puts `replace_pattern` and
 `replace_with` to work in a single card, alongside the filters above, and
 [Bin Day](/guide/bin-day) uses `replace_pattern` to strip the prefix a waste feed puts on every title.
 

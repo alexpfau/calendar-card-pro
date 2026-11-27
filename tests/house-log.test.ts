@@ -224,15 +224,12 @@ describe('the House Log card behaves as its page describes', () => {
     expect(requests).toHaveLength(1);
   });
 
-  it("keeps each job's last time only, when each job has a block of its own", async () => {
-    // "Each job's last time only": one block per job, each capped at one entry.
-    const perJob = withOptions(CARD, {
-      entities: ['Plants watered', 'Lawn mowed', 'Smoke alarms tested'].map((job) => ({
-        entity: 'calendar.house_log',
-        allowlist: job,
-        compact_events_to_show: 1,
-      })),
-    });
+  it("keeps each job's last time only, as the Each Job's Last Time variation lays it over the card", async () => {
+    // "Change these lines on the card above, one block per job": a year back, each job in a block
+    // of its own capped at one entry.
+    expect(MARKDOWN).toContain('Change these lines on the card above, one block per job');
+    const perJob = withOptions(CARD, yamlAfter("### Each Job's Last Time"));
+    expect(perJob).toMatchObject({ start_date: 'today-364', days_to_show: 365 });
     const card = await mountStory(perJob, LOG);
     expect(drawn(card)).toEqual([
       'Jun 21 · Plants watered · 3 hours ago',
