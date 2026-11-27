@@ -1235,6 +1235,8 @@ describe('every piece of text is sized by its own option', () => {
     expect(sizedText(analyzeAll().runs)).toEqual({
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
+      // A calendar's label inside an all-day title pill, in the pill's size, which is the title's.
+      'calendar-label in pill-labels': ['event_font_size'],
       // A lane's header over List's lanes and at the start of Columns' rows: its label, its
       // initial where it has none, and its name, all in the weekday names' size.
       'calendar-label in lane-label': ['weekday_font_size'],

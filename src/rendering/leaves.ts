@@ -603,6 +603,48 @@ export function renderLabel(
 }
 
 /**
+ * A calendar's label inside an all-day title pill, every part in the order it is written, ahead
+ * of the title: an icon cut out of a circle in the pill's ink, a picture cropped to the same
+ * circle, and an emoji or words as text of the pill. `label_icon_color` and `label_image_size`
+ * do not reach it; the pill's own colors and size decide every part.
+ *
+ * @param run - The label parts, in drawing order
+ * @returns The parts, or `nothing` for a run that draws none
+ */
+function renderPillLabels(run: readonly Types.ResolvedLabel[]): TemplateResult | typeof nothing {
+  const parts = run.flatMap((entry): TemplateResult[] => {
+    const type = Helpers.resolveLabelType(entry.value, entry.type);
+    if (type === 'none') return [];
+    if (type === 'icon') {
+      // Drawn twice, one over the other: underneath in the page's color, which is opaque, and on
+      // top in the pill's ground, which need not be. See .pill-label-icon in styles.ts.
+      return [
+        html`<span class="pill-label-icon"
+          ><ha-icon icon=${entry.value} class="pill-label-under" aria-hidden="true"></ha-icon
+          ><ha-icon icon=${entry.value} class="label-icon"></ha-icon
+        ></span>`,
+      ];
+    }
+    if (type === 'image') {
+      return [
+        html`<img
+          src=${entry.value}
+          class="label-image pill-label-picture"
+          alt=${entry.alt ?? ''}
+        />`,
+      ];
+    }
+    const glyphClass = isGlyphLabel(entry.value) ? ' label-emoji' : '';
+    return [html`<span class="calendar-label${glyphClass}">${entry.value}</span>`];
+  });
+  if (parts.length === 0) return nothing;
+  // One real space after the label, so a screen reader reads it and the title as two words; the
+  // margins in styles.ts give the rest of the gap.
+  // prettier-ignore
+  return html`<span class="pill-labels">${parts} </span>`;
+}
+
+/**
  * Render an event title with optional label and weather data
  *
  * `aside` is `time_position: title`'s time row. Given one, the row draws the time after the title
@@ -717,26 +759,25 @@ function renderEventTitle(
       (titlePill.inheritsText ? ` --badge-source: ${entityColor};` : '')
     : '';
 
-  // prettier-ignore
-  const titleContent = titlePill
-    ? html`<span
-        class=${pillClass}
-        style=${pillStyle}
-        >${titleText}</span
-      >`
-    : titleText;
-
   // A merged row answers for every calendar that contributed a copy, so it draws each of
   // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
   // the inline-end margin every label kind already carries. A label written as a list draws
   // its parts the same way. The branch is behavioral rather than defensive: `mergedLabels` is
   // undefined unless there are two labels to draw, so a merge whose winner carries none
   // renders as it always has.
-  const labels = mergedLabels
-    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
-    : entityLabel
-      ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
-      : nothing;
+  //
+  // A title pill takes the whole run inside it instead, ahead of the title; see
+  // `renderPillLabels`. Nothing is drawn before such a title, so it takes the unlabeled markup
+  // below, as a pilled title without a label always has.
+  const labels = titlePill
+    ? nothing
+    : mergedLabels
+      ? mergedLabels.map((entry) =>
+          renderLabel(entry.value, entry.iconColor, entry.type, entry.alt),
+        )
+      : entityLabel
+        ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
+        : nothing;
   // Asked of what renders rather than of the configuration: a label whose type resolves to
   // `none` draws nothing, and its title takes the unlabeled markup below.
   const hasCalendarLabel = Array.isArray(labels)
@@ -744,11 +785,29 @@ function renderEventTitle(
     : labels !== nothing;
   // A private event's Private follows a lock, drawn last in the label run, beside the title, so
   // every view lays it out as it does an icon label. In the title's color, which the label run
-  // around it does not take.
-  const lock = event._privateTitle
-    ? PrivateLock.renderRowLock(titleInk ?? 'var(--calendar-card-color-event)')
-    : nothing;
+  // around it does not take. In a title pill it follows the label inside the pill, in the pill's
+  // own ink.
+  const lock =
+    event._privateTitle && !titlePill
+      ? PrivateLock.renderRowLock(titleInk ?? 'var(--calendar-card-color-event)')
+      : nothing;
   const hasLabel = hasCalendarLabel || lock !== nothing;
+
+  const pillRun: Types.ResolvedLabel[] =
+    mergedLabels ??
+    (entityLabel ? [{ value: entityLabel, type: labelType, alt: entityLabelAlt }] : []);
+  const pillLead = titlePill
+    ? [renderPillLabels(pillRun), event._privateTitle ? PrivateLock.renderRowLock() : nothing]
+    : nothing;
+
+  // prettier-ignore
+  const titleContent = titlePill
+    ? html`<span
+        class=${pillClass}
+        style=${pillStyle}
+        >${pillLead}${titleText}</span
+      >`
+    : titleText;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
   // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —

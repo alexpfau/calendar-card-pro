@@ -100,8 +100,9 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.lane-header, .lane-header *, .lane-corner, .lane-cell',
     { page: 'events', heading: 'heading_lanes', field: 'layout:lanes' },
   ],
+  // An icon inside an all-day title pill is drawn twice, the copy under it included.
   [
-    '.allday-badge, .allday-title-pill, .calendar-label, .label-icon',
+    '.allday-badge, .allday-title-pill, .calendar-label, .label-icon, .pill-label-under',
     { page: 'events', heading: 'heading_icon_and_badge' },
   ],
   // A title in the Wide Month's days, a line's or a bar's, opens the size its days draw titles at;

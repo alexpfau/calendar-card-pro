@@ -4509,6 +4509,101 @@ export const cardStyles = css`
        agree with each other, and a control with no pill anywhere returns 0. */
     vertical-align: middle;
     margin-block: -0.17em;
+    /* What an icon inside the pill is cut out in (below): the color inside the pill. The wash
+       here, which subtle and tinted draw; outline and filled name their own. */
+    --badge-ground: var(--badge-wash);
+  }
+
+  /* A calendar's label inside the pill, ahead of its title and in the order it is written
+     (renderPillLabels in leaves.ts). An icon sits in a circle as tall as the pill's line box, so
+     the circle keeps the pill's block padding on every side and follows the curve of its end.
+     The circle takes the pill's ink and the icon is cut out of it in the color inside the pill:
+     the title's two colors, swapped, so the icon reads exactly as clearly as the words beside
+     it, in every shape and color source, where a color of its own could not. A picture is
+     cropped to the same circle. */
+  .pill-label-icon,
+  .pill-label-picture {
+    box-sizing: border-box;
+    width: 1.16em;
+    height: 1.16em;
+    border-radius: 50%;
+    vertical-align: top;
+    margin-inline-end: 0.3em;
+  }
+
+  /* The icon is drawn twice in one cell, centered. The color inside the pill need not be opaque:
+     the text source's wash is a tint of the row's color, and a card can be see-through. Drawn
+     alone over the circle, such a color would let the circle show through and the icon fade
+     away. So a copy in the page's own color lies under it, and the two together draw what the
+     eye sees inside the pill. Over an opaque ground the top copy covers the other entirely.
+     display: flex on each copy keeps a line box out of it, which would set the icon on a
+     baseline instead of the circle's center. */
+  .pill-label-icon {
+    display: inline-grid;
+    place-items: center;
+    background-color: currentColor;
+  }
+
+  .pill-label-icon > ha-icon {
+    grid-area: 1 / 1;
+    display: flex;
+    --mdc-icon-size: 0.78em;
+    margin: 0;
+  }
+
+  .pill-label-icon > .pill-label-under {
+    color: var(
+      --primary-background-color,
+      var(--calendar-card-background-color, var(--card-background-color))
+    );
+  }
+
+  .pill-label-icon > .label-icon {
+    color: var(--badge-ground);
+  }
+
+  .pill-label-picture {
+    display: inline-block;
+    object-fit: cover;
+  }
+
+  /* A circle that leads the pill gives back the pill's inline padding down to its block
+     padding, so it sits as far from the pill's end as from its top and bottom: 0.55em of
+     padding less the 0.21em it keeps. Circles side by side overlap a little less than their
+     gap, so a run of them reads as one group. */
+  .pill-labels > :is(.pill-label-icon, .pill-label-picture):first-child {
+    margin-inline-start: -0.34em;
+  }
+
+  :is(.pill-label-icon, .pill-label-picture) + :is(.pill-label-icon, .pill-label-picture) {
+    margin-inline-start: -0.1em;
+  }
+
+  .pill-labels > .calendar-label {
+    margin-inline-end: 0.25em;
+  }
+
+  /* The label ends in a space (renderPillLabels), about a quarter of an em in the fonts Home
+     Assistant ships, so its last part keeps only what it needs beyond that. */
+  .pill-labels > :is(.pill-label-icon, .pill-label-picture):last-child {
+    margin-inline-end: 0.05em;
+  }
+
+  .pill-labels > .calendar-label:last-child {
+    margin-inline-end: 0;
+  }
+
+  /* Words in a label take the title's own weight, a step above the pill's, so a label such as
+     Anna is not read as the first word of the title after it. */
+  .pill-labels > .calendar-label:not(.label-emoji) {
+    font-weight: 500;
+  }
+
+  /* A private event's lock, after the label and before Private, at the size of the words. */
+  .allday-title-pill > .private-lock {
+    --mdc-icon-size: 1em;
+    vertical-align: top;
+    margin-inline-end: 0.2em;
   }
 
   /* Center the CAPS rather than the em square, where the browser can.
@@ -4571,6 +4666,7 @@ export const cardStyles = css`
     color: var(--badge-solid);
     background-color: transparent;
     box-shadow: inset 0 0 0 1px currentColor;
+    --badge-ground: var(--calendar-card-background-color, var(--card-background-color));
   }
 
   /* The loud one, for people who want the calendar color to read as a solid chip.
@@ -4586,11 +4682,12 @@ export const cardStyles = css`
      actual per-accent decision, so this rule is the floor rather than the intent. */
   .allday-pill-filled {
     color: var(--calendar-card-background-color, var(--card-background-color));
-    background-color: color-mix(
+    --badge-ground: color-mix(
       in srgb,
       var(--badge-solid) 85%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
+    background-color: var(--badge-ground);
     box-shadow: none;
   }
 
@@ -4598,7 +4695,8 @@ export const cardStyles = css`
      tier below fills it. */
   @supports not (color: color-mix(in srgb, red, blue)) {
     .allday-pill-filled {
-      background-color: var(--badge-solid);
+      --badge-ground: var(--badge-solid);
+      background-color: var(--badge-ground);
     }
   }
 
@@ -4748,7 +4846,8 @@ export const cardStyles = css`
     (width: round(1px, 1px)) {
     .allday-pill-filled {
       color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
-      background-color: var(--badge-solid);
+      --badge-ground: var(--badge-solid);
+      background-color: var(--badge-ground);
     }
   }
 

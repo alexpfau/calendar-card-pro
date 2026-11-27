@@ -37,7 +37,7 @@ entities:
 | `label_type`             | string            | derived from `label`     | Forces how `label` is read, every part of a list alike: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                                                                                                                                                                                    |
 | `color`                  | string            | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `accent_color`           | string            | `accent_color`           | Custom color for the accent bar and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                                                                                                                                          |
-| `label_icon_color`       | string            | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `label_icon_color`       | string            | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels). Not inside an [all-day title pill](/features/event-content#a-calendars-label-inside-the-pill), which draws icons in its own colors                                                                                                                                                                                                                                                                                |
 | `label_image_size`       | string            | `1em`                    | Height of a picture label, such as `2em` or `40px`; a bare number is pixels. Icons, text and emoji keep the text's size; see [Sizing a Picture Label](#sizing-a-picture-label)                                                                                                                                                                                                                                                                                                                 |
 | `text_scale`             | number            | `1`                      | Draws this calendar's event text, and the icons beside it, at this multiple of the card's sizes: `0.75` at three quarters; see [Scaling One Calendar's Text](#scaling-one-calendars-text)                                                                                                                                                                                                                                                                                                      |
 | `show_time`              | boolean           | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -562,6 +562,8 @@ part.
   and `none` hides them all.
 - A row [merged from several calendars](/features/filtering#labeling-coloring-shared-events)
   draws every part of each calendar's label, a part two calendars share only once.
+- In an [all-day title pill](/features/event-content#a-calendars-label-inside-the-pill), every
+  part moves inside the pill, in the same order.
 - Grid view names each picture after its person and each icon after its calendar for screen
   readers, as it does a single label.
 
@@ -587,7 +589,8 @@ size of the text.
 
 It applies to the rows of list and column view, to grid view's timed blocks, and to month view's
 day list and day panel. The wide month's one-line entries keep their pictures at the size of
-their line.
+their line, and an [all-day title pill](/features/event-content#a-calendars-label-inside-the-pill)
+crops its pictures to a circle at the pill's height.
 
 ::: tip Visual Editor
 **Image Size** is under **Name & Look** on the calendar's page, below the label, while the label

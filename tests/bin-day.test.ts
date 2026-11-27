@@ -227,6 +227,17 @@ describe('the Bin Day card behaves as its page describes', () => {
       ['Organic', '#43a047', true],
       ['Paper', '#1e88e5', true],
     ]);
+    // Each bin's icon sits in a circle at the start of its pill, with nothing before the pill.
+    const iconInPill = (row: { element: HTMLElement }) => [
+      row.element
+        .querySelector('.allday-title-pill .pill-label-icon ha-icon')
+        ?.getAttribute('icon'),
+      row.element.querySelectorAll('.summary > :is(.calendar-label, .label-icon, .label-image)')
+        .length,
+    ];
+    expect(listRows(card).map(iconInPill)).toEqual(
+      ['Trash', 'Recycling', 'Organic', 'Paper'].map((bin) => [ICON[bin], 0]),
+    );
     // Today's pickup has begun and has nothing to count down to, so it has no time at all; the
     // others carry their countdown alone, at the end of the pill's line (`time_position: title`).
     const aside = (row: { element: HTMLElement }) =>
@@ -247,6 +258,12 @@ describe('the Bin Day card behaves as its page describes', () => {
     // false` "All day" is back beside "tomorrow".
     const plain = await mountStory(dropOption(CARD, 'allday_badge'), FEED);
     expect(listRows(plain).map((row) => row.pill)).toEqual([null, null, null, null]);
+    expect(listRows(plain).map(iconInPill)).toEqual([
+      [undefined, 1],
+      [undefined, 1],
+      [undefined, 1],
+      [undefined, 1],
+    ]);
     const wordy = await mountStory(dropOption(CARD, 'show_single_allday_time'), FEED);
     const recycling = rowTitled(wordy, 'Recycling');
     expect(recycling.time?.startsWith('All day')).toBe(true);

@@ -132,7 +132,7 @@ describe('color-mix() where Safari before 16.2 has none', () => {
       '.allday-badge { --badge-ink }',
       '.allday-badge { --badge-wash }',
       '.allday-badge.allday-source-text { --badge-wash }',
-      '.allday-pill-filled { background-color }',
+      '.allday-pill-filled { --badge-ground }',
       '.allday-title-pill { --badge-ink }',
       '.allday-title-pill { --badge-wash }',
       '.allday-title-pill.allday-source-text { --badge-wash }',
