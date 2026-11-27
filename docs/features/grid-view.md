@@ -647,7 +647,9 @@ not fit is left out whole, never cut part way.
   `10:00`, or nothing.
 - Titles wrap only between words. A word wider than its block is cut short with "…", so
   "Quarterly review" reads "Quarte… review" rather than "Quarte rly review" over three lines. A
-  hyphenated word can still wrap after its hyphen.
+  hyphenated word can still wrap after its hyphen. A text label follows the same rule: in a
+  narrow lane "David" reads "Da…", with the title below it, where it read "Davi" and "d". A label
+  that wraps between its words, such as "Anna Work", wraps as before.
 - Event weather's words can wrap beneath the temperature. A countdown's words continue on the
   next line where the block has room. A finished block
   [counts up](/features/event-content#counting-up-from-past-events) in the same place, and the
@@ -706,7 +708,9 @@ time_grid:
 - Some blocks still cannot show a useful line: large labels, unusually tall line spacing or a
   very narrow lane can leave no room for the labels plus meaningful title text. Grid then leaves
   the block visually empty rather than showing a label or "…" alone, so a quarter-hour event is
-  not guaranteed to show text at every card height or font.
+  not guaranteed to show text at every card height or font. In a
+  [lane](/features/lanes#telling-lanes-apart) it shows its label alone instead, since grid view
+  draws no lane headers and the label is what says whose the event is.
 - Screen readers still get each timed event's full information, even where its block shows
   little or none of it. Picture and icon labels are read by name: a calendar by its
   [`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one, and a person

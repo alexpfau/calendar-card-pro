@@ -7256,6 +7256,43 @@ export const cardStyles = css`
     vertical-align: middle;
   }
 
+  /* A text label is not broken inside a word, as a title word is not: one the line broke is kept
+     to one line and cut with its own ellipsis, "Da…" for David in a narrow lane, rather than
+     reading "Davi / d" above its title. The host marks only a label it found broken
+     (cutGridLabels in grid-title-fit.ts), so one that fits, or wraps between its words, is laid
+     out as it always was. The fitted title, which lays labels out on one line of their own, takes
+     the mark off, and a block in a lane showing its labels alone puts it back where a text label
+     is too wide for that line even at the smallest size (fitCompactGridTitles). The same box as a
+     title word, and for the same reasons: an inline-block for its own clip and ellipsis, no wider
+     than the line, aligned top where its baseline would be its bottom edge, and keeping the room
+     at its inline edges every box that cuts text keeps ("Marks above and below the line"), with
+     its 4px gap to the title. Beside a picture or an icon it is aligned middle, as every label
+     there is. */
+  .grid-event-disclosure .calendar-label[data-grid-label-cut] {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+    padding-inline: var(--calendar-card-inline-room);
+    margin-inline: calc(-1 * var(--calendar-card-inline-room))
+      calc(4px - var(--calendar-card-inline-room));
+  }
+
+  .grid-event-disclosure
+    .summary:has(> .label-icon, > .label-image)
+    > .calendar-label[data-grid-label-cut] {
+    vertical-align: middle;
+  }
+
+  @supports (overflow: clip) and (contain-intrinsic-size: 1px) {
+    .grid-event-disclosure .calendar-label[data-grid-label-cut] {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+  }
+
   /* The first word of a labeled title fits the rest of the label's line, and is cut with its
      own ellipsis when it is wider: "Birth… / lunch" beside a picture. Without this a word
      too wide for what the labels leave wraps below them, and the label sits alone on the
@@ -8144,7 +8181,21 @@ export const cardStyles = css`
     display: none;
   }
 
-  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank']) .summary-row {
+  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank']):not(
+      [data-grid-title-labels]
+    )
+    .summary-row {
+    visibility: hidden;
+  }
+
+  /* A blank block in a lane shows its labels alone, on the one line the fitted title would have
+     had, where it has no room for a title (fitCompactGridTitles in grid-title-fit.ts). Grid view
+     draws no lane headers, so a block's label is what says whose it is. Only the title, and
+     anything in its row beside the summary, is hidden: nothing is made visible, so a block that
+     is itself hidden, as a dropped event's origin is until the card refreshes, hides its labels
+     with it. */
+  .grid-event[data-grid-title-fit='blank'][data-grid-title-labels]
+    :is(.summary > .event-title, .summary-row > :not(.summary)) {
     visibility: hidden;
   }
 
