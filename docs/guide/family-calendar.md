@@ -14,7 +14,7 @@ Tap the zoo trip to see where it is on a map, draw an event into Tuesday afterno
 
 The wall in grid view. Anna is pink, Ben is blue and Leo is green, each face in front of its events, and anything on more than one of their calendars is gold.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_lanes.png" alt="The same wall tablet switched to Columns: a row for each of Anna, Ben and Leo across the week under their faces, and a Home row for the grandparents' visit and the collection days, tinted boxes in each person's color, the morning's finished events faded, the switcher set to Columns and a Reset button beside refresh"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_lanes.png" alt="The same wall tablet switched to Columns: a row for each of Anna, Ben and Leo across the week under their faces, and a Home row for the grandparents' visit, Grandma's birthday and the collection days, tinted boxes in each person's color, the morning's finished events faded, the switcher set to Columns and a Reset button beside refresh"><br>
 
 Switched to Columns on the toolbar: a row per person across the week, the household's own plans in the Home row, the morning's finished events faded, and Reset ready to undo the switch.
 
@@ -256,7 +256,7 @@ To let some work events keep their real title, such as a late finish the family 
 ## 📚 Next Steps
 
 - [Hallway Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
-- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the month
+- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the weeks ahead
 - [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens

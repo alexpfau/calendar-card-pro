@@ -90,7 +90,7 @@ entities:
     accent_color: '#8d6e63'
 ```
 
-Each `allowlist` matches the title its script writes, and `^` holds it to the start of the title, so _Lawn mowed_ never claims _Lawn mower serviced_. [`compact_events_to_show: 1`](/features/list-view#entity-level-vs-global-event-limits) counts per block, and newest first it keeps the latest entry. A job with no entry in the year has no row, so a missing row means not in the last year, not never.
+Each `allowlist` matches the title its script writes, and `^` holds it to the start of the title, so the _Lawn mowed_ block never also claims a _Front lawn mowed_ entry. [`compact_events_to_show: 1`](/features/list-view#entity-level-vs-global-event-limits) counts per block, and newest first it keeps the latest entry. A job with no entry in the year has no row, so a missing row means not in the last year, not never.
 
 ### A Visitor or Camera Log
 

@@ -13,7 +13,7 @@ Three cards cover most homes. Pick the one for where yours will go:
 ## 🔍 For a Closer Look
 
 - **[Today & Tomorrow](/guide/today-and-tomorrow)**: where the day stands, hour by hour, on a phone, a dashboard section or a portrait tablet. _Two days on the hours · Quick Setup_
-- **[Hallway Agenda](/guide/one-calendar-many-purposes)**: the next three days from calendars that mix several kinds of event, with work shown only as _Busy_. _A three-day list · copy it, then match your calendars' words_
+- **[Hallway Agenda](/guide/one-calendar-many-purposes)**: the next three days from calendars that mix several kinds of event, with most of Ben's work shown only as _Busy_. _A three-day list · copy it, then match your calendars' words_
 
 ## 🎯 One Job Each
 

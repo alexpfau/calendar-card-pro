@@ -6,9 +6,11 @@
  * story. Each calendar's colors survive as a palette, given in order to the user's calendars
  * that have no color of their own. Its names, labels and lanes do not: they name the story's people.
  *
- * The shared-plan color (`duplicate_accent_color`) goes last in a palette. On the story's page it is
- * the Family calendar's, the fourth of five; on someone else's calendars nothing says which one is
- * the family's, and a fourth calendar in gold would read as a plan they share.
+ * The shared-plan color (`duplicate_accent_color`) goes last in a palette, behind at least four
+ * others. On the story's page it is the Family calendar's; on someone else's calendars nothing says
+ * which one is the family's, and a fourth calendar in gold would read as a plan they share. A page
+ * with fewer than four other colors continues with the Family Hub's, whose family it shows: Now &
+ * Next's fourth calendar is the Hub's purple, not its gold.
  *
  * Simple Agenda comes first: not a story but the card Usage's Your First Card documents, for
  * someone who wants a short list of the next few days and nothing more.
@@ -133,24 +135,29 @@ export const STORIES: ReadonlyArray<Story> = [
       month: { event_gap: '4px', start: 'week', weeks: 4 },
     },
   ),
-  story('now_and_next', '/guide/now-and-next', ['#ff6c92', '#03a9f4', '#66bb6a', '#ffb74d'], {
-    days_to_show: 2,
-    filter_duplicates: true,
-    duplicate_accent_color: '#ffb74d',
-    show_empty_today: true,
-    show_countdown: 'once_per_day',
-    show_time_left: true,
-    show_progress_bar: true,
-    show_location: false,
-    show_end_time: false,
-    scroll_long_titles: true,
-    event_gap: '4px',
-    // A tap anywhere expands the card, events included, and a hold opens an event.
-    tap_action: { action: 'expand' },
-    event_tap_action: { action: 'none' },
-    event_hold_action: { action: 'details' },
-    list: { compact_events_to_show: 4 },
-  }),
+  story(
+    'now_and_next',
+    '/guide/now-and-next',
+    ['#ff6c92', '#03a9f4', '#66bb6a', '#b388ff', '#ffb74d'],
+    {
+      days_to_show: 2,
+      filter_duplicates: true,
+      duplicate_accent_color: '#ffb74d',
+      show_empty_today: true,
+      show_countdown: 'once_per_day',
+      show_time_left: true,
+      show_progress_bar: true,
+      show_location: false,
+      show_end_time: false,
+      scroll_long_titles: true,
+      event_gap: '4px',
+      // A tap anywhere expands the card, events included, and a hold opens an event.
+      tap_action: { action: 'expand' },
+      event_tap_action: { action: 'none' },
+      event_hold_action: { action: 'details' },
+      list: { compact_events_to_show: 4 },
+    },
+  ),
   story(
     'today_and_tomorrow',
     '/guide/today-and-tomorrow',
