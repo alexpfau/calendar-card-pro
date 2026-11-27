@@ -29,6 +29,7 @@
   "endsTomorrow": "endet morgen",
   "dayOfEvent": "Tag {day} von {days}",
   "durationTotal": "{duration} insgesamt",
+  "timeLeft": "noch {duration}",
   "noEvents": "Keine Termine",
   "loading": "Kalendereinträge werden geladen...",
   "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",

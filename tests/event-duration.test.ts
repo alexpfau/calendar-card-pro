@@ -560,6 +560,26 @@ describe("Home Assistant's Intl polyfill", () => {
     ]);
   });
 
+  // A language each, since the loader keeps what it has loaded for the rest of the file.
+  it.each([
+    ['a view block', 'nl', { list: { show_time_left: true } }],
+    ['a calendar', 'it', { entities: [{ entity: 'calendar.anna', show_time_left: true }] }],
+  ])(
+    'loads them where %s shows time left, which writes durations the same way',
+    async (_, language, config) => {
+      installPolyfill(['is']);
+      const files = homeAssistantFiles();
+      vi.stubGlobal('fetch', files.fetch);
+      await mount(language, config);
+      expect(files.asked).toEqual([
+        `/static/locale-data/intl-datetimeformat/${language}.json`,
+        `/static/locale-data/intl-relativetimeformat/${language}.json`,
+        `/static/locale-data/intl-numberformat/${language}.json`,
+        `/static/locale-data/intl-listformat/${language}.json`,
+      ]);
+    },
+  );
+
   it('writes the card language once its data lands, whatever the polyfill made before', async () => {
     installPolyfill(['is']);
     // formatjs's DurationFormat, as far as this matters: it keeps the number format it first made

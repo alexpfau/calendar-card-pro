@@ -62,6 +62,7 @@ import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
 import * as MonthRender from './rendering/month';
 import * as Overlay from './rendering/overlay';
+import * as Presentation from './rendering/presentation';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
@@ -3860,8 +3861,8 @@ class CalendarCardPro extends LitElement {
    * When the card next draws something different with nothing else changing, other than at
    * an event's start or end, which `_syncNowBoundaryTimer` covers.
    *
-   * A minute from now while a countdown or count-up that names minutes or hours, or a progress
-   * bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
+   * A minute from now while a countdown or count-up that names minutes or hours, time left, or a
+   * progress bar, is on screen. Otherwise the next local midnight, which moves the mark of today, "Today"
    * and "Tomorrow", a countdown or count-up that names days, the day counter, and the dimming of
    * a past all-day event or empty day, on every card. Sooner where the forecast turns stale
    * before then (`_weatherStale`). Null where the now line's own tick repaints every minute
@@ -3903,14 +3904,18 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a countdown, a count-up or a progress bar on screen changes within the next minute
-   * or so.
+   * Whether a countdown, a count-up, time left or a progress bar on screen changes within the
+   * next minute or so.
    *
    * A countdown to a start later today reads in minutes or hours, as a count-up from an end
    * earlier today does; one to or from another day reads in days, and moves only at midnight. A
-   * progress bar moves while its event runs. The day counter, which takes a bar's place, moves
-   * only at midnight. An event's end, where its count-up begins, is a boundary
-   * `_syncNowBoundaryTimer` already renders at.
+   * progress bar moves while its event runs, and so does time left. The day counter, which takes
+   * the place of both on an event a day or longer, moves only at midnight. An event's end, where
+   * its count-up begins, is a boundary `_syncNowBoundaryTimer` already renders at.
+   *
+   * Each event's own countdown options decide (`Presentation.movingCountdownWords`), so a
+   * calendar that counts down on a card that does not still ticks, and a calendar that does not on
+   * a card that does asks for nothing. Month draws neither, whatever a calendar says.
    *
    * @param now - Epoch milliseconds
    * @param midnight - The next local midnight, in epoch milliseconds
@@ -3918,32 +3923,22 @@ class CalendarCardPro extends LitElement {
    */
   private _drawsMovingClockText(now: number, midnight: number): boolean {
     const config = this.effectiveConfig;
-    const countdown = config.show_countdown;
     const progress = config.show_progress_bar;
-    if (!countdown && !progress) return false;
-    // A row the day counter counts draws no bar (`buildEventPresentation`), so it has nothing
-    // that moves by the minute. Grid draws no counter and keeps its bars (`groupEventsByDay`).
+    const words = Presentation.movingCountdownWords(config, this.effectiveView);
+    if (!words && !progress) return false;
+    // A row the day counter counts draws no bar and no time left (`buildEventPresentation`), so
+    // it has nothing that moves by the minute. Grid draws no counter and keeps its bars
+    // (`groupEventsByDay`).
     const counted = this.effectiveView !== 'grid';
-
-    // A finished event is drawn, and so counts up, only where past events are shown. The
-    // events here are the loaded ones, which still hold those `show_past_events: false` hides.
-    const countsUp = config.show_past_events;
+    const at = new Date(now);
 
     return this._clockTextEvents().some((event) => {
       if (event._isEmptyDay) return false;
-      if (
-        progress &&
-        !(counted && EventUtils.countsDays(event)) &&
-        EventUtils.calculateEventProgress(event) !== null
-      ) {
+      const dayCounted = progress && counted && EventUtils.countsDays(event);
+      if (progress && !dayCounted && EventUtils.calculateEventProgress(event) !== null) {
         return true;
       }
-      if (!countdown || !event.start?.dateTime) return false;
-      const start = new Date(event.start.dateTime).getTime();
-      return (
-        (start > now && start < midnight) ||
-        (countsUp && FormatUtils.countsUpTheClock(event, new Date(now)))
-      );
+      return words !== null && words(event, at, midnight, dayCounted);
     });
   }
 
@@ -5926,9 +5921,11 @@ class CalendarCardPro extends LitElement {
    */
   private _loadIntlLocaleData(): void {
     const language = this._language;
-    const durations = ViewConfig.VIEWS.some(
-      (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
-    );
+    // Time left writes its duration with the same words as `show_duration`.
+    const durations =
+      ViewConfig.VIEWS.some(
+        (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
+      ) || Presentation.drawsTimeLeftAnywhere(this.config);
     const asked = durations ? `${language}:durations` : language;
     if (asked === this._intlLanguage) return;
     this._intlLanguage = asked;

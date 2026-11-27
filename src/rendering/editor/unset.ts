@@ -61,6 +61,7 @@ export function unsetWord(
       case 'text_scale':
       // Left empty, the card's limit applies.
       case 'compact_events_to_show':
+      case 'countdown_max_days':
         return t('value.follow_card');
       case 'allday_expires_at':
         return t('value.end_of_day');
@@ -99,6 +100,7 @@ export function unsetWord(
       return t('value.same_as', { label: t('maximum_height') });
     case 'compact_events_to_show':
     case 'compact_days_to_show':
+    case 'countdown_max_days':
       return t('value.no_limit');
     case 'skip_first_events':
       return t('value.none');

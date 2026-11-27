@@ -463,13 +463,16 @@ export const PAGES: ReadonlyArray<PageDef> = [
     headings: [
       {
         key: 'heading_details',
-        // The eight parts each event shows, in the order an event shows them (D08).
+        // The nine parts each event shows, in the order an event shows them (D08). Time left
+        // follows the countdown, whose place it takes while an event runs, and comes before the bar
+        // that follows it there.
         fields: [
           ['events:show_time', PART],
           ['events:show_end_time', PART],
           ['events:show_location', PART],
           ['events:show_description', PART],
           ['events:show_countdown', PART],
+          ['events:show_time_left', PART],
           ['events:show_progress_bar', PART],
           ['events:show_duration', PART],
           ['events:show_now_indicator', PART],
@@ -909,6 +912,14 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:show_location', A],
       ['calendar:location_icon', A],
       ['calendar:show_description', A],
+      // The countdown and what it does, then time left, which takes its place while an event
+      // runs, in the order the card's Visible Event Parts and Countdown & Progress keep them.
+      // Before the weather, which stays last for the reason the schema gives.
+      ['calendar:show_countdown', A],
+      ['calendar:countdown_max_days', A],
+      ['calendar:show_countdown_allday', A],
+      ['calendar:countdown_exact_days', A],
+      ['calendar:show_time_left', A],
       ['calendar:show_weather', A],
     ],
   },

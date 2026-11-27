@@ -991,6 +991,7 @@ describe('editor: applicability', () => {
       // links below; it splits every multi-day event across its days, so it draws no multi-day
       // time row, and a bar's length follows show_duration alone.
       show_single_allday_time: ['column', 'list', 'month'],
+      show_time_left: ['column', 'grid', 'list'],
       show_multiday_allday_time: ['column', 'list'],
       show_location_allday: ['column', 'list', 'month'],
       // A month keeps its description, countdown, progress bar, badge, line limits and the
@@ -2673,7 +2674,7 @@ describe('editor: the Events panel opening run', () => {
     // The default config resolves the accent mode to `custom`, so the conditional color
     // field is present — which is the shape the row was designed around.
     //
-    // The content run leads, and its five switches are the reason the four groups below
+    // The content run leads, and its six switches are the reason the four groups below
     // can be emitted conditionally: what an event is made of is decided here, and each
     // group holds only the styling of a line that already exists. That run is why this
     // pin is the panel's whole visible body rather than three styling runs. Where the time
@@ -2686,6 +2687,7 @@ describe('editor: the Events panel opening run', () => {
       'show_location',
       'show_description',
       'show_countdown',
+      'show_time_left',
       'show_progress_bar',
       'show_now_indicator',
       'now_color',
@@ -3841,6 +3843,8 @@ describe('editor: per-calendar settings', () => {
         'blocklist',
         'color',
         'compact_events_to_show',
+        'countdown_exact_days',
+        'countdown_max_days',
         'days_of_week',
         'filter_field',
         'label',
@@ -3857,10 +3861,13 @@ describe('editor: per-calendar settings', () => {
         'replace_field',
         'replace_pattern',
         'replace_with',
+        'show_countdown',
+        'show_countdown_allday',
         'show_description',
         'show_in_legend',
         'show_location',
         'show_time',
+        'show_time_left',
         'show_weather',
         'split_multiday_events',
         'starts_after',
@@ -4093,6 +4100,10 @@ describe('editor: per-calendar settings', () => {
       show_time: ['inherit', 'show', 'hide'],
       show_location: ['inherit', 'show', 'hide'],
       show_description: ['inherit', 'show', 'hide'],
+      show_countdown: ['inherit', 'show', 'once_per_day', 'hide'],
+      show_countdown_allday: ['inherit', 'show', 'hide'],
+      countdown_exact_days: ['inherit', 'days', 'natural'],
+      show_time_left: ['inherit', 'show', 'hide'],
       show_weather: ['inherit', 'hide'],
       split_multiday_events: ['inherit', 'split', 'whole'],
       multiday_banners: ['inherit', 'banner', 'blocks'],
@@ -4106,6 +4117,15 @@ describe('editor: per-calendar settings', () => {
       show_time: { inherit: undefined, show: true, hide: false },
       show_location: { inherit: undefined, show: true, hide: false },
       show_description: { inherit: undefined, show: true, hide: false },
+      show_countdown: {
+        inherit: undefined,
+        show: true,
+        once_per_day: 'once_per_day',
+        hide: false,
+      },
+      show_countdown_allday: { inherit: undefined, show: true, hide: false },
+      countdown_exact_days: { inherit: undefined, days: true, natural: false },
+      show_time_left: { inherit: undefined, show: true, hide: false },
       show_weather: { inherit: undefined, hide: false },
       split_multiday_events: { inherit: undefined, split: true, whole: false },
       multiday_banners: { inherit: undefined, banner: true, blocks: false },

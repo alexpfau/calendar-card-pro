@@ -29,6 +29,7 @@
   "endsTomorrow": "заканчивается завтра",
   "dayOfEvent": "День {day} из {days}",
   "durationTotal": "всего {duration}",
+  "timeLeft": "ещё {duration}",
   "noEvents": "Нет событий",
   "loading": "Загрузка событий календаря...",
   "error": "Ошибка: Объект календарь, не найден или неправильно настроен",

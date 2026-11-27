@@ -119,6 +119,9 @@ export const PICK_PARTS: ReadonlyArray<readonly [selectors: string, target: Pick
     '.event-title, .grid-banner-title',
     { page: 'events', heading: 'heading_title', field: 'events:event_font_size' },
   ],
+  // Time left opens its own part, as the countdown beside it does not: Countdown & Progress holds
+  // no option of time left's.
+  ['.time-left', { page: 'events', heading: 'heading_details', field: 'events:show_time_left' }],
   ['.time-countdown, .progress-bar', { page: 'events', heading: 'progress' }],
   ['.now-indicator', { page: 'events', heading: 'heading_event_state' }],
   // A time in the Wide Month's days, a line's or a bar's, and a bar's length open the size its days

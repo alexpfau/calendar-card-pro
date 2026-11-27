@@ -181,6 +181,11 @@ export interface Config {
   /** Count down only to events starting within this many calendar days; unset is no limit. */
   countdown_max_days?: number;
   /**
+   * How long an event under way has left, "47 min left", in the place a countdown takes, which a
+   * running event never has. Gives way to the day counter, as the bar does.
+   */
+  show_time_left: boolean;
+  /**
    * A bar filled as an event runs. In list and column view an event a day or more long draws
    * "Day 2 of 3" on each row instead, in the countdown's place.
    */
@@ -491,6 +496,7 @@ export interface SharedViewOverrides {
   show_countdown_allday?: boolean;
   countdown_exact_days?: boolean;
   countdown_max_days?: number;
+  show_time_left?: boolean;
   show_progress_bar?: boolean;
   show_now_indicator?: boolean;
   now_color?: string;
@@ -848,6 +854,7 @@ export type MonthPinnedKeys =
   | 'show_countdown_allday'
   | 'countdown_max_days'
   | 'countdown_exact_days'
+  | 'show_time_left'
   | 'show_progress_bar'
   | 'progress_bar_color'
   | 'progress_bar_height'
@@ -1017,6 +1024,21 @@ export interface EntityConfig {
    */
   location_icon?: string;
   show_description?: boolean;
+  /**
+   * This block's countdown options, each over the card's and its view block's where set: a
+   * calendar of bin days can count down while the rest of the card does not. Read at render time
+   * from the event's matched block (`Presentation.countdownSettings`), by everything that draws a
+   * countdown or schedules its repaint. Month draws none, whatever a calendar says.
+   */
+  show_countdown?: boolean | 'once_per_day';
+  /** @see show_countdown */
+  show_countdown_allday?: boolean;
+  /** @see show_countdown */
+  countdown_max_days?: number;
+  /** @see show_countdown */
+  countdown_exact_days?: boolean;
+  /** This block's `show_time_left`, over the card's and its view block's where set. */
+  show_time_left?: boolean;
   /**
    * `false` leaves the weather out beside this block's events: the list view's badge, the
    * weather row of column and grid view, and the grid's screen-reader name. Unset or `true`
@@ -1976,6 +1998,13 @@ export interface Translations {
    * parentheses around it are the card's.
    */
   durationTotal: string;
+  /**
+   * How long an event under way has left (`show_time_left`), with `{duration}` where the
+   * browser's words for it go: "{duration} left", "47 min left". Worded so nothing in it agrees
+   * with the number, since the duration can be one minute or many: an adverb ("noch {duration}",
+   * "{duration} kvar") or the event as the subject ("termina en {duration}").
+   */
+  timeLeft: string;
   /** The header toolbar's view switcher, one name per view. */
   viewList: string;
   viewColumns: string;

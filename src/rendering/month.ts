@@ -1485,7 +1485,6 @@ function renderNarrowMonth(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether it is a tap target of its own
  * @param dayLabelId - The id of what names its day, which describes it as a tap target
- * @param countdownRepeated - Whether its countdown repeats the one above it and is left out
  * @returns The row
  */
 function renderDayRow(
@@ -1498,10 +1497,14 @@ function renderDayRow(
   hass: Types.Hass | null | undefined,
   eventsTappable: boolean,
   dayLabelId: string | undefined,
-  countdownRepeated: boolean,
 ): TemplateResult {
-  const presented = Presentation.buildEventPresentation(event, config, language, hass);
-  const presentation = countdownRepeated ? Presentation.withoutCountdown(presented) : presented;
+  // Month draws no countdown and no time left (`MONTH_PINNED`), and a calendar's own
+  // `show_countdown` or `show_time_left` does not bring one back, as its own `show_description`
+  // brings no description (`groupEventsByDay`). The pin keeps the card's options off; this keeps
+  // the calendars' off, since `countdownSettings` reads them over the pinned values.
+  const presentation = Presentation.withoutCountdown(
+    Presentation.buildEventPresentation(event, config, language, hass),
+  );
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const first = index === 0;
   const last = index === count - 1;
@@ -1580,7 +1583,6 @@ export function renderMonthDayRows(
 ): TemplateResult | typeof nothing {
   if (events.length === 0) return nothing;
   const rows = MonthDay.monthRowsConfig(config, oneLine);
-  const repeated = Presentation.repeatedCountdowns([...events], rows, language);
   const gap = ViewConfig.hasEventGap(rows);
   return html`<table class=${gap ? 'month-day-table with-event-gap' : 'month-day-table'}>
     ${events.map((event, index) => {
@@ -1594,7 +1596,6 @@ export function renderMonthDayRows(
         hass,
         eventsTappable,
         dayLabelId,
-        repeated.has(index),
       );
       return gap && index > 0 ? html`${Leaves.renderEventGapRow()}${row}` : row;
     })}

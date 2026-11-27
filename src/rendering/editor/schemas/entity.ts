@@ -16,6 +16,10 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_time: [INHERIT, 'show', 'hide'],
   show_location: [INHERIT, 'show', 'hide'],
   show_description: [INHERIT, 'show', 'hide'],
+  show_countdown: [INHERIT, 'show', 'once_per_day', 'hide'],
+  show_countdown_allday: [INHERIT, 'show', 'hide'],
+  countdown_exact_days: [INHERIT, 'days', 'natural'],
+  show_time_left: [INHERIT, 'show', 'hide'],
   // No `show`: the option can only take weather away, since whether events get any at all is
   // `weather.position`'s to say. An entry for it would offer a choice that changes nothing.
   show_weather: [INHERIT, 'hide'],
@@ -49,6 +53,15 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   show_time: { [INHERIT]: undefined, show: true, hide: false },
   show_location: { [INHERIT]: undefined, show: true, hide: false },
   show_description: { [INHERIT]: undefined, show: true, hide: false },
+  show_countdown: {
+    [INHERIT]: undefined,
+    show: true,
+    once_per_day: 'once_per_day',
+    hide: false,
+  },
+  show_countdown_allday: { [INHERIT]: undefined, show: true, hide: false },
+  countdown_exact_days: { [INHERIT]: undefined, days: true, natural: false },
+  show_time_left: { [INHERIT]: undefined, show: true, hide: false },
   show_weather: { [INHERIT]: undefined, hide: false },
   split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
   multiday_banners: { [INHERIT]: undefined, banner: true, blocks: false },
@@ -131,6 +144,13 @@ export const HIDDEN_BY_DEFAULT = 'hidden_by_default';
 
 /** A calendar's visibility conditions, in Home Assistant's own shapes. */
 export const VISIBILITY = 'visibility';
+
+/** What a calendar's countdown does, offered while the calendar shows countdowns. */
+export const COUNTDOWN_REFINEMENTS: ReadonlySet<string> = new Set([
+  'countdown_max_days',
+  'show_countdown_allday',
+  'countdown_exact_days',
+]);
 
 /**
  * Where an icon label's value comes from.
@@ -478,6 +498,13 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     choice(ctx.language, 'show_location'),
     { name: 'location_icon', selector: { icon: {} } },
     choice(ctx.language, 'show_description'),
+    // The countdown, then what it does, in the card's order, then time left, which takes its
+    // place while an event runs: the order the card's own parts and Countdown & Progress keep.
+    choice(ctx.language, 'show_countdown'),
+    { name: 'countdown_max_days', selector: { number: { min: 0, mode: 'box' } } },
+    choice(ctx.language, 'show_countdown_allday'),
+    choice(ctx.language, 'countdown_exact_days'),
+    choice(ctx.language, 'show_time_left'),
     // Last: times, locations and descriptions are the event's own, while the weather is the
     // card's forecast laid beside it, and the one field here that comes and goes with the
     // card's weather settings, so it moves none of the three above when it appears.
@@ -534,6 +561,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param showsEventWeather - Whether the card draws weather beside its events at all
  * @param drawsLanes - Whether the layout draws lanes, which this entry's lane is drawn in
  * @param listedInFilter - Whether this calendar's filter setting lists it
+ * @param countsDown - Whether this calendar's events show countdowns
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -547,6 +575,7 @@ export function entitySchemaFor(
   showsEventWeather: boolean = true,
   drawsLanes: boolean = false,
   listedInFilter: boolean = true,
+  countsDown: boolean = true,
 ): HaFormSchema[] {
   const replaced = new Set([
     LABEL_ICON_SOURCE,
@@ -591,6 +620,10 @@ export function entitySchemaFor(
 
     // Nor does the lane, on a layout that draws none: there is no lane to put the events in.
     if (node.name === 'lane') return drawsLanes ? [node] : [];
+
+    // Nor does what a countdown does, while this calendar shows none: its own, or the card's for
+    // the layout being edited while it follows the card, as the location icon reads it.
+    if (COUNTDOWN_REFINEMENTS.has(node.name)) return countsDown ? [node] : [];
 
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];

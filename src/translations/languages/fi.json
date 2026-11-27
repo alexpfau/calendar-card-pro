@@ -42,6 +42,7 @@
   "endsTomorrow": "päättyy huomenna",
   "dayOfEvent": "Päivä {day}/{days}",
   "durationTotal": "yhteensä {duration}",
+  "timeLeft": "{duration} jäljellä",
   "noEvents": "Ei tapahtumia",
   "loading": "Ladataan kalenteritapahtumia...",
   "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",

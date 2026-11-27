@@ -21,6 +21,7 @@
   "endsTomorrow": "končí zítra",
   "dayOfEvent": "Den {day} z {days}",
   "durationTotal": "celkem {duration}",
+  "timeLeft": "ještě {duration}",
   "noEvents": "Žádné události",
   "loading": "Načítání událostí z kalendáře...",
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována",

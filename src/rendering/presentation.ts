@@ -9,6 +9,7 @@ import type { EventContentParts } from './leaves';
 import * as TextScale from './text-scale';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 import * as EventActions from '../interaction/event-actions';
 import { getNowString } from '../translations/dayjs';
 import * as EntityColors from '../utils/entity-colors';
@@ -124,12 +125,92 @@ export function isEventPast(event: Types.CalendarEventData): boolean {
   return isPastEvent;
 }
 
+/** The options that decide an event's countdown and its time left. */
+type CountdownKey =
+  | 'show_countdown'
+  | 'show_countdown_allday'
+  | 'countdown_max_days'
+  | 'countdown_exact_days'
+  | 'show_time_left';
+
+/** An event's countdown options, as `countdownSettings` resolves them. */
+export type CountdownSettings = Readonly<Pick<Types.Config, CountdownKey>>;
+
+/**
+ * An event's countdown options: each its calendar's own where its block sets it, and the card's,
+ * resolved for the view, where it does not. So a calendar's own value wins over its view block's,
+ * which wins over the card's, as `show_time` does.
+ *
+ * 🚨 The one place these options are read for an event. Everything that draws a countdown, leaves
+ * one out as a repeat, or schedules the repaint that moves one reads them here, so a calendar that
+ * counts down on a card that does not still ticks, and one that does not on a card that does never
+ * draws one. `tests/countdown-per-calendar.test.ts` fails on any other reader of these options in
+ * `src/`. Month draws none whatever a calendar says, which its renderer decides, not this.
+ *
+ * @param event - Event data, carrying its calendar's block
+ * @param config - Card configuration, resolved for the view
+ * @returns The options that apply to the event
+ */
+export function countdownSettings(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+): CountdownSettings {
+  const own = <K extends CountdownKey>(key: K): Types.EntityConfig[K] | undefined =>
+    EventUtils.getEntitySetting(event._entityId, key, config, event);
+  return {
+    show_countdown: own('show_countdown') ?? config.show_countdown,
+    show_countdown_allday: own('show_countdown_allday') ?? config.show_countdown_allday,
+    countdown_max_days: own('countdown_max_days') ?? config.countdown_max_days,
+    countdown_exact_days: own('countdown_exact_days') ?? config.countdown_exact_days,
+    show_time_left: own('show_time_left') ?? config.show_time_left,
+  };
+}
+
+/**
+ * Whether the card or any calendar on it sets countdown options that pass a test: the card's own
+ * options, then each calendar's block, as written. A caller about to resolve every event can skip
+ * them all when nothing on the card could pass.
+ *
+ * @param config - Card configuration, resolved for the view
+ * @param test - The question to ask of a set of options; a calendar's holds only what it sets
+ * @returns True when the card's options or any calendar's pass
+ */
+export function anyCountdownSetting(
+  config: Types.Config,
+  test: (settings: Partial<CountdownSettings>) => boolean,
+): boolean {
+  return (
+    test(config) ||
+    (config.entities ?? []).some((entry) => typeof entry === 'object' && entry && test(entry))
+  );
+}
+
+/**
+ * Whether time left can be drawn in any layout the card has: the card's `show_time_left`, a view
+ * block's, or a calendar's own. The card then loads the browser's words for durations in its own
+ * language where Home Assistant's polyfill stands in for the browser's, as it does for
+ * `show_duration`, which writes durations with the same words (`_loadIntlLocaleData`).
+ *
+ * @param config - Card configuration, before any view is resolved
+ * @returns True where some event could show time left
+ */
+export function drawsTimeLeftAnywhere(config: Types.Config): boolean {
+  return (
+    ViewConfig.VIEWS.some(
+      (view) =>
+        ViewConfig.appliesToView('show_time_left', view) &&
+        Boolean(ViewConfig.resolveEffectiveConfig(config, view).show_time_left),
+    ) || anyCountdownSetting(config, (settings) => Boolean(settings.show_time_left))
+  );
+}
+
 /**
  * The countdown an event carries, or null for none: the one gate every view draws through.
  *
  * A finished event counts up instead, "13 days ago" for "in 13 days", under the same switches:
  * `show_countdown`, `show_countdown_allday`, `countdown_exact_days` and `countdown_max_days`
- * read the same either way. An event under way has neither.
+ * read the same either way, each as the event's calendar sets it (`countdownSettings`). An event
+ * under way has neither; its place is time left's (`eventTimeLeft`).
  *
  * @param event - Event data
  * @param config - Card configuration, resolved for the view
@@ -143,12 +224,11 @@ export function eventCountdown(
   language: string,
   isPastEvent: boolean = isEventPast(event),
 ): string | null {
+  if (event._isEmptyDay) return null;
+
+  const settings = countdownSettings(event, config);
   const isAllDayEvent = !event.start.dateTime;
-  if (
-    !config.show_countdown ||
-    (isAllDayEvent && !config.show_countdown_allday) ||
-    event._isEmptyDay
-  ) {
+  if (!settings.show_countdown || (isAllDayEvent && !settings.show_countdown_allday)) {
     return null;
   }
 
@@ -167,8 +247,8 @@ export function eventCountdown(
   }
 
   const options = {
-    exactDays: Boolean(config.countdown_exact_days),
-    maxDays: config.countdown_max_days,
+    exactDays: Boolean(settings.countdown_exact_days),
+    maxDays: settings.countdown_max_days,
   };
   return isPastEvent
     ? FormatUtils.getCountUpString(event, language, options)
@@ -176,10 +256,99 @@ export function eventCountdown(
 }
 
 /**
+ * How long an event under way has left, "47 min left", or null for none: the event's calendar
+ * has `show_time_left` off, its row is not under way, or its row names its day instead.
+ *
+ * It takes the countdown's place, which an event under way never has, so the two never meet: a
+ * countdown before the event, time left while it runs, a count-up once it has ended. It counts to
+ * the whole event's end on the row a progress bar would fill (`EventUtils.runningEventEnd`), so a
+ * day of an event split across several reads what the whole event has left.
+ *
+ * Gives way to the day counter, as the bar does: an event a day or longer that the counter counts
+ * names its day there instead, "Day 2 of 3", once it has started.
+ *
+ * @param event - Event data
+ * @param config - Card configuration, resolved for the view
+ * @param language - Language code
+ * @param now - The instant to read it at
+ * @returns The text, or null
+ */
+export function eventTimeLeft(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  now: Date = new Date(),
+): string | null {
+  if (event._isEmptyDay || !countdownSettings(event, config).show_time_left) return null;
+  if (config.show_progress_bar && event._dayOfEvent) return null;
+  const end = EventUtils.runningEventEnd(event, now);
+  return end ? FormatUtils.formatTimeLeft(end, now, language) : null;
+}
+
+/**
+ * What the clock repaint asks of each event on screen (`_drawsMovingClockText`): whether its
+ * countdown, count-up or time left changes within the next minute or so. Null where no event in
+ * the view can draw any of them, so the repaint need not ask: the card's options and every
+ * calendar's leave them off, or the view draws none, as Month does whatever a calendar says.
+ *
+ * A countdown to a start later today reads in minutes or hours, as a count-up from an end earlier
+ * today does; one to or from another day reads in days, and moves only at midnight. Time left
+ * moves while its event runs, unless the day counter has its place.
+ *
+ * @param config - Card configuration, resolved for the view
+ * @param view - The view drawn
+ * @returns The question to ask of an event at an instant, given the next local midnight and
+ *   whether the day counter takes the event's place; or null
+ */
+export function movingCountdownWords(
+  config: Types.Config,
+  view: Types.EffectiveView,
+):
+  | ((event: Types.CalendarEventData, now: Date, midnight: number, dayCounted: boolean) => boolean)
+  | null {
+  const countdowns = ViewConfig.appliesToView('show_countdown', view);
+  const timeLeft = ViewConfig.appliesToView('show_time_left', view);
+  const drawsAny = anyCountdownSetting(
+    config,
+    (settings) =>
+      (countdowns && Boolean(settings.show_countdown)) ||
+      (timeLeft && Boolean(settings.show_time_left)),
+  );
+  if (!drawsAny) return null;
+
+  // A finished event is drawn, and so counts up, only where past events are shown. The events
+  // the repaint asks about are the loaded ones, which still hold those `show_past_events: false`
+  // hides.
+  const countsUp = config.show_past_events;
+
+  return (event, now, midnight, dayCounted) => {
+    const settings = countdownSettings(event, config);
+    // Before the start-time test: a middle day of a timed event split across several reads as
+    // all-day, and still has time left while its event runs.
+    if (
+      timeLeft &&
+      settings.show_time_left &&
+      !dayCounted &&
+      EventUtils.runningEventEnd(event, now) !== null
+    ) {
+      return true;
+    }
+    if (!countdowns || !settings.show_countdown || !event.start?.dateTime) return false;
+    const start = new Date(event.start.dateTime).getTime();
+    return (
+      (start > now.getTime() && start < midnight) ||
+      (countsUp && FormatUtils.countsUpTheClock(event, now))
+    );
+  };
+}
+
+/**
  * Which of a day's events leave their countdown out under `show_countdown: once_per_day`.
  *
- * A countdown is left out when it reads exactly as the nearest countdown above it on the same
- * day, so a day of bins counts down once, and a day of finished ones counts up once. Two kinds
+ * A countdown is left out when its own calendar's setting is `once_per_day`
+ * (`countdownSettings`) and it reads exactly as the nearest countdown above it on the same day,
+ * whichever calendar that one belongs to, so a day of bins counts down once, and a day of finished
+ * ones counts up once. Two kinds
  * are never left out. A countdown or count-up in clock units, to a start later today or from an
  * end earlier today ("in 5 hours", "5 hours ago"), can read alike for two different times, which
  * would make one come and go as the minutes round. And a countdown that differs stays: an event
@@ -203,7 +372,11 @@ export function repeatedCountdowns(
   language: string,
 ): ReadonlySet<number> {
   const repeated = new Set<number>();
-  if (config.show_countdown !== Constants.COUNTDOWN_ONCE_PER_DAY) return repeated;
+  const oncePerDay = (settings: CountdownSettings): boolean =>
+    settings.show_countdown === Constants.COUNTDOWN_ONCE_PER_DAY;
+  // Each event's own, read once: whether any of them leaves out repeats decides whether to look.
+  const settings = events.map((event) => countdownSettings(event, config));
+  if (!settings.some(oncePerDay)) return repeated;
 
   const now = new Date();
   let above: string | null = null;
@@ -215,22 +388,29 @@ export function repeatedCountdowns(
       (event.start.dateTime !== undefined &&
         FormatUtils.getCalendarDayDiff(now, new Date(event.start.dateTime)) === 0) ||
       FormatUtils.countsUpTheClock(event, now);
-    if (countdown === above && !countsTheClock) repeated.add(index);
+    if (countdown === above && !countsTheClock && oncePerDay(settings[index])) {
+      repeated.add(index);
+    }
     above = countdown;
   });
   return repeated;
 }
 
 /**
- * A presentation with its countdown left out.
+ * A presentation with its countdown, or its time left, left out.
  *
  * @param presentation - The event's presentation
- * @returns The same presentation, drawing no countdown
+ * @returns The same presentation, drawing neither
  */
 export function withoutCountdown(presentation: EventPresentation): EventPresentation {
   return {
     ...presentation,
-    contentParts: { ...presentation.contentParts, countdownStr: null, countUp: false },
+    contentParts: {
+      ...presentation.contentParts,
+      countdownStr: null,
+      countUp: false,
+      timeLeft: false,
+    },
   };
 }
 
@@ -349,7 +529,11 @@ export function buildEventPresentation(
     !(isMultiDayAllDayEvent && !config.show_multiday_allday_time) &&
     !isEmptyDay;
 
-  const countdownStr = eventCountdown(event, config, language, isPastEvent);
+  // The countdown's place: a countdown before the event, time left while it runs, a count-up once
+  // it has ended. An event is never in two of those at once, so the first that has text wins.
+  const countdown = eventCountdown(event, config, language, isPastEvent);
+  const timeLeft = countdown === null ? eventTimeLeft(event, config, language) : null;
+  const countdownStr = countdown ?? timeLeft;
 
   // The day counter: "Day 2 of 3" on a row of an event a day or more long, which is the progress
   // bar's form on such an event and comes with `show_progress_bar`. It goes in the place the
@@ -482,7 +666,8 @@ export function buildEventPresentation(
     shouldShowTime,
     countdownStr,
     dayCounter,
-    countUp: countdownStr !== null && isPastEvent,
+    countUp: countdown !== null && isPastEvent,
+    timeLeft: timeLeft !== null,
     progressPercentage,
     nowLabel,
     languageMark: TextDirection.languageMark(language, hass),

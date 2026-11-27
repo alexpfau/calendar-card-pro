@@ -247,6 +247,7 @@ const eventsSchema = Helpers.memoizeLast(
     bool('show_location'),
     bool('show_description'),
     bool('show_countdown'),
+    bool('show_time_left'),
     bool('show_progress_bar'),
     bool('show_now_indicator'),
     color('now_color'),

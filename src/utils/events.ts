@@ -3523,6 +3523,26 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 }
 
 /**
+ * When the event a row stands for ends, while that row is under way: the whole event's end, as
+ * the progress bar fills over the whole event, on the row `calculateEventProgress` fills. Null
+ * for any other row. What `show_time_left` counts to.
+ *
+ * @param event A whole event or one day of one
+ * @param now The instant to read it at
+ * @returns The end, or null
+ */
+export function runningEventEnd(
+  event: Types.CalendarEventData,
+  now: Date = new Date(),
+): Date | null {
+  const slice = progressSlice(event);
+  // Written positively: an unparseable date compares false both ways, and must not pass.
+  if (!slice || !(now >= slice[0] && now < slice[1])) return null;
+  const source = progressSource(event);
+  return source && source[1].getTime() > source[0].getTime() ? source[1] : slice[1];
+}
+
+/**
  * Whether the day counter counts this event's days: whether it is a day or more long, as
  * `FormatUtils.fullDaySpan` measures it. Under `show_progress_bar`, a row of such an event
  * draws the counter rather than a bar, which is what the clock repaint asks this for, and no

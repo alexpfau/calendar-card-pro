@@ -21,6 +21,7 @@
   "endsTomorrow": "明日 {at} 終了",
   "dayOfEvent": "{day}日目（全{days}日）",
   "durationTotal": "合計{duration}",
+  "timeLeft": "残り{duration}",
   "noEvents": "予定なし",
   "loading": "カレンダーの予定を読み込み中...",
   "error": "エラー: カレンダーエンティティが見つからないか、設定が正しくありません",

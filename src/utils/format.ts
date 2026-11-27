@@ -343,6 +343,62 @@ export function formatEventDuration(
 }
 
 /**
+ * How long is left until an instant, as `show_time_left` writes it: "47 min left", "1 hr, 15 min
+ * left", "2 days, 3 hr left". The duration is the browser's words, as `show_duration` writes one,
+ * inside the card's `timeLeft` phrase, which is the only part that needs translating.
+ *
+ * Under a full day it is the time that will pass, rounded up to the minute, so the last minute
+ * reads "1 min left" and none reads "0 min": a night when the clocks go forward is an hour shorter
+ * than its clock readings say, and it says so. It never reads more than "1 day", which it reads
+ * from the full day on down until the time left is under 24 hours: rounded up, the minute after
+ * the full day would read "24 hr", and a night when the clocks go back is an hour longer than a
+ * day. From a full day on (`reachesFullDay`) it is the wall clock, as a duration is: whole days,
+ * then the hours between the two times of day, rounded up, and no minutes, which would change
+ * every minute of a trip that has days left.
+ *
+ * @param end The instant left until
+ * @param now The instant to read it at
+ * @param language Language code
+ * @returns The text, or null where nothing is left or the browser cannot write it
+ */
+export function formatTimeLeft(end: Date, now: Date, language: string): string | null {
+  // Written positively: an unreadable date compares false both ways, and must not pass.
+  if (!(end.getTime() > now.getTime())) return null;
+  const text = formatDurationParts(timeLeftParts(now, end), language);
+  return text
+    ? Localize.getTranslations(language).timeLeft.replace('{duration}', () => text)
+    : null;
+}
+
+/**
+ * The duration `formatTimeLeft` writes, between two instants the first of which is earlier.
+ *
+ * @param now Start
+ * @param end End
+ * @returns The duration
+ */
+function timeLeftParts(now: Date, end: Date): DurationParts {
+  if (reachesFullDay(now, end)) {
+    let days = getCalendarDayDiff(now, end);
+    let clock = wallClock(end) - wallClock(now);
+    if (clock < 0) {
+      days -= 1;
+      clock += 86400000;
+    }
+    let hours = Math.ceil(clock / 3600000);
+    if (hours >= 24) {
+      days += 1;
+      hours -= 24;
+    }
+    return { days, hours, minutes: 0 };
+  }
+
+  const minutes = Math.ceil((end.getTime() - now.getTime()) / 60000);
+  if (minutes >= 1440) return { days: 1, hours: 0, minutes: 0 };
+  return { days: 0, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+}
+
+/**
  * The whole event a row stands for, and whether the row shows only part of it: a day of a
  * split list or column event other than its first, which shows the whole event's times, or a
  * grid block other than the one that starts its event.

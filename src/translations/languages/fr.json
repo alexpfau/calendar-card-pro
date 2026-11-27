@@ -21,6 +21,7 @@
   "endsTomorrow": "finit demain",
   "dayOfEvent": "Jour {day} sur {days}",
   "durationTotal": "{duration} au total",
+  "timeLeft": "il reste {duration}",
   "noEvents": "Aucun événement",
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",

@@ -29,6 +29,7 @@
   "endsTomorrow": "λήγει αύριο",
   "dayOfEvent": "Ημέρα {day} από {days}",
   "durationTotal": "{duration} συνολικά",
+  "timeLeft": "ακόμη {duration}",
   "noEvents": "Δεν υπάρχουν γεγονότα",
   "loading": "Φόρτωση ημερολογίου...",
   "error": "Σφάλμα: Η οντότητα ημερολογίου δεν βρέθηκε ή δεν έχει ρυθμιστεί σωστά",

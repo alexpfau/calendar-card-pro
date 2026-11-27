@@ -602,7 +602,7 @@ says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Cale
 | **Which Events**        | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, Starts At or After, Starts Before, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
 | **Text Replacement**    | Find and Replace With, rewriting the event's title, location or description                                                                                                                                            |
 | **Multi-Day Events**    | Whether this calendar's long events split across days, and how Grid draws them                                                                                                                                         |
-| **Visible Event Parts** | Whether this calendar's events show their time, location, description and weather on the card, and its Location Icon                                                                                                   |
+| **Visible Event Parts** | Whether this calendar's events show their time, location, description, countdowns, time left and weather on the card, its Location Icon, and what its countdowns do                                                    |
 
 To show a calendar only on some days of the week, use **Days of the Week** under **Which
 Events**; the line under **Who Sees It** leads there.

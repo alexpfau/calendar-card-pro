@@ -1061,7 +1061,8 @@ function renderTimedEvent(
  * That block's count-up counts from the event's end too, as its time reads, rather than from
  * the midnight its segment ends at: an event still under way past midnight has none, and one
  * that ended days later counts from that day. Its countdown is the same either way, since the
- * block starts where the event does.
+ * block starts where the event does. Time left is drawn on whichever block is under way, the
+ * first or a later one, as the bar is, and counts to the event's end.
  *
  * Under `show_duration` that block's whole length follows its end, "- 1:35 (+1) (3 hr, 30 min)",
  * the last piece of the droppable end, which the fit ladder keeps after the end time before it.
@@ -1092,17 +1093,23 @@ function gridTimedEventContentParts(
     shouldShowTime: false,
     countdownStr: null,
     countUp: false,
+    timeLeft: false,
   };
 
   if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
     // A later block draws no time, since it starts at midnight rather than where the event does,
     // but it carries the whole event's length, marked as such, so it is there whichever of the
-    // event's days is on screen.
+    // event's days is on screen. While it is the block under way it says how long the event has
+    // left, as it draws its bar: the now line runs through it, and the first block may be a day
+    // off screen.
     const lasts =
       config.show_duration && presented.shouldShowTime
         ? FormatUtils.formatEventDuration(event, language)
         : null;
-    return lasts ? { ...untimed, eventTime: lasts, shouldShowTime: true } : untimed;
+    const left = presented.timeLeft ? { countdownStr: presented.countdownStr, timeLeft: true } : {};
+    return lasts
+      ? { ...untimed, ...left, eventTime: lasts, shouldShowTime: true }
+      : { ...untimed, ...left };
   }
 
   // The event's own times. A split segment ends at midnight; `_gridSource` is what it was
@@ -1139,8 +1146,17 @@ function gridTimedEventContentParts(
 
   const whole = { ...event, start: source.start, end: source.end };
   const wholePast = Presentation.isEventPast(whole);
-  const countdownStr = Presentation.eventCountdown(whole, config, language, wholePast);
-  const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
+  // Time left is this block's own, drawn while it is the block under way, as its bar is; it
+  // counts to the whole event's end all the same (`EventUtils.runningEventEnd`).
+  const countdown = Presentation.eventCountdown(whole, config, language, wholePast);
+  const timeLeft = countdown === null ? Presentation.eventTimeLeft(event, config, language) : null;
+  const countdownStr = countdown ?? timeLeft;
+  const counted = {
+    ...parts,
+    countdownStr,
+    countUp: countdown !== null && wholePast,
+    timeLeft: timeLeft !== null,
+  };
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours, language);

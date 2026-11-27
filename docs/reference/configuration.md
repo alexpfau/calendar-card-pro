@@ -209,7 +209,8 @@ pages, without deleting stored values.
 `show_description` (card-wide and per-entity) · `show_description_allday` ·
 `description_font_size` · `description_color` · `description_icon_size` ·
 `description_max_lines` · `show_countdown` · `show_countdown_allday` · `countdown_max_days` ·
-`countdown_exact_days` · `show_progress_bar` · `progress_bar_color` · `progress_bar_height` ·
+`countdown_exact_days` · `show_time_left` (each card-wide and per-entity) · `show_progress_bar` ·
+`progress_bar_color` · `progress_bar_height` ·
 `progress_bar_width` · `allday_badge` · `allday_badge_style` · `allday_badge_color` ·
 `title_max_lines` · `time_max_lines` · `location_max_lines` · `event_icon_vertical_alignment` ·
 `lanes` · `min_lane_width` · `lanes_fallback`
@@ -220,9 +221,9 @@ separator to carry a month's name, sets its dates at one size on every day and p
 title in a day's list, with no clock beside it, and divides no day among lanes, so these have
 nothing to act on there. A day's
 list and its panel draw an event's title, time, location and forecast, one line each in the list
-and in full in the panel, and leave the description, the countdown, the progress bar and the
-all-day badge to the [event details](/features/actions#event-details), so those options keep
-their shipped values in a month whatever they say. They keep working in the other layouts, and
+and in full in the panel, and leave the description, the countdown, time left, the progress bar
+and the all-day badge to the [event details](/features/actions#event-details), so those options
+keep their shipped values in a month whatever they say, or a calendar says. They keep working in the other layouts, and
 the editor hides their controls on Month's pages, without deleting stored values.
 
 **→ [Options That Do Nothing in Month View](/features/month-view#options-that-do-nothing-in-month-view)** — why each one.
@@ -234,7 +235,9 @@ the card-wide options for that one calendar:
 
 `entity` · `name` · `show_in_legend` · `hidden_by_default` · `lane` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `label_image_size` · `text_scale` ·
-`show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
+`show_time` · `show_location` · `location_icon` · `show_description` · `show_countdown` ·
+`countdown_max_days` · `show_countdown_allday` · `countdown_exact_days` · `show_time_left` ·
+`show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
 `split_multiday_events` · `multiday_banners` · `event_type` · `starts_after` · `starts_before` · `allday_expires_at` · `days_of_week` · `visibility` ·
@@ -244,6 +247,7 @@ the card-wide options for that one calendar:
 **→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
 **→ [Scaling one calendar's text](/features/core-settings#scaling-one-calendars-text)** — `text_scale`, what it makes larger or smaller, and where.
 **→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and why the day header keeps its forecast.
+**→ [Countdowns for one calendar](/features/event-content#countdowns-for-one-calendar)** — the countdown options and `show_time_left` on one calendar, and which value wins.
 **→ [One lane for several calendars](/features/lanes#one-lane-for-several-calendars)** — `lane`, which entries share a lane, and splitting one calendar into two.
 **→ [Leaving a calendar out of the filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
 **→ [Starting a calendar hidden](/features/header-toolbar#starting-a-calendar-hidden)** — `hidden_by_default`, for a calendar the filter hides until someone shows it.
@@ -393,6 +397,7 @@ column view, but not in grid view.
 | `countdown_max_days`            | number            | -                             | Show a countdown only for events starting within this many calendar days, and a count-up only for events that ended within as many: `0` is today alone, `7` a week either way. Unset, every event counts. See [Countdown Range](/features/event-content#countdown-range)                                                                                                                                                                                                                                                                                                                       |
 | `show_countdown_allday`         | boolean           | `true`                        | Show the countdown, and the count-up, for all-day events too (requires `show_countdown`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `countdown_exact_days`          | boolean           | `false`                       | Count every date other than today in days, such as "in 30 days", "in 1 day" for tomorrow and "1 day ago" for yesterday, rather than in months and years. See [Counting in Days](/features/event-content#counting-in-days)                                                                                                                                                                                                                                                                                                                                                                      |
+| `show_time_left`                | boolean           | `false`                       | Show how long an event under way has left, such as "47 min left", where its countdown would go. In list view the progress bar follows it on the time row. See [Time Left on a Running Event](/features/event-content#time-left-on-a-running-event)                                                                                                                                                                                                                                                                                                                                             |
 | `show_progress_bar`             | boolean           | `false`                       | Show a progress bar on events under way. In list and column view, an event a day or longer shows "Day 2 of 3" on each row instead. See [Progress Bar Display](/features/event-content#progress-bar-display) and [Day Counter](/features/multi-day-events#day-counter)                                                                                                                                                                                                                                                                                                                          |
 | `show_now_indicator`            | boolean           | `true`                        | Mark an event under way that is shorter than a full day in list and column view, with "Now ·" before its time and its time in `now_color`; grid view shows its now line instead. See [The Now Indicator](/features/event-content#the-now-indicator)                                                                                                                                                                                                                                                                                                                                            |
 | `now_color`                     | string            | `#34d399`                     | Color of an event under way in list and column view, mixed toward your theme's text color to stay readable, and of the grid's now line. Set it in `time_grid:` to give grid view a color of its own                                                                                                                                                                                                                                                                                                                                                                                            |

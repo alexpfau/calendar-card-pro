@@ -198,8 +198,10 @@ The card arms one refresh timer (`startRefreshTimer`) and reconciles four displa
 - **Event boundary** (`_syncNowBoundaryTimer`, `nextEventBoundary`). In list, column, and grid
   without its now line: repaints at the next start or end of a timed event, or the moment
   `allday_expires_at` retires an all-day one. Never loads.
-- **Clock** (`_syncClockTimer`). Without a now line: repaints for countdowns, progress bars and the
-  day change. Never loads.
+- **Clock** (`_syncClockTimer`). Without a now line: repaints for countdowns, time left, progress
+  bars and the day change, asking each event's own countdown options
+  (`Presentation.movingCountdownWords`), so a calendar's setting starts or stops the minute tick.
+  Never loads.
 
 The now-line, event-boundary and clock timers stop while the tab is hidden; a returning tab re-arms
 them and repaints at once where a now line or an event boundary is drawn

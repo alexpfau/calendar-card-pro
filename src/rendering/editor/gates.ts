@@ -610,6 +610,25 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     kind: 'gate',
     whenKey: 'gate.when.location_shown',
   },
+  // The card's answer while the entry follows it, or the entry's own (`entities.ts` ›
+  // `countsDown`), as the location icon's: `once_per_day` counts down too, at either level.
+  countdown_refinements: {
+    fields: [
+      'calendar:countdown_max_days',
+      'calendar:show_countdown_allday',
+      'calendar:countdown_exact_days',
+    ],
+    requires: [],
+    anyOf: [
+      [
+        needs('events:show_countdown', true, (value) => value === true || value === 'once_per_day'),
+        oneOf('calendar:show_countdown', 'inherit'),
+      ],
+      [oneOf('calendar:show_countdown', 'show', 'once_per_day')],
+    ],
+    kind: 'gate',
+    whenKey: 'gate.when.countdown_shown',
+  },
   show_in_legend: {
     fields: ['calendar:show_in_legend'],
     requires: [on('card:toolbar.show'), noneOf('card:toolbar.legend', 'menu', LEGEND_OFF)],

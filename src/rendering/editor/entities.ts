@@ -23,6 +23,7 @@ import {
 import { entityIdOf, isSet } from './synthetic';
 import { deepEqual } from './value';
 import * as Config from '../../config/config';
+import { COUNTDOWN_ONCE_PER_DAY } from '../../config/constants';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import { configuredCalendarName } from '../../utils/calendar-names';
@@ -360,6 +361,32 @@ export function showsLocation(
   if (view === undefined) return Boolean(config.show_location);
 
   return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'show_location', view));
+}
+
+/**
+ * Whether one calendar entry's events show countdowns in a layout: its own `show_countdown`, or
+ * the card's for that layout while it follows the card, as the card reads it
+ * (`Presentation.countdownSettings`). `once_per_day` shows them.
+ *
+ * @param entry - Entry as stored
+ * @param config - Merged configuration
+ * @param view - Layout being edited, or none for the card's own value
+ * @returns True when the entry's events show countdowns
+ */
+export function countsDown(
+  entry: string | Types.EntityConfig,
+  config: Readonly<Types.Config>,
+  view: Types.EffectiveView | undefined,
+): boolean {
+  const own = asEntityConfig(entry).show_countdown;
+  if (typeof own === 'boolean') return own;
+  if (own === COUNTDOWN_ONCE_PER_DAY) return true;
+
+  const card =
+    view === undefined
+      ? config.show_countdown
+      : ViewConfig.resolveViewOption(config as Types.Config, 'show_countdown', view);
+  return Boolean(card);
 }
 
 /**

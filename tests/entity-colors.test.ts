@@ -857,6 +857,7 @@ describe('entity colors: every per-calendar dropdown round-trips', () => {
         .sort(),
     ).toEqual([
       'accent_color_mode',
+      'countdown_exact_days',
       'days_of_week',
       'event_type',
       'filter_field',
@@ -865,9 +866,12 @@ describe('entity colors: every per-calendar dropdown round-trips', () => {
       'label_type',
       'multiday_banners',
       'replace_field',
+      'show_countdown',
+      'show_countdown_allday',
       'show_description',
       'show_location',
       'show_time',
+      'show_time_left',
       'show_weather',
       'split_multiday_events',
     ]);

@@ -33,6 +33,7 @@ const PINNED = [
   'show_countdown_allday',
   'countdown_max_days',
   'countdown_exact_days',
+  'show_time_left',
   'show_progress_bar',
   'progress_bar_color',
   'progress_bar_height',
@@ -98,7 +99,7 @@ describe('the month block', () => {
     );
   });
 
-  it('overrides column’s shared options but the forty-four it draws nothing for or pins, and the bars', () => {
+  it('overrides column’s shared options but the forty-five it draws nothing for or pins, and the bars', () => {
     const ignored = [
       'height',
       'max_height',

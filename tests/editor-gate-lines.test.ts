@@ -113,6 +113,8 @@ describe('the gate lines’ clauses', () => {
       'label_image_size calendar:label_type': 'gate.when.label_image',
       'location_icon events:show_location': 'gate.when.location_shown',
       'location_icon calendar:show_location': 'gate.when.location_shown',
+      'countdown_refinements events:show_countdown': 'gate.when.countdown_shown',
+      'countdown_refinements calendar:show_countdown': 'gate.when.countdown_shown',
       'show_in_legend card:toolbar.show': 'gate.when.calendar_filter',
       'show_in_legend card:toolbar.legend': 'gate.when.calendar_filter',
       'hidden_by_default card:toolbar.show': 'gate.when.calendar_filter',
@@ -128,6 +130,7 @@ describe('the gate lines’ clauses', () => {
     const keys = [...new Set(Object.values(clauses(ALL)))].sort();
     expect(Object.fromEntries(keys.map((key) => [key, EDITOR_STRINGS[key]]))).toEqual({
       'gate.when.calendar_filter': 'the toolbar shows a calendar filter',
+      'gate.when.countdown_shown': 'this calendar shows countdowns',
       'gate.when.duplicates': 'duplicates are filtered',
       'gate.when.empty_days_off': 'Show Empty Days is off',
       'gate.when.empty_or_today': 'Show Empty Days or Show Today When Empty is on',
@@ -147,9 +150,9 @@ describe('the gate lines’ clauses', () => {
       'gate.when.weather_entity': 'a Weather Entity is chosen',
       'gate.when.week_numbers': 'week numbers are shown',
     });
-    // The seventeen clauses, the switch's template and the chip's, and the two whole lines around
+    // The eighteen clauses, the switch's template and the chip's, and the two whole lines around
     // them.
-    expect(keys).toHaveLength(19);
+    expect(keys).toHaveLength(20);
     expect(EDITOR_STRINGS['gate.line']).toBe('Appears once {when}: {names}.');
     expect(EDITOR_STRINGS['gate.line_bare']).toBe('Appears once {when}.');
   });

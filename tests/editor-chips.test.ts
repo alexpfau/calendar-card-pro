@@ -34,6 +34,7 @@ const PARTS = [
   'events:show_location',
   'events:show_description',
   'events:show_countdown',
+  'events:show_time_left',
   'events:show_progress_bar',
   'events:show_duration',
   'events:show_now_indicator',
@@ -141,6 +142,7 @@ describe('which fields are chips', () => {
       'events:show_location': 'location',
       'events:show_description': 'description',
       'events:show_countdown': 'chip.countdown',
+      'events:show_time_left': 'chip.time_left',
       'events:show_progress_bar': 'chip.progress_bar',
       'events:show_duration': 'chip.duration',
       'events:show_now_indicator': 'chip.now',
@@ -169,6 +171,7 @@ describe('which fields are chips', () => {
       'Location',
       'Description',
       'Countdown',
+      'Time Left',
       'Progress Bar',
       'Duration',
       'Now',
@@ -202,7 +205,7 @@ describe('which fields are chips', () => {
     expect(offered).toEqual(universe);
     // The denominator, and the one difference: Now is not offered in Grid.
     const grid = Object.fromEntries(offered)['grid'] as string[];
-    expect(grid).toHaveLength(22);
+    expect(grid).toHaveLength(23);
     expect(Object.keys(CHIP_LABELS).filter((id) => !grid.includes(id))).toEqual([
       'events:show_now_indicator',
     ]);
@@ -220,6 +223,7 @@ describe('the event-part chips', () => {
       'Location ✓',
       'Description',
       'Countdown',
+      'Time Left',
       'Progress Bar',
       'Duration',
       'Now ✓',
@@ -245,6 +249,7 @@ describe('the event-part chips', () => {
       'Location',
       'Description',
       'Countdown',
+      'Time Left',
       'Progress Bar',
       'Duration',
     ]);
@@ -253,7 +258,7 @@ describe('the event-part chips', () => {
     // In All Layouts, which offers every part, no line.
     await editLayout(editor, 'shared');
     await goPage(editor, 'events');
-    expect(chips(editor, 'Visible Event Parts')).toHaveLength(8);
+    expect(chips(editor, 'Visible Event Parts')).toHaveLength(9);
     expect(lines(editor).some((line) => line.startsWith('Not in'))).toBe(false);
   });
 
@@ -293,7 +298,7 @@ describe('the event-part chips', () => {
       'End Time (Needs Time)',
       'Location ✓',
     ]);
-    expect(read(editor, 'Visible Event Parts')[6]).toBe('Duration (Needs Time)');
+    expect(read(editor, 'Visible Event Parts')[7]).toBe('Duration (Needs Time)');
     const end = chips(editor, 'Visible Event Parts')[1];
     // Still focusable, and not pressed, though its own value is on.
     expect(end.disabled).toBe(false);

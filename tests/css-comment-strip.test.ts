@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(276_000);
-    // Calendar lanes in list and column view moved the ceiling last, from 270,000 to 276,000
+    expect(saved).toBeLessThan(282_000);
+    // Labels in narrow Grid lanes and time left moved the ceiling last, from 276,000 to 282,000
+    // (backlog items 422, 407 and 281): the notes on a text label cut at a word too wide for its
+    // line rather than broken inside it, on a blank block in a lane showing its labels alone, and
+    // on time left and its bar keeping to one box at the end of a running event's time row. The
+    // reading went to 276,351 with both on feature/v6.2 at e29671b9, taken with stripComments
+    // after the last comment was written.
+    //
+    // Calendar lanes in list and column view moved the ceiling before that, from 270,000 to 276,000
     // (backlog item 25): the notes on a lane's header giving up its name and then its label as it
     // narrows, on a picture drawn round in its lane's ring, on the list's grid of a date column and
     // a column per lane with each day a subgrid across it, on the date keeping its row's height and
