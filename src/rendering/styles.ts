@@ -7256,24 +7256,27 @@ export const cardStyles = css`
     vertical-align: middle;
   }
 
-  /* A text label is not broken inside a word, as a title word is not: one the line broke is kept
-     to one line and cut with its own ellipsis, "Da…" for David in a narrow lane, rather than
-     reading "Davi / d" above its title. The host marks only a label it found broken
-     (cutGridLabels in grid-title-fit.ts), so one that fits, or wraps between its words, is laid
-     out as it always was. The fitted title, which lays labels out on one line of their own, takes
-     the mark off, and a block in a lane showing its labels alone puts it back where a text label
-     is too wide for that line even at the smallest size (fitCompactGridTitles). The same box as a
-     title word, and for the same reasons: an inline-block for its own clip and ellipsis, no wider
-     than the line, aligned top where its baseline would be its bottom edge, and keeping the room
-     at its inline edges every box that cuts text keeps ("Marks above and below the line"), with
-     its 4px gap to the title. Beside a picture or an icon it is aligned middle, as every label
-     there is. */
+  /* A text label is not broken inside a word, as a title word is not: a word too wide for its
+     line is cut with an ellipsis, "Da…" for David in a narrow lane, rather than reading
+     "Davi / d" above its title. The host marks only a label holding such a word
+     (cutGridLabels in grid-title-fit.ts), so one whose words all fit is laid out as it always
+     was. A marked label still wraps between its words and after a hyphen, so "Anna Workshop"
+     reads "Anna / Works…": only the word that cannot fit is cut, at the end of its own line,
+     where nothing is left to break it. The fitted title, which lays labels out on one line of
+     their own, takes the mark off, and a block in a lane showing its labels alone puts it back
+     where a text label is too wide for that line even at the smallest size
+     (fitCompactGridTitles). An inline-block, as a title word is, for its own clip and ellipsis:
+     no wider than the line, aligned top where its baseline would be its bottom edge, and keeping
+     the room at its inline edges every box that cuts text keeps ("Marks above and below the
+     line"), with its 4px gap to the title. Beside a picture or an icon it is aligned middle, as
+     every label there is. */
   .grid-event-disclosure .calendar-label[data-grid-label-cut] {
     display: inline-block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: normal;
+    hyphens: manual;
     vertical-align: top;
     padding-inline: var(--calendar-card-inline-room);
     margin-inline: calc(-1 * var(--calendar-card-inline-room))
@@ -8197,6 +8200,27 @@ export const cardStyles = css`
   .grid-event[data-grid-title-fit='blank'][data-grid-title-labels]
     :is(.summary > .event-title, .summary-row > :not(.summary)) {
     visibility: hidden;
+  }
+
+  /* Showing its labels alone, a block cuts a text label too wide for its one line
+     (fitCompactGridTitles). The label then takes whatever room the labels before it leave, a
+     picture's say, rather than a line of its own beside them, and the title, which is not
+     shown, takes none. */
+  .grid-event[data-grid-title-fit='blank'] .summary > .calendar-label[data-grid-label-cut] {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .grid-event[data-grid-title-fit='blank']
+    .summary:has(> .calendar-label[data-grid-label-cut])
+    > .event-title {
+    flex: 0 0 0;
+  }
+
+  /* Where not even a letter and "…" of a text label fit beside a picture, an icon or an emoji,
+     the text label is left out and the others are shown alone. */
+  .grid-event[data-grid-title-fit='blank'] .summary > [data-grid-label-omitted] {
+    display: none;
   }
 
   /* ----- Cascaded overlaps -----

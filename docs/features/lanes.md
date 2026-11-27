@@ -172,8 +172,10 @@ give each calendar both, and a slice is recognized by what it holds.
   events from her own.
   Grid view keeps every label, since it draws no header.
 - In grid view, an event with no room for any of its title, such as a quarter hour in a narrow
-  slice, shows its label alone, down to 10px, and a text label too wide even then is cut short
-  with "…". Its title is still read out with it, and a tap opens it as always.
+  slice, shows its label alone, down to 10px. A text label too wide even then is cut short with
+  "…", or left out beside a picture or an icon where not even its first letter fits. Where
+  nothing fits, the block stays empty. Its title is still read out with it, and a tap opens it
+  as always.
 - A screen reader hears each event's lane named with it: in list and column view after its day,
   in grid view before its title. In list and column view, a lane's events on a day are also a
   group named by the lane.

@@ -27,6 +27,7 @@ const SCALE = '--calendar-card-grid-title-scale';
 const SHIFT = '--calendar-card-grid-title-shift';
 const LABELS_ALONE = 'data-grid-title-labels';
 const LABEL_CUT = 'data-grid-label-cut';
+const LABEL_OMITTED = 'data-grid-label-omitted';
 
 /** Each text node's rectangles, as a function of the range measured within it. */
 const TEXT = new WeakMap<Node, (start: number, end: number) => DOMRect[]>();
@@ -56,11 +57,18 @@ function measurable(): void {
   } as unknown as CanvasRenderingContext2D);
 }
 
+interface Label {
+  /** A picture 12px square, text or an emoji of `width` at scale 1, or a private event's lock. */
+  kind: 'picture' | 'text' | 'emoji' | 'lock';
+  text?: string;
+  width: number;
+}
+
 interface Fitted {
   /** The text area: the disclosure's and the summary's width. */
   room: number;
-  /** The label: a picture 12px square, text or an emoji of this width at scale 1, or a lock. */
-  label: { kind: 'picture' | 'text' | 'emoji' | 'lock'; text?: string; width: number };
+  /** The labels, in the order they lead the title. */
+  labels: Label[];
   /** Whether the block is drawn in a lane. */
   lane?: boolean;
   /** The title's text, and its width at scale 1. */
@@ -73,14 +81,24 @@ interface Fitted {
 const HEIGHT = 22;
 const DISCLOSURE = { top: 1, bottom: 21 };
 
+const MARKUP: Record<Label['kind'], (text?: string) => string> = {
+  picture: () => '<img class="label-image" alt="Anna">',
+  text: (text) => `<span class="calendar-label" style="font-size: 12px">${text}</span>`,
+  emoji: (text) =>
+    `<span class="calendar-label label-emoji" style="font-size: 12px">${text}</span>`,
+  lock: () => '<ha-icon class="label-icon private-lock"></ha-icon>',
+};
+
 /**
  * A blank or fitted grid block, laid out as the one-line fallback lays it out: the labels at the
- * start of the line, the title in what they leave, every width and the line's height scaled by
- * the scale on the summary, the line moved down by the shift on the row.
+ * start of the line with a 4px gap after each, the title in what they leave, every width and the
+ * line's height scaled by the scale on the summary, the line moved down by the shift on the row.
+ * A text label cut short shrinks into the room the labels before it leave, and one left out
+ * takes none, as the stylesheet lays them out.
  */
 function fitted({
   room,
-  label,
+  labels,
   lane = true,
   title = { text: 'Swim', width: 40 },
   loaded = true,
@@ -89,34 +107,38 @@ function fitted({
   block.className = 'grid-event';
   block.style.cssText = `height: ${HEIGHT}px`;
   if (lane) block.setAttribute('data-lane', 'calendar.anna');
-  const labelMarkup = {
-    picture: '<img class="label-image" alt="Anna">',
-    text: `<span class="calendar-label" style="font-size: 12px">${label.text}</span>`,
-    emoji: `<span class="calendar-label label-emoji" style="font-size: 12px">${label.text}</span>`,
-    lock: '<ha-icon class="label-icon private-lock"></ha-icon>',
-  }[label.kind];
   block.innerHTML =
     '<div class="grid-event-disclosure"><div class="event-content"><div class="summary-row">' +
-    `<div class="summary">${labelMarkup}` +
+    `<div class="summary">${labels.map((label) => MARKUP[label.kind](label.text)).join('')}` +
     `<span class="event-title" style="font-size: 12px; display: block">${title.text}</span>` +
     '</div></div></div></div>';
   const disclosure = block.querySelector<HTMLElement>('.grid-event-disclosure')!;
   const row = block.querySelector<HTMLElement>('.summary-row')!;
   const summary = block.querySelector<HTMLElement>('.summary')!;
   const titleElement = block.querySelector<HTMLElement>('.event-title')!;
-  const labelElement = summary.firstElementChild as HTMLElement;
+  const elements = Array.from(summary.children).slice(0, labels.length) as HTMLElement[];
 
   const scale = () => Number.parseFloat(summary.style.getPropertyValue(SCALE)) || 1;
   const line = () => 15 * scale();
   const top = () => DISCLOSURE.top + (Number.parseFloat(row.style.getPropertyValue(SHIFT)) || 0);
-  // A cut label is no wider than the line; a whole one runs on past it.
-  const labelWidth = () =>
-    labelElement.hasAttribute(LABEL_CUT)
-      ? Math.min(label.width * scale(), room)
-      : label.width * scale();
-  const labelBox = () => new DOMRect(4, top(), labelWidth(), line());
+  /** Each label's box, left to right, and where the title starts after them. */
+  const layout = () => {
+    let x = 4;
+    const boxes = labels.map((label, index) => {
+      const element = elements[index];
+      if (element.hasAttribute(LABEL_OMITTED)) return new DOMRect(x, top(), 0, 0);
+      const natural = label.width * scale();
+      const width = element.hasAttribute(LABEL_CUT)
+        ? Math.max(0, Math.min(natural, 4 + room - x))
+        : natural;
+      const box = new DOMRect(x, top(), width, line());
+      x += width + 4 * scale();
+      return box;
+    });
+    return { boxes, title: x };
+  };
   const titleBox = () => {
-    const left = 4 + labelWidth() + 4 * scale();
+    const left = layout().title;
     return new DOMRect(left, top(), Math.max(0, 4 + room - left), line());
   };
 
@@ -130,17 +152,10 @@ function fitted({
     );
   }
   vi.spyOn(titleElement, 'getBoundingClientRect').mockImplementation(titleBox);
-  vi.spyOn(labelElement, 'getBoundingClientRect').mockImplementation(labelBox);
-  if (label.kind === 'picture' || label.kind === 'lock') {
-    labelElement.getClientRects = () => [labelBox()] as unknown as DOMRectList;
-  }
-  if (label.kind === 'picture') {
-    Object.defineProperty(labelElement, 'complete', { value: loaded });
-    Object.defineProperty(labelElement, 'naturalWidth', { value: loaded ? 64 : 0 });
-  }
   /** A text's rectangle on its one line, the share of its width the range covers. */
-  const text = (node: Node, width: number, left: () => number) =>
+  const text = (node: Node, width: number, left: () => number, shown = () => true) =>
     TEXT.set(node, (start, end) => {
+      if (!shown()) return [];
       const length = node.textContent?.length ?? 1;
       return [
         new DOMRect(
@@ -151,8 +166,27 @@ function fitted({
         ),
       ];
     });
+  labels.forEach((label, index) => {
+    const element = elements[index];
+    const box = () => layout().boxes[index];
+    vi.spyOn(element, 'getBoundingClientRect').mockImplementation(box);
+    if (label.kind === 'picture' || label.kind === 'lock') {
+      element.getClientRects = () => [box()] as unknown as DOMRectList;
+    }
+    if (label.kind === 'picture') {
+      Object.defineProperty(element, 'complete', { value: loaded });
+      Object.defineProperty(element, 'naturalWidth', { value: loaded ? 64 : 0 });
+    }
+    if (label.text) {
+      text(
+        element.firstChild!,
+        label.width,
+        () => box().left,
+        () => !element.hasAttribute(LABEL_OMITTED),
+      );
+    }
+  });
   text(titleElement.firstChild!, title.width, () => titleBox().left);
-  if (label.text) text(labelElement.firstChild!, label.width, () => 4);
   document.body.append(block);
   return block;
 }
@@ -173,12 +207,13 @@ function centerOf(block: HTMLElement): number {
 }
 
 const PICTURE = { kind: 'picture', width: 12 } as const;
+const text = (label: string, width: number): Label => ({ kind: 'text', text: label, width });
 
 describe('a blank block in a lane', () => {
   it('shows its picture alone where the title has no room beside it', () => {
     // 28px is a 40px lane's text area. The picture takes 12px and its gap 4px, which leaves
     // 12px, and "S…" needs 16px.
-    const block = fitted({ room: 28, label: PICTURE });
+    const block = fitted({ room: 28, labels: [PICTURE] });
 
     fit(block);
 
@@ -189,7 +224,7 @@ describe('a blank block in a lane', () => {
   });
 
   it('stays blank without a lane, as it always has', () => {
-    const block = fitted({ room: 28, label: PICTURE, lane: false });
+    const block = fitted({ room: 28, labels: [PICTURE], lane: false });
 
     fit(block);
 
@@ -200,7 +235,7 @@ describe('a blank block in a lane', () => {
   });
 
   it('keeps its title where the title fits, and is never marked', () => {
-    const block = fitted({ room: 150, label: PICTURE });
+    const block = fitted({ room: 150, labels: [PICTURE] });
 
     fit(block);
 
@@ -212,7 +247,7 @@ describe('a blank block in a lane', () => {
     // "Ben" is 30px at 12px and 25px at 10px, in 28px. The floor is measured with no shift on
     // the row and centered by what it finds there: measured with the shift the title size had,
     // the label landed 2.5px high.
-    const block = fitted({ room: 28, label: { kind: 'text', text: 'Ben', width: 30 } });
+    const block = fitted({ room: 28, labels: [text('Ben', 30)] });
 
     fit(block);
 
@@ -224,7 +259,7 @@ describe('a blank block in a lane', () => {
 
   it('cuts a text label short where it is too wide even at the floor', () => {
     // "Benjamin" is 50px at 12px and 41.7px at 10px, in 28px: "Benjam…" rather than nothing.
-    const block = fitted({ room: 28, label: { kind: 'text', text: 'Benjamin', width: 50 } });
+    const block = fitted({ room: 28, labels: [text('Benjamin', 50)] });
 
     fit(block);
 
@@ -234,21 +269,44 @@ describe('a blank block in a lane', () => {
     expect(centerOf(block)).toBe(11);
   });
 
+  it('cuts a name beside a picture into the room the picture leaves', () => {
+    // At the floor the picture and its gap take 13.3px of 40px, leaving "Benjam…" 26.7px.
+    const block = fitted({ room: 40, labels: [PICTURE, text('Benjamin', 50)] });
+
+    fit(block);
+
+    expect(block.hasAttribute(LABELS_ALONE)).toBe(true);
+    expect(block.querySelector('.calendar-label')!.hasAttribute(LABEL_CUT)).toBe(true);
+    expect(block.querySelector(`[${LABEL_OMITTED}]`)).toBeNull();
+  });
+
+  it('shows the picture without the name where not even a letter of it fits beside it', () => {
+    // At the floor, 20px less the picture and its gap leaves 6.7px, and "B…" needs 11.2px.
+    const block = fitted({ room: 20, labels: [PICTURE, text('Benjamin', 50)] });
+
+    fit(block);
+
+    expect(block.hasAttribute(LABELS_ALONE)).toBe(true);
+    expect(block.querySelector('.calendar-label')!.hasAttribute(LABEL_OMITTED)).toBe(true);
+    expect(block.querySelector(`[${LABEL_CUT}]`)).toBeNull();
+    expect(centerOf(block)).toBe(11);
+  });
+
   it('stays blank, with the size and shift it was given, where not even a letter fits', () => {
-    // 8px holds "B" (5.2px at 10px) but not "B…".
-    const block = fitted({ room: 8, label: { kind: 'text', text: 'Benjamin', width: 50 } });
+    // 8px holds "B" (5.2px at 10px) but not "B…", and there is no picture to fall back on.
+    const block = fitted({ room: 8, labels: [text('Benjamin', 50)] });
 
     fit(block);
 
     expect(block.dataset.gridTitleFit).toBe('blank');
     expect(block.hasAttribute(LABELS_ALONE)).toBe(false);
-    expect(block.querySelector(`[${LABEL_CUT}]`)).toBeNull();
+    expect(block.querySelector(`[${LABEL_CUT}], [${LABEL_OMITTED}]`)).toBeNull();
     expect(styleOf(block, '.summary', SCALE)).toBe('1');
     expect(styleOf(block, '.summary-row', SHIFT)).toBe('2.5px');
   });
 
   it('leaves a block blank whose emoji is too wide even at the floor', () => {
-    const block = fitted({ room: 8, label: { kind: 'emoji', text: '🏊', width: 15 } });
+    const block = fitted({ room: 8, labels: [{ kind: 'emoji', text: '🏊', width: 15 }] });
 
     fit(block);
 
@@ -257,7 +315,7 @@ describe('a blank block in a lane', () => {
   });
 
   it('shows nothing for a private event with a lock and no calendar label', () => {
-    const block = fitted({ room: 28, label: { kind: 'lock', width: 12 } });
+    const block = fitted({ room: 28, labels: [{ kind: 'lock', width: 12 }] });
 
     fit(block);
 
@@ -265,8 +323,19 @@ describe('a blank block in a lane', () => {
     expect(block.hasAttribute(LABELS_ALONE)).toBe(false);
   });
 
+  it('never shows a lock alone in place of a name it left out', () => {
+    // A private event's name label too wide to show even cut: the lock beside it says nothing
+    // of whose the event is.
+    const block = fitted({ room: 8, labels: [text('Benjamin', 50), { kind: 'lock', width: 12 }] });
+
+    fit(block);
+
+    expect(block.hasAttribute(LABELS_ALONE)).toBe(false);
+    expect(block.querySelector(`[${LABEL_OMITTED}]`)).toBeNull();
+  });
+
   it('waits for a picture to load, as the title does', () => {
-    const block = fitted({ room: 28, label: PICTURE, loaded: false });
+    const block = fitted({ room: 28, labels: [PICTURE], loaded: false });
 
     fit(block);
 
@@ -275,10 +344,10 @@ describe('a blank block in a lane', () => {
 
   it('decides each block of a pass on its own', () => {
     const [picture, lanesOff, cut, title] = [
-      fitted({ room: 28, label: PICTURE }),
-      fitted({ room: 28, label: PICTURE, lane: false }),
-      fitted({ room: 28, label: { kind: 'text', text: 'Benjamin', width: 50 } }),
-      fitted({ room: 150, label: PICTURE }),
+      fitted({ room: 28, labels: [PICTURE] }),
+      fitted({ room: 28, labels: [PICTURE], lane: false }),
+      fitted({ room: 28, labels: [text('Benjamin', 50)] }),
+      fitted({ room: 150, labels: [PICTURE] }),
     ];
 
     fit(picture, lanesOff, cut, title);
@@ -291,15 +360,16 @@ describe('a blank block in a lane', () => {
 
   it('leaves nothing behind for the next pass, whatever this one decided', () => {
     // One node through every outcome, as a card resized or reconfigured takes it.
-    const block = fitted({ room: 28, label: { kind: 'text', text: 'Benjamin', width: 50 } });
+    const block = fitted({ room: 20, labels: [PICTURE, text('Benjamin', 50)] });
     const target = () => gridTitleTarget(block)!;
 
     fit(block);
     expect(block.hasAttribute(LABELS_ALONE)).toBe(true);
+    expect(block.querySelector(`[${LABEL_OMITTED}]`)).not.toBeNull();
 
     resetGridTitle(target());
     expect(block.hasAttribute(LABELS_ALONE)).toBe(false);
-    expect(block.querySelector(`[${LABEL_CUT}]`)).toBeNull();
+    expect(block.querySelector(`[${LABEL_CUT}], [${LABEL_OMITTED}]`)).toBeNull();
     expect(block.dataset.gridTitleFit).toBeUndefined();
     expect(styleOf(block, '.summary', SCALE)).toBe('');
     expect(styleOf(block, '.summary-row', SHIFT)).toBe('');
@@ -308,13 +378,13 @@ describe('a blank block in a lane', () => {
     fitCompactGridTitles([target()]);
     expect(block.dataset.gridTitleFit).toBe('blank');
     expect(block.hasAttribute(LABELS_ALONE)).toBe(false);
-    expect(block.querySelector(`[${LABEL_CUT}]`)).toBeNull();
+    expect(block.querySelector(`[${LABEL_CUT}], [${LABEL_OMITTED}]`)).toBeNull();
   });
 
   it('lays a label the normal title cut out whole again in the one-line fallback', () => {
     // cutGridLabels marks a label for the normal title. The fallback lays labels out on a line
     // of their own, so the mark goes, and is put back only where the label is cut there too.
-    const block = fitted({ room: 150, label: { kind: 'text', text: 'Ben', width: 30 } });
+    const block = fitted({ room: 150, labels: [text('Ben', 30)] });
     block.querySelector('.calendar-label')!.setAttribute(LABEL_CUT, '');
 
     fit(block);
@@ -324,12 +394,19 @@ describe('a blank block in a lane', () => {
   });
 });
 
+/** The width of a grid title's line in these fixtures: a narrow lane's. */
+const LINE_WIDTH = 32;
+
 /**
- * A grid title in its normal state, with a text label laid out as the line broke it. `lines`
- * is the label's text on each line, in order, as the browser placed it: `['Davi', 'd']` is
- * "David" broken inside the word, `['Anna ', 'Work']` "Anna Work" broken between its words.
+ * A grid title in its normal state, with a text label laid out as the line broke it, in a
+ * summary 32px wide. `lines` is the label's text on each line, in order, as the browser placed
+ * it, each character 6px wide: `['Davids', 'on']` is "Davidson", 48px, broken inside the word,
+ * `['Anna ', 'Work']` "Anna Work" broken between its words.
  */
-function labeled(lines: string[], options: { emoji?: boolean; scroll?: boolean; row?: 0 | 1 }) {
+function labeled(
+  lines: string[],
+  options: { emoji?: boolean; scroll?: boolean; row?: 0 | 1 } = {},
+) {
   const { emoji = false, scroll = false, row = 1 } = options;
   const text = lines.join('');
   const block = document.createElement('div');
@@ -341,7 +418,9 @@ function labeled(lines: string[], options: { emoji?: boolean; scroll?: boolean; 
     `<span class="calendar-label${emoji ? ' label-emoji' : ''}" style="display: inline">${text}</span>` +
     '<span class="event-title" style="display: inline">Piano</span>' +
     '</div></div></div></div>';
-  // Each character sits on the line the browser broke it onto, 6px wide.
+  vi.spyOn(block.querySelector('.summary')!, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(4, 2, LINE_WIDTH, lines.length * 15),
+  );
   const lineOf = lines.flatMap((part, line) => Array.from(part, () => line));
   TEXT.set(block.querySelector('.calendar-label')!.firstChild!, (start, end) => {
     const byLine = new Map<number, number[]>();
@@ -363,21 +442,38 @@ function cut(...blocks: HTMLElement[]): boolean[] {
   return blocks.map((block) => block.querySelector('.calendar-label')!.hasAttribute(LABEL_CUT));
 }
 
-describe('a text label the line broke', () => {
-  it('is cut short where the line broke inside a word', () => {
-    expect(cut(labeled(['Davi', 'd'], {}))).toEqual([true]);
+describe('a text label in a narrow block', () => {
+  it('is cut where a word is wider than its line, as the line can only break inside it', () => {
+    expect(cut(labeled(['Davids', 'on']), labeled(['Anna ', 'Works', 'hop']))).toEqual([
+      true,
+      true,
+    ]);
   });
 
-  it('is left as it is where it fits, or wraps between its words', () => {
-    expect(cut(labeled(['David'], {}), labeled(['Anna ', 'Work'], {}))).toEqual([false, false]);
+  it('is left as it is where every word fits a line, however it wraps', () => {
+    expect(
+      cut(
+        labeled(['David']),
+        // Between its words.
+        labeled(['Anna ', 'Work']),
+        // After the hyphen of a compound, as a title wraps there too: "Anna-" is 30px.
+        labeled(['Anna-', 'Lena']),
+        // A word the browser hyphenated beside a picture, where it fits a line of its own.
+        labeled(['Lu', 'kas']),
+      ),
+    ).toEqual([false, false, false, false]);
+  });
+
+  it('is left to wrap between characters in a script written without spaces', () => {
+    expect(cut(labeled(['山田太郎山田', '太郎']))).toEqual([false]);
   });
 
   it('is not an emoji, a scrolling title or a block too short for its title', () => {
     expect(
       cut(
-        labeled(['Davi', 'd'], { emoji: true }),
-        labeled(['Davi', 'd'], { scroll: true }),
-        labeled(['Davi', 'd'], { row: 0 }),
+        labeled(['Davids', 'on'], { emoji: true }),
+        labeled(['Davids', 'on'], { scroll: true }),
+        labeled(['Davids', 'on'], { row: 0 }),
       ),
     ).toEqual([false, false, false]);
   });
@@ -386,28 +482,8 @@ describe('a text label the line broke', () => {
     // The label's text is 60px in a 28px summary. Read by its glyphs it overflows the summary,
     // and the title was refused its normal place; cut, it is the box the stylesheet draws.
     const fits = (marked: boolean) => {
-      const block = document.createElement('div');
-      block.className = 'grid-event';
-      block.style.cssText = 'height: 40px; padding: 2px 4px; box-sizing: border-box';
-      block.innerHTML =
-        '<div class="grid-event-disclosure"><div class="event-content">' +
-        '<div class="summary-row" style="--calendar-card-grid-title-eligible: 1">' +
-        '<div class="summary"><span class="calendar-label" style="display: inline">Benjamin</span>' +
-        '<span class="event-title" style="display: block">Piano</span></div></div></div></div>';
-      const label = block.querySelector<HTMLElement>('.calendar-label')!;
-      if (marked) label.setAttribute(LABEL_CUT, '');
-      vi.spyOn(block, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 36, 40));
-      for (const selector of ['.summary-row', '.summary']) {
-        vi.spyOn(block.querySelector(selector)!, 'getBoundingClientRect').mockReturnValue(
-          new DOMRect(4, 2, 28, 30),
-        );
-      }
-      vi.spyOn(label, 'getBoundingClientRect').mockReturnValue(new DOMRect(4, 2, 28, 15));
-      const title = block.querySelector<HTMLElement>('.event-title')!;
-      vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(new DOMRect(4, 17, 28, 15));
-      TEXT.set(label.firstChild!, () => [new DOMRect(4, 2, 60, 15)]);
-      TEXT.set(title.firstChild!, () => [new DOMRect(4, 17, 24, 15)]);
-      document.body.append(block);
+      const block = wideLabel();
+      if (marked) block.querySelector('.calendar-label')!.setAttribute(LABEL_CUT, '');
       measurable();
       const result = normalGridTitleFits(gridTitleTarget(block)!);
       vi.restoreAllMocks();
@@ -417,7 +493,55 @@ describe('a text label the line broke', () => {
 
     expect([fits(false), fits(true)]).toEqual([false, true]);
   });
+
+  it('is cut by the fitting pass, which then keeps the title in its normal place', () => {
+    // The pass itself, not the function: without the call the label overflows its summary,
+    // the title is refused its normal place, and the fallback leaves nothing marked.
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    document.body.append(card);
+    const block = wideLabel();
+    root.append(block);
+    measurable();
+
+    card._applyGridDisclosureSafety();
+
+    expect(block.querySelector('.calendar-label')!.hasAttribute(LABEL_CUT)).toBe(true);
+    expect(block.dataset.gridTitleFit).toBeUndefined();
+  });
 });
+
+/**
+ * A grid block in its normal state whose text label, "Benjamin", is 60px in a 28px summary: on
+ * the line its text runs past the summary, and once cut its box is the summary's width.
+ */
+function wideLabel(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'grid-event';
+  block.style.cssText = 'height: 40px; padding: 2px 4px; box-sizing: border-box';
+  block.innerHTML =
+    '<div class="grid-event-disclosure"><div class="event-content">' +
+    '<div class="summary-row" style="--calendar-card-grid-title-eligible: 1">' +
+    '<div class="summary"><span class="calendar-label" style="display: inline">Benjamin</span>' +
+    '<span class="event-title" style="display: block">Piano</span></div></div></div></div>';
+  const label = block.querySelector<HTMLElement>('.calendar-label')!;
+  vi.spyOn(block, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 36, 40));
+  for (const selector of ['.summary-row', '.summary']) {
+    vi.spyOn(block.querySelector(selector)!, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(4, 2, 28, 30),
+    );
+  }
+  vi.spyOn(label, 'getBoundingClientRect').mockReturnValue(new DOMRect(4, 2, 28, 15));
+  const title = block.querySelector<HTMLElement>('.event-title')!;
+  vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(new DOMRect(4, 17, 28, 15));
+  TEXT.set(label.firstChild!, () => [new DOMRect(4, 2, 60, 15)]);
+  TEXT.set(title.firstChild!, () => [new DOMRect(4, 17, 24, 15)]);
+  document.body.append(block);
+  return block;
+}
 
 describe('the stylesheet', () => {
   const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
@@ -457,10 +581,25 @@ describe('the stylesheet', () => {
       'max-width: 100%',
       'overflow: hidden',
       'text-overflow: ellipsis',
-      'white-space: nowrap',
+      'overflow-wrap: normal',
+      'hyphens: manual',
       'vertical-align: top',
     ]) {
       expect(label?.body).toContain(declaration);
     }
+    // It still wraps between its words, so only the word too wide for its line is cut.
+    expect(label?.body).not.toContain('white-space');
+  });
+
+  it('lets a cut label shrink beside a picture in the one-line fallback, and leaves one out', () => {
+    const fallback = rules.filter(({ selectors }) =>
+      selectors.startsWith(".grid-event[data-grid-title-fit='blank']"),
+    );
+    expect(
+      fallback.find(({ selectors }) => selectors.endsWith(`.calendar-label[${LABEL_CUT}]`))?.body,
+    ).toMatch(/flex:\s*0 1 auto;[^}]*min-width:\s*0/);
+    expect(
+      fallback.find(({ selectors }) => selectors.endsWith(`[${LABEL_OMITTED}]`))?.body,
+    ).toMatch(/display:\s*none/);
   });
 });
