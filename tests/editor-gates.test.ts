@@ -193,6 +193,7 @@ const NOT_IN_GRID = [
   'events:show_description_allday',
   'events:show_countdown_allday',
   'events:countdown_once_per_day',
+  'calendar:show_countdown_allday',
   'layout:event_spacing',
   'actions:open_links',
 ];
@@ -217,6 +218,7 @@ const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
   'events:countdown_max_days',
   'events:countdown_once_per_day',
   'events:countdown_exact_days',
+  'events:show_time_left',
   'events:show_progress_bar',
   'events:progress_bar_color',
   'events:progress_bar_height',
@@ -232,6 +234,11 @@ const MONTH_LEAVES_OUT: ReadonlyArray<FieldId> = [
   'events:time_icon_size',
   'weather:weather.event.max_lines',
   'calendar:show_description',
+  'calendar:show_countdown',
+  'calendar:countdown_max_days',
+  'calendar:show_countdown_allday',
+  'calendar:countdown_exact_days',
+  'calendar:show_time_left',
 ];
 
 /**
@@ -418,6 +425,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'entity.label_type': [undefined, 'none', 'text', 'icon', 'image'],
   'entity.label': [undefined, 'A', 'mdi:star', 'home-assistant', '/local/a.png', 'person.anna'],
   'entity.show_location': [undefined, true, false],
+  'entity.show_countdown': [undefined, true, false, 'once_per_day'],
   'entity.show_in_legend': [undefined, true, false],
 };
 
@@ -981,12 +989,14 @@ describe('the universe', () => {
     // Lanes, its Minimum Lane Width and a calendar's Lane. Then List and Columns gained Calendar
     // Lanes and a calendar's Lane, List Minimum Lane Width and When Lanes Don't Fit, and All
     // Layouts the three that more than one layout reads. Then a calendar gained Hidden by
-    // Default, in every workspace.
+    // Default, in every workspace. Then every workspace but Month gained Show Time Left, and a
+    // calendar its five countdown settings, but for Grid, which draws no countdown on an all-day
+    // event, and Month, which draws none at all.
     expect(sizes).toEqual({
-      shared: { card: 152, calendar: 33 },
-      list: { card: 183, calendar: 34 },
-      column: { card: 175, calendar: 33 },
-      grid: { card: 175, calendar: 33 },
+      shared: { card: 153, calendar: 38 },
+      list: { card: 184, calendar: 39 },
+      column: { card: 176, calendar: 38 },
+      grid: { card: 176, calendar: 37 },
       month: { card: 120, calendar: 31 },
     });
   });
@@ -1486,6 +1496,22 @@ describe('the gate table', () => {
             p('calendar:show_location', 'inherit', ['inherit']),
           ],
           [p('calendar:show_location', 'show', ['show'])],
+        ],
+      },
+      countdown_refinements: {
+        kind: 'gate',
+        fields: [
+          'calendar:countdown_max_days',
+          'calendar:show_countdown_allday',
+          'calendar:countdown_exact_days',
+        ],
+        requires: [],
+        anyOf: [
+          [
+            p('events:show_countdown', true, [true, 'once_per_day']),
+            p('calendar:show_countdown', 'inherit', ['inherit']),
+          ],
+          [p('calendar:show_countdown', 'show', ['show', 'once_per_day'])],
         ],
       },
       show_in_legend: {

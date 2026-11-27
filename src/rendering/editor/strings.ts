@@ -445,6 +445,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.when.label_icon': 'the label is an icon or has several parts',
   'gate.when.label_image': 'the label is an image or has several parts',
   'gate.when.location_shown': 'this calendar shows locations',
+  'gate.when.countdown_shown': 'this calendar shows countdowns',
   // The same, as noun phrases for search's Needs tag, where the control's own label does not say
   // it. Read from the gate table by a condition, or by a gate for any of its conditions without a
   // phrase of its own: "Needs the forecast beside each event".
@@ -784,6 +785,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // (`state.*`): "Set for List · Countdown: On · End Time: Off".
   'chip.end_time': 'End Time',
   'chip.countdown': 'Countdown',
+  'chip.time_left': 'Time Left',
   'chip.progress_bar': 'Progress Bar',
   'chip.duration': 'Duration',
   'chip.now': 'Now',
@@ -1047,6 +1049,25 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.hide.label': 'Never show',
   'entity.show_description.helper':
     'An event\u2019s details still show them. Private hides them there too.',
+  'entity.show_countdown': 'Event Countdowns',
+  'entity.show_countdown.option.inherit.label': 'Follow the card',
+  'entity.show_countdown.option.show.label': 'Always show',
+  'entity.show_countdown.option.once_per_day.label': 'Show, leaving out repeats',
+  'entity.show_countdown.option.hide.label': 'Never show',
+  'entity.countdown_max_days': 'Count Down Only Within Days',
+  'entity.countdown_max_days.helper': 'Left empty, the card\u2019s limit applies.',
+  'entity.show_countdown_allday': 'Countdowns to All-Day Events',
+  'entity.show_countdown_allday.option.inherit.label': 'Follow the card',
+  'entity.show_countdown_allday.option.show.label': 'Always show',
+  'entity.show_countdown_allday.option.hide.label': 'Never show',
+  'entity.countdown_exact_days': 'Count In Days Only',
+  'entity.countdown_exact_days.option.inherit.label': 'Follow the card',
+  'entity.countdown_exact_days.option.days.label': 'Always',
+  'entity.countdown_exact_days.option.natural.label': 'Never',
+  'entity.show_time_left': 'Time Left',
+  'entity.show_time_left.option.inherit.label': 'Follow the card',
+  'entity.show_time_left.option.show.label': 'Always show',
+  'entity.show_time_left.option.hide.label': 'Never show',
   // Only two choices: the card's weather position decides whether events get weather at all,
   // so this can only take it away. The day header's forecast belongs to every calendar.
   'entity.show_weather': 'Event Weather',
@@ -1755,6 +1776,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   countdown_exact_days: 'Count In Days Only',
   'countdown_exact_days.helper':
     '“in 30 days” rather than “in a month”, “in 1 day” rather than “tomorrow”.',
+  show_time_left: 'Show Time Left',
+  'show_time_left.helper': 'Such as “47 min left”, on an event that has started.',
   show_progress_bar: 'Show Progress Bar',
   'show_progress_bar.helper':
     'In List and Columns, an event lasting a day or longer shows a day counter, such as “Day 2 of 3”, instead.',

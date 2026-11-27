@@ -393,6 +393,7 @@ describe('Layout Defaults, for a setting Month does not read', () => {
       'events:show_description_allday',
       'events:show_multiday_allday_time',
       'events:show_progress_bar',
+      'events:show_time_left',
       'events:time_icon_size',
       'events:time_max_lines',
       'events:time_position',
@@ -512,7 +513,7 @@ describe('Accent Text on Month’s page', () => {
       ).toBe(month);
       // The parts Month draws nowhere say so, as any layout's absent parts do.
       expect(
-        lines(editor).includes('Not in Month: Description, Countdown, Progress Bar.'),
+        lines(editor).includes('Not in Month: Description, Countdown, Time Left, Progress Bar.'),
         workspace,
       ).toBe(month);
       // A setting acting on the weeks as well carries no such fact.

@@ -535,6 +535,11 @@ describe('editor: the order of the two panels', () => {
       'show_location',
       'location_icon',
       'show_description',
+      'show_countdown',
+      'countdown_max_days',
+      'show_countdown_allday',
+      'countdown_exact_days',
+      'show_time_left',
       'show_weather',
     ]);
   });

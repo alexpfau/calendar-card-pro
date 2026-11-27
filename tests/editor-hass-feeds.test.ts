@@ -304,8 +304,9 @@ describe('the feeds in the rendered editor', () => {
     // toolbar's switcher offers every layout, so the calendar's page draws Grid's and Month's
     // In the Time Grid too. Starts At or After and Starts Before are two steady time fields, and
     // the person's picture Anna is labeled with brings Image Size, one more steady field. Hidden
-    // by Default is another steady switch, beside Show in Calendar Filter.
-    expect([live.length, steady.length]).toEqual([4, 26]);
+    // by Default is another steady switch, beside Show in Calendar Filter. Countdowns and Time Left
+    // are two steady dropdowns; what a countdown does stays out while the calendar shows none.
+    expect([live.length, steady.length]).toEqual([4, 28]);
 
     const next = later(hass, 'sensor.porch');
     editor.hass = next;

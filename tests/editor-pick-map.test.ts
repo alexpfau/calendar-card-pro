@@ -116,6 +116,7 @@ function config(view: Types.EffectiveView): Record<string, unknown> {
     show_location: true,
     show_description: true,
     show_countdown: true,
+    show_time_left: true,
     show_progress_bar: true,
     show_now_indicator: true,
     // A Wide Month bar's length, beside its times.
@@ -399,6 +400,7 @@ describe('Pick From Preview part map', () => {
       '.lane-header, .lane-header *, .lane-corner, .lane-cell layout:lanes',
       '.month-line-title, .month-bar .grid-banner-title layout:month.cell_event_font_size',
       '.event-title, .grid-banner-title events:event_font_size',
+      '.time-left events:show_time_left',
       '.month-line-time, .month-bar .grid-banner-time, .month-bar .grid-banner-duration layout:month.cell_time_font_size',
       '.time events:time_font_size',
       '.grid-now-line, .grid-now-dot layout:time_grid.show_now_line',

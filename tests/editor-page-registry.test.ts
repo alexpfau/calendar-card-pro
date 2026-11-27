@@ -361,6 +361,7 @@ const APPROVED_MAP: ReadonlyArray<
       'events:show_location P',
       'events:show_description P SLCG',
       'events:show_countdown P SLCG',
+      'events:show_time_left P SLCG',
       'events:show_progress_bar P SLCG',
       'events:show_duration P',
       'events:show_now_indicator P SLCM',
@@ -700,6 +701,11 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:show_location A',
       'calendar:location_icon A',
       'calendar:show_description A SLCG',
+      'calendar:show_countdown A SLCG',
+      'calendar:countdown_max_days A SLCG',
+      'calendar:show_countdown_allday A SLC',
+      'calendar:countdown_exact_days A SLCG',
+      'calendar:show_time_left A SLCG',
       'calendar:show_weather A LCGM',
     ],
   ],
@@ -714,20 +720,20 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 263 ids, Month's own nine, Layouts in Switcher, the three of the month's name
+    // map places 269 ids, Month's own nine, Layouts in Switcher, the three of the month's name
     // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
     // own height pair, Full-Size Settings' three settings and its toolbar chip, List's forecast
     // on a line of its own and its two compact heights, a calendar's Image Size, the full-size
     // card's nine toolbar settings, Calendar Lanes, Minimum Lane Width, List's When Lanes Don't
-    // Fit, a calendar's Lane and its Hidden by Default among them, and every one of them is built
-    // under some workspace and state.
+    // Fit, a calendar's Lane and its Hidden by Default, Show Time Left and a calendar's five
+    // countdown settings among them, and every one of them is built under some workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(263);
-    expect(PLACED).toHaveLength(263);
+    expect(BUILT.size).toBe(269);
+    expect(PLACED).toHaveLength(269);
   });
 
   it('has no field built but unplaced', () => {

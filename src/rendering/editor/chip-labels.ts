@@ -15,6 +15,7 @@ export const CHIP_LABELS: Readonly<Record<string, string>> = {
   'events:show_location': 'location',
   'events:show_description': 'description',
   'events:show_countdown': 'chip.countdown',
+  'events:show_time_left': 'chip.time_left',
   'events:show_progress_bar': 'chip.progress_bar',
   'events:show_duration': 'chip.duration',
   'events:show_now_indicator': 'chip.now',
