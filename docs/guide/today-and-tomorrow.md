@@ -83,7 +83,7 @@ Grid leaves locations off its blocks by default; the popover a tap opens shows t
 
 On a tablet, [lanes](/features/lanes#a-slice-per-lane-in-grid-view) give each person a slice of both days, so whose plan is whose reads straight down the hours: at 9:00 the dentist is Anna's and the sprint review Ben's, side by side.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_today_and_tomorrow_lanes.png" alt="The two-day grid on an 800px portrait tablet with a slice per person in each day: Anna's dentist visit, work from home and haircut in the first slice, Ben's sprint review, zoo trip and roadmap review in the second, Leo's nap, playdate and zoo trip in the third, and an empty slice for the Family calendar, under the daycare closure across both days" width="400"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_today_and_tomorrow_lanes.png" alt="The two-day grid on an 800px portrait tablet with a slice per person in each day: Anna's dentist visit, work from home and haircut in the first slice, Ben's sprint review, zoo trip and roadmap review in the second, Leo's nap, playdate and zoo trip in the third, and an empty slice for the Family calendar, under the daycare closure across both days" width="600"><br>
 
 A slice each for Anna, Ben, Leo and the Family calendar, with Ben's work in his own slice.
 
