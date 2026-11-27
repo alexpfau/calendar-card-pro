@@ -11,6 +11,7 @@
  */
 
 import { inlineContentBox } from './content-box';
+import { splitTitleWords } from './title-words';
 
 const PRECISION = 1 / 64;
 const FLOOR = 10;
@@ -25,6 +26,19 @@ const CUT_ROOM = '--calendar-card-grid-title-cut-room';
 const FIT_LINES = '--calendar-card-grid-title-fit-lines';
 const CUT = 'data-grid-title-cut';
 const LINES = 'data-grid-title-lines';
+/**
+ * A text label kept to one line and cut short: one the line broke inside a word (cutGridLabels),
+ * or one too wide to show alone in a lane even at the smallest size (fitCompactGridTitles).
+ */
+const LABEL_CUT = 'data-grid-label-cut';
+/** A text label left out of a block showing its labels alone, beside a picture or an icon. */
+const LABEL_OMITTED = 'data-grid-label-omitted';
+/**
+ * A blank block in a lane that shows its labels where it has no room for a title
+ * (fitCompactGridTitles). Set on the block alongside data-grid-title-fit='blank', which it
+ * leaves in place, so everything that treats a blank block as having no title still does.
+ */
+const LABELS_ALONE = 'data-grid-title-labels';
 const Segmenter = (
   Intl as typeof Intl & {
     Segmenter?: new (
@@ -66,6 +80,11 @@ interface CompactMeasurement {
   shift: number;
   textFits: boolean;
   readable: boolean;
+  /**
+   * A calendar label, every label inside the summary across, every picture loaded, and every
+   * label cut short still showing its first character and an ellipsis.
+   */
+  labelsFit: boolean;
 }
 
 /**
@@ -179,6 +198,7 @@ export function gridTitleHasUsefulWidth(
 /** Reset only the transient Grid treatment; authored styles and label nodes stay intact. */
 export function resetGridTitle(target: GridTitleTarget): void {
   delete target.block.dataset.gridTitleFit;
+  target.block.removeAttribute(LABELS_ALONE);
   target.summary.style.removeProperty('--calendar-card-grid-title-scale');
   target.summary.style.removeProperty(LABEL_RUN);
   target.summary.style.removeProperty(FIT_LINES);
@@ -187,6 +207,12 @@ export function resetGridTitle(target: GridTitleTarget): void {
   for (const word of Array.from(target.summary.querySelectorAll<HTMLElement>(`[${CUT}]`))) {
     word.removeAttribute(CUT);
     word.style.removeProperty(CUT_ROOM);
+  }
+  for (const label of Array.from(
+    target.summary.querySelectorAll(`[${LABEL_CUT}], [${LABEL_OMITTED}]`),
+  )) {
+    label.removeAttribute(LABEL_CUT);
+    label.removeAttribute(LABEL_OMITTED);
   }
 }
 
@@ -343,13 +369,86 @@ function runsWidth(runs: TextRun[]): number {
   }
 }
 
+/**
+ * A label's rectangles: a text label's glyphs, line by line, or the box of anything else. A text
+ * label cut short (cutGridLabels) is its box, since its text runs on past the clip it draws.
+ */
+function labelBoxes(label: Element): DOMRect[] {
+  if (label.hasAttribute(LABEL_CUT)) return [inlineContentBox(label)];
+  return label.matches('.calendar-label')
+    ? textRuns(label).flatMap((run) => run.rects)
+    : Array.from(label.getClientRects());
+}
+
 function labelRects(target: GridTitleTarget): DOMRect[] {
-  return Array.from(target.summary.children).flatMap((label) => {
-    if (label === target.title) return [];
-    return label.matches('.calendar-label')
-      ? textRuns(label).flatMap((run) => run.rects)
-      : Array.from(label.getClientRects());
+  return Array.from(target.summary.children).flatMap((label) =>
+    label === target.title ? [] : labelBoxes(label),
+  );
+}
+
+/**
+ * Whether a text label holds a word wider than its line, which the line can only break inside.
+ *
+ * Its words are split as a title's are (splitTitleWords): at spaces, and after a hyphen inside
+ * a compound, with runs in scripts written without spaces left out, since those wrap between
+ * their characters by design. So "Anna-Lena" wrapping at its hyphen, a Han name wrapping
+ * between characters, and a word the browser hyphenated where it would fit a line of its own
+ * are all left as they were; only a word that cannot fit any line counts.
+ *
+ * @param label - A text label
+ * @param line - The width of the summary's line
+ * @returns Whether one of its words is wider than the line
+ */
+function hasWordWiderThanLine(label: Element, line: number): boolean {
+  const range = measurementRange(label.ownerDocument);
+  try {
+    return textRuns(label).some(({ node, start, text }) => {
+      let offset = start;
+      return splitTitleWords(text).some(({ kind, text: part }) => {
+        const from = offset;
+        offset += part.length;
+        if (kind !== 'word') return false;
+        range.setStart(node, from);
+        range.setEnd(node, offset);
+        const width = Array.from(range.getClientRects()).reduce((sum, rect) => sum + rect.width, 0);
+        return width > line + PRECISION;
+      });
+    });
+  } finally {
+    parkRange(range, label.ownerDocument);
+  }
+}
+
+/**
+ * Keeps a text label from breaking inside a word: a word too wide for its line is cut short
+ * with "…", as a title word is.
+ *
+ * A text label is plain text in the title's line, where the summary breaks any word too wide
+ * for its line, so in a narrow block "David" read "Davi / d". A title word is a box of its own,
+ * never broken and cut with its own ellipsis when it is too wide ("Quarte… / review"), and a
+ * label now follows the same rule: "Da…", or "Anna / Works…" for "Anna Workshop", with the title
+ * on the line below. A label whose words all fit a line is left as it is, however it wraps, so
+ * the card it is on is drawn as it was. Emoji, pictures and icons are boxes the line never breaks
+ * inside. A scrolling title's labels are left out: they sit in a row of their own, which
+ * reserveScrollingLabelWidths fits.
+ *
+ * Reads every label, then writes every label. Runs on titles already reset, so each pass
+ * measures every label as it lays out uncut.
+ *
+ * @param targets - The timed titles being fitted, already reset
+ */
+export function cutGridLabels(targets: GridTitleTarget[]): void {
+  const cut = targets.flatMap((target) => {
+    if (target.summary.matches('.summary-scroll') || !titleRowEligible(target)) return [];
+    const line = inlineContentBox(target.summary).width;
+    return Array.from(target.summary.children).filter(
+      (label) =>
+        label !== target.title &&
+        label.matches('.calendar-label:not(.label-emoji)') &&
+        hasWordWiderThanLine(label, line),
+    );
   });
+  for (const label of cut) label.setAttribute(LABEL_CUT, '');
 }
 
 function union(bounds: Bounds[]): Bounds {
@@ -644,9 +743,7 @@ function flowItems(target: GridTitleTarget): FlowItem[] {
           {
             kind: 'label' as const,
             node: label,
-            rects: label.matches('.calendar-label')
-              ? textRuns(label).flatMap((run) => run.rects)
-              : Array.from(label.getClientRects()),
+            rects: labelBoxes(label),
           },
         ],
   );
@@ -959,6 +1056,26 @@ function measureCompact(
       label.right <= summary.right + PRECISION &&
       label.width > 0,
   );
+  const picturesReady = imagesReady(target.summary);
+  // A calendar's label, not a private event's lock alone, which says nothing of whose it is.
+  const calendarLabel = Array.from(target.summary.children).some(
+    (child) =>
+      child !== target.title &&
+      !child.matches('.private-lock') &&
+      !child.hasAttribute(LABEL_OMITTED),
+  );
+  // A label cut short shows at least its first character and the ellipsis, as a title must.
+  const cutLabelsUseful = Array.from(target.summary.children)
+    .filter((label) => label.hasAttribute(LABEL_CUT))
+    .every((label) => {
+      const own = textRuns(label);
+      return gridTitleHasUsefulWidth(
+        inlineContentBox(label).width,
+        runsWidth(own),
+        prefixWidth(own),
+        ellipsisWidth(canvas, label) * scale * zoom,
+      );
+    });
   return {
     target,
     font: px(titleStyle.fontSize),
@@ -977,8 +1094,9 @@ function measureCompact(
     textFits: glyphs.every((glyph) => inside(glyph, title)),
     readable:
       labelsFit &&
-      imagesReady(target.summary) &&
+      picturesReady &&
       gridTitleHasUsefulWidth(title.width, fullWidth, usefulWidth, ellipsis),
+    labelsFit: calendarLabel && labelsFit && picturesReady && cutLabelsUseful,
   };
 }
 
@@ -986,15 +1104,102 @@ function verticalFit(measurement: CompactMeasurement): boolean {
   return measurement.textFits && measurement.height <= measurement.available + PRECISION;
 }
 
+/** A blank block in a lane still to be offered its labels alone, and what to put back if not. */
+interface LabelsAloneAttempt {
+  target: GridTitleTarget;
+  /** The scale the fitted title was given, and the shift that centered it. */
+  scale: number;
+  shift: number;
+  /** The smallest scale the ladder allows, the 10px floor that protects every text part. */
+  floor: number;
+}
+
+/** A summary's labels written as text, which a line can break and a box can cut short. */
+function proseLabels(target: GridTitleTarget): Element[] {
+  return Array.from(target.summary.children).filter(
+    (child) => child !== target.title && child.matches('.calendar-label:not(.label-emoji)'),
+  );
+}
+
+/** Whether a summary has a calendar label besides its text ones: a picture, icon or emoji. */
+function hasOtherLabel(target: GridTitleTarget): boolean {
+  const prose = proseLabels(target);
+  return Array.from(target.summary.children).some(
+    (child) => child !== target.title && !child.matches('.private-lock') && !prose.includes(child),
+  );
+}
+
+/**
+ * How a block showing its labels alone lays out its text labels: as they are, cut short with
+ * "…" (LABEL_CUT), or left out beside a picture, icon or emoji (LABEL_OMITTED).
+ */
+type TextLabels = 'whole' | typeof LABEL_CUT | typeof LABEL_OMITTED;
+
+/**
+ * Lays each block's labels out alone at the floor, its text labels as `text` says, and keeps
+ * every block whose labels then fit. Measured with no shift on the row, since one moves what the
+ * measurement reads, and centered by what it finds. Writes every block, reads every block, then
+ * writes every block.
+ *
+ * @param entries - The blocks to try
+ * @param text - How their text labels are laid out
+ * @param canvas - For the width of an ellipsis
+ * @returns The blocks whose labels still do not fit, their text labels as they were
+ */
+function tryLabelsAlone(
+  entries: LabelsAloneAttempt[],
+  text: TextLabels,
+  canvas: CanvasRenderingContext2D | null,
+): LabelsAloneAttempt[] {
+  const mark = (target: GridTitleTarget, on: boolean) => {
+    if (text === 'whole') return;
+    for (const label of proseLabels(target)) label.toggleAttribute(text, on);
+  };
+  for (const { target, floor } of entries) {
+    target.summary.style.setProperty('--calendar-card-grid-title-scale', String(floor));
+    target.row.style.removeProperty('--calendar-card-grid-title-shift');
+    mark(target, true);
+  }
+  const results = entries.map(({ target }) => measureCompact(target, canvas));
+  const rejected: LabelsAloneAttempt[] = [];
+  entries.forEach((entry, index) => {
+    const result = results[index];
+    if (verticalFit(result) && result.labelsFit) {
+      entry.target.row.style.setProperty('--calendar-card-grid-title-shift', `${result.shift}px`);
+      entry.target.block.setAttribute(LABELS_ALONE, '');
+      return;
+    }
+    mark(entry.target, false);
+    rejected.push(entry);
+  });
+  return rejected;
+}
+
 /**
  * Try authored typography, a proportional candidate, then its adjacent step.
  * Native normal leading and glyph hinting are discrete: verify that neighbor rather than
  * trusting proportional arithmetic at a font boundary. Preparation is never painted.
+ *
+ * A block left with no room for a title is blank: it shows nothing at all rather than a label or
+ * "…" alone. In a lane it shows its labels alone instead (LABELS_ALONE), because grid view draws
+ * no lane headers: a block's label is the one thing in it that says whose it is, and a lane of
+ * 40px left most short events there as empty tints. Where the labels are too wide at the size
+ * the title was given, they are tried at the smallest size the ladder allows, the 10px floor
+ * that protects every text part; then with each text label cut short, as a label too wide for
+ * its line is in the normal title (cutGridLabels), "Anna…" rather than an empty block; and last,
+ * where a picture, an icon or an emoji is among them, with the text labels left out. A block
+ * whose labels fit none of these is blank, with the size and shift it was given.
  */
 export function fitCompactGridTitles(targets: GridTitleTarget[]): void {
   if (!targets.length) return;
   const canvas = document.createElement('canvas').getContext('2d');
-  for (const target of targets) target.block.dataset.gridTitleFit = 'measuring';
+  for (const target of targets) {
+    target.block.dataset.gridTitleFit = 'measuring';
+    // A cut label is drawn cut only in the normal title; here it is laid out whole on one line.
+    for (const label of Array.from(target.summary.querySelectorAll(`[${LABEL_CUT}]`))) {
+      label.removeAttribute(LABEL_CUT);
+    }
+  }
   try {
     const measured = targets.map((target) => measureCompact(target, canvas));
     const candidates = measured.map((measurement) => {
@@ -1036,17 +1241,38 @@ export function fitCompactGridTitles(targets: GridTitleTarget[]): void {
       ...entry,
       neighborResult: measureCompact(entry.target, canvas),
     }));
+    const pending: LabelsAloneAttempt[] = [];
     for (const { target, candidate, font, minimum, result, neighbor, neighborResult } of compared) {
       const useNeighbor =
         verticalFit(neighborResult) && (neighbor > candidate || !verticalFit(result));
       const chosen = useNeighbor ? neighborResult : result;
-      target.summary.style.setProperty(
-        '--calendar-card-grid-title-scale',
-        String(font > 0 ? (useNeighbor ? neighbor : candidate) / font : 1),
-      );
+      const scale = font > 0 ? (useNeighbor ? neighbor : candidate) / font : 1;
+      target.summary.style.setProperty('--calendar-card-grid-title-scale', String(scale));
       const fits = minimum !== null && verticalFit(chosen) && chosen.readable;
       target.row.style.setProperty('--calendar-card-grid-title-shift', `${chosen.shift}px`);
       target.block.dataset.gridTitleFit = fits ? 'compact' : 'blank';
+      if (fits || minimum === null || !target.block.hasAttribute('data-lane')) continue;
+      if (verticalFit(chosen) && chosen.labelsFit) {
+        target.block.setAttribute(LABELS_ALONE, '');
+      } else {
+        pending.push({ target, scale, floor: minimum / font, shift: chosen.shift });
+      }
+    }
+    // The floor with every label whole, then with each text label cut short, then without the
+    // text labels beside a picture, an icon or an emoji.
+    const whole = pending.filter(({ floor, scale }) => floor < scale);
+    const cut = [
+      ...pending.filter(({ floor, scale }) => floor >= scale),
+      ...tryLabelsAlone(whole, 'whole', canvas),
+    ].filter(({ target }) => proseLabels(target).length > 0);
+    const omitted = tryLabelsAlone(cut, LABEL_CUT, canvas).filter(({ target }) =>
+      hasOtherLabel(target),
+    );
+    tryLabelsAlone(omitted, LABEL_OMITTED, canvas);
+    for (const { target, scale, shift } of pending) {
+      if (target.block.hasAttribute(LABELS_ALONE)) continue;
+      target.summary.style.setProperty('--calendar-card-grid-title-scale', String(scale));
+      target.row.style.setProperty('--calendar-card-grid-title-shift', `${shift}px`);
     }
   } finally {
     for (const target of targets) {

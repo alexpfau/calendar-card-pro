@@ -155,6 +155,8 @@ describe('a box that hides its overflow only as a backstop for a long word', () 
         'overflow-y': 'var(--calendar-card-title-overflow)',
       },
       '.grid-event-disclosure .title-word': INLINE_AXIS,
+      // A text label the line broke inside a word, cut as a title word is.
+      '.grid-event-disclosure .calendar-label[data-grid-label-cut]': INLINE_AXIS,
       [COMPACT]: INLINE_AXIS,
       '.grid-event-disclosure .time, .grid-event-disclosure .time-actual': INLINE_AXIS,
       // The month, which hides only a month too long for its row (backlog item 268). Not a chip's
@@ -429,6 +431,9 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
   '.grid-event-disclosure .event-title': ['.grid-event-disclosure .event-title'],
   '.grid-event-disclosure .title-word': ['.grid-event-disclosure .title-word'],
+  '.grid-event-disclosure .calendar-label[data-grid-label-cut]': [
+    '.grid-event-disclosure .calendar-label[data-grid-label-cut]',
+  ],
   // .time-text is given overflow: visible by a later rule.
   [`${GRID_TIME}, .grid-event-disclosure .time-text`]: [
     '.grid-event-disclosure .time',
@@ -521,6 +526,11 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
         'margin-inline': `calc(-1 * ${EVENT_ROOM})`,
       },
       '.grid-event-disclosure .title-word': ROOM,
+      // A cut text label, keeping the label's 4px gap to its title at its inline end.
+      '.grid-event-disclosure .calendar-label[data-grid-label-cut]': {
+        'padding-inline': INLINE_ROOM,
+        'margin-inline': `calc(-1 * ${INLINE_ROOM}) calc(4px - ${INLINE_ROOM})`,
+      },
       // The row keeps the 12px end margin every .time has, less the room.
       '.grid-event-disclosure .time': {
         'padding-inline': INLINE_ROOM,
