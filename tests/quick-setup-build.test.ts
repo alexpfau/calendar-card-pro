@@ -60,7 +60,13 @@ describe('buildQuickSetupConfig', () => {
         { entity: 'calendar.ben', accent_color: '#123456' },
         { entity: 'calendar.leo', accent_color: '#03a9f4' },
       ],
-      list: { days_to_show: 3, lanes: true, lanes_fallback: 'list', weather: { position: 'date' } },
+      list: {
+        days_to_show: 3,
+        event_background_opacity: 15,
+        lanes: true,
+        lanes_fallback: 'list',
+        weather: { position: 'date' },
+      },
       column: {
         min_days_to_show: 3,
         show_past_events: true,
@@ -116,7 +122,12 @@ describe('buildQuickSetupConfig', () => {
 
     expect(built).not.toHaveProperty('weather_entity');
     // The story's weather per layout goes with it: nothing would draw it.
-    expect(built.list).toEqual({ days_to_show: 3, lanes: true, lanes_fallback: 'list' });
+    expect(built.list).toEqual({
+      days_to_show: 3,
+      event_background_opacity: 15,
+      lanes: true,
+      lanes_fallback: 'list',
+    });
     expect(built.time_grid).not.toHaveProperty('weather');
     // Events open by default, so "no" is the answer that has to be written.
     expect(built.event_tap_action).toEqual({ action: 'none' });

@@ -91,7 +91,13 @@ export const STORIES: ReadonlyArray<Story> = [
       toolbar: { show: true, legend: 'chips', reset: true },
       day_tap_action: { action: 'add-event' },
       // A person per lane in Columns, and in List where four fit; a phone keeps the plain list.
-      list: { days_to_show: 3, lanes: true, lanes_fallback: 'list', weather: { position: 'date' } },
+      list: {
+        days_to_show: 3,
+        event_background_opacity: 15,
+        lanes: true,
+        lanes_fallback: 'list',
+        weather: { position: 'date' },
+      },
       column: {
         min_days_to_show: 3,
         show_past_events: true,

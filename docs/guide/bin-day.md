@@ -4,7 +4,7 @@ One waste-collection feed, split so that each bin shows only its next pickup, in
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_bin_day.png" alt="A small list card titled Bin Day with the next pickup of four bins, nearest first: each bin's name in a pill of its color, a matching icon before it and a countdown beneath" width="380"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_bin_day.png" alt="A small list card titled Bin Day with the next pickup of four bins, nearest first: each bin's name in a pill of its color, a matching icon before it and a countdown at the end of its line" width="386"><br>
 
 Each bin's next pickup, nearest first, in the bin's own color.
 
@@ -19,6 +19,7 @@ title: Bin Day
 days_to_show: 42
 show_countdown: once_per_day
 show_single_allday_time: false
+time_position: title
 allday_badge: title
 allday_badge_style: tinted
 hide_when_empty: true
@@ -61,12 +62,12 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 
 ## 🧭 What It Adds
 
-| Editor                                     | YAML                                                                                                                  | What it adds                                                                                                   |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Calendars › Which Events                   | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`                   | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day      |
-| Calendars › Name & Look · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                                        | A bin icon in the bin's color; the feed's prefix removed                                                       |
-| Event Appearance                           | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown: once_per_day`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day", once on a day two bins go out together |
-| List › Which Events                        | `days_to_show: 42`, `hide_when_empty`                                                                                 | Six weeks ahead, so a monthly bin still shows once today's is gone; no pickups, no card                        |
+| Editor                                     | YAML                                                                                                                                          | What it adds                                                                                                                                  |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Calendars › Which Events                   | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`                                           | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day                                     |
+| Calendars › Name & Look · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                                                                | A bin icon in the bin's color; the feed's prefix removed                                                                                      |
+| Event Appearance                           | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown: once_per_day`, `show_single_allday_time: false`, `time_position: title` | The bin's name in a pill of its color; "tomorrow" instead of "All day", at the end of the pill's line, once on a day two bins go out together |
+| List › Which Events                        | `days_to_show: 42`, `hide_when_empty`                                                                                                         | Six weeks ahead, so a monthly bin still shows once today's is gone; no pickups, no card                                                       |
 
 ## 🔀 Adapt It
 

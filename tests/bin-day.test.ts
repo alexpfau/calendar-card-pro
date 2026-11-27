@@ -227,24 +227,30 @@ describe('the Bin Day card behaves as its page describes', () => {
       ['Organic', '#43a047', true],
       ['Paper', '#1e88e5', true],
     ]);
-    // Today's pickup has begun and has nothing to count down to, so it has no time line at
-    // all; the others carry their countdown alone.
-    expect(listRows(card).map((row) => [row.title, row.time, row.countdown])).toEqual([
-      ['Trash', null, null],
-      ['Recycling', '', 'tomorrow'],
-      ['Organic', '', 'in 2 days'],
-      ['Paper', '', 'in 23 days'],
+    // Today's pickup has begun and has nothing to count down to, so it has no time at all; the
+    // others carry their countdown alone, at the end of the pill's line (`time_position: title`).
+    const aside = (row: { element: HTMLElement }) =>
+      row.element.querySelector('.title-aside .time-countdown') !== null;
+    expect(listRows(card).map((row) => [row.title, row.time, row.countdown, aside(row)])).toEqual([
+      ['Trash', null, null, false],
+      ['Recycling', null, 'tomorrow', true],
+      ['Organic', null, 'in 2 days', true],
+      ['Paper', null, 'in 23 days', true],
     ]);
+    // Control: without `time_position: title` the countdown takes a line of its own.
+    const below = await mountStory(dropOption(CARD, 'time_position'), FEED);
+    expect([rowTitled(below, 'Recycling').countdown, aside(rowTitled(below, 'Recycling'))]).toEqual(
+      ['tomorrow', false],
+    );
 
     // Controls: without `allday_badge` there is no pill; without `show_single_allday_time:
     // false` "All day" is back beside "tomorrow".
     const plain = await mountStory(dropOption(CARD, 'allday_badge'), FEED);
     expect(listRows(plain).map((row) => row.pill)).toEqual([null, null, null, null]);
     const wordy = await mountStory(dropOption(CARD, 'show_single_allday_time'), FEED);
-    expect([rowTitled(wordy, 'Recycling').time, rowTitled(wordy, 'Recycling').countdown]).toEqual([
-      'All day',
-      'tomorrow',
-    ]);
+    const recycling = rowTitled(wordy, 'Recycling');
+    expect(recycling.time?.startsWith('All day')).toBe(true);
+    expect(recycling.countdown).toBe('tomorrow');
   });
 
   it('says "tomorrow" once on a day two bins go out together', async () => {

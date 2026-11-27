@@ -6,7 +6,7 @@ Anna, Ben and their baby son Leo are an invented family with a tablet on the kit
 
 The kitchen wall in use, then three stills: the wall in grid view, the same card switched to Columns with a row per person, and the card on a phone and in a dashboard section.
 
-<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A wall tablet with the family's week in grid view: a finger taps Thursday's zoo trip, whose popover shows its time, that it repeats every 4 weeks, its location, London, on a small map, and Ben's and Leo's calendars; then it draws Bike repair into Tuesday at 17:00, drags it to Wednesday at 10:00, moves it to Ben's calendar so it turns blue with his face, switches to List, with a column for each of Anna, Ben, Leo and Home, then to Columns, with a row for each, and back to Grid, pages to the next week and swipes back, searches for ducks and picks Feed the ducks on Tuesday, October 20, hides Anna's and Ben's calendars, presses Reset, and deletes Bike repair"></video><br>
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A wall tablet with the family's week in grid view: a finger taps Thursday's zoo trip, whose popover shows its time, that it repeats every 4 weeks, its location, London, on a small map, and Ben's and Leo's calendars; then it draws Bike repair into Tuesday at 17:00, drags it to Wednesday at 10:00, moves it to Ben's calendar so it turns blue with his face, switches to List, with a column for each of Anna, Ben, Leo and Home and each event tinted in its owner's color, then to Columns, with a row for each, and back to Grid, pages to the next week and swipes back, searches for ducks and picks Feed the ducks on Tuesday, October 20, hides Anna's and Ben's calendars, presses Reset, and deletes Bike repair"></video><br>
 
 Tap the zoo trip to see where it is on a map, draw an event into Tuesday afternoon, drag it to Wednesday, move it to Ben's calendar, switch to List and Columns, a lane for each person in both, and back, page a week ahead and swipe back, search for the ducks, hide two calendars, reset the card and delete the event.
 
@@ -18,7 +18,7 @@ The wall in grid view. Anna is pink, Ben is blue and Leo is green, each face in 
 
 Switched to Columns on the toolbar: a row per person across the week, the household's own plans in the Home row, the morning's finished events faded, and Reset ready to undo the switch.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days of events tinted in each person's color, with the layout switcher folded into a pill and a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
 
 A phone switched to List, and a dashboard section where Grid shows three days and the calendar chips fold into the filter button.
 
@@ -69,6 +69,7 @@ entities:
     accent_color: '#b388ff'
 list:
   days_to_show: 3
+  event_background_opacity: 15
   lanes: true
   lanes_fallback: list
   weather:
@@ -102,7 +103,7 @@ month:
 
 `view: grid` is only where the card starts. The toolbar's switcher offers List, Columns, Grid and Month, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. Each layout answers its own question: Grid when things happen, Columns and the wall's List whose plans they are, and Month the weeks ahead. See [Switching Between Layouts](/features/header-toolbar#switching-between-layouts).
 
-<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
+<video class="clip portrait" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_phone_poster.jpg" width="430" height="860" loop muted playsinline controls preload="metadata" aria-label="The same card on a phone, in grid view for Monday to Wednesday: a finger switches it to List, its events tinted in each person's color, swipes to Thursday to Saturday, taps Friday's date and adds Swim lesson on Anna's calendar at 11:00, deletes it, swipes back, unchecks Ben in the filter menu so the filter button shows a dot, searches for zoo and picks the zoo trip on Thursday, October 15, and presses Reset, which brings back the grid, today and every calendar"></video><br>
 
 On a phone: switch to List, swipe to the next three days, tap Friday to add a swim lesson and delete it, swipe back, hide Ben's calendar in the filter menu, search for the zoo, pick Thursday, October 15, and reset the card.
 
@@ -116,7 +117,7 @@ Grid sheds days one at a time as the card narrows, always keeping today, so the 
 
 [`lanes: true`](/features/lanes) in the `column:` and `list:` blocks gives each person a place of their own: a row across the week in Columns, and a column beside the dates in the wall's List. `lane: Home` on the Family and Trash pickup calendars puts the household's own plans in one lane of their own, under its initial. Where List's four lanes do not fit, as on a phone or in a dashboard section, `lanes_fallback: list` draws the plain list instead, which is what a phone wants. Grid keeps its days whole, since a slice per person in seven days leaves no room for a title. See [Calendar Lanes](/features/lanes).
 
-The `column:` block styles Columns alone. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `show_location: false` keeps the week inside the wall's 800px; a tap still shows where an event is. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
+`event_background_opacity: 15` in the `list:` and `column:` blocks tints each event in its calendar's color, so List and Columns read in the same colors as Grid. The rest of the `column:` block styles Columns alone: `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. `show_location: false` keeps the week inside the wall's 800px; a tap still shows where an event is. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
 `event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
 
