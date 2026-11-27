@@ -12,194 +12,35 @@
  * is pressed to open it, as a user would. Each place's controls are named apart as well: every
  * field's frame, and every button a setting's head and the lines draw (its toggle, ⓘ, its pill,
  * Reset).
+ *
+ * The walk itself runs in `editor-reachability-<n>.test.ts`, side by side
+ * (`helpers/reachability.ts` › `reachShard`). Pinned here, what needs the whole corpus at once:
+ * every shard has its file, the shards take each state exactly once, and the states they walk
+ * hold more than ten thousand present fields between them.
  */
-import { setTimeout as nodeTimeout } from 'node:timers/promises';
+import { describe, expect, it } from 'vitest';
 
-import { afterAll, describe, expect, it } from 'vitest';
-
-import { type MountedEditor, mountEditor, unfoldAll } from './helpers/editor-host';
-import * as Config from '../src/config/config';
-import type * as Types from '../src/config/types';
-import { type ColorSpec, cardColorFields } from '../src/rendering/editor/colors';
-import { type FieldId, buildFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
-import { corpus } from '../src/rendering/editor/gates';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { TOPIC_PAGES, placementOf } from '../src/rendering/editor/pages';
-import { leavesKeptOut } from '../src/rendering/editor/plan';
+import { expectedShardFiles, shardFiles } from './helpers/file-shards';
+import {
+  REACH_PREFIX,
+  REACH_SHARDS,
+  REACH_STATES,
+  presentFields,
+  reachShardStates,
+} from './helpers/reachability';
 import { WORKSPACES } from '../src/rendering/editor/workspace';
 
-const STATES = corpus();
-
-/**
- * Whether a schema holds a node, compared by structure.
- *
- * @param schema - The schema a form was handed
- * @param node - The node looked for
- * @returns Whether some node of the schema, at any depth, is that node
- */
-function holds(schema: ReadonlyArray<HaFormSchema>, node: unknown): boolean {
-  const wanted = JSON.stringify(node);
-  const walk = (nodes: ReadonlyArray<HaFormSchema>): boolean =>
-    nodes.some(
-      (candidate) =>
-        JSON.stringify(candidate) === wanted ||
-        ('schema' in candidate && Array.isArray(candidate.schema) && walk(candidate.schema)),
-    );
-  return walk(schema);
-}
-
-/**
- * The fields reached on the open place: each frame's id, where its form holds the node the
- * index built for that id, where it draws that id's color control, which reaches the value of
- * a mode it absorbs as well, or where it is a control composed for that id.
- *
- * @param editor - Editor element
- * @param nodes - The present fields' nodes by id
- * @param colors - The color specs, by the ids they are drawn for (`colors.ts` › `cardColorFields`)
- * @returns The ids reached
- */
-function reached(
-  editor: MountedEditor,
-  nodes: ReadonlyMap<FieldId, unknown>,
-  colors: ReadonlyMap<FieldId, ColorSpec>,
-): FieldId[] {
-  const frames = editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-field]');
-  return [...frames].flatMap((frame) => {
-    const id = frame.dataset.field as FieldId;
-    // A color control is drawn for its field and edits the value of a mode it absorbs.
-    if (frame.classList.contains('color-field')) {
-      const spec = colors.get(id);
-      const edits = spec === undefined ? [] : spec.mode === id ? [id, spec.value] : [id];
-      return edits.filter((each) => nodes.has(each));
-    }
-    // A control the editor composes for its field reaches that field: Start Date's chips, the
-    // line Tapping an Event Opens It gives way to, a word list one term at a time.
-    if (frame.hasAttribute('data-composed')) return nodes.has(id) ? [id] : [];
-    const form = frame.querySelector('ha-form') as { schema?: ReadonlyArray<HaFormSchema> } | null;
-    return form?.schema && nodes.has(id) && holds(form.schema, nodes.get(id)) ? [id] : [];
-  });
-}
-
-/**
- * The accessible names two or more fields on the open place share.
- *
- * @param editor - Editor element
- * @returns Each shared name, lowercased, with the ids sharing it
- */
-function sharedNames(editor: MountedEditor): string[] {
-  const byName = new Map<string, string[]>();
-  for (const frame of editor.shadowRoot!.querySelectorAll<HTMLElement>('[data-field]')) {
-    const name = (frame.getAttribute('aria-label') ?? '').trim().toLowerCase();
-    byName.set(name, [...(byName.get(name) ?? []), frame.dataset.field!]);
-  }
-  const buttons = new Map<string, number>();
-  for (const control of editor.shadowRoot!.querySelectorAll<HTMLElement>(
-    '.line-button, .setting-toggle, .setting-info',
-  )) {
-    const name = (control.getAttribute('aria-label') ?? control.textContent ?? '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-    buttons.set(name, (buttons.get(name) ?? 0) + 1);
-  }
-  return [
-    ...[...byName].filter(([, ids]) => ids.length > 1).map(([name, ids]) => `${name}: ${ids}`),
-    ...[...buttons].filter(([, count]) => count > 1).map(([name, count]) => `${name}: ${count}`),
-  ];
-}
-
-/**
- * Clicks a rendered control, then waits for the editor to draw what it opens.
- *
- * @param editor - Editor element
- * @param selector - The control
- */
-async function click(editor: MountedEditor, selector: string): Promise<void> {
-  const control = editor.shadowRoot!.querySelector<HTMLElement>(selector);
-  if (control === null) throw new Error(`The editor draws no ${selector}`);
-  control.click();
-  await editor.updateComplete;
-}
-
 describe('reachability through rendered navigation', () => {
-  let editor: MountedEditor | undefined;
-  afterAll(() => editor?.remove());
+  it('walks more than ten thousand present fields over the corpus in every scope, in shard files that take each state once', () => {
+    expect(shardFiles(REACH_PREFIX)).toEqual(expectedShardFiles(REACH_PREFIX, REACH_SHARDS));
+    const taken = Array.from({ length: REACH_SHARDS }, (_, at) => reachShardStates(at + 1)).flat();
+    expect(taken.sort((a, b) => a - b)).toEqual(REACH_STATES.map((_, index) => index));
 
-  it('reaches every present card field from its page row, each opened from its head and named apart, over the corpus in every scope', async () => {
-    editor?.remove();
-    editor = await mountEditor({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-    });
-    const missing = new Map<string, FieldId[]>();
-    const clashes = new Set<string>();
-    let states = 0;
-    let visits = 0;
-    let fields = 0;
-    const seen = new Set<string>();
-    for (const workspace of WORKSPACES) {
-      for (const state of STATES.filter((candidate) => candidate.workspace === workspace)) {
-        const config = state.config as Types.Config;
-        const key = `${workspace} ${JSON.stringify(config)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        states += 1;
-
-        const ctx = schemaCtx(config, workspace, 'en');
-        // Every field built, but a kept setting the card does not hold (`leavesKeptOut`).
-        const present = [...buildFieldIndex(ctx).fields.values()].filter(
-          (field) =>
-            !leavesKeptOut(field.id, config as unknown as Record<string, unknown>, workspace),
-        );
-        const colors = cardColorFields(ctx).specs;
-        const nodes = new Map(present.map((field) => [field.id, field.node]));
-        const byPage = new Map<string, FieldId[]>();
-        for (const field of present) {
-          const page = placementOf(field.id)?.page ?? 'unplaced';
-          byPage.set(page, [...(byPage.get(page) ?? []), field.id]);
-        }
-        fields += present.length;
-
-        // As stored by a card the visual editor wrote: at the current configuration version.
-        editor.setConfig({ ...config, config_version: Config.CURRENT_CONFIG_VERSION });
-        await editor.updateComplete;
-        // Back to the overview, as Back would take a user there; the loop below opens each page
-        // itself, a topic from the state's layout row.
-        while (editor.shadowRoot!.querySelector('[data-focus="back-top"]') !== null) {
-          await click(editor, '[data-focus="back-top"]');
-        }
-
-        await unfoldAll(editor);
-        const found = new Set<FieldId>(reached(editor, nodes, colors));
-        for (const clash of sharedNames(editor)) clashes.add(`overview ${clash}`);
-        for (const page of byPage.keys()) {
-          if (page === 'overview' || page === 'unplaced') continue;
-          // A topic is the layout's, opened from its page; Whole Card's pages from the overview.
-          const topic = TOPIC_PAGES.some((each) => each.id === page);
-          if (topic) await click(editor, `[data-focus="layout:${workspace}"]`);
-          await click(editor, `[data-focus="nav:${page}"]`);
-          visits += 1;
-          for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
-          await unfoldAll(editor);
-          for (const id of reached(editor, nodes, colors)) found.add(id);
-          for (const clash of sharedNames(editor)) clashes.add(`${page} ${clash}`);
-          await click(editor, '[data-focus="back-top"]');
-          if (topic) await click(editor, '[data-focus="back-top"]');
-        }
-        const lost = present.map((field) => field.id).filter((id) => !found.has(id));
-        if (lost.length > 0)
-          missing.set(`${workspace} ${state.display} ${state.gate ?? 'fresh'}`, lost);
-        // Lets the timers the renders queued run, so what they hold is let go.
-        await nodeTimeout(0);
-      }
-    }
+    const fields = REACH_STATES.reduce((sum, scoped) => sum + presentFields(scoped).length, 0);
     console.info(
-      `reachability: ${states} corpus states over ${WORKSPACES.length} scopes, ` +
-        `${visits} page visits, ${fields} present fields`,
+      `reachability: ${REACH_STATES.length} corpus states over ${WORKSPACES.length} scopes, ` +
+        `${fields} present fields`,
     );
     expect(fields).toBeGreaterThan(10_000);
-    expect(Object.fromEntries(missing)).toEqual({});
-    // No two fields drawn on one place share an accessible name.
-    expect([...clashes]).toEqual([]);
-  }, 600_000);
+  });
 });

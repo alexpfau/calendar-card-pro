@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 import { startGuard } from './scripts/vitest-guard.mjs';
 import { resolveMaxWorkers } from './scripts/vitest-limits.mjs';
+import CostSequencer from './scripts/vitest-sequencer.mjs';
 
 // Every test process, this one and each fork, is killed once it holds more memory than any
 // test here needs. See the module for how, and AGENTS.md for why.
@@ -36,6 +37,21 @@ export default defineConfig({
     // Several worktrees often run the suite at once, so each run takes a share of the
     // machine beside the other runs testing on it. See the module for how.
     maxWorkers: resolveMaxWorkers(),
+
+    // Longest file first, and on CI each test job's share dealt out by what each file costs
+    // rather than by a hash of its name. See the module for why.
+    sequence: { sequencer: CostSequencer },
+
+    // CI splits `npm test` across its test jobs, `1/4` to `4/4`, and has each write what it ran,
+    // so that the job CI requires can check that the jobs ran every file between them
+    // (`scripts/check-shards.mjs`). Both unset, as anywhere else, run and report as before. Set
+    // here rather than as arguments so that each job runs `npm test` itself, the command every
+    // gate list names.
+    shard: process.env.VITEST_SHARD || undefined,
+    ...(process.env.VITEST_REPORT && {
+      reporters: ['default', 'json'],
+      outputFile: { json: process.env.VITEST_REPORT },
+    }),
 
     projects: [
       {
