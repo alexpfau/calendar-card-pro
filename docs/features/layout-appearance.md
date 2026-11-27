@@ -221,7 +221,7 @@ column:
 
 `event_gap` is the space between events, and `event_spacing` the space above and below the text inside each event. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
 
-In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; the [Family Agenda](/guide/one-calendar-many-purposes#one-voice-for-the-whole-card) story shows the two together.
+In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; the [Hallway Agenda](/guide/one-calendar-many-purposes#one-voice-for-the-whole-card) story shows the two together.
 
 ::: details Corners & Accent Bars
 

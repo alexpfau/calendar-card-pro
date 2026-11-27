@@ -43,5 +43,7 @@
   "/features/layout-appearance#switching-between-layouts": "/features/header-toolbar#switching-between-layouts",
   "/features/layout-appearance#your-own-buttons": "/features/header-toolbar#your-own-buttons",
   "/features/month-view#more-than-fits": "/features/month-view#the-day-panel",
-  "/features/month-view#the-days-list": "/features/month-view#the-day-list"
+  "/features/month-view#the-days-list": "/features/month-view#the-day-list",
+  "/guide/one-calendar-many-purposes#a-word-instead-of-the-tile": "/features/layout-appearance#today-indicator",
+  "/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda": "/guide/one-calendar-many-purposes#shared-plans-in-the-hallway-agenda"
 }

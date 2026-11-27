@@ -19,7 +19,7 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
    - To change the card later, edit the dashboard again and choose the card's **Edit**
 
 ::: tip Shortcut (Home Assistant 2026.6+)
-In the card picker, stay on the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events. Picking one puts it straight on the dashboard; choose the card's **Edit** to continue with step 4. Nothing needs to be enabled for this. Five starting points are offered:
+In the card picker, stay on the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events. Picking one puts it straight on the dashboard; choose the card's **Edit** to continue with step 4, where the card's **Calendars** list adds your other calendars, or **More → Start From an Example** builds an [Example Story](/reference/examples) on them. Nothing needs to be enabled for this. Five starting points are offered, each on the one calendar you picked:
 
 - **Calendar Card Pro - Interactive List**: the list layout, ready to page, open and add events
 - **Calendar Card Pro - Interactive Time Grid**: the same in the grid layout
@@ -99,11 +99,11 @@ The feature pages explain what each feature does and show it at work. [Configura
 ## 🚀 Next Steps
 
 - **Start From an Example Story** - [Example Stories](/reference/examples) are complete cards, each built for one place in a home. Pick the closest and adapt it:
-  - [Family Hub](/guide/family-calendar) - the whole family's week on a wall tablet, with the same card on a phone
-  - [Small Card, Big Picture](/guide/small-card-big-picture) - three days in a column of a dashboard you have, opening full size on the month
-  - [Family Agenda](/guide/one-calendar-many-purposes) - a short hallway list, with mixed calendars split into blocks with their own rules
+  - [Small Card, Big Picture](/guide/small-card-big-picture) - three days in a column of a dashboard you have, opening full size on the weeks ahead
+  - [Family Hub](/guide/family-calendar) - the whole family's week on a wall tablet, a lane per person, with the same card on a phone
   - [Now & Next](/guide/now-and-next) - a small phone tile that expands on tap
   - [Today & Tomorrow](/guide/today-and-tomorrow) - two days by the hour, from a phone to a kitchen tablet
+  - [Hallway Agenda](/guide/one-calendar-many-purposes) - a short hallway list, with mixed calendars split into blocks with their own rules
   - [Birthdays & Holidays](/guide/birthdays-and-holidays) and [Bin Day](/guide/bin-day) - what is coming up, and which bin goes out next
   - [House Log](/guide/house-log) - a log of household jobs, newest first, each with how long ago it was
 - **Learn a Feature** - [Calendars](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first. From there, add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/filtering), or set up [tap and hold actions](/features/actions)

@@ -1,5 +1,5 @@
 /**
- * The Family Agenda story's card, run through the real pipeline.
+ * The Hallway Agenda story's card, run through the real pipeline.
  *
  * `docs/guide/one-calendar-many-purposes.md` is the story that combines eight
  * per-calendar blocks with the card-level all-day options, and it makes specific, checkable
@@ -177,7 +177,7 @@ function withoutKey(pick: (block: Record<string, unknown>) => boolean, key: stri
   });
 }
 
-describe('the Family Agenda card behaves as the page describes', () => {
+describe('the Hallway Agenda card behaves as the page describes', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', memoryStorage());
     vi.useFakeTimers();
@@ -415,23 +415,33 @@ describe('the Family Agenda card behaves as the page describes', () => {
     }
   });
 
-  it('keeps the work calendar off the weekend', async () => {
-    // The page sets `days_of_week: weekdays` on both work blocks, which "keeps a work calendar
-    // that talks on Sunday off a family screen." The documented `days_to_show: 3` runs
-    // Wed–Fri and never reaches a weekend, so this arm widens the window to Saturday. That is
-    // a deviation from the page's value, stated here rather than silently made, because the
-    // option is otherwise untestable from this fixture.
+  it('keeps the Busy block off the weekend, and a marked event on any day', async () => {
+    // The page sets `days_of_week: weekdays` on the Busy block alone, which "keeps the Busy
+    // block off the weekend, so weekend work stays off a family screen, while an event marked
+    // `#family` shows on any day". The documented `days_to_show: 3` runs Wed–Fri and never
+    // reaches a weekend, so this arm widens the window to Saturday. That is a deviation from the
+    // page's value, stated here rather than silently made, because the option is otherwise
+    // untestable from this fixture.
+    expect(blocksOf('calendar.work')[0].days_of_week).toBeUndefined();
+    expect(blocksOf('calendar.work')[1]).toMatchObject({ days_of_week: 'weekdays' });
     const saturday = {
       summary: 'Weekend on-call',
       description: 'confidential',
       start: { dateTime: '2026-06-20T09:00:00Z' },
       end: { dateTime: '2026-06-20T10:00:00Z' },
     };
-    PAYLOAD['calendar.work'].push(saturday);
+    const flight = {
+      summary: 'Flight home',
+      description: '#family',
+      start: { dateTime: '2026-06-20T15:00:00Z' },
+      end: { dateTime: '2026-06-20T17:00:00Z' },
+    };
+    PAYLOAD['calendar.work'].push(saturday, flight);
     try {
       const rows = await drawn({ days_to_show: 4 } as Partial<Types.Config>);
       expect(rows.some((r) => r.title === 'Weekend on-call')).toBe(false);
       expect(rows.filter((r) => r.title === 'Busy')).toHaveLength(2);
+      expect(rows.some((r) => r.title === 'Flight home')).toBe(true);
 
       // Control: the same event on the same Saturday reaches the card once the restriction is
       // lifted, so the assertion above is about `days_of_week` and not about the window.
@@ -446,7 +456,7 @@ describe('the Family Agenda card behaves as the page describes', () => {
       } as unknown as Partial<Types.Config>);
       expect(widened.filter((r) => r.title === 'Busy')).toHaveLength(3);
     } finally {
-      PAYLOAD['calendar.work'].pop();
+      PAYLOAD['calendar.work'].splice(-2, 2);
     }
   });
 });

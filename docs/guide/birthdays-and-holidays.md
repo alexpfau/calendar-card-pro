@@ -10,7 +10,7 @@ Birthdays in pink, holidays in teal, and a rule where one month ends.
 
 ## 📋 Copy the Card
 
-Replace the two `calendar.*` ids with your own birthday and holiday calendars. The card is built for birthdays stored as all-day events that repeat every year, each with the birth year in its description as `YEAR=1990`. It adds the age to the title, `(36)` in 2026 and `(37)` in 2027, with nothing to edit. The age is the card's own addition, so the popover a tap opens shows the title without it.
+Replace the two `calendar.*` ids with your own birthday and holiday calendars. The card is built for birthdays stored as all-day events that repeat every year, each with the birth year in its description as `YEAR=1990`. It adds the age to the title, `(36)` in 2026 and `(37)` in 2027, with nothing to edit. The age is the card's own addition, so the popover a tap opens shows the title without it. The year has to go in a description you can edit: a birthday calendar built from your contacts, as Google makes one, takes none, so its birthdays show without an age.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -51,7 +51,7 @@ The toolbar is there for its magnifier: a search answers _when is Clara's birthd
 The toolbar names the first month, and each month after it opens under a rule with its name, so `show_month: false` takes the month out of every date without leaving a day unplaced. See [Naming the Month on Its Rule](/features/layout-appearance#naming-the-month-on-its-rule).
 
 ::: tip Build It in the Editor
-[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its two colors, in order. Add the 🎂 and 🎉 labels yourself.
+[Quick Setup](/features/editor#quick-setup) in the visual editor builds this card on your own calendars: its layout, its look and its two colors, in order. Add the 🎂 and 🎉 yourself, with **Label Type** on each calendar's page, under **Name & Look**.
 :::
 
 ## 🧭 What It Adds
@@ -71,6 +71,8 @@ The toolbar names the first month, and each month after it opens under a rule wi
 - **Fixtures & school terms.** A team's fixtures or a school's term dates are the same shape: add the calendar as a third entry with an emoji and a color of its own.
 - **Two holiday calendars.** Two regions' public holidays share many days, and Home Assistant's Holiday integration writes each calendar's own name into every holiday's location, so even `filter_duplicates: true` shows a shared holiday twice. Add the second calendar and `filter_duplicates: ignore_location` to show it once, or `merge_locations` to show it once with both regions' names, which says whose holiday it is. See [Filtering Duplicate Events](/features/filtering#filtering-duplicate-events).
 - **Anniversaries.** The same `YEAR=` marker counts the years since a wedding.
+- **Countdowns only when close.** [`countdown_max_days: 14`](/features/event-content#countdowns-for-one-calendar) on the birthdays calendar counts down only the last two weeks to a birthday, and the holidays keep counting from 60 days out, for a break that needs planning.
+- **One family calendar.** Where birthdays and holidays share a calendar, list it twice, once with `allowlist: birthday` and the 🎂, once with `blocklist: birthday` and the 🎉, as the [Hallway Agenda](/guide/one-calendar-many-purposes#a-birthday-should-read-like-a-name) splits its own.
 - **Further ahead.** Raise `days_to_show`; the month rules keep a long list readable.
 - **Days into a break.** `show_progress_bar: true` writes "Day 3 of 5" on a holiday of several days once it has begun, so the family can see how much of the break is left. Before it starts, the countdown stays. See [Day Counter](/features/multi-day-events#day-counter).
 

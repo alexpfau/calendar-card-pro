@@ -1,6 +1,6 @@
 # House Log
 
-A household log, newest first, for a dashboard section and the same card on a phone: when did we last mow the lawn, or change the water filter? Every entry reads how long ago it was done, and a [variation](#a-visitor-or-camera-log) keeps a log of the front door.
+A household log, newest first, for a dashboard section and the same card on a phone: when did we last mow the lawn, or change the water filter? Every entry reads how long ago it was done. One [variation](#each-jobs-last-time) keeps each job's last time only, a year back, and [another](#a-visitor-or-camera-log) keeps a log of the front door.
 
 ## 🖼️ See It
 
@@ -68,6 +68,30 @@ sequence:
 
 ## 🔀 Variations
 
+### Each Job's Last Time
+
+Listed once per job, the log keeps each job's newest entry and drops the older ones, so the card answers _when did we last…_ for every job at once, however long ago. Change these lines on the card above, one block per job:
+
+```yaml
+start_date: today-364
+days_to_show: 365
+entities:
+  - entity: calendar.house_log
+    allowlist: '^Plants watered'
+    compact_events_to_show: 1
+    accent_color: '#8d6e63'
+  - entity: calendar.house_log
+    allowlist: '^Lawn mowed'
+    compact_events_to_show: 1
+    accent_color: '#8d6e63'
+  - entity: calendar.house_log
+    allowlist: '^Smoke alarms tested'
+    compact_events_to_show: 1
+    accent_color: '#8d6e63'
+```
+
+Each `allowlist` matches the title its script writes, and `^` holds it to the start of the title, so _Lawn mowed_ never claims _Lawn mower serviced_. [`compact_events_to_show: 1`](/features/list-view#entity-level-vs-global-event-limits) counts per block, and newest first it keeps the latest entry. A job with no entry in the year has no row, so a missing row means not in the last year, not never.
+
 ### A Visitor or Camera Log
 
 The same card keeps a log of the front door: a car's plate, a parcel, a person a camera saw. There the time of day matters, so each entry keeps its time beside how long ago it was.
@@ -92,7 +116,6 @@ The card covers the last seven days, and each entry reads its time and how long 
 
 ## 🔀 Adapt It
 
-- **Each job's last time only.** List the calendar once per job with an `allowlist` and `compact_events_to_show: 1`, as [Bin Day](/guide/bin-day) does for its bins. Newest first, each block keeps its latest entry, so with `start_date: today-364` and `days_to_show: 365` the card answers _when did we last…_ for a whole year.
 - **Further back.** `start_date: today-89` with `days_to_show: 90` covers three months. Every limit keeps the newest entries, so `compact_events_to_show: 10` under `list:` shows the latest ten.
 - **Counted in days.** [`countdown_exact_days: true`](/features/event-content#counting-in-days) reads "40 days ago" rather than "a month ago", and "1 day ago" for yesterday.
 - **Logging from the card.** A [toolbar](/features/header-toolbar) with its add button logs an entry from the card, but a new event [starts on the hour and lasts an hour](/features/actions#add-event-button). Until it ends it shows its title alone, so move it to before now ahead of **Add**.

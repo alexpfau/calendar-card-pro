@@ -283,22 +283,40 @@ describe('the Now & Next card behaves as its page describes', () => {
     expect(listRows(bare).every((row) => row.labels.length === 0)).toBe(true);
   });
 
-  it('counts down to what is next and fills a bar on what is under way', async () => {
-    // The page quotes the countdown as "in 2 hours", and the swim at noon is two hours off.
-    expect(readFileSync(storyGuide(PAGE), 'utf8')).toContain('"in 2 hours"');
+  it('counts down to what is next, and says how long what is under way has left beside its bar', async () => {
+    // The page quotes the countdown as "in 2 hours", and the swim at noon is two hours off; the
+    // bike repair and Pilates are half over, with an hour and half an hour to go.
+    const page = readFileSync(storyGuide(PAGE), 'utf8');
+    expect(page).toContain('"in 2 hours"');
+    expect(page).toContain('"1 hr, 20 min left" on a running event');
 
     const card = await mountStory(CARD, WEEK);
     const shown = listRows(card).map((row) => [row.title, row.progress, row.countdown]);
     expect(shown).toEqual([
-      ['Bike repair', '50%', null],
-      ['Pilates', '50%', null],
+      ['Bike repair', '50%', '1 hr left'],
+      ['Pilates', '50%', '30 min left'],
       ['Swimming', null, 'in 2 hours'],
       ['Zoo 🦒', null, 'in 5 hours'],
     ]);
 
-    // Control: the two options off, and neither line appears on any row.
+    // Control: without time left, a running event shows its bar and nothing where the
+    // countdown would go.
+    const barOnly = await mountStory(dropOption(CARD, 'show_time_left'), WEEK);
+    expect(
+      listRows(barOnly)
+        .map((row) => [row.title, row.countdown])
+        .slice(0, 2),
+    ).toEqual([
+      ['Bike repair', null],
+      ['Pilates', null],
+    ]);
+
+    // Control: the three options off, and none of the lines appears on any row.
     const plain = await mountStory(
-      dropOption(dropOption(CARD, 'show_countdown'), 'show_progress_bar'),
+      dropOption(
+        dropOption(dropOption(CARD, 'show_countdown'), 'show_progress_bar'),
+        'show_time_left',
+      ),
       WEEK,
     );
     expect(listRows(plain).map((row) => [row.title, row.progress, row.countdown])).toEqual(
@@ -312,8 +330,8 @@ describe('the Now & Next card behaves as its page describes', () => {
     const card = await mountStory(CARD, WEEK);
     await tap(card, haCard(card));
     expect(listRows(card).map((row) => [row.title, row.countdown])).toEqual([
-      ['Bike repair', null],
-      ['Pilates', null],
+      ['Bike repair', '1 hr left'],
+      ['Pilates', '30 min left'],
       ['Swimming', 'in 2 hours'],
       ['Zoo 🦒', 'in 5 hours'],
       ['Groceries', 'in 8 hours'],

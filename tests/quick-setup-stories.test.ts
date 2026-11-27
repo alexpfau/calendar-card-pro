@@ -1,7 +1,8 @@
 /**
  * Quick Setup's stories are copies of the docs (backlog item 188), so each is reconciled with
  * the first YAML block on its page: the shell against the YAML without `type`, `config_version`
- * and `entities`, and the palette against the documented calendars' accent colors, in order.
+ * and `entities`, and the palette against the documented calendars' accent colors, in order, with
+ * the shared-plan color moved last (`stories.ts` says why).
  * Editing a story on one side alone fails here, in either direction.
  */
 import { readFileSync } from 'node:fs';
@@ -56,12 +57,17 @@ describe.each(STORIES.map((story) => [story.id, story] as const))('%s', (_id, st
     expect(story.shell()).toEqual(shell);
   });
 
-  it('carries its calendars’ colors, in the order its page lists them', () => {
+  it('carries its calendars’ colors, in the order its page lists them, the shared-plan color last', () => {
     const colors = (documented.entities as Array<Record<string, unknown>>)
       .map((entry) => entry.accent_color)
       .filter((color): color is string => typeof color === 'string');
+    const shared = documented.duplicate_accent_color;
+    const listed = [...new Set(colors)];
+    const expected = listed.includes(shared as string)
+      ? [...listed.filter((color) => color !== shared), shared]
+      : listed;
 
-    expect(story.palette).toEqual([...new Set(colors)]);
+    expect(story.palette).toEqual(expected);
   });
 
   it('hands out a fresh shell every time', () => {

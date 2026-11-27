@@ -236,6 +236,29 @@ describe('the Small Card, Big Picture card behaves as its page describes', () =>
     expect((await fullSize()).effectiveView).toBe('grid');
   });
 
+  it('shows the four weeks from this one in Month, in the column and full size', async () => {
+    // "Month shows the four weeks from this one, in the column and full size": the card's own
+    // `month:` block, which full size takes with the rest of the card.
+    const rows = (card: Parameters<typeof shadow>[0]) =>
+      shadow(card).querySelectorAll('.month-week').length;
+    const inColumn = await mountStory(withOptions(CARD, { view: 'month' }), WEEK);
+    expect(rows(inColumn)).toBe(4);
+
+    const card = await mountStory(CARD, WEEK);
+    await tap(card, haCard(card));
+    expect(rows(await fullSize())).toBe(4);
+
+    // Control: without `start` and `weeks`, Month draws the calendar month's six weeks in both.
+    document.body.innerHTML = '';
+    opened = [];
+    overlay = null;
+    const calendarMonth = dropOption(dropOption(CARD, 'month.start'), 'month.weeks');
+    expect(rows(await mountStory(withOptions(calendarMonth, { view: 'month' }), WEEK))).toBe(6);
+    const whole = await mountStory(calendarMonth, WEEK);
+    await tap(whole, haCard(whole));
+    expect(rows(await fullSize())).toBe(6);
+  });
+
   it('opens an event on a tap on it, not full size', async () => {
     const card = await mountStory(CARD, WEEK);
     await tap(card, rowTitled(card, 'Pilates').target);

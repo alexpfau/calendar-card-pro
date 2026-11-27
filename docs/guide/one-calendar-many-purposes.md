@@ -1,4 +1,4 @@
-# Family Agenda
+# Hallway Agenda
 
 Anna, Ben and their baby son Leo, the invented family of [the Family Hub](/guide/family-calendar), keep a tablet in the hallway that everyone walks past. It shows the next three days from calendars that mix several kinds of event: whose birthday it is, whether the trash goes out, who is out this evening and when Ben is busy, without saying on the screen what his meetings are about.
 
@@ -20,7 +20,7 @@ Replace the entity ids with your own, `weather.home` included, and each `person.
 
 The blocks rely on how the events are written in the calendars:
 
-- **Work events the family may read** carry `#family` in their description. On weekdays every other work event reads _Busy_; work at the weekend is left off the card.
+- **Work events the family may read** carry `#family` in their description, and show on any day. Every other work event reads _Busy_ on weekdays and stays off the card at the weekend.
 - **Birthdays** on the Family calendar are yearly all-day events with _birthday_ in their title, written like _🎂 Grandma's birthday_, and the birth year in their description as `YEAR=1956`, from which the card works out the age each year.
 - **Collection days** start their title with _🗑️_ and a space, such as _🗑️ Trash collection_.
 
@@ -47,6 +47,7 @@ tap_action:
 toolbar:
   show: true
   view_switcher: false
+  reset: true
   overlay: true
 list:
   date_vertical_alignment: top
@@ -70,12 +71,11 @@ entities:
     label: person.leo
     accent_color: '#66bb6a'
 
-  # Ben's work, the half that is fine to share
+  # Ben's work, the half that is fine to share, on any day
   - entity: calendar.work
     name: Work
     filter_field: description
     allowlist: '#family'
-    days_of_week: weekdays
     label: person.ben
     accent_color: '#90a4ae'
 
@@ -147,7 +147,7 @@ So _🎂 Grandma's birthday (70)_ reads **🎂 Grandma (70)** in 2026, and **�
 
 ### A Reminder That Retires Itself
 
-Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/filtering#retiring-all-day-events-during-the-day) retires the row at 11:00. It acts only where finished events are hidden, as a list hides them by default, so it does nothing in the Family Hub's grid ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label.
+Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/filtering#retiring-all-day-events-during-the-day) retires the row at 11:00. It acts only where finished events are hidden, as a list hides them by default, so it does nothing in the Family Hub's grid ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label. For each bin's next pickup on a card of its own, see [Bin Day](/guide/bin-day).
 
 ### Three People, One Card
 
@@ -165,10 +165,12 @@ The work calendar is listed twice and split on its **description**: [`filter_fie
 - The block that **blocks** it is [`private`](/features/core-settings#keeping-a-calendar-private), and its titles read _Busy_ through [`replace_with`](/features/filtering#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
 - An event with no description counts as **not matching**, so it lands in the _Busy_ block: the safe default.
 
-Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, on an event the family may read. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/filtering#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
+Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, on an event the family may read. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/filtering#showing-a-calendar-on-weekdays-only) keeps the _Busy_ block off the weekend, so weekend work stays off a family screen, while an event marked `#family` shows on any day, a Saturday flight included.
 
 ::: warning A Title Is Not the Only Thing That Leaks
 Locations show by default, and _Meeting Room 2_ gives the game away, as does the agenda in a description the [event popover](/features/actions#event-details) a tap opens shows in full. `private: true` on the _Busy_ block keeps both off the card and out of the popover, where each reads Private behind a lock, and nobody can start editing the event there, which would show its real title. The title still reads _Busy_, because a `replace_with` takes the place of Private.
+
+Copy the marker into both blocks exactly. A pattern that is not a valid regular expression filters nothing, so the shareable block would show every work event, with its real title; the visual editor flags such a pattern at its field.
 :::
 
 ### Why This Works
@@ -186,7 +188,7 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-- **The toolbar.** [`toolbar: show: true`](/features/header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. `view_switcher: false` drops the layout switch, so the card stays a list.
+- **The toolbar.** [`toolbar: show: true`](/features/header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. `view_switcher: false` drops the layout switch, so the card stays a list, and [`reset: true`](/features/header-toolbar#resetting-the-card) adds Reset, which appears once someone has paged away or hidden a calendar and puts the hallway back for whoever walks by next.
 - **The week, full size.** `overlay: true` in the toolbar adds Open Full Size at the end of the top row, and [`tap_action: overlay`](/features/actions#opening-the-card-full-size) does the same for a tap anywhere but on an event. Either opens the same card over the dashboard, in Grid on seven days, every block included, _Busy_ too; Close, Back or a tap outside it puts the hallway list back as it was.
 - **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, and `day_separator_width: 1px` draws a rule between the days. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, and [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it.
 - **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it, so the three days take less height and the times line up at the right, where a glance can run down them.
@@ -202,6 +204,7 @@ The lines above `entities:` apply to every block at once, so a box, a color or a
 
 ::: details Dates, Weather, Long Titles & All-Day Rows
 
+- [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word _Today_ rather than the [date tile](/features/layout-appearance#the-date-tile); a word needs a `today_indicator_size` and a centered date.
 - `date_vertical_alignment: top` puts each date beside its day's first event, and [`weather_entity`](/features/weather#weather-per-layout) with `position: date` in the `list:` block puts the forecast under each date.
 - A hallway list is read in passing, which is why the times sit beside the titles. A title too long for its line wraps, and a time that no longer fits beside it takes a line of its own.
 - The pills come out gold for the whole family, purple for collection day, and pink, blue or green for Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but keep the color `accent`, or the pills stop telling the calendars apart.
@@ -228,21 +231,6 @@ entities:
 
 Both blocks of a split calendar then share its color. A Local Calendar has none until you give it one, and takes your theme's primary color meanwhile; see [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant). Keep `duplicate_accent_color` matching the Family calendar, so shared plans still read as the family's.
 
-### A Word Instead of the Tile
-
-[`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word instead of the [date tile](/features/layout-appearance#the-date-tile). A word is drawn over the date column, so it needs a size, and a place above the weekday that only a centered date leaves. Replace the card's `list:` with:
-
-```yaml
-today_indicator: Today
-today_indicator_size: 13px # ships at 6px, right for an emoji, not a word
-list:
-  date_vertical_alignment: middle
-  day_separator_width: 1px
-  today_indicator_position: '50% 8%'
-```
-
-The position is a share of the day's height, so on a day with one event the word can still touch the date.
-
 ### Larger Faces & a Mark for Work
 
 A face read from across the hall can be larger than the text, and Ben's work can say it is work before anyone reads _Busy_. Add `label_image_size` to each person's blocks, and give both work blocks a label of two parts:
@@ -266,11 +254,21 @@ entities:
 
 ### Read Only on a Shared Screen
 
-A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. The _Busy_ block's events never can, being private; on a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out for the rest.
+A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. The _Busy_ block's events never can, being private; on a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out for the rest. To stop adding too, set `add_event: false` under `toolbar`, which the card opened full size takes as well, and `action: none` for the `day_tap_action` under `overlay:`, because full size adds an event on a tap on a day unless told otherwise:
+
+```yaml
+allow_event_edit: false
+allow_event_delete: false
+toolbar:
+  add_event: false # beside the toolbar lines above
+overlay:
+  day_tap_action:
+    action: none
+```
 
 ## 🔀 Combining the Techniques
 
-### Shared Plans in the Family Agenda
+### Shared Plans in the Hallway Agenda
 
 The zoo trip on Thursday is on Ben's and Leo's calendars. [`filter_duplicates: true`](/features/filtering#filtering-duplicate-events) draws it once, with both faces in front of the title, and [`duplicate_accent_color`](/features/filtering#labeling-coloring-shared-events) colors it the Family calendar's gold, as on the Family Hub; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family). The copies have to match exactly, in title, start, end and location.
 

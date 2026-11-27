@@ -237,12 +237,13 @@ describe('Quick Setup', () => {
       'quick_setup:card_title': 'Hall',
       'quick_setup:card_calendars': ['calendar.ben', 'calendar.anna'],
     });
+    // Ben keeps his own color; Anna, with none, takes the story's first, on both her blocks.
     expect(lastConfig(editor)).toMatchObject({
       title: 'Hall',
       entities: [
         { entity: 'calendar.ben', accent_color: '#123456' },
-        'calendar.anna',
-        { entity: 'calendar.anna', event_type: 'all_day' },
+        { entity: 'calendar.anna', accent_color: '#ff6c92' },
+        { entity: 'calendar.anna', event_type: 'all_day', accent_color: '#ff6c92' },
       ],
     });
 

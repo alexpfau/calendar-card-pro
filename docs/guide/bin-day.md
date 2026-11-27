@@ -16,7 +16,7 @@ Replace `calendar.trash_pickup` with your waste calendar and each `allowlist` wi
 type: custom:calendar-card-pro
 config_version: 6
 title: Bin Day
-days_to_show: 31
+days_to_show: 42
 show_countdown: once_per_day
 show_single_allday_time: false
 allday_badge: title
@@ -66,13 +66,13 @@ A tap shows the entry's title as the card does, without the prefix. A waste-coll
 | Calendars › Which Events                   | one calendar in four blocks, `allowlist`, `compact_events_to_show: 1`, `allday_expires_at: '10:00'`                   | Each bin's next pickup only, since the limit counts per block, not per calendar; gone at 10:00 on its day      |
 | Calendars › Name & Look · Text Replacement | `label`, `label_icon_color`, `accent_color`, `replace_pattern`                                                        | A bin icon in the bin's color; the feed's prefix removed                                                       |
 | Event Appearance                           | `allday_badge: title`, `allday_badge_style: tinted`, `show_countdown: once_per_day`, `show_single_allday_time: false` | The bin's name in a pill of its color; "tomorrow" instead of "All day", once on a day two bins go out together |
-| List › Which Events                        | `days_to_show: 31`, `hide_when_empty`                                                                                 | A month ahead, so a monthly bin still shows; no pickups, no card                                               |
+| List › Which Events                        | `days_to_show: 42`, `hide_when_empty`                                                                                 | Six weeks ahead, so a monthly bin still shows once today's is gone; no pickups, no card                        |
 
 ## 🔀 Adapt It
 
 - **More kinds of bin.** A pickup that no `allowlist` matches is left out. Add a block for it, or a catch-all with `blocklist: 'Trash|Recycling|Paper|Organic'`.
 - **A later truck.** Move `allday_expires_at` to the time your bins are usually emptied.
-- **The general pattern.** One calendar split into blocks with rules of their own is how the [Family Agenda](/guide/one-calendar-many-purposes#calendars-event-blocks) handles a whole family's calendars.
+- **The general pattern.** One calendar split into blocks with rules of their own is how the [Hallway Agenda](/guide/one-calendar-many-purposes#calendars-event-blocks) handles a whole family's calendars.
 
 ## 📚 Next Steps
 

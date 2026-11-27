@@ -4,13 +4,17 @@
  * Each is the card-wide part of one Example Story in the docs: its YAML without `type`,
  * `config_version` and `entities`, which belong to the card being set up rather than to the
  * story. Each calendar's colors survive as a palette, given in order to the user's calendars
- * that have no color of their own. Its names and labels do not: they name the story's people.
+ * that have no color of their own. Its names, labels and lanes do not: they name the story's people.
+ *
+ * The shared-plan color (`duplicate_accent_color`) goes last in a palette. On the story's page it is
+ * the Family calendar's, the fourth of five; on someone else's calendars nothing says which one is
+ * the family's, and a fourth calendar in gold would read as a plan they share.
  *
  * Simple Agenda comes first: not a story but the card Usage's Your First Card documents, for
  * someone who wants a short list of the next few days and nothing more.
  *
  * Only the six stories that work without per-calendar filters are here. Bin Day splits one
- * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
+ * calendar four ways by words in event titles, and Hallway Agenda separates work events by a tag
  * in their descriptions; neither can be guessed for someone else's calendars.
  *
  * 🚨 These are copies of the docs, and `tests/quick-setup-stories.test.ts` reconciles each one,
@@ -35,7 +39,8 @@ export interface Story {
   /** Its page on the docs site, from the site's root, with the heading its card is under where
    * the page holds more than one. */
   readonly page: string;
-  /** Each calendar's accent color in the story, in the order its calendars are listed. */
+  /** Each calendar's accent color in the story, in the order its calendars are listed, but the
+   * shared-plan color last. */
   readonly palette: ReadonlyArray<string>;
   /** A fresh copy of the story's card-wide options and view blocks. */
   shell(): Record<string, unknown>;
@@ -72,7 +77,7 @@ export const STORIES: ReadonlyArray<Story> = [
   story(
     'family_hub',
     '/guide/family-calendar',
-    ['#ff6c92', '#03a9f4', '#66bb6a', '#ffb74d', '#b388ff'],
+    ['#ff6c92', '#03a9f4', '#66bb6a', '#b388ff', '#ffb74d'],
     {
       title: 'Family',
       view: 'grid',
@@ -83,12 +88,15 @@ export const STORIES: ReadonlyArray<Story> = [
       weather_entity: 'weather.home',
       toolbar: { show: true, legend: 'chips', reset: true },
       day_tap_action: { action: 'add-event' },
-      list: { days_to_show: 3, weather: { position: 'date' } },
+      // A person per lane in Columns, and in List where four fit; a phone keeps the plain list.
+      list: { days_to_show: 3, lanes: true, lanes_fallback: 'list', weather: { position: 'date' } },
       column: {
         min_days_to_show: 3,
         show_past_events: true,
         past_event_opacity: 40,
         event_background_opacity: 15,
+        lanes: true,
+        show_location: false,
         weather: { position: 'date' },
       },
       time_grid: {
@@ -103,7 +111,7 @@ export const STORIES: ReadonlyArray<Story> = [
   story(
     'small_card_big_picture',
     '/guide/small-card-big-picture',
-    ['#ff6c92', '#03a9f4', '#66bb6a', '#ffb74d', '#b388ff'],
+    ['#ff6c92', '#03a9f4', '#66bb6a', '#b388ff', '#ffb74d'],
     {
       title: 'Family',
       days_to_show: 3,
@@ -121,14 +129,17 @@ export const STORIES: ReadonlyArray<Story> = [
         overlay: true,
       },
       overlay: { view: 'month', toolbar: { legend: 'chips', add_event: true, search: true } },
-      month: { event_gap: '4px' },
+      // The four weeks from this one, in the column and full size.
+      month: { event_gap: '4px', start: 'week', weeks: 4 },
     },
   ),
-  story('now_and_next', '/guide/now-and-next', [], {
+  story('now_and_next', '/guide/now-and-next', ['#ff6c92', '#03a9f4', '#66bb6a', '#ffb74d'], {
     days_to_show: 2,
     filter_duplicates: true,
+    duplicate_accent_color: '#ffb74d',
     show_empty_today: true,
     show_countdown: 'once_per_day',
+    show_time_left: true,
     show_progress_bar: true,
     show_location: false,
     show_end_time: false,
@@ -154,7 +165,7 @@ export const STORIES: ReadonlyArray<Story> = [
       weather_entity: 'weather.home',
       toolbar: { show: true, view_switcher: false, legend: false, overlay: true },
       day_tap_action: { action: 'add-event' },
-      // A phone shows the list in the grid's place, with the same forecast.
+      // List, which the card opened full size can switch to, with the same forecast.
       list: { weather: { position: 'both', event: { show_conditions: false } } },
       time_grid: {
         start_time: '07:00',

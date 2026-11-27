@@ -262,7 +262,7 @@ To show a word of your own instead, add [`replace_with`](/features/filtering#hid
 ::: details Splitting a Calendar Into Private & Shared Events
 
 - `private` belongs to one entry, so a calendar listed twice can keep one entry private and not
-  the other, as the [Family Agenda's Busy block](/guide/one-calendar-many-purposes#busy-nothing-else)
+  the other, as the [Hallway Agenda's Busy block](/guide/one-calendar-many-purposes#busy-nothing-else)
   does.
 - The entries' `allowlist` and `blocklist` still read the events' own words, since they decide
   which entry an event belongs to. An entry that picks events by their words and gives them a
