@@ -886,11 +886,15 @@ describe('the stylesheet reads a font size only as a font size', () => {
     // in any form the option takes.
     expect(declared('.summary', 'font-size')).toBe('var(--calendar-card-font-size-event)');
     expect(declared('.label-icon', '--mdc-icon-size')).toBe('1em');
-    expect(declared('.label-image', 'height')).toBe('1em');
+    // A picture reads its calendar's label_image_size where the summary carries one.
+    expect(declared('.label-image', 'height')).toBe('var(--calendar-card-label-image-size, 1em)');
     // Plus the 0.125em of room the box keeps at its inline edges, in em as well.
-    expect(
-      declared('.summary:has(> .label-icon), .summary:has(> .label-image)', 'padding-inline-start'),
-    ).toBe('calc(1em + 4px + var(--calendar-card-summary-inline-room))');
+    expect(declared('.summary:has(> .label-icon)', 'padding-inline-start')).toBe(
+      'calc(1em + 4px + var(--calendar-card-summary-inline-room))',
+    );
+    expect(declared('.summary:has(> .label-image)', 'padding-inline-start')).toBe(
+      'calc( var(--calendar-card-label-image-size, 1em) + 4px + var(--calendar-card-summary-inline-room) )',
+    );
     expect(declared('.summary:has(> .label-emoji)', 'padding-inline-start')).toBe(
       'calc(1.25em + 4px + var(--calendar-card-summary-inline-room))',
     );

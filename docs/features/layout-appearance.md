@@ -31,9 +31,12 @@ card_height: 600px
   A bare number is read in pixels.
 - **Each layout fills the height its own way.** List scrolls within it, Columns leave room under
   their days, Grid fits its hours to it ([Height in Grid View](#height-in-grid-view)), and Month
-  shares it among its six weeks.
+  shares it among its weeks.
 - **Rows set in a Sections dashboard's Layout tab win over both**, and every layout fills them as
   it fills a `card_height`.
+- **A compact list card** can take a height of its own until it is expanded, with
+  `compact_card_height` and `compact_card_max_height`; see
+  [Compact & Expanded Heights](/features/list-view#compact-expanded-heights).
 - **In the visual editor** it is **Card Height** on a layout's Size & Spacing: **Fit content**,
   **Fixed height** with its **Height**, or **Maximum height** with its **Maximum Height**. On a
   layout's page it is set for that layout, and on Layout Defaults for every layout. On Month's
@@ -424,6 +427,9 @@ By default, all dates use the base styling, but you can apply special styling to
 - **Today's date** using the `today_*` options
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling. The one exception is today's day number on the default [date tile](#the-date-tile): it takes a deeper shade of the tile's color rather than `day_color`, unless you set `today_day_color` or, on a weekend, `weekend_day_color`.
+
+Left unset, `weekday_color`, `day_color` and `month_color` can come from your theme instead; see
+[Date Colors From Your Theme](/features/theming#date-colors-from-your-theme).
 
 `weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
 such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or

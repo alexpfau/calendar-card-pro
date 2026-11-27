@@ -483,7 +483,7 @@ export function nearestDayAt(
 
 /**
  * A day's add button: the element a keyboard and assistive technology reach a day by, while a
- * tap on a day adds an event there. The property names its day.
+ * tap on a day runs something there (`day_tap_action`). The property names its day.
  */
 export interface DayAddButtonElement extends Element {
   calendarCardDayAdd?: number;
@@ -565,10 +565,14 @@ export function monthCellOn(node: EventTarget | null | undefined): number | unde
 }
 
 /**
- * What a render needs to draw each day as a button that adds an event on it, or undefined
- * while a tap on a day adds nothing.
+ * What a render needs to draw each day as a button that runs `day_tap_action` on it, or
+ * undefined while a tap on a day runs nothing.
  */
 export interface DayAddButtons {
-  /** The buttons' accessible name: Home Assistant's own "Add event", or English. */
-  readonly label: string;
+  /**
+   * The buttons' accessible name where they add an event: Home Assistant's own "Add event", or
+   * English, with the day as their description. Undefined where they run another action, and
+   * each is named by its day.
+   */
+  readonly label?: string;
 }

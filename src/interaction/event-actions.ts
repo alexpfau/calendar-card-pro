@@ -15,6 +15,7 @@
  * leaves `.` alone, so a field can still name a host, or be `..` and climb out of a path.
  */
 
+import { actionFiller } from './action-fill';
 import * as Types from '../config/types';
 import { stripHtmlTags } from '../utils/format';
 import * as PrivateEvents from '../utils/private-events';
@@ -60,18 +61,6 @@ export const FREE_TEXT_FIELDS: ReadonlySet<EventField> = new Set([
   'location',
   'description',
 ]);
-
-/** The keys whose value is part of a URL, where a field's value is percent-encoded. */
-const URL_KEYS: ReadonlySet<string> = new Set(['url_path', 'navigation_path']);
-
-/** Keys whose whole subtree is the action's payload, where free text may go. */
-const PAYLOAD_KEYS: ReadonlySet<string> = new Set(['data', 'service_data']);
-
-/** Schemes a `url` action may open once a field has been filled into its URL. */
-const SAFE_URL_SCHEMES: ReadonlySet<string> = new Set(['http', 'https']);
-
-/** `{title}` and the rest; any other name in braces is left as written. */
-const FIELD_PATTERN = new RegExp(`\\{(${EVENT_FIELDS.join('|')})\\}`, 'g');
 
 // What an event action amounts to lives in a module of its own, which the editor reads too
 // without taking this one's text handling with it.
@@ -134,130 +123,17 @@ export function eventFields(
 // FILLING
 //-----------------------------------------------------------------------------
 
-/** Where a string sits in the action, which decides what may be filled into it. */
-interface Place {
-  /** The key the string sits under. */
-  key: string | undefined;
-  /** Whether the string is inside the action's payload, where free text may go. */
-  payload: boolean;
-}
-
-/** Thrown, and caught by `fillEventAction`, when free text would land outside the payload. */
-class OutsidePayload extends Error {}
-
-/**
- * Fill the fields into one string, refusing free text where it could change what the action
- * does.
- *
- * In a URL, everything before the first `?` or `#` is the scheme, the host and the path, which
- * decide where it leads; free text may follow it only. Each field is percent-encoded there,
- * so it stays one query value.
- *
- * @param text - A value of the action as configured
- * @param fields - The event's fields
- * @param place - Where the value sits
- * @returns The string filled, and whether any field was
- */
-function fillString(
-  text: string,
-  fields: Record<EventField, string>,
-  place: Place,
-): { text: string; filled: boolean } {
-  const isUrl = place.key !== undefined && URL_KEYS.has(place.key);
-  const freeFrom = isUrl ? firstIndexOf(text, ['?', '#']) : place.payload ? 0 : Infinity;
-
-  let filled = false;
-  const result = text.replace(FIELD_PATTERN, (_match, name: EventField, offset: number) => {
-    if (FREE_TEXT_FIELDS.has(name) && offset < freeFrom) throw new OutsidePayload();
-    filled = true;
-    const value = fields[name];
-    return isUrl ? encodeURIComponent(value) : value;
-  });
-  return { text: result, filled };
-}
-
-/**
- * The first index of any of several characters, or `Infinity` when none occurs.
- *
- * @param text - Text to search
- * @param chars - Characters to find
- * @returns The lowest index found
- */
-function firstIndexOf(text: string, chars: ReadonlyArray<string>): number {
-  const found = chars.map((char) => text.indexOf(char)).filter((index) => index >= 0);
-  return found.length ? Math.min(...found) : Infinity;
-}
-
-/**
- * Fill the fields into a value, however deep: strings are filled, objects and arrays walked,
- * anything else kept. Keys are never filled.
- *
- * @param value - A value of the action as configured
- * @param fields - The event's fields
- * @param place - Where the value sits
- * @param filledKeys - Collects the keys a field was filled into
- * @returns The filled copy
- */
-function fillValue(
-  value: unknown,
-  fields: Record<EventField, string>,
-  place: Place,
-  filledKeys: Set<string>,
-): unknown {
-  if (typeof value === 'string') {
-    const { text, filled } = fillString(value, fields, place);
-    if (filled && place.key !== undefined) filledKeys.add(place.key);
-    return text;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => fillValue(item, fields, place, filledKeys));
-  }
-  if (value && typeof value === 'object') {
-    const isConfirmation = place.key === 'confirmation' && !place.payload;
-    return Object.fromEntries(
-      Object.entries(value).map(([childKey, child]) => [
-        childKey,
-        fillValue(
-          child,
-          fields,
-          {
-            key: childKey,
-            payload:
-              place.payload ||
-              PAYLOAD_KEYS.has(childKey) ||
-              (isConfirmation && childKey === 'text'),
-          },
-          filledKeys,
-        ),
-      ]),
-    );
-  }
-  return value;
-}
-
-/**
- * The scheme a URL opens with, lowercased, or undefined for a path or a relative URL.
- *
- * @param url - A URL as an action holds it
- * @returns The scheme, without its colon
- */
-function urlScheme(url: string): string | undefined {
-  return /^\s*([a-z][a-z0-9+.-]*):/i.exec(url)?.[1]?.toLowerCase();
-}
+/** Fills an event's fields into an action; see `actionFiller` for the rules. */
+const fillEvent = actionFiller(EVENT_FIELDS, FREE_TEXT_FIELDS);
 
 /**
  * An event action with the tapped event's fields filled in, for Home Assistant to run, or
  * undefined when it must not run.
  *
- * Every string in the action is filled, at any depth, except the name of the action itself, so
- * an event can never choose which action runs. The event's times, its all-day flag and its
- * calendar fill anywhere. Its title, location and description fill only into the payload (see
- * `FREE_TEXT_FIELDS`); an action that puts one anywhere else does not run, rather than running
- * with it left unfilled and failing somewhere less obvious. A name in braces that is not a field
- * is left as written.
- *
- * A `url` action whose URL had a field filled into it must open over http or https or be a
- * path, so a field cannot ride on a `javascript:` URL the configuration itself wrote.
+ * The event's times, its all-day flag and its calendar fill anywhere. Its title, location and
+ * description fill only into the payload (see `FREE_TEXT_FIELDS`); an action that puts one
+ * anywhere else does not run. The rest of the rules, the name of the action never filled and a
+ * filled `url` opening only over http or https among them, are `actionFiller`'s.
  *
  * @param action - `event_tap_action` or `event_hold_action`, one Home Assistant runs
  * @param fields - The tapped event's fields
@@ -267,22 +143,5 @@ export function fillEventAction(
   action: Types.ActionConfig,
   fields: Record<EventField, string>,
 ): Types.ActionConfig | undefined {
-  const filledKeys = new Set<string>();
-  const filled: Record<string, unknown> = { action: action.action };
-  try {
-    for (const [key, value] of Object.entries(action)) {
-      if (key === 'action') continue;
-      filled[key] = fillValue(value, fields, { key, payload: PAYLOAD_KEYS.has(key) }, filledKeys);
-    }
-  } catch (error) {
-    if (error instanceof OutsidePayload) return undefined;
-    throw error;
-  }
-
-  if (filled.action === 'url' && filledKeys.has('url_path')) {
-    const scheme = urlScheme(String(filled.url_path ?? ''));
-    if (scheme !== undefined && !SAFE_URL_SCHEMES.has(scheme)) return undefined;
-  }
-
-  return filled as unknown as Types.ActionConfig;
+  return fillEvent(action, fields);
 }

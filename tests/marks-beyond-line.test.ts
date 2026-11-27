@@ -414,6 +414,8 @@ const CUTS_INLINE_AXIS: Record<string, string[] | string> = {
   '.month-more': 'a button, whose own padding is its room',
   '.month-narrow-marks': 'a capsule of colored segments, which draws no text',
   '.month-day-list-probe': 'the day’s list staged for the card to fit from, never seen',
+  '.month-day-list-rows.scrolls':
+    'the overlay’s scrolling day list, whose rows keep their own padding',
   '.month-day-list-name': 'the day named in full, read out, never drawn',
   '.month-day-list-fit': [OUTSIDE_TEXT],
   '.grid-event-disclosure .summary-row': ['.grid-event-disclosure .summary-row'],
@@ -454,11 +456,17 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
           'margin-inline-start': `calc(12px - ${SUMMARY_ROOM})`,
         },
       // A hanging indent's padding holds the room as well; the text-indent leaves it out.
-      '.summary:has(> .label-icon), .summary:has(> .label-image)': {
+      '.summary:has(> .label-icon)': {
         'padding-inline-start': `calc(1em + 4px + ${SUMMARY_ROOM})`,
+      },
+      '.summary:has(> .label-image)': {
+        'padding-inline-start': `calc(var(--calendar-card-label-image-size, 1em) + 4px + ${SUMMARY_ROOM})`,
       },
       '.summary:has(> .label-emoji)': {
         'padding-inline-start': `calc(1.25em + 4px + ${SUMMARY_ROOM})`,
+      },
+      '.summary:has(> .label-emoji):where(:has(> .label-image))': {
+        'padding-inline-start': `calc(max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px + ${SUMMARY_ROOM})`,
       },
       '.summary.summary-scroll:has(> .label-icon), .summary.summary-scroll:has(> .label-image), .summary.summary-scroll:has(> .label-emoji)':
         { 'padding-inline-start': SUMMARY_ROOM },
@@ -696,7 +704,7 @@ describe('the room a box keeps at its inline edges (backlog item 263)', () => {
       starts += 1;
       expect(start, selectors).toContain(SUMMARY_ROOM);
     }
-    expect(starts).toBe(4);
+    expect(starts).toBe(6);
   });
 
   it('is given back exactly, wherever one rule keeps it and nothing else', () => {

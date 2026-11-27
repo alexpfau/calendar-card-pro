@@ -13,6 +13,7 @@
   "viewMonth": "Tháng",
   "layout": "Bố cục",
   "layoutCurrent": "Bố cục: {view}",
+  "openFullSize": "Mở kích thước đầy đủ",
   "moreEvents": "+{count} nữa",
   "eventCount": "{count} sự kiện",
   "eventCountOne": "{count} sự kiện",

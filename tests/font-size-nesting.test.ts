@@ -613,6 +613,12 @@ const BASE: Record<string, unknown> = {
 const VIEWS = ['list', 'column', 'grid', 'month'] as const;
 
 /** Options that change what is drawn, each on top of the base. */
+/**
+ * Marks a variant whose toolbar holds the overlay's Close alone, which only the card in the
+ * overlay draws: no option of the card asks for it, so the corpus asks by this key.
+ */
+const CLOSE_ALONE = '__close_alone';
+
 const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['base', {}],
   // Today's date on the tile and drawn larger, a past day's smaller: the header's struts, which
@@ -656,6 +662,9 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // option, so both are drawn here beside the controls they must not be nested in. Without
   // the date navigation the month is plain text.
   ['header toolbar', { toolbar: { show: true, navigation: false, legend: false } }],
+  // The overlay's card with its toolbar off: Close alone ends the heading row, and the title,
+  // with no month under it, is the headline again.
+  ['overlay close alone', { [CLOSE_ALONE]: true }],
   // The month's name on its rule, on the plain rule (July begins mid-week) and in the week row
   // (June 1 begins an ISO week too). List view only; the other views repeat the base.
   [
@@ -780,7 +789,11 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       ? { ...config, start_date: Paging.pageKey(rowsStart), days_to_show: ViewConfig.MONTH_DAYS }
       : config;
   const effective = ViewConfig.resolveEffectiveConfig(drawn, view);
-  const toolbar = config.toolbar?.show ? headerToolbar(view, config) : undefined;
+  const toolbar = (config as unknown as Record<string, unknown>)[CLOSE_ALONE]
+    ? { close: { label: 'Close', onActivate: () => undefined } }
+    : config.toolbar?.show
+      ? headerToolbar(view, config)
+      : undefined;
   const days = EventUtils.groupEventsByDay(EVENTS, drawn, false, 'en', view);
   const content =
     view === 'grid'
@@ -814,7 +827,8 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
  * A month in both its forms: wide, then narrow with the list of a day that has events under
  * it, keeping room for fewer than that day holds so it ends in "+N more" beside its hidden probe,
  * then the list of a day with none, so the narrow form's and the day list's sizes are reached in
- * every pass a month draws.
+ * every pass a month draws; and last the busiest day's list as the overlay draws it, scrolling,
+ * with its pill counting the events below.
  */
 function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types.Config) {
   const dayLists = MonthDay.monthDayLists(
@@ -838,7 +852,20 @@ function monthForms(days: Types.EventsByDay[], rowsStart: Date, effective: Types
       shown: 1,
     },
   })}
-  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}`;
+  ${MonthRender.renderMonthDayList(Paging.addDays(rowsStart, 41), [], effective, 'en', null)}
+  ${MonthRender.renderMonthDayList(
+    Paging.addDays(rowsStart, busiest),
+    dayLists[busiest],
+    effective,
+    'en',
+    null,
+    false,
+    WEATHER,
+    undefined,
+    undefined,
+    undefined,
+    { below: 1, scrolled: () => undefined, page: () => undefined },
+  )}`;
 }
 
 /**
@@ -1178,9 +1205,9 @@ describe('every piece of text is sized by its own option', () => {
       'layout-menu-label in layout-menu-row': ['--ha-font-size-m'],
       // The title is the card's headline without the toolbar. With it, the title is drawn in the
       // heading row as a label over the month, at Home Assistant's control size, and the month
-      // takes the title's option.
+      // takes the title's option; with the overlay's Close alone and no month, the headline again.
       'card-header in header-container': ['title_font_size'],
-      'card-header in toolbar-identity': ['--ha-font-size-m'],
+      'card-header in toolbar-identity': ['--ha-font-size-m', 'title_font_size'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
       // A month cell's date takes the day's size, as a list's date does, and so does the strut
@@ -1223,6 +1250,8 @@ describe('every piece of text is sized by its own option', () => {
       'month-day-list-empty in month-day-list-rows': ['event_font_size'],
       'month-day-list-more in month-day-list-probe': ['time_font_size'],
       'month-day-list-more in month-day-list-rows': ['time_font_size'],
+      // The words of the pill over a scrolling list's foot, in "+N more"'s size, as they are its.
+      'span in month-day-list-below': ['time_font_size'],
       // A month line's title and its time, each in its own option, side by side as a list row's:
       // the month's cell sizes, which the wide month writes on itself.
       'month-line-time in event': ['month.cell_time_font_size'],

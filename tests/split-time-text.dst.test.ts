@@ -15,12 +15,18 @@
  * zones are off UTC, so the text is the same in each; the transition cases find each zone's own
  * nights at run time, and read the expected clock from `Intl` rather than from the `Date` getters
  * the code under test uses.
+ *
+ * The popover's span writes one date for an event ending at the midnight after it starts, and
+ * asks Grid's tight predicate (`FormatUtils.endsAtNextMidnight`): the first instant of the day
+ * after the start, reading 0:00. An end at 0:00:30, or at the second 0:00 of an Azores autumn
+ * day, is past midnight and gets two dates.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { resolveEffectiveConfig } from '../src/config/view';
+import { spanText } from '../src/interaction/popover-model';
 import { CARD_LANGUAGES } from '../src/translations/language-codes';
 import * as EventUtils from '../src/utils/events';
 import { formatEventTime } from '../src/utils/format';
@@ -318,5 +324,32 @@ describe('the night the clocks change', () => {
     vi.setSystemTime(new Date(2026, night.month, night.date - 1, 12));
 
     expect(rows(event(start, end), 'column')).toEqual([`22:00, ends tomorrow at ${wall(end)}`]);
+  });
+});
+
+describe("the popover's span", () => {
+  const span = (start: Date, end: Date) =>
+    spanText({ allDay: false, start, end }, 'en', true).replace(/\u202f/g, ' ');
+
+  it('writes one date for an end at the midnight after the start', () => {
+    expect(span(at(14, 22), at(15, 0))).toBe('Jan 14, 2026  22:00 – 00:00');
+  });
+
+  it('writes two dates for an end half a minute past it', () => {
+    expect(span(at(14, 22), new Date(at(15, 0).getTime() + 30_000))).toBe(
+      'Jan 14, 2026 22:00 – Jan 15, 2026 00:00',
+    );
+  });
+
+  it('writes two dates for midnight to midnight', () => {
+    expect(span(at(14, 0), at(15, 0))).toBe('Jan 14, 2026 00:00 – Jan 15, 2026 00:00');
+  });
+
+  it('writes two dates for an end at the second 0:00 of the autumn day', () => {
+    const day = transitionDays(2026).find((found) => found.hours === 25)!;
+    const start = new Date(2026, day.month, day.date - 1, 22);
+    const end = new Date(new Date(2026, day.month, day.date).getTime() + 3_600_000);
+
+    expect(span(start, end)).toMatch(/ – [A-Z][a-z]{2} \d+, 2026 \d\d:\d\d$/);
   });
 });

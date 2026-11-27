@@ -1,6 +1,7 @@
 /**
  * Month view rendering for Calendar Card Pro: six week rows of seven days, the reference being
- * macOS Calendar's month.
+ * macOS Calendar's month, or under `month → start: week` the coming `weeks` from the week holding
+ * the start date, with no day dimmed as another month's.
  *
  * The other views share leaves and event presentation, and so does this one. A day's all-day
  * and multi-day events are Grid's banners, drawn across their days as bars (`renderBanner`),
@@ -28,6 +29,7 @@
  * @see utils/month-day.ts, which lists a day and decides the narrow form and the selected day
  */
 
+import { mdiChevronDown } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -123,7 +125,7 @@ export function monthLinesOf(
 export interface MonthNarrow {
   /** The day selected, at local midnight, whose list is drawn under the weeks. */
   readonly selected: Date;
-  /** Each of the six weeks' 42 days' events, as the day model lists them (`monthDayLists`). */
+  /** Each of the page's days' events, as the day model lists them (`monthDayLists`). */
   readonly dayLists: ReadonlyArray<ReadonlyArray<Types.CalendarEventData>>;
   /** Forecasts for the list's rows, as a list row shows them. */
   readonly weatherForecasts?: Types.WeatherForecasts;
@@ -135,9 +137,31 @@ export interface MonthNarrow {
    * day's count. Until the card has fitted this day, none, and "+N more" alone.
    */
   readonly shown?: number;
+  /**
+   * Where the list lists every event and scrolls them in its room, with nothing staged to fit
+   * from: in the overlay, where the card is all the screen shows. Undefined for a list fitted to
+   * its room.
+   */
+  readonly scroll?: MonthListScroll;
   /** Opens the day's panel from the list's "+N more", given the day and the button. */
   readonly more?: (day: Date, button: HTMLElement) => void;
 }
+
+/** What a narrow month's list that scrolls is handed (`MonthNarrow.scroll`). */
+export interface MonthListScroll {
+  /**
+   * How many of the day's events end below where its rows come to rest, as the card last counted
+   * them: what its "+N more" pill says, drawn while there are any.
+   */
+  readonly below: number;
+  /** Hears the box scroll, to count again. */
+  readonly scrolled: (ev: Event) => void;
+  /** Scrolls the box down, for the pill. */
+  readonly page: () => void;
+}
+
+/** The class a narrow month's list's rows' box carries while it scrolls them. */
+export const MONTH_LIST_SCROLLS_CLASS = 'scrolls';
 
 /**
  * The class of the hidden copy of the selected day's list the card fits the list from
@@ -168,12 +192,13 @@ interface MonthWeek {
 }
 
 /**
- * The six week rows of a month page, each laid out at a capacity.
+ * The week rows of a month page, each laid out at a capacity.
  *
  * @param days - Grouped days, which hold only days with events
  * @param rowsStart - The first row's first day
  * @param capacity - Lines that fit under a date
  * @param linesOf - How many lines each event takes (`monthLinesOf`)
+ * @param rows - The rows drawn (`ViewConfig.monthWeekRows`)
  * @returns The rows, first first
  */
 export function monthWeeks(
@@ -181,11 +206,12 @@ export function monthWeeks(
   rowsStart: Date,
   capacity: number,
   linesOf?: (event: Types.CalendarEventData) => number,
+  rows: number = ViewConfig.MONTH_ROWS,
 ): MonthWeek[] {
   const byDate = new Map(
     days.map((day) => [FormatUtils.getLocalDateKey(new Date(day.timestamp)), day]),
   );
-  return Array.from({ length: ViewConfig.MONTH_ROWS }, (_, row) => {
+  return Array.from({ length: rows }, (_, row) => {
     const starts = Array.from({ length: 7 }, (_, column) =>
       Paging.addDays(rowsStart, row * 7 + column),
     );
@@ -212,6 +238,7 @@ export function monthWeeks(
  * @param rowsStart - The first row's first day
  * @param capacity - Lines that fit under a date
  * @param linesOf - How many lines each event takes (`monthLinesOf`)
+ * @param rows - The rows drawn (`ViewConfig.monthWeekRows`)
  * @returns True where a rung event is drawn
  */
 export function monthDrawsRing(
@@ -219,8 +246,9 @@ export function monthDrawsRing(
   rowsStart: Date,
   capacity: number,
   linesOf?: (event: Types.CalendarEventData) => number,
+  rows: number = ViewConfig.MONTH_ROWS,
 ): boolean {
-  return monthWeeks(days, rowsStart, capacity, linesOf).some((week) =>
+  return monthWeeks(days, rowsStart, capacity, linesOf, rows).some((week) =>
     week.layout.placements.some(
       (placement) => placement.visible && placement.item.event._searchRing === true,
     ),
@@ -471,6 +499,21 @@ export function monthDayTitles(date: Date, language: string): string[] {
 //-----------------------------------------------------------------------------
 
 /**
+ * Whether a day is drawn as one of another month's, dimmed: a day outside the month the header
+ * names. None is under `month → start: week`, whose page is the coming weeks rather than a month.
+ *
+ * @param date - The day
+ * @param headerMonth - The 1st of the month the header names, or null under `start: week`
+ * @returns True to dim it
+ */
+function isOtherMonth(date: Date, headerMonth: Date | null): boolean {
+  return (
+    headerMonth !== null &&
+    (date.getMonth() !== headerMonth.getMonth() || date.getFullYear() !== headerMonth.getFullYear())
+  );
+}
+
+/**
  * One day's cell, the box behind its events, and its date at the top inline end.
  *
  * Two items of the row's grid rather than one inside the other: the cell spans every line of
@@ -487,7 +530,8 @@ export function monthDayTitles(date: Date, language: string): string[] {
  *
  * @param date - The day's local midnight
  * @param column - Its column, from 0
- * @param headerMonth - The 1st of the month the header names; other months' days are dimmed
+ * @param headerMonth - The 1st of the month the header names; other months' days are dimmed. Null
+ *   under `month → start: week`, which dims no day
  * @param config - Card configuration, resolved for month
  * @param language - Card language
  * @param cell - Its events counted, whether it is the tab stop, and the ids of what it owns
@@ -498,7 +542,7 @@ export function monthDayTitles(date: Date, language: string): string[] {
 function renderDay(
   date: Date,
   column: number,
-  headerMonth: Date,
+  headerMonth: Date | null,
   config: Types.Config,
   language: string,
   cell: { count: number; focused: boolean; owns: readonly string[] },
@@ -508,10 +552,9 @@ function renderDay(
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(date.getTime());
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
   const todayTile = isToday && Leaves.isTileIndicator(config);
-  const colors = Leaves.dateColors(config, isWeekendDay, isToday, todayTile);
+  const own = Leaves.ownDateColors(config, isWeekendDay, isToday, todayTile);
   const { weight, opacity } = Leaves.dateEmphasis(config, isToday, isPast);
-  const otherMonth =
-    date.getMonth() !== headerMonth.getMonth() || date.getFullYear() !== headerMonth.getFullYear();
+  const otherMonth = isOtherMonth(date, headerMonth);
   const translations = Localize.getTranslations(language);
   const mark = TextDirection.languageMark(language, hass);
   const gridColumn = String(column + 1);
@@ -519,9 +562,14 @@ function renderDay(
   // The date is a flex row, so the whitespace between its parts draws nothing; a literal space
   // in a part, as between "Dec" and "1", is part of the text and stays.
   // A past day's fade goes on the parts rather than the date, so it composes with the fade of a
-  // day outside the header's month instead of replacing it.
-  const ink = (color: string) => styleMap({ color, 'font-weight': weight, opacity });
-  const number = html`<span class=${todayTile ? 'day today-tile' : 'day'} style=${ink(colors.day)}
+  // day outside the header's month instead of replacing it. A part's color is written only where
+  // the day has one of its own (`Leaves.ownDateColors`); the card's reaches it through the
+  // stylesheet's custom property.
+  const ink = (color: string | undefined) =>
+    Leaves.datePartStyle({ color, 'font-weight': weight, opacity });
+  const number = html`<span
+    class=${todayTile ? 'day today-tile' : 'day'}
+    style=${ink(own.day ?? Leaves.inlineCardValue(config.day_color))}
     >${date.getDate()}</span
   >`;
   const parts =
@@ -529,7 +577,9 @@ function renderDay(
       ? firstOfMonthParts(date, language, translations).map((part) =>
           part.day
             ? number
-            : html`<span class="month-date-month" style=${ink(colors.month)}
+            : html`<span
+                class="month-date-month"
+                style=${ink(own.month ?? Leaves.inlineCardValue(config.month_color))}
                 >${TextDirection.inLanguageDirection(part.text, mark)}</span
               >`,
         )
@@ -664,7 +714,8 @@ function renderLine(
   const parts = presentation.contentParts;
   const time = parts.shouldShowTime ? lineTime(item, config, language, hass) : null;
   // A merged duplicate's line draws every contributing calendar's label, as a row does
-  // (`Leaves.renderEventTitle`); `mergedLabels` is set only where there are two to draw.
+  // (`Leaves.renderEventTitle`), and so does a label written as a list; `mergedLabels` is set
+  // only where there are two to draw.
   const merged = parts.mergedLabels
     ?.map((entry) => Leaves.renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     .filter((drawn) => drawn !== nothing);
@@ -787,8 +838,8 @@ function renderMore(
  * lines and "+N", each placed on its line.
  *
  * @param week - The row
- * @param index - Its place among the six, from 0
- * @param headerMonth - The 1st of the month the header names
+ * @param index - Its place among the rows, from 0
+ * @param headerMonth - The 1st of the month the header names, or null under `month → start: week`
  * @param config - Card configuration, resolved for month, in the cells' sizes ({@link cellConfig})
  * @param language - Card language
  * @param capacity - Lines under a date
@@ -801,7 +852,7 @@ function renderMore(
 function renderWeek(
   week: MonthWeek,
   index: number,
-  headerMonth: Date,
+  headerMonth: Date | null,
   config: Types.Config,
   language: string,
   capacity: number,
@@ -1029,8 +1080,56 @@ function tintProperties(config: Types.Config): Record<string, string> {
 }
 
 /**
- * Render a month page: the weekday names, then six week rows of seven days, or the narrow form
- * where the card hands one (`MonthOptions.narrow`).
+ * The custom property a month page writes on itself for the week rows it draws, where they are
+ * not six: under `month → start: week` with fewer `weeks`. The stylesheet reads six without it.
+ */
+export const MONTH_ROWS_PROPERTY = '--calendar-card-month-rows';
+
+/** What a month page draws, beyond its days, from its first day and the configuration. */
+interface MonthPage {
+  /** The week rows (`ViewConfig.monthWeekRows`). */
+  readonly rows: number;
+  /** The 1st of the month the header names, which other months' days are dimmed against. */
+  readonly headerMonth: Date;
+  /** `headerMonth`, or null under `month → start: week`, which dims no day. */
+  readonly dimAgainst: Date | null;
+  /**
+   * The grid's name for assistive technology: the month the header names, or under
+   * `start: week`, which shows no one month, the dates it spans ("Nov 23 – Dec 20").
+   */
+  readonly name: string;
+  /** The rows, for the stylesheet, where they are not six ({@link MONTH_ROWS_PROPERTY}). */
+  readonly style: Readonly<Record<string, string>>;
+}
+
+/**
+ * What a month page draws beyond its days.
+ *
+ * @param rowsStart - The first row's first day
+ * @param config - Card configuration, resolved for month
+ * @param language - Card language
+ * @returns The page
+ */
+function monthPage(rowsStart: Date, config: Types.Config, language: string): MonthPage {
+  const rows = ViewConfig.monthWeekRows(config);
+  const range = { start: rowsStart, days: rows * 7 };
+  const headerMonth = Paging.majorityMonth(range);
+  const rolling = ViewConfig.monthStartsAtWeek(config);
+  return {
+    rows,
+    headerMonth,
+    dimAgainst: rolling ? null : headerMonth,
+    name: rolling
+      ? Paging.rangeLabel(range, language, new Date())
+      : Paging.monthHeading(headerMonth, language),
+    style: rows === ViewConfig.MONTH_ROWS ? {} : { [MONTH_ROWS_PROPERTY]: String(rows) },
+  };
+}
+
+/**
+ * Render a month page: the weekday names, then its week rows of seven days, six or under
+ * `month → start: week` its `weeks`, or the narrow form where the card hands one
+ * (`MonthOptions.narrow`).
  *
  * @param days - Grouped days of the page, which hold only days with events
  * @param rowsStart - The first row's first day, which is the first weekday
@@ -1053,8 +1152,10 @@ export function renderMonthGroupedEvents(
   eventsTappable = false,
   options: MonthOptions = {},
 ): TemplateResult {
-  const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
-  const focusKey = FormatUtils.getLocalDateKey(options.focusDay ?? headerMonth);
+  const page = monthPage(rowsStart, config, language);
+  const focusKey = FormatUtils.getLocalDateKey(
+    options.focusDay ?? (page.dimAgainst === null ? rowsStart : page.headerMonth),
+  );
   if (options.narrow) {
     return renderNarrowMonth(
       rowsStart,
@@ -1066,7 +1167,13 @@ export function renderMonthGroupedEvents(
       eventsTappable,
     );
   }
-  const weeks = monthWeeks(days, rowsStart, capacity, monthLinesOf(config, options.scaleLines));
+  const weeks = monthWeeks(
+    days,
+    rowsStart,
+    capacity,
+    monthLinesOf(config, options.scaleLines),
+    page.rows,
+  );
   const cells = cellConfig(config);
 
   // The weeks share the card's height, which the stylesheet hands them: the card writes no
@@ -1077,15 +1184,15 @@ export function renderMonthGroupedEvents(
       class="month-container"
       role="grid"
       lang=${language}
-      aria-label=${Paging.monthHeading(headerMonth, language)}
-      style=${styleMap({ ...tintProperties(config), ...cellStyle(config) })}
+      aria-label=${page.name}
+      style=${styleMap({ ...tintProperties(config), ...cellStyle(config), ...page.style })}
     >
       ${renderWeekdays(weeks[0].starts, config, language, hass)}
       ${weeks.map((week, index) =>
         renderWeek(
           week,
           index,
-          headerMonth,
+          page.dimAgainst,
           cells,
           language,
           capacity,
@@ -1194,7 +1301,8 @@ function renderMarks(
  * (`aria-selected`), which Enter and Space change as a tap does.
  *
  * @param date - The day's local midnight
- * @param headerMonth - The 1st of the month the header names; other months' days are dimmed
+ * @param headerMonth - The 1st of the month the header names; other months' days are dimmed. Null
+ *   under `month → start: week`, which dims no day
  * @param selected - Whether it is the day selected
  * @param focused - Whether it is the month's tab stop
  * @param events - Its events, as the day model lists them
@@ -1205,7 +1313,7 @@ function renderMarks(
  */
 function renderNarrowDay(
   date: Date,
-  headerMonth: Date,
+  headerMonth: Date | null,
   selected: boolean,
   focused: boolean,
   events: ReadonlyArray<Types.CalendarEventData>,
@@ -1216,21 +1324,23 @@ function renderNarrowDay(
   const { isToday, isTomorrow, isPast } = Leaves.classifyDay(date.getTime());
   const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
   const todayTile = isToday && Leaves.isTileIndicator(config);
-  const colors = Leaves.dateColors(config, isWeekendDay, isToday, todayTile);
+  const own = Leaves.ownDateColors(config, isWeekendDay, isToday, todayTile);
   const { weight, opacity } = Leaves.dateEmphasis(config, isToday, isPast);
-  const otherMonth =
-    date.getMonth() !== headerMonth.getMonth() || date.getFullYear() !== headerMonth.getFullYear();
-  // Today's tile takes its own ink, a named day color winning over it (`Leaves.dateColors`),
+  const otherMonth = isOtherMonth(date, headerMonth);
+  // Today's tile takes its own ink, a named day color winning over it (`Leaves.ownDateColors`),
   // whether or not it is selected; the fill redefines the ink. Any other selected day's mark
   // sets its own. Off the tile, today is drawn as any other day, in today_day_color where one is
   // named: Month marks today with the tile or not at all. A weekend's number steps back to the
-  // secondary text, as a phone's month does, unless the card names a weekend color for it.
+  // secondary text, as a phone's month does, unless the card names a weekend color for it. Any
+  // other number takes the card's day color from the stylesheet (`Leaves.inlineCardValue`).
   const ink = todayTile
-    ? colors.day
+    ? own.day
     : selected
       ? undefined
       : (isToday && config.today_day_color) ||
-        (isWeekendDay ? config.weekend_day_color || 'var(--secondary-text-color)' : colors.day);
+        (isWeekendDay
+          ? config.weekend_day_color || 'var(--secondary-text-color)'
+          : Leaves.inlineCardValue(config.day_color));
 
   return html`<div
     class=${classMap({
@@ -1253,7 +1363,7 @@ function renderNarrowDay(
     <span class="month-date"
       ><span
         class=${todayTile ? 'day today-tile' : 'day'}
-        style=${styleMap({ color: ink, 'font-weight': weight, opacity })}
+        style=${Leaves.datePartStyle({ color: ink, 'font-weight': weight, opacity })}
         >${date.getDate()}</span
       ></span
     >
@@ -1262,8 +1372,8 @@ function renderNarrowDay(
 }
 
 /**
- * The narrow form: the weekday names, six weeks of days drawn as a number and a capsule, the
- * week numbers in a narrow gutter with the current week's emphasized, and under them the
+ * The narrow form: the weekday names, the page's weeks of days drawn as a number and a capsule,
+ * the week numbers in a narrow gutter with the current week's emphasized, and under them the
  * selected day's list. The rows take their content's height.
  *
  * @param rowsStart - The first row's first day
@@ -1284,11 +1394,11 @@ function renderNarrowMonth(
   hass?: Types.Hass | null,
   eventsTappable = false,
 ): TemplateResult {
-  const headerMonth = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
+  const page = monthPage(rowsStart, config, language);
   const weekNumbers = config.show_week_numbers !== null;
   const selectedKey = FormatUtils.getLocalDateKey(narrow.selected);
   const today = Paging.startOfDay(new Date());
-  const weeks = Array.from({ length: ViewConfig.MONTH_ROWS }, (_, row) =>
+  const weeks = Array.from({ length: page.rows }, (_, row) =>
     Array.from({ length: 7 }, (_, column) => Paging.addDays(rowsStart, row * 7 + column)),
   );
   const selectedIndex = FormatUtils.getCalendarDayDiff(rowsStart, narrow.selected);
@@ -1303,8 +1413,8 @@ function renderNarrowMonth(
       })}
       role="grid"
       lang=${language}
-      aria-label=${Paging.monthHeading(headerMonth, language)}
-      style=${styleMap(tintProperties(config))}
+      aria-label=${page.name}
+      style=${styleMap({ ...tintProperties(config), ...page.style })}
     >
       ${renderWeekdays(weeks[0], config, language, hass, weekNumbers)}
       ${weeks.map((starts, row) => {
@@ -1324,7 +1434,7 @@ function renderNarrowMonth(
           ${starts.map((start, column) =>
             renderNarrowDay(
               start,
-              headerMonth,
+              page.dimAgainst,
               FormatUtils.getLocalDateKey(start) === selectedKey,
               FormatUtils.getLocalDateKey(start) === focusKey,
               narrow.dayLists[row * 7 + column] ?? [],
@@ -1347,9 +1457,10 @@ function renderNarrowMonth(
       narrow.dayAdd,
       narrow.shown,
       narrow.more,
+      narrow.scroll,
     )}
     ${
-      selectedEvents.length > 0
+      selectedEvents.length > 0 && !narrow.scroll
         ? renderListStaging(selectedEvents, config, language, hass, narrow.weatherForecasts)
         : nothing
     }
@@ -1566,6 +1677,44 @@ function renderListMore(
 }
 
 /**
+ * The pill over the foot of a narrow month's list that scrolls, while some of its events end below
+ * where its rows come to rest: an arrow down and the count, in the words of "+N more", so it reads
+ * as the list's own "+N more" does on a dashboard. A press scrolls the list down. It only repeats
+ * what the rows say, every one of them in the list, so it is out of the tab order and hidden from
+ * assistive technology; the rows, or the box, take focus and scroll themselves into view. Its
+ * press is its own, never the card's nor the day's beneath it.
+ *
+ * @param count - The events below
+ * @param language - Card language
+ * @param hass - Home Assistant, which says which way the dashboard runs
+ * @param page - Scrolls the list down
+ * @returns The pill
+ */
+function renderListBelow(
+  count: number,
+  language: string,
+  hass: Types.Hass | null | undefined,
+  page: () => void,
+): TemplateResult {
+  return html`<button
+    class="month-day-list-below"
+    type="button"
+    tabindex="-1"
+    aria-hidden="true"
+    @pointerdown=${stopCardGesture}
+    @click=${(ev: MouseEvent) => {
+      stopCardGesture(ev);
+      page();
+    }}
+    .calendarCardDaySlot=${Activation.COVERED}
+  >
+    <svg class="month-day-list-below-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiChevronDown}></path></svg
+    ><span>${listMoreText(count, language, hass)}</span>
+  </button>`;
+}
+
+/**
  * The selected day's list as the card measures it, beside the list and out of sight, the tab order
  * and assistive technology: every one of the day's rows, drawn as the list draws them and as wide,
  * and its "+N more" at the day's count, the most digits it can show. It takes no room. The card
@@ -1642,8 +1791,8 @@ function renderDayTitleFit(
  * The selected day's list, under a narrow month's weeks: the day named on one line, in full
  * where that fits and in a shorter form where it does not, then its rows, or the card's "no
  * events" where it has none. Its own space is the day's: a press there, on its name or under its
- * rows, runs `day_tap_action`, and where that adds an event its name is a button that adds on the
- * day, as List's dates are.
+ * rows, runs `day_tap_action`, and where that runs something its name is a button that runs it on
+ * the day, as List's dates are.
  *
  * The rows sit in a box that takes the room the card leaves the list (`.month-day-list-rows`), on
  * every day alike, so a tap from day to day never moves the card. The card fits the day's rows to
@@ -1651,8 +1800,14 @@ function renderDayTitleFit(
  * `shown`: the list draws those, in order, and "+N more" for the rest, which opens the day's panel.
  * Until the card has fitted the day, as on its first render or while it is not on screen, the list
  * draws "+N more" alone. Each part of a row keeps to one line (`MonthDay.monthRowsConfig`), so a
- * row is as tall here as where it was measured. Nothing scrolls inside the list: a card too short
- * for it scrolls the weeks and the list as one.
+ * row is as tall here as where it was measured. Nothing scrolls inside the list on a dashboard: a
+ * card too short for it scrolls the weeks and the list as one.
+ *
+ * In the overlay the list `scroll`s instead: it lists every row, and its box scrolls them under
+ * weeks that stay where they are. A pill over its foot says how many end below where its rows
+ * come to rest, in the words of "+N more", and pages down a press at a time
+ * (`renderListBelow`). Where no row takes focus, the box does, so the keyboard can scroll it in
+ * every browser.
  *
  * @param day - The day, at local midnight
  * @param events - Its events, as the day model lists them
@@ -1661,9 +1816,11 @@ function renderDayTitleFit(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each row is a tap target of its own
  * @param weatherForecasts - Forecasts for the rows' weather
- * @param dayAdd - The name as a button that adds on the day, while a tap on a day adds
+ * @param dayAdd - The name as a button that runs `day_tap_action` on the day, while a tap on a
+ *   day runs something
  * @param shown - How many rows fit its room, as the card measured them, or undefined until it has
  * @param more - Opens the day's panel from "+N more"
+ * @param scroll - Where it lists every row and scrolls them, what it is handed for that
  * @returns The list
  */
 export function renderMonthDayList(
@@ -1677,6 +1834,7 @@ export function renderMonthDayList(
   dayAdd?: Activation.DayAddButtons,
   shown?: number,
   more?: MonthNarrow['more'],
+  scroll?: MonthListScroll,
 ): TemplateResult {
   const timestamp = day.getTime();
   const labelId = eventsTappable || dayAdd ? Activation.dayLabelId(timestamp) : undefined;
@@ -1688,7 +1846,13 @@ export function renderMonthDayList(
       >${renderDayTitleFit(titles, mark)}</span
     ></span
   >`;
-  const listed = Math.min(Math.max(shown ?? 0, 0), events.length);
+  const listed = scroll ? events.length : Math.min(Math.max(shown ?? 0, 0), events.length);
+  // A box that scrolls rows the keyboard cannot reach takes focus itself, named for its day.
+  const focusable = scroll !== undefined && !eventsTappable && events.length > 0;
+  const below =
+    scroll && scroll.below > 0 && events.length > 0
+      ? renderListBelow(Math.min(scroll.below, events.length), language, hass, scroll.page)
+      : nothing;
   const rows =
     events.length > 0
       ? html`${
@@ -1713,25 +1877,46 @@ export function renderMonthDayList(
           ${TextDirection.inLanguageDirection(Localize.getTranslations(language).noEvents, mark)}
         </div>`;
 
+  const header = dayAdd
+    ? html`<div
+        class="month-day-list-header day-add-button"
+        role="button"
+        tabindex="0"
+        aria-label=${dayAdd.label ?? nothing}
+        aria-describedby=${dayAdd.label ? (labelId ?? nothing) : nothing}
+        .calendarCardDayAdd=${timestamp}
+      >
+        ${name}
+      </div>`
+    : html`<div class="month-day-list-header">${name}</div>`;
+
+  if (scroll) {
+    return html`<div
+      class="month-day-list ${MONTH_LIST_SCROLLS_CLASS}"
+      style=${styleMap(oneLineListStyle(config))}
+      .calendarCardDaySlot=${Activation.daySlot(timestamp)}
+    >
+      ${header}
+      <div
+        class="month-day-list-rows ${MONTH_LIST_SCROLLS_CLASS}"
+        lang=${language}
+        tabindex=${focusable ? '0' : nothing}
+        role=${focusable ? 'group' : nothing}
+        aria-label=${focusable ? titles[0] : nothing}
+        @scroll=${scroll.scrolled}
+      >
+        ${rows}
+      </div>
+      ${below}
+    </div>`;
+  }
+
   return html`<div
     class="month-day-list"
     style=${styleMap(oneLineListStyle(config))}
     .calendarCardDaySlot=${Activation.daySlot(timestamp)}
   >
-    ${
-      dayAdd
-        ? html`<div
-            class="month-day-list-header day-add-button"
-            role="button"
-            tabindex="0"
-            aria-label=${dayAdd.label}
-            aria-describedby=${labelId ?? nothing}
-            .calendarCardDayAdd=${timestamp}
-          >
-            ${name}
-          </div>`
-        : html`<div class="month-day-list-header">${name}</div>`
-    }
+    ${header}
     <div class="month-day-list-rows" lang=${language}>${rows}</div>
   </div>`;
 }
@@ -1894,8 +2079,8 @@ export interface MonthFloors {
  *
  * A week holds its date line and one line, the taller of a title and a time, under its rule, so
  * a day the card is too short for still shows its date and "+N more"; the month holds the weekday
- * names, six such weeks and a closing rule where one is drawn. Below them the card's content scrolls rather
- * than any text shrinking.
+ * names, the weeks it draws at that and a closing rule where one is drawn. Below them the card's
+ * content scrolls rather than any text shrinking.
  *
  * Read from what fonts alone decide: the three probes (`measureMonthCapacity`), the weekday row
  * and the rules. Never from a week's height, so writing them cannot move what they were read
@@ -1937,5 +2122,5 @@ export function measureMonthFloors(container: HTMLElement): MonthFloors | null {
   // 43px week does not floor it at 44.
   const up = (pixels: number) => Math.ceil(pixels - 0.01);
   const week = up((date + pitch + rule) / scale);
-  return { week, month: up(names / scale + ViewConfig.MONTH_ROWS * week + closing) };
+  return { week, month: up(names / scale + weeks.length * week + closing) };
 }

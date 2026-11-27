@@ -181,9 +181,10 @@ export function maxDateScale(config: Types.Config): number {
  *   or its language when no country is set
  * @param id The day's id, given only while the day's events are tap targets or the header is
  *   the day's add button; see `dayLabelId` in `activation.ts`
- * @param dayAdd The header as the day's add button: its name and its day. While it is one,
- *   the id moves from the header to the date inside it, which describes the button and the
- *   day's events alike; on the header it would describe both by the button's name.
+ * @param dayAdd The header as the day's add button: its name where it adds an event, and its
+ *   day. While it is one, the id moves from the header to the date inside it, which describes
+ *   the button and the day's events alike; on the header it would describe both by the button's
+ *   name. Without a name, the button runs another action and the date names it.
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -195,7 +196,7 @@ export function renderSharedDayHeader(
   separator?: { width: string; color: string } | null,
   hass?: Types.Hass | null,
   id?: string,
-  dayAdd?: { label: string; timestamp: number },
+  dayAdd?: { label?: string; timestamp: number },
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -217,8 +218,8 @@ export function renderSharedDayHeader(
       id=${dayAdd ? nothing : (id ?? nothing)}
       role=${dayAdd ? 'button' : nothing}
       tabindex=${dayAdd ? '0' : nothing}
-      aria-label=${dayAdd ? dayAdd.label : nothing}
-      aria-describedby=${dayAdd && id ? id : nothing}
+      aria-label=${dayAdd?.label ?? nothing}
+      aria-describedby=${dayAdd?.label && id ? id : nothing}
       .calendarCardDayAdd=${dayAdd?.timestamp}
     >
       <div
@@ -326,30 +327,35 @@ export function isTileIndicator(config: Types.Config): boolean {
 }
 
 /**
- * The colors a date's weekday, day number and month are drawn in: the configured ones, a
- * weekend's on a weekend, today's on today, and on today's tile a deeper shade of the tile's own
- * color for the number, unless one is named for it.
+ * The colors a date's weekday, day number and month take on their own, each `undefined` where the
+ * card-wide option applies: a weekend's on a weekend, today's on today, and on today's tile a
+ * deeper shade of the tile's own color for the number, unless one is named for it.
+ *
+ * These are written on the part itself, and the card-wide options reach it through the
+ * stylesheet's custom properties (`.weekday`, `.day` and `.month`), where a theme can set them.
+ * Which is which is decided by the option a color came from rather than by its value, so a
+ * weekend color that names the card's own default still wins over a theme's.
  *
  * @param config Card configuration, already resolved for the view
  * @param isWeekendDay Whether the day is a weekend day
  * @param isToday Whether the day is today
  * @param todayTile Whether today's number sits on the tile
- * @returns The three colors
+ * @returns The three colors, `undefined` where the day takes the card's own
  */
-export function dateColors(
+export function ownDateColors(
   config: Types.Config,
   isWeekendDay: boolean,
   isToday: boolean,
   todayTile: boolean,
-): { weekday: string; day: string; month: string } {
-  let weekdayColor = config.weekday_color;
-  let dayColor = config.day_color;
-  let monthColor = config.month_color;
+): { weekday?: string; day?: string; month?: string } {
+  let weekdayColor: string | undefined;
+  let dayColor: string | undefined;
+  let monthColor: string | undefined;
 
   if (isWeekendDay) {
-    weekdayColor = config.weekend_weekday_color || weekdayColor;
-    dayColor = config.weekend_day_color || dayColor;
-    monthColor = config.weekend_month_color || monthColor;
+    weekdayColor = config.weekend_weekday_color || undefined;
+    dayColor = config.weekend_day_color || undefined;
+    monthColor = config.weekend_month_color || undefined;
   }
 
   if (isToday) {
@@ -363,6 +369,38 @@ export function dateColors(
   }
 
   return { weekday: weekdayColor, day: dayColor, month: monthColor };
+}
+
+/** A CSS-wide keyword, which a custom property takes for itself rather than passing it on. */
+const CSS_WIDE_KEYWORD =
+  /^\s*(?:inherit|initial|unset|revert|revert-layer)\s*(?:!\s*important\s*)?$/i;
+
+/**
+ * Whether a value is a CSS-wide keyword, alone or flagged `!important`.
+ *
+ * @param value An option's value
+ * @returns `true` for `inherit`, `initial`, `unset`, `revert` and `revert-layer`
+ */
+export function isCssWideKeyword(value: unknown): boolean {
+  return typeof value === 'string' && CSS_WIDE_KEYWORD.test(value);
+}
+
+/**
+ * A card-wide date or title option, where it still has to be written on the part itself; every
+ * other value reaches the part through its custom property, and this returns `undefined`.
+ *
+ * Two kinds cannot travel through a custom property as written. A CSS-wide keyword is taken by
+ * the property itself rather than passed on, so `initial` would leave the part unset where
+ * written on it, it is the initial value (a `medium` font). And `!important` belongs to the
+ * part's own declaration, where it has always been.
+ *
+ * @param value The option's value
+ * @returns The value where it has to be written inline, otherwise `undefined`
+ */
+export function inlineCardValue(value: string | undefined): string | undefined {
+  return typeof value === 'string' && (isCssWideKeyword(value) || /!\s*important\s*$/i.test(value))
+    ? value
+    : undefined;
 }
 
 /**
@@ -391,6 +429,19 @@ export function dateEmphasis(
 }
 
 /**
+ * A date part's inline style, holding only the declarations given a value, or no attribute at
+ * all where it has none, so a day that departs from nothing carries no style of its own.
+ *
+ * @param declarations Property names mapped to values, `undefined` for none
+ * @returns A style map, or `nothing`
+ */
+export function datePartStyle(declarations: Record<string, string | undefined>) {
+  return Object.values(declarations).some((value) => value !== undefined)
+    ? styleMap(declarations)
+    : nothing;
+}
+
+/**
  * Render the contents of a date block: weekday, day number, optional month, and the already-rendered weather badge.
  *
  * @param date Date to display
@@ -415,16 +466,18 @@ export function renderDateContent(
 
   // Today's and past days' own size, weight and fade. Sizes are scaled as text, as a calendar's
   // `text_scale` scales its events, so a keyword size scales from the size it is drawn at.
+  // Unscaled, a part takes its size from the stylesheet, as it takes the card's own colors
+  // (`ownDateColors`, `inlineCardValue`).
   const scale = dateScale(config, isToday, isPast);
-  const size = (value: string): string => (scale === 1 ? value : scaleDateSize(value, scale));
+  const size = (value: string): string | undefined =>
+    scale === 1 ? inlineCardValue(value) : scaleDateSize(value, scale);
   const { weight, opacity } = dateEmphasis(config, isToday, isPast);
 
   const todayTile = isToday && isTileIndicator(config);
-  const {
-    weekday: weekdayColor,
-    day: dayColor,
-    month: monthColor,
-  } = dateColors(config, isWeekendDay, isToday, todayTile);
+  const own = ownDateColors(config, isWeekendDay, isToday, todayTile);
+  const weekdayColor = own.weekday ?? inlineCardValue(config.weekday_color);
+  const dayColor = own.day ?? inlineCardValue(config.day_color);
+  const monthColor = own.month ?? inlineCardValue(config.month_color);
 
   const translations = Localize.getTranslations(language);
 
@@ -443,7 +496,7 @@ export function renderDateContent(
   return html`
     <div
       class="weekday"
-      style=${styleMap({
+      style=${datePartStyle({
         'font-size': size(config.weekday_font_size),
         color: weekdayColor,
         'font-weight': weight,
@@ -454,7 +507,7 @@ export function renderDateContent(
     </div>
     <div
       class=${todayTile ? 'day today-tile' : 'day'}
-      style=${styleMap({
+      style=${datePartStyle({
         'font-size': size(config.day_font_size),
         color: dayColor,
         'font-weight': weight,
@@ -467,7 +520,7 @@ export function renderDateContent(
       ? html`
           <div
             class="month"
-            style=${styleMap({
+            style=${datePartStyle({
               'font-size': size(config.month_font_size),
               color: monthColor,
               'font-weight': weight,
@@ -571,8 +624,8 @@ function renderEventTitle(
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
-  // The title is the one governed field the card colors inline rather than through its
-  // custom property, so the sentinel has to be resolved here as well. Resolving it to
+  // A calendar's own color is a governed field the card colors inline on the title rather than
+  // through its custom property, so the sentinel has to be resolved here as well. Resolving it to
   // `undefined` drops the attribute, which hands the question back to `.event-title`'s own
   // `var(--calendar-card-color-event)` — and that is the property the event element has
   // just set to this calendar's accent. Emitting the literal string would work only by
@@ -583,6 +636,12 @@ function renderEventTitle(
     : EntityColors.isAccentTextSentinel(configuredTitleColor)
       ? undefined
       : configuredTitleColor;
+  // What the title is colored in inline: a calendar's own color, or the empty day's. `event_color`
+  // reaches `.event-title` through `--calendar-card-color-event`; written inline as well, it hid
+  // that property, and a rule on the title needed `!important`. It is written inline only where it
+  // cannot travel through the property as written (`inlineCardValue`).
+  const ownTitleColor = !isEmptyDay && Boolean(event._matchedConfig?.color);
+  const titleInk = isEmptyDay || ownTitleColor ? entityColor : inlineCardValue(entityColor);
 
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
@@ -633,14 +692,13 @@ function renderEventTitle(
   // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
   // what it is nested in -- and its wash is currentColor at 14% alpha, so the ground follows
   // the ink. In the time row it inherits the time color, which is the whole point of that
-  // treatment: the row's own ink in a capsule of itself. Put the pill where `.event-title`'s
-  // inline `color` is in scope and it inherits the TITLE color -- `event_color`, or this
-  // calendar's own `color` override -- so the treatment keeps its meaning at both positions
-  // without either needing a rule of its own.
+  // treatment: the row's own ink in a capsule of itself. Put the pill inside `.event-title` and
+  // it inherits the TITLE color -- `event_color`, or this calendar's own `color` override -- so
+  // the treatment keeps its meaning at both positions without either needing a rule of its own.
   //
-  // Nesting is also the only arrangement that works at all. `.event-title` carries its color
-  // as an inline style, and an inline style beats any class selector -- so putting the pill
-  // classes ON that element would let the inline color override `--badge-ink` and every
+  // Nesting is also the only arrangement that works at all. `.event-title` carries a calendar's
+  // own color as an inline style, and an inline style beats any class selector -- so putting the
+  // pill classes ON that element would let the inline color override `--badge-ink` and every
   // treatment but the text source would silently render in the title color.
   //
   // 🚨 The text source publishes the title's color as `--badge-source` rather than letting
@@ -670,9 +728,10 @@ function renderEventTitle(
 
   // A merged row answers for every calendar that contributed a copy, so it draws each of
   // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
-  // the inline-end margin every label kind already carries. The branch is behavioral rather
-  // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
-  // merge whose winner carries none renders as it always has.
+  // the inline-end margin every label kind already carries. A label written as a list draws
+  // its parts the same way. The branch is behavioral rather than defensive: `mergedLabels` is
+  // undefined unless there are two labels to draw, so a merge whose winner carries none
+  // renders as it always has.
   const labels = mergedLabels
     ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     : entityLabel
@@ -687,7 +746,7 @@ function renderEventTitle(
   // every view lays it out as it does an icon label. In the title's color, which the label run
   // around it does not take.
   const lock = event._privateTitle
-    ? PrivateLock.renderRowLock(entityColor ?? 'var(--calendar-card-color-event)')
+    ? PrivateLock.renderRowLock(titleInk ?? 'var(--calendar-card-color-event)')
     : nothing;
   const hasLabel = hasCalendarLabel || lock !== nothing;
 
@@ -712,7 +771,7 @@ function renderEventTitle(
   const titleClass = `event-title ${isEmptyDay ? 'empty-day-title' : ''}${
     oneLineTitle ? ' title-scrollable' : ''
   }`;
-  const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
+  const titleStyle = titleInk === undefined ? nothing : `color: ${titleInk}`;
 
   // 🚨 On `.event-title`, not on `.title-words` inside it, and never on both. A grid title
   // cut to one line ends where its *block* ends, so a title running against the dashboard
@@ -755,6 +814,17 @@ function renderEventTitle(
       ? (titleDirection(event.summary ?? '') ?? nothing)
       : nothing;
 
+  // `label_image_size`, written only where the calendar sets it: a picture label's height and its
+  // hanging indent read it, and fall back to the text's height without it (see `.label-image` in
+  // styles.ts). From the row's own entry, so a merged row's pictures take the size of the calendar
+  // listed first among them, as its `text_scale` does.
+  const labelImageSize = hasCalendarLabel
+    ? EventUtils.getEntitySetting(event._entityId, 'label_image_size', config, event)
+    : undefined;
+  const summaryStyle = labelImageSize
+    ? `--calendar-card-label-image-size: ${labelImageSize}`
+    : nothing;
+
   // 🚨 No whitespace between the last label and the title, and none inside the title before
   // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
   // collapses them into one visible word space after the label: about 3px on top of the
@@ -787,7 +857,7 @@ function renderEventTitle(
   if (aside && oneLineTitle) {
     return html`
       <div class="summary-row">
-        <div class="summary summary-scroll">${title}</div>
+        <div class="summary summary-scroll" style=${summaryStyle}>${title}</div>
         <div class="title-aside">
           ${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
@@ -809,7 +879,7 @@ function renderEventTitle(
   if (aside) {
     return html`
       <div class="summary-row title-wrap${besideLayout === 'cap' ? ' title-capped' : ''}">
-        <div class="summary" dir=${summaryDir}>${title}<span class="title-room"></span></div>
+        <div class="summary" dir=${summaryDir} style=${summaryStyle}>${title}<span class="title-room"></span></div>
         <div class="title-aside">
           <span class="title-strut" aria-hidden="true">\u2060</span>${renderEventWeather(event, config, weatherForecasts)}${aside}
         </div>
@@ -823,7 +893,7 @@ function renderEventTitle(
   // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary${oneLineTitle ? ' summary-scroll' : ''}" dir=${summaryDir}>
+      <div class="summary${oneLineTitle ? ' summary-scroll' : ''}" dir=${summaryDir} style=${summaryStyle}>
         ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -850,8 +920,8 @@ function hasEventWeather(config: Types.Config, event: Types.CalendarEventData): 
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
  * @param placement Where the badge is being placed. `'title'` is the list view's inline
- *   badge inside the summary row; `'row'` is column view's dedicated line, which always
- *   shows the icon and localizes the condition text.
+ *   badge inside the summary row; `'row'` is the line of its own Columns and Grid draw, and List
+ *   with `weather.event.own_line`, which always shows the icon and localizes the condition text.
  * @param hass Home Assistant instance, used only to localize the condition text
  * @returns Rendered badge, or an empty template when there is nothing to show
  */
@@ -1018,7 +1088,8 @@ export interface EventContentParts {
 
   /**
    * The label drawn before the event title: this calendar's own, or the icon Home Assistant
-   * holds for it where the label defers to Home Assistant.
+   * holds for it where the label defers to Home Assistant. A label of one part only; a list of
+   * two or more draws through `mergedLabels` instead.
    *
    * Resolved by the container for the same reason as `locationIcon` above — one answer for
    * both views, and no per-calendar config reads down here — and for one more that is
@@ -1034,8 +1105,10 @@ export interface EventContentParts {
   entityLabelAlt?: string;
 
   /**
-   * One label per calendar that contributed a copy of a merged duplicate, present only on
-   * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
+   * Every label of a row that has two or more to draw: one run of the labels of each calendar
+   * that contributed a copy of a merged duplicate, on a row `filter_duplicates` collapsed across
+   * calendars that carry them, or each part of a label written as a list. See
+   * `EventUtils.resolveMergedLabels`.
    *
    * 🚨 Kept beside `entityLabel` rather than replacing it, and **not** because an iterable
    * binding would disturb the DOM. That was the original justification here and it is
@@ -1089,7 +1162,8 @@ export interface EventContentOptions {
   weatherForecasts?: Types.WeatherForecasts;
   /**
    * Where the event weather badge goes. `'title'` uses the summary row; `'row'`
-   * gives the badge its own row beneath the time.
+   * gives the badge its own row beneath the time, as Columns and Grid always do and List does
+   * with `weather.event.own_line`.
    */
   weatherPlacement?: 'title' | 'row';
   /**

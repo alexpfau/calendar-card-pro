@@ -56,6 +56,7 @@ const EXPECTED_ACTIONS = [
   'refresh',
   'add-event',
   'reset',
+  'overlay',
   'back',
   'more-info',
   'toggle',

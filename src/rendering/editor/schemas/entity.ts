@@ -4,6 +4,7 @@
 
 import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import { isEntityIconSentinel } from '../../../utils/entity-icons';
+import { type LabelType, getLabelType, labelParts } from '../../../utils/helpers';
 import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
@@ -113,6 +114,15 @@ export const LABEL_ICON_SOURCE = 'label_icon_source';
 
 export const LABEL_IMAGE_SOURCE = 'label_image_source';
 
+/**
+ * The Label Type entry for a label written as a list, one line per part. Never stored: a list in
+ * `label` is what it reads back from, as the sources read back from the value's shape.
+ */
+export const LABEL_PARTS = 'parts';
+
+/** The height of a picture label, offered where the label can hold a picture. */
+export const LABEL_IMAGE_SIZE = 'label_image_size';
+
 /** The switch that lists a calendar in the calendar filter, or leaves it out. */
 export const SHOW_IN_LEGEND = 'show_in_legend';
 
@@ -135,7 +145,21 @@ const LABEL_ICON_SOURCES: ReadonlyArray<string> = ['home_assistant', 'custom'];
  * @returns Which icon-source control that calendar renders
  */
 export function labelIconSourceOf(label: unknown): string {
-  return isEntityIconSentinel(label) ? 'home_assistant' : 'custom';
+  return isEntityIconSentinel(firstPart(label, 'icon')) ? 'home_assistant' : 'custom';
+}
+
+/**
+ * The value a source is read from: the label itself, or for a list its first part of the given
+ * shape, which is the part choosing that shape keeps.
+ *
+ * @param label - The calendar's stored `label`
+ * @param shape - The shape whose source is asked for
+ * @returns The value to read the source from
+ */
+function firstPart(label: unknown, shape: LabelType): unknown {
+  return Array.isArray(label)
+    ? labelParts(label).find((part) => getLabelType(part) === shape)
+    : label;
 }
 
 /**
@@ -163,7 +187,7 @@ const LABEL_IMAGE_SOURCES: ReadonlyArray<string> = ['custom', 'person'];
  * @returns Which image-source control that calendar renders
  */
 export function labelImageSourceOf(label: unknown): string {
-  return isPersonEntityId(label) ? 'person' : 'custom';
+  return isPersonEntityId(firstPart(label, 'image')) ? 'person' : 'custom';
 }
 
 /**
@@ -183,11 +207,12 @@ export function accentColorModeOf(accentColor: unknown): string {
   return isEntityColorSentinel(accentColor) ? 'home_assistant' : 'custom';
 }
 
-const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
+const LABEL_TYPES: ReadonlyArray<LabelType | typeof LABEL_PARTS> = [
   'none',
   'text',
   'icon',
   'image',
+  LABEL_PARTS,
 ];
 
 /**
@@ -284,6 +309,16 @@ function labelFields(
     ];
   }
 
+  // A line per part, each read by its own shape as a single value is, so any of them can be an
+  // icon to tint or a picture to size.
+  if (type === LABEL_PARTS) {
+    return [
+      { name: 'label', selector: { text: { multiple: true } } } as SelectorSchema,
+      color('label_icon_color'),
+      text(LABEL_IMAGE_SIZE),
+    ];
+  }
+
   if (type === 'image') {
     return [
       // Precedes its control for the icon source's reason, one shape up: it says what the
@@ -301,6 +336,7 @@ function labelFields(
             selector: { entity: { filter: { domain: 'person' } } },
           } as SelectorSchema)
         : text('label'),
+      text(LABEL_IMAGE_SIZE),
     ];
   }
 
@@ -348,6 +384,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     labelImageSource(ctx.language),
     text('label'),
     color('label_icon_color'),
+    text(LABEL_IMAGE_SIZE),
     color('color'),
     // Last in the section that says how this calendar's events look: after which label and
     // which colors, how large. No ceiling, as YAML has none, and a box rather than a slider,
@@ -498,7 +535,13 @@ export function entitySchemaFor(
   hasLegend: boolean = true,
   showsEventWeather: boolean = true,
 ): HaFormSchema[] {
-  const replaced = new Set([LABEL_ICON_SOURCE, LABEL_IMAGE_SOURCE, 'label', 'label_icon_color']);
+  const replaced = new Set([
+    LABEL_ICON_SOURCE,
+    LABEL_IMAGE_SOURCE,
+    'label',
+    'label_icon_color',
+    LABEL_IMAGE_SIZE,
+  ]);
 
   // Taken from the declared schema rather than rebuilt, because this function is handed no
   // language and rebuilding one here would render the only unlocalized control on the panel.

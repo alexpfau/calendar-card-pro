@@ -814,7 +814,6 @@ describe('editor: change detection', () => {
       'allday_badge_color_mode',
       'allday_badge_position',
       'countdown_once_per_day',
-      'day_tap_action_mode',
       'filter_duplicates_mode',
       'fixed_height',
       'height_mode',
@@ -925,6 +924,9 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
+      // The compact card's own height, which only a List card that can fold has.
+      compact_card_height: ['list'],
+      compact_card_max_height: ['list'],
       // Column and grid view keep time running forward, left to right and down the hours;
       // `groupEventsByDay` reads it only where `appliesToView` says list.
       event_order: ['list'],
@@ -1393,12 +1395,20 @@ describe('editor: displayed view and the Layout panel', () => {
       'narrow_card_height',
       'narrow_card_max_height',
       'min_day_width',
+      'start',
       'weekend_background_color',
       'today_background_color',
       'cell_event_font_size',
       'cell_time_font_size',
     ];
     expect(own(buildConfig({ view: 'month' }))).toEqual(always);
+    // Weeks Shown only from the start date's week: a calendar month always draws six.
+    expect(own(buildConfig({ view: 'month', month: { weeks: 4 } }))).toEqual(always);
+    expect(own(buildConfig({ view: 'month', month: { start: 'week' } }))).toEqual([
+      ...always.slice(0, 4),
+      'weeks',
+      ...always.slice(4),
+    ]);
     // Month's, and nobody else's: the block is read only where Month is the view.
     expect(own(buildConfig({ view: 'grid', month: { min_day_width: 90 } }))).toEqual([]);
   });
@@ -1996,7 +2006,6 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       card_height: 'height_mode',
       card_max_height: 'height_mode',
-      day_tap_action: 'day_tap_action_mode',
       filter_duplicates: 'filter_duplicates_mode',
     };
 
@@ -2876,6 +2885,7 @@ describe('editor: the Card & Header panel', () => {
         'reset',
         'refresh',
         'search',
+        'overlay',
         'navigation',
         'view_switcher_layouts',
         'size',
@@ -2888,6 +2898,19 @@ describe('editor: the Card & Header panel', () => {
     }
   });
 });
+
+/** The full-size card's toolbar controls, built under `overlay.toolbar` while it is shown. */
+const FULL_SIZE_CONTROLS = [
+  'legend',
+  'add_event',
+  'view_switcher',
+  'reset',
+  'refresh',
+  'search',
+  'navigation',
+  'view_switcher_layouts',
+  'size',
+];
 
 describe('editor: the Actions & Refresh panel', () => {
   function namesIn(config: Types.Config): string[] {
@@ -2906,18 +2929,26 @@ describe('editor: the Actions & Refresh panel', () => {
   /**
    * Pinned by value, both states. The event tap follows the hold rather than the tap it is
    * named after, the dialog's two switches sit directly under the dropdown that reveals
-   * them, and the refresh pair closes the panel. No headings: a split between card and
-   * event taps would misfile the hold, which runs on events too.
+   * them, then what the overlay opens with (drawn on the Full-Size Settings page), and the refresh
+   * pair closes the panel. No
+   * headings: a split between card and event taps would misfile the hold, which runs on events
+   * too.
    */
   it('orders the gestures card, day, event, then refresh, with the dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
+      'days_to_show',
+      'toolbar',
+      'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2927,10 +2958,16 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(withEventTap('none'))).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'open_links',
+      'overlay',
+      'view',
+      'days_to_show',
+      'toolbar',
+      'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2968,11 +3005,17 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(withEventTap('details'))).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
+      'days_to_show',
+      'toolbar',
+      'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2986,11 +3029,17 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(config)).toEqual([
       'tap_action',
       'hold_action',
-      'day_tap_action_mode',
+      'day_tap_action',
       'event_tap_action',
       'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
+      'overlay',
+      'view',
+      'days_to_show',
+      'toolbar',
+      'show',
+      ...FULL_SIZE_CONTROLS,
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -3786,6 +3835,7 @@ describe('editor: per-calendar settings', () => {
         'label',
         'label_icon_color',
         'label_icon_source',
+        'label_image_size',
         'label_image_source',
         'label_type',
         'location_icon',
@@ -5248,7 +5298,6 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
-      'day_tap_action_mode',
       'filter_duplicates_mode',
       'height_mode',
       'language_mode',

@@ -245,6 +245,8 @@ export const LIST_OVERRIDE_KEYS = [
   'compact_days_to_show',
   'compact_events_to_show',
   'compact_events_complete_days',
+  'compact_card_height',
+  'compact_card_max_height',
   'event_order',
   'skip_first_events',
   'date_vertical_alignment',
@@ -403,14 +405,17 @@ export const MONTH_OVERRIDE_KEYS = [
 
 /**
  * Month-only options: the whole card's height and its cap in the narrow form, the day width below
- * which the narrow form draws, the weekend's and today's tints, which are Grid's, and the font
- * sizes of the wide month's days. The wide form's pair is the card's own `card_height` and
- * `card_max_height`, which `month:` overrides like any other layout's block.
+ * which the narrow form draws, which week the first row is and how many weeks follow it, the
+ * weekend's and today's tints, which are Grid's, and the font sizes of the wide month's days. The
+ * wide form's pair is the card's own `card_height` and `card_max_height`, which `month:` overrides
+ * like any other layout's block.
  */
 export const MONTH_ONLY_KEYS = [
   'narrow_card_height',
   'narrow_card_max_height',
   'min_day_width',
+  'start',
+  'weeks',
   'weekend_background_color',
   'today_background_color',
   'cell_event_font_size',
@@ -560,6 +565,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_to_show: new Set<Types.EffectiveView>(['list']),
   compact_days_to_show: new Set<Types.EffectiveView>(['list']),
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
+  // A compact card's height, which only a List card that can fold has.
+  compact_card_height: new Set<Types.EffectiveView>(['list']),
+  compact_card_max_height: new Set<Types.EffectiveView>(['list']),
   // A column reads left to right and a grid down its hours; both keep time running forward.
   event_order: new Set<Types.EffectiveView>(['list']),
   // A column or grid shows its days whatever their events, so a skip would leave holes rather
@@ -1260,6 +1268,15 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
 }
 
 /**
+ * Week rows a calendar month draws (`month → start: month`): enough for any month, however its
+ * first day falls. Also the most `month → weeks` draws.
+ */
+export const MONTH_ROWS = 6;
+
+/** Days a calendar month draws. */
+export const MONTH_DAYS = MONTH_ROWS * 7;
+
+/**
  * Defaults for month-only options.
  *
  * The narrow form's heights, `narrow_card_height` and `narrow_card_max_height`, have no default
@@ -1282,9 +1299,14 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
  * geometry is scaled from the 12px title (`.month-line`), and the month's dates, weekday names and
  * week numbers from it too ({@link MONTH_DEFAULT_OVERRIDES}). A day's list and the panel keep
  * `event_font_size` and `time_font_size`.
+ *
+ * `start` is `month`, the week of the 1st, so a month shows a calendar month; `weeks` is read only
+ * under `start: week` ({@link monthWeekRows}), and its default draws the six a month draws.
  */
 export const MONTH_DEFAULTS = {
   min_day_width: 80,
+  start: 'month',
+  weeks: MONTH_ROWS,
   weekend_background_color: TIME_GRID_DEFAULTS.weekend_background_color,
   today_background_color: TIME_GRID_DEFAULTS.today_background_color,
   cell_event_font_size: '12px',
@@ -1294,8 +1316,11 @@ export const MONTH_DEFAULTS = {
 /**
  * Value type a month-only option resolves to, derived from {@link MONTH_DEFAULTS}.
  */
-type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
-  (typeof MONTH_DEFAULTS)[K] extends number ? number : string;
+type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> = K extends 'start'
+  ? Types.MonthStart
+  : (typeof MONTH_DEFAULTS)[K] extends number
+    ? number
+    : string;
 
 /**
  * Normalizes a month-only option to a usable value of its declared type.
@@ -1304,8 +1329,10 @@ type MonthOptionValue<K extends keyof typeof MONTH_DEFAULTS> =
  * length accepts a bare number from YAML or the editor's text field and gains `px`, for the
  * reason {@link normalizeColumnValue} gives. The card's height and cap take `auto` and `none` as
  * well, and fold anything else that is not a length to them. `min_day_width` is a width above
- * zero. The two tints take any string, as Grid's do ({@link normalizeTimeGridValue}), and the two
- * cell sizes any font size the card's own take.
+ * zero. `start` is `week` or `month`, anything else `month`; `weeks` a whole number from 1 to 6,
+ * rounded and held there, and anything that is no number 6. The two tints take any string, as
+ * Grid's do ({@link normalizeTimeGridValue}), and the two cell sizes any font size the card's own
+ * take.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -1316,6 +1343,17 @@ export function normalizeMonthValue(
   value: unknown,
 ): string | number {
   const fallback = MONTH_DEFAULTS[key];
+
+  if (key === 'start') {
+    return value === 'week' ? 'week' : 'month';
+  }
+
+  if (key === 'weeks') {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed)
+      ? Math.min(MONTH_ROWS, Math.max(1, Math.round(parsed)))
+      : MONTH_DEFAULTS.weeks;
+  }
 
   if (typeof fallback === 'number') {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
@@ -1362,7 +1400,7 @@ export function resolveMonthOption<K extends keyof typeof MONTH_DEFAULTS>(
     ) as MonthOptionValue<K>;
   }
 
-  return MONTH_DEFAULTS[key] as MonthOptionValue<K>;
+  return MONTH_DEFAULTS[key] as unknown as MonthOptionValue<K>;
 }
 
 /** The two forms a month draws: its weeks at full width, or the narrow form with a day list. */
@@ -1438,6 +1476,55 @@ export function monthSetsCardSize(config: Types.Config): boolean {
     const { height, max } = resolveCardSize(config, 'month', form);
     return height !== 'auto' || max !== 'none';
   });
+}
+
+/**
+ * The whole height a List card is drawn at while it is compact, and its cap.
+ *
+ * `compact_card_height` and `compact_card_max_height`, from the `list:` block or the top level,
+ * each taking the card's own as List resolves it ({@link resolveCardSize}) while unset. A value
+ * written as nothing, or as something no card height can be, counts as unset at its level, so an
+ * unusable line in `list:` falls back to the top level's. An explicit `auto` or `none` is a value:
+ * it keeps the card's own out, as Month's narrow pair does. Expanded, or in any other layout, the
+ * card's own pair applies, which the caller decides.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The height and the cap the compact card is drawn at
+ */
+export function resolveCompactCardSize(config: Types.Config): CardSize {
+  const card = resolveCardSize(config, 'list');
+  const block = blockValues(config, 'list') as Types.ListOverrides | undefined;
+  const own = (
+    key: 'compact_card_height' | 'compact_card_max_height',
+    valid: (value: unknown) => string | undefined,
+  ): string | undefined => valid(block?.[key]) ?? valid(config[key]);
+
+  return {
+    height: own('compact_card_height', toValidCardHeight) ?? card.height,
+    max: own('compact_card_max_height', toValidCardMaxHeight) ?? card.max,
+  };
+}
+
+/**
+ * Whether the compact heights draw the card at another size than its own: a List card outside a
+ * Sections slot, whose compact pair resolves to a height or a cap the card's own pair does not.
+ * Then the card can fold by its height alone, and `expand` has something to do without an event
+ * or a day limit. A slot's rows win over both pairs, so in one nothing would change.
+ *
+ * @param config - Merged configuration
+ * @param view - The layout drawn
+ * @param holdsSlot - Whether a Sections dashboard gives the card a slot of its own
+ * @returns `true` where compact and expanded heights differ
+ */
+export function compactHeightsApply(
+  config: Types.Config,
+  view: Types.EffectiveView,
+  holdsSlot: boolean,
+): boolean {
+  if (holdsSlot || !viewAppliesCompactLimits(view)) return false;
+  const card = resolveCardSize(config, 'list');
+  const compact = resolveCompactCardSize(config);
+  return compact.height !== card.height || compact.max !== card.max;
 }
 
 /**
@@ -2441,6 +2528,29 @@ export const LAYOUT_WEATHER_BASE: Readonly<Types.WeatherPresentationConfig> = {
   event: DEFAULT_CONFIG.weather?.event,
   position: 'none',
 };
+
+/**
+ * Which layouts read an option of a layout's own `weather:`, by its path there, where not every
+ * layout that draws that part does. An absent path is read wherever its part is drawn.
+ *
+ * Columns and Grid always give an event's forecast a line of its own, which List does only when
+ * asked, and Month keeps it beside the title. Written into another layout's block, `own_line`
+ * does nothing, and the editor offers it nowhere else.
+ */
+export const WEATHER_OPTION_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  'event.own_line': new Set<Types.EffectiveView>(['list']),
+};
+
+/**
+ * Whether a layout reads an option of its own `weather:` ({@link WEATHER_OPTION_SCOPE}).
+ *
+ * @param path - The option's path under `weather`, such as `event.own_line`
+ * @param view - The layout
+ * @returns `true` unless its scope leaves the layout out
+ */
+export function readsWeatherOption(path: string, view: Types.EffectiveView): boolean {
+  return WEATHER_OPTION_SCOPE[path]?.has(view) ?? true;
+}
 
 /** The last answers of {@link resolveViewWeather}, by configuration, then by view. */
 const viewWeathers = new WeakMap<
@@ -3531,7 +3641,7 @@ export function reachableViews(config: Types.Config): ReadonlyArray<Types.Effect
 
 /**
  * The longest `days_to_show` among the views the card can show that draw a count of days:
- * every view but month, which draws its six weeks whatever the count says. A card that can show
+ * every view but month, which draws its weeks whatever the count says. A card that can show
  * month alone draws no count, and this is its top-level `days_to_show`.
  *
  * Each of those views then draws a prefix of one load, which is why switching views never
@@ -3547,12 +3657,6 @@ export function loadedDaysToShow(config: Types.Config): number {
   if (counted.length === 0) return config.days_to_show;
   return Math.max(...counted.map((view) => resolveViewOption(config, 'days_to_show', view)));
 }
-
-/** Week rows a month grid always draws: enough for any month, however its first day falls. */
-export const MONTH_ROWS = 6;
-
-/** Days a month grid always draws. */
-export const MONTH_DAYS = MONTH_ROWS * 7;
 
 /**
  * The first day of the week row holding a day: that day, or the last first weekday before it.
@@ -3582,6 +3686,53 @@ export function monthHomeRowsStart(day: Date, firstDayOfWeek: number): Date {
 }
 
 /**
+ * Whether a month's first row is the week holding its start date (`month → start: week`), so it
+ * shows the coming weeks and pages by them, rather than the week of the 1st of a calendar month.
+ *
+ * @param config - Configuration holding the `month:` block, merged or resolved for month
+ * @returns True under `start: week`
+ */
+export function monthStartsAtWeek(config: Types.Config): boolean {
+  return resolveMonthOption(config, 'start') === 'week';
+}
+
+/**
+ * The week rows a month page draws: six for a calendar month, enough for any month, or
+ * `month → weeks` from the week holding the start date.
+ *
+ * @param config - Configuration holding the `month:` block, merged or resolved for month
+ * @returns The rows, 1 to 6
+ */
+export function monthWeekRows(config: Types.Config): number {
+  return monthStartsAtWeek(config) ? resolveMonthOption(config, 'weeks') : MONTH_ROWS;
+}
+
+/**
+ * The days a month page draws: its rows' (`monthWeekRows`).
+ *
+ * @param config - Configuration holding the `month:` block, merged or resolved for month
+ * @returns The days, a multiple of seven
+ */
+export function monthPageDays(config: Types.Config): number {
+  return monthWeekRows(config) * 7;
+}
+
+/**
+ * The first day of the month page a day opens: the week holding the 1st of its month
+ * ({@link monthHomeRowsStart}), or under `start: week` the week holding the day itself.
+ *
+ * @param day - The day, such as Month's home day ({@link monthHomeDay}) or a page's key
+ * @param config - Configuration holding the `month:` block
+ * @param firstDayOfWeek - First day of the week, 0 for Sunday
+ * @returns The page's first day, at local midnight
+ */
+export function monthPageRowsStart(day: Date, config: Types.Config, firstDayOfWeek: number): Date {
+  return monthStartsAtWeek(config)
+    ? monthRowsStart(day, firstDayOfWeek)
+    : monthHomeRowsStart(day, firstDayOfWeek);
+}
+
+/**
  * Whether Month opens today's month whatever day `start_date` resolves to: for no start date, and
  * for Tomorrow and Start of Week, as the editor reads them (`startDateShortcut`).
  *
@@ -3604,7 +3755,7 @@ export function monthOpensToday(startDate: string | undefined): boolean {
  * The day Month's home is the month of: the resolved start date, a fixed date or one relative to
  * today alike, so on November 20 `today+30` opens December and `today-29` October, as the other
  * layouts start on that day. Today, where `start_date` is unset, Tomorrow or Start of Week
- * (`monthOpensToday`).
+ * (`monthOpensToday`). Under `month → start: week` the home's first row is this day's week.
  *
  * The day is also what a narrow month selects at home, where `hide_when_empty` starts counting,
  * and what the add button suggests. The other layouts' windows are untouched; a card that can
@@ -3639,15 +3790,18 @@ export function reachesMonth(config: Types.Config): boolean {
  * fetch-side trim, the card's instance id and `hasConfigChanged` — so handing them this config
  * is what makes them load for every view at once, without any of them learning about views.
  *
- * Where month is reachable, the load also covers the month's six weeks: at home the weeks of
+ * Where month is reachable, the load also covers the month's weeks: at home the weeks of
  * Month's home month (`monthHomeDay`: the start date's, or today's), on a page the weeks of the
  * month holding the page's first day, which is the month Month draws for that page, whichever
- * layout asked for it. So a layout switch that carries a page's day lands on this same load. The
+ * layout asked for it. Under `month → start: week` the weeks start at the week holding that day
+ * instead, and there are `month → weeks` of them (`monthPageRowsStart`, `monthPageDays`). So a
+ * layout switch that carries a page's day lands on this same load. The
  * other reachable views keep their window from the resolved start. The result names the union of
  * the two by a concrete date and its length,
  * `start_date` as `YYYY-MM-DD`, so the request holds the weeks exactly. A page's identity and
  * cache key follow from it; home's are named by the window as configured (`loadIdentity`), so
- * they stay put while the union moves with the month and the other views' end. All of it is
+ * they stay put while the union moves with the month and the other views' end, and name the
+ * weeks under `start: week`, which draws other days from the same window. All of it is
  * counted in local calendar days.
  *
  * Never draw from it: its top-level `start_date` and `days_to_show` are the load, not any
@@ -3674,13 +3828,15 @@ export function loadConfig(
   }
 
   const window = getTimeWindow(days, config.start_date, firstDayOfWeek, now);
-  const rows = monthHomeRowsStart(
+  const rows = monthPageRowsStart(
     home ? monthHomeDay(window.start, monthOpensToday(config.start_date), now) : window.start,
+    config,
     firstDayOfWeek,
   );
   const others = views.some((view) => view !== 'month');
+  const pageDays = monthPageDays(config);
 
-  const rowsEnd = addDays(rows, MONTH_DAYS);
+  const rowsEnd = addDays(rows, pageDays);
   const from = others && calendarDayDiff(window.start, rows) > 0 ? window.start : rows;
   const until = others && calendarDayDiff(rowsEnd, window.end) > 0 ? window.end : rowsEnd;
 
@@ -3690,10 +3846,11 @@ export function loadConfig(
     days_to_show: calendarDayDiff(from, until),
   };
   if (home) {
+    const weeks = monthStartsAtWeek(config) ? `_weeks${monthWeekRows(config)}` : '';
     loadIdentities.set(load, {
       startDate: config.start_date,
-      days: others ? days : MONTH_DAYS,
-      variant: `_month${others ? '' : 'only'}${firstDayOfWeek}`,
+      days: others ? days : pageDays,
+      variant: `_month${others ? '' : 'only'}${firstDayOfWeek}${weeks}`,
     });
   }
   return load;

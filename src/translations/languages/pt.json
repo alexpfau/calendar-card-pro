@@ -21,6 +21,7 @@
   "viewMonth": "Mês",
   "layout": "Disposição",
   "layoutCurrent": "Disposição: {view}",
+  "openFullSize": "Abrir em tamanho completo",
   "moreEvents": "+{count} a mais",
   "eventCount": "{count} eventos",
   "eventCountOne": "{count} evento",

@@ -17,6 +17,7 @@
   "viewMonth": "Hónap",
   "layout": "Elrendezés",
   "layoutCurrent": "Elrendezés: {view}",
+  "openFullSize": "Megnyitás teljes méretben",
   "moreEvents": "+{count} további",
   "eventCount": "{count} esemény",
   "eventCountOne": "{count} esemény",

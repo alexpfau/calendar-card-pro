@@ -504,12 +504,14 @@ describe('what each button is named', () => {
     ['refresh', '.refresh-button'],
     ['add-event', '.add-event-button'],
     ['reset', '.reset-button'],
+    ['overlay', '.overlay-button'],
   ])(
     'is exactly what the card’s own %s button is named, with or without Home Assistant’s word',
     async (action, own) => {
       const toolbar: Types.ToolbarConfig = {
         show: true,
         reset: true,
+        overlay: true,
         legend: false,
         view_switcher: false,
       };

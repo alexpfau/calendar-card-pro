@@ -175,7 +175,10 @@ export function renderMainCardStructure(
      * a new event; anywhere else the card binds none, so a touch never waits on it.
      */
     touchMove?: EventListenerObject;
-    /** Refuses the `touchend` of a finger that just opened the popover; see the card. */
+    /**
+     * Hears every `touchend` on the card, which ends the ripple's press, and refuses the lifting
+     * finger's while it opens the popover; see the card.
+     */
     touchEnd?: (ev: TouchEvent) => void;
     /**
      * Refuses the browser's own text selection and drag while a press may move an event,
@@ -938,14 +941,14 @@ function renderEventButton(
 }
 
 /**
- * A list day's date, inside the button that adds an event on the day while a tap on a day
- * does.
+ * A list day's date, inside the button that runs `day_tap_action` on the day while a tap on a
+ * day runs something.
  *
- * Not the cell, for the reason `renderEventButton` gives. The button is named by Home
- * Assistant's own "Add event" and described by the date, which carries the day's id while the
- * button is drawn: an id on the cell would describe each of the day's events by the button's
- * name instead of by its date. Drawn only while day taps are on, which leaves the default
- * markup exactly as it was.
+ * Not the cell, for the reason `renderEventButton` gives. Where the button adds an event, it is
+ * named by Home Assistant's own "Add event" and described by the date; where it runs another
+ * action, the date names it. The date carries the day's id while the button is drawn: an id on
+ * the cell would describe each of the day's events by the button's name instead of by its date.
+ * Drawn only while day taps are on, which leaves the default markup exactly as it was.
  *
  * @param content - The day's rendered date
  * @param timestamp - The day's local midnight
@@ -964,8 +967,8 @@ function renderDayAddButton(
     class="day-add-button"
     role="button"
     tabindex="0"
-    aria-label=${dayAdd.label}
-    aria-describedby=${dayLabelId ?? nothing}
+    aria-label=${dayAdd.label ?? nothing}
+    aria-describedby=${dayAdd.label ? (dayLabelId ?? nothing) : nothing}
     .calendarCardDayAdd=${timestamp}
   >
     <div class="day-add-date" id=${dayLabelId ?? nothing}>${content}</div>
@@ -1061,6 +1064,12 @@ function renderEvent(
         ${renderEventButton(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
+            // `weather.event.own_line`: the forecast under the time, as Columns and Grid draw it,
+            // which needs Home Assistant for the condition's words. Off, the row is the markup
+            // List always drew.
+            ...(config.weather?.event?.own_line === true
+              ? { weatherPlacement: 'row' as const, hass }
+              : {}),
             links: Presentation.rowLinksOn(config),
             timePosition: Helpers.resolveTimePosition(config.time_position),
           }),

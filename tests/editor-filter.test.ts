@@ -15,6 +15,7 @@ import {
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import {
   ENTRY_GROUPS,
+  FULL_SIZE_PAGES,
   type HeadingDef,
   PAGES,
   WHOLE_CARD_PAGES,
@@ -324,8 +325,8 @@ describe('editor filter: the chassis', () => {
   it('shows results in place of the page rows', async () => {
     const { element, panels, rows } = await mount({ entities: ['calendar.a'] });
 
-    // A row per Whole Card page before; a row per result after, and no page row.
-    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size);
+    // A row per Whole Card page and Full Size's before; a row per result after, and no page row.
+    expect(rows()).toHaveLength(WHOLE_CARD_PAGES.size + FULL_SIZE_PAGES.size);
 
     await changeField(element, `filter:${SEARCH_FIELD}`, 'week');
 
@@ -427,6 +428,7 @@ describe('editor filter: section headings', () => {
       'reset',
       'refresh',
       'search',
+      'overlay',
       'navigation',
       'view_switcher_layouts',
       'size',
@@ -502,6 +504,7 @@ describe('editor: the order of the two panels', () => {
       'label_image_source',
       'label',
       'label_icon_color',
+      'label_image_size',
       'color',
       'text_scale',
       '# heading.who_sees_it',

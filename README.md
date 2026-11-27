@@ -215,6 +215,8 @@ entities:
 days_to_show: 3
 show_location: false
 show_month: false
+tap_action:
+  action: overlay
 ```
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
@@ -229,7 +231,15 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v6.0
+### Latest Release: v6.1
+
+- 🖥️ **The Card, Full Size**: [`tap_action: { action: overlay }`](https://calendar-card-pro.alexpfau.com/features/actions#opening-the-card-full-size) or the toolbar's [Open Full Size button](https://calendar-card-pro.alexpfau.com/features/header-toolbar#opening-the-card-full-size) opens a small card full size over the dashboard, in Grid on a week where it fits, with every layout a press away
+- ⏩ **Month Shows the Coming Weeks**: [`month: { start: week }`](https://calendar-card-pro.alexpfau.com/features/month-view#the-coming-weeks) starts Month on this week rather than the week of the 1st, for as many weeks as you choose
+- 📏 **A Height for a Compact List**: [`compact_card_height`](https://calendar-card-pro.alexpfau.com/features/list-view#compact-expanded-heights) keeps a folded list card at a size of its own, and lets it fill the screen once expanded
+- 🏷️ **Larger Pictures & Labels of Several Parts**: [`label_image_size`](https://calendar-card-pro.alexpfau.com/features/core-settings#sizing-a-picture-label) draws a face larger, and [`label` as a list](https://calendar-card-pro.alexpfau.com/features/core-settings#combining-a-picture-an-icon-text) puts a face and an icon before one event
+- 👆 **A Tap on a Day Runs Your Own Action**: [`day_tap_action`](https://calendar-card-pro.alexpfau.com/features/actions#running-another-action-from-a-day) takes Home Assistant's own actions, with the day you tapped filled in. ⚠️ A `day_tap_action` that already held one now runs it
+
+### v6.0
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide_dark.png"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/showcase_month_wide.png" alt="A wide Month card for October 2026: six weeks, a vacation, a business trip and a weekend at the lake as bars across their days, the rest as lines with their start time, and +3 more where a day is full" width="600"></picture>
 
@@ -262,17 +272,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - ⚠️ **Titles Beside the Time Wrap**: A long title beside the time ([`time_position: title`](https://calendar-card-pro.alexpfau.com/features/event-content#time-beside-the-title)) now wraps instead of scrolling; `title_max_lines: 1` keeps it on one line
 - 🐛 **Dates & Scripts in Every Language**: The end of a multi-day event reads the way each language writes a date, which changes it in 36 of the card's 38 languages, and Thai, Vietnamese and other scripts no longer lose the marks above and below their letters in events, chips and the month
 - 🐛 **Older iPhones & iPads**: Safari 16.4 and 16.5 no longer crash on a tinted event, and Safari before 16.2 draws the colors it had lost; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which versions run the card
-
-### v5.1
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600">
-
-- 💬 **The Card's Own Event Popover**: A tapped event can open [in a popover of the card's own](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover), beside it or as a sheet on a phone, where you change it in place, move it to another calendar or delete it, as far as [its calendar allows](https://calendar-card-pro.alexpfau.com/features/actions#what-each-integration-allows). ⚠️ It replaces Home Assistant's dialog, and a few other things change on existing cards; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) list them
-- ✍️ **Tap, Draw & Drag**: [Tap a day](https://calendar-card-pro.alexpfau.com/features/actions#tapping-a-day-to-add-an-event) to add an event there, [draw one](https://calendar-card-pro.alexpfau.com/features/actions#drawing-an-event-in-grid-view) across the hours it covers in grid view, or [drag a timed one](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag) to another time or day
-- 🔍 **Search & Swipe**: [Search the card's events](https://calendar-card-pro.alexpfau.com/features/header-toolbar#searching-the-card) a year back and ahead from the toolbar, and [swipe](https://calendar-card-pro.alexpfau.com/features/header-toolbar#paging-through-dates) through the days
-- 📡 **Live Updates**: On Home Assistant 2026.5 or later, [a changed event shows on every open dashboard](https://calendar-card-pro.alexpfau.com/features/performance#live-updates) as soon as Home Assistant knows of it, with no polling
-- 🧰 **Your Own Toolbar Buttons**: [Buttons of your own](https://calendar-card-pro.alexpfau.com/features/header-toolbar#your-own-buttons), each an icon and an action, folding into one menu on a narrow card
-- 🐛 **Back on Android 7 Wall Panels**: The card no longer crashes Chromium 119, as in the Shelly Wall Display, or times out headless screenshot add-ons; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) lists the versions it runs on
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 

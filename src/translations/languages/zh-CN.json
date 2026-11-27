@@ -26,6 +26,7 @@
   "viewMonth": "月",
   "layout": "布局",
   "layoutCurrent": "布局：{view}",
+  "openFullSize": "放大查看",
   "moreEvents": "还有 {count} 项",
   "eventCount": "{count} 项活动",
   "eventCountOne": "{count} 项活动",

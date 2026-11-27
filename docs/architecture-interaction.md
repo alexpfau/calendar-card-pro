@@ -43,10 +43,10 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
   While a tap on a day adds, each day's date or header is a button named by Home Assistant's "Add
   event". In Home Assistant's `preview` and `editMode`, events are not tap targets and the
   functions that open the popover refuse.
-- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven
+- **A month's grid.** `role="grid"`, a row of column headers, and six rows of seven, or `month → weeks` rows under `start: week`,
   `role="gridcell"` days, each named for the day and its events' count (`monthCellName`), one of
   them the tab stop (`_monthTabStop`: the day the keys or a tap last moved to, else the narrow
-  selection, else today, else the header month's 1st). The arrows move a day or a week, mirrored
+  selection, else today, else the header month's 1st, or the page's first day under `start: week`). The arrows move a day or a week, mirrored
   reading right to left, Home and End to the week's ends, Page Up and Page Down to the month either
   side of the one the heading names, always paging, since the rows draw days of both; a day off
   the rows pages there where the card pages, and focus follows once the page is drawn
@@ -91,16 +91,42 @@ The recognizer lives in the card's pointer handlers (`_handlePointerDown`, `_han
 ## 🎬 Actions
 
 - **Card actions.** `handleAction` in `actions.ts` runs `tap_action` and `hold_action`: the card's
-  own `expand`, `refresh`, `add-event`, `reset` and `back` through callbacks handed in per press,
-  and everything else through `fireHassAction`, with the card's first calendar as the entity.
+  own `expand`, `refresh`, `add-event`, `reset`, `overlay` and `back` through callbacks handed in
+  per press, and everything else through `fireHassAction`, with the card's first calendar as the
+  entity.
+- **The overlay.** `overlay` dispatches `show-dialog` for `rendering/overlay.ts`, a dialog holding a
+  second card built from `config/overlay.ts` › `overlayConfig` and opened on `_dateInView`
+  (`openOn`). That card carries `overlayFrame`: it fills the dialog as a Sections slot would
+  (`_holdsSectionsSlot`), draws Close, closes the overlay for `back`, and keeps
+  `_configFingerprint` null, so it reads and writes no device choice. Its config takes the
+  `overlay` action out, so it never opens another. The dialog's guard on the page behind hears the
+  paging keys after the card (`_pagingKeysFirst`), or Month's arrows would be refused. The dialog
+  hands the card its width before the card's first render (`fitToWidth`, from `_position`), since
+  the card is drawn in plain view as the dialog grows: waiting out `WIDTH_SETTLE_DELAY`, as a
+  dashboard's card does, drew a phone's Grid on its configured days for six frames first. A narrow
+  month's list there lists every row and scrolls them (`_monthListScrolls`), with no staged copy
+  and no fit, since nothing outside the overlay scrolls for it to fight; a pill counts the rows
+  below its rest line (`_countMonthListBelow`). A full-screen overlay pads the device's safe areas
+  but the foot, which it hands the card as `--calendar-card-safe-area-bottom`: the card, marked
+  `in-overlay`, keeps the larger of its own foot room and the home indicator's, and a scrolling
+  list runs under the indicator with that room inside its scroll.
 - **Event actions** never reach `handleAction`. `eventActionKind` reads one as `details`, a Home
   Assistant action, or nothing (the card's own actions act on the whole card, so they count as
   nothing here). `_runEventAction` opens the popover or forwards the filled action under the
   event's own calendar.
-- **Day taps.** `_addEventAt` opens the popover on a new event, as the add button does.
+- **Day taps.** `dayActionKind` reads `day_tap_action` as `add`, a Home Assistant action, or
+  nothing, as `eventActionKind` reads an event's. `_runDayTap` runs both through one path, from a
+  press, a day's button or the day panel's title: `_addEventAt` opens the popover on a new event,
+  as the add button does, and a Home Assistant action is forwarded filled under the first calendar
+  the card shows (`handleDayAction`). Only `add` draws in a grid (`_dayTapsAdd`) and names a day's
+  button "Add event"; another action leaves the button named by its date.
 
 `eventFields` reads the event from `_source`, not the row, with the calendar's text replacement
 applied, and `fillEventAction` fills `{title}`, `{start}` and the rest into the action's strings.
+`dayFields` takes the span `add-event` would open with where the press landed
+(`newEventTimesOn`), and `fillDayAction` fills `{date}`, `{start}`, `{end}` and `{all_day}`. Both
+fill through `actionFiller` (`action-fill.ts`), which holds the rules below; a day has no free
+text, so its fields fill anywhere.
 
 ::: warning Event Text Is Untrusted
 Whoever wrote the event chose its title, location and description, so they fill only the payload
@@ -112,8 +138,11 @@ too.
 :::
 
 The ripple is an `<ha-ripple>` in the card; a press on an event or a day marks `ha-card`
-(`data-own-press`) to mute it. `feedback.ts` draws the hold indicator and records where a press was
-(`PressOrigin`), for the popover to open at.
+(`data-own-press`) to mute it. The ripple ends a press on the `touchend` or `click` that follows the
+lift, and a render under the press, such as a swipe paging to days already loaded, can take away the
+node those events are sent to; `ripple-release.ts` then sends `ha-card` the `touchend` itself.
+`feedback.ts` draws the hold indicator and records where a press was (`PressOrigin`), for the
+popover to open at.
 
 ## 🪟 The Event Popover
 

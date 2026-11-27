@@ -26,9 +26,14 @@
  * whole row and the time takes a line of its own below it (`"below"`), as it does without a limit
  * where it does not fit. The rules under TIME BESIDE THE TITLE in styles.ts draw each state.
  *
- * Every row is read before any is written: the time once, then a capped row's lines with the room
- * in place, then where the clamp put the last line of a row cut beside the time. A card lays out
- * at most three times however many rows it has.
+ * The time is placed by the end of the title's last line, which puts it on the title's baseline
+ * on a line of the title's own height. A picture label taller than that line, as
+ * `label_image_size` draws one, makes the line it leads taller, with the title in its middle, so
+ * where the time shares that line the card lifts it by as much as it sat below the title.
+ *
+ * Every row is read before any is written: the time once, then with the room in place a capped
+ * row's lines and where a time shares a taller picture's line, then where the clamp put the last
+ * line of a row cut beside the time. A card lays out at most three times however many rows it has.
  */
 
 /** The attribute that marks a row whose room has been sized to its time, with its direction. */
@@ -51,6 +56,8 @@ export const TITLE_FIT_PROPERTIES = {
   end: '--calendar-card-title-cut-end',
   /** Cut below the title: the room under it for the time and the padding. */
   below: '--calendar-card-title-cut-below',
+  /** How far above the end of its line the time is placed, where that line is a picture's. */
+  lift: '--calendar-card-title-room-lift',
 } as const;
 
 /** The gap the room keeps before the time, where the row does not say. */
@@ -133,6 +140,35 @@ interface Capped extends Parts {
   /** The width of the title's lines, and the gap the room keeps before the time. */
   avail: number;
   gap: number;
+  /** Whether a picture label taller than the title's line leads the summary. */
+  tall: boolean;
+}
+
+/**
+ * How far to lift the time above the end of its line, read with the room in place and no lift:
+ * where the room shares the line a taller picture leads, how far the strut's text sits below the
+ * title's there. Both are at the title's size and the strut's baseline is the time's, so the lift
+ * puts the time on the title's baseline. A room on a later line, or on a line of its own, needs
+ * none.
+ *
+ * @returns The lift in CSS pixels, 0 for none
+ */
+function liftOf({ summary, aside, scale }: Capped): number {
+  const room = summary.querySelector(':scope > .title-room')?.getBoundingClientRect();
+  const picture = summary.querySelector(':scope > .label-image')?.getBoundingClientRect();
+  const strut = aside.querySelector(':scope > .title-strut');
+  const title = Array.from(summary.querySelector('.event-title')?.getClientRects() ?? []).filter(
+    (rect) => rect.width > 0,
+  );
+  const last = title[title.length - 1];
+  if (!room || !picture || !strut || !last) return 0;
+  // A room starting below the picture's middle is on a later line than the picture.
+  if (room.top >= (picture.top + picture.bottom) / 2) return 0;
+  // The strut's text, as the title's rects are its text: the strut is a flex item, a block, and
+  // WebKit puts half its leading above the text where Chromium puts none.
+  const range = strut.ownerDocument.createRange();
+  range.selectNodeContents(strut);
+  return Math.max(0, (range.getBoundingClientRect().top - last.top) / scale);
 }
 
 /**
@@ -180,7 +216,9 @@ function cutOf(capped: Capped, maxLines: number): '' | 'below' | null {
  * Beside the time where the time leaves the title a line and room on it for a letter or two and
  * its "…", so the row keeps to the limit, as one line does with a limit of one. Below the title
  * otherwise, which is where a time wider than the row, or taller than the limit, goes: the row
- * cannot keep to the limit then, and the title is cut only where it alone needs more.
+ * cannot keep to the limit then, and the title is cut only where it alone needs more. A time that
+ * ends a line a taller picture leads, where nothing cuts the row, is lifted onto the title's
+ * baseline (`liftOf`).
  *
  * A row a hidden card has not laid out loses what it was measured at, so it shows the time below
  * the title rather than over a room sized to a time that may have changed since; the card
@@ -217,15 +255,18 @@ export function fitTitlesBesideTime(rows: Iterable<HTMLElement>, maxLines: numbe
     // wide as the line gives it one of its own.
     const strut = aside.querySelector(':scope > .title-strut')?.getBoundingClientRect();
     const sunk = !!strut && (strut.top - time.top) / scale > 0.5;
+    const lineHeight = px(style.lineHeight);
+    const picture = summary.querySelector(':scope > .label-image')?.getBoundingClientRect();
     return [
       {
         ...parts,
-        lineHeight: px(style.lineHeight),
+        lineHeight,
         pad: px(style.paddingBottom),
         width: sunk ? avail : time.width / scale,
         height: time.height / scale,
         avail,
         gap: Number.isFinite(gap) ? gap : DEFAULT_GAP,
+        tall: !!picture && picture.height / scale > lineHeight,
       },
     ];
   });
@@ -236,14 +277,23 @@ export function fitTitlesBesideTime(rows: Iterable<HTMLElement>, maxLines: numbe
     row.style.setProperty(TITLE_FIT_PROPERTIES.width, `${width}px`);
     row.style.setProperty(TITLE_FIT_PROPERTIES.height, `${height}px`);
     row.style.setProperty(TITLE_FIT_PROPERTIES.pad, `${pad}px`);
+    row.style.removeProperty(TITLE_FIT_PROPERTIES.lift);
+  }
+
+  // With every room in place, read in one pass: the cut a capped title needs, and otherwise the
+  // lift a time sharing a taller picture's line needs. A card with neither reads nothing more.
+  const placed = measured.flatMap((row) => {
+    const cut = capped && row.lineHeight > 0 ? cutOf(row, maxLines) : null;
+    const lift = cut === null && row.tall ? liftOf(row) : 0;
+    return cut === null && !lift ? [] : [{ ...row, cut, lift }];
+  });
+
+  for (const { row, lift } of placed) {
+    if (lift) row.style.setProperty(TITLE_FIT_PROPERTIES.lift, `${lift}px`);
   }
   if (!capped) return;
 
-  const cuts = measured.flatMap((row) => {
-    if (!(row.lineHeight > 0)) return [];
-    const cut = cutOf(row, maxLines);
-    return cut === null ? [] : [{ ...row, cut }];
-  });
+  const cuts = placed.flatMap(({ cut, ...row }) => (cut === null ? [] : [{ ...row, cut }]));
 
   for (const { row, cut, height, pad } of cuts) {
     row.setAttribute(TITLE_CUT, cut);

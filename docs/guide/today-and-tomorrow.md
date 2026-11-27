@@ -26,6 +26,7 @@ toolbar:
   show: true
   view_switcher: false
   legend: false
+  overlay: true
 day_tap_action:
   action: add-event
 entities:
@@ -75,7 +76,7 @@ Grid leaves locations off its blocks by default; the popover a tap opens shows t
 | Which Events › Hours · Size & Spacing · Event Appearance | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar`         | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event                                                                                           |
 | Which Events · Calendars                                 | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                         | A face and color per person; shared plans once, in gold                                                                                                                                |
 | Weather                                                  | `weather_entity`, `time_grid → weather`: `position: both`, `event.show_conditions: false`; `show_weather: false` on Work | The day's forecast over each column; the hour's icon and temperature in each timed event with room, but not beside Ben's meetings                                                      |
-| Card & Header › Toolbar                                  | `legend: false`, `view_switcher: false`                                                                                  | Add, refresh, paging by arrow or swipe, the date picker and search; no filter or layout switch                                                                                         |
+| Card & Header › Toolbar                                  | `legend: false`, `view_switcher: false`, `overlay: true`                                                                 | Add, refresh, paging by arrow or swipe, the date picker and search; no filter or layout switch; Open Full Size for the whole week                                                      |
 | Taps & Refresh                                           | `day_tap_action: add-event`                                                                                              | A tap on a free hour adds an event, and a hold dragged down draws it to its end; an event opens on a tap, editable and with Delete where the calendar allows, but not on a shared plan |
 
 ## 🔀 Adapt It

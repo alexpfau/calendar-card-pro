@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { fakeHass } from './helpers/editor-host';
+import { overlayConfig } from '../src/config/overlay';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 
@@ -297,6 +298,52 @@ describe('Pick From Preview', () => {
       editor.shadowRoot!.querySelectorAll('[data-composed="layouts"] input[type="checkbox"]'),
     ).toHaveLength(4);
     expect(said).toContain('Showing Card & Header › Toolbar.');
+  });
+
+  // On Full-Size Settings the preview draws the card as full size opens it, so a part of its
+  // toolbar opens the full-size card's own Toolbar, and a part full size takes from the card opens
+  // where it always does, under the layout full size opens in.
+  it('previews the card full size on Full-Size Settings, and opens its toolbar there', async () => {
+    const { editor, card } = await dialog();
+    // Configured, not redrawn, as above: the card keeps drawing its own toolbar.
+    const configure = vi.spyOn(card, 'setConfig').mockImplementation(() => undefined);
+    $(editor, '[data-focus="nav:full_size"]')!.click();
+    await settle(editor, card);
+    const last = () => configure.mock.calls[configure.mock.calls.length - 1]?.[0];
+    expect(last()).toEqual({ ...overlayConfig(CONFIG), view: 'grid' });
+    expect(text($(editor, '.scope-preview-text'))).toBe(
+      'Preview shows the full-size view, as wide as this dialog. Full size adds Close.',
+    );
+
+    pickButton(editor)!.click();
+    await settle(editor, card);
+    const said = listen(editor);
+    const switcher = card.shadowRoot!.querySelector(
+      '.view-switcher-collapsed .view-switcher-pill',
+    )!;
+    fire(switcher, 'pointermove', { pointerType: 'mouse' });
+    expect(card.shadowRoot!.querySelector('.ccp-pick-label')!.textContent).toBe(
+      'Full-Size Settings › Toolbar · Click to Edit',
+    );
+    fire(switcher, 'click');
+    await settle(editor, card);
+    expect($(editor, '.page')?.getAttribute('data-page')).toBe('full_size');
+    expect(
+      $(editor, '.page-group[data-heading="heading_toolbar"] .jump [data-field]')?.getAttribute(
+        'data-field',
+      ),
+    ).toBe('actions:overlay.toolbar.view_switcher_layouts');
+    expect(said).toContain('Showing Full-Size Settings › Toolbar.');
+
+    pickButton(editor)!.click();
+    await settle(editor, card);
+    fire(card.shadowRoot!.querySelector('.event-title')!, 'click');
+    await settle(editor, card);
+    expect($(editor, '.page')?.getAttribute('data-page')).toBe('events');
+    expect(text($(editor, '.page-sub'))).toBe('Grid');
+    // Off the page, the preview is the card as written again.
+    expect(last()).not.toHaveProperty('day_tap_action');
+    expect(last()).toMatchObject({ toolbar: CONFIG.toolbar });
   });
 
   it('opens a legend chip’s calendar on its own page', async () => {

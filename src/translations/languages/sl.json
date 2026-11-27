@@ -13,6 +13,7 @@
   "viewMonth": "Mesec",
   "layout": "Postavitev",
   "layoutCurrent": "Postavitev: {view}",
+  "openFullSize": "Odpri v polni velikosti",
   "moreEvents": "+{count} več",
   "eventCount": "Dogodki: {count}",
   "eventCountOne": "{count} dogodek",

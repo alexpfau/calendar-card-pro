@@ -34,6 +34,7 @@
   "viewMonth": "เดือน",
   "layout": "เค้าโครง",
   "layoutCurrent": "เค้าโครง: {view}",
+  "openFullSize": "เปิดแบบเต็มขนาด",
   "moreEvents": "อีก {count} รายการ",
   "eventCount": "{count} เหตุการณ์",
   "eventCountOne": "{count} เหตุการณ์",

@@ -120,6 +120,12 @@ export function stateFacts(
     case 'follows-card':
       facts.push({ kind: 'source', text: t('state.from_card') });
       break;
+    case 'set-full-size':
+      facts.push({ kind: 'set', text: t('state.set_full_size') });
+      break;
+    case 'full-size-default':
+      facts.push({ kind: 'source', text: t('state.full_size_default') });
+      break;
     case 'layout-default':
       if (words.ignored !== undefined) {
         facts.push({
@@ -165,7 +171,8 @@ export function stateFacts(
 
 /**
  * The one word a search result says about a setting's state, as its facts do: "Set", "Whole Card",
- * "From All Layouts", "From the Card", or nothing at the default.
+ * "From All Layouts", "From the Card", "Set for Full Size", "Full-Size Default", or nothing at the
+ * default.
  *
  * @param state - What `plan.ts` › `stateOf` found
  * @param t - The editor's strings
@@ -188,6 +195,10 @@ export function stateText(state: StateWords | undefined, t: Translate): string |
       return t('state.from_all_layouts');
     case 'follows-card':
       return t('state.from_card');
+    case 'set-full-size':
+      return t('state.set_full_size');
+    case 'full-size-default':
+      return t('state.full_size_default');
   }
 }
 

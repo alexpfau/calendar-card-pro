@@ -92,9 +92,16 @@ export const RESET_ACTION = 'reset';
 export const BACK_ACTION = 'back';
 
 /**
+ * The card action that opens the card full size in an overlay (`rendering/overlay.ts`), in the
+ * layout and options its `overlay:` block names: a value of `tap_action` and `hold_action`, and
+ * of a toolbar button's.
+ */
+export const OVERLAY_ACTION = 'overlay';
+
+/**
  * The actions the card runs itself rather than handing to Home Assistant, in the order the
  * editor offers them. None is about one event, so on an event they are nothing
- * (`eventActionKind`). `back` comes last: the four before it act on the card, and it acts on the
+ * (`eventActionKind`). `back` comes last: the five before it act on the card, and it acts on the
  * page, as the Home Assistant actions after it in the dropdown do.
  */
 export const CARD_ACTION_VALUES = [
@@ -102,6 +109,7 @@ export const CARD_ACTION_VALUES = [
   'refresh',
   ADD_EVENT_ACTION,
   RESET_ACTION,
+  OVERLAY_ACTION,
   BACK_ACTION,
 ] as const;
 

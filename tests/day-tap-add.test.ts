@@ -536,9 +536,253 @@ describe('day_tap_action: add-event', () => {
     expect(adds(dialogs)).toEqual([]);
   });
 
-  it.each(['more-info', 'details', 'expand'])('reads %s as none', async (action) => {
-    const { card } = await mount({ day_tap_action: { action } });
-    expect(dayButtons(card)).toEqual([]);
+  it.each(['details', 'expand', 'refresh', 'reset', 'overlay', 'back'])(
+    'reads %s as none',
+    async (action) => {
+      const { card } = await mount({ day_tap_action: { action } });
+      expect(dayButtons(card)).toEqual([]);
+    },
+  );
+});
+
+describe("day_tap_action: Home Assistant's actions", () => {
+  /** A script run for the day tapped, every day field in its data. */
+  const SCRIPT = {
+    day_tap_action: {
+      action: 'perform-action',
+      perform_action: 'script.add_shift',
+      data: { date: '{date}', start: '{start}', end: '{end}', all_day: '{all_day}' },
+    },
+  } as const;
+
+  /** The data a forwarded day tap carried, for each `hass-action` a tap dispatched. */
+  const forwarded = (hassActions: HassActionDetail[]) =>
+    hassActions.map(({ action, config }) => {
+      const { entity, tap_action } = config as { entity?: string; tap_action?: unknown };
+      return { action, entity, tap_action };
+    });
+
+  /** The script action as it reaches Home Assistant for a whole day, the 19th unless named. */
+  const scriptOnDay = (date: string, end: string) => ({
+    action: 'perform-action',
+    perform_action: 'script.add_shift',
+    data: { date, start: date, end, all_day: 'true' },
+  });
+
+  it.each(['list', 'column', 'grid'])(
+    'runs it with the day tapped in %s view, on the first calendar the card shows',
+    async (view) => {
+      const { card, dialogs, hassActions } = await mount({ view, ...SCRIPT });
+
+      const buttons = dayButtons(card);
+      expect(buttons).toHaveLength(3);
+      tap(buttons[1]);
+      await settle();
+
+      // The derived click is not a second run, and nothing opens a new event.
+      expect(adds(dialogs)).toEqual([]);
+      expect(forwarded(hassActions)).toEqual([
+        { action: 'tap', entity: HOLIDAYS, tap_action: scriptOnDay('2026-06-18', '2026-06-19') },
+      ]);
+    },
+  );
+
+  it("runs it from an empty day's 'No events' line in list view", async () => {
+    const { card, hassActions } = await mount(SCRIPT);
+
+    const empty = all(card, 'table.day-table')[2];
+    tap(empty.querySelector('td.event')!.firstElementChild ?? empty);
+    await settle();
+
+    expect(forwarded(hassActions).map(({ tap_action }) => tap_action)).toEqual([
+      scriptOnDay('2026-06-19', '2026-06-20'),
+    ]);
+  });
+
+  it('names the quarter hour tapped in a grid, with its offset, and an hour after it', async () => {
+    const { card, hassActions } = await mount({ view: 'grid', ...SCRIPT });
+
+    const body = all(card, '.grid-day-body')[2];
+    placeAt(body, { left: 200, top: 0, width: 100, height: 1500 });
+    tap(body.querySelector('.grid-day-plane')!, 250, ((13 * 60 + 52 - 7 * 60) / 900) * 1500);
+    await settle();
+
+    // The unit project runs in UTC.
+    expect(forwarded(hassActions).map(({ tap_action }) => tap_action)).toEqual([
+      {
+        action: 'perform-action',
+        perform_action: 'script.add_shift',
+        data: {
+          date: '2026-06-19',
+          start: '2026-06-19T13:45:00+00:00',
+          end: '2026-06-19T14:45:00+00:00',
+          all_day: 'false',
+        },
+      },
+    ]);
+    // The hour is washed while pressed, as where a tap adds.
+    pointer(body.querySelector('.grid-day-plane')!, 'pointerdown', 250, 450);
+    expect(body.hasAttribute('data-add-pressed')).toBe(true);
+    pointer(body, 'pointerup', 250, 450);
+  });
+
+  it("names the whole day from a grid's all-day band", async () => {
+    const { card, hassActions } = await mount({ view: 'grid', ...SCRIPT });
+
+    all(card, '.grid-day-header').forEach((header, index) =>
+      placeAt(header, { left: 50 + index * 100, top: 0, width: 100, height: 40 }),
+    );
+    all(card, '.grid-day-body').forEach((body, index) =>
+      placeAt(body, { left: 50 + index * 100, top: 80, width: 100, height: 900 }),
+    );
+    const band = root(card).querySelector('.grid-allday-band')!;
+    pointer(band, 'pointerdown', 260, 50);
+    pointer(band, 'pointerup', 260, 50);
+    click(band);
+    await settle();
+
+    expect(forwarded(hassActions).map(({ tap_action }) => tap_action)).toEqual([
+      scriptOnDay('2026-06-19', '2026-06-20'),
+    ]);
+  });
+
+  it("draws nothing from a hold in a grid, which runs the card's hold action", async () => {
+    const { card, dialogs, hassActions } = await mount({
+      view: 'grid',
+      ...SCRIPT,
+      hold_action: { action: 'more-info' },
+    });
+
+    const body = all(card, '.grid-day-body')[2];
+    placeAt(body, { left: 200, top: 0, width: 100, height: 1500 });
+    const plane = body.querySelector('.grid-day-plane')!;
+    pointer(plane, 'pointerdown', 250, 450);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    expect(root(card).querySelector('.grid-new-event')).toBeNull();
+    pointer(plane, 'pointermove', 250, 600);
+    expect(root(card).querySelector('.grid-new-event')).toBeNull();
+    pointer(plane, 'pointerup', 250, 600);
+    click(plane);
+    await settle();
+
+    expect(adds(dialogs)).toEqual([]);
+    expect(hassActions.map(({ action }) => action)).toEqual(['hold']);
+  });
+
+  it('runs it from the keyboard and from assistive technology', async () => {
+    const { card, hassActions } = await mount(SCRIPT);
+    const [first, second, third] = dayButtons(card);
+
+    key(first, 'keydown', 'Enter');
+    key(first, 'keydown', 'Enter', true);
+    key(second, 'keydown', ' ');
+    key(second, 'keyup', ' ');
+    click(third);
+    await settle();
+
+    expect(forwarded(hassActions).map(({ tap_action }) => tap_action)).toEqual([
+      scriptOnDay('2026-06-17', '2026-06-18'),
+      scriptOnDay('2026-06-18', '2026-06-19'),
+      scriptOnDay('2026-06-19', '2026-06-20'),
+    ]);
+  });
+
+  it.each(['list', 'column', 'grid'])(
+    "names each day's button by its date in %s view, as it adds nothing",
+    async (view) => {
+      const { card } = await mount({ view, ...SCRIPT, event_tap_action: { action: 'details' } });
+
+      const button = dayButtons(card)[0];
+      expect(button.getAttribute('role')).toBe('button');
+      expect(button.getAttribute('tabindex')).toBe('0');
+      expect(button.hasAttribute('aria-label')).toBe(false);
+      expect(button.hasAttribute('aria-describedby')).toBe(false);
+      expect(button.textContent).toMatch(/\b17\b/);
+      // The day's events are still described by the date inside it.
+      const dentist = all(card, '[role="button"]').find((el) =>
+        el.textContent?.includes('Dentist'),
+      )!;
+      const date = root(card).querySelector(`[id="${dentist.getAttribute('aria-describedby')}"]`)!;
+      expect(button.contains(date)).toBe(true);
+    },
+  );
+
+  it('runs where no calendar accepts new events, which only adding needs', async () => {
+    const { card, hassActions } = await mount(SCRIPT, {
+      states: {
+        ...STATES,
+        [ANNA]: { ...STATES[ANNA], attributes: { supported_features: 0 } },
+        [BEN]: { ...STATES[BEN], attributes: { supported_features: 0 } },
+      },
+    });
+
+    tap(dayButtons(card)[1]);
+    await settle();
+    expect(hassActions).toHaveLength(1);
+  });
+
+  it.each(['preview', 'editMode'] as const)(
+    'draws no day button and runs nothing in %s',
+    async (flag) => {
+      const { card, hassActions } = await mount(SCRIPT);
+      card[flag] = true;
+      await card.updateComplete;
+
+      expect(dayButtons(card)).toEqual([]);
+      tap(all(card, '.date-column')[1]);
+      await settle();
+      expect(hassActions).toEqual([]);
+    },
+  );
+
+  it('encodes the day into a URL, and keeps an entity the action names', async () => {
+    const { card, hassActions } = await mount({
+      day_tap_action: {
+        action: 'navigate',
+        navigation_path: '/lovelace/shifts?day={date}&from={start}',
+        entity: BEN,
+      },
+    });
+
+    tap(dayButtons(card)[0]);
+    await settle();
+
+    expect(forwarded(hassActions)).toEqual([
+      {
+        action: 'tap',
+        entity: HOLIDAYS,
+        tap_action: {
+          action: 'navigate',
+          navigation_path: '/lovelace/shifts?day=2026-06-17&from=2026-06-17',
+          entity: BEN,
+        },
+      },
+    ]);
+  });
+
+  it('runs no url that would open other than over http or https', async () => {
+    const { card, hassActions } = await mount({
+      day_tap_action: { action: 'url', url_path: 'javascript:go("{date}")' },
+    });
+
+    tap(dayButtons(card)[0]);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
+
+  it("runs it from a wide month's empty day", async () => {
+    const { card, hassActions } = await mount({ view: 'month', ...SCRIPT });
+
+    const cell = all(card, '.month-day').find(
+      (el) =>
+        (el as { calendarCardMonthCell?: number }).calendarCardMonthCell === JUNE(19).getTime(),
+    )!;
+    tap(cell);
+    await settle();
+
+    expect(forwarded(hassActions).map(({ tap_action }) => tap_action)).toEqual([
+      scriptOnDay('2026-06-19', '2026-06-20'),
+    ]);
   });
 });
 

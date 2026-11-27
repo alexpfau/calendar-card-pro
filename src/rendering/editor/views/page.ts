@@ -180,20 +180,25 @@ export function headingBlock(block: HeadingBlock): TemplateResult {
     }
     ${block.action ? html`<div class="heading-action">${block.action}</div>` : nothing}
     ${block.helper ? html`<p class="hint">${block.helper}</p>` : nothing}
-    ${
-      link
-        ? html`<p class="page-line">
-            ${icon(mdiArrowRight)}<span
-              >${link.text}
-              <button type="button" class="link" data-focus=${link.key} @click=${link.onOpen}>
-                ${link.label}
-              </button></span
-            >
-          </p>`
-        : nothing
-    }
-    ${block.body}
+    ${link ? crossLinkLine(link) : nothing} ${block.body}
   </section>`;
+}
+
+/**
+ * A line leading to another page: an arrow, the question it answers, and the link.
+ *
+ * @param link - What it shows
+ * @returns The line
+ */
+export function crossLinkLine(link: CrossLink): TemplateResult {
+  return html`<p class="page-line">
+    ${icon(mdiArrowRight)}<span
+      >${link.text}
+      <button type="button" class="link" data-focus=${link.key} @click=${link.onOpen}>
+        ${link.label}
+      </button></span
+    >
+  </p>`;
 }
 
 /** One link of a topic page's "Also for" line. */

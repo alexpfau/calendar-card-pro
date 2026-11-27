@@ -13,6 +13,7 @@
   "viewMonth": "Mese",
   "layout": "Layout",
   "layoutCurrent": "Layout: {view}",
+  "openFullSize": "Apri a dimensione intera",
   "moreEvents": "+{count} in più",
   "eventCount": "{count} eventi",
   "eventCountOne": "{count} evento",

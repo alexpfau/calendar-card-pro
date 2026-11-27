@@ -56,6 +56,7 @@ import { afterAll } from 'vitest';
 import * as Config from '../../src/config/config';
 import type * as Types from '../../src/config/types';
 import * as Buttons from '../../src/rendering/editor/buttons';
+import { isLegendField } from '../../src/rendering/editor/chips';
 import * as Colors from '../../src/rendering/editor/colors';
 import { CalendarCardProEditor } from '../../src/rendering/editor/element';
 import * as Entities from '../../src/rendering/editor/entities';
@@ -80,7 +81,7 @@ import {
   PAGES,
   type PageId,
   TOPIC_PAGES,
-  WHOLE_CARD_PAGES,
+  isUnscopedPage,
   placementOf,
   topicsFor,
 } from '../../src/rendering/editor/pages';
@@ -874,7 +875,7 @@ function composedForm(editor: EditorElement, control: Element): FormElement {
       }
       return true;
     }
-    if (kind === 'toggle' && id === 'card:toolbar.legend') {
+    if (kind === 'toggle' && isLegendField(id)) {
       // Calendar Filter: its chip for on and off, its qualifier line for the form, as a user
       // presses the one and then picks in the other.
       const element = editor as unknown as { requestUpdate(): void; performUpdate(): void };
@@ -987,9 +988,7 @@ function keptForms(editor: EditorElement): Drawn[] {
   // A topic is drawn in the layout its pages were visited in, as `goPage` opens it.
   const scope = scopeFor(editor) as EditorWorkspace;
   for (const { id: page } of PAGES) {
-    const route = WHOLE_CARD_PAGES.has(page)
-      ? { kind: 'page', page }
-      : { kind: 'page', page, scope };
+    const route = isUnscopedPage(page) ? { kind: 'page', page } : { kind: 'page', page, scope };
     element._nav = { route, trail: [], fromResults: false };
     draw();
     if (root.querySelector(`.page[data-page="${page}"]`) === null) continue;
@@ -1216,7 +1215,7 @@ export async function goPage(editor: EditorElement, page: string): Promise<void>
     return;
   }
   await goOverview(editor);
-  if (!isTopic(page) || WHOLE_CARD_PAGES.has(page as PageId)) {
+  if (!isTopic(page) || isUnscopedPage(page as PageId)) {
     await press(editor, `[data-focus="nav:${page}"]`, `row for the ${page} page`);
     return;
   }

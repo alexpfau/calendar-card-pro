@@ -55,11 +55,11 @@ describe('the label length advisory', () => {
   it('measures a label built on another label without that label', () => {
     // The German day label is Home Assistant's own term for a tap action plus "von Tagen",
     // which is 32 characters against the English's 14, and would warn whole.
-    const label = de.day_tap_action_mode;
+    const label = de.day_tap_action;
     expect(label).toBe(`${de.tap_action} von Tagen`);
     expect(isOverlongLabel({ value: label.length, english: 14 })).toBe(true);
 
-    const basis = labelLengthBasis('day_tap_action_mode', label, EDITOR_STRINGS, de, 'de');
+    const basis = labelLengthBasis('day_tap_action', label, EDITOR_STRINGS, de, 'de');
     expect(basis).toEqual({
       value: ' von Tagen'.length,
       english: 'Day '.length,
@@ -70,7 +70,7 @@ describe('the label length advisory', () => {
 
   it('still warns on what a translation adds to the term', () => {
     const label = `${de.tap_action} von Tagen im Kalender und im Zeitraster`;
-    const basis = labelLengthBasis('day_tap_action_mode', label, EDITOR_STRINGS, de, 'de');
+    const basis = labelLengthBasis('day_tap_action', label, EDITOR_STRINGS, de, 'de');
 
     expect(basis.term).toBe('tap_action');
     expect(isOverlongLabel(basis)).toBe(true);
@@ -78,7 +78,7 @@ describe('the label length advisory', () => {
 
   it('credits nothing to a translation that does not use the term', () => {
     const label = 'Was beim Antippen eines Tages geschehen soll';
-    const basis = labelLengthBasis('day_tap_action_mode', label, EDITOR_STRINGS, de, 'de');
+    const basis = labelLengthBasis('day_tap_action', label, EDITOR_STRINGS, de, 'de');
 
     expect(basis).toEqual({ value: label.length, english: 'Day Tap Action'.length });
     expect(isOverlongLabel(basis)).toBe(true);
@@ -103,7 +103,7 @@ describe('the label length advisory', () => {
   });
 
   it('leaves a label under the line as it is', () => {
-    const basis = labelLengthBasis('day_tap_action_mode', de.tap_action, EDITOR_STRINGS, de, 'de');
+    const basis = labelLengthBasis('day_tap_action', de.tap_action, EDITOR_STRINGS, de, 'de');
     expect(basis).toEqual({ value: de.tap_action.length, english: 'Day Tap Action'.length });
   });
 });

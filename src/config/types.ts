@@ -88,6 +88,16 @@ export interface Config {
   card_height: string;
   /** The tallest the whole card may be, as a CSS length, clamping `card_height`; `none` sets none. */
   card_max_height: string;
+  /**
+   * `card_height` while a List card is compact, which takes `card_height` while this is unset;
+   * `auto` is its events' own height. List view only; read with `resolveCompactCardSize`.
+   */
+  compact_card_height?: string;
+  /**
+   * `card_max_height` while a List card is compact, which takes `card_max_height` while this is
+   * unset; `none` sets no cap. List view only; read with `resolveCompactCardSize`.
+   */
+  compact_card_max_height?: string;
 
   // Week numbers and horizontal separators
   first_day_of_week: 'sunday' | 'monday' | 'system';
@@ -219,7 +229,7 @@ export interface Config {
   // Actions
   /**
    * What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`,
-   * `add-event`, `reset`.
+   * `add-event`, `reset`, `overlay`, `back`.
    */
   tap_action: ActionConfig;
   /** What a hold on the card does, with the same actions as `tap_action`. */
@@ -261,6 +271,12 @@ export interface Config {
   // Header toolbar
   toolbar?: ToolbarConfig;
 
+  /**
+   * The card opened full size by the `overlay` action: `view` is the layout it opens in, Grid by
+   * default, and any other option of the card may be set here for it (`config/overlay.ts`).
+   */
+  overlay?: OverlayConfig;
+
   // Cache and refresh settings
   refresh_interval: number;
   refresh_on_navigate: boolean;
@@ -280,6 +296,12 @@ export interface Config {
 
 /** Views the card can render. */
 export type EffectiveView = 'list' | 'column' | 'grid' | 'month';
+
+/**
+ * The `overlay:` block: any option of the card, for the card the `overlay` action opens, which
+ * takes them over the card's own. Its size is the overlay's, so the height options do nothing here.
+ */
+export type OverlayConfig = Partial<Omit<Config, 'overlay'>>;
 
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
@@ -507,7 +529,7 @@ export interface SharedViewOverrides {
  *
  * List has no key of its own without a top-level counterpart, so unlike the other two
  * views it declares no view-only members: everything here is an override of a card-level
- * key. The ten below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * key. The twelve below are list-only in `VIEW_SCOPE`, which is why no other view can
  * override them and why they never entered the shared set.
  */
 export interface ListOverrides extends SharedViewOverrides {
@@ -515,6 +537,8 @@ export interface ListOverrides extends SharedViewOverrides {
   compact_days_to_show?: number;
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
+  compact_card_height?: string;
+  compact_card_max_height?: string;
 
   // Order and offset. Read at render, after every filter and before the card's limits.
   event_order?: EventOrder;
@@ -804,6 +828,12 @@ export type MonthPinnedKeys =
   | 'event_icon_vertical_alignment';
 
 /**
+ * Which week a month's first row is (`month → start`): the week of the 1st of the month, or the
+ * week holding the start date.
+ */
+export type MonthStart = 'month' | 'week';
+
+/**
  * The `month:` block — the shared options a month grid reads, plus its own height, width, tint
  * and cell font size keys.
  *
@@ -828,6 +858,16 @@ export interface MonthOverrides extends Omit<SharedViewOverrides, MonthIgnoredSh
 
   /** Day-cell width in pixels below which the month draws its narrow form. */
   min_day_width?: number;
+
+  /**
+   * Which week the month's first row is: `month`, the week of the 1st of the month holding the
+   * start date, or `week`, the week holding the start date itself, so the month shows the coming
+   * weeks and pages by them rather than by calendar month.
+   */
+  start?: MonthStart;
+
+  /** How many weeks the month draws under `start: week`, 1 to 6. */
+  weeks?: number;
 
   /**
    * Background tint for a weekend day's cell, as a CSS color, in either form: the whole day under
@@ -883,11 +923,24 @@ export interface EntityConfig {
    * `config/config.ts`), and the editor writes a change to every block of the calendar.
    */
   show_in_legend?: boolean;
-  label?: string;
+  /**
+   * What is drawn before each event's title: text or an emoji, an icon, a picture's address,
+   * a person's entity id or `home-assistant`, read by its shape (`Helpers.getLabelType`). A list
+   * draws each of its parts in order, each read the same way, so a person's picture can carry an
+   * icon beside it (`Helpers.labelParts`).
+   */
+  label?: string | string[];
+  /** Forces how `label` is read, every part of a list alike. */
   label_type?: LabelType;
   color?: string;
   accent_color?: string;
   label_icon_color?: string;
+  /**
+   * Height of a picture label, as a CSS length; a bare number is pixels. Unset, a picture is as
+   * tall as the text beside it (`1em`). Icons, text and emoji keep the text's size. The wide
+   * month's one-line entries keep their pictures at the size of their line.
+   */
+  label_image_size?: string;
   /**
    * How large this block's events draw their text, as a multiple of the card's: `0.75` draws
    * them at three quarters of every size the card would, `1.25` at a quarter more. Unset, or
@@ -1076,6 +1129,11 @@ export interface WeatherPositionConfig {
    * no nested max-lines option.
    */
   max_lines?: number;
+  /**
+   * List only, **event** position: the forecast on a line of its own under the time, as Columns
+   * and Grid draw it, rather than at the end of the title's line.
+   */
+  own_line?: boolean;
   icon_size?: string;
   font_size?: string;
   color?: string;
@@ -1132,6 +1190,11 @@ export interface ToolbarConfig {
    * row, after refresh. Drawn only with the date navigation, since a picked result pages the card.
    */
   search?: boolean;
+  /**
+   * A button that opens the card full size in the overlay, as the `overlay` action does, last in
+   * the action row, after search: where the overlay's own toolbar draws Close. Off by default.
+   */
+  overlay?: boolean;
   /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
    * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
@@ -1242,7 +1305,7 @@ export interface CalendarEventData {
   /** `confirmed` or `tentative` where the calendar says; Home Assistant's dialog marks the latter. */
   status?: string | null;
   _entityId?: string;
-  _entityLabel?: string;
+  _entityLabel?: string | string[];
   /**
    * The event as Home Assistant returned it, stamped before any repair, splitting or text
    * replacement and carried through to the rendered row.
@@ -1440,6 +1503,10 @@ export interface ResolvedLabel {
   type?: LabelType;
   /** Text alternative when the label draws as a picture; see `resolveLabelAlt`. */
   alt?: string;
+  /** The calendar whose entry wrote this label, which grid view names an icon or picture by. */
+  entityId?: string;
+  /** The person's entity id where this label is that person's picture. */
+  person?: string;
 }
 
 /**
@@ -1874,6 +1941,12 @@ export interface Translations {
    * "Layout: {view}", "Layout: Month".
    */
   layoutCurrent: string;
+  /**
+   * The name and tooltip of the toolbar's button that opens the card full size
+   * (`toolbar.overlay`), and of a button of the configuration's own that does with no name of its
+   * own: "Open full size".
+   */
+  openFullSize: string;
   /**
    * What a month day says in its last line about the events it has no room for, with `{count}`
    * where their number goes: "+{count} more", "+2 more".

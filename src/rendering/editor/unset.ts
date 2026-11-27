@@ -71,6 +71,9 @@ export function unsetWord(
       // The marker the location row draws while the calendar names no icon of its own.
       case 'location_icon':
         return t('value.map_marker');
+      // A picture as tall as the text beside it.
+      case 'label_image_size':
+        return t('value.text_height');
       case 'allowlist':
       case 'blocklist':
       case 'replace_pattern':
@@ -84,10 +87,12 @@ export function unsetWord(
     case 'title_font_size':
     case 'title_color':
       return t('value.theme_default');
-    // Month's narrow form follows the card's Card Height and its cap.
+    // Month's narrow form follows the card's Card Height and its cap, and so does a compact List.
     case 'narrow_card_height':
+    case 'compact_card_height':
       return t('value.same_as', { label: t('height_mode') });
     case 'narrow_card_max_height':
+    case 'compact_card_max_height':
       return t('value.same_as', { label: t('maximum_height') });
     case 'compact_events_to_show':
     case 'compact_days_to_show':

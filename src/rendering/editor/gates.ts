@@ -371,6 +371,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
       'card:toolbar.reset',
       'card:toolbar.refresh',
       'card:toolbar.search',
+      'card:toolbar.overlay',
       'card:toolbar.navigation',
       'card:toolbar.size',
     ],
@@ -381,6 +382,26 @@ export const GATES: Readonly<Record<string, Gate>> = {
   switcher_layouts: {
     fields: ['card:toolbar.view_switcher_layouts'],
     requires: [on('card:toolbar.show'), on('card:toolbar.view_switcher')],
+    kind: 'gate',
+  },
+  // The full-size card's toolbar, as the card's own: its controls while it is shown.
+  full_size_toolbar: {
+    fields: [
+      'actions:overlay.toolbar.legend',
+      'actions:overlay.toolbar.add_event',
+      'actions:overlay.toolbar.view_switcher',
+      'actions:overlay.toolbar.reset',
+      'actions:overlay.toolbar.refresh',
+      'actions:overlay.toolbar.search',
+      'actions:overlay.toolbar.navigation',
+      'actions:overlay.toolbar.size',
+    ],
+    requires: [on('actions:overlay.toolbar.show')],
+    kind: 'gate',
+  },
+  full_size_switcher_layouts: {
+    fields: ['actions:overlay.toolbar.view_switcher_layouts'],
+    requires: [on('actions:overlay.toolbar.show'), on('actions:overlay.toolbar.view_switcher')],
     kind: 'gate',
   },
   forecast: {
@@ -412,6 +433,7 @@ export const GATES: Readonly<Record<string, Gate>> = {
       `${W}event.show_temp`,
       `${W}event.show_uv_index`,
       `${W}event.daily_forecast_fallback`,
+      `${W}event.own_line`,
       `${W}event.icon_size`,
       `${W}event.font_size`,
       `${W}event.color`,
@@ -459,6 +481,11 @@ export const GATES: Readonly<Record<string, Gate>> = {
   maximum_height: {
     fields: ['layout:maximum_height'],
     requires: [oneOf('layout:height_mode', 'maximum')],
+    kind: 'mode-value',
+  },
+  month_weeks: {
+    fields: ['layout:month.weeks'],
+    requires: [oneOf('layout:month.start', 'week')],
     kind: 'mode-value',
   },
   fewer_days: {
@@ -538,7 +565,16 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
   },
   label_icon_color: {
     fields: ['calendar:label_icon_color'],
-    requires: [phrased(oneOf('calendar:label_type', 'icon'), undefined, 'gate.when.label_icon')],
+    requires: [
+      phrased(oneOf('calendar:label_type', 'icon', 'parts'), undefined, 'gate.when.label_icon'),
+    ],
+    kind: 'gate',
+  },
+  label_image_size: {
+    fields: ['calendar:label_image_size'],
+    requires: [
+      phrased(oneOf('calendar:label_type', 'image', 'parts'), undefined, 'gate.when.label_image'),
+    ],
     kind: 'gate',
   },
   label_image_source: {
@@ -553,6 +589,7 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
       [oneOf('calendar:label_type', 'text')],
       [oneOf('calendar:label_type', 'icon'), oneOf('calendar:label_icon_source', 'custom')],
       [oneOf('calendar:label_type', 'image')],
+      [oneOf('calendar:label_type', 'parts')],
     ],
     kind: 'mode-value',
   },

@@ -59,6 +59,7 @@ src/
 │   ├── grid-draft.ts             # A new event drawn by drag in a grid
 │   ├── grid-move.ts              # Moving an event by drag in a grid
 │   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
+│   ├── ripple-release.ts         # Ends the ripple's press where its own end never arrives
 │   ├── rrule.ts                  # Home Assistant's repeat rules: read, written, worded
 │   └── search-session.ts         # A search's year-wide load and its rows
 ├── rendering/                    # UI rendering code
@@ -210,10 +211,10 @@ back: below `month → min_day_width` a day, it draws its narrow form, with a hy
 (`utils/month-day.ts`).
 
 Switching layouts at home never fetches, because the load spans every view the card can show: the
-longest `days_to_show` from the shared start, and Month's six weeks where it is reachable, which
+longest `days_to_show` from the shared start, and Month's weeks where it is reachable, which
 can start before it (`ViewConfig.loadConfig`; see [View Switcher](/architecture-toolbar#view-switcher)).
 A switch away from home carries the date in view, and a page's load holds the weeks of the month
-its day falls in, so that switch lands on the same load wherever the next layout's days lie in
+its day falls in, or under `month → start: week` the weeks from its own, so that switch lands on the same load wherever the next layout's days lie in
 those weeks. A day picked on a narrow month at home, or days running past the weeks, are loaded
 as any page is. The editor's
 scope is separate again: opening List's page exposes its controls without changing the layout.
@@ -415,12 +416,12 @@ write side is on [Interaction & Event Writes](/architecture-interaction).
 One recognizer on `ha-card` decides every press, so a tap, a hold, a swipe and a drag can never
 both happen. It reads the target at pointer-down and runs the innermost target's action.
 
-| Target                                               | Tap                | Hold                |
-| ---------------------------------------------------- | ------------------ | ------------------- |
-| An event                                             | `event_tap_action` | `event_hold_action` |
-| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
-| A narrow month's day                                 | selects the day    | `hold_action`       |
-| The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
+| Target                                               | Tap                | Hold                       |
+| ---------------------------------------------------- | ------------------ | -------------------------- |
+| An event                                             | `event_tap_action` | `event_hold_action`        |
+| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid that adds |
+| A narrow month's day                                 | selects the day    | `hold_action`              |
+| The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`              |
 
 - **Precedence.** A tap or a hold runs the innermost target's action, else the next target out's.
   An event covers its slot: a press on an event falls through to the card, never to the slot. A

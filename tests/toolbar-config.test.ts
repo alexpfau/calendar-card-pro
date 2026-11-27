@@ -7,7 +7,8 @@
  * switcher, add, refresh, search and the calendar filter as a menu. Reset is off, since it is
  * for a screen several people share. Search, the first control added after v5, is on, by the
  * maintainer's choice (backlog item 182), and drawn only beside the date navigation a match
- * needs to open its day. The controls beside the month are drawn at their usual size unless
+ * needs to open its day. The button opening the card full size is off: it is for a small card
+ * that has a larger form to open. The controls beside the month are drawn at their usual size unless
  * `size: large` asks for them as large as the action row's buttons, for a touch screen. The
  * configuration's own
  * buttons are a list, empty unless it writes some, and read entry by entry: one that cannot be
@@ -39,6 +40,7 @@ const DEFAULTS = {
   reset: false,
   refresh: true,
   search: true,
+  overlay: false,
   legend: 'menu',
   size: 'normal',
   buttons: [],
@@ -55,6 +57,7 @@ describe('the toolbar configuration', () => {
       reset: false,
       refresh: true,
       search: true,
+      overlay: false,
       legend: 'menu',
       size: 'normal',
       buttons: [],
@@ -105,6 +108,11 @@ describe('the toolbar configuration', () => {
       show: true,
       search: true,
     });
+    expect(resolveToolbar({ toolbar: { show: true, overlay: true } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      overlay: true,
+    });
   });
 
   it('keeps the choices of a hidden bar', () => {
@@ -133,6 +141,7 @@ describe('the toolbar configuration', () => {
         reset: 'yes',
         refresh: 'on',
         search: 1,
+        overlay: 'yes',
         legend: 1,
         size: true,
       },
@@ -307,6 +316,7 @@ describe('the toolbar block the editor shows', () => {
         'legend',
         'navigation',
         'refresh',
+        'overlay',
         'reset',
         'search',
         'show',

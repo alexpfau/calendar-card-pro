@@ -269,6 +269,9 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   ['language', '`System`, fallback `en`'],
   // Absent renders no title at all; there is nothing to fall back to.
   ['title', '-'],
+  // config/overlay.ts `overlayConfig` — absent, the overlay opens on the card's own options and
+  // `OVERLAY_DEFAULTS` alone; there is no block to fall back to.
+  ['overlay', '-'],
   // utils/weather-position.ts `weatherEntityOf` — absent, and no top-level `weather:` naming an
   // entity as written before v6, means no layout draws weather; there is nothing to fall back to.
   ['weather_entity', '-'],

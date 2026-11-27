@@ -24,5 +24,14 @@ export const CHIP_LABELS: Readonly<Record<string, string>> = {
   'card:toolbar.reset': 'toolbar.controls.reset',
   'card:toolbar.refresh': 'toolbar.controls.refresh',
   'card:toolbar.search': 'toolbar.controls.search',
+  'card:toolbar.overlay': 'toolbar.controls.overlay',
   'card:toolbar.navigation': 'toolbar.navigation',
+  // The full-size card's toolbar, on Full-Size Settings: the same controls, named the same.
+  'actions:overlay.toolbar.add_event': 'toolbar.controls.add_event',
+  'actions:overlay.toolbar.view_switcher': 'toolbar.view_switcher',
+  'actions:overlay.toolbar.legend': 'toolbar.legend',
+  'actions:overlay.toolbar.reset': 'toolbar.controls.reset',
+  'actions:overlay.toolbar.refresh': 'toolbar.controls.refresh',
+  'actions:overlay.toolbar.search': 'toolbar.controls.search',
+  'actions:overlay.toolbar.navigation': 'toolbar.navigation',
 };

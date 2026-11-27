@@ -1457,6 +1457,11 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'it:quick_setup.review.layout',
   'sv:quick_setup.review.layout',
   'nb:quick_setup.review.layout',
+  // Full-Size Settings' Layout, the glossary's decided word in the same four languages.
+  'de:overlay.view',
+  'it:overlay.view',
+  'sv:overlay.view',
+  'nb:overlay.view',
 ]);
 
 /**
@@ -1560,7 +1565,7 @@ export const isLabelKey = (key) => !key.endsWith('.helper') && !key.endsWith('.a
  *
  * The advisory compares a translation with its English, and the ratio between them is a
  * fair measure of a wordy translation until a label is built on a term another label
- * already is. `day_tap_action_mode` is "Day Tap Action", which is `tap_action`'s "Tap
+ * already is. `day_tap_action` is "Day Tap Action", which is `tap_action`'s "Tap
  * Action" with a word in front; German writes `tap_action` as "Verhalten bei Antippen",
  * Home Assistant's own term, and the day's label as that term plus "von Tagen". English
  * compounds where German needs a phrase, so the whole label measured 32 characters against

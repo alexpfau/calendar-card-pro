@@ -56,12 +56,12 @@ describe('Layouts and the preview', () => {
     toolbar: { show: true, view_switcher: true, view_switcher_layouts: ['list', 'grid', 'month'] },
   };
 
-  it('draws Calendars, Whole Card, Layouts and More, and no Settings For', async () => {
+  it('draws Calendars, Whole Card, Layouts, Full Size and More, and no Settings For', async () => {
     const editor = await mountEditor(THREE);
     const blocks = [
       ...editor.shadowRoot!.querySelectorAll('.overview > [data-heading], .overview > .row-group'),
     ].map((block) => block.getAttribute('data-heading') ?? text(block.querySelector('.heading')));
-    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'More']);
+    expect(blocks).toEqual(['calendars', 'Whole Card', 'starting_layout', 'Full Size', 'More']);
     expect(text($(editor, '[data-heading="starting_layout"] > .heading'))).toBe('Layouts');
     // Whole Card's rows: its three pages, each saying what it holds.
     const whole = editor.shadowRoot!.querySelectorAll('.overview > .row-group')[0];
@@ -703,6 +703,7 @@ describe('section row descriptions', () => {
       show_time: false,
       event_tap_action: { action: 'none' },
       list: { show_past_events: true },
+      overlay: { view: 'month', toolbar: { show: false }, title: 'Big' },
     });
     expect(rows(busy)).toEqual(rows(plain));
     expect(rows(plain)).toEqual([
@@ -710,6 +711,7 @@ describe('section row descriptions', () => {
       ['nav:events_weather_language', 'Start date, week start and time format'],
       ['nav:taps_refresh', 'Tap and hold actions, editing and refresh'],
       ['layout:shared', 'What a layout uses where it has no value of its own'],
+      ['nav:full_size', 'Layout, days and toolbar for the full-size view'],
       ['more:audit', 'What is set, grouped by where it lives'],
       ['more:example', 'Quick Setup: an example card and a few questions'],
     ]);

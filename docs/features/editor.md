@@ -12,7 +12,7 @@ have not added a card yet, start with [Usage](/guide/usage).
 
 ## 🗺️ The Overview
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.png" alt="The visual editor in dark mode beside a live preview of a Family card: a search field with Undo, Redo and Pick From Preview, the four calendars with their colors and faces, Whole Card's three pages, and Layouts with List selected over Columns, Grid and Month, then Layout Defaults" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v6.1.png" alt="The visual editor in dark mode beside a live preview of a Family card: a search field with Undo, Redo and Pick From Preview, the four calendars with their colors and faces, Whole Card's three pages, Layouts with List selected over Columns, Grid and Month, then Layout Defaults, Full Size with its Full-Size Settings row, and More with Stored Settings and Start From an Example" width="600"><br>
 
 The overview is the first thing the editor shows. It holds the card's calendars, the settings
 the whole card shares, and its layouts, each leading to pages of their own. Top to bottom:
@@ -26,6 +26,7 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 | **Calendars**                  | The card's [calendars](#calendars), a row each                                                                                                                                   |
 | **Whole Card**                 | The pages whose settings are the same in every layout, a row each saying in one line what the page holds                                                                         |
 | **Layouts**                    | List, Columns, Grid and Month, a row each with its picture, then Layout Defaults; see [Options for the Selected View](#options-for-the-selected-view)                            |
+| **Full Size**                  | **Full-Size Settings**, what the card opens with full size; see [Full-Size Settings](#full-size-settings)                                                                        |
 | **More**                       | [Stored Settings](#stored-settings) and Start From an Example                                                                                                                    |
 
 **Whole Card**'s rows open these pages, each row saying in a line what its page holds:
@@ -39,19 +40,21 @@ the whole card shares, and its layouts, each leading to pages of their own. Top 
 Each layout's page lists five topics, and Layout Defaults the first four, since no forecast
 setting has a value for every layout:
 
-| Topic                | What it holds                                                                                                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode            |
-| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                |
-| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                                     |
-| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, the narrow month's heights, what each layout draws on a narrow card, and the rules |
-| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares            |
+| Topic                | What it holds                                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Which Events**     | Days to Show and Start Date, Grid's hours, duplicates, event order, past events, all-day and multi-day events, empty days and Compact Mode                                 |
+| **Days**             | How each day announces itself: its date, week numbers, today and its indicator, past days and weekends, and Grid's and Month's shading                                     |
+| **Event Appearance** | What each event shows, Grid's now line and overlapping events, and how each part looks, Month's day text included                                                          |
+| **Size & Spacing**   | The card's height and spacing, Grid's hour height and hour labels, a compact list's and the narrow month's heights, what each layout draws on a narrow card, and the rules |
+| **Weather**          | This layout's forecast in the day header and beside each event, Month's beside its events only, and the weather entity every layout shares                                 |
 
 **Which Events** opens with **Date Range**: Days to Show, and Start Date's choices, which write
 the existing `start_date` option. Tomorrow writes `today+1`, Start of Week writes
 `start_of_week`, and Relative to Today takes any offset, such as `today-29`. Month's page offers
 Today, A Fixed Date and Relative to Today. It shows Tomorrow and Start of Week as Today, since
-Month opens today's month for them, and names what the other layouts start on instead. A tap on
+Month opens today's month for them, and names what the other layouts start on instead.
+Month's page also holds **First Week** and **Weeks Shown**, which show
+[the coming weeks](/features/month-view#the-coming-weeks) rather than a calendar month. A tap on
 an event opens its details; to change that, choose another action under **Event Tap Action** on
 Taps & Refresh.
 
@@ -87,6 +90,42 @@ option name beside its label, and the YAML path in search results and in Stored 
 which helps when you move between the editor and YAML. The **⋯** button opens and closes the
 menu, Down Arrow opens it from the button, and Escape closes it.
 
+### Full-Size Settings
+
+**Full-Size Settings**, under **Full Size** between Layouts and More, holds what the card opens
+with when the [`overlay` action](/features/actions#opening-the-card-full-size) or the toolbar's
+Open Full Size button opens it over the dashboard.
+
+The page holds **Layout** and **Days To Show**, which write `view` and `days_to_show` under
+`overlay`, then **Toolbar**: Show Toolbar, the toolbar's controls as chips, with their lines and
+Arrow & Chip Size, as Card & Header draws the card's own, which write `toolbar` under `overlay`.
+Open Full Size is not among them, since the full-size card draws Close in its place. So a small
+card with a lean toolbar can open a full-size view with search, the calendar filter and adding
+events, and its own toolbar stays as it is.
+
+Each setting says where its value comes from: **Full-Size Default** for what the card opens with
+on its own, Grid, seven days, and a toolbar with date navigation and a view switcher offering
+every layout; **From the Card** for what the card's own settings give it, such as a control the
+card's toolbar turns off; or **Set for Full Size**, with Reset. A control pressed back to what it
+would be anyway is taken out of `overlay`. Opening the page writes nothing. Show Toolbar off
+leaves the full-size card its Close button alone.
+
+While the page is open, the preview shows the card as full size opens it, in its layout, with its
+days and its toolbar, and changes as you do. A line says **Preview shows the full-size view, as
+wide as this dialog. Full size adds Close.** It is as wide as the dialog, so Columns and Grid
+draw as many days as fit there, and it leaves out Close. Leaving the page shows the card as it
+opens again.
+
+Below them, **Also Set for Full Size** lists whatever else `overlay` holds, set in YAML, each line
+with its value and **Remove**, after which the full-size card takes what it would without it, for
+most options the card's own. A count
+of days `overlay` holds for one layout, as in `overlay: { time_grid: { days_to_show: 3 } }`, is
+listed there and named under Days To Show too, as **Grid Has Its Own: 3**.
+
+On Taps & Refresh, while the card's tap or hold opens it full size, a line under Taps leads to the
+page and says what the card opens with, such as **Opens full size in Grid, 7 days**. So does one
+under the toolbar's controls on Card & Header while Open Full Size is on.
+
 ### Pages & Back
 
 A row opens its page with focus on the page's title. **Back**, at the top and at the foot of
@@ -113,7 +152,7 @@ the top, Back and the title share the first row, and **Search Settings**, **Undo
 
 ## 🪄 Quick Setup
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on Starting Point, Family Hub picked among a Simple Agenda and five Example Stories, and the preview already drawing the Family Hub's grid of the family's week with its toolbar" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_quick_setup_v6.png" alt="Home Assistant's card editor with Quick Setup open on Starting Point, Family Hub picked among a Simple Agenda and six Example Stories, and the preview already drawing the Family Hub's grid of the family's week with its toolbar" width="600"><br>
 
 **Quick Setup** starts a card from a [Simple Agenda](/guide/usage#your-first-card) or one of the
 [Example Stories](/reference/examples) and asks only
@@ -121,7 +160,7 @@ what a story cannot know about your home: the title, your calendars, your weathe
 card should answer a tap. Use it on a new card to get a finished-looking one in a few steps, or
 on an existing card to try a different look without retyping anything.
 
-Quick Setup offers six starting points: a Simple Agenda and five of the stories. Pick one and the
+Quick Setup offers seven starting points: a Simple Agenda and six of the stories. Pick one and the
 preview draws it at once, on your own calendars as soon as you name them.
 
 A fresh card offers Quick Setup in a banner at the top of the overview. A card that already holds
@@ -142,12 +181,16 @@ month_separator_width: 1px
 day_spacing: 4px
 event_gap: 4px
 vertical_line_width: 4px
+tap_action:
+  action: overlay
 toolbar:
   show: true
   legend: false
   add_event: false
   refresh: false
   view_switcher: false
+overlay:
+  view: month
 entities:
   - entity: calendar.birthdays
     accent_color: '#f06292'
@@ -182,7 +225,7 @@ list:
 
 ::: details When Quick Setup Behaves Differently
 
-- Two of the seven stories are not offered. [Bin Day](/guide/bin-day) and
+- Two of the eight stories are not offered. [Bin Day](/guide/bin-day) and
   [Family Agenda](/guide/one-calendar-many-purposes) sort events by words in their titles and
   descriptions, which no question can guess for your calendars; copy them from their pages.
 - A story's names and labels for each calendar are not carried over: they belong to the
@@ -268,6 +311,11 @@ which size the events area alone. The editor shows those two, as **Events Area H
 **Events Area Maximum Height**, only on a card that already holds one. See
 [Card Dimensions & Scrolling](/features/layout-appearance#card-dimensions-scrolling).
 
+On List's page, **Compact Mode** below it holds **Compact Height** and **Compact Maximum Height**,
+the card's height and its cap while a list is compact. Until set, the first follows the Height
+and the second the Maximum Height that Card Height sets; see
+[Compact & Expanded Heights](/features/list-view#compact-expanded-heights).
+
 ### Narrow Cards
 
 **Narrow Cards**, on Size & Spacing, decides what the card draws where it is too narrow for its
@@ -325,7 +373,7 @@ on the side away from ⓘ. **Reset (In the Day Header)** keeps the setting open 
 it goes back to, or **Reset (Empty)** where nothing comes back; **Remove Setting** resets a
 setting and folds it. A group of chips has one button for all of its chips stored here, **Reset
 Parts** for an event's parts and **Reset Controls** for the toolbar's and the lines under them,
-after a line saying where each chip's state comes from: **Chosen Here**, **From Layout Defaults** or a layout's **Default**. A dropdown may also
+after a line saying where each chip's state comes from: **Chosen Here**, **From Layout Defaults** or a layout's **Default**, and on Full-Size Settings **Set for Full Size**, **Full-Size Default** or **From the Card**. A dropdown may also
 show Home Assistant's own ✕, which empties it, the same as its Reset.
 
 A folded setting shows the value that applies. Where nothing is stored, it names it: a setting
@@ -509,7 +557,7 @@ these top-level values behave as follows:
 | `show_location: true`     | Shows locations   | Shows locations   | Hides locations   | Shows locations   |
 
 Set the corresponding value in `column:`, `time_grid:` or `month:` to change that view, or open
-that layout under **Layouts**; Month always draws every day of its six weeks. Grid also substitutes its own styling defaults, even when you
+that layout under **Layouts**; Month always draws every day of its weeks. Grid also substitutes its own styling defaults, even when you
 set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
@@ -677,7 +725,8 @@ calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-c
 **Show in Calendar Filter** while the toolbar shows a
 [calendar filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter), and the
 control after them is **Label Type**. **Event Color** and **Text Scale** close the heading. A label is the mark shown before every event from
-that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
+that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image — or
+several of them together.
 
 The editor reads the type from the value: `mdi:home` is an icon, `/local/work.png` is an
 image, and anything else is text. So a calendar configured in YAML opens with the right
@@ -688,8 +737,14 @@ alongside `label`, and then it takes precedence over the value.
 
 Choosing **An Icon** or **An Image** first shows an **Icon Source** or **Image Source**
 dropdown, which says where the label comes from. With **Custom icon** as the source you get
-Home Assistant's icon picker. **Label Icon Color** appears only for **An Icon**, the only type
-it affects.
+Home Assistant's icon picker. **Label Icon Color** appears for **An Icon**, and **Image Size**
+for **An Image**, the types they affect.
+
+**Several Parts** takes a line per part, each read as a label of its own: text or an emoji,
+`mdi:` and an icon's name, an image path, `person.` and a person's name, or `home-assistant`.
+Choosing it starts from the label the calendar has; leaving it keeps the first part of the type
+you choose. **Label Icon Color** and **Image Size** both appear for it; see
+[Combining a Picture, an Icon & Text](/features/core-settings#combining-a-picture-an-icon-text).
 
 ::: tip Your Choice Wins Over the Value
 Type `mdi:calendar` into the text box and the card renders it as the literal text
@@ -833,7 +888,8 @@ a search result opens one.
   **Calendar Filter** chip. The view switcher opens **View Switcher offers**, its layouts, just
   under the chips. A part only one layout has, such as
   the Grid's hour labels, opens on that layout's page; any other opens under the layout the
-  preview shows.
+  preview shows. On Full-Size Settings, where the preview shows the full-size card, a part of its
+  toolbar opens that page's **Toolbar**.
 - A heading's first setting opens there, as a search result does, even where it was folded.
 - On a phone the preview sits below the editor. Tap a part once to outline it, then tap it again
   to open it; the editor scrolls back up to the setting.

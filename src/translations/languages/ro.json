@@ -13,6 +13,7 @@
   "viewMonth": "Lună",
   "layout": "Aspect",
   "layoutCurrent": "Aspect: {view}",
+  "openFullSize": "Deschide la dimensiune completă",
   "moreEvents": "+{count} în plus",
   "eventCount": "Evenimente: {count}",
   "eventCountOne": "{count} eveniment",

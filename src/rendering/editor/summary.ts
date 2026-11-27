@@ -82,6 +82,11 @@ export function wordValue(
       : text;
   }
   if ('text' in selector || 'icon' in selector) {
+    // A field of several lines, as a label of several parts, reads as its lines in turn.
+    if (Array.isArray(value)) {
+      const lines = value.filter((line) => typeof line === 'string' && line !== '');
+      return lines.length === 0 ? undefined : lines.join(', ');
+    }
     return value === undefined || value === null || value === '' ? undefined : String(value);
   }
   return describe?.(field, value);

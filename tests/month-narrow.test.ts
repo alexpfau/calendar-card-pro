@@ -840,6 +840,41 @@ describe('the selected day', () => {
       .map(({ dialogParams }) => (dialogParams as PopoverParams).times?.start);
     expect(starts).toEqual([new Date(2026, 10, 19, 10), new Date(2026, 10, 19, 10)]);
   });
+
+  it('runs day_tap_action on its day from the list, named by the day, where it runs another', async () => {
+    const card = await mount(
+      {
+        day_tap_action: {
+          action: 'perform-action',
+          perform_action: 'script.add_shift',
+          data: { date: '{date}' },
+        },
+      },
+      375,
+    );
+    await tap(card, day(card, 19));
+
+    const header = root(card).querySelector<HTMLElement>('.month-day-list-header')!;
+    expect(header.getAttribute('role')).toBe('button');
+    expect(header.hasAttribute('aria-label')).toBe(false);
+    expect(header.hasAttribute('aria-describedby')).toBe(false);
+    await tap(card, header);
+    await tap(card, root(card).querySelector('.month-day-list-empty')!);
+
+    expect(dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG)).toEqual([]);
+    expect(hassActions.map(({ config }) => config.tap_action)).toEqual([
+      {
+        action: 'perform-action',
+        perform_action: 'script.add_shift',
+        data: { date: '2026-11-19' },
+      },
+      {
+        action: 'perform-action',
+        perform_action: 'script.add_shift',
+        data: { date: '2026-11-19' },
+      },
+    ]);
+  });
 });
 
 describe('the time beside the title', () => {
@@ -1236,14 +1271,42 @@ describe('the list fitted to its room', () => {
     expect(rule('.calendar-card-pro.month-view .content-container')).toContain(
       'flex: var(--calendar-card-month-content-flex, 1 1 0)',
     );
-    // Nothing a month draws scrolls on its own, so the card's height scrolls the whole.
+    // Nothing a month draws scrolls on its own on a dashboard, so the card's height scrolls the
+    // whole. The one scroller is the list in the overlay, which scrolls its rows alone, keeps a
+    // scroll that reaches its end, and is ringed where it takes focus.
     const scrolls = declarations(cardStyles.cssText).filter(
       (d) =>
         d.selectors.some((selector) => selector.includes('month-day-list')) &&
         /^overflow/.test(d.property) &&
         /auto|scroll/.test(d.value),
     );
-    expect(scrolls).toEqual([]);
+    expect(scrolls.map((d) => [d.at, d.selectors, d.property, d.value])).toEqual([
+      [[], ['.month-day-list-rows.scrolls'], 'overflow', 'hidden auto'],
+    ]);
+    expect(rule('.month-day-list-rows.scrolls')).toEqual([
+      'overflow: hidden auto',
+      'overscroll-behavior: contain',
+      'clip-path: none',
+      'padding-block-end: var(--calendar-card-overlay-foot, 0px)',
+    ]);
+    // It runs to the overlay card's foot, under the device's home indicator, and keeps the foot's
+    // room inside its scroll; any other card in the overlay keeps the larger of its own padding
+    // and the indicator's room at its foot.
+    expect(rule(':host([in-overlay]) ha-card')).toEqual([
+      '--calendar-card-overlay-foot: max( calc(var(--calendar-card-spacing-additional) + 16px), var(--calendar-card-safe-area-bottom, 0px) )',
+      'padding-bottom: var(--calendar-card-overlay-foot)',
+    ]);
+    expect(rule(':host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls)')).toEqual([
+      'padding-bottom: 0',
+    ]);
+    // Its pill floats just above where the rows come to rest.
+    expect(rule('.month-day-list-below')).toContain(
+      'bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px)',
+    );
+    expect(rule('.month-day-list-rows.scrolls:focus-visible')).toEqual([
+      'outline: 2px solid var(--calendar-card-line-color-vertical)',
+      'outline-offset: -2px',
+    ]);
     // The old room and its row are gone.
     expect(cardStyles.cssText).not.toContain('month-day-list-reserved');
     expect(cardStyles.cssText).not.toContain('--calendar-card-month-day-list-row');
@@ -1735,6 +1798,24 @@ describe('the day panel', () => {
     expect(params.entry).toBeUndefined();
     expect(params.times?.start).toEqual(new Date(2026, 10, 10, 10));
     expect(params.anchor?.rect).toEqual(anchor.rect);
+  });
+
+  it('runs day_tap_action on its day from its title, named by the day, where it runs another', async () => {
+    const { card, panel } = await open({
+      day_tap_action: { action: 'navigate', navigation_path: '/lovelace/shifts?day={date}' },
+    });
+    const title = panel!.shadowRoot!.querySelector<HTMLButtonElement>('.day-panel-title button')!;
+    expect(title.hasAttribute('aria-label')).toBe(false);
+    expect(title.hasAttribute('aria-describedby')).toBe(false);
+    expect(text(title)).toBe('Tuesday, November 10, 2026');
+
+    title.click();
+    await afterClose(card);
+    expect(isOpen(panel)).toBe(false);
+    expect(dialogs.filter(({ dialogTag }) => dialogTag === EVENT_POPOVER_TAG)).toEqual([]);
+    expect(hassActions.map(({ action, config }) => [action, config.tap_action])).toEqual([
+      ['tap', { action: 'navigate', navigation_path: '/lovelace/shifts?day=2026-11-10' }],
+    ]);
   });
 
   it('keeps its title plain where a tap on a day adds nothing', async () => {

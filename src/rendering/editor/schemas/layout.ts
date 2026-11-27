@@ -162,14 +162,17 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 
 /**
  * Everything the `month:` block owns that has no top-level counterpart: the whole card's height and
- * its cap in the narrow form, the day width below which the narrow form draws, the weekend's and
- * today's shading, and the font sizes of the wide month's days. The wide form's pair is the card's
- * own Card Height, which the panel builds for every layout.
+ * its cap in the narrow form, the day width below which the narrow form draws, which week the first
+ * row is and, from the start date's week, how many weeks follow, the weekend's and today's
+ * shading, and the font sizes of the wide month's days. The wide form's pair is the card's own
+ * Card Height, which the panel builds for every layout.
  *
  * @param blockKey - Config key holding this view's override block
+ * @param language - Effective language code
+ * @param start - First Week as the configuration reads it (`month → start`)
  * @returns The fields, in the view's own block
  */
-function monthFields(blockKey: string): HaFormSchema[] {
+function monthFields(blockKey: string, language: string, start: Types.MonthStart): HaFormSchema[] {
   // No ceiling on the width, for the reason `densityFields` gives. Its floor is `1`, the smallest
   // integer the runtime's `parsed > 0` admits.
   return [
@@ -180,6 +183,18 @@ function monthFields(blockKey: string): HaFormSchema[] {
         name: 'min_day_width',
         selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
       },
+      select(language, 'start', ['month', 'week'], `${blockKey}.start`),
+      // Weeks Shown only from the start date's week: a calendar month always draws six.
+      ...(start === 'week'
+        ? [
+            {
+              name: 'weeks',
+              selector: {
+                number: { min: 1, max: ViewConfig.MONTH_ROWS, step: 1, mode: 'box' as const },
+              },
+            },
+          ]
+        : []),
       color('weekend_background_color'),
       color('today_background_color'),
       text('cell_event_font_size'),
@@ -197,6 +212,7 @@ function monthFields(blockKey: string): HaFormSchema[] {
  * @param fit - When Too Narrow as the configuration reads, for Columns and Grid
  * @param daysToShow - Configured day count
  * @param language - Effective language code
+ * @param monthStart - Month's First Week as the configuration reads it
  * @returns The panel's schema
  */
 const layoutSchema = Helpers.memoizeLast(
@@ -207,6 +223,7 @@ const layoutSchema = Helpers.memoizeLast(
     fit: string,
     daysToShow: number,
     language: string,
+    monthStart: Types.MonthStart,
   ): HaFormSchema[] => {
     // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
     // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
@@ -236,6 +253,10 @@ const layoutSchema = Helpers.memoizeLast(
       );
     }
 
+    // A List card's pair while it is compact, which takes the card's own while unset. Built in
+    // every layout and withheld outside List by `VIEW_SCOPE`, as the compact limits are.
+    cardBox.push(text('compact_card_height'), text('compact_card_max_height'));
+
     // The events area's own pair, which Card Height has replaced. Its page draws it only where a
     // card still holds one, so it can be read and cleared, and never offers it (`pages.ts`, kept).
     if (eventsArea) cardBox.push(text('height'), text('max_height'));
@@ -256,7 +277,7 @@ const layoutSchema = Helpers.memoizeLast(
     }
 
     if (view === 'month' && blockKey !== undefined) {
-      schema.push(...monthFields(blockKey));
+      schema.push(...monthFields(blockKey, language, monthStart));
     }
 
     return schema;
@@ -281,6 +302,7 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
     fit,
     ViewConfig.layoutDays(ctx.config, view),
     ctx.language,
+    ViewConfig.resolveMonthOption(ctx.config, 'start'),
   );
 }
 

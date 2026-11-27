@@ -156,6 +156,8 @@ and its home button always returns to them, today or not.
 
 Month shows a whole month: the month holding the date, fixed or relative, or today's month for
 Tomorrow (`today+1` or `+1`) and `start_of_week`, in any case and with any spaces. A narrow month opens with that day selected. See
-[The Six Weeks](/features/month-view#the-six-weeks).
+[The Six Weeks](/features/month-view#the-six-weeks). With `month → start: week` it shows the
+coming weeks from the week holding the date instead, or from today's week for those two; see
+[The Coming Weeks](/features/month-view#the-coming-weeks).
 
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

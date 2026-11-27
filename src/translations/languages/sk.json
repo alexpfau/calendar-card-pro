@@ -13,6 +13,7 @@
   "viewMonth": "Mesiac",
   "layout": "Rozloženie",
   "layoutCurrent": "Rozloženie: {view}",
+  "openFullSize": "Otvoriť v plnej veľkosti",
   "moreEvents": "+{count} navyše",
   "eventCount": "Udalosti: {count}",
   "eventCountOne": "{count} udalosť",

@@ -33,6 +33,7 @@ import { customElement, property } from 'lit/decorators.js';
 
 import * as Config from './config/config';
 import * as Constants from './config/constants';
+import * as OverlayConfig from './config/overlay';
 import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
@@ -40,6 +41,7 @@ import * as AddEvent from './interaction/add-event';
 import * as Back from './interaction/back';
 import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
+import * as DayActions from './interaction/day-actions';
 import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
 import type * as Times from './interaction/event-times';
@@ -47,6 +49,7 @@ import * as Feedback from './interaction/feedback';
 import * as GridDraft from './interaction/grid-draft';
 import * as GridMove from './interaction/grid-move';
 import type * as PopoverModel from './interaction/popover-model';
+import { RippleRelease } from './interaction/ripple-release';
 import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
 import * as CardSize from './rendering/card-size';
@@ -57,6 +60,7 @@ import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
 import * as MonthRender from './rendering/month';
+import * as Overlay from './rendering/overlay';
 import * as Render from './rendering/render';
 import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
@@ -242,6 +246,12 @@ function originOf(node: EventTarget | null): Feedback.PressOrigin | undefined {
     rect: Feedback.eventBox(node),
   };
 }
+
+/**
+ * Less than this left to scroll after a page down a narrow month's list that scrolls, and the
+ * press scrolls to its end instead: about a row, so no sliver is left for the pill to count.
+ */
+const MONTH_LIST_PAGE_REST = 40;
 
 /** Whether the person asked for less motion, which turns a swipe's nudge and arrival off. */
 function prefersReducedMotion(): boolean {
@@ -544,6 +554,13 @@ class CalendarCardPro extends LitElement {
   public connectedWhileHidden = true;
 
   /**
+   * Set by the overlay on the card it opens, before configuring it (`Overlay.OverlayFrame`); never
+   * on a dashboard's card. The card then fills the overlay, draws Close, closes the overlay for
+   * `back`, and stores no choice on the device.
+   */
+  public overlayFrame?: Overlay.OverlayFrame;
+
+  /**
    * Load the editor on demand.
    *
    * The computed URL preserves the card's own cache-busting query string for the
@@ -825,8 +842,8 @@ class CalendarCardPro extends LitElement {
   private _spaceArmedOn: EventTarget | null = null;
 
   /**
-   * The day a press on a day that adds an event landed on, read at pointer-down while a tap on
-   * a day adds (`_dayTapsActive`); null otherwise. Never set for a press on an event, which
+   * The day a press on a day landed on, read at pointer-down while a tap on a day runs
+   * something (`_dayTapsActive`); null otherwise. Never set for a press on an event, which
    * covers its day.
    */
   private _pointerDayHit: Activation.DayHit | null = null;
@@ -941,6 +958,8 @@ class CalendarCardPro extends LitElement {
    * the mouse events and click a browser derives from it off the popover (`_swallowTouchEnd`).
    */
   private _swallowTouchEndUntil = 0;
+  /** Ends the ripple's press where the event that would end it never reaches `ha-card`. */
+  private readonly _rippleRelease = new RippleRelease();
   /** Whether a finger is lifting, while its pointer-up runs what the press does. */
   private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
@@ -955,9 +974,11 @@ class CalendarCardPro extends LitElement {
    * Whether the card's own action of this kind would run: one is configured, and it is not
    * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
    * with nothing a reset could ever undo (`_canReset`), `expand` where nothing folds: a layout
-   * other than List, or no compact limits (`hasCompactModeLimits`), nor `back` while the card is
-   * being edited, when leaving the page would take the editor with it. Such an action is no
-   * action at all: no tab stop, ripple or hold indicator promises what a press then refuses.
+   * other than List, or no compact limits or heights (`hasCompactModeLimits`), nor `back` while
+   * the card is being edited, when leaving the page would take the editor with it, nor `overlay`
+   * then, which would open over the editor. Such an action is no action at all: no tab stop,
+   * ripple or hold indicator promises what a press then refuses. The overlay's own card never
+   * holds `overlay` (`OverlayConfig.overlayConfig`).
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -968,7 +989,9 @@ class CalendarCardPro extends LitElement {
     if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
     if (action.action === Constants.RESET_ACTION) return this._canReset;
     if (action.action === 'expand') return this.hasCompactModeLimits();
-    if (action.action === Constants.BACK_ACTION) return !this._isBeingEdited;
+    if (action.action === Constants.BACK_ACTION || action.action === Constants.OVERLAY_ACTION) {
+      return !this._isBeingEdited;
+    }
     return true;
   }
 
@@ -1003,21 +1026,33 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether a tap on a day, where it shows no event, adds an event there: `day_tap_action` is
-   * `add-event`, and the card can add one now. Every other value reads as `none`, which leaves
-   * such a tap to `tap_action`, as `event_tap_action` does for events.
+   * Whether a tap on a day, where it shows no event, runs something there: `day_tap_action` adds
+   * an event and the card can add one now, or it is one of Home Assistant's actions and the card
+   * is not being edited. Every other value reads as `none`, which leaves such a tap to
+   * `tap_action`, as `event_tap_action` does for events (`dayActionKind`).
    */
   private get _dayTapsActive(): boolean {
-    const dayTapAction: Types.ActionConfig | null | undefined = this.config.day_tap_action;
-    return dayTapAction?.action === Constants.ADD_EVENT_ACTION && this._canAddEvents;
+    const kind = DayActions.dayActionKind(this.config.day_tap_action);
+    if (kind === 'add') return this._canAddEvents;
+    return kind === 'forward' && !this._isBeingEdited;
   }
 
   /**
-   * How this render draws each day as a button that adds an event on it, or undefined while a
-   * tap on a day adds nothing. Named by Home Assistant's own "Add event", as the add button is.
+   * Whether a tap on a day adds an event there: `day_tap_action` is `add-event`, and the card can
+   * add one now. What draws a new event in a grid, and names each day's button "Add event".
+   */
+  private get _dayTapsAdd(): boolean {
+    return DayActions.dayActionKind(this.config.day_tap_action) === 'add' && this._canAddEvents;
+  }
+
+  /**
+   * How this render draws each day as a button that runs `day_tap_action` on it, or undefined
+   * while a tap on a day runs nothing. Named by Home Assistant's own "Add event" where it adds, as
+   * the add button is, and by the day itself where it runs another action.
    */
   private get _dayAddButtons(): Activation.DayAddButtons | undefined {
     if (!this._dayTapsActive) return undefined;
+    if (!this._dayTapsAdd) return {};
     return { label: AddEvent.addEventLabel(this.safeHass) ?? AddEvent.UNLOCALIZED_ADD_EVENT_NAME };
   }
 
@@ -1549,9 +1584,19 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Fingerprint of the configuration last set, which keys this device's remembered view.
-   * See `utils/view-choice.ts`.
+   * See `utils/view-choice.ts`. Always null for the overlay's card, which keys nothing there, so
+   * every path that reads or writes the device's choice passes it by.
    */
   private _configFingerprint: string | null = null;
+
+  /** Fingerprint of the configuration last set on the overlay's card (`_adoptOverlayChoice`). */
+  private _overlayFingerprint: string | null = null;
+
+  /**
+   * The configuration as Home Assistant last handed it to `setConfig`, before defaults are merged
+   * in, which the overlay builds its card's from (`_openOverlay`).
+   */
+  private _rawConfig: Readonly<Record<string, unknown>> = {};
 
   /**
    * The view this device picked with the toolbar's switcher, or null to follow `view`.
@@ -1780,6 +1825,7 @@ class CalendarCardPro extends LitElement {
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
       reset: () => this._resetFromAction(),
+      overlay: () => this._openOverlay(origin),
       back: (action) => this._goBack(action),
     };
   }
@@ -1787,7 +1833,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The card's `back` action: back to the page before this one where Home Assistant navigated
    * here from a page of its own, as its back arrow does, and otherwise this page replaced by the
-   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`).
+   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`). In an
+   * overlay it closes the overlay, which is what Home Assistant's own Back does there.
    *
    * The fallback goes through Home Assistant's own `navigate` action, so the card writes no
    * history of its own and Home Assistant routes the page as it routes any other. Nothing runs
@@ -1798,6 +1845,11 @@ class CalendarCardPro extends LitElement {
   private _goBack(action: Types.ActionConfig): void {
     if (this._isBeingEdited) {
       Logger.debug('Not going back while the card is being edited');
+      return;
+    }
+    if (this.overlayFrame) {
+      Logger.debug('Going back closes the overlay');
+      this.overlayFrame.close();
       return;
     }
 
@@ -1978,6 +2030,16 @@ class CalendarCardPro extends LitElement {
     more: null,
     empty: null,
   };
+
+  /**
+   * How many of the selected day's events a narrow month's list that scrolls has below what it
+   * shows, as last counted (`_countMonthListBelow`), and the day they were counted for: what its
+   * "+N more" pill says. Null until a list that scrolls has been counted.
+   */
+  private _monthListBelow: { readonly day: string; readonly count: number } | null = null;
+
+  /** The day a narrow month's list that scrolls was last drawn for, which it scrolls back to the top on leaving. */
+  private _monthListScrolledDay: string | null = null;
 
   /**
    * The row or "+N more" of a narrow month's list that had focus as the update began, which a
@@ -2441,7 +2503,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The configuration a view draws a page with: the page's own, resolved for the view. For month
-   * it is its six weeks, from the page's first row (`_monthRowsStart`), so grouping holds exactly
+   * it is its weeks, from the page's first row (`_monthRowsStart`), so grouping holds exactly
    * the grid's days.
    *
    * @param page - First day of the page, or null for home
@@ -2460,7 +2522,7 @@ class CalendarCardPro extends LitElement {
     return {
       ...resolved,
       start_date: Paging.pageKey(this._monthRowsStart(page, now)),
-      days_to_show: ViewConfig.MONTH_DAYS,
+      days_to_show: this._monthPageDays,
       // Month draws none of the weather written before v6.
       weather: ViewConfig.drawnViewWeather(config, 'month'),
     };
@@ -2469,17 +2531,33 @@ class CalendarCardPro extends LitElement {
   /**
    * The first day of a month page's rows: at home the weeks of Month's home month
    * (`_monthHomeDay`), on a page the weeks of the month holding the page's day. Month's own moves
-   * key a month by its 1st; a layout switch keys it by the day it carried (`_openOnDate`).
+   * key a month by its 1st; a layout switch keys it by the day it carried (`_openOnDate`). Under
+   * `month → start: week` the week holding that day instead (`ViewConfig.monthPageRowsStart`),
+   * which a page's key already is.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
    * @returns The first row's first day, at local midnight
    */
   private _monthRowsStart(page: string | null, now: Date = new Date()): Date {
-    return ViewConfig.monthHomeRowsStart(
+    return ViewConfig.monthPageRowsStart(
       page === null ? this._monthHomeDay(now) : Paging.pageStart(page),
+      this.config,
       this._firstDayOfWeek,
     );
+  }
+
+  /**
+   * The days a month page draws: six weeks, or `month → weeks` under `month → start: week`
+   * (`ViewConfig.monthPageDays`).
+   */
+  private get _monthPageDays(): number {
+    return ViewConfig.monthPageDays(this.config);
+  }
+
+  /** Whether the month's first row is the week holding its start date (`month → start: week`). */
+  private get _monthStartsAtWeek(): boolean {
+    return ViewConfig.monthStartsAtWeek(this.config);
   }
 
   /**
@@ -2718,15 +2796,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The page the card opens with, as drawn now: the configured window, or the slice of it the
-   * card draws while the layout drops columns. For month, the six weeks of Month's home month:
-   * the start date's, or today's (`_monthHomeDay`).
+   * card draws while the layout drops columns. For month, the weeks of Month's home month:
+   * the start date's, or today's (`_monthHomeDay`), or under `month → start: week` the weeks from
+   * that day's.
    *
    * @param now - The current moment
    * @returns Home
    */
   private _homeRange(now: Date = new Date()): Paging.PageRange {
     if (this.effectiveView === 'month') {
-      return { start: this._monthRowsStart(null, now), days: ViewConfig.MONTH_DAYS };
+      return { start: this._monthRowsStart(null, now), days: this._monthPageDays };
     }
     return Paging.homeRange(this._homeWindowStart(now), this._viewDays, this._shedColumns, now);
   }
@@ -2741,7 +2820,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * The days a page covers as drawn now: as many as the view on screen shows, from the page's
-   * first day. Month draws the six weeks of the month holding that day.
+   * first day. Month draws the weeks of the month holding that day, or under
+   * `month → start: week` the weeks from that day's.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -2750,7 +2830,7 @@ class CalendarCardPro extends LitElement {
   private _pageRange(page: string | null, now: Date = new Date()): Paging.PageRange {
     if (page === null) return this._homeRange(now);
     if (this.effectiveView === 'month') {
-      return { start: this._monthRowsStart(page, now), days: ViewConfig.MONTH_DAYS };
+      return { start: this._monthRowsStart(page, now), days: this._monthPageDays };
     }
     return {
       start: Paging.pageStart(page),
@@ -2893,14 +2973,14 @@ class CalendarCardPro extends LitElement {
   /**
    * Home's month, as `hide_when_empty` counts it: Month's own options, from the day its home is
    * the month of (`_monthHomeDay`: the start date, or today for Tomorrow and Start of Week) to the
-   * end of its six weeks, so an event in the weeks before that day does not count.
+   * end of its weeks, so an event in the weeks before that day does not count.
    *
    * @returns The configuration to count Month's events with
    */
   private _monthCountConfig(): Types.Config {
     const now = new Date();
     const start = this._monthHomeDay(now);
-    const end = Paging.addDays(this._monthRowsStart(null, now), ViewConfig.MONTH_DAYS);
+    const end = Paging.addDays(this._monthRowsStart(null, now), this._monthPageDays);
     return {
       ...ViewConfig.resolveEffectiveConfig(this.config, 'month'),
       start_date: FormatUtils.getLocalDateKey(start),
@@ -2928,6 +3008,9 @@ class CalendarCardPro extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     Logger.debug('Component connected');
+    // The overlay's card says so on itself, for the stylesheet: its foot keeps clear of the
+    // device's home indicator, and a narrow month's list scrolls under it (`IN_OVERLAY_ATTRIBUTE`).
+    this.toggleAttribute(Overlay.IN_OVERLAY_ATTRIBUTE, this.overlayFrame !== undefined);
 
     // Provisional: the load below re-arms it for the data's own deadline once it lands.
     this.startRefreshTimer();
@@ -4074,6 +4157,15 @@ class CalendarCardPro extends LitElement {
    */
   private _syncMonthListFit(): void {
     const drawn = this.isConnected ? this._monthListDrawn : null;
+    // A list that scrolls lists every row, so there is nothing to fit: only what it has below what
+    // it shows, for its pill, which changes with its size as well as with its scroll.
+    if (this._monthListScrolls) {
+      this._watchMonthList();
+      if (!drawn) return;
+      this._writeMonthListMin();
+      this._syncMonthListScroll(drawn.day);
+      return;
+    }
     this._watchMonthList();
     if (!drawn) return;
     this._writeMonthListMin();
@@ -4095,6 +4187,96 @@ class CalendarCardPro extends LitElement {
     this._monthListFit = { day: drawn.day, shown };
     this.requestUpdate();
   }
+
+  /**
+   * Whether a narrow month's list lists every event of its day and scrolls them in its room, under
+   * weeks that stay where they are, rather than listing the ones that fit and "+N more": in the
+   * overlay alone. There the card is all the screen shows, so the room under its weeks is all the
+   * list can have, and nothing outside the card scrolls for a scroll inside it to fight. On a
+   * dashboard the page scrolls, and a list that scrolled inside it would take the page's scroll
+   * wherever a finger landed on it.
+   */
+  private get _monthListScrolls(): boolean {
+    return this._drawsNarrowMonth && this.overlayFrame !== undefined;
+  }
+
+  /**
+   * Brings a narrow month's list that scrolls to its top when it is drawn for another day, and
+   * counts what it has below what it shows.
+   *
+   * @param day - The day the list is drawn for, `YYYY-MM-DD`
+   */
+  private _syncMonthListScroll(day: string): void {
+    const box = this._monthListScroller;
+    if (!box) return;
+    if (this._monthListScrolledDay !== day) {
+      this._monthListScrolledDay = day;
+      box.scrollTop = 0;
+    }
+    this._countMonthListBelow(box, day);
+  }
+
+  /** A narrow month's list that scrolls, where one is drawn. */
+  private get _monthListScroller(): HTMLElement | null {
+    return this.renderRoot.querySelector<HTMLElement>(
+      `.month-day-list > .month-day-list-rows.${MonthRender.MONTH_LIST_SCROLLS_CLASS}`,
+    );
+  }
+
+  /**
+   * Counts the events of a narrow month's list that scrolls that end below where its rows come to
+   * rest, the top of the room it keeps at its foot (its bottom padding), and draws its pill again
+   * where the count changed. A row cut there counts, as "+N more" on a dashboard counts every row
+   * it does not show whole, unless by a pixel or less, which rounding leaves. Read in the page's
+   * pixels, with the padding scaled to match, so a list read while the overlay grows counts as it
+   * will once it has.
+   *
+   * @param box - The list's rows' box
+   * @param day - The day it is drawn for
+   */
+  private _countMonthListBelow(box: HTMLElement, day: string): void {
+    const rect = box.getBoundingClientRect();
+    if (!(rect.height > 0)) return;
+    const laid = box.offsetHeight;
+    const scale = laid > 0 && Math.abs(rect.height - laid) >= 1 ? rect.height / laid : 1;
+    const rest =
+      rect.bottom - (Number.parseFloat(getComputedStyle(box).paddingBottom) || 0) * scale;
+    // At its end nothing is below, however a fractional scroll rounds.
+    const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
+    let count = 0;
+    for (const row of atEnd ? [] : box.querySelectorAll('td.event')) {
+      if (row.getBoundingClientRect().bottom > rest + 1) count += 1;
+    }
+    const known = this._monthListBelow;
+    if (known?.day === day && known.count === count) return;
+    this._monthListBelow = { day, count };
+    this.requestUpdate();
+  }
+
+  /** Counts a scrolling list's rows below anew as it scrolls. */
+  private readonly _onMonthListScroll = (ev: Event): void => {
+    const day = this._monthListDrawn?.day;
+    if (day && ev.currentTarget instanceof HTMLElement) {
+      this._countMonthListBelow(ev.currentTarget, day);
+    }
+  };
+
+  /**
+   * Scrolls a narrow month's list that scrolls down by most of what it shows, for its pill, so the
+   * row cut at its foot comes near its top; all the way where less than a row would be left. At
+   * once where the system asks for less motion.
+   */
+  private readonly _pageMonthList = (): void => {
+    const box = this._monthListScroller;
+    if (!box) return;
+    const shown = box.clientHeight - (Number.parseFloat(getComputedStyle(box).paddingBottom) || 0);
+    const step = Math.max(shown * 0.8, 1);
+    const left = box.scrollHeight - box.clientHeight - box.scrollTop;
+    box.scrollBy({
+      top: left - step < MONTH_LIST_PAGE_REST ? Math.max(left, step) : step,
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
+  };
 
   /**
    * Whether a narrow month's list grows with its day under a cap, rather than taking a fixed room:
@@ -4129,8 +4311,10 @@ class CalendarCardPro extends LitElement {
   /**
    * Watches what a narrow month's list is fitted from for a change of size: the staged rows, and
    * the rows' box where it is the room. A list that grows under a cap leaves its box out, as that
-   * changes with every fit and sets nothing. Re-aimed whenever those are other elements, as after a
-   * day without events or a switch of form; no list, no watch.
+   * changes with every fit and sets nothing. A list that scrolls stages nothing, and its box and
+   * the rows in it are watched instead, for the count its pill shows (`_countMonthListBelow`).
+   * Re-aimed whenever those are other elements, as after a day without events or a switch of form;
+   * no list, no watch.
    *
    * A growing list's room is its cap, which no box here follows. A cap that clamps the card, or
    * stops clamping it, resizes the card, which the card's own resize observer hears
@@ -4147,8 +4331,10 @@ class CalendarCardPro extends LitElement {
       const box = this._monthListGrows
         ? null
         : this.renderRoot.querySelector('.month-day-list > .month-day-list-rows');
+      const rows = this._monthListScrolls ? box?.querySelector(':scope > .month-day-table') : null;
       if (staged) targets.push(staged);
       if (box) targets.push(box);
+      if (rows) targets.push(rows);
     }
     const grows = targets.length > 0 && this._monthListGrows;
     if (
@@ -4296,6 +4482,7 @@ class CalendarCardPro extends LitElement {
       this._monthRowsStart(this._pageShown, now),
       now,
       this._monthOwnDay(this._pageShown, now),
+      this._monthPageDays,
     );
   }
 
@@ -4303,7 +4490,8 @@ class CalendarCardPro extends LitElement {
    * The day a month page lists by itself on a narrow month, with nothing selected: at home,
    * Month's home day (`_monthHomeDay`), the start date or today, so the card opens, and Home
    * returns, on the day it is configured to start; on any other page, today where it falls in the
-   * month the heading names, else that month's 1st (`MonthDay.defaultMonthDay`).
+   * month the heading names, else that month's 1st, or under `month → start: week` today where
+   * the page holds it, else its first day (`MonthDay.defaultMonthDay`).
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -4312,7 +4500,11 @@ class CalendarCardPro extends LitElement {
   private _monthOwnDay(page: string | null, now: Date): Date {
     return page === null
       ? this._monthHomeDay(now)
-      : MonthDay.defaultMonthDay(this._monthRowsStart(page, now), now);
+      : MonthDay.defaultMonthDay(
+          this._monthRowsStart(page, now),
+          now,
+          this._monthStartsAtWeek ? this._monthPageDays : undefined,
+        );
   }
 
   /**
@@ -4343,8 +4535,9 @@ class CalendarCardPro extends LitElement {
   /**
    * What a narrow month draws besides its weeks: the day selected, and every day's events as
    * the day model lists them, which its capsules count and its list draws, as many of the selected
-   * day's as the card last fitted to the list's room (`_monthListFit`). The selected day's list
-   * rings the event a search picked, where it holds it. Undefined for a wide month.
+   * day's as the card last fitted to the list's room (`_monthListFit`), or all of them in a list
+   * that scrolls (`_monthListScrolls`). The selected day's list rings the event a search picked,
+   * where it holds it. Undefined for a wide month.
    *
    * @param rowsStart - The page's first row's first day
    * @param ring - The event a pick rings on this page, or null
@@ -4370,7 +4563,7 @@ class CalendarCardPro extends LitElement {
       this._shownEvents,
       this.effectiveConfig,
       rowsStart,
-      ViewConfig.MONTH_DAYS,
+      this._monthPageDays,
       this.effectiveLanguage,
       this.hass,
     );
@@ -4383,8 +4576,14 @@ class CalendarCardPro extends LitElement {
     // "+N more", which opens the day's panel to ring it there. A pick waits for a fit made after
     // it, even on a day fitted before, since the fit its render was drawn from may be about to
     // change (`_syncMonthListFit`).
-    const shown = this._monthListFit?.day === day ? this._monthListFit.shown : undefined;
-    const waits = this._searchRing?.listFitted === false;
+    const scrolls = this._monthListScrolls;
+    const shown = scrolls
+      ? count
+      : this._monthListFit?.day === day
+        ? this._monthListFit.shown
+        : undefined;
+    // A list that scrolls holds every row from its first render, so a pick waits for nothing.
+    const waits = !scrolls && this._searchRing?.listFitted === false;
     const pending = (shown === undefined || waits) && count > 0;
     const at = listed ? listed.rows.findIndex((event) => event._searchRing === true) : -1;
     return {
@@ -4396,6 +4595,13 @@ class CalendarCardPro extends LitElement {
         weatherForecasts: this.weatherForecasts,
         dayAdd: this._dayAddButtons,
         shown,
+        scroll: scrolls
+          ? {
+              below: this._monthListBelow?.day === day ? this._monthListBelow.count : 0,
+              scrolled: this._onMonthListScroll,
+              page: this._pageMonthList,
+            }
+          : undefined,
         more: (moreDay, button) => this._openDayPanel(moreDay, button, false, true),
       },
       ringed: found && !pending && at < Math.min(shown ?? 0, count),
@@ -4408,21 +4614,23 @@ class CalendarCardPro extends LitElement {
   /**
    * The day whose cell is a month's one tab stop (`tabindex="0"`): the day the keyboard, a tap or
    * a pick last put it on while that day is among the rows, else the narrow form's selected
-   * day, else today where the rows show it, else the 1st of the month the header names.
+   * day, else today where the rows show it, else the 1st of the month the header names, or under
+   * `month → start: week` the page's first day.
    *
    * @param rowsStart - The page's first row's first day
    * @param now - The current moment
    * @returns The day, at local midnight
    */
   private _monthTabStop(rowsStart: Date, now: Date = new Date()): Date {
-    const range = { start: rowsStart, days: ViewConfig.MONTH_DAYS };
+    const range = { start: rowsStart, days: this._monthPageDays };
     if (this._monthFocusDay !== null) {
       const day = Paging.pageStart(this._monthFocusDay);
       if (Paging.rangeContains(range, day)) return day;
     }
     if (this._drawsNarrowMonth) return this._monthSelectedDay(now);
     const today = Paging.startOfDay(now);
-    return Paging.rangeContains(range, today) ? today : Paging.majorityMonth(range);
+    if (Paging.rangeContains(range, today)) return today;
+    return this._monthStartsAtWeek ? Paging.startOfDay(rowsStart) : Paging.majorityMonth(range);
   }
 
   /**
@@ -4441,18 +4649,24 @@ class CalendarCardPro extends LitElement {
    * Moves a month's keyboard focus to a day: its cell becomes the tab stop and takes focus once
    * drawn (`_syncMonthFocus`). A day past the rows drawn pages to its month's weeks first, as the
    * date navigation's arrows would, and so does any day where the key pages a month, though the
-   * day is drawn beside the month shown. Only where the card pages: with the date navigation, and
-   * not while it is being edited. Elsewhere focus moves only to a day drawn, and otherwise stays
-   * where it is.
+   * day is drawn beside the month shown. Under `month → start: week` it pages by whole pages from
+   * the one asked for, to the one holding the day. Only where the card pages: with the date
+   * navigation, and not while it is being edited. Elsewhere focus moves only to a day drawn, and
+   * otherwise stays where it is.
    *
    * @param day - The day, at local midnight
    * @param toItsMonth - Whether to page to the day's month even where its rows are drawn
    */
   private _moveMonthFocus(day: Date, toItsMonth = false): void {
-    const drawn = Paging.rangeContains(this._pageRange(this._pageRequested), day);
+    const from = this._pageRange(this._pageRequested);
+    const drawn = Paging.rangeContains(from, day);
     if (toItsMonth || !drawn) {
       if (this._wantsNavigation && !this._isBeingEdited) {
-        this._goToPage(new Date(day.getFullYear(), day.getMonth(), 1));
+        this._goToPage(
+          this._monthStartsAtWeek
+            ? Paging.pageContaining(day, from, from.days)
+            : new Date(day.getFullYear(), day.getMonth(), 1),
+        );
       } else if (!drawn) {
         return;
       }
@@ -4491,8 +4705,9 @@ class CalendarCardPro extends LitElement {
    * page to the month before or after the one the heading names (`majorityMonth`), to the cell's
    * date there where it has one, else its last day. Counted from the heading rather than from the
    * cell, since six rows draw days of the months either side: a step from the cell would land on
-   * a date already drawn, and the month would not move. A day past the rows drawn pages there
-   * (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a narrow
+   * a date already drawn, and the month would not move. Under `month → start: week` they page by
+   * a whole page instead, to the same weekday in the same row. A day past the rows drawn pages
+   * there (`_moveMonthFocus`). Enter opens a wide month day's panel and selects a narrow
    * one, on its keydown; Space does on its keyup, as a native button does, so a panel it opened
    * never takes the keyup as a press on what it focused (`_handleKeyUp`). A key with a modifier,
    * and any key on anything but a cell, is left alone, so Home Assistant's own shortcuts work
@@ -4511,6 +4726,7 @@ class CalendarCardPro extends LitElement {
     const rowStart = ViewConfig.monthRowsStart(day, this._firstDayOfWeek);
     const across = this._cardRightToLeft ? -1 : 1;
     const monthAway = (months: number): Date => {
+      if (this._monthStartsAtWeek) return Paging.addDays(day, months * this._monthPageDays);
       const named = Paging.majorityMonth(this._pageRange(this._pageRequested));
       const year = named.getFullYear();
       const month = named.getMonth() + months;
@@ -4655,8 +4871,8 @@ class CalendarCardPro extends LitElement {
             ? this._runEventHold(target, origin)
             : this._activate({ event: target }, origin),
         holds: () => this._eventHoldRuns || this._hasHoldAction,
-        addLabel: () => this._dayAddButtons?.label,
-        add: (origin) => this._activate({ day: day.getTime() }, origin),
+        dayButton: () => this._dayAddButtons,
+        tapDay: (origin) => this._activate({ day: day.getTime() }, origin),
       },
       title: MonthRender.monthDayTitle(day, language),
       anchor: at && { ...at, rect: at.rect ?? anchor.getBoundingClientRect() },
@@ -5236,10 +5452,13 @@ class CalendarCardPro extends LitElement {
     }
     return this.config.entities.some((entry) => {
       const entity = typeof entry === 'string' ? entry : entry.entity;
-      const label = typeof entry === 'string' ? undefined : entry.label;
+      const labels = typeof entry === 'string' ? [] : Helpers.labelParts(entry.label);
       return (
         previous.states[entity] !== this.hass?.states[entity] ||
-        (label?.startsWith('person.') && previous.states[label] !== this.hass?.states[label])
+        labels.some(
+          (label) =>
+            label.startsWith('person.') && previous.states[label] !== this.hass?.states[label],
+        )
       );
     });
   }
@@ -5974,8 +6193,9 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Generate style properties from configuration. Returns a style object for use with styleMap.
-   * Adds the card's whole height and cap for the layout drawn, and in a month the form it draws,
-   * or the events area's fill in a Sections slot (`CardSize.cardSizeStyle`).
+   * Adds the card's whole height and cap for the layout drawn, in a month the form it draws, and
+   * in a folded List the compact pair, or the events area's fill in a Sections slot
+   * (`CardSize.cardSizeStyle`).
    */
   private getCustomStyles(): Record<string, string> {
     return {
@@ -5985,6 +6205,7 @@ class CalendarCardPro extends LitElement {
         this.effectiveView,
         this._monthNarrow ? 'narrow' : 'wide',
         this._holdsSectionsSlot,
+        !this.isExpanded,
       ),
     };
   }
@@ -5997,9 +6218,12 @@ class CalendarCardPro extends LitElement {
     return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
 
-  /** Whether a Sections dashboard gives the card a slot of its own to fill (`Sections.holdsSlot`). */
+  /**
+   * Whether the card fills a height it is given: a slot of its own on a Sections dashboard
+   * (`Sections.holdsSlot`), or the overlay it is in, which it fills the same way.
+   */
   private get _holdsSectionsSlot(): boolean {
-    return Sections.holdsSlot(this.layout, this.config);
+    return this.overlayFrame !== undefined || Sections.holdsSlot(this.layout, this.config);
   }
 
   /**
@@ -6411,11 +6635,13 @@ class CalendarCardPro extends LitElement {
    * later event of the gesture, the click included, to `ha-card`, so the event the pointer
    * landed on, or the day and in a grid's time area the hour, is read from this
    * pointer-down's path and position and held until pointer-up. A press arms only when it
-   * could end in something: an action of the card's own, the event's own, a day that adds
-   * an event, or a swipe. So turning any of them on changes nothing about a press anywhere
+   * could end in something: an action of the card's own, the event's own, a day whose tap
+   * runs something, or a swipe. So turning any of them on changes nothing about a press anywhere
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    // The ripple follows every press that reaches `ha-card`, whatever the card makes of it.
+    this._rippleRelease.pressed(ev);
     // A second contact while a new event is drawn has thrown it away already
     // (`_draftSecondContact`), and is no new gesture of its own.
     if (this._draft && ev.pointerId !== this._activePointerId) return;
@@ -6559,13 +6785,14 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Where a press may draw a new event from: a grid's time area or its all-day band, while a
-   * tap on a day adds an event there (`_dayTapsActive`), so the same switch turns both on.
+   * tap on a day adds an event there (`_dayTapsAdd`), so the same switch turns both on. A day
+   * tap that runs another action draws nothing, and a hold there is the card's.
    *
    * @param hit - The day the press landed on, if any
    * @returns The draft's anchor, or undefined where nothing may be drawn
    */
   private _draftAnchorFor(hit: Activation.DayHit | undefined): GridDraft.DraftAnchor | undefined {
-    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsActive) return undefined;
+    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsAdd) return undefined;
     if (hit.allDay) return { allDay: true, timestamp: hit.timestamp };
     if (hit.minute === undefined) return undefined;
     return { allDay: false, point: { timestamp: hit.timestamp, minute: hit.minute } };
@@ -6982,6 +7209,15 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * A `touchend` reaching `ha-card`, which ends the ripple's press (`_rippleRelease` notes it),
+   * and the lifting finger's is refused while it opens the popover (`_swallowTouchEnd`).
+   */
+  private readonly _handleTouchEnd = (ev: TouchEvent): void => {
+    this._rippleRelease.heard();
+    this._swallowTouchEnd(ev);
+  };
+
+  /**
    * Refuses the `touchend` of a finger that just opened the popover, for a moment: the mouse
    * events and the click a browser derives from a touch arrive where it lifted, on the popover
    * now, and would start editing whichever field is there. The popover guards itself as well
@@ -7020,7 +7256,7 @@ class CalendarCardPro extends LitElement {
 
   /** Whether a press on this card may draw a new event: a grid whose day taps add. */
   private get _drawsNewEvents(): boolean {
-    return this.effectiveView === 'grid' && this._dayTapsActive;
+    return this.effectiveView === 'grid' && this._dayTapsAdd;
   }
 
   /**
@@ -7527,8 +7763,8 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The day a press landed on, and in a grid's time area the hour, while a tap on a day adds
-   * an event there (`_dayTapsActive`). Undefined on an event, which covers its day, and off the
+   * The day a press landed on, and in a grid's time area the hour, while a tap on a day runs
+   * something there (`_dayTapsActive`). Undefined on an event, which covers its day, and off the
    * days.
    *
    * @param ev - A pointer-down on `ha-card`
@@ -7595,10 +7831,10 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Washes the day a press is on, where the new event would go: the date or header, and in a
-   * grid's time area the hour a tap there adds. Through an attribute and two custom properties on the day's own
-   * element, so the grid's structure observers, which watch elements come and go, see nothing.
-   * Undefined unwashes the day washed last.
+   * Washes the day a press is on, where its tap runs: the date or header, and in a grid's time
+   * area the hour a tap there adds at, or hands to another action. Through an attribute and two
+   * custom properties on the day's own element, so the grid's structure observers, which watch
+   * elements come and go, see nothing. Undefined unwashes the day washed last.
    *
    * @param hit - The day to wash, or undefined for none
    */
@@ -7713,6 +7949,7 @@ class CalendarCardPro extends LitElement {
    * card when it went far enough and mostly sideways (`_swipeEnded`).
    */
   private _handlePointerUp(ev: PointerEvent) {
+    this._rippleRelease.lifted(ev);
     if (ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) return;
     this._liftingTouch = ev.pointerType === 'touch';
@@ -7795,7 +8032,7 @@ class CalendarCardPro extends LitElement {
       } else if (dayHit && this._dayTapsActive) {
         Logger.debug('Executing day tap action');
         this._releasePressFocus();
-        this._addEventAt(dayHit, origin);
+        this._runDayTap(dayHit, origin);
         ranOffEvents = true;
       } else if (this._hasTapAction) {
         Logger.debug('Executing tap action');
@@ -7845,6 +8082,7 @@ class CalendarCardPro extends LitElement {
    * Handle pointer cancel events to clean up an aborted gesture
    */
   private _handlePointerCancel(ev: PointerEvent) {
+    this._rippleRelease.lifted(ev);
     if (ev.pointerId !== this._activePointerId) {
       return;
     }
@@ -8169,8 +8407,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Activates a button of the card's own from the keyboard or assistive technology: an
-   * event's own action, or a day's add button. Neither has a hold there, so an event runs its
-   * tap where it has one, and otherwise its hold.
+   * event's own action, or a day's button, which runs `day_tap_action`. Neither has a hold
+   * there, so an event runs its tap where it has one, and otherwise its hold.
    *
    * @param target - What the button acts on
    * @param origin - Where the button is, for the cue while the dialog loads
@@ -8183,8 +8421,52 @@ class CalendarCardPro extends LitElement {
       this._runEventAction(target.event, this._eventTapRuns ? 'tap' : 'hold', origin);
     } else {
       Logger.debug('Executing day tap action');
-      this._addEventAt(undefined, origin, target.day);
+      this._runDayTap(undefined, origin, target.day);
     }
+  }
+
+  /**
+   * Runs `day_tap_action` on a day: a press on it where it shows no event, its button from the
+   * keyboard, or the day panel's title.
+   *
+   * `add-event` opens a new event there (`_addEventAt`). One of Home Assistant's actions goes to
+   * Home Assistant with the day's fields filled in (`fillDayAction`): the day, and in a grid's
+   * time area the quarter hour pressed, as `add-event` would start a new event there. Nothing runs
+   * while the card is being edited.
+   *
+   * @param hit - The day the press landed on, if any
+   * @param origin - Where the press was, for a new event's popover to open beside
+   * @param dayTimestamp - A day to run on with no hit, from a day's button
+   */
+  private _runDayTap(
+    hit: Activation.DayHit | undefined,
+    origin?: Feedback.PressOrigin,
+    dayTimestamp?: number,
+  ): void {
+    const action = this.config.day_tap_action;
+    const kind = DayActions.dayActionKind(action);
+    if (kind === 'add') {
+      this._addEventAt(hit, origin, dayTimestamp);
+      return;
+    }
+    if (kind !== 'forward' || !action || this._isBeingEdited) return;
+
+    // A narrow month runs on the day it lists, wherever nothing names another, as it adds.
+    const timestamp =
+      hit?.timestamp ??
+      dayTimestamp ??
+      (this._drawsNarrowMonth ? this._monthSelectedDay().getTime() : undefined);
+    if (timestamp === undefined) return;
+
+    const filled = DayActions.fillDayAction(
+      action,
+      DayActions.dayFields(timestamp, hit?.allDay ? undefined : hit?.minute),
+    );
+    if (!filled) {
+      Logger.warn('Not running day tap action: its URL would not open over http or https');
+      return;
+    }
+    Actions.handleDayAction(this, filled, this._shownEntries);
   }
 
   /**
@@ -8258,6 +8540,7 @@ class CalendarCardPro extends LitElement {
    * @param ev - A click bubbling to `ha-card`
    */
   private _handleClick(ev: MouseEvent) {
+    this._rippleRelease.heard();
     const eventHit = this._eventTapAt(ev);
     const dayHit = eventHit ? undefined : this._dayAddAt(ev);
     const pickHit = eventHit || dayHit ? undefined : this._monthPickAt(ev, this._pathOf(ev));
@@ -8317,6 +8600,7 @@ class CalendarCardPro extends LitElement {
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
     const previousInstanceId = this._instanceId;
+    this._rawConfig = config as Readonly<Record<string, unknown>>;
 
     for (const message of Config.findDeprecatedKeys(config)) {
       Logger.deprecation(message);
@@ -8471,6 +8755,7 @@ class CalendarCardPro extends LitElement {
    */
   private _syncDeviceChoice(rawConfig: unknown): boolean {
     const fingerprint = ViewChoice.configFingerprint(rawConfig);
+    if (this.overlayFrame) return this._adoptOverlayChoice(fingerprint, this.overlayFrame);
     if (fingerprint === this._configFingerprint) return false;
 
     this._configFingerprint = fingerprint;
@@ -8491,6 +8776,95 @@ class CalendarCardPro extends LitElement {
     this._hiddenMatchesStorage = stored !== undefined;
     this._legendFold = null;
     return true;
+  }
+
+  /**
+   * What the overlay's card takes for the device's choice: nothing it remembers, so it opens in
+   * the layout its configuration names every time, and the calendars the card that opened it
+   * hides. Nothing is read from the device's storage or written to it: `_configFingerprint`
+   * stays null.
+   *
+   * @param fingerprint - The configuration's fingerprint
+   * @param frame - The overlay the card is in
+   * @returns True when the configuration is a different one from the last
+   */
+  private _adoptOverlayChoice(fingerprint: string, frame: Overlay.OverlayFrame): boolean {
+    if (fingerprint === this._overlayFingerprint) return false;
+    this._overlayFingerprint = fingerprint;
+    this._configFingerprint = null;
+    this._viewChoice = null;
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const hidden = frame.hidden.filter((id) => calendars.has(id));
+    this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
+    this._hiddenMatchesStorage = false;
+    this._legendFold = null;
+    return true;
+  }
+
+  /**
+   * Opens the card on a day, as a layout switch carries one to the next layout (`_openOnDate`): a
+   * month on the weeks of the month holding it, the day selected, any other layout on the page
+   * starting that day; its own home for null. For the overlay's card, before it is attached, so
+   * the first load it makes is that page's.
+   *
+   * @param day - The day, at local midnight, or null
+   */
+  public openOn(day: Date | null): void {
+    this._openOnDate(day);
+  }
+
+  /**
+   * Fits the card to its width at once, from a host that knows the width before the card is first
+   * drawn: the overlay, whose own stylesheet sizes it. A card on a dashboard waits for its width to
+   * settle before fitting its days (`WIDTH_SETTLE_DELAY`), since Home Assistant's sections grid
+   * lays it out at a wrong width for a frame first, and until then draws every day it is
+   * configured with. Nothing settles the overlay's width later, and its card is drawn in plain view
+   * as the overlay grows: waiting, a phone's Grid drew five days for six frames, then two. The
+   * measurements that follow find the same width and change nothing.
+   *
+   * @param widthPx - The card's laid-out width in CSS pixels
+   */
+  public fitToWidth(widthPx: number): void {
+    if (!(widthPx > 0)) return;
+    this._syncToolbarLabels(widthPx);
+    this._syncMonthForm(widthPx);
+    this._handleWidthMeasured(widthPx);
+  }
+
+  /**
+   * Opens the card full size in the overlay (`rendering/overlay.ts`): its configuration with its
+   * `overlay:` block on top (`OverlayConfig.overlayConfig`), on the date in view, the calendars
+   * its legend hides hidden there too. It grows out of the press, as a popover does, or out of
+   * the card's middle without one, and starts focus where a press leaves no ring
+   * (`OverlayParams.pointer`). Nothing opens while the card is being edited, nor from the
+   * overlay's own card.
+   *
+   * @param origin - Where the press was, and by what; none for one that came from no press
+   */
+  private _openOverlay(origin?: Feedback.PressOrigin): void {
+    if (this._isBeingEdited || this.overlayFrame) {
+      Logger.debug('Not opening the overlay while the card is being edited, or from inside one');
+      return;
+    }
+    const first = this._shownEntries[0];
+    const firstId = typeof first === 'string' ? first : first?.entity;
+    const params: Overlay.OverlayParams = {
+      cardTag: this.localName,
+      config: OverlayConfig.overlayConfig(this._rawConfig),
+      day: this._dateInView(),
+      hidden: [...this._activeHiddenCalendars],
+      label: this.effectiveTitle?.trim() || (firstId ? this._calendarName(firstId) : ''),
+      from: origin ?? originOf(this),
+      pointer: origin?.pointerType !== undefined,
+    };
+    const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
+    (showDialog as Event & { detail?: unknown }).detail = {
+      dialogTag: Overlay.OVERLAY_TAG,
+      dialogImport: () => customElements.whenDefined(Overlay.OVERLAY_TAG),
+      dialogParams: params,
+    };
+    this.dispatchEvent(showDialog);
+    Logger.debug(`Opened the overlay in ${String(params.config.view)}`);
   }
 
   /**
@@ -9099,7 +9473,9 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Determine whether compact mode is actually limiting what the card renders.
+   * Determine whether compact mode is actually limiting what the card renders: an event or day
+   * limit, a calendar's own event limit, or compact heights that draw the card at another size
+   * than its own (`ViewConfig.compactHeightsApply`), so it can fold by its height alone.
    */
   private hasCompactModeLimits(): boolean {
     if (!ViewConfig.viewAppliesCompactLimits(this.effectiveView)) {
@@ -9111,6 +9487,10 @@ class CalendarCardPro extends LitElement {
 
     const config = this.effectiveConfig;
     if (isLimit(config.compact_events_to_show) || isLimit(config.compact_days_to_show)) {
+      return true;
+    }
+
+    if (ViewConfig.compactHeightsApply(this.config, this.effectiveView, this._holdsSectionsSlot)) {
       return true;
     }
 
@@ -9162,7 +9542,7 @@ class CalendarCardPro extends LitElement {
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
       lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
       touchMove: this._drawsNewEvents || this._movesEvents ? this._draftTouchMove : undefined,
-      touchEnd: this._swallowTouchEnd,
+      touchEnd: this._handleTouchEnd,
       nativeDrag: this._movesEvents ? this._refuseNativeDrag : undefined,
     };
 
@@ -9281,6 +9661,7 @@ class CalendarCardPro extends LitElement {
           rowsStart,
           this._monthCapacity,
           MonthRender.monthLinesOf(this.effectiveConfig, this._monthScaleLines),
+          ViewConfig.monthWeekRows(this.config),
         );
         if (!this._searchRingDrawn) this._searchRingBehindMore = Paging.pageStart(ring.day);
       }
@@ -9368,9 +9749,10 @@ class CalendarCardPro extends LitElement {
    * The control standing in for the card's tap while it hosts controls (`Render.TapControl`).
    *
    * Named as a button of the card's own that runs the same action is named, Home Assistant's
-   * word for it: Refresh, Reset, Back, Add event. Every other action is named after the card,
-   * its title or else its first calendar, as Home Assistant's own cards name what a tap opens;
-   * `expand` adds whether the card is expanded, where it has events to fold.
+   * word for it: Refresh, Reset, Back, Add event, or the card's own Open full size. Every other
+   * action is named after the card, its title or else its first calendar, as Home Assistant's own
+   * cards name what a tap opens; `expand` adds whether the card is expanded, where it has events
+   * to fold.
    *
    * @returns The control; the renderer draws it only while the card hosts controls
    */
@@ -9410,6 +9792,8 @@ class CalendarCardPro extends LitElement {
       reset: this._resetButton(),
       refresh: this._refreshButton(),
       search: this._searchButton(),
+      overlay: this._overlayButton(),
+      close: this._closeButton(),
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
     };
@@ -9475,7 +9859,13 @@ class CalendarCardPro extends LitElement {
     if (!controls.viewSwitcher) return null;
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    const end = count([controls.reset, controls.refresh, controls.search]);
+    const end = count([
+      controls.reset,
+      controls.refresh,
+      controls.search,
+      controls.overlay,
+      Toolbar.closeInActionRow(controls) ? controls.close : undefined,
+    ]);
     return (
       ToolbarFold.switcherLabelWidth(controls.viewSwitcher.views.map((option) => option.view)) +
       ToolbarFold.groupWidth(Toolbar.startControls(controls).length) +
@@ -9502,6 +9892,8 @@ class CalendarCardPro extends LitElement {
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
       controls.search ? 'search' : '',
+      controls.overlay ? 'overlay' : '',
+      controls.close ? 'close' : '',
       controls.legend?.folded ? 'filter' : '',
       `buttons:${controls.customButtons?.length ?? 0}`,
     ].join('\u0000');
@@ -9551,7 +9943,7 @@ class CalendarCardPro extends LitElement {
    *
    * The one place that answers it, so every control that makes the card a host joins here:
    * the toolbar's controls, the events while they are targets, the days while each is a
-   * button that adds an event, and the links in event rows (`open_links`). Answered from what
+   * button that runs `day_tap_action`, and the links in event rows (`open_links`). Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. A card that hosts controls hands its tap action to a control of its own
@@ -9572,6 +9964,8 @@ class CalendarCardPro extends LitElement {
       toolbar.search !== undefined ||
       toolbar.addEvent !== undefined ||
       toolbar.customButtons !== undefined ||
+      toolbar.overlay !== undefined ||
+      toolbar.close !== undefined ||
       drawsEventTarget
     );
   }
@@ -9643,6 +10037,44 @@ class CalendarCardPro extends LitElement {
       return AddEvent.newEventDate(this._monthOwnDay(this._pageShown, now), 1, now);
     }
     return AddEvent.newEventDate(range.start, range.days);
+  }
+
+  /**
+   * The button opening the card full size (`toolbar.overlay`), when the configuration asks for it,
+   * never on the overlay's own card, where Close stands in its place. Named by the card's own
+   * words, since Home Assistant has none for it. While the card is being edited it is drawn and a
+   * press does nothing, as for every toolbar control.
+   *
+   * @returns Button description for the wrapper, or undefined for none
+   */
+  private _overlayButton(): Toolbar.OverlayButton | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.overlay || this.overlayFrame) return undefined;
+    return {
+      label: Localize.getTranslations(this.effectiveLanguage).openFullSize,
+      onActivate: (button, pressed) => {
+        if (this._isBeingEdited) {
+          Logger.debug('Not opening the overlay while the card is being edited');
+          return;
+        }
+        if (pressed) this._releasePressFocus();
+        const at = originOf(button);
+        this._openOverlay(at && { ...at, ...(pressed && { pointerType: pressed.pointerType }) });
+      },
+    };
+  }
+
+  /**
+   * The button closing the overlay, on the overlay's card alone, whatever its toolbar asks for:
+   * it is the one way out a pointer always has. Named by Home Assistant's own word, as the add
+   * button is.
+   *
+   * @returns Button description for the wrapper, or undefined outside an overlay
+   */
+  private _closeButton(): Toolbar.CloseButton | undefined {
+    const frame = this.overlayFrame;
+    if (!frame) return undefined;
+    return { label: this._haString('ui.common.close'), onActivate: () => frame.close() };
   }
 
   /**
@@ -9797,8 +10229,9 @@ class CalendarCardPro extends LitElement {
    * It names the page asked for, so a press on the arrows answers at once; the days below stay
    * those of the page whose events have arrived, dimmed, until the new page's land. The month is
    * that of the day the page's list starts from (its first day, or its last for a list read
-   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks
-   * (`_headerMonth`), in full while every month in full fits beside the
+   * latest first; `Paging.leadingDay`), and for month the month holding most of its weeks, or under
+   * `month → start: week` the month of its first day (`_headerMonth`), in full while every month in
+   * full fits beside the
    * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
    * full while the chips show, since they are drawn only where the full month leaves them room.
    * Everything comes from `Intl` in the card's language, so no card string is needed.
@@ -9839,12 +10272,17 @@ class CalendarCardPro extends LitElement {
   /**
    * The day the heading names a page's month by: the day its list starts from
    * (`Paging.leadingDay`), and for month the first day of the month holding most of its weeks
-   * (`Paging.majorityMonth`), since its first row often begins in the month before.
+   * (`Paging.majorityMonth`), since its first row often begins in the month before. Under
+   * `month → start: week`, whose page is the coming weeks rather than a month, the page's first
+   * day, the top left one, as the eye reads it.
    *
    * @param page - The page's days
    * @returns A day of the month to name
    */
   private _headerMonth(page: Paging.PageRange): Date {
+    if (this.effectiveView === 'month' && this._monthStartsAtWeek) {
+      return Paging.startOfDay(page.start);
+    }
     return this.effectiveView === 'month'
       ? Paging.majorityMonth(page)
       : Paging.leadingDay(page, this._listsLatestFirst);
@@ -9957,6 +10395,12 @@ class CalendarCardPro extends LitElement {
    * Only ever reads layout that exists: a row with no height (the card hidden, or not yet laid
    * out) writes nothing. Both boxes are read in the viewport's coordinates, so a card scrolled
    * above the viewport, whose boxes read negative, measures the same height as one in view.
+   *
+   * Written in the card's own pixels, which the viewport's are not where an ancestor scales the
+   * card: the overlay grows from a tenth of its size as it opens, and its card is first measured
+   * then, when a height read in the viewport's pixels came out a tenth of the true one and stayed.
+   * `offsetWidth` is whole pixels, so a row within a pixel of it is not scaled, as `title-fit.ts`
+   * reads a row.
    */
   private _syncHeadingMiddle(): void {
     const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-heading');
@@ -9965,9 +10409,11 @@ class CalendarCardPro extends LitElement {
     const rowBox = row.getBoundingClientRect();
     if (rowBox.height <= 0) return;
     const cap = marker.getBoundingClientRect();
+    const scale =
+      Math.abs(rowBox.width - row.offsetWidth) < 1 ? 1 : rowBox.width / row.offsetWidth || 1;
 
-    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0);
-    const value = `${Math.max(0, foot - (cap.top + cap.bottom) / 2).toFixed(2)}px`;
+    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0) * scale;
+    const value = `${Math.max(0, (foot - (cap.top + cap.bottom) / 2) / scale).toFixed(2)}px`;
     if (row.style.getPropertyValue('--calendar-card-heading-middle') !== value) {
       row.style.setProperty('--calendar-card-heading-middle', value);
     }
@@ -9994,13 +10440,15 @@ class CalendarCardPro extends LitElement {
 
     return {
       homeName:
-        this.effectiveView === 'month'
+        this.effectiveView === 'month' && !this._monthStartsAtWeek
           ? Paging.monthHomeButtonName(this._homeRange(now), language, now)
           : Paging.homeButtonName(this._homeRange(now), language, now, latestFirst),
       languageMark: TextDirection.languageMark(language, this.hass),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
+      // The day the heading names its month by: a month's 1st, or under `month → start: week`
+      // the page's first day, where the picker then opens.
       pickerValue: Paging.pageKey(this._headerMonth(page)),
       // Only while the card is still home: paging away ends it at once.
       homeConfirming: this._homeConfirming && this._pageRequested === null,
@@ -10048,7 +10496,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Moves one page back or forward, by exactly the days on screen; for month, to the weeks of
-   * the month before or after the one the heading names.
+   * the month before or after the one the heading names, or under `month → start: week` by its
+   * weeks, as the other layouts move.
    *
    * From the page asked for rather than the one shown, so quick presses add up while a page
    * is still loading.
@@ -10057,7 +10506,7 @@ class CalendarCardPro extends LitElement {
    */
   private _stepPage(direction: -1 | 1): void {
     const from = this._pageRange(this._pageRequested);
-    if (this.effectiveView === 'month') {
+    if (this.effectiveView === 'month' && !this._monthStartsAtWeek) {
       const month = Paging.majorityMonth(from);
       this._goToPage(new Date(month.getFullYear(), month.getMonth() + direction, 1));
       return;
@@ -10068,7 +10517,8 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens the page holding a day picked in the date picker, lined up with home, or home when
    * the day is one of its own. For month, the weeks of the picked day's month, or home when
-   * those are home's.
+   * those are home's; under `month → start: week`, the page lined up with home that holds the
+   * day, as the other layouts open.
    *
    * @param value - The picked day, `YYYY-MM-DD`
    */
@@ -10077,7 +10527,7 @@ class CalendarCardPro extends LitElement {
     const date = Paging.pageStart(value);
     if (isNaN(date.getTime())) return;
 
-    if (this.effectiveView === 'month') {
+    if (this.effectiveView === 'month' && !this._monthStartsAtWeek) {
       this._goToPage(new Date(date.getFullYear(), date.getMonth(), 1));
       return;
     }
@@ -10092,9 +10542,13 @@ class CalendarCardPro extends LitElement {
    * Asks for a page, and loads it.
    *
    * A page that draws what home does is home: it draws the card's own window, past events
-   * hidden as configured. For Month that is any day of home's month, whose weeks are home's; for
-   * the other layouts home's first day. Nothing happens for the page already asked for, so the
-   * home button at home is inert, and nothing at all while the card is being edited.
+   * hidden as configured. For Month that is any day of home's month, whose weeks are home's, or
+   * under `month → start: week` any day of home's first week; for the other layouts home's first
+   * day. Nothing happens for the page already asked for, so the home button at home is inert, and
+   * nothing at all while the card is being edited.
+   *
+   * A month page under `start: week` is keyed by its first row's first day, the week holding the
+   * day asked for, so a layout switch's day opens the weeks from its own.
    *
    * @param start - First day of the page, or null for home
    */
@@ -10104,14 +10558,20 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    const month = this.effectiveView === 'month';
+    const first =
+      start !== null && month && this._monthStartsAtWeek
+        ? ViewConfig.monthRowsStart(start, this._firstDayOfWeek)
+        : start;
     const page =
-      start === null ||
-      (this.effectiveView === 'month'
-        ? Paging.pageKey(ViewConfig.monthHomeRowsStart(start, this._firstDayOfWeek)) ===
-          Paging.pageKey(this._monthRowsStart(null))
-        : Paging.pageKey(start) === Paging.pageKey(this._homeRange().start))
+      first === null ||
+      (month
+        ? Paging.pageKey(
+            ViewConfig.monthPageRowsStart(first, this.config, this._firstDayOfWeek),
+          ) === Paging.pageKey(this._monthRowsStart(null))
+        : Paging.pageKey(first) === Paging.pageKey(this._homeRange().start))
         ? null
-        : Paging.pageKey(start);
+        : Paging.pageKey(first);
     if (page === this._pageRequested) return;
 
     Logger.debug(`Paging to ${page ?? 'home'}`);
@@ -10946,10 +11406,10 @@ class CalendarCardPro extends LitElement {
    * A toolbar button's names: its accessible name, which a folded menu also shows as the row's
    * words, and its tooltip.
    *
-   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event` or `reset`
-   * is named as the card's own button for it is, `back` as Home Assistant's own arrow: by Home
-   * Assistant's word, which is its tooltip too, or in English for assistive technology alone
-   * where Home Assistant has none (`_commandName`). Anything else is named by its icon's words
+   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event`, `reset` or
+   * `overlay` is named as the card's own button for it is, `back` as Home Assistant's own arrow:
+   * by Home Assistant's word, which is its tooltip too, or in English for assistive technology
+   * alone where Home Assistant has none, and `overlay` by the card's own words (`_commandName`). Anything else is named by its icon's words
    * (`iconWords`), for assistive technology alone, which is why the editor asks for a name.
    *
    * @param button - The button, as configured
@@ -10977,7 +11437,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The name a command's own button goes by, for a button of the configuration's own that runs
    * it: Home Assistant's word, resolved exactly as that button resolves it, and the English
-   * name the button falls back on.
+   * name the button falls back on; for `overlay`, which Home Assistant has no word for, the
+   * card's own words in its language.
    *
    * @param action - The action a button runs
    * @returns The names, or undefined for an action no button of the card's own runs
@@ -11003,6 +11464,10 @@ class CalendarCardPro extends LitElement {
           word: this._haString('ui.common.reset'),
           fallback: Toolbar.UNLOCALIZED_RESET_NAME,
         };
+      case Constants.OVERLAY_ACTION: {
+        const word = Localize.getTranslations(this.effectiveLanguage).openFullSize;
+        return { word, fallback: word };
+      }
       default:
         return undefined;
     }
@@ -11057,6 +11522,8 @@ class CalendarCardPro extends LitElement {
     if (controls.reset) end.push('reset');
     if (controls.refresh) end.push('refresh');
     if (controls.search) end.push('search');
+    if (controls.overlay) end.push('overlay');
+    if (Toolbar.closeInActionRow(controls)) end.push('close');
     return {
       start: Toolbar.startControls(controls),
       end,
@@ -11422,6 +11889,7 @@ class CalendarCardPro extends LitElement {
         page,
         this._monthRowsStart(page, now),
         now,
+        this._monthPageDays,
       );
       if (selected !== null) return selected;
       return page === null ? null : this._monthOwnDay(page, now);
