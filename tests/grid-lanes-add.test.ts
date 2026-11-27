@@ -161,10 +161,29 @@ describe('adding in a grid’s lanes', () => {
     const block = bodies(card)[1].querySelector<HTMLElement>('.grid-new-event > .event')!;
     expect(block.style.insetInlineStart).toBe('calc(50% + var(--calendar-card-grid-event-gap))');
     expect(block.style.width).toBe('calc(50% - var(--calendar-card-grid-event-gap) * 2)');
+    // Its lane, as a saved block carries it, so a block too narrow for its title is fitted as
+    // one: it shows its label rather than going blank while it is drawn (backlog item 422).
+    expect(block.dataset.lane).toBe(BEN);
 
     pointer(plane(card, 1), 'pointerup', BEN_X + 100, Y(10));
     await settle();
     expect(startedIn(dialogs)).toEqual([BEN]);
+  });
+
+  it('keeps an event moved by drag in its lane, on the block it is drawn as', async () => {
+    const { card } = await mount({ event_tap_action: { action: 'details' } });
+    const dentist = card.shadowRoot!.querySelector<HTMLElement>(
+      '.grid-day-plane > .grid-event[data-lane]',
+    )!;
+    expect(dentist.dataset.lane).toBe(ANNA);
+
+    pointer(dentist, 'pointerdown', ANNA_X, Y(14, 30));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(dentist, 'pointermove', ANNA_X, Y(14, 50));
+    pointer(dentist, 'pointermove', ANNA_X + 100, Y(15, 30));
+
+    const moved = card.shadowRoot!.querySelector<HTMLElement>('.grid-new-event > .event')!;
+    expect(moved.dataset.lane).toBe(ANNA);
   });
 
   it('starts where any press would, the first calendar, once lanes are off', async () => {
@@ -175,6 +194,16 @@ describe('adding in a grid’s lanes', () => {
     await settle();
 
     expect(startedIn(dialogs)).toEqual([ANNA]);
+    expect(card.shadowRoot!.querySelector('[data-lane]')).toBeNull();
+  });
+
+  it('draws a held event without a lane once lanes are off', async () => {
+    const { card } = await mount({ lanes: false });
+
+    pointer(plane(card, 1), 'pointerdown', BEN_X + 100, Y(10));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+
+    expect(card.shadowRoot!.querySelector('.grid-new-event > .event')).not.toBeNull();
     expect(card.shadowRoot!.querySelector('[data-lane]')).toBeNull();
   });
 });

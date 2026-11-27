@@ -899,7 +899,7 @@ function cascadeHorizontal(
  *   none. A block whose own time span holds that minute repeats the line over its fill (see
  *   `.grid-event-now`)
  * @param lane - The lane it is drawn in, where the grid draws lanes: its key, which the block
- *   carries as `data-lane`, and its name, which its accessible name says
+ *   carries as `data-lane`, and its name, which its accessible name says where it has one
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -914,7 +914,7 @@ function renderTimedEvent(
   eventsTappable = false,
   dayLabelId?: string,
   nowMin: number | null = null,
-  lane?: { readonly key: string; readonly name: string },
+  lane?: { readonly key: string; readonly name?: string },
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -1503,7 +1503,8 @@ export const NEW_EVENT_HOST_CLASS = 'grid-new-event';
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
  * @param lane - Where the grid draws lanes, the slice of its calendar's lane, which it spans
- *   in place of the whole day
+ *   in place of the whole day, and the lane's key, which it carries as a saved block does, so it
+ *   is fitted as one: a block too narrow for its title shows its label, lifted or not
  * @returns The block, or nothing where it lies outside the band
  */
 export function renderNewTimedEvent(
@@ -1515,7 +1516,7 @@ export function renderNewTimedEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
-  lane?: { readonly index: number; readonly count: number },
+  lane?: { readonly key: string; readonly index: number; readonly count: number },
 ): TemplateResult | typeof nothing {
   const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
   if (!placement) return nothing;
@@ -1539,6 +1540,7 @@ export function renderNewTimedEvent(
     false,
     undefined,
     nowMin,
+    lane && { key: lane.key },
   );
 }
 
