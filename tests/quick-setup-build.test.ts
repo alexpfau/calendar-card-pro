@@ -74,7 +74,7 @@ describe('buildQuickSetupConfig', () => {
         hour_height: '36px',
         weather: { position: 'date' },
       },
-      month: { event_gap: '4px' },
+      month: { event_gap: '4px', start: 'week', weeks: 4 },
       grid_options: { columns: 'full', rows: 'auto' },
       view_layout: { position: 'main' },
       card_mod: { style: 'ha-card { border: none; }' },
@@ -145,7 +145,12 @@ describe('buildQuickSetupConfig', () => {
         event: { show_conditions: false },
       });
     }
-    expect(built.toolbar).toEqual({ show: true, view_switcher: false, legend: false });
+    expect(built.toolbar).toEqual({
+      show: true,
+      view_switcher: false,
+      legend: false,
+      overlay: true,
+    });
   });
 
   it('keeps the story’s own actions that Quick Setup does not ask about', () => {

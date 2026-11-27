@@ -25,12 +25,16 @@ month_separator_width: 1px
 day_spacing: 4px
 event_gap: 4px
 vertical_line_width: 4px
+tap_action:
+  action: overlay
 toolbar:
   show: true
   legend: false
   add_event: false
   refresh: false
   view_switcher: false
+overlay:
+  view: month
 entities:
   - entity: calendar.birthdays
     label: 🎂
@@ -60,6 +64,7 @@ The toolbar names the first month, and each month after it opens under a rule wi
 | Days · Size & Spacing            | `show_month: false`, `list` › `month_separator_label: true`                                            | The month's name on each rule, "Aug 2026", in place of the month on every date                                                                                                                         |
 | Calendars › Name & Look          | `label`, `accent_color`                                                                                | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                                                                  |
 | Card & Header › Toolbar          | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off                                | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                                                                |
+| Taps & Refresh · Full Size       | `tap_action: overlay`, `overlay` › `view: month`                                                       | A tap anywhere but on an event opens the card full size, with the birthdays and the breaks on a month                                                                                                  |
 
 ## 🔀 Adapt It
 

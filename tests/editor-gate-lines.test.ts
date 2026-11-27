@@ -92,6 +92,10 @@ describe('the gate lines’ clauses', () => {
       // Layouts in Switcher waits on the bar, then on its View Switcher chip.
       'switcher_layouts card:toolbar.show': 'gate.when.on',
       'switcher_layouts card:toolbar.view_switcher': 'gate.when.pressed',
+      // The full-size card's toolbar on Full-Size Settings, as the card's own.
+      'full_size_toolbar actions:overlay.toolbar.show': 'gate.when.on',
+      'full_size_switcher_layouts actions:overlay.toolbar.show': 'gate.when.on',
+      'full_size_switcher_layouts actions:overlay.toolbar.view_switcher': 'gate.when.pressed',
       'forecast weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather_entity': 'gate.when.weather_entity',
       'forecast_by_day weather:weather.position': 'gate.when.forecast_by_day',
@@ -108,6 +112,7 @@ describe('the gate lines’ clauses', () => {
       'empty_days content:show_empty_days': 'gate.when.empty_or_today',
       'empty_days content:show_empty_today': 'gate.when.empty_or_today',
       'label_icon_color calendar:label_type': 'gate.when.label_icon',
+      'label_image_size calendar:label_type': 'gate.when.label_image',
       'location_icon events:show_location': 'gate.when.location_shown',
       'location_icon calendar:show_location': 'gate.when.location_shown',
       'show_in_legend card:toolbar.show': 'gate.when.calendar_filter',
@@ -130,7 +135,8 @@ describe('the gate lines’ clauses', () => {
       'gate.when.forecast_by_event': 'the forecast shows beside events',
       'gate.when.indicator_marker': 'the Style is a dot, an icon or an emoji',
       'gate.when.indicator_shown': 'a Style other than None is chosen',
-      'gate.when.label_icon': 'the label is an icon',
+      'gate.when.label_icon': 'the label is an icon or has several parts',
+      'gate.when.label_image': 'the label is an image or has several parts',
       'gate.when.location_shown': 'this calendar shows locations',
       'gate.when.month_rule': 'a month rule is drawn',
       'gate.when.no_event_actions': 'both event actions are set to Nothing',
@@ -139,9 +145,9 @@ describe('the gate lines’ clauses', () => {
       'gate.when.weather_entity': 'a Weather Entity is chosen',
       'gate.when.week_numbers': 'week numbers are shown',
     });
-    // The sixteen clauses, the switch's template and the chip's, and the two whole lines around
+    // The seventeen clauses, the switch's template and the chip's, and the two whole lines around
     // them.
-    expect(keys).toHaveLength(18);
+    expect(keys).toHaveLength(19);
     expect(EDITOR_STRINGS['gate.line']).toBe('Appears once {when}: {names}.');
     expect(EDITOR_STRINGS['gate.line_bare']).toBe('Appears once {when}.');
   });
@@ -151,10 +157,11 @@ describe('the gate lines’ clauses', () => {
     const switches = conditions.filter((where) => clauses(ALL)[where] === 'gate.when.on');
     // The denominators, so an empty answer below is a check that ran.
     expect(conditions.length).toBeGreaterThan(30);
-    // Five: three since the event parts became chips, Show Month, Show Toolbar and Show
+    // Seven: three since the event parts became chips, Show Month, Show Toolbar and Show
     // Conditions Beside Events, then Show Toolbar again for Layouts in Switcher, and Month Name on
-    // Rule for the name's color and size on List's month separator.
-    expect(switches.length).toBe(5);
+    // Rule for the name's color and size on List's month separator, then the full-size card's
+    // Show Toolbar for its controls and for its Layouts in Switcher.
+    expect(switches.length).toBe(7);
     expect(unclaused(ALL)).toEqual([]);
   });
 

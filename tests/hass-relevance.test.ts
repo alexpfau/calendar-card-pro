@@ -458,6 +458,17 @@ describe('reconciliation: the rule watches everything the card reads', () => {
   // than passing every check below vacuously. A plain card reads no state at all.
   const MATRIX: Array<[string, Record<string, unknown>, string[]]> = [
     ['list, every feature', { ...FEATURES, view: 'list' }, ['calendar.ben', 'person.anna']],
+    [
+      // An event's forecast on a line of its own reads the weather's state for its words, as
+      // Columns does.
+      'list, the forecast on a line of its own',
+      {
+        ...FEATURES,
+        view: 'list',
+        weather: { entity: 'weather.home', position: 'both', event: { own_line: true } },
+      },
+      ['calendar.ben', 'person.anna', 'weather.home'],
+    ],
     ['column, every feature', { ...FEATURES, view: 'column' }, ['person.anna', 'weather.home']],
     ['grid, every feature', { ...FEATURES, view: 'grid' }, ['calendar.anna', 'weather.home']],
     ['month, every feature', { ...FEATURES, view: 'month' }, ['calendar.anna', 'person.anna']],

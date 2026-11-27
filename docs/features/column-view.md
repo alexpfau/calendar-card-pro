@@ -203,9 +203,9 @@ Which events and forecasts the card loads:
 
 `entities` · `start_date` · `first_day_of_week` · `weather_entity` · `refresh_interval` · `refresh_on_navigate`
 
-Its actions and its toolbar:
+Its actions, its toolbar and how it opens full size:
 
-`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar`
+`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar` · `overlay`
 
 Its title, its colors and how it writes dates and times:
 
@@ -225,8 +225,8 @@ blocks: List, Columns and Grid draw it, Month draws none, and every block's `wea
 
 Three options sound as though they belong in the first list, and do not:
 
-- **`days_to_show`** also decides what is loaded, yet each layout but Month, which always shows
-  six weeks, may set its own: the card loads the longest count among the layouts it can show,
+- **`days_to_show`** also decides what is loaded, yet each layout but Month, which counts in
+  weeks, may set its own: the card loads the longest count among the layouts it can show,
   with Month's weeks where it can show Month, and each draws its own days out of that load. See
   [Showing a Different Number of Days in Each Layout](/features/layouts#showing-a-different-number-of-days-in-each-layout).
 - **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
@@ -261,8 +261,9 @@ uses neither the position nor the size: it sits on the day number itself, and ev
 column's date keeps the tile's height so the headers stay level.
 
 **`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
-belong to compact mode, which caps the whole card rather than each column. Column density is
-controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-on-narrow-cards)
+belong to compact mode, which caps the whole card rather than each column, and so do
+**`compact_card_height` and `compact_card_max_height`**, the compact card's own height. Column
+density is controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-on-narrow-cards)
 instead.
 
 **`event_order`** turns a list upside down for a calendar used as a log. Columns keep time

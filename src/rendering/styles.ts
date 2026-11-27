@@ -104,6 +104,45 @@ function dateStrutProperties(config: Types.Config): Record<string, string> {
   };
 }
 
+/** The date's three color options, each with the custom property the stylesheet reads it from. */
+const DATE_COLOR_OPTIONS = [
+  ['weekday_color', '--calendar-card-color-weekday'],
+  ['day_color', '--calendar-card-color-day'],
+  ['month_color', '--calendar-card-color-month'],
+] as const;
+
+/**
+ * The date's colors, each written only where its option sets one other than the default.
+ *
+ * Unwritten, every rule that reads one falls back to the default itself, the theme's text color,
+ * so a card that sets none draws exactly as one that writes the default. What that leaves open is
+ * the property: a theme, or a rule on `ha-card`, can set `--calendar-card-color-day` for every
+ * card that leaves `day_color` alone, where a value the card wrote on `ha-card` would have hidden
+ * it. A color option still wins, written here as before.
+ *
+ * The sizes are not treated this way. The date column's width, the struts and the month's
+ * geometry are computed from the size options, so a size the card did not know would be drawn in
+ * a box sized for another.
+ *
+ * A CSS-wide keyword is written as `currentColor`. A custom property takes the keyword for itself,
+ * which left it with no value, so a rule reading it without a fallback drew the color its element
+ * inherits; with the fallback it would draw the default instead. `currentColor` is that inherited
+ * color. The date's own parts carry the keyword inline (`Leaves.inlineCardValue`), where it means
+ * what it says, so this reaches only the month's weekday names and its day list's heading.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns Properties to write on `ha-card`
+ */
+function dateColorProperties(config: Types.Config): Record<string, string> {
+  const props: Record<string, string> = {};
+  for (const [key, property] of DATE_COLOR_OPTIONS) {
+    const value = config[key];
+    if (value === Config.DEFAULT_CONFIG[key]) continue;
+    props[property] = Leaves.isCssWideKeyword(value) ? 'currentColor' : value;
+  }
+  return props;
+}
+
 /**
  * Generate CSS custom properties from card configuration.
  * @param config Card configuration.
@@ -119,9 +158,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-font-size-time': config.time_font_size,
     '--calendar-card-font-size-location': config.location_font_size,
     '--calendar-card-font-size-description': config.description_font_size,
-    '--calendar-card-color-weekday': config.weekday_color,
-    '--calendar-card-color-day': config.day_color,
-    '--calendar-card-color-month': config.month_color,
+    ...dateColorProperties(config),
     '--calendar-card-color-event': config.event_color,
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
@@ -414,6 +451,23 @@ export const cardStyles = css`
     }
   }
 
+  /* The overlay's card (IN_OVERLAY_ATTRIBUTE) takes the device's home indicator into its own foot
+     room where the overlay fills the screen, which hands it in as --calendar-card-safe-area-bottom:
+     the larger of its bottom padding and the indicator's room, rather than the overlay padding
+     the indicator's room away below the card's. A narrow month's list that scrolls runs to the
+     card's foot instead, under the indicator, and keeps that room inside its scroll. */
+  :host([in-overlay]) ha-card {
+    --calendar-card-overlay-foot: max(
+      calc(var(--calendar-card-spacing-additional) + 16px),
+      var(--calendar-card-safe-area-bottom, 0px)
+    );
+    padding-bottom: var(--calendar-card-overlay-foot);
+  }
+
+  :host([in-overlay]) ha-card:has(.month-day-list-rows.scrolls) {
+    padding-bottom: 0;
+  }
+
   ha-card {
     display: flex;
     flex-direction: column;
@@ -475,8 +529,17 @@ export const cardStyles = css`
       calc(var(--calendar-card-spacing-additional) + 16px) 16px;
   }
 
+  /* Everything in the card inherits the pointer, and a touch browser paints its tap highlight
+     over the largest element under the finger that still shows one, in that element's highlight
+     color. From any control inside, a toolbar button as much as a day, that element is ha-card,
+     so each tap on a control on a touch screen washed the whole card in the browser's gray, as
+     though the card had been tapped, and a tap on the card drew the gray under its ripple. The
+     controls' own transparent highlight never applied, because the color is the highlighted
+     element's. The ripple is the card's answer to a press and each control answers for itself,
+     so the card takes no highlight at all. */
   ha-card.card-interactive {
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* A card a swipe pages hands the browser only vertical panning where a swipe can start, which
@@ -637,6 +700,16 @@ export const cardStyles = css`
     font-weight: var(--ha-font-weight-medium, 500);
     letter-spacing: normal;
     line-height: 1.2;
+  }
+
+  /* Without a month under it, where the overlay's Close is all the toolbar holds, the title is the
+     card's headline again, as it is with no toolbar at all. */
+  .toolbar-heading.no-month > .toolbar-identity > .card-header {
+    color: var(--calendar-card-color-title, var(--primary-text-color));
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    font-weight: var(--ha-font-weight-normal, 400);
+    letter-spacing: -0.012em;
+    line-height: 1.33;
   }
 
   /* No inline-end padding anywhere in the toolbar, so its end edge is the content box's in
@@ -1362,6 +1435,63 @@ export const cardStyles = css`
     fill: var(--error-color, #db4437);
   }
 
+  /* The overlay's Close: the pill every command is, washed with the theme's error color so it
+     reads as the way out at a glance, and its cross in that color. It deepens under the pointer
+     and while pressed as the others do, from its own wash. Specific enough to hold over the hover
+     and press rules. Without color-mix() the wash is a fixed translucent red, which reads on a
+     light card and a dark one alike. */
+  .toolbar-button.close-button {
+    color: var(--error-color, #db4437);
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 16%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @media (hover: hover) {
+    .toolbar-button.close-button:hover {
+      background: color-mix(
+        in srgb,
+        var(--error-color, #db4437) 24%,
+        var(--calendar-card-toolbar-fill)
+      );
+    }
+  }
+
+  .toolbar-button.close-button:active {
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 32%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .toolbar-button.close-button {
+      background: rgba(219, 68, 55, 0.18);
+    }
+    @media (hover: hover) {
+      .toolbar-button.close-button:hover {
+        background: rgba(219, 68, 55, 0.24);
+      }
+    }
+    .toolbar-button.close-button:active {
+      background: rgba(219, 68, 55, 0.3);
+    }
+  }
+
+  /* Alone at the heading row's end, where the action row would hold nothing else, it keeps the
+     action row's size and is centered where the date navigation's smaller pills are, on the
+     month's capitals, by taking back the 12px it stands taller than they do. */
+  .toolbar-heading-end > .close-button {
+    margin-block: -6px;
+  }
+
+  .toolbar-heading-end > .date-navigation + .close-button {
+    margin-inline-start: 8px;
+  }
+
   /* Reset with nothing to undo: hidden, and out of the tab order and away from assistive
      technology with it, but keeping its room, so nothing in the row moves when it appears. A
      button a keyboard holds, after a press that did its work, stays until focus moves on,
@@ -2021,25 +2151,32 @@ export const cardStyles = css`
      line height is a multiple of the element's own font size, so it stays equal to it for any
      font size. Read as a line height, 150% and 1.5em were 1.5x the font they had just set, and
      a keyword was no line height at all, so the date's lines spread apart or fell back to the
-     inherited one. */
+     inherited one.
+
+     These rules are the one path a date's color and size take. The renderer writes a part's
+     color or size inline only where that day departs from them (a weekend's or today's own
+     color, today's tile, a today or past scale), so a theme setting the color properties, or a
+     card-mod rule on the parts, applies without !important. The colors fall back to the
+     theme's text color, which the card writes on ha-card only where an option names another
+     (dateColorProperties). */
   .weekday {
     font-size: var(--calendar-card-font-size-weekday);
     line-height: 1;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
   }
 
   .day {
     font-size: var(--calendar-card-font-size-day);
     line-height: 1;
     font-weight: 500;
-    color: var(--calendar-card-color-day);
+    color: var(--calendar-card-color-day, var(--primary-text-color));
   }
 
   .month {
     font-size: var(--calendar-card-font-size-month);
     line-height: 1;
     text-transform: uppercase;
-    color: var(--calendar-card-color-month);
+    color: var(--calendar-card-color-month, var(--primary-text-color));
   }
 
   /* ===== The today tile: a tinted rounded rectangle behind today's day number =====
@@ -3035,15 +3172,37 @@ export const cardStyles = css`
    * it, so em is that size in whatever form the option takes. The offsets used
    * to add 4px to the option's value itself, and 150% made that a share of the
    * row's width: 749px of padding, and a title wrapped one letter to a line. */
-  .summary:has(> .label-icon),
-  .summary:has(> .label-image) {
+  .summary:has(> .label-icon) {
     text-indent: calc(-1 * (1em + 4px));
     padding-inline-start: calc(1em + 4px + var(--calendar-card-summary-inline-room));
+  }
+
+  /* A picture is as tall as its calendar's label_image_size, which the summary carries where it
+     is set, and the text's height where it is not, so its indent follows that height: labels
+     are pictures of faces and logos, about as wide as they are tall. After the icon rule, so a
+     run holding both hangs at the picture. */
+  .summary:has(> .label-image) {
+    text-indent: calc(-1 * (var(--calendar-card-label-image-size, 1em) + 4px));
+    padding-inline-start: calc(
+      var(--calendar-card-label-image-size, 1em) + 4px + var(--calendar-card-summary-inline-room)
+    );
   }
 
   .summary:has(> .label-emoji) {
     text-indent: calc(-1 * (1.25em + 4px));
     padding-inline-start: calc(1.25em + 4px + var(--calendar-card-summary-inline-room));
+  }
+
+  /* An emoji beside a picture, as a label of several parts draws them: the wider of the two,
+     which is the emoji's unless the picture is set larger. The second condition is in :where()
+     so the rule weighs what the one above it weighs, and grid view's and a scrolling title's
+     own indents below still win by their place or their weight. */
+  .summary:has(> .label-emoji):where(:has(> .label-image)) {
+    text-indent: calc(-1 * (max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px));
+    padding-inline-start: calc(
+      max(1.25em, var(--calendar-card-label-image-size, 1em)) + 4px +
+        var(--calendar-card-summary-inline-room)
+    );
   }
 
   /* scroll_long_titles -------------------------------------------------------
@@ -3301,7 +3460,7 @@ export const cardStyles = css`
   }
 
   .label-image {
-    height: 1em;
+    height: var(--calendar-card-label-image-size, 1em);
     width: auto;
     vertical-align: middle;
     margin-inline-end: 4px;
@@ -3647,6 +3806,15 @@ export const cardStyles = css`
     align-self: baseline;
   }
 
+  /* The flex line's one baseline item sits at its top, so beside a picture taller than the
+     title's 1.2em line, as label_image_size draws one, the title sat above the middle every
+     label is centered on: 5.6px above a 2em picture. It moves down by half the difference, and
+     the time, on its baseline, moves with it. A picture no taller than the line gives 0, which
+     is every picture whose calendar sets no size. */
+  .time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title {
+    margin-top: max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2);
+  }
+
   /* On one line, the time and its badge take what they need, normally up to the cap, at the end
      of the line, and the title has the rest: .summary grows from nothing and scrolls where that
      is too little.
@@ -3873,9 +4041,15 @@ export const cardStyles = css`
     margin-inline-end: 0;
   }
 
+  /* Placed over the room by the end of the title's last line. A picture label taller than the
+     title's line, as label_image_size draws one, makes the line it leads taller, with the title in
+     its middle: there the time sat 5.6px below the title beside a 2em picture, so where the time
+     shares that line the card lifts it by as much, through its top margin (liftOf in
+     src/utils/title-fit.ts). Elsewhere the lift is unset and the margin nothing. */
   .time-beside-title > .summary-row.title-wrap[data-title-fit] > .title-aside {
     position: absolute;
     top: calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height));
+    margin-top: calc(-1 * var(--calendar-card-title-room-lift, 0px));
   }
 
   .time-beside-title > .summary-row.title-wrap[data-title-fit='ltr'] > .title-aside {
@@ -5232,7 +5406,8 @@ export const cardStyles = css`
   /* ===== DAYS THAT ADD AN EVENT =====
    * With day_tap_action set to add-event, a tap on a day where it shows no event opens Home
    * Assistant's new-event dialog there, and each day's date (list) or header (column, grid) is
-   * a button that does the same from the keyboard. The washes match an untinted event's: the
+   * a button that does the same from the keyboard. Set to one of Home Assistant's actions, a tap
+   * there runs it instead, with the same washes and buttons. The washes match an untinted event's: the
    * card's own hover color at 8% under a real pointer, its pressed color at 16% while pressed.
    *
    * The pressed wash is set by the recognizer rather than by :active, because most of a day's
@@ -5347,7 +5522,7 @@ export const cardStyles = css`
 
   /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
      event, so the browser's own long press, selecting a word or a link's callout, is turned
-     off there. */
+     off there. While it runs another action, the slot is a target all the same. */
   ha-card:has(.day-add-button) .grid-day-body,
   ha-card:has(.day-add-button) .grid-allday-band {
     -webkit-touch-callout: none;
@@ -8075,10 +8250,12 @@ export const cardStyles = css`
     max-height: none;
   }
 
-  /* The weekday names, then six week rows sharing what the names leave of the content area, each
+  /* The weekday names, then the week rows sharing what the names leave of the content area: six,
+     or under month -> start: week as many as --calendar-card-month-rows says, which the renderer
+     writes only where they are not six. Each is
      at least a date and one line under its rule, which the card measures from the probes below and
-     writes here as --calendar-card-month-week-min, and the month at least the names and six such
-     weeks, --calendar-card-month-min, both in the card's own pixels (measureMonthFloors). Until it
+     writes here as --calendar-card-month-week-min, and the month at least the names and its
+     weeks at that, --calendar-card-month-min, both in the card's own pixels (measureMonthFloors). Until it
      has, each is reckoned in the card's em. Never a bare 1fr and never a basis taken from the
      content: either would let a week's lines size the week the line capacity is read from. So a
      row's height never depends on its events, the card stays one height from page to page, and the
@@ -8104,9 +8281,12 @@ export const cardStyles = css`
   .month-container {
     display: grid;
     flex: 1 1 0;
-    min-height: var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px));
+    min-height: var(
+      --calendar-card-month-min,
+      calc(var(--calendar-card-month-rows, 6) * (2.4em + 11px) + 1.2em + 7px)
+    );
     grid-template-rows: auto repeat(
-        6,
+        var(--calendar-card-month-rows, 6),
         minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr)
       );
     position: relative;
@@ -8212,7 +8392,7 @@ export const cardStyles = css`
     overflow: hidden;
     font-size: var(--calendar-card-font-size-weekday);
     line-height: 1.2;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
     text-align: end;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -8378,6 +8558,7 @@ export const cardStyles = css`
 
   .month-date-month {
     font-size: var(--calendar-card-font-size-month);
+    color: var(--calendar-card-color-month, var(--primary-text-color));
     white-space: pre;
   }
 
@@ -8397,7 +8578,7 @@ export const cardStyles = css`
      1 in its dark one, does; where the browser has relative colors the fill is darkened for its
      digits' sake (Month's two filled tiles, below). Light digits read thinner on a fill than dark
      ones on a wash, hence the weight. The ink is redefined rather than the color set, since the digits
-     take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color still wins as
+     take it inline (Leaves.ownDateColors), so a today_day_color or weekend_day_color still wins as
      on every tile. Set on the tile alone, so what reads the wash and the ink from ha-card, the
      week-number pill and the week separators, keeps the list's tile.
 
@@ -8505,11 +8686,14 @@ export const cardStyles = css`
     border-radius: 999px;
   }
 
+  /* A line is one line of text high, so its picture stays the text's height whatever
+     label_image_size says. The day's list and the panel draw rows, which take it. */
   .month-line-label {
     display: inline-flex;
     flex: none;
     align-items: center;
     font-size: var(--calendar-card-font-size-event);
+    --calendar-card-label-image-size: 1em;
   }
 
   .month-line-label > * {
@@ -8649,7 +8833,7 @@ export const cardStyles = css`
   .month-container.month-narrow {
     flex: none;
     min-height: 0;
-    grid-template-rows: auto repeat(6, auto);
+    grid-template-rows: auto repeat(var(--calendar-card-month-rows, 6), auto);
     --calendar-card-month-week-gutter: 22px;
     border-block-end: 1px solid var(--calendar-card-month-rule);
   }
@@ -8731,7 +8915,7 @@ export const cardStyles = css`
 
   /* Today's tile selected: filled, in the indicator's color, with Home Assistant's text on it.
      The ink is redefined rather than the color set, as on the wide month's tile, since the
-     digits take it inline (Leaves.dateColors), so a today_day_color or weekend_day_color
+     digits take it inline (Leaves.ownDateColors), so a today_day_color or weekend_day_color
      still wins as on every tile. */
   .month-narrow .month-day.month-selected .month-date > .day.today-tile {
     background: var(--calendar-card-today-indicator-color);
@@ -8803,8 +8987,8 @@ export const cardStyles = css`
    *
    * The selected day's events under a narrow month's weeks: its name in full, then List's rows
    * without their date column, drawn as a list row is in every respect (td.event), or the card's
-   * "no events". Its own space is the day's, for day_tap_action; where that adds, its name is a
-   * button.
+   * "no events". Its own space is the day's, for day_tap_action; where that runs something, its
+   * name is a button.
    *
    * The list takes what the weeks leave of the card, and its rows' box what the header leaves of
    * the list, by flex with a basis of 0, so neither is ever sized by the day's events and a tap
@@ -8842,7 +9026,7 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-weekday);
     font-weight: 600;
     line-height: 1.2;
-    color: var(--calendar-card-color-weekday);
+    color: var(--calendar-card-color-weekday, var(--primary-text-color));
   }
 
   /* The day named in full, read out rather than shown; what is shown is the form below that
@@ -8925,6 +9109,80 @@ export const cardStyles = css`
     flex: var(--calendar-card-month-list-flex, 1 1 0);
     min-height: 0;
     clip-path: inset(-1em -1em 0 -1em);
+  }
+
+  /* In the overlay the box lists every row and scrolls them, under weeks that stay where they are
+     (MonthNarrow.scroll); the cut is the scroll's own. Its rows keep their own padding, as the
+     card's content scroller's do. It runs to the card's foot, under the device's home indicator,
+     and keeps the card's foot room inside its scroll instead, where its last row comes to rest
+     (--calendar-card-overlay-foot, below). A scroll that reaches either end stays in the box, and
+     where no row takes focus the box does, ringed as an event is. */
+  .month-day-list-rows.scrolls {
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    clip-path: none;
+    padding-block-end: var(--calendar-card-overlay-foot, 0px);
+  }
+
+  /* While some of the day's events end below where the rows come to rest, a pill over the list's
+     foot says how many, in the words of "+N more", and a press pages down (renderListBelow). It
+     floats over the rows, so it is drawn opaque: the toolbar buttons' tint over the card's
+     background, so it looks like them, lifted by a shadow. Its words are "+N more"'s. */
+  .month-day-list.scrolls {
+    position: relative;
+  }
+
+  .month-day-list-below {
+    position: absolute;
+    inset-inline: 0;
+    bottom: calc(var(--calendar-card-overlay-foot, 0px) + 8px);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: max-content;
+    margin: 0 auto;
+    padding-block: 6px;
+    padding-inline: 8px 12px;
+    border: none;
+    border-radius: 16px;
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent),
+        color-mix(in srgb, var(--primary-text-color) 8%, transparent)
+      ),
+      var(--calendar-card-background-color, var(--card-background-color));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+    font: inherit;
+    font-size: var(--calendar-card-font-size-time);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @supports not (color: color-mix(in srgb, red, blue)) {
+    .month-day-list-below {
+      background:
+        linear-gradient(rgba(128, 128, 128, 0.15), rgba(128, 128, 128, 0.15)),
+        var(--calendar-card-background-color, var(--card-background-color));
+    }
+  }
+
+  .month-day-list-below-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  .month-day-list-rows.scrolls:focus {
+    outline: none;
+  }
+
+  .month-day-list-rows.scrolls:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
   }
 
   /* "+N more", after the rows that fit and the gap the rows keep between them: plain secondary

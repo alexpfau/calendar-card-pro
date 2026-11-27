@@ -42,9 +42,12 @@ time_position: title
 show_single_allday_time: false
 show_location_allday: false
 weather_entity: weather.home
+tap_action:
+  action: overlay
 toolbar:
   show: true
   view_switcher: false
+  overlay: true
 list:
   date_vertical_alignment: top
   day_separator_width: 1px
@@ -184,6 +187,7 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
 - **The toolbar.** [`toolbar: show: true`](/features/header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. `view_switcher: false` drops the layout switch, so the card stays a list.
+- **The week, full size.** `overlay: true` in the toolbar adds Open Full Size at the end of the top row, and [`tap_action: overlay`](/features/actions#opening-the-card-full-size) does the same for a tap anywhere but on an event. Either opens the same card over the dashboard, in Grid on seven days, every block included, _Busy_ too; Close, Back or a tap outside it puts the hallway list back as it was.
 - **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, and `day_separator_width: 1px` draws a rule between the days. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, and [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it.
 - **The times.** [`time_position: title`](/features/event-content#time-beside-the-title) puts each time at the end of its title's line instead of on a row below it, so the three days take less height and the times line up at the right, where a glance can run down them.
 - **The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color.
@@ -238,6 +242,27 @@ list:
 ```
 
 The position is a share of the day's height, so on a day with one event the word can still touch the date.
+
+### Larger Faces & a Mark for Work
+
+A face read from across the hall can be larger than the text, and Ben's work can say it is work before anyone reads _Busy_. Add `label_image_size` to each person's blocks, and give both work blocks a label of two parts:
+
+```yaml
+entities:
+  - entity: calendar.anna
+    label: person.anna
+    label_image_size: 1.5em # one and a half times the text's size
+    accent_color: '#ff6c92'
+  # calendar.ben and calendar.leo the same way
+  - entity: calendar.work
+    # filter_field, allowlist and the rest as above
+    label: [person.ben, mdi:briefcase] # Ben, at work
+    label_image_size: 1.5em
+    accent_color: '#90a4ae'
+  # and the Busy block the same way
+```
+
+[`label_image_size`](/features/core-settings#sizing-a-picture-label) draws each face larger, and a title that wraps keeps its later lines clear of it. A [`label` written as a list](/features/core-settings#combining-a-picture-an-icon-text) draws its parts in order, so both work blocks show Ben's face and a briefcase, while his own plans keep his face alone. The 🎂, 👨‍👩‍👦 and 🗑️ labels keep the size of the text.
 
 ### Read Only on a Shared Screen
 

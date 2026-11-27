@@ -23,7 +23,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Value from '../src/rendering/editor/value';
 import * as Logger from '../src/utils/logger';
 
-/** The five keys `VIEW_SCOPE` restricts to list, derived rather than written out. */
+/** The keys `VIEW_SCOPE` restricts to list, derived rather than written out. */
 const LIST_ONLY = Object.keys(ViewConfig.VIEW_SCOPE).filter((key) => {
   const scope = ViewConfig.VIEW_SCOPE[key];
   return scope !== undefined && scope.size === 1 && scope.has('list');
@@ -68,11 +68,13 @@ describe('the list block is a registered peer', () => {
     expect(listBlock().defaultOverrides).toEqual({});
   });
 
-  it('carries every key column can override, plus the ten list-only ones', () => {
+  it('carries every key column can override, plus the twelve list-only ones', () => {
     expect(new Set(ViewConfig.LIST_OVERRIDE_KEYS)).toEqual(
       new Set([...ViewConfig.COLUMN_OVERRIDE_KEYS, ...LIST_ONLY]),
     );
     expect([...LIST_ONLY].sort()).toEqual([
+      'compact_card_height',
+      'compact_card_max_height',
       'compact_days_to_show',
       'compact_events_complete_days',
       'compact_events_to_show',

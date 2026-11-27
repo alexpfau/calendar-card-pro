@@ -807,13 +807,15 @@ describe('the rows’ height', () => {
     // Never a bare 1fr, and never a basis from the content: either would let a week's lines size
     // the week the capacity is read from. Until the card has measured, the floors are reckoned in
     // em: a 1.2em date line and 8px, a 1.2em line and 2px, the 1px rule over each week, and
-    // under the names a 1.2em line and their 7px.
+    // under the names a 1.2em line and their 7px. Six weeks, unless `month → start: week` asks
+    // for fewer and the page writes how many (`MONTH_ROWS_PROPERTY`).
     expect(rule('.month-container')).toMatchObject({
       display: 'grid',
       flex: '1 1 0',
-      'min-height': 'var(--calendar-card-month-min, calc(6 * (2.4em + 11px) + 1.2em + 7px))',
+      'min-height':
+        'var(--calendar-card-month-min, calc(var(--calendar-card-month-rows, 6) * (2.4em + 11px) + 1.2em + 7px))',
       'grid-template-rows':
-        'auto repeat(6, minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr))',
+        'auto repeat(var(--calendar-card-month-rows, 6), minmax(var(--calendar-card-month-week-min, calc(2.4em + 11px)), 1fr))',
     });
     // The wide month's last week ends at the card's edge with no rule of its own.
     expect(rule('.month-container')['border-block-end']).toBeUndefined();
@@ -822,7 +824,7 @@ describe('the rows’ height', () => {
     expect(rule('.month-container.month-narrow')).toMatchObject({
       flex: 'none',
       'min-height': '0',
-      'grid-template-rows': 'auto repeat(6, auto)',
+      'grid-template-rows': 'auto repeat(var(--calendar-card-month-rows, 6), auto)',
       'border-block-end': '1px solid var(--calendar-card-month-rule)',
     });
   });

@@ -391,6 +391,49 @@ function splitTimedRow(
 }
 
 /**
+ * Whether a timed event ends at the midnight after it starts, 22:00 to 0:00, which is one day's
+ * event as any calendar writes it: "22:00 - 0:00". The end has to be the first instant of its
+ * day and read 0:00. Not just read it: the Azores' autumn day repeats 0:00 to 0:59, and an end at
+ * the second 0:00, or at 0:00:30, is past midnight. Not just be the first instant: the Azores'
+ * spring day has no 00:00 and starts at 1:00, so "22:00 - 1:00" would read as an end before the
+ * start. And the start must not read 0:00, so a whole day from midnight still names the day it
+ * ends on rather than reading "0:00 - 0:00".
+ *
+ * Grid's first block of an event running past midnight and the event's details ask this.
+ *
+ * @param start Event start
+ * @param end Event end
+ * @returns True for an end at the midnight after the start
+ */
+export function endsAtNextMidnight(start: Date, end: Date): boolean {
+  const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
+  return (
+    getCalendarDayDiff(start, end) === 1 &&
+    end.getTime() === new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime() &&
+    readsMidnight(end) &&
+    !readsMidnight(start)
+  );
+}
+
+/**
+ * The days from a timed event's start to the date its end falls on, as Grid's first block writes
+ * them after an end on a later day: "22:05 - 1:35 (+1)". The count is of local calendar days, so
+ * the end and its count name one moment: "19:00 - 0:00 (+2)" ends as the second day after the
+ * start begins. In a left-to-right isolate, because a right-to-left line would otherwise draw
+ * "(+1)" as "(1+)", after a no-break space that keeps it on the end's line. None where the end is
+ * the midnight after the start (`endsAtNextMidnight`), or on the start's own day.
+ *
+ * @param start Event start
+ * @param end Event end
+ * @returns The count, with the space before it, or an empty string
+ */
+export function endDayCount(start: Date, end: Date): string {
+  if (endsAtNextMidnight(start, end)) return '';
+  const days = getCalendarDayDiff(start, end);
+  return days > 0 ? `\u00a0\u2066(+${days})\u2069` : '';
+}
+
+/**
  * How long an interval lasts, in days, hours and minutes.
  *
  * Shorter than a full day, the elapsed time, to the minute: a night when the clocks go forward

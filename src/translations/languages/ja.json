@@ -13,6 +13,7 @@
   "viewMonth": "月",
   "layout": "レイアウト",
   "layoutCurrent": "レイアウト：{view}",
+  "openFullSize": "拡大表示で開く",
   "moreEvents": "他{count}件",
   "eventCount": "{count}件の予定",
   "eventCountOne": "{count}件の予定",

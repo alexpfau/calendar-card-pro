@@ -13,6 +13,7 @@
   "viewMonth": "Месец",
   "layout": "Распоред",
   "layoutCurrent": "Распоред: {view}",
+  "openFullSize": "Отвори у пуној величини",
   "moreEvents": "Још +{count}",
   "eventCount": "{count} догађаја",
   "eventCountOne": "{count} догађај",

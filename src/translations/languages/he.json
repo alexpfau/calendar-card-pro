@@ -17,6 +17,7 @@
   "viewMonth": "חודש",
   "layout": "פריסה",
   "layoutCurrent": "פריסה: {view}",
+  "openFullSize": "פתיחה בגודל מלא",
   "moreEvents": "עוד +{count}",
   "eventCount": "{count} אירועים",
   "eventCountOne": "{count} אירוע",

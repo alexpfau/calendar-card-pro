@@ -4,13 +4,13 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="today-indicator-container">
@@ -23,7 +23,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -46,7 +46,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -69,7 +69,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -92,7 +92,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -117,13 +117,13 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -132,7 +132,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -153,13 +153,13 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -168,7 +168,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -192,13 +192,13 @@ exports[`list view DOM > renders a single event 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -207,7 +207,7 @@ exports[`list view DOM > renders a single event 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -231,13 +231,13 @@ exports[`list view DOM > renders an empty calendar 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -264,13 +264,13 @@ exports[`list view DOM > renders compact mode 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="3">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -279,7 +279,7 @@ exports[`list view DOM > renders compact mode 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -302,7 +302,7 @@ exports[`list view DOM > renders compact mode 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -325,7 +325,7 @@ exports[`list view DOM > renders compact mode 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -349,13 +349,13 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -364,7 +364,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -387,7 +387,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -413,7 +413,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -437,7 +437,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -463,13 +463,13 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -478,7 +478,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -500,13 +500,13 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -515,7 +515,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -540,13 +540,13 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -555,7 +555,7 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -576,13 +576,13 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -606,13 +606,13 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -639,13 +639,13 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Mi
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -654,7 +654,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -677,7 +677,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -700,7 +700,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -723,7 +723,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -748,13 +748,13 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Do
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -763,7 +763,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -784,13 +784,13 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fr
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -799,7 +799,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -823,13 +823,13 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -838,7 +838,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -861,7 +861,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -884,7 +884,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -907,7 +907,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -932,13 +932,13 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -947,7 +947,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -968,13 +968,13 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -983,7 +983,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1007,13 +1007,13 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="5">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1022,7 +1022,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1045,7 +1045,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Past standup
         </span>
 </div>
@@ -1068,7 +1068,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1091,7 +1091,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1114,7 +1114,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1139,13 +1139,13 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1154,7 +1154,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1175,13 +1175,13 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1190,7 +1190,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1214,13 +1214,13 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1229,7 +1229,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1252,7 +1252,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1275,7 +1275,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1298,7 +1298,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1323,13 +1323,13 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1338,7 +1338,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1359,13 +1359,13 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="2">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1374,7 +1374,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1397,7 +1397,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1421,13 +1421,13 @@ exports[`list view DOM > renders the default configuration 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1436,7 +1436,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1459,7 +1459,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1482,7 +1482,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1505,7 +1505,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1530,13 +1530,13 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1545,7 +1545,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1566,13 +1566,13 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1581,7 +1581,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1605,13 +1605,13 @@ exports[`list view DOM > renders the today indicator 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="today-indicator-container">
@@ -1624,7 +1624,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1647,7 +1647,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1670,7 +1670,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1693,7 +1693,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1718,13 +1718,13 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1733,7 +1733,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1754,13 +1754,13 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1769,7 +1769,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1793,13 +1793,13 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-temp-low">/13°</span></div>
@@ -1809,7 +1809,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1832,7 +1832,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1855,7 +1855,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1878,7 +1878,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1903,13 +1903,13 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-temp-low">/12°</span></div>
@@ -1919,7 +1919,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1940,13 +1940,13 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-temp-low">/11°</span></div>
@@ -1956,7 +1956,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1980,13 +1980,13 @@ exports[`list view DOM > renders weather on events 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -1995,7 +1995,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -2018,7 +2018,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -2041,7 +2041,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -2064,7 +2064,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -2089,13 +2089,13 @@ exports[`list view DOM > renders weather on events 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -2104,7 +2104,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -2125,13 +2125,13 @@ exports[`list view DOM > renders weather on events 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -2140,7 +2140,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -2164,13 +2164,13 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span></div>
@@ -2180,7 +2180,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -2203,7 +2203,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -2226,7 +2226,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -2249,7 +2249,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -2274,13 +2274,13 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span></div>
@@ -2290,7 +2290,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -2311,13 +2311,13 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span></div>
@@ -2327,7 +2327,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -2361,13 +2361,13 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -2376,7 +2376,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -2399,7 +2399,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -2422,7 +2422,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -2445,7 +2445,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -2471,13 +2471,13 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -2486,7 +2486,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -2508,13 +2508,13 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </td>
@@ -2523,7 +2523,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -2547,13 +2547,13 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 "<table class=" day-table today ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="4">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-uv-index">UV7</span></div>
@@ -2563,7 +2563,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -2586,7 +2586,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -2609,7 +2609,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -2632,7 +2632,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -2657,13 +2657,13 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <table class=" day-table tomorrow future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-uv-index">UV4</span></div>
@@ -2673,7 +2673,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -2694,13 +2694,13 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <table class=" day-table future-day ">
 <tr>
 <td style="position: relative;" class="date-column " rowspan="1">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-uv-index">UV2</span></div>
@@ -2710,7 +2710,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>

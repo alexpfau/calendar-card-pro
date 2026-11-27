@@ -46,7 +46,16 @@ const CONTROLS = [
   'card:toolbar.reset',
   'card:toolbar.refresh',
   'card:toolbar.search',
+  'card:toolbar.overlay',
   'card:toolbar.navigation',
+  // The full-size card's, on Full-Size Settings: the same controls but Open Full Size.
+  'actions:overlay.toolbar.add_event',
+  'actions:overlay.toolbar.view_switcher',
+  'actions:overlay.toolbar.legend',
+  'actions:overlay.toolbar.reset',
+  'actions:overlay.toolbar.refresh',
+  'actions:overlay.toolbar.search',
+  'actions:overlay.toolbar.navigation',
 ];
 
 afterEach(() => document.body.replaceChildren());
@@ -141,7 +150,15 @@ describe('which fields are chips', () => {
       'card:toolbar.reset': 'toolbar.controls.reset',
       'card:toolbar.refresh': 'toolbar.controls.refresh',
       'card:toolbar.search': 'toolbar.controls.search',
+      'card:toolbar.overlay': 'toolbar.controls.overlay',
       'card:toolbar.navigation': 'toolbar.navigation',
+      'actions:overlay.toolbar.add_event': 'toolbar.controls.add_event',
+      'actions:overlay.toolbar.view_switcher': 'toolbar.view_switcher',
+      'actions:overlay.toolbar.legend': 'toolbar.legend',
+      'actions:overlay.toolbar.reset': 'toolbar.controls.reset',
+      'actions:overlay.toolbar.refresh': 'toolbar.controls.refresh',
+      'actions:overlay.toolbar.search': 'toolbar.controls.search',
+      'actions:overlay.toolbar.navigation': 'toolbar.navigation',
     });
     expect(chipFields('parts')).toEqual(PARTS);
     expect(chipFields('toolbar')).toEqual(CONTROLS);
@@ -155,6 +172,14 @@ describe('which fields are chips', () => {
       'Progress Bar',
       'Duration',
       'Now',
+      'Add Event',
+      'View Switcher',
+      'Calendar Filter',
+      'Reset',
+      'Refresh',
+      'Search',
+      'Open Full Size',
+      'Date Navigation',
       'Add Event',
       'View Switcher',
       'Calendar Filter',
@@ -177,7 +202,7 @@ describe('which fields are chips', () => {
     expect(offered).toEqual(universe);
     // The denominator, and the one difference: Now is not offered in Grid.
     const grid = Object.fromEntries(offered)['grid'] as string[];
-    expect(grid).toHaveLength(14);
+    expect(grid).toHaveLength(22);
     expect(Object.keys(CHIP_LABELS).filter((id) => !grid.includes(id))).toEqual([
       'events:show_now_indicator',
     ]);
@@ -398,6 +423,7 @@ describe('the toolbar on Card & Header', () => {
       'Reset',
       'Refresh ✓',
       'Search ✓',
+      'Open Full Size',
       'Date Navigation ✓',
     ]);
     const heading = editor.shadowRoot!.querySelector('[data-heading="heading_toolbar"]')!;

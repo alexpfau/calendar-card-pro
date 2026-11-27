@@ -262,15 +262,26 @@ export interface MonthSelection {
 
 /**
  * The day a month page selects by itself: today where it falls in the month the header names,
- * else that month's first day.
+ * else that month's first day. Under `month → start: week`, whose page is no calendar month, today
+ * where the page holds it, else the page's first day.
  *
  * @param rowsStart - The page's first row's first day
  * @param now - The current moment
+ * @param rollingDays - The page's days under `start: week`, or undefined for a calendar month
  * @returns The day, at local midnight
  */
-export function defaultMonthDay(rowsStart: Date, now: Date = new Date()): Date {
-  const month = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
+export function defaultMonthDay(
+  rowsStart: Date,
+  now: Date = new Date(),
+  rollingDays?: number,
+): Date {
   const today = Paging.startOfDay(now);
+  if (rollingDays !== undefined) {
+    return Paging.rangeContains({ start: rowsStart, days: rollingDays }, today)
+      ? today
+      : Paging.startOfDay(rowsStart);
+  }
+  const month = Paging.majorityMonth({ start: rowsStart, days: ViewConfig.MONTH_DAYS });
   return today.getFullYear() === month.getFullYear() && today.getMonth() === month.getMonth()
     ? today
     : month;
@@ -283,6 +294,7 @@ export function defaultMonthDay(rowsStart: Date, now: Date = new Date()): Date {
  * @param page - The page shown, or null for home
  * @param rowsStart - Its first row's first day
  * @param now - The current moment
+ * @param days - The days the page draws (`ViewConfig.monthPageDays`)
  * @returns The day, at local midnight, or null where nothing on the page is selected
  */
 export function selectionOnPage(
@@ -290,12 +302,13 @@ export function selectionOnPage(
   page: string | null,
   rowsStart: Date,
   now: Date = new Date(),
+  days: number = ViewConfig.MONTH_DAYS,
 ): Date | null {
   if (!selection || selection.page !== page) return null;
   const day =
     selection.day === SELECTED_TODAY ? Paging.startOfDay(now) : Paging.pageStart(selection.day);
   const index = FormatUtils.getCalendarDayDiff(rowsStart, day);
-  return index >= 0 && index < ViewConfig.MONTH_DAYS ? day : null;
+  return index >= 0 && index < days ? day : null;
 }
 
 /**
@@ -307,6 +320,7 @@ export function selectionOnPage(
  * @param rowsStart - Its first row's first day
  * @param now - The current moment
  * @param own - The page's own day, as the card has it: home's under a fixed start date is that date
+ * @param days - The days the page draws (`ViewConfig.monthPageDays`)
  * @returns The day, at local midnight
  */
 export function selectedMonthDay(
@@ -315,8 +329,9 @@ export function selectedMonthDay(
   rowsStart: Date,
   now: Date = new Date(),
   own: Date = defaultMonthDay(rowsStart, now),
+  days: number = ViewConfig.MONTH_DAYS,
 ): Date {
-  return selectionOnPage(selection, page, rowsStart, now) ?? own;
+  return selectionOnPage(selection, page, rowsStart, now, days) ?? own;
 }
 
 /**

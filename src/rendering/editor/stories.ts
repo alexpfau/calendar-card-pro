@@ -9,7 +9,7 @@
  * Simple Agenda comes first: not a story but the card Usage's Your First Card documents, for
  * someone who wants a short list of the next few days and nothing more.
  *
- * Only the five stories that work without per-calendar filters are here. Bin Day splits one
+ * Only the six stories that work without per-calendar filters are here. Bin Day splits one
  * calendar four ways by words in event titles, and Family Agenda separates work events by a tag
  * in their descriptions; neither can be guessed for someone else's calendars.
  *
@@ -23,6 +23,7 @@
 export type StoryId =
   | 'simple_agenda'
   | 'family_hub'
+  | 'small_card_big_picture'
   | 'now_and_next'
   | 'today_and_tomorrow'
   | 'birthdays_and_holidays'
@@ -59,13 +60,14 @@ function story(
   return { id, page, palette, shell: () => structuredClone(shell) as Record<string, unknown> };
 }
 
-/** The six starting points, in the order Quick Setup offers them. */
+/** The seven starting points, in the order Quick Setup offers them. */
 export const STORIES: ReadonlyArray<Story> = [
   // Not an Example Story: the card Usage starts everyone with, for a plain list of the next days.
   story('simple_agenda', '/guide/usage#your-first-card', [], {
     days_to_show: 3,
     show_location: false,
     show_month: false,
+    tap_action: { action: 'overlay' },
   }),
   story(
     'family_hub',
@@ -95,6 +97,30 @@ export const STORIES: ReadonlyArray<Story> = [
         hour_height: '36px',
         weather: { position: 'date' },
       },
+      month: { event_gap: '4px', start: 'week', weeks: 4 },
+    },
+  ),
+  story(
+    'small_card_big_picture',
+    '/guide/small-card-big-picture',
+    ['#ff6c92', '#03a9f4', '#66bb6a', '#ffb74d', '#b388ff'],
+    {
+      title: 'Family',
+      days_to_show: 3,
+      event_gap: '4px',
+      filter_duplicates: true,
+      duplicate_accent_color: '#ffb74d',
+      // A tap anywhere but an event opens the card full size, as the toolbar's button does.
+      tap_action: { action: 'overlay' },
+      toolbar: {
+        show: true,
+        legend: false,
+        add_event: false,
+        refresh: false,
+        search: false,
+        overlay: true,
+      },
+      overlay: { view: 'month', toolbar: { legend: 'chips', add_event: true, search: true } },
       month: { event_gap: '4px' },
     },
   ),
@@ -126,7 +152,7 @@ export const STORIES: ReadonlyArray<Story> = [
       duplicate_accent_color: '#ffb74d',
       show_progress_bar: true,
       weather_entity: 'weather.home',
-      toolbar: { show: true, view_switcher: false, legend: false },
+      toolbar: { show: true, view_switcher: false, legend: false, overlay: true },
       day_tap_action: { action: 'add-event' },
       // A phone shows the list in the grid's place, with the same forecast.
       list: { weather: { position: 'both', event: { show_conditions: false } } },
@@ -151,7 +177,9 @@ export const STORIES: ReadonlyArray<Story> = [
     day_spacing: '4px',
     event_gap: '4px',
     vertical_line_width: '4px',
+    tap_action: { action: 'overlay' },
     toolbar: { show: true, legend: false, add_event: false, refresh: false, view_switcher: false },
+    overlay: { view: 'month' },
     list: { month_separator_label: true },
   }),
   story('house_log', '/guide/house-log', ['#8d6e63'], {

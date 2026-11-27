@@ -22,6 +22,7 @@ import {
   DEPRECATED_ENTITY_CONFIG_MAP,
   normalizeEntities,
 } from '../src/config/config';
+import { overlayConfig } from '../src/config/overlay';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_ONLY_KEYS,
@@ -132,6 +133,16 @@ function problems(card: Card): string[] {
   return out;
 }
 
+/** Whether a tap, a hold or the toolbar's button opens the card full size. */
+function opensFullSize(card: Card): boolean {
+  const opens = (action: unknown) => (action as Card | undefined)?.action === 'overlay';
+  return (
+    (card.toolbar as Card | undefined)?.overlay === true ||
+    opens(card.tap_action) ||
+    opens(card.hold_action)
+  );
+}
+
 describe('the Example Stories cards', () => {
   it('trips every rule on a planted card, so a clean page means the rules ran', () => {
     const planted = problems({
@@ -166,6 +177,26 @@ describe('the Example Stories cards', () => {
     );
   });
 
+  it('trips the rules on what a planted card opens full size with, its `overlay:` block', () => {
+    const planted: Card = {
+      type: 'custom:calendar-card-pro',
+      config_version: CURRENT_CONFIG_VERSION,
+      toolbar: { show: true, overlay: true },
+      overlay: {
+        view: 'month',
+        tint: 'red',
+        toolbar: { labels: true },
+        list: { start_time: '07:00' },
+      },
+      entities: [{ entity: 'calendar.a' }],
+    };
+    expect(opensFullSize(planted)).toBe(true);
+    expect(problems(planted)).toEqual([]);
+    expect(problems(overlayConfig(planted)).sort()).toEqual(
+      ['unknown tint', 'unknown toolbar.labels', 'list.start_time is not read there'].sort(),
+    );
+  });
+
   it.each(STORY_GUIDES.map((page) => [page.split('/').pop() as string, page]))(
     '%s prints one card whose every option the card reads',
     (_name, page) => {
@@ -176,6 +207,13 @@ describe('the Example Stories cards', () => {
       // The current version, or the editor upgrades the card the reader has just pasted.
       expect(config.config_version).toBe(CURRENT_CONFIG_VERSION);
       expect(problems(config)).toEqual([]);
+      // What full size opens with is a card of its own, every layout a press away on its switcher.
+      // A card-wide value a layout's own default shadows there is left alone: the page
+      // describes the card, not the layouts full size switches to.
+      if (opensFullSize(config)) {
+        const fullSize = problems(overlayConfig(config)).filter((p) => !/ is shadowed in /.test(p));
+        expect(fullSize, 'full size').toEqual([]);
+      }
     },
   );
 });

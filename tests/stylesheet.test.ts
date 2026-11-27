@@ -4143,6 +4143,11 @@ describe('the time beside the title', () => {
     [ROW]: one({ 'align-items': 'baseline' }),
     // The title is its summary's baseline, beside every label kind.
     [`${ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // The flex line's one baseline item sits at its top, so beside a sized picture taller than the
+    // title's line the title moves down to the picture's middle (label-parts.test.ts).
+    [`${ROW} > .summary-scroll:has(> .label-image) > .event-title`]: one({
+      'margin-top': 'max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2)',
+    }),
     // The box: as wide as its content, up to 60% of the line less the title's gutter, and never
     // narrower than what it cannot wrap.
     [ASIDE]: one({
@@ -4260,9 +4265,13 @@ describe('the time beside the title', () => {
     // with nothing after it ends where every other time does, beside either kind of title.
     [`${WRAP} > .title-aside > .time`]: one({ 'margin-inline-end': '0' }),
     [`${TIME} > .time-actual > .allday-badge:last-child`]: one({ 'margin-inline-end': '0' }),
+    // Over the room, by the end of its line, and lifted by its top margin where the card measures
+    // that line is a taller picture's, with the title in its middle (title-fit.test.ts). Unset,
+    // the margin is nothing.
     [`${WRAP}[data-title-fit] > .title-aside`]: one({
       position: 'absolute',
       top: 'calc(100% - var(--calendar-card-title-pad) - var(--calendar-card-title-room-height))',
+      'margin-top': 'calc(-1 * var(--calendar-card-title-room-lift, 0px))',
     }),
     // Against the row's padding edge, inside the room a cut row keeps there.
     [`${WRAP}[data-title-fit='ltr'] > .title-aside`]: one({

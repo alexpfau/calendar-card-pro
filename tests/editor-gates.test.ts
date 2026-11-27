@@ -83,12 +83,17 @@ const LIST_ONLY = [
   'content:compact_days_to_show',
   'content:compact_events_to_show',
   'content:compact_events_complete_days',
+  'layout:compact_card_height',
+  'layout:compact_card_max_height',
   'day_header:date_vertical_alignment',
   'day_header:today_indicator_position',
   'separators:month_separator_label',
   'separators:month_separator_label_color',
   'separators:month_separator_label_font_size',
   'calendar:compact_events_to_show',
+  // An event's forecast on a line of its own, which Columns and Grid always draw
+  // (`ViewConfig.WEATHER_OPTION_SCOPE`).
+  'weather:weather.event.own_line',
 ];
 
 /** Offered only in Columns. */
@@ -147,6 +152,8 @@ const MONTH_ONLY = [
   'layout:month.cell_event_font_size',
   'layout:month.cell_time_font_size',
   'layout:month.min_day_width',
+  'layout:month.start',
+  'layout:month.weeks',
 ];
 
 /**
@@ -267,6 +274,7 @@ const LAYOUT_WEATHER = [
   'weather:weather.event.show_uv_index',
   'weather:weather.event.uv_index_threshold',
   'weather:weather.event.daily_forecast_fallback',
+  'weather:weather.event.own_line',
   'weather:weather.event.icon_size',
   'weather:weather.event.font_size',
   'weather:weather.event.color',
@@ -368,6 +376,8 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'toolbar.show': [true, false],
   'toolbar.view_switcher': [true, false],
   'toolbar.legend': [false, 'menu', 'chips'],
+  'overlay.toolbar.show': [true, false],
+  'overlay.toolbar.view_switcher': [true, false],
   weather_entity: [undefined, '', 'weather.home'],
   'weather.position': [undefined, 'none', 'date', 'event', 'both'],
   'weather.date.show_uv_index': [undefined, true, false],
@@ -389,6 +399,8 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   // Zero in three spellings, a length and a keyword; the card draws a rule for the last two.
   month_separator_width: ['0px', '0', '0em', '1px', 'thin'],
   month_separator_label: [true, false],
+  // Anything but `week` reads as a calendar month, which draws no Weeks Shown.
+  'month.start': [undefined, 'month', 'week', 'Week'],
   'entity.accent_color': [undefined, '#ff0000', 'home-assistant'],
   'entity.label_type': [undefined, 'none', 'text', 'icon', 'image'],
   'entity.label': [undefined, 'A', 'mdi:star', 'home-assistant', '/local/a.png', 'person.anna'],
@@ -944,13 +956,20 @@ describe('the universe', () => {
     // in every workspace. Then Card Height became the whole card's in every layout: Month gained
     // its three controls and lost its wide pair, and every layout that reads the events area's own
     // height and cap kept them as two fields of their own. Columns and Grid gained When Too Narrow
-    // over their Down To and Below That.
+    // over their Down To and Below That. Then every workspace gained Full-Size Overlay's Layout
+    // and the toolbar's Open Full Size. Then Month gained First Week and Weeks Shown, for the
+    // coming weeks from the start date's. Then List gained On a Line of Its Own for an event's
+    // forecast, which Columns and Grid always draw so. Then List gained Compact Height and
+    // Compact Maximum Height, its compact card's own pair (`LIST_ONLY`). Then every workspace
+    // gained Full-Size Settings' Days To Show and Show Toolbar. Then a calendar gained Image Size,
+    // in every workspace. Then every workspace gained the full-size card's toolbar: its seven
+    // controls, its Layouts in Switcher and its Arrow & Chip Size.
     expect(sizes).toEqual({
-      shared: { card: 137, calendar: 30 },
-      list: { card: 164, calendar: 31 },
-      column: { card: 161, calendar: 30 },
-      grid: { card: 160, calendar: 30 },
-      month: { card: 105, calendar: 29 },
+      shared: { card: 150, calendar: 31 },
+      list: { card: 180, calendar: 32 },
+      column: { card: 174, calendar: 31 },
+      grid: { card: 173, calendar: 31 },
+      month: { card: 120, calendar: 30 },
     });
   });
 
@@ -1229,6 +1248,7 @@ describe('the gate table', () => {
           'card:toolbar.reset',
           'card:toolbar.refresh',
           'card:toolbar.search',
+          'card:toolbar.overlay',
           'card:toolbar.navigation',
           'card:toolbar.size',
         ],
@@ -1238,6 +1258,28 @@ describe('the gate table', () => {
         kind: 'gate',
         fields: ['card:toolbar.view_switcher_layouts'],
         requires: [p('card:toolbar.show', true, ON), p('card:toolbar.view_switcher', true, ON)],
+      },
+      full_size_toolbar: {
+        kind: 'gate',
+        fields: [
+          'actions:overlay.toolbar.legend',
+          'actions:overlay.toolbar.add_event',
+          'actions:overlay.toolbar.view_switcher',
+          'actions:overlay.toolbar.reset',
+          'actions:overlay.toolbar.refresh',
+          'actions:overlay.toolbar.search',
+          'actions:overlay.toolbar.navigation',
+          'actions:overlay.toolbar.size',
+        ],
+        requires: [p('actions:overlay.toolbar.show', true, ON)],
+      },
+      full_size_switcher_layouts: {
+        kind: 'gate',
+        fields: ['actions:overlay.toolbar.view_switcher_layouts'],
+        requires: [
+          p('actions:overlay.toolbar.show', true, ON),
+          p('actions:overlay.toolbar.view_switcher', true, ON),
+        ],
       },
       forecast: { kind: 'gate', fields: [`${W}position`], requires: [ENTITY] },
       forecast_by_day: {
@@ -1265,6 +1307,7 @@ describe('the gate table', () => {
           `${W}event.show_temp`,
           `${W}event.show_uv_index`,
           `${W}event.daily_forecast_fallback`,
+          `${W}event.own_line`,
           `${W}event.icon_size`,
           `${W}event.font_size`,
           `${W}event.color`,
@@ -1310,6 +1353,11 @@ describe('the gate table', () => {
         kind: 'mode-value',
         fields: ['layout:maximum_height'],
         requires: [p('layout:height_mode', 'maximum', ['maximum'])],
+      },
+      month_weeks: {
+        kind: 'mode-value',
+        fields: ['layout:month.weeks'],
+        requires: [p('layout:month.start', 'week', ['week'])],
       },
       fewer_days: {
         kind: 'mode-value',
@@ -1379,7 +1427,12 @@ describe('the gate table', () => {
       label_icon_color: {
         kind: 'gate',
         fields: ['calendar:label_icon_color'],
-        requires: [p('calendar:label_type', 'icon', ['icon'])],
+        requires: [p('calendar:label_type', 'icon', ['icon', 'parts'])],
+      },
+      label_image_size: {
+        kind: 'gate',
+        fields: ['calendar:label_image_size'],
+        requires: [p('calendar:label_type', 'image', ['image', 'parts'])],
       },
       label_image_source: {
         kind: 'mode-value',
@@ -1397,6 +1450,7 @@ describe('the gate table', () => {
             p('calendar:label_icon_source', 'custom', ['custom']),
           ],
           [p('calendar:label_type', 'image', ['image'])],
+          [p('calendar:label_type', 'parts', ['parts'])],
         ],
       },
       location_icon: {

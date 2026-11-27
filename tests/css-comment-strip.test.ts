@@ -279,8 +279,22 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(266_000);
-    // Pinning the date rows of every layout moved the ceiling last, from 260,000 to 266,000
+    expect(saved).toBeLessThan(270_000);
+    // Picture labels at a size of their own moved the ceiling last, from 268,000 to 270,000
+    // (backlog items 285 and 286): the notes on a picture's hanging indent following its height,
+    // on an emoji beside a picture taking the wider of the two, on the wide month's lines keeping
+    // their pictures at the text's height, and on a one-line title beside the time moving down to
+    // a taller picture's middle. The reading went to 268,396 with feature/v6.1 at dda97644 merged,
+    // taken with stripComments after the last comment was written.
+    //
+    // Two notes in the v6.1 bug sweep moved the ceiling before that, from 266,000 to 268,000 (backlog
+    // items 303 and 408): why a countdown beside the title is a box of its own, so it moves to
+    // the next line whole after its dot, and why clamped weather words sit at the top of their
+    // line, since Chromium takes a box that hides its overflow to end at its baseline. The
+    // reading went from 265,148 to 266,313, taken with stripComments after the last comment was
+    // written.
+    //
+    // Pinning the date rows of every layout moved the ceiling before that, from 260,000 to 266,000
     // (backlog item 402): the notes on Grid's head and band as two boxes, the band's spanning the
     // head's rows so it needs no offset, which pins when; on a column header's ground and wash as
     // layers of their own, and why its columns stretch; and on the wide month's weekday names and

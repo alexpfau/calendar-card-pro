@@ -110,7 +110,10 @@ describe('scrolling labels and titles share one vertical center', () => {
     );
     expect(padding.map((rule) => rule.selectors)).toEqual([RESET]);
 
-    // The correction is the existing reset widened, not a second mechanism.
+    // The correction is the existing reset widened, not a second mechanism. One rule moves a
+    // scrolling title for another reason, pinned here by value: beside the time the title is
+    // baseline-aligned, which put it at the top of a line a sized picture made taller
+    // (label-parts.test.ts).
     const nudges = rules.filter(
       (rule) =>
         targetsScrolling(rule.selectors) &&
@@ -118,7 +121,13 @@ describe('scrolling labels and titles share one vertical center', () => {
           rule.body,
         ),
     );
-    expect(nudges).toEqual([]);
+    expect(nudges).toEqual([
+      {
+        selectors:
+          '.time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title',
+        body: 'margin-top: max(0px, (var(--calendar-card-label-image-size, 1em) - 1.2em) / 2);',
+      },
+    ]);
 
     // And the base padding survives for every row the reset does not reach.
     expect(CSS).toMatch(/\.event-title\s*\{[^}]*padding-bottom:\s*2px/);
@@ -181,11 +190,38 @@ describe('scrolling labels and titles share one vertical center', () => {
     },
   );
 
+  it('reaches a one-line title beside the time only, and the card lifts a wrapping one’s time', () => {
+    // The nudge above moves a title kept to one line. A title that wraps beside the time, the
+    // default, has no scrolling summary for it to reach, and sat in the middle of a taller
+    // picture's line while its time sat 5.6px lower, at the line's end. That time is lifted by a
+    // top margin the card measures instead (title-fit.test.ts), so no rule here moves the title.
+    const NUDGE =
+      '.time-beside-title > .summary-row > .summary-scroll:has(> .label-image) > .event-title';
+    const picture: Types.EntityConfig = {
+      entity: 'calendar.anna',
+      label: LABELS.image,
+      label_type: 'image',
+      label_image_size: '2em',
+    };
+    for (const view of ['list', 'column'] as const) {
+      const beside = { time_position: 'title', scroll_long_titles: false } as const;
+      const [wrapping] = titles(render(view, [picture], beside));
+      expect(wrapping.closest('.summary-row')!.matches('.title-wrap'), view).toBe(true);
+      expect(wrapping.matches(NUDGE), view).toBe(false);
+      const [oneLine] = titles(render(view, [picture], { ...beside, title_max_lines: 1 }));
+      expect(oneLine.matches(NUDGE), view).toBe(true);
+    }
+    expect(CSS).toMatch(
+      /\.summary-row\.title-wrap\[data-title-fit\] > \.title-aside \{[^}]*margin-top: calc\(-1 \* var\(--calendar-card-title-room-lift, 0px\)\);/,
+    );
+  });
+
   it('keeps the wrapping row’s own middle alignment and hanging indent', () => {
     // Both belong to the non-scrolling path and are untouched by this correction.
     expect(CSS).toMatch(
       /\.summary:has\(> \.label-icon\) > \.event-title,[\s\S]*?vertical-align:\s*middle/,
     );
-    expect(CSS).toMatch(/\.summary:has\(> \.label-icon\),[\s\S]*?text-indent:\s*calc\(-1 \*/);
+    expect(CSS).toMatch(/\.summary:has\(> \.label-icon\) \{\s*text-indent:\s*calc\(-1 \*/);
+    expect(CSS).toMatch(/\.summary:has\(> \.label-image\) \{\s*text-indent:\s*calc\(-1 \*/);
   });
 });

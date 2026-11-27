@@ -211,6 +211,7 @@ export function workspaceFormData(
     // The card's own `view`, not the layout the page projects: the switcher always offers the
     // layout the card opens in, whatever layout is being edited.
     toolbar: Value.toolbarFormBlock({ ...projected, view: startingView(config) }),
+    overlay: Value.overlayFormBlock(projected),
     ...Synthetic.deriveSyntheticData(projected, held, viewForWorkspace(workspace)),
   };
   for (const [key, text] of Object.entries(pending)) {

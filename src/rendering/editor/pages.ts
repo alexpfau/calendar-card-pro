@@ -13,6 +13,7 @@ import {
   mdiCalendarToday,
   mdiCalendarWeekBegin,
   mdiCardTextOutline,
+  mdiFullscreen,
   mdiGestureTapButton,
   mdiResize,
   mdiWeatherPartlyCloudy,
@@ -35,7 +36,8 @@ export type PageId =
   | 'events'
   | 'size_spacing'
   | 'weather'
-  | 'taps_refresh';
+  | 'taps_refresh'
+  | 'full_size';
 
 export type FamilyId = 'compact_mode' | 'past_days' | 'weekend_colors' | 'replace';
 
@@ -87,8 +89,13 @@ export function isBorrowed(appearance: Appearance): appearance is 'copy' | 'refe
   return appearance === 'copy' || appearance === 'reference';
 }
 
-/** What a page draws besides its fields, at one heading. */
-export type HeadingExtra = 'own-buttons' | 'weather-calendar-links' | 'split';
+/**
+ * What a page draws besides its fields, at one heading. `full-size-lines` lists what `overlay:`
+ * holds beyond the Full Size page's own settings; `full-size-link` is the line leading to that
+ * page, drawn while a tap or a hold opens it.
+ */
+export type HeadingExtra =
+  'own-buttons' | 'weather-calendar-links' | 'split' | 'full-size-lines' | 'full-size-link';
 
 /** One heading of a page, and the fields under it in order. */
 export interface HeadingDef {
@@ -190,13 +197,16 @@ export const PAGES: ReadonlyArray<PageDef> = [
       {
         // First: how many days, and from when, is the widest question this page answers. Start
         // Date is the whole card's, at home on Events, Weather & Language; it stays editable
-        // here, where it is set together with the days it starts.
+        // here, where it is set together with the days it starts. Month's First Week after it,
+        // since it says what Month does with that date, and Weeks Shown is Month's Days To Show.
         key: 'heading.date_range',
         fields: [
           ['content:days_to_show', E],
           ['content:start_date_mode', 'copy'],
           ['content:start_date_fixed', 'copy'],
           ['content:start_date_offset', 'copy'],
+          ['layout:month.start', E],
+          ['layout:month.weeks', withMode('layout:month.start')],
         ],
       },
       {
@@ -286,6 +296,7 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['card:toolbar.reset', CONTROL],
           ['card:toolbar.refresh', CONTROL],
           ['card:toolbar.search', CONTROL],
+          ['card:toolbar.overlay', CONTROL],
           ['card:toolbar.navigation', CONTROL],
           // View Switcher's qualifier line, drawn under the chips while it is pressed.
           ['card:toolbar.view_switcher_layouts', { qualifies: 'card:toolbar.view_switcher' }],
@@ -591,6 +602,14 @@ export const PAGES: ReadonlyArray<PageDef> = [
         ],
       },
       {
+        // A List card's height while it is compact, which takes Card Height while unset.
+        key: 'heading_compact_card',
+        fields: [
+          ['layout:compact_card_height', A],
+          ['layout:compact_card_max_height', A],
+        ],
+      },
+      {
         // Month's narrow form, which takes Card Height while these are unset.
         key: 'heading_narrow_month',
         fields: [
@@ -710,6 +729,8 @@ export const PAGES: ReadonlyArray<PageDef> = [
           [`${W}event.show_uv_index`, E],
           [`${W}event.uv_index_threshold`, withMode(`${W}event.show_uv_index`)],
           [`${W}event.daily_forecast_fallback`, E],
+          // Where the parts above go, before how they look (List only).
+          [`${W}event.own_line`, A],
           [`${W}event.icon_size`, A],
           [`${W}event.font_size`, A],
           [`${W}event.color`, A],
@@ -727,10 +748,12 @@ export const PAGES: ReadonlyArray<PageDef> = [
     headings: [
       {
         key: 'heading.taps',
+        // While a tap or a hold opens the card full size, a line leads to what it opens with.
+        extras: ['full-size-link'],
         fields: [
           ['actions:tap_action', E],
           ['actions:hold_action', A],
-          ['actions:day_tap_action_mode', E],
+          ['actions:day_tap_action', E],
           ['actions:event_tap_action', E],
           ['actions:event_hold_action', A],
           ['actions:open_links', A],
@@ -744,6 +767,51 @@ export const PAGES: ReadonlyArray<PageDef> = [
           ['actions:refresh_interval', A],
           ['actions:refresh_on_navigate', A],
         ],
+      },
+    ],
+  },
+  {
+    // What the card opens full size with, a section of the overview of its own: what it opens in
+    // and how many days, each always drawn, since each has a value of its own there
+    // (`OVERLAY_DEFAULTS`). Then its toolbar, drawn as the card's own is on Card & Header, but
+    // without Open Full Size, which the full-size card never draws, and without its own buttons,
+    // which stay YAML's. Then whatever else `overlay:` holds, which is YAML's.
+    id: 'full_size',
+    titleKey: 'page.full_size',
+    iconPath: mdiFullscreen,
+    noteKey: 'page.full_size.note',
+    descriptionKey: 'page.full_size.description',
+    headings: [
+      {
+        key: 'heading.full_size_opens',
+        fields: [
+          ['actions:overlay.view', E],
+          ['actions:overlay.days_to_show', E],
+        ],
+      },
+      {
+        key: 'heading_toolbar',
+        fields: [
+          ['actions:overlay.toolbar.show', E],
+          ['actions:overlay.toolbar.add_event', CONTROL],
+          ['actions:overlay.toolbar.view_switcher', CONTROL],
+          ['actions:overlay.toolbar.legend', CONTROL],
+          ['actions:overlay.toolbar.reset', CONTROL],
+          ['actions:overlay.toolbar.refresh', CONTROL],
+          ['actions:overlay.toolbar.search', CONTROL],
+          ['actions:overlay.toolbar.navigation', CONTROL],
+          [
+            'actions:overlay.toolbar.view_switcher_layouts',
+            { qualifies: 'actions:overlay.toolbar.view_switcher' },
+          ],
+          ['actions:overlay.toolbar.size', A],
+        ],
+      },
+      {
+        key: 'heading.full_size_more',
+        helperKey: 'heading.full_size_more.helper',
+        extras: ['full-size-lines'],
+        fields: [],
       },
     ],
   },
@@ -773,6 +841,8 @@ export const ENTRY_GROUPS: ReadonlyArray<HeadingDef> = [
       ['calendar:label_image_source', withMode('calendar:label_type')],
       ['calendar:label', withMode('calendar:label_type')],
       ['calendar:label_icon_color', A],
+      // After the label's color, as the other setting of what the label draws: how tall its picture.
+      ['calendar:label_image_size', A],
       ['calendar:color', A],
       ['calendar:text_scale', A],
     ],
@@ -922,10 +992,25 @@ export const WHOLE_CARD_PAGES: ReadonlySet<PageId> = new Set([
   'taps_refresh',
 ]);
 
-/** The topics every layout's page lists, in order: every page that is not the whole card's. */
-export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter(
-  (page) => !WHOLE_CARD_PAGES.has(page.id),
-);
+/**
+ * The page under Full Size on the overview: what the card opens full size with, one value for the
+ * whole card, written under `overlay:`.
+ */
+export const FULL_SIZE_PAGES: ReadonlySet<PageId> = new Set(['full_size']);
+
+/**
+ * Whether a page edits outside any layout: a Whole Card page, or Full Size. Such a page edits in
+ * the shared scope, and Back takes it to the overview.
+ *
+ * @param page - A page
+ * @returns `true` for a page no layout owns
+ */
+export function isUnscopedPage(page: PageId): boolean {
+  return WHOLE_CARD_PAGES.has(page) || FULL_SIZE_PAGES.has(page);
+}
+
+/** The topics every layout's page lists, in order: every page no layout leaves out. */
+export const TOPIC_PAGES: ReadonlyArray<PageDef> = PAGES.filter((page) => !isUnscopedPage(page.id));
 
 /**
  * Whether a card field keeps no copy per layout: one value whichever layout's page draws it. Unlike

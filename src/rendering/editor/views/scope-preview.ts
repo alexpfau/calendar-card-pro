@@ -1,6 +1,7 @@
 /**
  * The preview follows the layout being edited: the card in Home Assistant's dialog drawn in the
- * layout whose page is open, without writing `view`.
+ * layout whose page is open, without writing `view`. On Full-Size Settings it draws the card as
+ * full size opens it (`full-size.ts` › `fullSizePreview`), the same way.
  *
  * Nothing is sent to Home Assistant, so nothing a Save could keep changes. The editor hands the
  * preview's own card the configuration with `view` replaced, through the card's `setConfig`, which
@@ -30,6 +31,8 @@ export interface ScopePreviewWant {
   readonly config: Readonly<Record<string, unknown>>;
   /** The configuration as written, which the card is handed back once released. */
   readonly authored: Readonly<Record<string, unknown>>;
+  /** Whether it is the card as full size opens it, which the preview line says. */
+  readonly fullSize?: true;
 }
 
 /** Keeps the preview's card in the layout asked for. */

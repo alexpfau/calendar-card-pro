@@ -21,6 +21,7 @@
   "viewMonth": "Mēnesis",
   "layout": "Izkārtojums",
   "layoutCurrent": "Izkārtojums: {view}",
+  "openFullSize": "Atvērt pilnā izmērā",
   "moreEvents": "Vēl +{count}",
   "eventCount": "Notikumu skaits: {count}",
   "eventCountOne": "{count} notikums",

@@ -13,6 +13,7 @@
   "viewMonth": "Місяць",
   "layout": "Макет",
   "layoutCurrent": "Макет: {view}",
+  "openFullSize": "Відкрити в повному розмірі",
   "moreEvents": "Ще +{count}",
   "eventCount": "Подій: {count}",
   "eventCountOne": "{count} подія",

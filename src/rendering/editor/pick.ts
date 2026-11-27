@@ -36,6 +36,22 @@ export type PickTarget =
   | { readonly calendar: true };
 
 /**
+ * Where a part opens while the preview draws the card as full size opens it, on Full-Size
+ * Settings: the toolbar's parts open the full-size card's own Toolbar there, at the setting of the
+ * same name where the part names one. Every other part opens where it always does, since full size
+ * takes it from the card; the toolbar's own buttons too, which full size takes from the card.
+ *
+ * @param target - Where the part opens on the card's own pages
+ * @returns Where it opens for the full-size card
+ */
+export function fullSizeTarget(target: PickTarget): PickTarget {
+  if ('calendar' in target || target.page !== 'card_header') return target;
+  if (target.heading !== 'heading_toolbar') return target;
+  const field = target.field?.replace(/^card:toolbar\./, 'actions:overlay.toolbar.');
+  return { page: 'full_size', heading: 'heading_toolbar', ...(field !== undefined && { field }) };
+}
+
+/**
  * The parts, each a selector list naming every class that opens one place, in the order an
  * element matching several is decided. The last two are catch-alls: a click between parts opens
  * the card's size, and anywhere else on the card Card & Header.

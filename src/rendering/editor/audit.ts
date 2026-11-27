@@ -21,6 +21,7 @@ import {
   schemaCtx,
   universeIndex,
 } from './field-index';
+import { FULL_SIZE_PATHS } from './full-size';
 import type { Gate, Prereq } from './gates';
 import type { SelectOption, SelectorSchema } from './ha-form';
 import type { PageId } from './pages';
@@ -31,7 +32,7 @@ import { type EditorWorkspace, WORKSPACES, storedPath } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import { VIEWS, viewBlockFor } from '../../config/view';
-import { isConfigBlock } from '../../utils/helpers';
+import { isConfigBlock, memoizeLast } from '../../utils/helpers';
 
 /** One stored line. */
 export interface AuditLine {
@@ -351,6 +352,57 @@ export function auditGroups(ctx: AuditCtx): AuditGroup[] {
   groups.push({ kind: 'kept', workspace: 'shared', lines: kept });
   return groups.filter((group) => group.lines.length > 0);
 }
+
+/** One line `overlay:` holds beyond the Full Size page's own settings. */
+export interface FullSizeLine extends AuditLine {
+  /** The layout whose block holds it, for a line under `overlay.time_grid` and the like. */
+  readonly view?: Types.EffectiveView;
+}
+
+/** The Full Size page's own settings, by their path inside `overlay:`, which it draws itself. */
+const FULL_SIZE_OWN: ReadonlySet<string> = new Set(FULL_SIZE_PATHS.map((path) => path.join('.')));
+
+/**
+ * Every line `overlay:` holds but the Full Size page's own settings: the block walked as Stored
+ * Settings walks the card, since it holds the card's options, each with the field that writes it,
+ * a layout block's lines with their layout, and what no field writes as written. A line the walk
+ * leaves to another page of the card's (a calendar list, a removed option) is listed as written
+ * too, since nothing else shows it for the card opened full size. Paths are the card's own,
+ * `overlay` first.
+ *
+ * @param block - The `overlay:` block as stored
+ * @param config - The card's configuration as the editor holds it
+ * @returns The lines, in the block's order of groups
+ */
+export const fullSizeLines = memoizeLast(
+  (block: unknown, config: Readonly<Types.Config>): ReadonlyArray<FullSizeLine> => {
+    if (!isConfigBlock(block)) return [];
+    const groups = auditGroups({ raw: block, config, entryKeys: [] });
+    const lines: FullSizeLine[] = groups.flatMap((group) =>
+      group.kind === 'entry'
+        ? []
+        : group.lines.map((line) =>
+            group.kind === 'layout'
+              ? { ...line, view: group.workspace as Types.EffectiveView }
+              : line,
+          ),
+    );
+    const covered = new Set(lines.map((line) => line.path[0]));
+    for (const [key, value] of Object.entries(block)) {
+      const empty = isConfigBlock(value) && Object.keys(value).length === 0;
+      if (value !== undefined && !empty && !covered.has(key)) {
+        lines.push({ path: [key], text: key, value });
+      }
+    }
+    return lines
+      .filter((line) => !FULL_SIZE_OWN.has(line.text))
+      .map((line) => ({
+        ...line,
+        path: ['overlay', ...line.path],
+        text: `overlay.${line.text}`,
+      }));
+  },
+);
 
 /**
  * The page's counts, which its More row shows too: the lines the editor sets, and those of them

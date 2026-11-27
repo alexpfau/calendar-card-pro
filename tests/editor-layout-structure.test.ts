@@ -118,6 +118,12 @@ const DENSITY = ['When Too Narrow', 'Minimum Day Width', 'Down To'];
  */
 const EVENTS_AREA = ['Events Area Height', 'Events Area Maximum Height'];
 
+/**
+ * A List card's height while it is compact: built in every layout beside Card Height and withheld
+ * outside List by `VIEW_SCOPE`, as the compact limits are.
+ */
+const COMPACT = ['Compact Height', 'Compact Maximum Height'];
+
 function layoutOutline(view: Types.EffectiveView): string[] {
   const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
   const ctx: SchemaCtx = { config, view, language: 'en' };
@@ -153,6 +159,7 @@ describe('Layout panel structure', () => {
       'Most Events Side By Side',
       'Additional Card Spacing',
       'Card Height',
+      ...COMPACT,
       ...EVENTS_AREA,
       ...DENSITY,
     ]);
@@ -174,6 +181,7 @@ describe('Layout panel structure', () => {
       'Event Spacing',
       'Additional Card Spacing',
       'Card Height',
+      ...COMPACT,
       ...EVENTS_AREA,
     ];
     expect(layoutOutline('list')).toEqual(expected);

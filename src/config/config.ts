@@ -68,6 +68,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   // The whole card's, title and toolbar included; `auto` is each layout's own height.
   card_height: 'auto',
   card_max_height: 'none',
+  // A List card's while it is compact; unset, each takes the card's own above.
+  compact_card_height: undefined,
+  compact_card_max_height: undefined,
 
   first_day_of_week: 'system',
   show_week_numbers: null,
@@ -196,6 +199,7 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_uv_index: false,
       uv_index_threshold: 0,
       daily_forecast_fallback: true,
+      own_line: false,
       max_lines: 0,
       icon_size: '14px',
       font_size: '12px',
@@ -229,10 +233,13 @@ export const DEFAULT_CONFIG: Types.Config = {
     reset: false,
     refresh: true,
     search: true,
+    overlay: false,
     legend: 'menu',
     size: 'normal',
     buttons: [],
   },
+
+  overlay: undefined,
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
@@ -422,13 +429,18 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
 };
 
 /**
- * Options a configuration states whole: an event's tap and hold actions. The user's object
- * replaces the default instead of merging into it, so one that names no `action`, `{}` among them,
- * is nothing on an event (`eventActionKind`), as the editor reads it, rather than taking the
- * default's `details`. The card's own three actions still merge: `_cardActionRuns` reads an
- * object without `action` as one that runs.
+ * Options a configuration states whole: an event's tap and hold actions, and a day's tap. The
+ * user's object replaces the default instead of merging into it, so one that names no `action`,
+ * `{}` among them, is nothing on an event (`eventActionKind`), as the editor reads it, rather
+ * than taking the default's `details`. A day's tap takes Home Assistant's actions too, whose
+ * `data` an `overlay:` block must replace rather than add to. The card's own two actions still
+ * merge: `_cardActionRuns` reads an object without `action` as one that runs.
  */
-const WHOLE_OPTIONS: ReadonlySet<string> = new Set(['event_tap_action', 'event_hold_action']);
+const WHOLE_OPTIONS: ReadonlySet<string> = new Set([
+  'event_tap_action',
+  'event_hold_action',
+  'day_tap_action',
+]);
 
 /**
  * Merges a user configuration over the defaults, filling nested blocks key by key.
@@ -492,6 +504,8 @@ export interface ResolvedToolbar {
   reset: boolean;
   refresh: boolean;
   search: boolean;
+  /** Whether the button opening the card full size is drawn (`toolbar.overlay`). */
+  overlay: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
   /** How large the month's row draws the date navigation and the calendar chips. */
@@ -556,6 +570,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     reset: read('reset'),
     refresh: read('refresh'),
     search: read('search'),
+    overlay: read('overlay'),
     legend,
     size,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
@@ -981,14 +996,16 @@ export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
  * height, and a cap takes `none`; anything else that is not a length folds the same way.
  *
  * `card_height` and `card_max_height` fold to `auto` and `none`, at the top level and in every
- * layout's block. A narrow key has no default of its own: unusable, it counts as unset and the
- * narrow form takes the wide value. Its own table, for the reason the bar width has one.
+ * layout's block. A narrow or compact key has no default of its own: unusable, it counts as unset
+ * and its form takes the card's value. Its own table, for the reason the bar width has one.
  */
 export const CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'card_height',
   'card_max_height',
   'narrow_card_height',
   'narrow_card_max_height',
+  'compact_card_height',
+  'compact_card_max_height',
 ]);
 
 /**
@@ -1653,6 +1670,10 @@ export function normalizeEntities(
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,
+          // A length a picture can be drawn at, as a row's height is: a bare number is pixels,
+          // and a percentage, a keyword or a negative size draws the picture as tall as the text,
+          // as an unset size does, rather than at its own natural size.
+          label_image_size: toValidRowHeight(item.label_image_size),
           // A number above 0, or a string that reads as one; anything else draws at the card's
           // size, as an unset scale does.
           text_scale: toValidNumber(item.text_scale, Number.MIN_VALUE),

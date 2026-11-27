@@ -170,6 +170,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     refresh: 'refresh',
     'add-event': 'addEvent',
     reset: 'reset',
+    overlay: 'overlay',
     back: 'back',
   } as const;
 
@@ -179,6 +180,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     refresh: vi.fn(),
     addEvent: vi.fn(),
     reset: vi.fn(),
+    overlay: vi.fn(),
     back: vi.fn(),
   });
 
@@ -199,7 +201,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
-  it.each(['expand', 'refresh', 'add-event', 'reset', 'back'] as const)(
+  it.each(['expand', 'refresh', 'add-event', 'reset', 'overlay', 'back'] as const)(
     'does not delegate %s when no callback was supplied',
     (action) => {
       const { node, events } = listeningNode();
@@ -240,6 +242,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     expect(callbacks.refresh).not.toHaveBeenCalled();
     expect(callbacks.addEvent).not.toHaveBeenCalled();
     expect(callbacks.reset).not.toHaveBeenCalled();
+    expect(callbacks.overlay).not.toHaveBeenCalled();
     expect(callbacks.back).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });

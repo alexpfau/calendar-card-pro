@@ -996,7 +996,7 @@ Grid** instead. Stored values are kept for the layouts they apply to.
 | `split_multiday_events`                                                                                                            | Grid splits on its own: an all-day event, or a timed one a full day or longer, is one banner across its admitted columns, and a shorter timed event one block for each day it touches |
 | `empty_day_text`, `empty_day_color`                                                                                                | There are no placeholder rows. `show_empty_days` still decides whether empty days get a column, and with it off, `show_empty_today` keeps today's                                     |
 | `show_now_indicator`                                                                                                               | The [now line](#the-now-line) already runs through the event under way; list and column view show the [label](/features/event-content#the-now-indicator) instead                      |
-| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`                                                   | List-only, so they do nothing in column view either. They apply again if `min_days_fallback: list` drops the card to the list layout                                                  |
+| `compact_events_to_show`, `compact_days_to_show`, `compact_events_complete_days`, `compact_card_height`, `compact_card_max_height` | List-only, so they do nothing in column view either. They apply again if `min_days_fallback: list` drops the card to the list layout                                                  |
 | `date_vertical_alignment`, `today_indicator_position`                                                                              | List-only: they describe the list layout's date cell                                                                                                                                  |
 | `event_order`, `skip_first_events`                                                                                                 | List-only: the grid keeps time running forward and draws every day whatever its events                                                                                                |
 | `month_separator_label`, `month_separator_label_color`, `month_separator_label_font_size`                                          | List-only: a month rule between two day columns is a vertical line in a gap with no room for words                                                                                    |
@@ -1016,7 +1016,7 @@ to, such as **Only in List**.
 
 The other detail-row options still shape timed blocks but never reach the all-day band:
 `show_progress_bar`, the grid's `weather → position: event`, per-calendar `label`, `label_type`,
-`label_icon_color` and the title and weather line limits. `show_time` reaches it only to decide
+`label_icon_color`, `label_image_size` and the title and weather line limits. `show_time` reaches it only to decide
 whether a [timed banner](#long-timed-events-as-banners) draws its times.
 
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** — the same options in the configuration reference.

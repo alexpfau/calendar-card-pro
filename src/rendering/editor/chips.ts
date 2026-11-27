@@ -1,7 +1,8 @@
 /**
  * Toggle chips (D08 A, D09 A): the eight parts each event shows, at the top of Events, and the
- * toolbar's six built-in controls, on Card & Header. What each chip is, whether it can be pressed
- * and what it says, with no DOM; the element draws them and writes a press through
+ * toolbar's built-in controls, on Card & Header for the card's own toolbar and on Full-Size
+ * Settings for the full-size card's, under `overlay.toolbar`. What each chip is, whether it can be
+ * pressed and what it says, with no DOM; the element draws them and writes a press through
  * `_writeFieldValue`, as the field's own form would.
  *
  * Which fields are chips is the page registry's (`{ chips: 'parts' | 'toolbar' }`); this module
@@ -88,6 +89,19 @@ export function isPressed(value: unknown): boolean {
 /** The chip whose form, Menu or Chips, is its own qualifier line: Calendar Filter. */
 export const LEGEND_FIELD: FieldId = 'card:toolbar.legend';
 
+/** Calendar Filter of the card opened full size, on Full-Size Settings. */
+export const FULL_SIZE_LEGEND_FIELD: FieldId = 'actions:overlay.toolbar.legend';
+
+/**
+ * Whether a chip is Calendar Filter, the card's own or the full-size card's.
+ *
+ * @param id - A field
+ * @returns `true` for either Calendar Filter
+ */
+export function isLegendField(id: FieldId): boolean {
+  return id === LEGEND_FIELD || id === FULL_SIZE_LEGEND_FIELD;
+}
+
 /** Calendar Filter's two forms, in the order its qualifier line offers them. */
 export const LEGEND_FORMS: ReadonlyArray<Types.ToolbarLegendMode> = ['menu', 'chips'];
 
@@ -106,7 +120,7 @@ export function pressValue(
   pressed: boolean,
   form?: Types.ToolbarLegendMode,
 ): boolean | string {
-  if (id !== LEGEND_FIELD) return !pressed;
+  if (!isLegendField(id)) return !pressed;
   return pressed ? LEGEND_OFF : (form ?? 'menu');
 }
 
@@ -137,6 +151,30 @@ export function needsPart(
 
 /** The field drawn as a chip per layout: the layouts the toolbar's View Switcher offers. */
 export const SWITCHER_LAYOUTS_FIELD: FieldId = 'card:toolbar.view_switcher_layouts';
+
+/** The layouts the full-size card's View Switcher offers, on Full-Size Settings. */
+export const FULL_SIZE_LAYOUTS_FIELD: FieldId = 'actions:overlay.toolbar.view_switcher_layouts';
+
+/**
+ * Whether a field is Layouts in Switcher, the card's own or the full-size card's.
+ *
+ * @param id - A field
+ * @returns `true` for either
+ */
+export function isSwitcherLayoutsField(id: FieldId): boolean {
+  return id === SWITCHER_LAYOUTS_FIELD || id === FULL_SIZE_LAYOUTS_FIELD;
+}
+
+/**
+ * Whether a field belongs to the full-size card's toolbar, under `overlay.toolbar`, whose layout
+ * is the full-size card's and whose Calendar Filter form is remembered apart from the card's.
+ *
+ * @param id - A field
+ * @returns `true` for a field of Full-Size Settings' Toolbar
+ */
+export function isFullSizeToolbarField(id: FieldId): boolean {
+  return id.startsWith('actions:overlay.toolbar.');
+}
 
 /**
  * Why a layout's chip stays pressed: it is the starting layout, which the switcher always offers,

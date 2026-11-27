@@ -150,8 +150,9 @@ const APPROVED_MAP: ReadonlyArray<
     'Which Events',
     'Date Range',
     '',
-    // Start Date's home is Events, Weather & Language; its copy here is in BORROWED_MAP.
-    ['content:days_to_show E SLCG'],
+    // Start Date's home is Events, Weather & Language; its copy here is in BORROWED_MAP. Month's
+    // First Week follows it, with Weeks Shown, Month's count of days, as its value.
+    ['content:days_to_show E SLCG', 'layout:month.start E M', 'layout:month.weeks W M'],
   ],
   // Grid's hours bound which events it draws, as the dates do.
   [
@@ -226,6 +227,7 @@ const APPROVED_MAP: ReadonlyArray<
       'card:toolbar.reset T',
       'card:toolbar.refresh T',
       'card:toolbar.search T',
+      'card:toolbar.overlay T',
       'card:toolbar.navigation T',
       // View Switcher's qualifier line: its layouts, as checkboxes under the chips.
       'card:toolbar.view_switcher_layouts Q',
@@ -485,6 +487,13 @@ const APPROVED_MAP: ReadonlyArray<
       'layout:additional_card_spacing A',
     ],
   ],
+  // A List card's height while it is compact, which takes Card Height while its own are unset.
+  [
+    'Size & Spacing',
+    'Compact Mode',
+    '',
+    ['layout:compact_card_height A L', 'layout:compact_card_max_height A L'],
+  ],
   // Month's narrow form, which takes Card Height while its own are unset.
   [
     'Size & Spacing',
@@ -577,6 +586,7 @@ const APPROVED_MAP: ReadonlyArray<
       'weather:weather.event.show_uv_index E LCGM',
       'weather:weather.event.uv_index_threshold W LCGM',
       'weather:weather.event.daily_forecast_fallback E LCGM',
+      'weather:weather.event.own_line A L',
       'weather:weather.event.icon_size A LCGM',
       'weather:weather.event.font_size A LCGM',
       'weather:weather.event.color A LCGM',
@@ -590,7 +600,7 @@ const APPROVED_MAP: ReadonlyArray<
     [
       'actions:tap_action E',
       'actions:hold_action A',
-      'actions:day_tap_action_mode E',
+      'actions:day_tap_action E',
       'actions:event_tap_action E',
       'actions:event_hold_action A',
       'actions:open_links A SLCM',
@@ -603,6 +613,29 @@ const APPROVED_MAP: ReadonlyArray<
     'Refresh',
     '',
     ['actions:refresh_interval A', 'actions:refresh_on_navigate A'],
+  ],
+  [
+    'Full-Size Settings',
+    'Opens With',
+    '',
+    ['actions:overlay.view E', 'actions:overlay.days_to_show E'],
+  ],
+  [
+    'Full-Size Settings',
+    'Toolbar',
+    '',
+    [
+      'actions:overlay.toolbar.show E',
+      'actions:overlay.toolbar.add_event T',
+      'actions:overlay.toolbar.view_switcher T',
+      'actions:overlay.toolbar.legend T',
+      'actions:overlay.toolbar.reset T',
+      'actions:overlay.toolbar.refresh T',
+      'actions:overlay.toolbar.search T',
+      'actions:overlay.toolbar.navigation T',
+      'actions:overlay.toolbar.view_switcher_layouts Q',
+      'actions:overlay.toolbar.size A',
+    ],
   ],
   [
     'Calendar Entry',
@@ -618,6 +651,7 @@ const APPROVED_MAP: ReadonlyArray<
       'calendar:label_image_source W',
       'calendar:label W',
       'calendar:label_icon_color A',
+      'calendar:label_image_size A',
       'calendar:color A',
       'calendar:text_scale A',
     ],
@@ -674,17 +708,19 @@ const HEADINGS: ReadonlyArray<HeadingDef> = [
 describe('the page registry places every built field exactly once', () => {
   it('walks the whole corpus', () => {
     // The denominators, beside the verdicts below. A short walk shows here first: the approved
-    // map places 239 ids, Month's own seven, Layouts in Switcher, the three of the month's name
-    // on List's month separator, a calendar's two start hours, When Too Narrow and the events
-    // area's own height pair among them, and every one of them is built under some workspace and
-    // state.
+    // map places 258 ids, Month's own nine, Layouts in Switcher, the three of the month's name
+    // on List's month separator, a calendar's two start hours, When Too Narrow, the events area's
+    // own height pair, Full-Size Settings' three settings and its toolbar chip, List's forecast
+    // on a line of its own and its two compact heights, a calendar's Image Size, and the
+    // full-size card's nine toolbar settings among them, and every one of them is built under some
+    // workspace and state.
     console.info(
       `Page registry: ${BUILT.size} ids built over ${STATES.length} corpus states in ` +
         `${WORKSPACES.length} workspaces; ${PLACED.length} placements.`,
     );
     expect(WORKSPACES).toHaveLength(5);
-    expect(BUILT.size).toBe(239);
-    expect(PLACED).toHaveLength(239);
+    expect(BUILT.size).toBe(258);
+    expect(PLACED).toHaveLength(258);
   });
 
   it('has no field built but unplaced', () => {
@@ -848,12 +884,13 @@ describe('the page registry is consistent with itself', () => {
       'size_spacing',
       'weather',
       'taps_refresh',
+      'full_size',
     ]);
   });
 
   it('names a mode control on the same page for every mode value', () => {
     const modes = PLACED.filter(({ appearance }) => modeControls(appearance).length > 0);
-    expect(modes).toHaveLength(22);
+    expect(modes).toHaveLength(23);
     for (const { id, appearance, page } of modes) {
       for (const control of modeControls(appearance)) {
         expect(PLACED.find((placed) => placed.id === control)?.page, `${id} with ${control}`).toBe(
@@ -949,11 +986,25 @@ describe('the page registry is consistent with itself', () => {
 
   it('draws each extra once, the own buttons over their own rows', () => {
     const extras = HEADINGS.flatMap((heading) => heading.extras ?? []);
-    expect(extras.sort()).toEqual(['own-buttons', 'split', 'weather-calendar-links']);
+    expect(extras.sort()).toEqual([
+      'full-size-lines',
+      'full-size-link',
+      'own-buttons',
+      'split',
+      'weather-calendar-links',
+    ]);
 
     const own = HEADINGS.find((heading) => heading.extras?.includes('own-buttons'));
     expect(own?.fields.map(([id]) => id)).toEqual(
       PLACED.filter(({ appearance }) => appearance === 'button-rows').map(({ id }) => id),
+    );
+    // What `overlay:` holds beyond Full-Size Settings' own settings, a heading with no field of its
+    // own, so the approved map, which pins fields, cannot see it; and the line leading there
+    // from Taps.
+    const lines = HEADINGS.find((heading) => heading.extras?.includes('full-size-lines'));
+    expect([lines?.key, lines?.fields]).toEqual(['heading.full_size_more', []]);
+    expect(HEADINGS.find((heading) => heading.extras?.includes('full-size-link'))?.key).toBe(
+      'heading.taps',
     );
   });
 
@@ -971,10 +1022,12 @@ describe('the page registry is consistent with itself', () => {
   });
 
   it('derives which pages apply to the whole card', () => {
-    // Weather is each layout's own, with the entity they share copied onto it.
+    // Weather is each layout's own, with the entity they share copied onto it. Full-Size
+    // Settings' settings have one value for the whole card, written under `overlay:`.
     expect(PAGES.filter((page) => isWholeCard(page)).map((page) => page.id)).toEqual([
       'card_header',
       'events_weather_language',
+      'full_size',
     ]);
     expect(isWholeCard({ headings: ENTRY_GROUPS })).toBe(false);
   });
@@ -1069,6 +1122,7 @@ describe('the registry heads what the builders used to', () => {
       'card:toolbar.reset',
       'card:toolbar.refresh',
       'card:toolbar.search',
+      'card:toolbar.overlay',
       'card:toolbar.navigation',
       'card:toolbar.view_switcher_layouts',
       'card:toolbar.size',
@@ -1098,13 +1152,14 @@ describe('the registry heads what the builders used to', () => {
       'layout:time_grid.axis_label_minutes',
     ]);
     const spacing = PAGES.find((page) => page.id === 'size_spacing')!.headings.map((h) => h.key);
-    // Only headings Grid draws nothing under come between, so Hour Labels follows its height there.
+    // Only headings Grid draws nothing under come between, so Hour Labels follows its height there:
+    // List's compact heights, Month's narrow ones and the event rows Grid does not space.
     expect(
       spacing.slice(
         spacing.indexOf('heading_card_size') + 1,
         spacing.indexOf('heading_hour_labels'),
       ),
-    ).toEqual(['heading_narrow_month', 'heading_event_rows']);
+    ).toEqual(['heading_compact_card', 'heading_narrow_month', 'heading_event_rows']);
     expect(under('day_header', 'weekend_colors')).toContain(
       'layout:time_grid.weekend_background_color',
     );

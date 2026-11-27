@@ -68,6 +68,8 @@ describe('the month block', () => {
       'narrow_card_height',
       'narrow_card_max_height',
       'min_day_width',
+      'start',
+      'weeks',
       'weekend_background_color',
       'today_background_color',
       'cell_event_font_size',
@@ -77,6 +79,10 @@ describe('the month block', () => {
     // `card_height` and `card_max_height` as Month resolves them (`resolveCardSize`).
     expect(ViewConfig.MONTH_DEFAULTS).toEqual({
       min_day_width: 80,
+      // A calendar month, in the six weeks that hold any month; `weeks` is read only under
+      // `start: week`.
+      start: 'month',
+      weeks: 6,
       // Grid's two tints, under Grid's defaults.
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       today_background_color: 'transparent',
@@ -150,6 +156,8 @@ describe('the options month reads', () => {
       .sort();
     expect(ignored).toEqual(
       [
+        'compact_card_height',
+        'compact_card_max_height',
         'compact_days_to_show',
         'compact_events_complete_days',
         'compact_events_to_show',
@@ -430,6 +438,31 @@ describe('a month-only option', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+
+  it('reads `start` as `week` or `month`, and `weeks` as a whole number from 1 to 6', () => {
+    const start = (value: unknown) =>
+      ViewConfig.resolveMonthOption(buildConfig({ month: { start: value } } as never), 'start');
+    expect(start('week')).toBe('week');
+    expect(start('month')).toBe('month');
+    expect(start('Week')).toBe('month');
+    expect(start(true)).toBe('month');
+
+    const weeks = (value: unknown) =>
+      ViewConfig.resolveMonthOption(buildConfig({ month: { weeks: value } } as never), 'weeks');
+    expect([1, 4, 6].map(weeks)).toEqual([1, 4, 6]);
+    expect(['3', 2.6, 0, -2, 9].map(weeks)).toEqual([3, 3, 1, 1, 6]);
+    expect(['', 'many', null, Number.NaN].map(weeks)).toEqual([6, 6, 6, 6]);
+  });
+
+  it('draws six weeks unless `start: week` asks for its own count', () => {
+    const rows = (month: Record<string, unknown>) =>
+      ViewConfig.monthWeekRows(buildConfig({ month } as never));
+    expect(rows({})).toBe(6);
+    expect(rows({ weeks: 3 })).toBe(6);
+    expect(rows({ start: 'week' })).toBe(6);
+    expect(rows({ start: 'week', weeks: 3 })).toBe(3);
+    expect(ViewConfig.monthPageDays(buildConfig({ month: { start: 'week', weeks: 2 } }))).toBe(14);
   });
 
   it('falls back to its default with no block', () => {

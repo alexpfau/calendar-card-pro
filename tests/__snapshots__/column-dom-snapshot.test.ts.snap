@@ -5,13 +5,13 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -22,7 +22,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -43,7 +43,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -64,7 +64,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -85,7 +85,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -115,13 +115,13 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -132,7 +132,7 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -153,13 +153,13 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -185,13 +185,13 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -222,13 +222,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -239,7 +239,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -260,7 +260,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -281,7 +281,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -302,7 +302,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -327,13 +327,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -344,7 +344,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -365,13 +365,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -382,7 +382,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -403,7 +403,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -424,13 +424,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:4;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sat
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       20
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -456,13 +456,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:5;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sun
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       21
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -488,13 +488,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:6;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Mon
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       22
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -520,13 +520,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:7;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Tue
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       23
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -552,13 +552,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:8;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       24
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -584,13 +584,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:9;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       25
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -616,13 +616,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:10;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       26
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -648,13 +648,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:11;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sat
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       27
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -680,13 +680,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:12;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sun
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       28
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -712,13 +712,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:13;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Mon
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       29
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -744,13 +744,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:14;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Tue
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       30
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -776,13 +776,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:15;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       1
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -808,13 +808,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:16;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       2
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -840,13 +840,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:17;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       3
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -872,13 +872,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:18;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sat
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       4
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -904,13 +904,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day weekend " style="grid-column:19;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Sun
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       5
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -936,13 +936,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class=" day-column future-day " style="grid-column:20;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Mon
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       6
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jul
           </div>
 </div>
@@ -992,13 +992,13 @@ exports[`column view DOM > renders past events 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1009,7 +1009,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1030,7 +1030,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Past standup
         </span>
 </div>
@@ -1051,7 +1051,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1072,7 +1072,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1093,7 +1093,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1118,13 +1118,13 @@ exports[`column view DOM > renders past events 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1135,7 +1135,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1156,13 +1156,13 @@ exports[`column view DOM > renders past events 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1173,7 +1173,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1194,7 +1194,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1220,13 +1220,13 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1237,7 +1237,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1258,7 +1258,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1279,7 +1279,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1300,7 +1300,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1325,13 +1325,13 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1342,7 +1342,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1363,13 +1363,13 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1380,7 +1380,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1401,7 +1401,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1436,13 +1436,13 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1453,7 +1453,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1474,7 +1474,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1498,7 +1498,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1519,7 +1519,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1544,13 +1544,13 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1561,7 +1561,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1582,13 +1582,13 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1599,7 +1599,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1620,7 +1620,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1646,13 +1646,13 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1663,7 +1663,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1684,7 +1684,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1705,7 +1705,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1726,7 +1726,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1751,13 +1751,13 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1768,7 +1768,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1789,13 +1789,13 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -1806,7 +1806,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -1832,13 +1832,13 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span></div>
@@ -1850,7 +1850,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Public holiday
         </span>
 </div>
@@ -1872,7 +1872,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Currently running review
         </span>
 </div>
@@ -1894,7 +1894,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>
@@ -1916,7 +1916,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Dentist
         </span>
 </div>
@@ -1942,13 +1942,13 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span></div>
@@ -1960,7 +1960,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -1982,13 +1982,13 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span></div>
@@ -2000,7 +2000,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Conference
         </span>
 </div>
@@ -2022,7 +2022,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Delivery window
         </span>
 </div>
@@ -2049,13 +2049,13 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -2081,13 +2081,13 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Thu
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       18
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -2113,13 +2113,13 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Fri
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day">
       19
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -2150,13 +2150,13 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content with-today-tile ">
-<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+<div class="weekday">
       Wed
     </div>
-<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
+<div class="day today-tile" style="color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
-<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+<div class="month">
             Jun
           </div>
 </div>
@@ -2167,7 +2167,7 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
-<span class="event-title " style="color: var(--primary-text-color)">
+<span class="event-title ">
           Upcoming one-to-one
         </span>
 </div>

@@ -69,9 +69,13 @@ entities:
 days_to_show: 3
 show_location: false
 show_month: false
+tap_action:
+  action: overlay
 ```
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_native.png" alt="Basic Configuration" width="600">
+
+A tap on an event opens it, and a tap anywhere else on the card opens it [full size](/features/actions#opening-the-card-full-size), on the week ahead.
 
 ::: info Reading Examples in These Docs
 Configuration snippets on the feature pages usually show **only the options being discussed**, so the relevant option is easy to spot. To use one, add it to a card that already has `type:` and `entities:` — like the one above.
@@ -96,6 +100,7 @@ The feature pages explain what each feature does and show it at work. [Configura
 
 - **Start From an Example Story** - [Example Stories](/reference/examples) are complete cards, each built for one place in a home. Pick the closest and adapt it:
   - [Family Hub](/guide/family-calendar) - the whole family's week on a wall tablet, with the same card on a phone
+  - [Small Card, Big Picture](/guide/small-card-big-picture) - three days in a column of a dashboard you have, opening full size on the month
   - [Family Agenda](/guide/one-calendar-many-purposes) - a short hallway list, with mixed calendars split into blocks with their own rules
   - [Now & Next](/guide/now-and-next) - a small phone tile that expands on tap
   - [Today & Tomorrow](/guide/today-and-tomorrow) - two days by the hour, from a phone to a kitchen tablet

@@ -82,6 +82,7 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
             bool('reset'),
             bool('refresh'),
             bool('search'),
+            bool('overlay'),
             bool('navigation'),
             // Which layouts the switcher offers matters only while it is on.
             ...(toolbar.viewSwitcher

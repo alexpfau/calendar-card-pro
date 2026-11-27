@@ -7,9 +7,10 @@
  * that taps and holds and the events' own taps are what they were, and where swiping is not
  * offered at all. It also pins the two pieces of motion, the days following the finger and the
  * new page sliding in, which happy-dom cannot lay out or animate: the offset written and the
- * animations asked for are what is read. The browser's side of it, `touch-action` deciding which
- * finger movements reach the card at all, is pinned as the declaration it is; what a browser does
- * with it needs a real touch screen.
+ * animations asked for are what is read. And it pins that the card's ripple lets go of a swipe's
+ * press when the page it draws takes away the day the press began on. The browser's side of a
+ * swipe, `touch-action` deciding which finger movements reach the card at all, is pinned as the
+ * declaration it is; what a browser does with it needs a real touch screen.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -241,7 +242,7 @@ function swipe(
   target: Element,
   from: [number, number],
   to: [number, number],
-  options: { kind?: PointerKind; lift?: 'pointerup' | 'pointercancel' } = {},
+  options: { kind?: PointerKind; id?: number; lift?: 'pointerup' | 'pointercancel' } = {},
 ): void {
   pointer(target, 'pointerdown', from[0], from[1], options);
   for (const step of [0.25, 0.5, 0.75, 1]) {
@@ -540,6 +541,141 @@ describe('a swipe beside the taps and the hold', () => {
     pointer(next, 'pointerdown', 500, 300);
     pointer(next, 'pointerup', 502, 301);
     expect(opened).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the card's ripple after a swipe", () => {
+  /**
+   * Home Assistant's ripple, for its press alone: it follows one primary press at a time through
+   * the events on its control, `ha-card`, and holds it until a `touchend` or a `click` reaches the
+   * control (`ha-ripple` in Home Assistant's frontend). Another pointer's press is ignored while
+   * one is held.
+   */
+  class RippleStub extends HTMLElement {
+    pressedBy: number | null = null;
+
+    connectedCallback(): void {
+      for (const type of ['pointerdown', 'touchend', 'click']) {
+        this.parentElement!.addEventListener(type, this);
+      }
+    }
+
+    handleEvent(ev: Event): void {
+      if (ev.type !== 'pointerdown') {
+        this.pressedBy = null;
+        return;
+      }
+      const press = ev as PointerEvent;
+      if (press.isPrimary && this.pressedBy === null) this.pressedBy = press.pointerId;
+    }
+  }
+  if (!customElements.get('ha-ripple')) customElements.define('ha-ripple', RippleStub);
+
+  const TAP = { tap_action: { action: 'navigate', navigation_path: '/x' } } as const;
+  const ripple = (card: CardUnderTest): RippleStub =>
+    haCard(card).querySelector<RippleStub>(':scope > ha-ripple')!;
+  const firstDay = (card: CardUnderTest): Element => root(card).querySelector('.date-column')!;
+
+  /** The `touchend`s the card itself sent `ha-card`, rather than one bubbling up to it. */
+  function sentByCard(card: CardUnderTest): Event[] {
+    const sent: Event[] = [];
+    haCard(card).addEventListener('touchend', (ev) => {
+      if (ev.target === haCard(card)) sent.push(ev);
+    });
+    return sent;
+  }
+
+  /**
+   * What a browser sends once a pointer has lifted, after the render the lift asked for, and
+   * then the task after it. A finger's `touchend` goes to the node it went down on, drawn or
+   * not; a pen's `click` only to a node the press and the lift share, and there is none once the
+   * press's own node is gone.
+   */
+  async function afterLift(card: CardUnderTest, origin: Element, kind: PointerKind): Promise<void> {
+    await card.updateComplete;
+    if (kind === 'touch') {
+      origin.dispatchEvent(new Event('touchend', { bubbles: true, composed: true }));
+    } else if (origin.isConnected) {
+      origin.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    }
+    vi.advanceTimersByTime(0);
+  }
+
+  /** A finger on the next arrow, which keeps its press from the card and pages forward. */
+  function pressNext(card: CardUnderTest): void {
+    const next = root(card).querySelectorAll<HTMLElement>('.date-navigation-segment')[2];
+    pointer(next, 'pointerdown', 700, 40, { id: 1 });
+    pointer(next, 'pointerup', 700, 40, { id: 1 });
+    next.dispatchEvent(new Event('touchend', { bubbles: true, composed: true }));
+    next.click();
+  }
+
+  it.each(['touch', 'pen'] as const)(
+    'lets go of a swipe by %s back to a page already drawn, which takes its days away',
+    async (kind) => {
+      const card = await mount(TAP);
+      pressNext(card);
+      await settle(card);
+      expect(range(card)).toBe(NEXT);
+      // The arrow keeps its press, so the ripple never had it.
+      expect(ripple(card).pressedBy).toBeNull();
+
+      const origin = firstDay(card);
+      swipe(origin, ...RIGHT, { kind, id: 2 });
+      expect(ripple(card).pressedBy).toBe(2);
+      await afterLift(card, origin, kind);
+
+      expect(range(card)).toBe(HOME);
+      expect(origin.isConnected).toBe(false);
+      expect(ripple(card).pressedBy).toBeNull();
+    },
+  );
+
+  it.each(['touch', 'pen'] as const)(
+    'sends nothing of its own after a swipe by %s whose touchend or click reaches the card',
+    async (kind) => {
+      const card = await mount(TAP);
+      const sent = sentByCard(card);
+      // A page still loading keeps the days drawn, the press's own among them.
+      holdAnswers();
+
+      const origin = firstDay(card);
+      swipe(origin, ...RIGHT, { kind, id: 2 });
+      expect(ripple(card).pressedBy).toBe(2);
+      await afterLift(card, origin, kind);
+
+      expect(origin.isConnected).toBe(true);
+      expect(ripple(card).pressedBy).toBeNull();
+      expect(sent).toEqual([]);
+    },
+  );
+
+  it('ends the lost press first when the next touch comes before the card ended it', async () => {
+    const card = await mount(TAP);
+    pressNext(card);
+    await settle(card);
+    const origin = firstDay(card);
+    swipe(origin, ...RIGHT, { id: 2 });
+    await card.updateComplete;
+    origin.dispatchEvent(new Event('touchend', { bubbles: true, composed: true }));
+    expect(origin.isConnected).toBe(false);
+
+    // The next finger, before the task that would have ended the swipe's press.
+    pointer(firstDay(card), 'pointerdown', 500, 300, { id: 3 });
+    expect(ripple(card).pressedBy).toBe(3);
+    // And the swipe's task, when it comes, leaves the new press alone.
+    vi.advanceTimersByTime(0);
+    expect(ripple(card).pressedBy).toBe(3);
+  });
+
+  it("leaves a finger's held press alone when a pen comes and goes beside it", async () => {
+    const card = await mount(TAP);
+    const day = firstDay(card);
+    pointer(day, 'pointerdown', 500, 300, { id: 2 });
+    pointer(day, 'pointerdown', 520, 300, { id: 3, kind: 'pen' });
+    pointer(day, 'pointercancel', 520, 300, { id: 3, kind: 'pen' });
+    vi.advanceTimersByTime(0);
+    expect(ripple(card).pressedBy).toBe(2);
   });
 });
 

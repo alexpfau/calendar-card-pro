@@ -26,6 +26,7 @@
   "viewMonth": "Месец",
   "layout": "Оформление",
   "layoutCurrent": "Оформление: {view}",
+  "openFullSize": "Отвори в пълен размер",
   "moreEvents": "Още +{count}",
   "eventCount": "{count} събития",
   "eventCountOne": "{count} събитие",

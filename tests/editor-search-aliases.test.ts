@@ -72,6 +72,12 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     queries: ['future weeks', 'weeks ahead'],
   },
   'start_date_mode.aliases': { field: 'start_date_mode', scope: 'card', queries: ['tomorrow'] },
+  // The words of the request for Month's coming weeks (#239): "the next weeks", "4 weeks".
+  'month.start.aliases': {
+    field: 'start',
+    scope: 'card',
+    queries: ['next weeks', 'rolling', 'four weeks'],
+  },
   // The names the choice's two options had before When Too Narrow stood over them.
   'narrow_fit.aliases': {
     field: 'narrow_fit',
@@ -128,6 +134,13 @@ const FAMILIES: Readonly<Record<string, Family>> = {
     field: 'taps_refresh',
     scope: 'page',
     queries: ['Actions & Refresh'],
+  },
+  // The YAML's own word for what the editor calls Full Size, the name of the toolbar chip and the
+  // action that open it, and what people call it elsewhere.
+  'page.full_size.aliases': {
+    field: 'full_size',
+    scope: 'page',
+    queries: ['overlay', 'Open Full Size', 'fullscreen', 'expand'],
   },
   // Starting Layout's name before v6.
   'view.aliases': { field: 'starting_layout', scope: 'overview', queries: ['card displays'] },
@@ -234,16 +247,22 @@ describe('aliases in each editor language', () => {
   it('find Layouts in Switcher by the View Switcher’s own name where the label does not', () => {
     // Swedish names the control "Layoutväljare" and the setting "Layouter i väljaren", so the
     // control's name finds the setting only through the Swedish words. English, German and a few
-    // others find it through the label or the key, so carry no words of their own.
+    // others find it through the label or the key, so carry no words of their own. Each is found
+    // twice: the card's own, and the full-size card's on Full-Size Settings, named the same.
     const strings = EDITOR_LANGUAGE_STRINGS.sv as Record<string, string>;
     const words = strings['toolbar.view_switcher_layouts.aliases'];
     try {
       delete strings['toolbar.view_switcher_layouts.aliases'];
-      expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher']);
+      expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher', 'view_switcher']);
     } finally {
       strings['toolbar.view_switcher_layouts.aliases'] = words;
     }
-    expect(hits('sv', 'Layoutväljare', 'card')).toEqual(['view_switcher', 'view_switcher_layouts']);
+    expect([...hits('sv', 'Layoutväljare', 'card')].sort()).toEqual([
+      'view_switcher',
+      'view_switcher',
+      'view_switcher_layouts',
+      'view_switcher_layouts',
+    ]);
     expect(EDITOR_LANGUAGE_STRINGS.de['toolbar.view_switcher_layouts.aliases']).toBeUndefined();
     expect(hits('de', 'Layout-Umschalter', 'card')).toContain('view_switcher_layouts');
   });

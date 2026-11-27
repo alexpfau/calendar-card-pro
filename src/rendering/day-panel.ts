@@ -106,17 +106,18 @@ export interface DayPanelSource {
    */
   holds?(): boolean;
   /**
-   * Home Assistant's "Add event" while a tap on a day adds an event on it (`day_tap_action`), so the
-   * panel's title adds on its day as the narrow month's day name does; undefined while it adds
+   * While a tap on a day runs something (`day_tap_action`), how the panel's title is drawn as the
+   * button that runs it on its day, as the narrow month's day name is: named Home Assistant's "Add
+   * event" where it adds, and by the day itself otherwise. Undefined while a tap on a day runs
    * nothing.
    */
-  addLabel?(): string | undefined;
+  dayButton?(): Activation.DayAddButtons | undefined;
   /**
-   * Adds an event on the day. Called once the panel has gone.
+   * Runs `day_tap_action` on the day. Called once the panel has gone.
    *
-   * @param origin - Where the panel opened, for the new event's popover to open beside in its place
+   * @param origin - Where the panel opened, for a new event's popover to open beside in its place
    */
-  add?(origin: Feedback.PressOrigin): void;
+  tapDay?(origin: Feedback.PressOrigin): void;
 }
 
 /** What the card hands the day panel, through Home Assistant's `show-dialog`. */
@@ -196,7 +197,7 @@ export class DayPanel extends Shell.PopoverShell {
     timer: number;
     held: boolean;
   };
-  /** Where an event is added on the day once the panel has gone, its title having been pressed. */
+  /** Where the day's tap action runs once the panel has gone, its title having been pressed. */
   private _adding?: Feedback.PressOrigin;
   /** Watches the rows' titles and times while they are fitted (`_syncTitleFits`). */
   private _titleWatch?: ResizeObserver;
@@ -230,7 +231,7 @@ export class DayPanel extends Shell.PopoverShell {
     if (source && picked) {
       setTimeout(() => source.activate(picked.target, picked.origin, picked.gesture));
     }
-    if (source && adding) setTimeout(() => source.add?.(adding));
+    if (source && adding) setTimeout(() => source.tapDay?.(adding));
   }
 
   //---------------------------------------------------------------------------
@@ -589,7 +590,7 @@ export class DayPanel extends Shell.PopoverShell {
       .filter((part) => part !== '')
       .join(';');
     const close = this._named(...CLOSE);
-    const addLabel = params.source.addLabel?.();
+    const dayButton = params.source.dayButton?.();
     // Marked with the card's language, which may not be the page's; the add button around it is
     // named in Home Assistant's.
     const language = params.source.language?.() ?? params.language;
@@ -617,12 +618,12 @@ export class DayPanel extends Shell.PopoverShell {
               style=${styleMap({ color: params.source.titleColor?.() })}
             >
               ${
-                addLabel
+                dayButton
                   ? html`<button
                       type="button"
                       class="day-panel-add"
-                      aria-label=${addLabel}
-                      aria-describedby="day-panel-day"
+                      aria-label=${dayButton.label ?? nothing}
+                      aria-describedby=${dayButton.label ? 'day-panel-day' : nothing}
                       @click=${this._onAdd}
                     >
                       ${day}
@@ -718,8 +719,8 @@ export class DayPanel extends Shell.PopoverShell {
         line-height: 1.3;
         color: var(--text);
       }
-      /* While a tap on a day adds, the title is a button that adds on the day, as the narrow
-         month's day name is: the title as it is, with the press feedback of the name. */
+      /* While a tap on a day runs something, the title is a button that runs it on the day, as the
+         narrow month's day name is: the title as it is, with the press feedback of the name. */
       .day-panel-add {
         display: block;
         width: 100%;

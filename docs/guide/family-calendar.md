@@ -84,6 +84,8 @@ time_grid:
     position: date
 month:
   event_gap: 4px
+  start: week
+  weeks: 4
 ```
 
 ::: tip Build It in the Editor
@@ -109,6 +111,8 @@ Grid sheds days one at a time as the card narrows, always keeping today, so the 
 The `column:` block styles Columns alone, so List stays a plain agenda. `event_background_opacity: 15` tints each event in its calendar's color, `show_past_events: true` keeps today's finished events, and `past_event_opacity: 40` fades them. Columns drops days on a narrower screen, always keeping today, and `min_days_to_show: 3` keeps at least three, rather than the two it would keep unset; where three do not fit, the card turns into a list. See [Showing Fewer Columns Instead](/features/column-view#showing-fewer-columns-on-narrow-cards).
 
 `event_gap: 4px` gives each event its own rounded box and accent bar in List and Columns, and the `month:` block gives a day's list in Month the same 4px, which would otherwise start from Month's own 6px. Grid ignores it.
+
+In Month, `start: week` and `weeks: 4` show the four weeks from this one on, rather than a calendar month, so the wall never spends half the month on weeks already gone, and on the wall each week has more room for its events than six would leave. The arrows then page four weeks at a time. See [The Coming Weeks](/features/month-view#the-coming-weeks).
 
 ### The Toolbar
 
@@ -241,6 +245,7 @@ To let some work events keep their real title, such as a late finish the family 
 ## 📚 Next Steps
 
 - [Family Agenda](/guide/one-calendar-many-purposes) — the same family on a short hallway list
+- [Small Card, Big Picture](/guide/small-card-big-picture) — the same family in a dashboard column, opening full size on the month
 - [Header Toolbar](/features/header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens

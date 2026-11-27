@@ -114,6 +114,7 @@ describe('Day List & Day Panel on Month’s pages', () => {
 
   it('marks exactly the settings Month reads in a day’s list and the panel alone', () => {
     expect(ids(month, (field, ctx) => stateOf(field, ctx)?.dayList === true)).toEqual([
+      'calendar:label_image_size',
       'calendar:location_icon',
       'calendar:show_location',
       'calendar:show_weather',

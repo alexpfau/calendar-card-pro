@@ -1290,12 +1290,13 @@ describe('the resolved toolbar the card reads', () => {
       reset: false,
       refresh: false,
       search: false,
+      overlay: false,
       legend: false,
       size: 'normal',
       buttons: [],
     });
-    // What it switches off: a shown toolbar draws every control but reset by default, search
-    // included (backlog item 182).
+    // What it switches off: a shown toolbar draws every control but reset and Open Full Size by
+    // default, search included (backlog item 182).
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
       navigation: true,
@@ -1305,6 +1306,7 @@ describe('the resolved toolbar the card reads', () => {
       reset: false,
       refresh: true,
       search: true,
+      overlay: false,
       legend: 'menu',
       size: 'normal',
       buttons: [],

@@ -38,6 +38,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'page.taps_refresh.aliases': 'actions',
   'page.taps_refresh.note':
     'The preview does not run taps while you edit the card. Try them on the dashboard.',
+  // The page of what the card opens full size with. Its aliases carry the name of the toolbar
+  // chip and the action that open it, which its title no longer holds.
+  'page.full_size': 'Full-Size Settings',
+  'page.full_size.aliases':
+    'overlay, open full size, fullscreen, full screen, expand, enlarge, maximize, popup',
+  'page.full_size.note':
+    'What the card opens with when Open Full Size opens it over the dashboard. Everything else comes from the card.',
   // Month's Event Appearance page: where its marks say a setting acts, in the four names Month's
   // pages use for what it draws (Wide Month, Narrow Month, Day List, Day Panel).
   'page.month_rows.note':
@@ -51,6 +58,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.description': 'Title, colors and toolbar controls',
   'page.events_weather_language.description': 'Start date, week start and time format',
   'page.taps_refresh.description': 'Tap and hold actions, editing and refresh',
+  'page.full_size.description': 'Layout, days and toolbar for the full-size view',
   'page.which_events.description': 'Date range, filters and empty days',
   'panel.day_header.description': 'Dates, week numbers, today and weekends',
   'panel.events.description': 'Event details, text styles and colors',
@@ -75,6 +83,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'heading.date': 'Date',
   'heading.forecast': 'Forecast',
   'heading.taps': 'Taps',
+  // The Full-Size Settings page: its own settings, then what else `overlay:` holds.
+  'heading.full_size_opens': 'Opens With',
+  'heading.full_size_more': 'Also Set for Full Size',
+  'heading.full_size_more.helper':
+    'Set in YAML, under overlay. Remove one, and the card opened full size takes the card’s own again.',
 
   // --- Overview & navigation ------------------------------------------------
   //
@@ -125,9 +138,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'value.follow_card': 'Follow the card',
   'value.end_of_day': 'End of Day',
   'value.none': 'None',
+  // An action set to `null`, worded before Home Assistant has named its `none`. "Nothing" is the
+  // word Home Assistant's action editor uses for it, and each translation takes Home Assistant's
+  // own word, so the editor says it one way in every language.
+  'value.nothing': 'Nothing',
   'value.no_limit': 'No Limit',
   'value.theme_default': 'Theme Default',
   'value.map_marker': 'Map Marker',
+  'value.text_height': 'Text Height',
   'quick_setup.dismiss': 'Dismiss Quick Setup',
   'nav.back': 'Back',
   // A row on a topic naming a whole-card setting at home on a Whole Card page: what it opens, for
@@ -150,6 +168,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'overview.whole_card': 'Whole Card',
   'overview.whole_card.hint': 'The same in every layout.',
   'overview.layouts': 'Layouts',
+  // The section between Layouts and More, holding the Full-Size Settings row.
+  'overview.full_size': 'Full Size',
+  // The line leading to the Full-Size Settings page, from Taps and from the toolbar's chips: what
+  // the card opens full size with.
+  'full_size.days': '{count} days',
+  'full_size.days_one': '1 day',
+  'full_size.link': 'Opens full size in {layout}, {days}:',
+  'full_size.link_month': 'Opens full size in {layout}:',
+  // The preview line on Full-Size Settings, where the preview draws the card as full size opens it
+  // (`full-size.ts` › `fullSizePreview`), as wide as the dialog, and without its Close button.
+  'full_size.preview':
+    'Preview shows the full-size view, as wide as this dialog. Full size adds Close.',
   'overview.layout_defaults.summary': 'What a layout uses where it has no value of its own',
   // The help above the layouts' rows. {link} is layouts.help_switch_link, a link to the toolbar.
   'layouts.help_pick': 'The circle picks the layout the card opens in.',
@@ -215,6 +245,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'state.shared_entries': 'Also Applies to Entries {entries}',
   // An entry's value that comes from the card.
   'state.from_card': 'From the Card',
+  // On the Full-Size Settings page: a value set under `overlay:`, and the full-size card's own.
+  'state.set_full_size': 'Set for Full Size',
+  'state.full_size_default': 'Full-Size Default',
   // Under a field in Layout Defaults, for each layout its value does not reach: one that
   // stores its own value, and one whose own default differs.
   'state.layout_own': '{layout} Has Its Own: {value}',
@@ -408,7 +441,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'gate.when.month_rule': 'a month rule is drawn',
   'gate.when.duplicates': 'duplicates are filtered',
   'gate.when.weather_entity': 'a Weather Entity is chosen',
-  'gate.when.label_icon': 'the label is an icon',
+  'gate.when.label_icon': 'the label is an icon or has several parts',
+  'gate.when.label_image': 'the label is an image or has several parts',
   'gate.when.location_shown': 'this calendar shows locations',
   // The same, as noun phrases for search's Needs tag, where the control's own label does not say
   // it. Read from the gate table by a condition, or by a gate for any of its conditions without a
@@ -490,6 +524,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'quick_setup.story.family_hub.best_for':
     'The whole family’s week, with every control on the card',
   'quick_setup.story.family_hub.space': 'A wall tablet, and the same card on a phone',
+  'quick_setup.story.small_card_big_picture': 'Small Card, Big Picture',
+  'quick_setup.story.small_card_big_picture.best_for':
+    'The next few days in a dashboard column, and the whole month a tap away',
+  'quick_setup.story.small_card_big_picture.space':
+    'A column of a dashboard you have, and full size on any screen',
   'quick_setup.story.now_and_next': 'Now & Next',
   'quick_setup.story.now_and_next.best_for': 'What is on now and what comes next',
   'quick_setup.story.now_and_next.space': 'A small tile on a phone',
@@ -645,6 +684,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height.helper': 'The events under the title only. Card Height takes its place once set.',
   max_height: 'Events Area Maximum Height',
   'max_height.helper': 'Caps the events under the title, under any Card Height too.',
+  // A List card's pair while it is compact. Unset, each follows the card's own, which the folded
+  // row says ("Same as Card Height"), so the helpers say only what is not obvious.
+  compact_card_height: 'Compact Height',
+  'compact_card_height.helper':
+    'The card’s height until it is expanded. Set alone, it lets the card expand without an Events or Days limit.',
+  compact_card_max_height: 'Compact Maximum Height',
+  'compact_card_max_height.helper':
+    'Until it is expanded, the card grows with its events up to this height, then scrolls.',
 
   // --- Fit to width ---------------------------------------------------------
   //
@@ -934,6 +981,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
+  'entity.label_type.option.parts.label': 'Several Parts',
   'entity.label_icon_source': 'Icon Source',
   'entity.label_icon_source.helper':
     'Follows the icon under Settings, Devices & Services, Entities. Calendars without one show no label.',
@@ -945,6 +993,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_image_source.option.custom.label': 'Custom image',
   'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
+  'entity.label.helper':
+    'One part per line: text or an emoji, an icon such as mdi:star, an image path, or a person such as person.anna.',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
   'entity.accent_color': 'Custom Accent Color',
@@ -958,6 +1008,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
   'entity.label_icon_color.helper': 'Left empty, the icon takes the text color around it.',
+  'entity.label_image_size': 'Image Size',
+  'entity.label_image_size.helper': 'The picture’s height, such as 2em or 40px.',
   // "Scale" and not "Size": a size reads as a pixel value, and this is a multiplier. The
   // translations keep that distinction, using each language's word for a display scale.
   'entity.text_scale': 'Text Scale',
@@ -1028,6 +1080,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Grid's Stacked or Side by Side, and how many fit side by side, on Event Appearance.
   heading_overlapping_events: 'Overlapping Events',
   heading_card_size: 'Card Size & Spacing',
+  // A List card's height while it is compact, which follows Card Height while unset.
+  heading_compact_card: 'Compact Mode',
   // Month's narrow form's height, which follows Card Height while unset.
   heading_narrow_month: 'Narrow Month',
   // Under Card Size & Spacing on Month's page: its height is both forms' until the Narrow Month's
@@ -1215,6 +1269,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'month.min_day_width': 'Minimum Day Width',
   'month.min_day_width.helper':
     'Narrower days draw the Narrow Month: a dot per event, and the chosen day’s Day List under the weeks.',
+  // Which week Month's first row is: the week of the 1st, a calendar month, or the week of the
+  // start date, the coming weeks.
+  'month.start': 'First Week',
+  // The words of the request that asked for it: the next weeks rather than a month.
+  'month.start.aliases':
+    'next weeks, coming weeks, upcoming weeks, rolling weeks, current week, this week, weeks ahead, four weeks',
+  'month.start.helper':
+    'Week of the start date shows the coming weeks instead of a calendar month, from today’s week without a start date, and pages by them.',
+  'month.start.option.month.label': 'Week of the 1st',
+  'month.start.option.week.label': 'Week of the start date',
+  'month.weeks': 'Weeks Shown',
+  'month.weeks.helper': 'Fewer weeks make each one taller; the card keeps its height.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -1405,6 +1471,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.search': 'Search Button',
   'toolbar.search.helper':
     'Finds events by title, location or description, a year either way. Needs Date Navigation.',
+  'toolbar.overlay': 'Open Full Size Button',
+  'toolbar.overlay.helper': 'Opens the card as set in Full-Size Settings.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper': 'Shown only when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
@@ -1413,6 +1481,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
+  // What the card opens full size with; Layout's options are the layouts' names (`view.option.*`).
+  'overlay.view': 'Layout',
+  'overlay.view.helper': 'The others are a press away on its toolbar.',
+  'overlay.days_to_show': 'Days To Show',
+  'overlay.days_to_show.helper':
+    'In List, Columns and Grid. Where fewer fit, Columns and Grid show as many as fit.',
+  'overlay.toolbar.show': 'Show Toolbar',
+  'overlay.toolbar.show.helper': 'Off leaves Close alone: no arrows, and no other layout.',
   // Only the date navigation and the calendar chips change size; the label says so, since the
   // option's own name, `size`, leaves room for more. `normal` is named Small: they are small
   // beside the action row's buttons, and Normal reads as the font weight's Regular in most of
@@ -1430,6 +1506,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.controls.reset': 'Reset',
   'toolbar.controls.refresh': 'Refresh',
   'toolbar.controls.search': 'Search',
+  'toolbar.controls.overlay': 'Open Full Size',
   // The toolbar's own buttons: a row each under this sub-heading, after the toolbar's controls
   // and only while the toolbar is shown, which opens in place. The words on the rows themselves,
   // Add Button and the rest, are drawn by the editor rather than by a form; `button.summary` is
@@ -1731,7 +1808,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions Beside Events',
   'event.show_conditions.helper':
-    'Columns and Grid always show the icon; there this adds the condition in words.',
+    'On a line of its own, as in Columns and Grid, the icon always shows and this adds the condition in words.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index Beside Events',
   'event.uv_index_threshold': 'UV Index Threshold Beside Events',
@@ -1739,11 +1816,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
+  // List's; Columns and Grid always draw it so.
+  'event.own_line': 'On a Line of Its Own',
+  'event.own_line.helper': 'Under the time, as in Columns and Grid.',
   'event.icon_size': 'Icon Size Beside Events',
   'event.font_size': 'Font Size Beside Events',
   'event.color': 'Color Beside Events',
   'event.max_lines': 'Weather Line Limit',
-  'event.max_lines.helper': 'Zero means no limit. Only Columns and Grid can reach a second line.',
+  'event.max_lines.helper':
+    'Zero means no limit. Only a forecast on a line of its own can reach a second line.',
 
   // --- Actions & Refresh ----------------------------------------------------
   tap_action: 'Tap Action',
@@ -1770,18 +1851,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // Its fifth: the card opened full size over the dashboard, as the Full-Size Settings page sets it.
+  'card_action.option.overlay.label': 'Open Full Size',
+  // Its sixth: back to the page before this one, as Home Assistant's own back arrow goes. Each
   // translation takes the word its language's back buttons carry.
   'card_action.option.back.label': 'Go Back',
-  // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
-  // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
-  // takes Home Assistant's own word for it, so the panel says it one way in every language.
-  // "Add Event" is the card action's label.
-  day_tap_action_mode: 'Day Tap Action',
-  'day_tap_action_mode.option.none.label': 'Nothing',
-  'day_tap_action_mode.option.add-event.label': 'Add Event',
-  'day_tap_action_mode.helper':
-    'Add Event opens a new event when you tap an empty spot of a day. In Grid you can also hold and drag to draw one.',
+  // Home Assistant's action editor, as for an event: Add Event, the card action's label, then
+  // Home Assistant's own actions, which run with the tapped day filled in.
+  day_tap_action: 'Day Tap Action',
+  'day_tap_action.helper':
+    'Add Event opens a new event when you tap an empty spot of a day. In Grid you can also hold and drag to draw one. Home Assistant\u2019s own actions can use the tapped day\u2019s date and time.',
   // Home Assistant's action editor, as for the card's two. `details` is the one action only an
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.

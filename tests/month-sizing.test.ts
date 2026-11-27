@@ -201,13 +201,15 @@ describe('the card size a month resolves', () => {
   });
 });
 
-describe('the four height keys', () => {
+describe('the card height keys', () => {
   it('fold what they cannot use, in one table of their own', () => {
     expect([...Config.CARD_HEIGHT_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual([
       'card_height',
       'card_max_height',
       'narrow_card_height',
       'narrow_card_max_height',
+      'compact_card_height',
+      'compact_card_max_height',
     ]);
     expect(
       ['50%', 'fit-content', '-1px', 'none', '600px', 'auto', 7].map((value) =>
