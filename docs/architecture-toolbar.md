@@ -150,6 +150,11 @@ The filter (`legend`) changes what is drawn, never what is loaded.
   only from a chip or row it drew, or from the menu's Show all and Hide all, which act on that same
   list (`_setAllCalendars`). A calendar with no chip therefore can never be hidden, whatever a
   device remembers, and a legend left with no calendar is no legend (`_wantsLegend`).
+- **Nothing stored is the configured start.** A device that has chosen nothing hides the
+  calendars `startHiddenCalendarIds` names (`hidden_by_default`), so the stored entry tells no
+  `hidden` (the start) from an empty one (every calendar shown). `_hideCalendars` forgets the
+  entry whenever the set is the start, so a card that starts nothing hidden never stores an empty
+  list, and reset and every reader pass the start in (`_startHiddenCalendars`).
 - **Chips fold by measurement.** `_syncLegendFit` folds the chips into the `menu` button after a
   render, never inside a resize, since either can change the card's height; unfolding needs
   `UI.LEGEND_UNFOLD_MARGIN` of room so the two cannot alternate.

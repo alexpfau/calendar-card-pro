@@ -287,8 +287,8 @@ describe('field ids', () => {
     // Height. Then Full-Size Settings' Days To Show and Show Toolbar. Then a calendar's Image Size.
     // Then the full-size card's toolbar: its seven controls, its Layouts in Switcher and its Arrow &
     // Chip Size. Then Grid's Calendar Lanes and Minimum Lane Width, and a calendar's Lane. Then
-    // List's When Lanes Don't Fit.
-    expect(EVERY_FIELD.size).toBe(262);
+    // List's When Lanes Don't Fit. Then a calendar's Hidden by Default.
+    expect(EVERY_FIELD.size).toBe(263);
   });
 
   it('do not depend on the editor language', () => {

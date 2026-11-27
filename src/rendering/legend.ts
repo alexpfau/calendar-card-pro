@@ -18,7 +18,7 @@ import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Menu from './menu';
-import { configuredShowInLegend } from '../config/config';
+import { configuredHiddenByDefault, configuredShowInLegend } from '../config/config';
 
 export { placeMenu, type MenuPlacement, type Rect } from './menu';
 
@@ -311,6 +311,22 @@ export function legendCalendarIds(
     if (typeof id === 'string' && id !== '' && !ids.includes(id)) ids.push(id);
   }
   return ids.filter((id) => configuredShowInLegend(entities, id) !== false);
+}
+
+/**
+ * The calendars a legend starts with hidden, on a device that has chosen nothing for the card:
+ * those it lists that set `hidden_by_default`. Never one it leaves out, which nothing could show
+ * again.
+ *
+ * @param entities - The card's normalized entities
+ * @returns Entity ids, in the legend's order
+ */
+export function startHiddenCalendarIds(
+  entities: ReadonlyArray<string | { entity: string; show_in_legend?: boolean }>,
+): string[] {
+  return legendCalendarIds(entities).filter(
+    (id) => configuredHiddenByDefault(entities, id) === true,
+  );
 }
 
 /**

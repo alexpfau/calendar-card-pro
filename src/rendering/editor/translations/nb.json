@@ -595,6 +595,8 @@
   "entity.lane.helper": "Oppføringer med samme bane deler én. Står feltet tomt, får denne kalenderen sin egen bane.",
   "entity.show_in_legend": "Vis i kalenderfilteret",
   "entity.show_in_legend.helper": "Når den er slått av, er denne kalenderen utelatt fra kalenderfilteret, så hendelsene dens vises alltid. Alle oppføringer for den deler innstillingen.",
+  "entity.hidden_by_default": "Skjult som standard",
+  "entity.hidden_by_default.helper": "Når den er slått på, er hendelsene skjult til noen viser dem i kalenderfilteret. Alle oppføringer for den deler innstillingen.",
   "entity.label_type": "Etikettype",
   "entity.label_type.helper": "En bildeetikett er en sti nettleseren når fram til, for eksempel /local/work.png.",
   "entity.label_type.option.none.label": "Ingen",

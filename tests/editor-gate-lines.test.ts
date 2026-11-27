@@ -115,6 +115,9 @@ describe('the gate lines’ clauses', () => {
       'location_icon calendar:show_location': 'gate.when.location_shown',
       'show_in_legend card:toolbar.show': 'gate.when.calendar_filter',
       'show_in_legend card:toolbar.legend': 'gate.when.calendar_filter',
+      'hidden_by_default card:toolbar.show': 'gate.when.calendar_filter',
+      'hidden_by_default card:toolbar.legend': 'gate.when.calendar_filter',
+      'hidden_by_default calendar:show_in_legend': 'gate.when.on',
       'lane layout:lanes': 'gate.when.on',
       'show_weather weather:weather_entity': 'gate.when.weather_entity',
       'show_weather weather:weather.position': 'gate.when.forecast_by_event',
@@ -160,8 +163,8 @@ describe('the gate lines’ clauses', () => {
     // Conditions Beside Events, then Show Toolbar again for Layouts in Switcher, and Month Name on
     // Rule for the name's color and size on List's month separator, then the full-size card's
     // Show Toolbar for its controls and for its Layouts in Switcher. Then Calendar Lanes, for its
-    // Minimum Lane Width and a calendar's Lane.
-    expect(switches.length).toBe(9);
+    // Minimum Lane Width and a calendar's Lane. Then Show in Calendar Filter, for Hidden by Default.
+    expect(switches.length).toBe(10);
     expect(unclaused(ALL)).toEqual([]);
   });
 

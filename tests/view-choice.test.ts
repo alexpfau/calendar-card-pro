@@ -17,7 +17,9 @@ import {
   canonicalJson,
   configFingerprint,
   forgetChoice,
+  hiddenCalendarsChange,
   readHiddenCalendars,
+  readStoredHiddenCalendars,
   readViewChoice,
   writeHiddenCalendars,
   writeViewChoice,
@@ -184,8 +186,47 @@ describe('the calendars the legend hides', () => {
     expect(readViewChoice('a', storage)).toBeUndefined();
     expect(readHiddenCalendars('a', storage)).toEqual(['calendar.ben']);
 
-    writeHiddenCalendars('a', [], storage, 4);
+    writeHiddenCalendars('a', undefined, storage, 4);
     expect(storage.items.has(VIEW_CHOICE_STORAGE_KEY)).toBe(false);
+  });
+
+  // A card that starts a calendar hidden (`hidden_by_default`) tells nothing stored, the start,
+  // from every calendar shown, chosen on this device.
+  it('keeps an empty list apart from none, which reads as the start the caller passes', () => {
+    const storage = memoryStorage();
+    const start = ['calendar.ben'];
+
+    expect(readHiddenCalendars('a', storage, start)).toEqual(start);
+    expect(readStoredHiddenCalendars('a', storage, start)).toEqual(start);
+
+    writeHiddenCalendars('a', [], storage, 1);
+    expect(JSON.parse(storage.items.get(VIEW_CHOICE_STORAGE_KEY)!).choices).toEqual({
+      a: { hidden: [], at: 1 },
+    });
+    expect(readHiddenCalendars('a', storage, start)).toEqual([]);
+    expect(readStoredHiddenCalendars('a', storage, start)).toEqual([]);
+
+    writeHiddenCalendars('a', undefined, storage, 2);
+    expect(storage.items.has(VIEW_CHOICE_STORAGE_KEY)).toBe(false);
+    expect(readStoredHiddenCalendars('a', storage, start)).toEqual(start);
+  });
+
+  it('reads another tab’s return to the start as a change to it', () => {
+    const start = ['calendar.ben'];
+    const entry = (hidden?: string[]) =>
+      JSON.stringify({
+        version: 1,
+        choices: { a: { ...(hidden ? { hidden } : {}), view: 'grid', at: 1 } },
+      });
+    const change = (oldValue: string | null, newValue: string | null) =>
+      hiddenCalendarsChange({ key: VIEW_CHOICE_STORAGE_KEY, oldValue, newValue }, 'a', start);
+
+    expect(change(entry([]), entry())).toEqual(start);
+    expect(change(entry(), entry([]))).toEqual([]);
+    expect(change(entry(), entry(['calendar.ben']))).toBeUndefined();
+    expect(
+      hiddenCalendarsChange({ key: null, oldValue: null, newValue: null }, 'a', start),
+    ).toEqual(start);
   });
 
   it('keeps showing every calendar a view-only choice from before the legend', () => {

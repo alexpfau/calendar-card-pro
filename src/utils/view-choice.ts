@@ -2,12 +2,17 @@
  * What this device chose with the header toolbar, remembered per card: the view the switcher
  * last picked, and the calendars the legend hides.
  *
- * Never written to the configuration: `view` stays the layout the card opens in and every
- * calendar is shown, and the toolbar only moves away from that on the device where someone
- * pressed it. One `localStorage` entry holds every card's choice, keyed by a fingerprint of
- * that card's configuration. A changed configuration has a different fingerprint, which is
- * what resets every device to the configured view, and to every calendar shown, after an edit.
- * The toolbar's reset forgets the choice on the one device where it is pressed.
+ * Never written to the configuration: `view` stays the layout the card opens in and the
+ * calendars it starts hidden (`hidden_by_default`) stay its starting state, and the toolbar only
+ * moves away from that on the device where someone pressed it. One `localStorage` entry holds
+ * every card's choice, keyed by a fingerprint of that card's configuration. A changed
+ * configuration has a different fingerprint, which is what resets every device to the
+ * configured view, and to the calendars it starts hidden, after an edit. The toolbar's reset
+ * forgets the choice on the one device where it is pressed.
+ *
+ * So a choice with no `hidden` means the configured start, which the caller knows and passes in
+ * where it reads, and an empty `hidden` means every calendar shown, chosen on this device. The
+ * two differ only on a card that starts a calendar hidden; elsewhere nothing writes an empty one.
  *
  * Every tab of the browser shares the one entry, so the legend's half is kept in step across
  * them: a tab hears another's write as a `storage` event ({@link hiddenCalendarsChange}) and
@@ -36,7 +41,9 @@ export const VIEW_CHOICE_STORAGE_KEY = 'calendar_card_pro_view_choice';
  * Bumped when the stored shape changes; an entry of any other version is ignored.
  *
  * Still 1 with the legend's `hidden` added beside `view`: both are optional, and an entry
- * written before the legend existed is one with a view and no hidden calendars.
+ * written before the legend existed is one with a view and no hidden calendars. Still 1 with an
+ * empty `hidden` kept: a release before `hidden_by_default` drops it and shows every calendar,
+ * which is what it says.
  */
 const STORAGE_VERSION = 1;
 
@@ -53,7 +60,10 @@ export const MAX_VIEW_CHOICES = 50;
 interface StoredChoice {
   /** The view the switcher picked; absent to follow `view`. */
   view?: Types.EffectiveView;
-  /** The calendars the legend hides, by entity id; absent while every calendar is shown. */
+  /**
+   * The calendars the legend hides, by entity id: absent while the card shows those its
+   * configuration starts hidden, empty once this device shows every calendar.
+   */
   hidden?: string[];
   /** When the choice was last changed, in milliseconds since the epoch; orders pruning. */
   at: number;
@@ -138,15 +148,15 @@ function isView(value: unknown): value is Types.EffectiveView {
 }
 
 /**
- * The entity ids in a stored `hidden`, or undefined when it holds none worth keeping.
+ * The entity ids in a stored `hidden`, or undefined when it is not a list. An empty list is kept:
+ * it says every calendar is shown, which differs from no list on a card that starts one hidden.
  *
  * @param value - The stored value
  * @returns Its strings, in order and without repeats
  */
 function hiddenIds(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const ids = [...new Set(value.filter((id): id is string => typeof id === 'string' && id !== ''))];
-  return ids.length > 0 ? ids : undefined;
+  return [...new Set(value.filter((id): id is string => typeof id === 'string' && id !== ''))];
 }
 
 /**
@@ -260,7 +270,7 @@ function updateChoice(
   const previous = choices[fingerprint];
   const next: StoredChoice = { ...previous, ...patch, at: now };
   if (next.view === undefined) delete next.view;
-  if (next.hidden === undefined || next.hidden.length === 0) delete next.hidden;
+  if (next.hidden === undefined) delete next.hidden;
 
   if (next.view === undefined && next.hidden === undefined) {
     if (!previous) return storage !== null;
@@ -309,13 +319,15 @@ export function writeViewChoice(
  *
  * @param fingerprint - From {@link configFingerprint}
  * @param storage - Where choices are kept
+ * @param start - The calendars the configuration starts hidden, for a device that chose nothing
  * @returns Entity ids, or an empty list when every calendar is shown
  */
 export function readHiddenCalendars(
   fingerprint: string,
   storage: ChoiceStorage | null = deviceStorage(),
+  start: ReadonlyArray<string> = [],
 ): string[] {
-  return readAll(storage)[fingerprint]?.hidden ?? [];
+  return readAll(storage)[fingerprint]?.hidden ?? [...start];
 }
 
 /**
@@ -328,30 +340,35 @@ export function readHiddenCalendars(
  *
  * @param fingerprint - From {@link configFingerprint}
  * @param storage - Where choices are kept
+ * @param start - The calendars the configuration starts hidden, for a device that chose nothing
  * @returns Entity ids, an empty list when every calendar is shown, or undefined
  */
 export function readStoredHiddenCalendars(
   fingerprint: string,
   storage: ChoiceStorage | null = deviceStorage(),
+  start: ReadonlyArray<string> = [],
 ): string[] | undefined {
   const text = readText(storage);
   if (text === undefined) return undefined;
-  return parseAll(text)[fingerprint]?.hidden ?? [];
+  return parseAll(text)[fingerprint]?.hidden ?? [...start];
 }
 
 /**
- * Remembers which calendars the legend hides for a configuration; an empty list forgets it.
- * The view chosen for it is kept either way.
+ * Remembers which calendars the legend hides for a configuration, or forgets it, leaving the
+ * configured start, when given none. The caller forgets it whenever the set is the configured
+ * start, so a card that starts nothing hidden writes no empty list. The view chosen for it is
+ * kept either way.
  *
  * @param fingerprint - From {@link configFingerprint}
- * @param hidden - Entity ids of the hidden calendars
+ * @param hidden - Entity ids of the hidden calendars, empty to show every one, or undefined for
+ *   the configured start
  * @param storage - Where choices are kept
  * @param now - The time the choice is made
  * @returns Whether the storage now holds them
  */
 export function writeHiddenCalendars(
   fingerprint: string,
-  hidden: ReadonlyArray<string>,
+  hidden: ReadonlyArray<string> | undefined,
   storage: ChoiceStorage | null = deviceStorage(),
   now: number = Date.now(),
 ): boolean {
@@ -384,21 +401,23 @@ export type ChoiceStorageChange = Pick<StorageEvent, 'key' | 'oldValue' | 'newVa
  *
  * Read from the event's own before and after, not from the storage, so a write that changed
  * only another configuration's choice, or only this one's view, is no change here. A cleared
- * storage (`key` null) carries neither, and leaves every calendar shown.
+ * storage (`key` null) carries neither, and leaves the configured start.
  *
  * @param change - A `storage` event from `window`
  * @param fingerprint - From {@link configFingerprint}
+ * @param start - The calendars the configuration starts hidden, for a choice with none stored
  * @returns The hidden entity ids now stored, or undefined when this choice's set is unchanged
  */
 export function hiddenCalendarsChange(
   change: ChoiceStorageChange,
   fingerprint: string,
+  start: ReadonlyArray<string> = [],
 ): string[] | undefined {
-  if (change.key === null) return [];
+  if (change.key === null) return [...start];
   if (change.key !== VIEW_CHOICE_STORAGE_KEY) return undefined;
 
-  const before = parseAll(change.oldValue)[fingerprint]?.hidden ?? [];
-  const after = parseAll(change.newValue)[fingerprint]?.hidden ?? [];
+  const before = parseAll(change.oldValue)[fingerprint]?.hidden ?? [...start];
+  const after = parseAll(change.newValue)[fingerprint]?.hidden ?? [...start];
   const same = before.length === after.length && before.every((id) => after.includes(id));
   return same ? undefined : after;
 }

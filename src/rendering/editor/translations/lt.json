@@ -593,6 +593,8 @@
   "entity.lane.helper": "Tos pačios juostos įrašai dalijasi viena. Palikus tuščią, šis kalendorius turi savo juostą.",
   "entity.show_in_legend": "Rodyti kalendorių filtre",
   "entity.show_in_legend.helper": "Išjungus šis kalendorius kalendorių filtre nerodomas, todėl jo įvykiai rodomi visada. Šį nustatymą bendrai naudoja visi šio kalendoriaus įrašai.",
+  "entity.hidden_by_default": "Iš pradžių paslėptas",
+  "entity.hidden_by_default.helper": "Įjungus jo įvykiai paslėpti, kol kas nors juos parodys kalendorių filtre. Šį nustatymą bendrai naudoja visi šio kalendoriaus įrašai.",
   "entity.label_type": "Etiketės tipas",
   "entity.label_type.helper": "Paveikslėlio etiketė yra naršyklei pasiekiamas kelias, pavyzdžiui, /local/work.png.",
   "entity.label_type.option.none.label": "Nėra",

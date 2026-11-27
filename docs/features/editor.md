@@ -597,7 +597,7 @@ says which entry it is, as in **Entry 2 of 3 · calendar.anna**. **Previous Cale
 
 | Heading                 | What it holds                                                                                                                                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name & Look**         | Its Accent Color first, then the calendar's Name on the card, Show in Calendar Filter, [its label](#per-calendar-labels) with Label Icon Color, Event Color and Text Scale                                             |
+| **Name & Look**         | Its Accent Color first, then the calendar's Name on the card, Show in Calendar Filter, Hidden by Default, [its label](#per-calendar-labels) with Label Icon Color, Event Color and Text Scale                          |
 | **Who Sees It**         | [Visibility conditions](/features/core-settings#showing-a-calendar-under-conditions), in Home Assistant's own Visibility editor, then [Private](/features/core-settings#keeping-a-calendar-private)                    |
 | **Which Events**        | [Split This Calendar](#split-this-calendar), Days of the Week, Event Type, Starts At or After, Starts Before, All-Day Events Expire At, Hide Events Containing, Only Show Events Containing and Compact Events to Show |
 | **Text Replacement**    | Find and Replace With, rewriting the event's title, location or description                                                                                                                                            |
@@ -620,8 +620,8 @@ Each takes one word or phrase at a time, matched as written, so punctuation need
 each is ready to type in the moment it is added. They check the event title unless **Match
 Against** names another field.
 
-The calendar's name and **Show in Calendar Filter** belong to the calendar, not to one entry:
-changing them on one entry changes every entry, and the page says so.
+The calendar's name, **Show in Calendar Filter** and **Hidden by Default** belong to the calendar,
+not to one entry: changing them on one entry changes every entry, and the page says so.
 
 A calendar's settings are stored once and apply wherever a layout uses them, so its page shows
 those any of the card's layouts use, and a setting only some of them use says which, as in
@@ -654,8 +654,8 @@ removes the whole calendar, and each entry row duplicates, copies, pastes or rem
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Move Up**, **Move Down**, **Move to Top** | Moves the calendar, with all its entries; see [Reordering](#reordering)                                                            |
 | **Duplicate**                               | Adds a second entry for the calendar, carrying this one's settings                                                                 |
-| **Copy Settings**                           | Takes this entry's settings, without the calendar itself, its name or Show in Calendar Filter                                      |
-| **Paste Settings**                          | Applies them to this entry, keeping the calendar it reads, its name and Show in Calendar Filter                                    |
+| **Copy Settings**                           | Takes this entry's settings, without the calendar itself, its name, Show in Calendar Filter or Hidden by Default                   |
+| **Paste Settings**                          | Applies them to this entry, keeping the calendar it reads, its name, Show in Calendar Filter and Hidden by Default                 |
 | **Remove**                                  | On an entry, drops that entry; on a calendar's own row, removes the calendar with every entry, as **Remove Anna (2 entries)** says |
 
 - **Remove asks nothing.** A line takes the row's place, such as **Removed Ben · Undo**, and
@@ -666,7 +666,7 @@ removes the whole calendar, and each entry row duplicates, copies, pastes or rem
   or a word list, so until then every event shows twice, unless Filter Duplicates is on; the page
   says so.
 - **The calendar an entry reads can change**: its page's **Calendar** field points it at another
-  calendar and keeps its settings, except its Name and Show in Calendar Filter. Those belong to
+  calendar and keeps its settings, except its Name, Show in Calendar Filter and Hidden by Default. Those belong to
   the calendar, so an entry pointed at a calendar already on the card takes that calendar's, and
   its page says so.
 
@@ -722,7 +722,7 @@ forward:
 
 An entry page's **Name & Look** opens with **Accent Color**, then **Name**, the
 calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), then
-**Show in Calendar Filter** while the toolbar shows a
+**Show in Calendar Filter** and **Hidden by Default** while the toolbar shows a
 [calendar filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter), and the
 control after them is **Label Type**. **Event Color** and **Text Scale** close the heading. A label is the mark shown before every event from
 that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image — or

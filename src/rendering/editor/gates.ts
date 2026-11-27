@@ -617,6 +617,20 @@ export const ENTRY_GATES: Readonly<Record<string, Gate>> = {
     needsKey: 'gate.needs.calendar_filter',
     whenKey: 'gate.when.calendar_filter',
   },
+  // Starting hidden in the filter, while the toolbar shows one and it lists this calendar.
+  hidden_by_default: {
+    fields: ['calendar:hidden_by_default'],
+    requires: [
+      phrased(on('card:toolbar.show'), 'gate.needs.calendar_filter', 'gate.when.calendar_filter'),
+      phrased(
+        noneOf('card:toolbar.legend', 'menu', LEGEND_OFF),
+        'gate.needs.calendar_filter',
+        'gate.when.calendar_filter',
+      ),
+      on('calendar:show_in_legend'),
+    ],
+    kind: 'gate',
+  },
   // Read in the scope the calendar's page is open in, as the weather switch below is: the lane
   // this entry's events are drawn in, while that layout draws lanes.
   lane: {

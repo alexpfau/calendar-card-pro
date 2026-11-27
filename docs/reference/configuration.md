@@ -232,7 +232,7 @@ the editor hides their controls on Month's pages, without deleting stored values
 Each item in `entities` may be a plain entity ID string, or an object that overrides
 the card-wide options for that one calendar:
 
-`entity` · `name` · `show_in_legend` · `lane` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
+`entity` · `name` · `show_in_legend` · `hidden_by_default` · `lane` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `label_image_size` · `text_scale` ·
 `show_time` · `show_location` · `location_icon` · `show_description` · `show_weather` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
@@ -246,6 +246,7 @@ the card-wide options for that one calendar:
 **→ [Turning weather off for one calendar](/features/weather#turning-weather-off-for-one-calendar)** — `show_weather`, what it leaves out, and why the day header keeps its forecast.
 **→ [One lane for several calendars](/features/lanes#one-lane-for-several-calendars)** — `lane`, which entries share a lane, and splitting one calendar into two.
 **→ [Leaving a calendar out of the filter](/features/header-toolbar#leaving-a-calendar-out-of-the-filter)** — `show_in_legend`, for a calendar shown on the card without a chip of its own.
+**→ [Starting a calendar hidden](/features/header-toolbar#starting-a-calendar-hidden)** — `hidden_by_default`, for a calendar the filter hides until someone shows it.
 **→ [Showing a calendar under conditions](/features/core-settings#showing-a-calendar-under-conditions)** — `visibility`, Home Assistant's conditions for one calendar: by person, place, state, screen, time or template.
 **→ [Showing events that start at certain hours](/features/filtering#showing-events-that-start-at-certain-hours)** — `starts_after` and `starts_before`, for one calendar's events from some hours of the day.
 **→ [Keeping a calendar private](/features/core-settings#keeping-a-calendar-private)** — `private`, what a private calendar's events still show, and how `replace_with` words them.

@@ -418,6 +418,7 @@ const LEGAL: Readonly<Record<string, ReadonlyArray<unknown>>> = {
   'entity.label_type': [undefined, 'none', 'text', 'icon', 'image'],
   'entity.label': [undefined, 'A', 'mdi:star', 'home-assistant', '/local/a.png', 'person.anna'],
   'entity.show_location': [undefined, true, false],
+  'entity.show_in_legend': [undefined, true, false],
 };
 
 /**
@@ -979,13 +980,14 @@ describe('the universe', () => {
     // controls, its Layouts in Switcher and its Arrow & Chip Size. Then Grid gained Calendar
     // Lanes, its Minimum Lane Width and a calendar's Lane. Then List and Columns gained Calendar
     // Lanes and a calendar's Lane, List Minimum Lane Width and When Lanes Don't Fit, and All
-    // Layouts the three that more than one layout reads.
+    // Layouts the three that more than one layout reads. Then a calendar gained Hidden by
+    // Default, in every workspace.
     expect(sizes).toEqual({
-      shared: { card: 152, calendar: 32 },
-      list: { card: 183, calendar: 33 },
-      column: { card: 175, calendar: 32 },
-      grid: { card: 175, calendar: 32 },
-      month: { card: 120, calendar: 30 },
+      shared: { card: 152, calendar: 33 },
+      list: { card: 183, calendar: 34 },
+      column: { card: 175, calendar: 33 },
+      grid: { card: 175, calendar: 33 },
+      month: { card: 120, calendar: 31 },
     });
   });
 
@@ -1494,6 +1496,15 @@ describe('the gate table', () => {
           p('card:toolbar.legend', 'menu', ['menu', 'chips']),
         ],
         needsKey: 'gate.needs.calendar_filter',
+      },
+      hidden_by_default: {
+        kind: 'gate',
+        fields: ['calendar:hidden_by_default'],
+        requires: [
+          p('card:toolbar.show', true, ON, 'gate.needs.calendar_filter'),
+          p('card:toolbar.legend', 'menu', ['menu', 'chips'], 'gate.needs.calendar_filter'),
+          p('calendar:show_in_legend', true, ON),
+        ],
       },
       lane: {
         kind: 'gate',

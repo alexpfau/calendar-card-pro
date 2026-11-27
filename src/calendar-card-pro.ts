@@ -431,6 +431,17 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
+/**
+ * Whether a set of hidden calendars holds exactly these, in any order.
+ *
+ * @param hidden - The calendars hidden
+ * @param ids - Entity ids, without repeats
+ * @returns True when they are the same calendars
+ */
+function sameCalendars(hidden: ReadonlySet<string>, ids: ReadonlyArray<string>): boolean {
+  return hidden.size === ids.length && ids.every((id) => hidden.has(id));
+}
+
 /** No lanes: the layout on screen draws none (`_shownLanes`). */
 const NO_LANES: ReadonlyArray<Lanes.Lane> = Object.freeze([]);
 
@@ -1133,7 +1144,11 @@ class CalendarCardPro extends LitElement {
     const storage = ViewChoice.deviceStorage();
     if (storage === null || change.storageArea !== storage) return;
 
-    const hidden = ViewChoice.hiddenCalendarsChange(change, this._configFingerprint);
+    const hidden = ViewChoice.hiddenCalendarsChange(
+      change,
+      this._configFingerprint,
+      this._startHiddenCalendars(),
+    );
     if (hidden === undefined) return;
     this._adoptHiddenCalendars(hidden);
     this._hiddenMatchesStorage = true;
@@ -1149,7 +1164,11 @@ class CalendarCardPro extends LitElement {
     if (!this._wantsLegend || this._configFingerprint === null || !this._hiddenMatchesStorage) {
       return;
     }
-    const stored = ViewChoice.readStoredHiddenCalendars(this._configFingerprint);
+    const stored = ViewChoice.readStoredHiddenCalendars(
+      this._configFingerprint,
+      ViewChoice.deviceStorage(),
+      this._startHiddenCalendars(),
+    );
     if (stored === undefined) return;
 
     const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
@@ -2658,6 +2677,33 @@ class CalendarCardPro extends LitElement {
     if (hidden.size === 0) return false;
     const gone = this._visibility.calendars;
     return gone.size === 0 || [...hidden].some((id) => !gone.has(id));
+  }
+
+  /**
+   * Whether the legend shows other calendars than the configuration starts with: one hidden that
+   * starts shown, or one shown that starts hidden (`hidden_by_default`), which is what a reset
+   * undoes. A calendar its visibility conditions hide counts neither way, as in
+   * `_legendHidesAShownCalendar`.
+   */
+  private get _legendDiffersFromStart(): boolean {
+    const hidden = this._activeHiddenCalendars;
+    const start = this._isBeingEdited ? [] : this._startHiddenCalendars();
+    const gone = this._visibility.calendars;
+    return (
+      [...hidden].some((id) => !gone.has(id) && !start.includes(id)) ||
+      start.some((id) => !gone.has(id) && !hidden.has(id))
+    );
+  }
+
+  /**
+   * The calendars the legend starts with hidden, on a device that has chosen nothing for this
+   * configuration: those that set `hidden_by_default` (`startHiddenCalendarIds`). None where the
+   * card has no legend, which could never show them again.
+   *
+   * @returns Entity ids
+   */
+  private _startHiddenCalendars(): string[] {
+    return this._wantsLegend ? Legend.startHiddenCalendarIds(this.config.entities) : [];
   }
 
   /**
@@ -6089,7 +6135,8 @@ class CalendarCardPro extends LitElement {
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
     // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
-    // by the legend, that hid itself would take with it the only way back. Judged by the view on
+    // by the legend, that hid itself would take with it the only way back. A calendar the
+    // configuration starts hidden counts as hidden here too, for the same reason. Judged by the view on
     // screen (`_homeHasEvents`), as it was before the card could switch views. A calendar its
     // visibility conditions hide is not on the card for this viewer: neither its events nor its
     // failure keep the card, and the legend hiding it changes nothing.
@@ -9083,7 +9130,7 @@ class CalendarCardPro extends LitElement {
    * Each half is read for itself, the view only while the switcher is on and the hidden
    * calendars only while the legend is, so a card with a legend and no switcher remembers
    * too. A different fingerprint is a different configuration, which is what resets every
-   * device to `view`, and to every calendar shown, after an edit. Nothing is deleted here:
+   * device to `view`, and to the calendars it starts hidden, after an edit. Nothing is deleted here:
    * Home Assistant builds a fresh card for a changed configuration rather than handing it to
    * the old one, so a card almost never learns which configuration it replaced. The cost is
    * narrow and stated in the docs: a configuration changed back to exactly what it was finds
@@ -9107,10 +9154,13 @@ class CalendarCardPro extends LitElement {
         : null;
 
     const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    // A device that chose nothing for this configuration, or whose storage cannot be read, starts
+    // with the calendars the configuration starts hidden.
+    const start = this._startHiddenCalendars();
     const stored = this._wantsLegend
-      ? ViewChoice.readStoredHiddenCalendars(fingerprint)
+      ? ViewChoice.readStoredHiddenCalendars(fingerprint, ViewChoice.deviceStorage(), start)
       : undefined;
-    const hidden = (stored ?? []).filter((id) => calendars.has(id));
+    const hidden = (stored ?? start).filter((id) => calendars.has(id));
     this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
     this._hiddenMatchesStorage = stored !== undefined;
     this._legendFold = null;
@@ -11551,9 +11601,12 @@ class CalendarCardPro extends LitElement {
 
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
-      this._hiddenMatchesStorage = ViewChoice.writeHiddenCalendars(this._configFingerprint, [
-        ...next,
-      ]);
+      // The configured start is forgotten rather than stored, so a reset and a choice that came
+      // back to it read alike, and a card that starts nothing hidden stores no empty list.
+      this._hiddenMatchesStorage = ViewChoice.writeHiddenCalendars(
+        this._configFingerprint,
+        sameCalendars(next, this._startHiddenCalendars()) ? undefined : [...next],
+      );
     }
     this._announceHiddenCalendars([...next], this._hiddenMatchesStorage);
     Logger.debug(message);
@@ -12325,8 +12378,9 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card shows something its configuration does not, on this device: a page away
-   * from home, a layout picked with the switcher (`_viewChoiceShows`), a hidden calendar, or a
-   * compact card expanded. Never while it is being
+   * from home, a layout picked with the switcher (`_viewChoiceShows`), a calendar hidden or shown
+   * against how the configuration starts it (`_legendDiffersFromStart`), or a compact card
+   * expanded. Never while it is being
    * edited, when every control is inert: the page, the layout and the calendars show the
    * configuration then, and an expansion is left as it is for when editing ends.
    *
@@ -12340,7 +12394,7 @@ class CalendarCardPro extends LitElement {
     return (
       this._pageRequested !== null ||
       this._viewChoiceShows ||
-      this._legendHidesAShownCalendar ||
+      this._legendDiffersFromStart ||
       (this.isExpanded && this.hasCompactModeLimits()) ||
       this._monthSelectionAway
     );
@@ -12406,7 +12460,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Brings the card back to its configuration on this device: the days it opens with, `view`,
-   * every calendar shown and a compact card collapsed. Forgets the layout and the calendars
+   * the calendars it starts hidden and a compact card collapsed. Forgets the layout and the calendars
    * remembered for this configuration, in one write.
    *
    * Every other card with this configuration shares that memory, and takes up the calendars
@@ -12440,9 +12494,10 @@ class CalendarCardPro extends LitElement {
       this._columnCount = fit.columns;
     }
 
-    if (this._hiddenCalendars.size > 0) {
-      this._hiddenCalendars = NO_HIDDEN_CALENDARS;
-      this._announceHiddenCalendars([], this._hiddenMatchesStorage);
+    const start = this._startHiddenCalendars();
+    if (!sameCalendars(this._hiddenCalendars, start)) {
+      this._hiddenCalendars = start.length > 0 ? new Set(start) : NO_HIDDEN_CALENDARS;
+      this._announceHiddenCalendars(start, this._hiddenMatchesStorage);
     }
 
     this.isExpanded = false;

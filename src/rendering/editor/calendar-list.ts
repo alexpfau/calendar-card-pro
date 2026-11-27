@@ -17,11 +17,10 @@
  * holds a key rather than a position, still finds its entry after a move or a removal.
  */
 
-import { duplicateEntity, entityDisplayName, removeEntity } from './entities';
+import { adoptCalendarOptions, duplicateEntity, entityDisplayName, removeEntity } from './entities';
 import { lookup } from './localize';
 import { interpolate } from './strings';
 import { entityIdOf } from './synthetic';
-import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import { configuredCalendarName } from '../../utils/calendar-names';
 import { readStartWindow } from '../../utils/start-window';
@@ -213,10 +212,10 @@ export function addCalendar(state: ListState, entityId: string, newKey: number):
  *
  * The entry keeps its own settings and joins the end of the target calendar's entries, so the
  * target's own entries keep their priority under Filter Duplicates. When the target already has
- * entries, the entry takes the target's name and calendar filter setting, which belong to the
- * calendar rather than to one entry (`entities.ts` › `CALENDAR_OPTIONS`), and `adopted` says so.
- * The calendar it leaves keeps its name and setting on the entries it has left, as Remove leaves
- * them.
+ * entries, the entry takes the target's name and calendar filter settings, which belong to the
+ * calendar rather than to one entry (`entities.ts` › `adoptCalendarOptions`), and `adopted` says
+ * so. The calendar it leaves keeps its name and settings on the entries it has left, as Remove
+ * leaves them.
  *
  * @param state - The list
  * @param index - Position of the entry in `entities`
@@ -248,20 +247,7 @@ export function repointEntry(
     moved = { ...entry, entity: entityId };
   }
 
-  if (adopted) {
-    const name = configuredCalendarName(rest.entities, entityId);
-    const shown = Config.configuredShowInLegend(rest.entities, entityId);
-    const settings: Types.EntityConfig = {
-      ...(typeof moved === 'string' ? { entity: moved } : moved),
-    };
-
-    delete settings.name;
-    delete settings.show_in_legend;
-    if (name !== undefined) settings.name = name;
-    if (shown === false) settings.show_in_legend = false;
-
-    moved = typeof moved === 'string' && Object.keys(settings).length === 1 ? moved : settings;
-  }
+  if (adopted) moved = adoptCalendarOptions(moved, rest.entities);
 
   return {
     state: regroup({ entities: [...rest.entities, moved], keys: [...rest.keys, key] }),
