@@ -12,8 +12,9 @@
  * waits on a definition.
  *
  * Pinned here: the elements it holds are exactly those the editor's forms draw once every panel is
- * open, state by state across the gate corpus and for calendars and buttons of every kind, and over
- * the corpus exactly those the builders use; the values it holds are exactly those the open forms
+ * open, for calendars and buttons of every kind, and state by state across the gate corpus in
+ * `editor-warm-up-corpus-<n>.test.ts`, which run side by side (`helpers/warm-up.ts`); and over the
+ * corpus exactly those the builders use; the values it holds are exactly those the open forms
  * hold in such fields, read as `ha-form` reads them; a selector a builder starts to use is warmed
  * with nothing else changed; it writes nothing and nothing it fires goes further; it is out of
  * layout, inert, hidden from assistive technology and on the steady feed, and its Visibility editor
@@ -28,8 +29,6 @@
  * warm-up stays while they read it; the last one defines the stand-ins as it goes.
  */
 
-import { setTimeout as nodeTimeout } from 'node:timers';
-
 import { LitElement, html, nothing } from 'lit';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,17 +36,36 @@ import {
   changeField,
   editLayout,
   fakeHass,
-  formsOf,
   lastConfig,
   mountEditor,
   openPageOf,
-  openPanels,
 } from './helpers/editor-host';
+import { expectedShardFiles, shardFiles } from './helpers/file-shards';
+import {
+  ANNA,
+  CORPUS_PREFIX,
+  CORPUS_SHARDS,
+  CORPUS_STATES,
+  type Editor,
+  type Form,
+  applyState,
+  builtElements,
+  byJson,
+  drawn,
+  drawnValues,
+  elementFor,
+  elements,
+  holdsValue,
+  shardStates,
+  warmForm,
+  warmUp,
+  warmValues,
+  warmed,
+} from './helpers/warm-up';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { buildFieldIndex, entityFieldIndex, schemaCtx } from '../src/rendering/editor/field-index';
-import { NO_FILTER, isHeading } from '../src/rendering/editor/filter';
-import { corpus } from '../src/rendering/editor/gates';
+import { schemaCtx } from '../src/rendering/editor/field-index';
+import { NO_FILTER } from '../src/rendering/editor/filter';
 import { type HaFormSchema, warmSchema } from '../src/rendering/editor/ha-form';
 import { VALUE_SELECTORS } from '../src/rendering/editor/hass-key';
 import {
@@ -55,7 +73,6 @@ import {
   withCardActionLabels,
 } from '../src/rendering/editor/hass-localize';
 import { PANELS } from '../src/rendering/editor/panels';
-import { ENTITY_PATH } from '../src/rendering/editor/schemas/calendars';
 import { chassisSchemas } from '../src/rendering/editor/subforms';
 
 const plant = vi.hoisted(() => ({ on: false, action: false, many: 0, extra: '' }));
@@ -153,16 +170,6 @@ vi.mock('../src/rendering/editor/panels', async (importOriginal) => {
   };
 });
 
-/** An editor. */
-type Editor = Awaited<ReturnType<typeof mountEditor>>;
-
-/** A form as the tests read it. */
-type Form = HTMLElement & {
-  schema: HaFormSchema[];
-  hass?: unknown;
-  data?: Record<string, unknown>;
-};
-
 /** Home Assistant's Visibility editor as the stand-in below draws it. */
 type ConditionsEditor = HTMLElement & {
   hass?: unknown;
@@ -170,151 +177,9 @@ type ConditionsEditor = HTMLElement & {
   entity?: unknown;
 };
 
-/**
- * The element Home Assistant draws a node with: `ha-selector-` and the selector's key for a field,
- * `ha-form-` and the node's type for anything else.
- *
- * @param node - Schema node
- * @returns The tag
- */
-function elementFor(node: HaFormSchema): string {
-  return 'selector' in node
-    ? `ha-selector-${Object.keys(node.selector)[0]}`
-    : `ha-form-${(node as { type: string }).type}`;
-}
-
-/**
- * Every element some schemas draw, at any depth.
- *
- * @param schemas - Schemas
- * @returns The tags, sorted
- */
-function elements(schemas: Iterable<ReadonlyArray<HaFormSchema>>): string[] {
-  const tags = new Set<string>();
-  const walk = (schema: ReadonlyArray<HaFormSchema>): void => {
-    for (const node of schema) {
-      tags.add(elementFor(node));
-      if ('schema' in node) walk(node.schema);
-    }
-  };
-  for (const schema of schemas) walk(schema);
-  return [...tags].sort();
-}
-
-/** Orders pairs by their JSON, so that two lists of them compare as sets. */
-const byJson = (a: unknown, b: unknown): number =>
-  JSON.stringify(a).localeCompare(JSON.stringify(b));
-
-/**
- * The warm-up: a child of the editor's own element, never of its shadow root.
- *
- * @param editor - The editor
- * @returns It, or null once it is gone
- */
-const warmUp = (editor: Editor) => editor.querySelector<HTMLElement>(':scope > div');
-
-/** The warm-up's form, or null. */
-const warmForm = (editor: Editor) =>
-  warmUp(editor)?.querySelector<Form>(':scope > ha-form') ?? null;
-
 /** The warm-up's Visibility editor, or null. */
 const warmConditions = (editor: Editor) =>
   warmUp(editor)?.querySelector<ConditionsEditor>('ha-card-conditions-editor') ?? null;
-
-/**
- * Whether a node of the warm-up form holds a value rather than standing for its element: such a
- * node is named by its element's tag and the value as JSON.
- *
- * @param node - A node of the warm-up form
- * @returns True for a value
- */
-const holdsValue = (node: HaFormSchema): boolean => node.name.startsWith(`${elementFor(node)} `);
-
-/**
- * The elements the warm-up form holds a node for. A node that stands for its element is held once
- * for it, a group without its children; one holding a value draws its element too.
- *
- * @param editor - The editor
- * @returns The tags, sorted; none once the form is gone
- */
-function warmed(editor: Editor): string[] {
-  const form = warmForm(editor);
-  if (!form) return [];
-  const types = form.schema.filter((node) => !holdsValue(node)).map(elementFor);
-  expect(new Set(types).size, 'one node for each element').toBe(types.length);
-  expect(form.schema.filter((node) => 'schema' in node && node.schema.length > 0)).toEqual([]);
-  return [...new Set(form.schema.map(elementFor))].sort();
-}
-
-/**
- * The values the warm-up form holds, each with the element that draws it. Each is held once, under
- * the name of the node holding it, and its data holds nothing else.
- *
- * @param editor - The editor
- * @returns The pairs, sorted
- */
-function warmValues(editor: Editor): [string, unknown][] {
-  const form = warmForm(editor);
-  if (!form) return [];
-  const nodes = form.schema.filter(holdsValue);
-  expect(Object.keys(form.data ?? {}).sort()).toEqual(nodes.map((node) => node.name).sort());
-  return nodes
-    .map((node): [string, unknown] => {
-      const tag = elementFor(node);
-      expect(form.data![node.name], node.name).toEqual(JSON.parse(node.name.slice(tag.length + 1)));
-      return [tag, form.data![node.name]];
-    })
-    .sort(byJson);
-}
-
-/**
- * The elements the editor's forms draw once every panel is open.
- *
- * @param editor - The editor
- * @returns The tags, sorted
- */
-async function drawn(editor: Editor): Promise<string[]> {
-  await openPanels(editor);
-  return elements(
-    // Every page's forms, as the harness keeps them from its visit, the overview's live.
-    formsOf(editor).map((form) => form.schema),
-  );
-}
-
-/**
- * The values the editor's forms hold, once every panel is open, in fields of the types in
- * `VALUE_SELECTORS`, each with the element that draws it: read off each form's own schema and data
- * as `ha-form` reads them, a field's value under its name, a group's children from its own value
- * unless it is unnamed or flattened.
- *
- * @param editor - The editor
- * @returns The pairs, each once, sorted
- */
-async function drawnValues(editor: Editor): Promise<[string, unknown][]> {
-  await openPanels(editor);
-  const found = new Map<string, [string, unknown]>();
-  const walk = (schema: ReadonlyArray<HaFormSchema>, data: unknown): void => {
-    for (const node of schema) {
-      const value =
-        !node.name || ('flatten' in node && node.flatten)
-          ? data
-          : (data as Record<string, unknown> | undefined)?.[node.name];
-      if (
-        'selector' in node &&
-        value !== undefined &&
-        VALUE_SELECTORS.some((type) => type in node.selector)
-      ) {
-        const pair: [string, unknown] = [elementFor(node), value];
-        found.set(JSON.stringify(pair), pair);
-      }
-      if ('schema' in node) walk(node.schema, value);
-    }
-  };
-  for (const form of formsOf(editor)) {
-    walk(form.schema, form.data);
-  }
-  return [...found.values()].sort(byJson);
-}
 
 /**
  * The custom elements at or below a node, through every shadow root, that are not defined, by tag:
@@ -386,9 +251,6 @@ const KINDS = {
     ],
   },
 };
-
-/** One calendar and nothing else. */
-const ANNA = { config_version: Config.CURRENT_CONFIG_VERSION, entities: ['calendar.anna'] };
 
 /**
  * Home Assistant's Visibility editor as the tests draw it, after its own: it asks which entity it
@@ -524,67 +386,33 @@ describe('the warm-up form', () => {
 
   // Every page is visited in every corpus state with every setting shown, each live field's Reset
   // outcome and its Reset or Remove worked out. That took over four minutes on CI's runner in one
-  // test, close to any limit worth setting, so the corpus runs in shards of its own, each on a
-  // fresh editor, and a last test checks the union once every shard has run. Vitest runs a file's
-  // tests in order, so that last test sees them all.
-  const states = [
-    ...new Map(
-      corpus().map((state) => [`${state.workspace} ${JSON.stringify(state.config)}`, state]),
-    ).values(),
-  ];
-  const SHARDS = 6;
-  const warmedAll = new Set<string>();
-  const builtAll = new Set<string>();
-  const visited: number[] = [];
-  let values = 0;
+  // test, close to any limit worth setting, so the corpus runs in shards, each on a fresh editor;
+  // and over ten minutes once the shards ran one after another in this file, the longest file in
+  // the suite by far. So each shard is a file of its own (`editor-warm-up-corpus-<n>.test.ts`,
+  // `helpers/warm-up.ts` › `corpusShard`), and they run side by side.
+  it('holds, across every shard, each element the builders build, once every corpus state has run', async () => {
+    // Each shard has its file, and the shards take each state exactly once, so sharding drops
+    // none; each shard's own test fails where it takes none.
+    expect(shardFiles(CORPUS_PREFIX)).toEqual(expectedShardFiles(CORPUS_PREFIX, CORPUS_SHARDS));
+    expect(CORPUS_STATES.length).toBeGreaterThanOrEqual(CORPUS_SHARDS);
+    const taken = Array.from({ length: CORPUS_SHARDS }, (_, at) => shardStates(at + 1)).flat();
+    expect(taken.sort((a, b) => a - b)).toEqual(CORPUS_STATES.map((_, index) => index));
 
-  for (let shard = 0; shard < SHARDS; shard++) {
-    // Each shard takes about a sixth of the corpus, over five workspaces since Month; the limit is
-    // set for CI's slower runner under load rather than for a hang. Shards measured 41 to 44 s on
-    // CI with four workspaces, and with five up to 104 s on a slower run, too near the 150 s they
-    // had.
-    it(`holds each element and each value the forms draw with every panel open, across corpus shard ${shard + 1} of ${SHARDS}`, async () => {
-      const editor = await mountEditor(ANNA);
-      for (let index = shard; index < states.length; index += SHARDS) {
-        const state = states[index]!;
-        visited.push(index);
-        // A task between states, so what each state's visit to every page left behind is let go.
-        await new Promise((resolve) => nodeTimeout(resolve, 0));
-        editor.setConfig({ ...state.config, config_version: Config.CURRENT_CONFIG_VERSION });
-        await editor.updateComplete;
-        await editLayout(editor, state.workspace);
-        const warm = warmed(editor);
-        const held = warmValues(editor);
-        const label = `${state.workspace} ${state.display} ${state.gate ?? 'fresh'}`;
-        expect(warm, label).toEqual(await drawn(editor));
-        expect(held, label).toEqual(await drawnValues(editor));
-        warm.forEach((tag) => warmedAll.add(tag));
-        values += held.length;
-
-        const ctx = schemaCtx(state.config, state.workspace, 'en');
-        // Each field is drawn lifted out of its panel, in a form of its own, and so is each of a
-        // calendar entry's on its page; buttons keep their sub-forms, less the sub-heading their
-        // panels caption.
-        const lifted = [...buildFieldIndex(ctx).fields.values()].map((field) => field.lifted);
-        for (const panel of PANELS) {
-          const subforms = (panel.subforms?.(ctx) ?? []).flatMap((subform) =>
-            subform.path.join() === ENTITY_PATH.join()
-              ? [...entityFieldIndex(subform.schema).fields.values()].map((field) => field.lifted)
-              : [subform.schema.filter((node) => !isHeading(node))],
-          );
-          for (const tag of elements([...lifted, ...subforms])) builtAll.add(tag);
-        }
-      }
-    }, 180_000);
-  }
-
-  it('holds, across every shard, each element the builders build, once every corpus state has run', () => {
-    // Each state ran in exactly one shard, so sharding dropped none, and no shard ran empty.
-    expect(states.length).toBeGreaterThanOrEqual(SHARDS);
-    expect([...visited].sort((a, b) => a - b)).toEqual(states.map((_, index) => index));
+    // What the warm-up holds in each state, read as each shard reads it before it opens a page;
+    // each shard checks it against what the forms draw there.
+    const warmedAll = new Set<string>();
+    const builtAll = new Set<string>();
+    let values = 0;
+    const editor = await mountEditor(ANNA);
+    for (const state of CORPUS_STATES) {
+      await applyState(editor, state);
+      warmed(editor).forEach((tag) => warmedAll.add(tag));
+      values += warmValues(editor).length;
+      for (const tag of builtElements(state)) builtAll.add(tag);
+    }
     for (const tag of elements(Object.values(chassisSchemas('en')))) builtAll.add(tag);
     console.info(
-      `Warm-up: ${states.length} corpus states, ${values} values held, ${warmedAll.size} elements: ${[...warmedAll].sort().join(' ')}`,
+      `Warm-up: ${CORPUS_STATES.length} corpus states, ${values} values held, ${warmedAll.size} elements: ${[...warmedAll].sort().join(' ')}`,
     );
 
     expect(warmedAll.size).toBeGreaterThan(3);

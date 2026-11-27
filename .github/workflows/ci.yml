@@ -34,12 +34,30 @@ on:
 
 # Read-only, and stated rather than inherited. The repository's default token is
 # read-write, so without this block every step here could push to the repository —
-# while nothing in this job uses the token for anything but the checkout.
+# while nothing in these jobs uses the token for anything but the checkout and the
+# artifacts the test jobs hand to `lint-build`.
 permissions:
   contents: read
 
+# A newer push to the same pull request or branch makes a run still going moot, so it is
+# canceled rather than left holding runners: each run takes six jobs now, and the account's
+# plan runs twenty at once across every session pushing. The tip is what gets checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Three jobs where there was one. Every gate used to run in a single job, `lint-build`, and
+# `npm test` was most of it: about 950 s of a 1,070 s job on a quiet runner and up to 1,400 s
+# on a busy one, because one runner's three workers worked through 2,260 s of test files one
+# after another. Now the gates run beside four test jobs that split the suite between them,
+# and `lint-build` waits for all of them.
+#
+# `lint-build` keeps its name because `main`'s ruleset requires a status check of exactly that
+# name from GitHub Actions; renaming it would leave the release PR waiting on a check no job
+# reports. It must also fail rather than skip: GitHub counts a required job that was skipped
+# as passing, so it runs `if: always()` and fails on any part that did not succeed.
 jobs:
-  lint-build:
+  gates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -124,15 +142,6 @@ jobs:
       - name: Check i18n integrity
         run: npm run check:i18n
 
-      # The card renders a red error box rather than degrading when setConfig throws,
-      # and the surrounding logic normalizes untyped YAML — so a value that merely
-      # coerces oddly (an editor-cleared field persisting as '', a bare `-` parsing as
-      # null) reaches a comparison and silently suppresses events, days, or the whole
-      # card. Neither tsc nor the build can see past the type boundary at setConfig.
-      # Runs before the build: a failing assertion is faster to read than a bundle.
-      - name: Test
-        run: npm test
-
       # The docs are a separate VitePress site with nothing tying them to the code, so
       # every way they rot is silent: the site builds, the card works, and the page lies.
       # Nine documented defaults were wrong at once (day_spacing said 5px against a real
@@ -179,3 +188,98 @@ jobs:
       # same rule, that we never ship a reference to a file we do not publish.
       - name: Verify bundle integrity
         run: npm run check:bundle
+
+  # The card renders a red error box rather than degrading when setConfig throws, and the
+  # surrounding logic normalizes untyped YAML — so a value that merely coerces oddly (an
+  # editor-cleared field persisting as '', a bare `-` parsing as null) reaches a comparison
+  # and silently suppresses events, days, or the whole card. Neither tsc nor the build can see
+  # past the type boundary at setConfig.
+  #
+  # Each job runs `npm test` on its share of the suite. `scripts/vitest-sequencer.mjs` deals
+  # the files out by what each costs, so the four finish together, and every job deals the
+  # same way, so between them they run each file once. A larger runner would not buy this:
+  # larger GitHub-hosted runners need a Team or Enterprise plan and are billed by the minute
+  # even for a public repository, and a self-hosted one would run pull requests from forks on
+  # a machine of our own. Four standard runners are free here and run side by side.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      # Every share runs to its end, so one failing file does not hide the others' failures.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Vitest takes one worker per core but one, leaving a core for its own process, which
+      # mostly waits; on a standard runner that left one of four cores idle. CI is outside
+      # `scripts/vitest-limits.mjs`, so the count is set here.
+      - name: Use every core
+        run: |
+          echo "VITEST_MAX_WORKERS=$(nproc)" >> "$GITHUB_ENV"
+          echo "$(nproc) cores, $(free -g | awk '/^Mem:/ { print $2 }') GiB"
+
+      - name: Test
+        run: npm test
+        env:
+          VITEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          VITEST_REPORT: shard/report.json
+
+      # The whole suite, unsharded, for `lint-build` to check the jobs' reports against. It
+      # lists files without running them, in under a second.
+      - name: List the suite
+        if: always()
+        run: ./node_modules/.bin/vitest list --filesOnly --json=shard/files.json
+
+      - name: Upload what this share ran
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shard-${{ matrix.shard }}
+          path: shard/
+          retention-days: 7
+
+  lint-build:
+    if: always()
+    needs: [gates, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download what each share ran
+        uses: actions/download-artifact@v8
+        with:
+          pattern: shard-*
+          path: shards
+
+      # A test job left out of the matrix, or a deal that dropped a file, would leave files
+      # run nowhere while every job that did run is green. This checks that the jobs ran each
+      # file exactly as often as the suite holds it, and writes what each took to the run's
+      # summary, the costliest files among it.
+      - name: Check the shares add up to the suite
+        run: node scripts/check-shards.mjs shards
+
+      - name: Require every job
+        if: always()
+        env:
+          GATES: ${{ needs.gates.result }}
+          TEST: ${{ needs.test.result }}
+        run: |
+          echo "gates: $GATES, test: $TEST"
+          [ "$GATES" = success ] && [ "$TEST" = success ]

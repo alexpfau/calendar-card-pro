@@ -585,9 +585,48 @@ What that means when you work here:
   that pass in a fraction of their limit when the machine is quiet; rerun the file alone
   before treating it as a regression.
 
+### CI runs the suite in four jobs, and no file may outlast a job's share
+
+On CI, `npm test` runs in four jobs at once, each on its share of the suite (`VITEST_SHARD`
+in `ci.yml`), beside a fifth that runs every other gate; `lint-build`, the job `main`'s
+ruleset requires, waits for all of them. In one job the test step took 950 to 1,400 s, as one
+runner's three workers worked through about 2,260 s of test files. Three
+things make the split work, and each constrains new tests:
+
+- **`scripts/vitest-sequencer.mjs` deals the files out by what they cost.** Vitest's own
+  sharding hashes file names into equal counts, which would have put 721 s of work in one job
+  and 351 s in another; and without a cache, which CI never has, it starts the largest files
+  by bytes first, so `editor-reachability.test.ts`, one 210 s test in a small file, started
+  736 s into a 946 s run and ended it. The sequencer weighs each file by `WEIGHTS`, CI's
+  measured seconds for every file over 10 s, deals the costliest first to the job holding the
+  least, and starts the costliest first in every run, locally too, where Vitest's own cached
+  durations take precedence. A file missing from the table still runs; it only counts as
+  1.5 s, so balance drifts as files grow. **Add a file to `WEIGHTS` once it takes 10 s on CI**,
+  reading the costliest files from the `lint-build` job's summary, which lists them on every
+  run.
+- **A job cannot end before its longest file, and a file's tests run one after another.** So
+  a corpus walk too long for one job's share runs in files of its own:
+  `editor-warm-up-corpus-<n>.test.ts` (six) and `editor-reachability-<n>.test.ts` (three),
+  identical files that read their shard from their own name (`tests/helpers/file-shards.ts`).
+  Each walk's main file keeps what needs the whole corpus at once, and checks that every
+  shard has its file and that the shards take each state once, so a deleted or renamed shard
+  fails rather than leaving states unwalked. Split a new long walk the same way; shards as
+  tests of one file, as the warm-up's were, run one after another and save nothing.
+- **`lint-build` fails unless the shares add up to the suite.** Each job deals out the same
+  files and keeps its own share, so a job missing from the matrix, or a deal that dropped a
+  file, would leave files run nowhere while every job that ran is green.
+  `scripts/check-shards.mjs` compares what each job's JSON report says it ran with
+  `vitest list --filesOnly`, file by file. `tests/vitest-sequencer.test.ts` checks the deal
+  itself on the suite's own files, for one to eight jobs.
+
+Shard with care if you change any of this: `shard` and the JSON reporter are set in
+`vitest.config.mjs` from `VITEST_SHARD` and `VITEST_REPORT`, not passed as arguments, so that
+every job runs `npm test` itself, the command Check 20 in `check-docs.mjs` requires every gate
+list to name. `npm test` with neither set, as anywhere but CI, runs and reports as before.
+
 ### `scripts/`
 
-Thirteen files, and only three are reachable through `package.json`, so the rest are easy to
+Fifteen files, and only three are reachable through `package.json`, so the rest are easy to
 mistake for leftovers. They are not. What each one is:
 
 | Script                      | Kind           | How it runs                          |
@@ -595,6 +634,7 @@ mistake for leftovers. They are not. What each one is:
 | `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
 | `check-docs.mjs`            | gate           | `npm run check:docs`                 |
 | `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `check-shards.mjs`          | CI check       | `ci.yml`'s `lint-build` job          |
 | `compact-payloads.mjs`      | build library  | imported by `rollup.config.mjs`      |
 | `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
 | `generate-en-gb.mjs`        | generator      | by hand — see below                  |
@@ -605,6 +645,7 @@ mistake for leftovers. They are not. What each one is:
 | `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
 | `vitest-guard.mjs`          | test library   | `vitest.config.mjs` and every fork   |
 | `vitest-limits.mjs`         | test library   | imported by `vitest.config.mjs`      |
+| `vitest-sequencer.mjs`      | test library   | imported by `vitest.config.mjs`      |
 
 `compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
 and packs the editor's English and translated string maps behind one shared key vector,
@@ -1376,13 +1417,28 @@ download would have to live outside the release assets entirely.
 
 ## CI
 
-- `ci.yml` — lint + build on every PR to `main`, `dev` or a `feature/**` branch. Also guards
-  the two release-infra
-  drifts nothing else can see: `package.json` disagreeing with either version field in
-  `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before the
-  install, so they fail in seconds. It also runs `docs:build`, so the site's own build
+- `ci.yml` — every npm gate on every PR to `main`, `dev` or a `feature/**` branch, in three
+  jobs: `gates` runs all but `npm test`; `test` runs `npm test` in four shares at once (see
+  _CI runs the suite in four jobs_); and `lint-build` waits for both, checks that the test
+  jobs ran every file between them, and fails unless every job succeeded. 🚨 **`lint-build`
+  is the status check `main`'s ruleset requires, by that exact name**, so never rename it, and
+  keep it `if: always()`: GitHub counts a required job that was skipped as passing, and a job
+  skipped because one it needs failed would otherwise let a red release PR merge. A newer push
+  to the same PR or branch cancels a run still going (`concurrency`), since each run holds six
+  of the twenty jobs the account's plan runs at once. `gates` also guards the two
+  release-infra drifts nothing else can see: `package.json` disagreeing with either version
+  field in `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before
+  the install, so they fail in seconds. It also runs `docs:build`, so the site's own build
   command is exercised on a pull request rather than first on `main` — see _Docs site
   deployment_.
+
+  **A bigger runner is not on offer, which is why the suite is split instead.** Larger
+  GitHub-hosted runners need a Team or Enterprise plan and are billed by the minute even for a
+  public repository, while standard ones are free here and run side by side; a self-hosted
+  runner would run pull requests from forks on a machine of our own. A standard Linux runner
+  has four cores and 16 GB, and the suite is far more work than that holds; four of them side
+  by side give it sixteen cores for nothing.
+
 - `hacs-validate.yml` — HACS validation on the same PR branches, plus `main` and nightly.
   Everything it validates is decided before a merge, so running it only on `main` meant a
   packaging mistake could only be found once `main` already carried it.
@@ -2086,8 +2142,8 @@ the card's rule above, with four consequences for new code and tests:
   the field's page, or an entry's row for a calendar field (and opens a button's row),
   `openPanels` visits every page and every entry's, and `changeField` does the first for you. A form read off a page the editor has since left is
   kept by the harness and redrawn when the editor changes, so a test may still read it.
-  `tests/editor-reachability.test.ts` walks every present field to its page over the gate corpus
-  in every scope, which is what proves no field was lost to a page.
+  `tests/editor-reachability-<n>.test.ts` walk every present field to its page over the gate
+  corpus in every scope, which is what proves no field was lost to a page.
 - **The warm-up is load-bearing.** `ha-form` and `ha-selector` import an element the first time a
   form needs it, so a page or a row drawing its forms as it opens would draw them while those
   modules still load, and fill in late. The editor therefore draws one hidden form (`ha-form.ts` ›
