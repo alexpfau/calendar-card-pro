@@ -1118,7 +1118,7 @@
   "countdown_exact_days": "Odpočítavať len v dňoch",
   "countdown_exact_days.helper": "„o 30 dní“ namiesto „za mesiac“, „o 1 deň“ namiesto „zajtra“.",
   "show_time_left": "Zobraziť zostávajúci čas",
-  "show_time_left.helper": "Napríklad „ešte 47 min“ pri udalosti, ktorá už začala.",
+  "show_time_left.helper": "Napríklad „ešte 47 min“ pri udalosti, ktorá sa už začala.",
   "show_progress_bar": "Zobraziť lištu priebehu",
   "show_progress_bar.helper": "V Zozname a Stĺpcoch namiesto toho udalosť trvajúca deň alebo dlhšie ukazuje počítadlo dní, napríklad „Deň 2 z 3“.",
   "show_now_indicator": "Zobraziť indikátor „Teraz“",

@@ -450,6 +450,15 @@ describe('theming.md card-mod selectors', () => {
       litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
       collect(container);
     }
+    // Time left marks a running event's countdown place, and in list view shares a box with the
+    // progress bar on the time row; neither is on by default. EVENTS runs one at the frozen 10:00.
+    {
+      const config = buildConfig({ ...base, show_time_left: true, show_progress_bar: true });
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const container = document.createElement('div');
+      litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null, true), container);
+      collect(container);
+    }
     // A calendar's text_scale marks each of its events, and no calendar carries one by default.
     // The class is the same in every view, so one list render draws it.
     {
