@@ -21,6 +21,7 @@
   "endsTomorrow": "slutter i morgen",
   "dayOfEvent": "Dag {day} av {days}",
   "durationTotal": "{duration} totalt",
+  "timeLeft": "{duration} igjen",
   "noEvents": "Ingen hendelser",
   "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",

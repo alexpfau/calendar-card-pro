@@ -34,6 +34,7 @@
   "endsTomorrow": "приключва утре",
   "dayOfEvent": "Ден {day} от {days}",
   "durationTotal": "общо {duration}",
+  "timeLeft": "още {duration}",
   "noEvents": "Няма събития",
   "loading": "Зареждане на календара със събития...",
   "error": "Грешка: календарът не е намерен или не е конфигуриран правилно",

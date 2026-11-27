@@ -29,6 +29,7 @@
   "endsTomorrow": "lýkur á morgun",
   "dayOfEvent": "Dagur {day} af {days}",
   "durationTotal": "{duration} alls",
+  "timeLeft": "{duration} eftir",
   "noEvents": "Engir viðburðir",
   "loading": "Hleður inn dagatal...",
   "error": "Villa: Dagatalseining finnst ekki eða er vanstillt",

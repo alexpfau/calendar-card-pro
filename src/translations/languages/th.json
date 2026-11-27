@@ -42,6 +42,7 @@
   "endsTomorrow": "สิ้นสุดพรุ่งนี้",
   "dayOfEvent": "วันที่ {day} จาก {days}",
   "durationTotal": "รวม {duration}",
+  "timeLeft": "เหลืออีก {duration}",
   "noEvents": "ไม่มีเหตุการณ์",
   "loading": "กำลังโหลดเหตุการณ์ปฏิทิน...",
   "error": "ข้อผิดพลาด: ไม่พบเอนทิตีปฏิทินหรือมีการตั้งค่าที่ไม่ถูกต้อง",

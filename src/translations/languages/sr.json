@@ -21,6 +21,7 @@
   "endsTomorrow": "завршава се сутра",
   "dayOfEvent": "Дан {day} од {days}",
   "durationTotal": "укупно {duration}",
+  "timeLeft": "још {duration}",
   "noEvents": "Нема догађаја",
   "loading": "Учитавање догађаја из календара...",
   "error": "Грешка: Ентитет календара није пронађен или је неисправно конфигурисан",

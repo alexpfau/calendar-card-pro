@@ -129,6 +129,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   countdown_exact_days: false,
   // No limit: every upcoming event counts down, as before the option existed.
   countdown_max_days: undefined,
+  show_time_left: false,
   show_progress_bar: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
@@ -1696,6 +1697,23 @@ export function normalizeEntities(
           show_location: item.show_location,
           location_icon: item.location_icon || undefined,
           show_description: item.show_description,
+          // A countdown setting the card would not read is no setting, so the card's applies, as
+          // an unset one does: `show_countdown` takes a boolean or `once_per_day`, a limit a
+          // number of days from 0, and each switch a boolean.
+          show_countdown:
+            typeof item.show_countdown === 'boolean' ||
+            item.show_countdown === Constants.COUNTDOWN_ONCE_PER_DAY
+              ? item.show_countdown
+              : undefined,
+          show_countdown_allday:
+            typeof item.show_countdown_allday === 'boolean'
+              ? item.show_countdown_allday
+              : undefined,
+          countdown_max_days: toValidNumber(item.countdown_max_days, 0),
+          countdown_exact_days:
+            typeof item.countdown_exact_days === 'boolean' ? item.countdown_exact_days : undefined,
+          show_time_left:
+            typeof item.show_time_left === 'boolean' ? item.show_time_left : undefined,
           // Only a boolean decides; anything else follows the card, as an unset value does.
           show_weather: typeof item.show_weather === 'boolean' ? item.show_weather : undefined,
           compact_events_to_show: toValidNumber(item.compact_events_to_show, 0),

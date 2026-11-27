@@ -21,6 +21,7 @@
   "endsTomorrow": "konča se jutri",
   "dayOfEvent": "Dan {day} od {days}",
   "durationTotal": "skupaj {duration}",
+  "timeLeft": "še {duration}",
   "noEvents": "Ni dogodkov",
   "loading": "Nalagam dogodke...",
   "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",

@@ -1061,7 +1061,8 @@ function renderTimedEvent(
  * That block's count-up counts from the event's end too, as its time reads, rather than from
  * the midnight its segment ends at: an event still under way past midnight has none, and one
  * that ended days later counts from that day. Its countdown is the same either way, since the
- * block starts where the event does.
+ * block starts where the event does. Its time left counts to the event's end as well, for as long
+ * as the event runs, since this is the one block that says when the event ends.
  *
  * Under `show_duration` that block's whole length follows its end, "- 1:35 (+1) (3 hr, 30 min)",
  * the last piece of the droppable end, which the fit ladder keeps after the end time before it.
@@ -1092,6 +1093,7 @@ function gridTimedEventContentParts(
     shouldShowTime: false,
     countdownStr: null,
     countUp: false,
+    timeLeft: false,
   };
 
   if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
@@ -1139,8 +1141,16 @@ function gridTimedEventContentParts(
 
   const whole = { ...event, start: source.start, end: source.end };
   const wholePast = Presentation.isEventPast(whole);
-  const countdownStr = Presentation.eventCountdown(whole, config, language, wholePast);
-  const counted = { ...parts, countdownStr, countUp: countdownStr !== null && wholePast };
+  // Time left counts to the whole event's end, as the count-up counts from it.
+  const countdown = Presentation.eventCountdown(whole, config, language, wholePast);
+  const timeLeft = countdown === null ? Presentation.eventTimeLeft(whole, config, language) : null;
+  const countdownStr = countdown ?? timeLeft;
+  const counted = {
+    ...parts,
+    countdownStr,
+    countUp: countdown !== null && wholePast,
+    timeLeft: timeLeft !== null,
+  };
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours, language);

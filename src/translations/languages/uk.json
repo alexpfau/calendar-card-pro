@@ -21,6 +21,7 @@
   "endsTomorrow": "закінчується завтра",
   "dayOfEvent": "День {day} з {days}",
   "durationTotal": "загалом {duration}",
+  "timeLeft": "ще {duration}",
   "noEvents": "Немає подій",
   "loading": "Завантаження подій календаря...",
   "error": "Помилка: Cутність календаря не знайдено або налаштовано неправильно",

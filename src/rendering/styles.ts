@@ -3749,6 +3749,34 @@ export const cardStyles = css`
     text-align: end;
   }
 
+  /* Time left with the progress bar after it, ending a running event's time row (leaves.ts
+     countdownWithBar). One box, so on a narrow card the two move to the next line together. It
+     takes the end margins a lone countdown or bar takes there, and between the two the 8px gap
+     the time row keeps between its items. Like a lone countdown it stays one line while it fits
+     and wraps its words only past that; the bar never shrinks. Only the row under the title draws
+     it: beside the title, and in column view, time left joins the time text instead. */
+  .time-location .time-left-run {
+    display: flex;
+    align-items: center;
+    column-gap: 8px;
+    flex-shrink: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
+    margin-inline-end: 12px;
+  }
+
+  .time-location .time-left-run > .time-countdown {
+    margin-inline: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-align: end;
+  }
+
+  .time-location .time-left-run > .progress-bar {
+    flex-shrink: 0;
+    margin-inline: 0;
+  }
+
   .location {
     font-size: var(--calendar-card-font-size-location);
     color: var(--calendar-card-color-location);

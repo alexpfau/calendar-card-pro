@@ -1136,6 +1136,13 @@ export interface EventContentParts {
    * beside `time-countdown` so a theme can tell the two apart.
    */
   countUp?: boolean;
+  /**
+   * Whether `countdownStr` says how long an event under way has left, "47 min left"
+   * (`show_time_left`). Drawn as a countdown is, in every placement, with `time-left` beside
+   * `time-countdown`. Where the progress bar shares the time row with it, the two are drawn in
+   * one box, so they move to the next line together.
+   */
+  timeLeft?: boolean;
 
   progressPercentage: number | null;
 
@@ -1278,6 +1285,7 @@ export function renderEventContent(
     countdownStr: countdownOnly,
     dayCounter = null,
     countUp = false,
+    timeLeft = false,
     progressPercentage,
     entityLabel,
     entityLabelAlt,
@@ -1291,14 +1299,16 @@ export function renderEventContent(
 
   // The day counter takes the countdown's place where the row has none, so from here on it is
   // the countdown, and every placement below draws it as one. A count-up is drawn as a countdown
-  // is. Their own classes are what tell the three apart, for a theme.
+  // is, and so is time left. Their own classes are what tell the four apart, for a theme.
   const countdownStr = countdownOnly ?? dayCounter;
   const countdownClass =
     countdownOnly === null && dayCounter !== null
       ? 'time-countdown day-counter'
       : countUp
         ? 'time-countdown count-up'
-        : 'time-countdown';
+        : timeLeft
+          ? 'time-countdown time-left'
+          : 'time-countdown';
 
   // Pieces only where a field holds a link, so every other row binds its plain string as before.
   const linked = links
@@ -1426,6 +1436,18 @@ export function renderEventContent(
     ? html`<span class="time-text">${timeValue}<span class=${countdownClass}>${countdownWords}</span></span>`
     : timeValue;
 
+  // Time left and an inline bar both end the time row only on a row under way, the one row that
+  // can have both. One box there, the words first, so on a narrow card they move to the next line
+  // together rather than leave the bar under nothing. A row with one of the two draws it as it
+  // always did, on its own.
+  const countdownWithBar = (text: unknown): TemplateResult =>
+    html`<div class="time-left-run">
+      <div class=${countdownClass}>${text}</div>
+      <div class="progress-bar">
+        <div class="progress-bar-filled" style="width: ${progressPercentage}%"></div>
+      </div>
+    </div>`;
+
   // A running event's row keeps its clock where every row has it, filled rather than outlined,
   // and reads "Now · 22:30 - 23:59" after it as one run of inline text, so it wraps as a
   // sentence on a narrow card instead of squeezing the time beside a label that holds its
@@ -1486,7 +1508,9 @@ export function renderEventContent(
                   ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown
-                  ? html`<div class=${countdownClass}>${trailingCountdown}</div>`
+                  ? showInlineProgress
+                    ? countdownWithBar(trailingCountdown)
+                    : html`<div class=${countdownClass}>${trailingCountdown}</div>`
                   : showInlineProgress
                     ? html`
                         <div class="progress-bar">
@@ -1502,7 +1526,9 @@ export function renderEventContent(
           : // No text placement here: with `show_time: false` there is no time text to
             // fold the countdown into, so it always renders on its own.
             countdownStr
-            ? html`
+            ? showInlineProgress
+              ? html`<div class="time"><div class="time-actual"></div>${countdownWithBar(countdownText)}</div>`
+              : html`
                 <div class="time">
                   <div class="time-actual"></div>
                   <div class=${countdownClass}>${countdownText}</div>
