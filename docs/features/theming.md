@@ -9,7 +9,10 @@ Try these in order, and stop at the first one that does what you need:
    do; see [Colors From Your Theme](#colors-from-your-theme).
 3. **[card-mod](https://github.com/thomasloven/lovelace-card-mod)**, for anything else. It is a
    styling plugin, not a card, installed separately, and it lets a card's YAML carry CSS. Every
-   CSS recipe under [Card-Mod Examples](#card-mod-examples) needs it.
+   CSS recipe under [Card-Mod Examples](#card-mod-examples) needs it, or
+   [UI eXtension (UIX)](https://uix.lf.technology/), an integration that grew out of card-mod and
+   reads the same `card_mod:` YAML, so the recipes work unchanged under either. UIX also accepts
+   them under `uix:`.
 
 ## 🖌️ Colors From Your Theme
 
@@ -150,8 +153,8 @@ for finished events therefore reaches past notices as well; to treat them differ
 
 ## 🎨 Card-Mod Examples
 
-Each CSS recipe goes under `card_mod:` in the card's YAML and needs [card-mod](#theming-card-mod)
-installed; the last section uses a built-in option instead. The first five sections list the
+Each CSS recipe goes under `card_mod:` in the card's YAML and needs [card-mod](#theming-card-mod),
+or UIX, installed; the last section uses a built-in option instead. The first five sections list the
 classes to select, and the rest are recipes to copy.
 Where the card writes a value inline from one of its options, on `ha-card` or on the element it
 colors, a card-mod rule for the same property needs `!important` to win.
