@@ -27,7 +27,18 @@ function springForward(year: number): Date {
   throw new Error('no spring change in this zone');
 }
 
+/** The first instant of the year's autumn change: the first hour whose offset is larger. */
+function fallBack(year: number): Date {
+  for (let t = Date.UTC(year, 0, 1); t < Date.UTC(year + 1, 0, 1); t += HOUR) {
+    if (new Date(t).getTimezoneOffset() > new Date(t - HOUR).getTimezoneOffset()) {
+      return new Date(t);
+    }
+  }
+  throw new Error('no autumn change in this zone');
+}
+
 const SPRING = springForward(2026);
+const AUTUMN = fallBack(2026);
 
 const iso = (date: Date) => date.toISOString();
 
@@ -83,6 +94,28 @@ describe('time left in a zone with a clock change', () => {
     };
     const config = buildConfig({ show_time_left: true });
     expect(Presentation.eventTimeLeft(event, config, 'en', now)).toBe('2 days left');
+  });
+});
+
+describe('the night the clocks go back', () => {
+  it('never reads more than "1 day left" under a full day on the clock', () => {
+    const day = new Date(AUTUMN.getTime());
+    const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12);
+    // Half a minute after noon the day before: just under a day on the clock, and over a day
+    // that will pass, since that day is 25 hours long.
+    const now = new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1, 12, 0, 30);
+    expect(end.getTime() - now.getTime()).toBe(25 * HOUR - 30_000);
+
+    const event = {
+      summary: 'Trip',
+      start: { dateTime: iso(new Date(now.getTime() - HOUR)) },
+      end: { dateTime: iso(end) },
+    };
+    const config = buildConfig({ show_time_left: true });
+    expect(Presentation.eventTimeLeft(event, config, 'en', now)).toBe('1 day left');
+    // Once less than 24 hours remain, it counts them.
+    const later = new Date(end.getTime() - 24 * HOUR + 60_000);
+    expect(Presentation.eventTimeLeft(event, config, 'en', later)).toBe('23 hr, 59 min left');
   });
 });
 

@@ -82,6 +82,8 @@ describe('folded rows', () => {
         type: 'custom:calendar-card-pro',
         config_version: 5,
         entities: ['calendar.anna', 'calendar.ben', 'calendar.anna'],
+        // On, so what a countdown does is drawn, on the card's pages and each calendar's.
+        show_countdown: true,
       },
       { hass: HASS },
     );

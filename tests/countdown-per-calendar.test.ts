@@ -196,6 +196,28 @@ describe('precedence', () => {
   });
 });
 
+describe("grid's first block of an event past midnight", () => {
+  it("counts down with the calendar's own setting, on a card that does not", async () => {
+    const late = timed('Late shift', '2026-06-19T20:00:00Z', '2026-06-20T02:00:00Z');
+    const card = await mount(
+      {
+        view: 'grid',
+        time_grid: { start_time: '00:00', end_time: '24:00' },
+        entities: [{ entity: 'calendar.anna', show_countdown: true }, 'calendar.ben'],
+      },
+      { 'calendar.anna': [late], 'calendar.ben': [] },
+    );
+    const blocks = [...card.shadowRoot!.querySelectorAll('.grid-event')].filter((block) =>
+      block.querySelector('.event-title')?.textContent?.includes('Late shift'),
+    );
+    expect(blocks).toHaveLength(2);
+    // The block that starts it counts down, from the whole event; the next draws no time.
+    expect(
+      blocks.map((block) => block.querySelector('.time-countdown')?.textContent?.trim()),
+    ).toEqual(['in 2 days', undefined]);
+  });
+});
+
 describe('once_per_day', () => {
   const day = (summary: string, entity: string, setting: Types.EntityConfig['show_countdown']) => ({
     ...allDay(summary, '2026-06-20', '2026-06-21'),

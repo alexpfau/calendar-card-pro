@@ -186,6 +186,25 @@ export function anyCountdownSetting(
 }
 
 /**
+ * Whether time left can be drawn in any layout the card has: the card's `show_time_left`, a view
+ * block's, or a calendar's own. The card then loads the browser's words for durations in its own
+ * language where Home Assistant's polyfill stands in for the browser's, as it does for
+ * `show_duration`, which writes durations with the same words (`_loadIntlLocaleData`).
+ *
+ * @param config - Card configuration, before any view is resolved
+ * @returns True where some event could show time left
+ */
+export function drawsTimeLeftAnywhere(config: Types.Config): boolean {
+  return (
+    ViewConfig.VIEWS.some(
+      (view) =>
+        ViewConfig.appliesToView('show_time_left', view) &&
+        Boolean(ViewConfig.resolveEffectiveConfig(config, view).show_time_left),
+    ) || anyCountdownSetting(config, (settings) => Boolean(settings.show_time_left))
+  );
+}
+
+/**
  * The countdown an event carries, or null for none: the one gate every view draws through.
  *
  * A finished event counts up instead, "13 days ago" for "in 13 days", under the same switches:
@@ -293,7 +312,7 @@ export function movingCountdownWords(
     config,
     (settings) =>
       (countdowns && Boolean(settings.show_countdown)) ||
-      (timeLeft && settings.show_time_left === true),
+      (timeLeft && Boolean(settings.show_time_left)),
   );
   if (!drawsAny) return null;
 

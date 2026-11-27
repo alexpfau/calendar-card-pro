@@ -987,8 +987,9 @@ show_progress_bar: true # Optional: the bar follows the time left
   [day](/features/multi-day-events#day-counter) in that place instead, as it does in place of
   the bar.
 - It needs no countdown, and [`once_per_day`](#repeated-countdowns) never leaves it out.
-- It changes every minute on its own. Grid shows it on the block that starts the event, the one
-  that shows its time; month view draws none.
+- It changes every minute on its own. Grid shows it on the block under way, the one the now line
+  runs through, so an overnight event shows it on its second block after midnight; month view
+  draws none.
 - The duration is in your browser's words, as for [Event Duration](#event-duration), inside a
   short phrase in the card's language: "noch 47 Min." in German, "47 min kvar" in Swedish.
 - Each view can set its own, in `list:`, `column:` or `time_grid:`. In the visual editor it is
@@ -997,9 +998,10 @@ show_progress_bar: true # Optional: the bar follows the time left
 ::: details Across a Clock Change
 
 Under a day, time left counts the time that will pass. On the night the clocks go forward it is
-an hour less than the clock readings suggest, and on the night they go back an hour more. From a
-full day on it counts on the clock, as [Event Duration](#event-duration) does, so an event ending
-at noon two days from now reads "2 days left" at noon today either way.
+an hour less than the clock readings suggest, and on the night they go back an hour more, though
+it never reads more than "1 day left" there: it keeps that until less than 24 hours remain. From
+a full day on it counts on the clock, as [Event Duration](#event-duration) does, so an event
+ending at noon two days from now reads "2 days left" at noon today either way.
 
 :::
 

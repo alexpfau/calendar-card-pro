@@ -5918,9 +5918,11 @@ class CalendarCardPro extends LitElement {
    */
   private _loadIntlLocaleData(): void {
     const language = this._language;
-    const durations = ViewConfig.VIEWS.some(
-      (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
-    );
+    // Time left writes its duration with the same words as `show_duration`.
+    const durations =
+      ViewConfig.VIEWS.some(
+        (view) => ViewConfig.resolveEffectiveConfig(this.config, view).show_duration,
+      ) || Presentation.drawsTimeLeftAnywhere(this.config);
     const asked = durations ? `${language}:durations` : language;
     if (asked === this._intlLanguage) return;
     this._intlLanguage = asked;

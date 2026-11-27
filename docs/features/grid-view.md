@@ -633,7 +633,8 @@ not fit is left out whole, never cut part way.
   countdown gives way, not the time. Every block keeps its countdown, so
   `show_countdown: once_per_day` reads here as `true` does.
   [Time left](/features/event-content#time-left-on-a-running-event) trails the time the same
-  way, on the block that starts the event.
+  way, on the block under way; a later block of an event that runs past midnight, which draws
+  no time, shows it alone.
 - Calendar labels, whether text, emoji, icon, picture or merged, sit before the title on its
   first line. That line counts toward the title's line limit, and the labels stay still while a
   scrolling title moves.

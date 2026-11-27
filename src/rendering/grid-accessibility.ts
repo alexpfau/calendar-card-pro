@@ -104,7 +104,9 @@ export function gridEventAccessibleName(
     event.summary,
     now,
     original.shouldShowTime ? original.eventTime : '',
-    original.countdownStr,
+    // Time left is named on the block that draws it, the one under way, as its percentage is
+    // below: rebuilt from the whole event, it would be named on every day's block.
+    original.timeLeft ? (parts.timeLeft ? parts.countdownStr : '') : original.countdownStr,
     parts.eventLocation,
     parts.eventDescription,
     weather?.showTemp ? `${weather.forecast.temperature}\u00b0` : '',

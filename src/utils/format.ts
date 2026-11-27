@@ -349,9 +349,12 @@ export function formatEventDuration(
  *
  * Under a full day it is the time that will pass, rounded up to the minute, so the last minute
  * reads "1 min left" and none reads "0 min": a night when the clocks go forward is an hour shorter
- * than its clock readings say, and it says so. From a full day on (`reachesFullDay`) it is the
- * wall clock, as a duration is: whole days, then the hours between the two times of day, rounded
- * up, and no minutes, which would change every minute of a trip that has days left.
+ * than its clock readings say, and it says so. It never reads more than "1 day", which it reads
+ * from the full day on down until the time left is under 24 hours: rounded up, the minute after
+ * the full day would read "24 hr", and a night when the clocks go back is an hour longer than a
+ * day. From a full day on (`reachesFullDay`) it is the wall clock, as a duration is: whole days,
+ * then the hours between the two times of day, rounded up, and no minutes, which would change
+ * every minute of a trip that has days left.
  *
  * @param end The instant left until
  * @param now The instant to read it at
@@ -391,6 +394,7 @@ function timeLeftParts(now: Date, end: Date): DurationParts {
   }
 
   const minutes = Math.ceil((end.getTime() - now.getTime()) / 60000);
+  if (minutes >= 1440) return { days: 1, hours: 0, minutes: 0 };
   return { days: 0, hours: Math.floor(minutes / 60), minutes: minutes % 60 };
 }
 

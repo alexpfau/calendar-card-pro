@@ -91,6 +91,11 @@ describe('formatTimeLeft', () => {
     expect(left(24 * 60 * MIN)).toBe('1 day left');
   });
 
+  it('keeps "1 day" for the minute after the full day, where rounding up would read 24 hr', () => {
+    expect(left(24 * 60 * MIN - 30_000)).toBe('1 day left');
+    expect(left(24 * 60 * MIN - MIN)).toBe('23 hr, 59 min left');
+  });
+
   it('writes nothing where nothing is left', () => {
     expect(left(0)).toBeNull();
     expect(left(-MIN)).toBeNull();
@@ -160,6 +165,39 @@ describe('folded after the time', () => {
       /30 min left/,
     );
   });
+
+  it('shows it on the grid block under way after midnight, and names it there alone', async () => {
+    // Since 22:00 yesterday: yesterday's block has ended, today's is under way.
+    const night = timed('Night shift', '2026-06-16T22:00:00Z', '2026-06-17T12:00:00Z');
+    const card = await mount(
+      {
+        view: 'grid',
+        start_date: '2026-06-16',
+        // Every hour, so yesterday's block from 22:00 is drawn too.
+        time_grid: { start_time: '00:00', end_time: '24:00' },
+        show_time_left: true,
+        show_progress_bar: true,
+      },
+      [night],
+    );
+    const blocks = [...root(card).querySelectorAll('.grid-event')].filter((block) =>
+      block.querySelector('.event-title')?.textContent?.includes('Night shift'),
+    );
+    expect(blocks).toHaveLength(2);
+    const drawn = blocks.map((block) => block.querySelector('.time-left')?.textContent?.trim());
+    expect(drawn).toEqual([undefined, '2 hr left']);
+    const named = blocks.map((block) =>
+      /2 hr left/.test(
+        block.querySelector('.grid-event-accessible')?.getAttribute('aria-label') ?? '',
+      ),
+    );
+    expect(named).toEqual([false, true]);
+    // The bar is on the same block.
+    expect(blocks.map((block) => block.querySelector('.progress-bar') !== null)).toEqual([
+      false,
+      true,
+    ]);
+  });
 });
 
 describe('beside the countdown', () => {
@@ -190,9 +228,12 @@ describe('beside the countdown', () => {
   });
 
   it('never leaves out time left as a repeat under once_per_day', async () => {
-    const twin = { ...RUNNING, summary: 'Swim practice, lane 2' };
+    // Begun yesterday, so not the countdown in clock units to today that once_per_day keeps
+    // anyway: only being time left keeps the second.
+    const night = timed('Night shift', '2026-06-16T22:00:00Z', '2026-06-17T10:30:00Z');
+    const twin = { ...night, summary: 'Night shift, ward 2' };
     const card = await mount({ show_countdown: 'once_per_day', show_time_left: true }, [
-      RUNNING,
+      night,
       twin,
     ]);
     expect(texts(card, '.time-countdown')).toEqual(['30 min left', '30 min left']);
@@ -238,6 +279,12 @@ describe('the clock repaint', () => {
     document.body.replaceChildren();
     // The control: the same card without it waits for midnight.
     expect((await mount({}))._clockTimerAt).not.toBe(NOW.getTime() + 60_000);
+  });
+
+  it('ticks for any value that draws it, as YAML may write one', async () => {
+    const card = await mount({ show_time_left: 'yes' });
+    expect(texts(card, '.time-left')).toEqual(['30 min left']);
+    expect(card._clockTimerAt).toBe(NOW.getTime() + 60_000);
   });
 
   it('asks for no tick where the day counter has the place', async () => {
